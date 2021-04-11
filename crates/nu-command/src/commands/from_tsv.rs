@@ -28,12 +28,12 @@ impl WholeStreamCommand for FromTsv {
         "Parse text as .tsv and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_tsv(args)
     }
 }
 
-fn from_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_tsv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (FromTsvArgs { noheaders }, input) = args.process()?;
 

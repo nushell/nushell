@@ -18,7 +18,7 @@ impl WholeStreamCommand for Pwd {
         "Output the current working directory."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         pwd(args)
     }
 
@@ -31,7 +31,7 @@ impl WholeStreamCommand for Pwd {
     }
 }
 
-pub fn pwd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn pwd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let shell_manager = args.shell_manager.clone();
     let args = args.evaluate_once()?;
 

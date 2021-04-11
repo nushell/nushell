@@ -31,7 +31,7 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         do_(args)
     }
 
@@ -51,7 +51,7 @@ impl WholeStreamCommand for Do {
     }
 }
 
-fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
     let context = EvaluationContext::from_args(&raw_args);
@@ -96,12 +96,12 @@ fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             Ok(mut stream) => {
                 let output = stream.drain_vec();
                 context.clear_errors();
-                Ok(output.into_iter().to_output_stream())
+                Ok(output.into_iter().to_output_stream_with_actions())
             }
-            Err(_) => Ok(OutputStream::empty()),
+            Err(_) => Ok(ActionStream::empty()),
         }
     } else {
-        result.map(|x| x.to_output_stream())
+        result.map(|x| x.to_output_stream_with_actions())
     }
 }
 

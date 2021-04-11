@@ -33,7 +33,7 @@ impl WholeStreamCommand for ToXml {
         "Convert table into .xml text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_xml(args)
     }
 }
@@ -131,7 +131,7 @@ pub fn write_xml_events<W: Write>(
     Ok(())
 }
 
-fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
     let (ToXmlArgs { pretty }, input) = args.process()?;
@@ -180,7 +180,7 @@ fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )),
         }
     }))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

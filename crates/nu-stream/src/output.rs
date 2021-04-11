@@ -2,11 +2,13 @@ use crate::prelude::*;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 use std::iter::IntoIterator;
 
-pub struct OutputStream {
+pub type OutputStream = InputStream;
+
+pub struct ActionStream {
     pub values: Box<dyn Iterator<Item = ReturnValue> + Send + Sync>,
 }
 
-impl Iterator for OutputStream {
+impl Iterator for ActionStream {
     type Item = ReturnValue;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -14,28 +16,28 @@ impl Iterator for OutputStream {
     }
 }
 
-impl OutputStream {
-    pub fn new(values: impl Iterator<Item = ReturnValue> + Send + Sync + 'static) -> OutputStream {
-        OutputStream {
+impl ActionStream {
+    pub fn new(values: impl Iterator<Item = ReturnValue> + Send + Sync + 'static) -> ActionStream {
+        ActionStream {
             values: Box::new(values),
         }
     }
 
-    pub fn empty() -> OutputStream {
-        OutputStream {
+    pub fn empty() -> ActionStream {
+        ActionStream {
             values: Box::new(std::iter::empty()),
         }
     }
 
-    pub fn one(item: impl Into<ReturnValue>) -> OutputStream {
+    pub fn one(item: impl Into<ReturnValue>) -> ActionStream {
         let item = item.into();
-        OutputStream {
+        ActionStream {
             values: Box::new(std::iter::once(item)),
         }
     }
 
-    pub fn from_input(input: impl Iterator<Item = Value> + Send + Sync + 'static) -> OutputStream {
-        OutputStream {
+    pub fn from_input(input: impl Iterator<Item = Value> + Send + Sync + 'static) -> ActionStream {
+        ActionStream {
             values: Box::new(input.map(ReturnSuccess::value)),
         }
     }
@@ -49,9 +51,9 @@ impl OutputStream {
     }
 }
 
-impl From<InputStream> for OutputStream {
-    fn from(input: InputStream) -> OutputStream {
-        OutputStream {
+impl From<InputStream> for ActionStream {
+    fn from(input: InputStream) -> ActionStream {
+        ActionStream {
             values: Box::new(input.into_iter().map(ReturnSuccess::value)),
         }
     }
@@ -71,35 +73,35 @@ impl From<InputStream> for OutputStream {
 //     }
 // }
 
-impl From<VecDeque<ReturnValue>> for OutputStream {
-    fn from(input: VecDeque<ReturnValue>) -> OutputStream {
-        OutputStream {
+impl From<VecDeque<ReturnValue>> for ActionStream {
+    fn from(input: VecDeque<ReturnValue>) -> ActionStream {
+        ActionStream {
             values: Box::new(input.into_iter()),
         }
     }
 }
 
-impl From<VecDeque<Value>> for OutputStream {
-    fn from(input: VecDeque<Value>) -> OutputStream {
+impl From<VecDeque<Value>> for ActionStream {
+    fn from(input: VecDeque<Value>) -> ActionStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
-        OutputStream {
+        ActionStream {
             values: Box::new(stream),
         }
     }
 }
 
-impl From<Vec<ReturnValue>> for OutputStream {
-    fn from(input: Vec<ReturnValue>) -> OutputStream {
-        OutputStream {
+impl From<Vec<ReturnValue>> for ActionStream {
+    fn from(input: Vec<ReturnValue>) -> ActionStream {
+        ActionStream {
             values: Box::new(input.into_iter()),
         }
     }
 }
 
-impl From<Vec<Value>> for OutputStream {
-    fn from(input: Vec<Value>) -> OutputStream {
+impl From<Vec<Value>> for ActionStream {
+    fn from(input: Vec<Value>) -> ActionStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
-        OutputStream {
+        ActionStream {
             values: Box::new(stream),
         }
     }

@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate random chars"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         chars(args)
     }
 
@@ -53,7 +53,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn chars(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (CharsArgs { length }, _) = args.process()?;
 
     let chars_length = length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
@@ -64,7 +64,7 @@ pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .collect();
 
     let result = UntaggedValue::string(random_string);
-    Ok(OutputStream::one(ReturnSuccess::value(result)))
+    Ok(ActionStream::one(ReturnSuccess::value(result)))
 }
 
 #[cfg(test)]

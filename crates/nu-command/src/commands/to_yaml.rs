@@ -18,7 +18,7 @@ impl WholeStreamCommand for ToYaml {
         "Convert table into .yaml/.yml text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_yaml(args)
     }
 }
@@ -113,7 +113,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
@@ -155,7 +155,7 @@ fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )),
         }
     }))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

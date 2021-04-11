@@ -18,7 +18,7 @@ impl WholeStreamCommand for Uniq {
         "Return the unique rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         uniq(args)
     }
 
@@ -53,7 +53,7 @@ impl WholeStreamCommand for Uniq {
     }
 }
 
-fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let should_show_count = args.has_flag("count");
     let input = args.input;
@@ -115,7 +115,7 @@ fn uniq(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(values_vec_deque.into_iter().to_output_stream())
+    Ok(values_vec_deque.into_iter().to_output_stream_with_actions())
 }
 
 #[cfg(test)]

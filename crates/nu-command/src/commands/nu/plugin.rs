@@ -45,7 +45,7 @@ impl WholeStreamCommand for SubCommand {
         }]
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let scope = args.scope.clone();
         let shell_manager = args.shell_manager.clone();
         let (Arguments { load_path }, _) = args.process()?;
@@ -99,7 +99,7 @@ impl WholeStreamCommand for SubCommand {
             .into());
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&SubCommand, &scope)).into_value(Tag::unknown()),
         )))
     }

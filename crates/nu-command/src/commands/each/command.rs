@@ -90,7 +90,7 @@ pub fn process_row(
 
     context.scope.exit_scope();
 
-    Ok(result?.to_output_stream())
+    result
 }
 
 pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
@@ -121,7 +121,7 @@ fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 match process_row(block, context, row) {
                     Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
+                    Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
             .flatten()
@@ -135,7 +135,7 @@ fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 match process_row(block, context, input) {
                     Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
+                    Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
             .flatten()

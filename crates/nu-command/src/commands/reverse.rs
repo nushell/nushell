@@ -18,7 +18,7 @@ impl WholeStreamCommand for Reverse {
         "Reverses the table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         reverse(args)
     }
 
@@ -37,12 +37,12 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
-fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reverse(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let (input, _args) = args.parts();
 
     let input = input.collect::<Vec<_>>();
-    Ok((input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
+    Ok((input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream_with_actions())
 }
 
 #[cfg(test)]

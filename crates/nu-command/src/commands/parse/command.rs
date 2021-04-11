@@ -33,7 +33,7 @@ impl WholeStreamCommand for Command {
         "Parse columns from string data using a simple pattern."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -49,7 +49,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (Arguments { regex, pattern }, input) = args.process()?;
 
@@ -95,7 +95,7 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(parsed.into_iter().to_output_stream())
+    Ok(parsed.into_iter().to_output_stream_with_actions())
 }
 
 fn build_regex(input: &str, tag: Tag) -> Result<String, ShellError> {

@@ -3,7 +3,7 @@ use nu_engine::CommandArgs;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 
 pub struct Command;
 
@@ -20,7 +20,7 @@ impl WholeStreamCommand for Command {
         "Configuration management."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag;
 
         if let Some(global_cfg) = &args.configs.lock().global_config {
@@ -29,13 +29,13 @@ impl WholeStreamCommand for Command {
                 UntaggedValue::Row(result.into()).into_value(name),
             )]
             .into_iter()
-            .to_output_stream())
+            .to_output_stream_with_actions())
         } else {
             Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
                 crate::commands::config::err_no_global_cfg_present(),
             ))]
             .into_iter()
-            .to_output_stream())
+            .to_output_stream_with_actions())
         }
     }
 }

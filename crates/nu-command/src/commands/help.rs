@@ -31,12 +31,12 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         help(args)
     }
 }
 
-fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope.clone();
     let (HelpArgs { rest }, ..) = args.process()?;
@@ -154,24 +154,24 @@ fn help(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         ReturnSuccess::value(short_desc.into_value())
                     });
 
-            Ok(iterator.to_output_stream())
+            Ok(iterator.to_output_stream_with_actions())
         } else if rest[0].item == "generate_docs" {
-            Ok(OutputStream::one(ReturnSuccess::value(generate_docs(
+            Ok(ActionStream::one(ReturnSuccess::value(generate_docs(
                 &scope,
             ))))
         } else if rest.len() == 2 {
             // Check for a subcommand
             let command_name = format!("{} {}", rest[0].item, rest[1].item);
             if let Some(command) = scope.get_command(&command_name) {
-                Ok(OutputStream::one(ReturnSuccess::value(
+                Ok(ActionStream::one(ReturnSuccess::value(
                     UntaggedValue::string(get_full_help(command.stream_command(), &scope))
                         .into_value(Tag::unknown()),
                 )))
             } else {
-                Ok(OutputStream::empty())
+                Ok(ActionStream::empty())
             }
         } else if let Some(command) = scope.get_command(&rest[0].item) {
-            Ok(OutputStream::one(ReturnSuccess::value(
+            Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(get_full_help(command.stream_command(), &scope))
                     .into_value(Tag::unknown()),
             )))
@@ -205,7 +205,7 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(msg).into_value(Tag::unknown()),
         )))
     }

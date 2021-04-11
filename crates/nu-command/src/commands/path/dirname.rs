@@ -48,7 +48,7 @@ impl WholeStreamCommand for PathDirname {
         "Gets the parent directory of a path"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (
             PathDirnameArguments {

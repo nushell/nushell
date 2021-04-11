@@ -72,7 +72,7 @@ impl WholeStreamCommand for SeqDates {
         "print sequences of dates"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         seq_dates(args)
     }
 
@@ -131,7 +131,7 @@ impl WholeStreamCommand for SeqDates {
     }
 }
 
-fn seq_dates(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
     let (
@@ -230,7 +230,7 @@ pub fn run_seq_dates(
     increment: Value,
     day_count: Option<Value>,
     reverse: bool,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let today = Local::today().naive_local();
     let mut step_size: i64 = increment
         .as_i64()
@@ -353,7 +353,7 @@ pub fn run_seq_dates(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    Ok((rows.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    Ok((rows.into_iter().map(ReturnSuccess::value)).to_output_stream_with_actions())
 }
 
 #[cfg(test)]

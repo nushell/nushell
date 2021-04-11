@@ -37,7 +37,7 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment variable set."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         with_env(args)
     }
 
@@ -67,7 +67,7 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let redirection = raw_args.call_info.args.external_redirection;
     let context = EvaluationContext::from_args(&raw_args);
     let (
@@ -121,7 +121,7 @@ fn with_env(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
 
-    result.map(|x| x.to_output_stream())
+    result.map(|x| x.to_output_stream_with_actions())
 }
 
 #[cfg(test)]

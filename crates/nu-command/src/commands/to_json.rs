@@ -32,7 +32,7 @@ impl WholeStreamCommand for ToJson {
         "Converts table data into JSON text."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_json(args)
     }
 
@@ -157,7 +157,7 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (ToJsonArgs { pretty }, input) = args.process()?;
     let name_span = name_tag.span;
@@ -249,7 +249,7 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &name_tag,
             )),
         }))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

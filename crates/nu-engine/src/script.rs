@@ -5,7 +5,7 @@ use nu_protocol::hir::{
     Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
     SpannedExpression,
 };
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
 use crate::EvaluationContext;
@@ -210,17 +210,16 @@ pub fn process_script(
                 ) {
                     loop {
                         match output_stream.next() {
-                            Some(Ok(ReturnSuccess::Value(Value {
+                            Some(Value {
                                 value: UntaggedValue::Error(e),
                                 ..
-                            }))) => return LineResult::Error(line.to_string(), e),
-                            Some(Ok(_item)) => {
+                            }) => return LineResult::Error(line.to_string(), e),
+                            Some(_item) => {
                                 if ctx.ctrl_c.load(Ordering::SeqCst) {
                                     break;
                                 }
                             }
                             None => break,
-                            Some(Err(e)) => return LineResult::Error(line.to_string(), e),
                         }
                     }
                 }

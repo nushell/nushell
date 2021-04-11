@@ -25,7 +25,7 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         compact(args)
     }
 
@@ -38,7 +38,7 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn compact(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (CompactArgs { rest: columns }, input) = args.process()?;
     Ok(input
         .filter_map(move |item| {
@@ -67,7 +67,7 @@ pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

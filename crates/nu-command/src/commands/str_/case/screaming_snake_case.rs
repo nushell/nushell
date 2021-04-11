@@ -23,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to SCREAMING_SNAKE_CASE"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args, &to_screaming_snake_case)
     }
 

@@ -38,7 +38,7 @@ impl WholeStreamCommand for LetEnv {
         "Create an environment variable and give it a value."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         set_env(args)
     }
 
@@ -47,7 +47,7 @@ impl WholeStreamCommand for LetEnv {
     }
 }
 
-pub fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn set_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
@@ -99,5 +99,5 @@ pub fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // variable should be set into.
     ctx.scope.add_env_var(name, value);
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }

@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "splits a string's characters into separate rows"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(split_chars(args))
     }
 
@@ -37,7 +37,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn split_chars(args: CommandArgs) -> OutputStream {
+fn split_chars(args: CommandArgs) -> ActionStream {
     let name = args.call_info.name_tag.clone();
     let input = args.input;
     input
@@ -47,9 +47,9 @@ fn split_chars(args: CommandArgs) -> OutputStream {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .map(move |x| ReturnSuccess::value(Value::from(x.to_string())))
-                    .to_output_stream()
+                    .to_output_stream_with_actions()
             } else {
-                OutputStream::one(Err(ShellError::labeled_error_with_secondary(
+                ActionStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name.span,
@@ -58,7 +58,7 @@ fn split_chars(args: CommandArgs) -> OutputStream {
                 )))
             }
         })
-        .to_output_stream()
+        .to_output_stream_with_actions()
 }
 
 #[cfg(test)]

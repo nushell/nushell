@@ -27,7 +27,7 @@ impl WholeStreamCommand for Let {
         "Create a variable and give it a value."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         letcmd(args)
     }
 
@@ -36,7 +36,7 @@ impl WholeStreamCommand for Let {
     }
 }
 
-pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
     let args = args.evaluate_once()?;
@@ -94,5 +94,5 @@ pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // variable should be set into.
     ctx.scope.add_var(name, value);
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }

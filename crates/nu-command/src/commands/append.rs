@@ -27,7 +27,7 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let (Arguments { mut value }, input) = args.process()?;
 
         let input: Vec<Value> = input.collect();
@@ -51,7 +51,7 @@ impl WholeStreamCommand for Command {
             .into_iter()
             .chain(vec![value])
             .map(ReturnSuccess::value)
-            .to_output_stream())
+            .to_output_stream_with_actions())
     }
 
     fn examples(&self) -> Vec<Example> {

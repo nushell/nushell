@@ -3,7 +3,7 @@ use crate::examples::sample::ls::file_listing;
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, ToOutputStreamWithActions};
 
 pub struct Command;
 
@@ -20,7 +20,7 @@ impl WholeStreamCommand for Command {
         "Mock ls."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
         let mut base_value =
@@ -40,6 +40,6 @@ impl WholeStreamCommand for Command {
             .collect::<Vec<_>>()
             .into_iter()
             .map(ReturnSuccess::value))
-        .to_output_stream())
+        .to_output_stream_with_actions())
     }
 }

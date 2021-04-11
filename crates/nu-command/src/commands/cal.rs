@@ -40,7 +40,7 @@ impl WholeStreamCommand for Cal {
         "Display a calendar."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         cal(args)
     }
 
@@ -65,7 +65,7 @@ impl WholeStreamCommand for Cal {
     }
 }
 
-pub fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let mut calendar_vec_deque = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
@@ -101,7 +101,7 @@ pub fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         current_day_option,
     )?;
 
-    Ok(calendar_vec_deque.into_iter().to_output_stream())
+    Ok(calendar_vec_deque.into_iter().to_output_stream_with_actions())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {

@@ -57,7 +57,7 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         open(args)
     }
 
@@ -99,7 +99,7 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
     }
 }
 
-fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let scope = args.scope.clone();
     let cwd = PathBuf::from(args.shell_manager.path());
     let shell_manager = args.shell_manager.clone();
@@ -148,7 +148,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 path.tag.span,
                 encoding,
             )?;
-            return Ok(OutputStream::one(ReturnSuccess::action(
+            return Ok(ActionStream::one(ReturnSuccess::action(
                 CommandAction::AutoConvert(tagged_contents, ext),
             )));
         }
@@ -160,7 +160,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 path.tag.span,
                 encoding,
             )?;
-            return Ok(OutputStream::one(ReturnSuccess::value(tagged_contents)));
+            return Ok(ActionStream::one(ReturnSuccess::value(tagged_contents)));
         }
     }
 
@@ -191,7 +191,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     });
 
-    Ok(OutputStream::new(final_stream))
+    Ok(ActionStream::new(final_stream))
 }
 
 // Note that we do not output a Stream in "fetch" since it is only used by "enter" command

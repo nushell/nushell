@@ -64,7 +64,7 @@ impl WholeStreamCommand for SubCommand {
         "base64 encode or decode a value"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -95,7 +95,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
     let (
@@ -109,7 +109,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ) = args.process()?;
 
     if encode.item && decode.item {
-        return Ok(OutputStream::one(Err(ShellError::labeled_error(
+        return Ok(ActionStream::one(Err(ShellError::labeled_error(
             "only one of --decode and --encode flags can be used",
             "conflicting flags",
             name_tag,
@@ -154,7 +154,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 fn action(

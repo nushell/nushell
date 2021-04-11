@@ -19,7 +19,7 @@ impl WholeStreamCommand for Lines {
         "Split single string into rows, one per line."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         lines(args)
     }
 
@@ -42,7 +42,7 @@ fn ends_with_line_ending(st: &str) -> bool {
     }
 }
 
-fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn lines(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let leftover_string = Arc::new(Mutex::new(String::new()));
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
@@ -113,7 +113,7 @@ fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

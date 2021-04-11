@@ -25,7 +25,7 @@ impl WholeStreamCommand for Reject {
         "Remove the given columns from the table. If you want to remove rows, try 'drop'."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         reject(args)
     }
 
@@ -38,7 +38,7 @@ impl WholeStreamCommand for Reject {
     }
 }
 
-fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (RejectArgs { rest: fields }, input) = args.process()?;
     if fields.is_empty() {
@@ -53,7 +53,7 @@ fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

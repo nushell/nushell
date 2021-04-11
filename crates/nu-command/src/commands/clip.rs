@@ -21,7 +21,7 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         clip(args)
     }
 
@@ -41,9 +41,9 @@ impl WholeStreamCommand for Clip {
     }
 }
 
-pub fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn clip(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let input = args.input;
-    let name = args.call_info.name_tag.clone();
+    let name = args.call_info.name_tag;
     let values: Vec<Value> = input.collect();
 
     if let Ok(mut clip_context) = Clipboard::new() {
@@ -88,7 +88,7 @@ pub fn clip(args: CommandArgs) -> Result<OutputStream, ShellError> {
             name,
         ));
     }
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }
 
 #[cfg(test)]

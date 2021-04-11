@@ -18,7 +18,7 @@ impl WholeStreamCommand for FromXml {
         "Parse text as .xml and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_xml(args)
     }
 }
@@ -94,7 +94,7 @@ pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value,
     Ok(from_document_to_value(&parsed, tag))
 }
 
-fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -110,8 +110,8 @@ fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 } => list
                     .into_iter()
                     .map(ReturnSuccess::value)
-                    .to_output_stream(),
-                x => OutputStream::one(ReturnSuccess::value(x)),
+                    .to_output_stream_with_actions(),
+                x => ActionStream::one(ReturnSuccess::value(x)),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error_with_secondary(

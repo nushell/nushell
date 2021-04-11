@@ -47,12 +47,12 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table columns"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         roll(args)
     }
 }
 
-pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (args, input) = args.process()?;
 
     Ok(input
@@ -65,7 +65,7 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .map(ReturnSuccess::value)
         })
         .flatten()
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {

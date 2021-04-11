@@ -30,7 +30,7 @@ impl WholeStreamCommand for Command {
         "Filter table to match the condition."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         where_command(args)
     }
 
@@ -59,7 +59,7 @@ impl WholeStreamCommand for Command {
         ]
     }
 }
-fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn where_command(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
     let (Arguments { block }, input) = raw_args.process()?;
@@ -119,7 +119,7 @@ fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Err(e) => Some(Err(e)),
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

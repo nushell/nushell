@@ -29,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         drop(args)
     }
 
@@ -47,7 +47,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { columns }, input) = args.process()?;
 
     let to_drop = if let Some(quantity) = columns {
@@ -69,7 +69,7 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
             select_fields(&item, descs, item.tag())
         })
         .map(ReturnSuccess::value)
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

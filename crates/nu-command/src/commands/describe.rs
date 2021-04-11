@@ -22,12 +22,12 @@ impl WholeStreamCommand for Describe {
         "Describes the objects in the stream."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         describe(args)
     }
 }
 
-pub fn describe(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn describe(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Ok(args
         .input
         .map(|row| {
@@ -36,7 +36,7 @@ pub fn describe(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)),
             )
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

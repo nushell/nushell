@@ -70,7 +70,7 @@ impl WholeStreamCommand for Du {
         "Find disk usage sizes of specified items."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         du(args)
     }
 
@@ -83,7 +83,7 @@ impl WholeStreamCommand for Du {
     }
 }
 
-fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
     let ctrl_c_copy = ctrl_c.clone();
@@ -150,7 +150,7 @@ fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Err(e) => vec![Err(e)],
         })
         .interruptible(ctrl_c_copy)
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 fn glob_err_into(e: GlobError) -> ShellError {

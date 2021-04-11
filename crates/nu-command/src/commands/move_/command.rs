@@ -40,7 +40,7 @@ impl WholeStreamCommand for Command {
         "Move columns."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -82,7 +82,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = raw_args.call_info.name_tag.clone();
     let (
         Arguments {
@@ -169,7 +169,7 @@ fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_output_stream_with_actions())
     } else if let Some(before) = before {
         let member = columns.remove(0);
 
@@ -217,7 +217,7 @@ fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_output_stream_with_actions())
     } else {
         Err(ShellError::labeled_error(
             "no columns given",

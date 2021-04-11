@@ -39,7 +39,7 @@ impl WholeStreamCommand for FileSize {
         "Converts a column of filesizes to some specified format"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         filesize(args)
     }
 
@@ -63,7 +63,7 @@ fn process_row(
     input: Value,
     format: Tagged<String>,
     field: Arc<ColumnPath>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     Ok({
         let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
         match replace_for {
@@ -75,7 +75,7 @@ fn process_row(
                 {
                     let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
                     let byte_value = Value::from(byte_format.1);
-                    OutputStream::one(ReturnSuccess::value(
+                    ActionStream::one(ReturnSuccess::value(
                         input.replace_data_at_column_path(&field, byte_value).expect("Given that the existence check was already done, this shouldn't trigger never"),
                     ))
                 } else {
@@ -86,12 +86,12 @@ fn process_row(
                     ));
                 }
             }
-            Err(e) => OutputStream::one(Err(e)),
+            Err(e) => ActionStream::one(Err(e)),
         }
     })
 }
 
-fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn filesize(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { field, format }, input) = raw_args.process()?;
     let field = Arc::new(field);
 
@@ -102,11 +102,11 @@ fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             match process_row(input, format, field) {
                 Ok(s) => s,
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

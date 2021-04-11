@@ -8,7 +8,7 @@ use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, InputStream, OutputStream, ToOutputStream};
 use std::sync::Arc;
 
 pub trait WholeStreamCommand: Send + Sync {
@@ -24,7 +24,24 @@ pub trait WholeStreamCommand: Send + Sync {
         ""
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
+    fn run_with_actions(&self, _args: CommandArgs) -> Result<ActionStream, ShellError> {
+        return Err(ShellError::unimplemented(&format!(
+            "{} does not implement run or run_with_actions",
+            self.name()
+        )));
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
+        let context = EvaluationContext::from_args(&args);
+        let stream = self.run_with_actions(args)?;
+
+        Ok(Box::new(crate::evaluate::internal::InternalIterator {
+            context,
+            input: stream,
+            leftovers: vec![],
+        })
+        .to_output_stream())
+    }
 
     fn is_binary(&self) -> bool {
         false
@@ -156,7 +173,7 @@ impl WholeStreamCommand for Arc<Block> {
         }
         let result = run_block(&block, &ctx, input);
         ctx.scope.exit_scope();
-        result.map(|x| x.to_output_stream())
+        result
     }
 
     fn is_binary(&self) -> bool {
@@ -211,12 +228,23 @@ impl Command {
         self.0.examples()
     }
 
-    pub fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
-            Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+            Ok(ActionStream::one(Ok(ReturnSuccess::Value(
                 UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
+        } else {
+            self.0.run_with_actions(args)
+        }
+    }
+
+    pub fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
+        if args.call_info.switch_present("help") {
+            let cl = self.0.clone();
+            Ok(InputStream::one(
+                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+            ))
         } else {
             self.0.run(args)
         }

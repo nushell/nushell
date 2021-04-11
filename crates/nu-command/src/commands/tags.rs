@@ -18,12 +18,12 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(tags(args))
     }
 }
 
-fn tags(args: CommandArgs) -> OutputStream {
+fn tags(args: CommandArgs) -> ActionStream {
     args.input
         .map(move |v| {
             let mut tags = TaggedDictBuilder::new(v.tag());
@@ -48,7 +48,7 @@ fn tags(args: CommandArgs) -> OutputStream {
 
             tags.into_value()
         })
-        .to_output_stream()
+        .to_output_stream_with_actions()
 }
 
 #[cfg(test)]

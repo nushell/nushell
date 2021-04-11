@@ -39,7 +39,7 @@ impl WholeStreamCommand for Ls {
         "View the contents of the current or given path."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag.clone();
         let ctrl_c = args.ctrl_c.clone();
         let shell_manager = args.shell_manager.clone();

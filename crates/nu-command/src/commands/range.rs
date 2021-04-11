@@ -29,12 +29,12 @@ impl WholeStreamCommand for Range {
         "Return only the selected rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         range(args)
     }
 }
 
-fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn range(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (RangeArgs { area }, input) = args.process()?;
     let range = area.item;
     let (from, left_inclusive) = range.from;
@@ -59,7 +59,7 @@ fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .skip(from)
         .take(to - from + 1)
         .map(ReturnSuccess::value)
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

@@ -309,6 +309,10 @@ impl Value {
         self.tag.clone()
     }
 
+    pub fn error(e: ShellError) -> Value {
+        UntaggedValue::Error(e).into_untagged_value()
+    }
+
     /// View the Value as a string, if possible
     pub fn as_string(&self) -> Result<String, ShellError> {
         match &self.value {

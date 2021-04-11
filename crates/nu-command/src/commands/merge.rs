@@ -32,7 +32,7 @@ impl WholeStreamCommand for Merge {
         "Merge a table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         merge(args)
     }
 
@@ -45,7 +45,7 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn merge(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = EvaluationContext::from_args(&raw_args);
     let name_tag = raw_args.call_info.name_tag.clone();
     let (merge_args, input): (MergeArgs, _) = raw_args.process()?;
@@ -90,7 +90,7 @@ fn merge(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 None => ReturnSuccess::value(value),
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

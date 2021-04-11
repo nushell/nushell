@@ -30,7 +30,7 @@ impl WholeStreamCommand for SubCommand {
         "Finds the stddev of a list of numbers or tables"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag.clone();
         let (Arguments { sample }, mut input) = args.process()?;
 
@@ -81,13 +81,13 @@ impl WholeStreamCommand for SubCommand {
         }?;
 
         if res.value.is_table() {
-            Ok(OutputStream::from(
+            Ok(ActionStream::from(
                 res.table_entries()
                     .map(|v| ReturnSuccess::value(v.clone()))
                     .collect::<Vec<_>>(),
             ))
         } else {
-            Ok(OutputStream::one(ReturnSuccess::value(res)))
+            Ok(ActionStream::one(ReturnSuccess::value(res)))
         }
     }
 

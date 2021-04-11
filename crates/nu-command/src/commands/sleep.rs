@@ -34,7 +34,7 @@ impl WholeStreamCommand for Sleep {
         "Delay for a specified amount of time."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let ctrl_c = args.ctrl_c().clone();
 
         let (SleepArgs { duration, rest }, _) = args.process()?;
@@ -50,7 +50,7 @@ impl WholeStreamCommand for Sleep {
         // `echo | sleep 1sec` - nothing
         // `sleep 1sec`        - table with 0 elements
 
-        Ok(SleepIterator::new(total_dur, ctrl_c).to_output_stream())
+        Ok(SleepIterator::new(total_dur, ctrl_c).to_output_stream_with_actions())
 
         // if input.is_empty() {
         //     Ok(OutputStream::empty())

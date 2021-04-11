@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "Applies the square root function to a list of numbers"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(operate(args))
     }
 
@@ -34,13 +34,13 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> OutputStream {
+fn operate(args: CommandArgs) -> ActionStream {
     let mapped = args.input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => sqrt_big_decimal(BigDecimal::from(val)),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => sqrt_big_decimal(val),
         other => sqrt_default(other),
     });
-    OutputStream::from_input(mapped)
+    ActionStream::from_input(mapped)
 }
 
 fn sqrt_big_decimal(val: BigDecimal) -> Value {

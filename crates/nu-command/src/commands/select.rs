@@ -28,7 +28,7 @@ impl WholeStreamCommand for Command {
         "Down-select table to only these columns."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         select(args)
     }
 
@@ -48,7 +48,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn select(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (Arguments { mut rest }, input) = args.process()?;
     let (columns, _) = arguments(&mut rest)?;
@@ -155,5 +155,5 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         ReturnSuccess::value(out.into_value())
     }))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }

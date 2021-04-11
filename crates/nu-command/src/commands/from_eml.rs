@@ -34,7 +34,7 @@ impl WholeStreamCommand for FromEml {
         "Parse text as .eml and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_eml(args)
     }
 }
@@ -72,7 +72,7 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_eml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let (eml_args, input): (FromEmlArgs, _) = args.process()?;
     let value = input.collect_string(tag.clone())?;
@@ -115,7 +115,7 @@ fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         dict.insert_untagged("Body", UntaggedValue::string(body));
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]

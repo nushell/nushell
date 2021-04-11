@@ -29,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "trims whitespace or character from the beginning of text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args, &trim_left)
     }
 

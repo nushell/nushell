@@ -9,7 +9,7 @@ use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
-use nu_stream::{Interruptible, OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, Interruptible, ToOutputStreamWithActions};
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -118,7 +118,7 @@ impl Shell for FilesystemShell {
         }: LsArgs,
         name_tag: Tag,
         ctrl_c: Arc<AtomicBool>,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let ctrl_c_copy = ctrl_c.clone();
         let (path, p_tag) = match path {
             Some(p) => {
@@ -146,7 +146,7 @@ impl Shell for FilesystemShell {
                         ));
                     }
                     if is_empty_dir(&p) {
-                        return Ok(OutputStream::empty());
+                        return Ok(ActionStream::empty());
                     }
                     p.push("*");
                 }
@@ -154,7 +154,7 @@ impl Shell for FilesystemShell {
             }
             None => {
                 if is_empty_dir(&self.path()) {
-                    return Ok(OutputStream::empty());
+                    return Ok(ActionStream::empty());
                 } else {
                     (PathBuf::from("./*"), name_tag.clone())
                 }
@@ -222,10 +222,10 @@ impl Shell for FilesystemShell {
                 Some(entry)
             })
             .interruptible(ctrl_c_copy)
-            .to_output_stream())
+            .to_output_stream_with_actions())
     }
 
-    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let path = match args.path {
             None => match homedir_if_possible() {
                 Some(o) => o,
@@ -342,7 +342,7 @@ impl Shell for FilesystemShell {
         }: CopyArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let name_tag = name;
 
         let path = Path::new(path);
@@ -467,7 +467,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(OutputStream::empty())
+        Ok(ActionStream::empty())
     }
 
     fn mkdir(
@@ -478,7 +478,7 @@ impl Shell for FilesystemShell {
         }: MkdirArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let path = Path::new(path);
         let mut stream = VecDeque::new();
 
@@ -515,7 +515,7 @@ impl Shell for FilesystemShell {
         MvArgs { src, dst }: MvArgs,
         _name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let path = Path::new(path);
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
@@ -583,7 +583,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(OutputStream::empty())
+        Ok(ActionStream::empty())
     }
 
     fn rm(
@@ -597,7 +597,7 @@ impl Shell for FilesystemShell {
         }: RemoveArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let rm_always_trash = nu_data::config::config(Tag::unknown())?
             .get("rm_always_trash")
             .map(|val| val.is_true())
@@ -758,14 +758,14 @@ impl Shell for FilesystemShell {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_output_stream_with_actions())
     }
 
     fn path(&self) -> String {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
         let p = match dunce::canonicalize(path.as_path()) {
             Ok(p) => p,
@@ -778,7 +778,7 @@ impl Shell for FilesystemShell {
             }
         };
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::String(p.to_string_lossy().to_string()))
                 .into_value(&args.call_info.name_tag),
         )))
@@ -860,9 +860,9 @@ impl Shell for FilesystemShell {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         match std::fs::write(full_path, save_data) {
-            Ok(_) => Ok(OutputStream::empty()),
+            Ok(_) => Ok(ActionStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),
                 "IO error while saving",

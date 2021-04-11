@@ -3,9 +3,7 @@ use bigdecimal::Zero;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
-use nu_protocol::{
-    Primitive, Range, RangeInclusion, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Range, RangeInclusion, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Echo;
 
@@ -22,7 +20,7 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
         echo(args)
     }
 
@@ -42,31 +40,26 @@ impl WholeStreamCommand for Echo {
     }
 }
 
-fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn echo(args: CommandArgs) -> Result<InputStream, ShellError> {
     let args = args.evaluate_once()?;
     let rest: Vec<Value> = args.rest(0)?;
 
     let stream = rest.into_iter().map(|i| match i.as_string() {
-        Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(s).into_value(i.tag.clone()),
-        ))),
+        Ok(s) => InputStream::one(UntaggedValue::string(s).into_value(i.tag.clone())),
         _ => match i {
             Value {
                 value: UntaggedValue::Table(table),
                 ..
-            } => table
-                .into_iter()
-                .map(ReturnSuccess::value)
-                .to_output_stream(),
+            } => InputStream::from_stream(table.into_iter()),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 tag,
-            } => RangeIterator::new(*range, tag).to_output_stream(),
-            x => OutputStream::one(Ok(ReturnSuccess::Value(x))),
+            } => InputStream::from_stream(RangeIterator::new(*range, tag)),
+            x => InputStream::one(x),
         },
     });
 
-    Ok(stream.flatten().to_output_stream())
+    Ok(InputStream::from_stream(stream.flatten()))
 }
 
 struct RangeIterator {
@@ -77,6 +70,7 @@ struct RangeIterator {
     moves_up: bool,
     one: UntaggedValue,
     negative_one: UntaggedValue,
+    done: bool,
 }
 
 impl RangeIterator {
@@ -99,14 +93,18 @@ impl RangeIterator {
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
             one: UntaggedValue::int(1),
             negative_one: UntaggedValue::int(-1),
+            done: false,
         }
     }
 }
 
 impl Iterator for RangeIterator {
-    type Item = Result<ReturnSuccess, ShellError>;
+    type Item = Value;
     fn next(&mut self) -> Option<Self::Item> {
         use std::cmp::Ordering;
+        if self.done {
+            return None;
+        }
 
         let ordering = if self.end == UntaggedValue::Primitive(Primitive::Nothing) {
             Ordering::Less
@@ -129,11 +127,15 @@ impl Iterator for RangeIterator {
                     UntaggedValue::Primitive(Primitive::Decimal(y)),
                 ) => (BigDecimal::zero() + x).cmp(y),
                 _ => {
-                    return Some(Err(ShellError::labeled_error(
-                        "Cannot create range",
-                        "unsupported range",
-                        self.tag.span,
-                    )))
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::labeled_error(
+                            "Cannot create range",
+                            "unsupported range",
+                            self.tag.span,
+                        ))
+                        .into_untagged_value(),
+                    );
                 }
             }
         };
@@ -147,15 +149,19 @@ impl Iterator for RangeIterator {
                 Ok(result) => result,
 
                 Err((left_type, right_type)) => {
-                    return Some(Err(ShellError::coerce_error(
-                        left_type.spanned(self.tag.span),
-                        right_type.spanned(self.tag.span),
-                    )));
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::coerce_error(
+                            left_type.spanned(self.tag.span),
+                            right_type.spanned(self.tag.span),
+                        ))
+                        .into_untagged_value(),
+                    );
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);
 
-            Some(ReturnSuccess::value(next.into_value(self.tag.clone())))
+            Some(next.into_value(self.tag.clone()))
         } else if !self.moves_up
             && (ordering == Ordering::Greater
                 || self.is_end_inclusive && ordering == Ordering::Equal)
@@ -166,15 +172,19 @@ impl Iterator for RangeIterator {
             let mut next = match next_value {
                 Ok(result) => result,
                 Err((left_type, right_type)) => {
-                    return Some(Err(ShellError::coerce_error(
-                        left_type.spanned(self.tag.span),
-                        right_type.spanned(self.tag.span),
-                    )));
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::coerce_error(
+                            left_type.spanned(self.tag.span),
+                            right_type.spanned(self.tag.span),
+                        ))
+                        .into_untagged_value(),
+                    );
                 }
             };
             std::mem::swap(&mut self.curr, &mut next);
 
-            Some(ReturnSuccess::value(next.into_value(self.tag.clone())))
+            Some(next.into_value(self.tag.clone()))
         } else {
             None
         }

@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "return the path to the config file"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         path(args)
     }
 
@@ -31,9 +31,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn path(args: CommandArgs) -> Result<ActionStream, ShellError> {
     if let Some(global_cfg) = &mut args.configs.lock().global_config {
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::FilePath(global_cfg.file_path.clone())),
         )))
     } else {
@@ -41,6 +41,6 @@ pub fn path(args: CommandArgs) -> Result<OutputStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream())
+        .to_output_stream_with_actions())
     }
 }

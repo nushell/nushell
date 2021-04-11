@@ -16,7 +16,7 @@ pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;
 pub use nu_data::value;
-pub use nu_stream::{InputStream, InterruptibleStream, OutputStream};
+pub use nu_stream::{ActionStream, InputStream, InterruptibleStream};
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

@@ -2,7 +2,7 @@ use nu_errors::ShellError;
 
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, ToOutputStreamWithActions};
 
 use serde::Deserialize;
 
@@ -26,7 +26,7 @@ impl WholeStreamCommand for Command {
         "Mock echo."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
         let (Arguments { rest }, input) = args.process()?;
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Command {
         let stream = rest.into_iter().map(move |i| {
             let base_value = base_value.clone();
             match i.as_string() {
-                Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                Ok(s) => ActionStream::one(Ok(ReturnSuccess::Value(Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag: base_value.tag,
                 }))),
@@ -60,7 +60,8 @@ impl WholeStreamCommand for Command {
                             let subtable =
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
-                            (subtable.into_iter().map(ReturnSuccess::value)).to_output_stream()
+                            (subtable.into_iter().map(ReturnSuccess::value))
+                                .to_output_stream_with_actions()
                         } else {
                             (table
                                 .into_iter()
@@ -69,10 +70,10 @@ impl WholeStreamCommand for Command {
                                     v
                                 })
                                 .map(ReturnSuccess::value))
-                            .to_output_stream()
+                            .to_output_stream_with_actions()
                         }
                     }
-                    _ => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                    _ => ActionStream::one(Ok(ReturnSuccess::Value(Value {
                         value: i.value.clone(),
                         tag: base_value.tag,
                     }))),
@@ -80,6 +81,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok((stream).flatten().to_output_stream())
+        Ok((stream).flatten().to_output_stream_with_actions())
     }
 }

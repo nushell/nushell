@@ -38,7 +38,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random dice roll"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         dice(args)
     }
 
@@ -58,7 +58,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn dice(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let (DiceArgs { dice, sides }, _) = args.process()?;
 
@@ -79,7 +79,7 @@ pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone())
     });
 
-    Ok((iter).to_output_stream())
+    Ok((iter).to_output_stream_with_actions())
 }
 
 #[cfg(test)]

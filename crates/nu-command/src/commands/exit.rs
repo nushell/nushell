@@ -23,7 +23,7 @@ impl WholeStreamCommand for Exit {
         "Exit the current shell (or all shells)."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         exit(args)
     }
 
@@ -43,7 +43,7 @@ impl WholeStreamCommand for Exit {
     }
 }
 
-pub fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn exit(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
 
     let code = if let Some(value) = args.call_info.args.nth(0) {
@@ -58,7 +58,7 @@ pub fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
         CommandAction::LeaveShell(code)
     };
 
-    Ok(OutputStream::one(ReturnSuccess::action(command_action)))
+    Ok(ActionStream::one(ReturnSuccess::action(command_action)))
 }
 
 #[cfg(test)]

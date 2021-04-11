@@ -32,7 +32,7 @@ impl WholeStreamCommand for Default {
         "Sets a default row's column if missing."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         default(args)
     }
 
@@ -45,7 +45,7 @@ impl WholeStreamCommand for Default {
     }
 }
 
-fn default(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (DefaultArgs { column, value }, input) = args.process()?;
 
     Ok(input
@@ -67,7 +67,7 @@ fn default(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(item)
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

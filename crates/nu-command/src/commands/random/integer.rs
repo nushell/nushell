@@ -27,7 +27,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random integer [min..max]"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         integer(args)
     }
 
@@ -57,7 +57,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn integer(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (IntegerArgs { range }, _) = args.process()?;
 
     let (min, max) = if let Some(range) = &range {
@@ -76,7 +76,7 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Ordering::Equal => {
             let untagged_result = UntaggedValue::int(min).into_value(Tag::unknown());
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
         _ => {
             let mut thread_rng = thread_rng();
@@ -86,7 +86,7 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let untagged_result = UntaggedValue::int(result).into_value(Tag::unknown());
 
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
     }
 }

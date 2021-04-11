@@ -28,7 +28,7 @@ impl WholeStreamCommand for Length {
         "Show the total number of rows or items."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (LengthArgs { column }, input) = args.process()?;
 
@@ -38,7 +38,7 @@ impl WholeStreamCommand for Length {
             done: false,
             tag,
         }
-        .to_output_stream())
+        .to_output_stream_with_actions())
     }
 
     fn examples(&self) -> Vec<Example> {

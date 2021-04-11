@@ -30,7 +30,7 @@ impl WholeStreamCommand for Command {
         "Find if the table rows matches the condition."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         any(args)
     }
 
@@ -52,7 +52,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn any(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
     let tag = args.call_info.name_tag.clone();
     let (Arguments { block }, input) = args.process()?;
@@ -117,7 +117,7 @@ fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Err(e) => Err(e),
             }
         })?
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

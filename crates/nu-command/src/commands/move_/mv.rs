@@ -28,7 +28,7 @@ impl WholeStreamCommand for Mv {
         "Move files or directories."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         mv(args)
     }
 
@@ -53,7 +53,7 @@ impl WholeStreamCommand for Mv {
     }
 }
 
-fn mv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn mv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
     let (args, _) = args.process()?;

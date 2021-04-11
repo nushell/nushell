@@ -20,7 +20,7 @@ struct Arguments {
     column_paths: Vec<ColumnPath>,
 }
 
-pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<OutputStream, ShellError>
+pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<ActionStream, ShellError>
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
@@ -47,7 +47,7 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 pub fn action<F>(

@@ -28,7 +28,7 @@ impl WholeStreamCommand for Command {
         "Remove the last number of rows or columns."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         drop(args)
     }
 
@@ -51,7 +51,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { rows }, input) = args.process()?;
     let v: Vec<_> = input.into_vec();
 
@@ -62,7 +62,7 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     Ok(if rows_to_drop == 0 {
-        v.into_iter().to_output_stream()
+        v.into_iter().to_output_stream_with_actions()
     } else {
         let k = if v.len() < rows_to_drop {
             0
@@ -72,6 +72,6 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let iter = v.into_iter().take(k);
 
-        iter.to_output_stream()
+        iter.to_output_stream_with_actions()
     })
 }

@@ -7,7 +7,7 @@ use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 
 pub struct Reduce;
 
@@ -47,7 +47,7 @@ impl WholeStreamCommand for Reduce {
         "Block must be (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         reduce(args)
     }
 
@@ -94,7 +94,7 @@ fn process_row(
     result
 }
 
-fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let span = raw_args.call_info.name_tag.span;
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process()?;
@@ -150,7 +150,7 @@ fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 result
             })?
-            .to_output_stream())
+            .to_output_stream_with_actions())
     } else {
         let initial = Ok(InputStream::one(start));
         Ok(input
@@ -177,7 +177,7 @@ fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 context.scope.exit_scope();
                 result
             })?
-            .to_output_stream())
+            .to_output_stream_with_actions())
     }
 }
 

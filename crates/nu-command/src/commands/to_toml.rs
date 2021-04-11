@@ -18,7 +18,7 @@ impl WholeStreamCommand for ToToml {
         "Convert table into .toml text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_toml(args)
     }
     // TODO: add an example here. What commands to run to get a Row(Dictionary)?
@@ -139,7 +139,7 @@ fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
@@ -179,7 +179,7 @@ fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )),
         }
     }))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

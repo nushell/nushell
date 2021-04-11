@@ -26,12 +26,12 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table rows"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         roll(args)
     }
 }
 
-pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (args, mut input) = args.process()?;
 
@@ -41,7 +41,7 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
         .into_iter()
         .map(ReturnSuccess::value))
-    .to_output_stream())
+    .to_output_stream_with_actions())
 }
 
 fn roll_up(values: Vec<Value>, Arguments { by: ref n }: &Arguments) -> Option<Vec<Value>> {

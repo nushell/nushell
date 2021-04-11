@@ -62,7 +62,7 @@ impl WholeStreamCommand for RunExternalCommand {
         true
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let positionals = args.call_info.args.positional.clone().ok_or_else(|| {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
@@ -116,7 +116,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     .shell_manager
                     .cd(cd_args, args.call_info.name_tag.clone());
 
-                return Ok(result?.to_output_stream());
+                return Ok(result?.to_output_stream_with_actions());
             }
         }
 
@@ -128,7 +128,7 @@ impl WholeStreamCommand for RunExternalCommand {
             external_redirection,
         );
 
-        Ok(result?.to_output_stream())
+        Ok(result?.to_output_stream_with_actions())
     }
 }
 

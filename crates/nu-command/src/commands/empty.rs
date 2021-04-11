@@ -33,7 +33,7 @@ impl WholeStreamCommand for Command {
         "Check for empty values."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         is_empty(args)
     }
 
@@ -79,7 +79,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
@@ -100,11 +100,11 @@ fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 match process_row(context, input, block, columns, tag) {
                     Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
+                    Err(e) => ActionStream::one(Err(e)),
                 }
             })
             .flatten()
-            .to_output_stream());
+            .to_output_stream_with_actions());
     }
 
     Ok(input
@@ -116,11 +116,11 @@ fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             match process_row(context, input, block, columns, tag) {
                 Ok(s) => s,
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 fn process_row(
@@ -129,7 +129,7 @@ fn process_row(
     default_block: Arc<Option<Box<CapturedBlock>>>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let _tag = &*tag;
     let mut out = Arc::new(None);
     let results = Arc::make_mut(&mut out);
@@ -178,7 +178,7 @@ fn process_row(
             ref tag,
         } => {
             if column_paths.is_empty() {
-                Ok(OutputStream::one(ReturnSuccess::value({
+                Ok(ActionStream::one(ReturnSuccess::value({
                     let is_empty = input.is_empty();
 
                     if default_block.is_some() {
@@ -221,10 +221,10 @@ fn process_row(
                     }
                 }
 
-                Ok(OutputStream::one(ReturnSuccess::value(obj)))
+                Ok(ActionStream::one(ReturnSuccess::value(obj)))
             }
         }
-        other => Ok(OutputStream::one(ReturnSuccess::value({
+        other => Ok(ActionStream::one(ReturnSuccess::value({
             if other.is_empty() {
                 results
                     .clone()

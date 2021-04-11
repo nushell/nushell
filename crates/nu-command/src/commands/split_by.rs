@@ -30,12 +30,12 @@ impl WholeStreamCommand for SplitBy {
         "Creates a new table with the data from the inner tables split by the column given."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         split_by(args)
     }
 }
 
-pub fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn split_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (SplitByArgs { column_name }, input) = args.process()?;
     let values: Vec<Value> = input.collect();
@@ -49,7 +49,7 @@ pub fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     let split = split(&column_name, &values[0], &name)?;
-    Ok(OutputStream::one(ReturnSuccess::value(split)))
+    Ok(ActionStream::one(ReturnSuccess::value(split)))
 }
 
 enum Grouper {

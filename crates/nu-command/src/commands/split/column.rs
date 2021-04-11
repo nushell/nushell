@@ -37,12 +37,12 @@ impl WholeStreamCommand for SubCommand {
         "splits contents across multiple columns via the separator."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         split_column(args)
     }
 }
 
-fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_column(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
     let (
         SplitColumnArgs {
@@ -102,7 +102,7 @@ fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ))
             }
         })
-        .to_output_stream())
+        .to_output_stream_with_actions())
 }
 
 #[cfg(test)]

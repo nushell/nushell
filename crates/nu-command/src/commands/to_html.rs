@@ -123,7 +123,7 @@ impl WholeStreamCommand for ToHtml {
         "Convert table into simple HTML"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_html(args)
     }
 }
@@ -267,7 +267,7 @@ fn get_list_of_theme_names() -> Vec<String> {
     theme_names
 }
 
-fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_html(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (
         ToHtmlArgs {
@@ -300,7 +300,7 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
         output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
 
         // Short circuit and return the output_string
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(name_tag),
         )))
     } else {
@@ -376,7 +376,7 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
             output_string = run_regexes(&regex_hm, &output_string);
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(name_tag),
         )))
     }

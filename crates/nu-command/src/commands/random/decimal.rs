@@ -27,7 +27,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         decimal(args)
     }
 
@@ -57,7 +57,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn decimal(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (DecimalArgs { range }, _) = args.process()?;
 
     let (min, max) = if let Some(range) = &range {
@@ -76,7 +76,7 @@ pub fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(Ordering::Equal) => {
             let untagged_result = UntaggedValue::decimal_from_float(min, Span::new(64, 64));
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
         _ => {
             let mut thread_rng = thread_rng();
@@ -84,7 +84,7 @@ pub fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let untagged_result = UntaggedValue::decimal_from_float(result, Span::new(64, 64));
 
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
     }
 }
