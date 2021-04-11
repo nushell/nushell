@@ -1,5 +1,4 @@
 use nu_engine::EvaluationContext;
-use std::error::Error;
 
 #[allow(unused_imports)]
 use crate::prelude::*;
@@ -222,21 +221,4 @@ pub fn rustyline_hinter(
     }
 
     Some(rustyline::hint::HistoryHinter {})
-}
-
-pub fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> {
-    #[cfg(feature = "ctrlc")]
-    {
-        let cc = _context.ctrl_c.clone();
-
-        ctrlc::set_handler(move || {
-            cc.store(true, Ordering::SeqCst);
-        })?;
-
-        if _context.ctrl_c.load(Ordering::SeqCst) {
-            _context.ctrl_c.store(false, Ordering::SeqCst);
-        }
-    }
-
-    Ok(())
 }

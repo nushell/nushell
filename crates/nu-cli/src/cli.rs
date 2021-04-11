@@ -1,10 +1,5 @@
-use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
-use nu_command::commands::default_context::create_default_context;
-use nu_engine::{
-    filesystem::filesystem_shell::FilesystemShellMode, maybe_print_errors, run_block, script,
-    EvaluationContext,
-};
+use nu_engine::{maybe_print_errors, run_block, EvaluationContext};
 use std::error::Error;
 
 #[allow(unused_imports)]
@@ -20,7 +15,6 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::OsString;
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -29,18 +23,12 @@ use rustyline::{self, error::ReadlineError};
 
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{
-    hir::ExternalRedirection, ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value,
-};
+use nu_protocol::{hir::ExternalRedirection, ConfigPath, RunScriptOptions};
 
 use log::trace;
-use std::iter::Iterator;
 use std::path::PathBuf;
 
 pub struct Options {
-    pub config: Option<OsString>,
-    pub stdin: bool,
-    pub scripts: Vec<NuScript>,
     pub save_history: bool,
 }
 
@@ -52,78 +40,20 @@ impl Default for Options {
 
 impl Options {
     pub fn new() -> Self {
-        Self {
-            config: None,
-            stdin: false,
-            scripts: vec![],
-            save_history: true,
-        }
-    }
-}
-
-pub fn search_paths() -> Vec<std::path::PathBuf> {
-    use std::env;
-
-    let mut search_paths = Vec::new();
-
-    // Automatically add path `nu` is in as a search path
-    if let Ok(exe_path) = env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            search_paths.push(exe_dir.to_path_buf());
-        }
+        Self { save_history: true }
     }
 
-    if let Ok(config) = nu_data::config::config(Tag::unknown()) {
-        if let Some(Value {
-            value: UntaggedValue::Table(pipelines),
-            ..
-        }) = config.get("plugin_dirs")
-        {
-            for pipeline in pipelines {
-                if let Ok(plugin_dir) = pipeline.as_string() {
-                    search_paths.push(PathBuf::from(plugin_dir));
-                }
-            }
-        }
+    pub fn save_history(&mut self, save_history: bool) -> &mut Self {
+        self.save_history = save_history;
+        self
     }
-
-    search_paths
-}
-
-pub fn run_script_file(
-    options: Options,
-    run_options: RunScriptOptions,
-) -> Result<(), Box<dyn Error>> {
-    let context = create_default_context(FilesystemShellMode::Script, false)?;
-
-    if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
-    } else {
-        load_global_cfg(&context);
-    }
-
-    let _ = register_plugins(&context);
-    let _ = configure_ctrl_c(&context);
-
-    for script in options.scripts {
-        script::run_script(script, &run_options, &context);
-    }
-
-    Ok(())
 }
 
 #[cfg(feature = "rustyline-support")]
 pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
-    let _ = configure_ctrl_c(&context);
-
     // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
     let startup_commands_start_time = std::time::Instant::now();
 
-    if let Some(cfg) = options.config {
-        load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
-    } else {
-        load_global_cfg(&context);
-    }
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION",
@@ -405,36 +335,6 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
             //No local cfg file present in start dir
         }
     }
-}
-
-fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Err(err) = context.load_config(&ConfigPath::Global(path)) {
-        context.host.lock().print_err(err, &Text::from(""));
-    }
-}
-
-pub fn load_global_cfg(context: &EvaluationContext) {
-    match config::default_path() {
-        Ok(path) => {
-            load_cfg_as_global_cfg(context, path);
-        }
-        Err(e) => {
-            context.host.lock().print_err(e, &Text::from(""));
-        }
-    }
-}
-
-pub fn register_plugins(context: &EvaluationContext) -> Result<(), ShellError> {
-    if let Ok(plugins) = nu_engine::plugin::build_plugin::scan(search_paths()) {
-        context.add_commands(
-            plugins
-                .into_iter()
-                .filter(|p| !context.is_command_registered(p.name()))
-                .collect(),
-        );
-    }
-
-    Ok(())
 }
 
 pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, ShellError> {
