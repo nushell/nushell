@@ -8,7 +8,6 @@ use std::path::Path;
 
 pub struct PathJoin;
 
-#[derive(Deserialize)]
 struct PathJoinArguments {
     rest: Vec<ColumnPath>,
     appendix: Option<Tagged<String>>,
@@ -47,9 +46,13 @@ parse' and 'path split' subdommands."
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathJoinArguments { rest, appendix }, input) = args.process()?;
-        let args = Arc::new(PathJoinArguments { rest, appendix });
-        Ok(operate_join(input, &action, tag, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathJoinArguments {
+            rest: args.rest_args()?,
+            appendix: args.get_flag("appendix").transpose()?
+        });
+
+        Ok(operate_join(args.input, &action, tag, cmd_args))
     }
 
     #[cfg(windows)]

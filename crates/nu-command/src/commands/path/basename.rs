@@ -8,7 +8,6 @@ use std::path::Path;
 
 pub struct PathBasename;
 
-#[derive(Deserialize)]
 struct PathBasenameArguments {
     rest: Vec<ColumnPath>,
     replace: Option<Tagged<String>>,
@@ -42,9 +41,13 @@ impl WholeStreamCommand for PathBasename {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { rest, replace }, input) = args.process()?;
-        let args = Arc::new(PathBasenameArguments { rest, replace });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathBasenameArguments {
+            rest: args.rest_args()?,
+            replace: args.get_flag("replace").transpose()?
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]

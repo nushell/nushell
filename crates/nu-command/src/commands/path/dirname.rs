@@ -8,11 +8,9 @@ use std::path::Path;
 
 pub struct PathDirname;
 
-#[derive(Deserialize)]
 struct PathDirnameArguments {
     rest: Vec<ColumnPath>,
     replace: Option<Tagged<String>>,
-    #[serde(rename = "num-levels")]
     num_levels: Option<Tagged<u32>>,
 }
 
@@ -50,20 +48,14 @@ impl WholeStreamCommand for PathDirname {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (
-            PathDirnameArguments {
-                rest,
-                replace,
-                num_levels,
-            },
-            input,
-        ) = args.process()?;
-        let args = Arc::new(PathDirnameArguments {
-            rest,
-            replace,
-            num_levels,
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathDirnameArguments {
+            rest: args.rest_args()?,
+            replace: args.get_flag("replace").transpose()?,
+            num_levels: args.get_flag("num-levels").transpose()?,
         });
-        Ok(operate(input, &action, tag.span, args))
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]

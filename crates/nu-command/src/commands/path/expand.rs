@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 
 pub struct PathExpand;
 
-#[derive(Deserialize)]
 struct PathExpandArguments {
     rest: Vec<ColumnPath>,
 }
@@ -34,9 +33,10 @@ impl WholeStreamCommand for PathExpand {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExpandArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathExpandArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathExpandArguments { rest: args.rest_args()? });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]

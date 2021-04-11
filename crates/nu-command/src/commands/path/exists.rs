@@ -7,7 +7,6 @@ use std::path::Path;
 
 pub struct PathExists;
 
-#[derive(Deserialize)]
 struct PathExistsArguments {
     rest: Vec<ColumnPath>,
 }
@@ -34,9 +33,10 @@ impl WholeStreamCommand for PathExists {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExistsArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathExistsArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathExistsArguments { rest: args.rest_args()? });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]

@@ -9,7 +9,6 @@ use std::path::Path;
 
 pub struct PathParse;
 
-#[derive(Deserialize)]
 struct PathParseArguments {
     rest: Vec<ColumnPath>,
 }
@@ -40,9 +39,10 @@ impl WholeStreamCommand for PathParse {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathParseArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathParseArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathParseArguments { rest: args.rest_args()? });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]

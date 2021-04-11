@@ -7,7 +7,6 @@ use std::path::Path;
 
 pub struct PathSplit;
 
-#[derive(Deserialize)]
 struct PathSplitArguments {
     rest: Vec<ColumnPath>,
 }
@@ -34,9 +33,10 @@ impl WholeStreamCommand for PathSplit {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathSplitArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathSplitArguments { rest });
-        Ok(operate_split(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathSplitArguments { rest: args.rest_args()? });
+
+        Ok(operate_split(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
@@ -44,12 +44,12 @@ impl WholeStreamCommand for PathSplit {
         vec![Example {
             description: "Split a path into parts",
             example: r"echo 'C:\Users\viking\spam.txt' | path split",
-            result: Some(vec![Value::from(UntaggedValue::table(&[
+            result: Some(vec![
                 Value::from(UntaggedValue::string("C:")),
                 Value::from(UntaggedValue::string("Users")),
                 Value::from(UntaggedValue::string("viking")),
                 Value::from(UntaggedValue::string("spam.txt")),
-            ]))]),
+            ]),
         }]
     }
 
@@ -58,12 +58,12 @@ impl WholeStreamCommand for PathSplit {
         vec![Example {
             description: "Split a path into parts",
             example: r"echo '/home/viking/spam.txt' | path split",
-            result: Some(vec![Value::from(UntaggedValue::table(&[
+            result: Some(vec![
                 Value::from(UntaggedValue::string("/")),
                 Value::from(UntaggedValue::string("home")),
                 Value::from(UntaggedValue::string("viking")),
                 Value::from(UntaggedValue::string("spam.txt")),
-            ]))]),
+            ]),
         }]
     }
 }
@@ -79,6 +79,7 @@ where
     F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + Sync + 'static,
 {
     if args.get_column_paths().is_empty() {
+        // Do not wrap result into a table
         input
             .flat_map(move |v| {
                 let split_result = handle_value(&action, &v, span, Arc::clone(&args));

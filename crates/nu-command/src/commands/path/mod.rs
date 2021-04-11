@@ -111,8 +111,8 @@ fn join_path(parts: &[Value]) -> Result<PathBuf, ShellError> {
 
 fn handle_value<F, T>(action: &F, v: &Value, span: Span, args: Arc<T>) -> Result<Value, ShellError>
 where
-    T: PathSubcommandArguments + Send + 'static,
-    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError> + Send + 'static,
+    T: PathSubcommandArguments,
+    F: Fn(&Path, Tag, &T) -> Result<Value, ShellError>,
 {
     match &v.value {
         UntaggedValue::Primitive(Primitive::FilePath(buf)) => action(buf, v.tag(), &args),
