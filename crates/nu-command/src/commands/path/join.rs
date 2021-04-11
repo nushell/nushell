@@ -98,6 +98,7 @@ where
         );
 
         if has_rows {
+            // operate one-by-one like the other path subcommands
             parts
                 .into_iter()
                 .map(move |v| {
@@ -105,10 +106,15 @@ where
                 })
                 .to_output_stream()
         } else {
+            // join the whole input stream
             match join_path(&parts.collect_vec()) {
-                Ok(path_buf) => OutputStream::one(ReturnSuccess::value(
-                    UntaggedValue::filepath(path_buf).into_value(&tag),
-                )),
+                Ok(path_buf) => {
+                    let joined_value = UntaggedValue::filepath(path_buf).into_value(&tag);
+                    OutputStream::one(
+                        handle_value(&action, &joined_value, span, Arc::clone(&args))
+                            .and_then(|v| ReturnSuccess::value(v))
+                    )
+                },
                 Err(err) => OutputStream::one(Err(err)),
             }
         }
