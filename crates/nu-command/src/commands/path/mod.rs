@@ -81,8 +81,8 @@ fn encode_path(
     };
 
     if let MaybeOwned::Borrowed(val) = entries.get_data("parent") {
-        let p = val.as_filepath()?;
-        if !p.as_os_str().is_empty() {
+        let p = val.as_string()?;
+        if !p.is_empty() {
             result.push(p);
         }
     };

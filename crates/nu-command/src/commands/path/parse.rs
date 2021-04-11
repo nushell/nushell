@@ -30,11 +30,12 @@ impl WholeStreamCommand for PathParse {
     }
 
     fn usage(&self) -> &str {
-        "Convert a path into structured data"
+        "Convert a path into structured data."
     }
 
     fn extra_usage(&self) -> &str {
-        "On Windows, extra 'prefix' column is added."
+        "Each path is split into 'parent', 'stem' and 'extension' fields. On Windows, extra \
+'prefix' column is added."
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -49,20 +50,34 @@ impl WholeStreamCommand for PathParse {
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Parse a path",
-            example: r"echo 'C:\Users\viking\spam.txt | path parse",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Parse a single path",
+                example: r"echo 'C:\Users\viking\spam.txt' | path parse",
+                result: None,
+            },
+            Example {
+                description: "Replace the 'name' column with parsed paths",
+                example: r"ls | path parse name",
+                result: None,
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Parse a path",
-            example: r"echo '/home/viking/spam.txt' | path parse",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Parse a path",
+                example: r"echo '/home/viking/spam.txt' | path parse",
+                result: None,
+            },
+            Example {
+                description: "Replace the 'name' column with parsed paths",
+                example: r"ls | path parse name",
+                result: None,
+            },
+        ]
     }
 }
 

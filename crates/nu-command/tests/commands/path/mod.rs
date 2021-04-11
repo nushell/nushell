@@ -3,6 +3,8 @@ mod dirname;
 mod exists;
 mod expand;
 mod join;
+mod parse;
+mod split;
 mod type_;
 
 use std::path::MAIN_SEPARATOR;

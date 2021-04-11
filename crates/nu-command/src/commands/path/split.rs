@@ -43,30 +43,45 @@ impl WholeStreamCommand for PathSplit {
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Split a path into parts",
-            example: r"echo 'C:\Users\viking\spam.txt' | path split",
-            result: Some(vec![
-                Value::from(UntaggedValue::string("C:")),
-                Value::from(UntaggedValue::string("Users")),
-                Value::from(UntaggedValue::string("viking")),
-                Value::from(UntaggedValue::string("spam.txt")),
-            ]),
-        }]
+        vec![
+            Example {
+                description: "Split a path into parts",
+                example: r"echo 'C:\Users\viking\spam.txt' | path split",
+                result: Some(vec![
+                    Value::from(UntaggedValue::string("C:")),
+                    Value::from(UntaggedValue::string(r"\")),
+                    Value::from(UntaggedValue::string("Users")),
+                    Value::from(UntaggedValue::string("viking")),
+                    Value::from(UntaggedValue::string("spam.txt")),
+                ]),
+            },
+            Example {
+                description: "Replace the 'name' column with split paths",
+                example: r"ls | path split name",
+                result: None,
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Split a path into parts",
-            example: r"echo '/home/viking/spam.txt' | path split",
-            result: Some(vec![
-                Value::from(UntaggedValue::string("/")),
-                Value::from(UntaggedValue::string("home")),
-                Value::from(UntaggedValue::string("viking")),
-                Value::from(UntaggedValue::string("spam.txt")),
-            ]),
-        }]
+        vec![
+            Example {
+                description: "Split a path into parts",
+                example: r"echo '/home/viking/spam.txt' | path split",
+                result: Some(vec![
+                    Value::from(UntaggedValue::string("/")),
+                    Value::from(UntaggedValue::string("home")),
+                    Value::from(UntaggedValue::string("viking")),
+                    Value::from(UntaggedValue::string("spam.txt")),
+                ]),
+            },
+            Example {
+                description: "Replace the 'name' column with split paths",
+                example: r"ls | path split name",
+                result: None,
+            },
+        ]
     }
 }
 
