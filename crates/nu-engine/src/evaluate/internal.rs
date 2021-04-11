@@ -33,15 +33,12 @@ pub(crate) fn run_internal_command(
         )?
     };
 
-    Ok(InputStream::from_stream(
-        InternalIterator {
-            command,
-            context: context.clone(),
-            leftovers: vec![],
-            input: result,
-        }
-        .take_while(|x| !x.is_error()),
-    ))
+    Ok(InputStream::from_stream(InternalIterator {
+        command,
+        context: context.clone(),
+        leftovers: vec![],
+        input: result,
+    }))
 }
 
 struct InternalIterator {
@@ -73,6 +70,7 @@ impl Iterator for InternalIterator {
                     CommandAction::Exit(code) => std::process::exit(code), // TODO: save history.txt
                     CommandAction::Error(err) => {
                         self.context.error(err);
+                        return None;
                     }
                     CommandAction::AutoConvert(tagged_contents, extension) => {
                         let contents_tag = tagged_contents.tag.clone();
@@ -205,6 +203,7 @@ impl Iterator for InternalIterator {
                     ..
                 })) => {
                     self.context.error(err);
+                    return None;
                 }
 
                 Ok(ReturnSuccess::Value(v)) => return Some(v),
