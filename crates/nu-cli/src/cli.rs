@@ -1,4 +1,5 @@
 use crate::line_editor::configure_ctrl_c;
+use nu_ansi_term::Color;
 use nu_command::commands::default_context::create_default_context;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
 
@@ -173,7 +174,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
-        nu_data::config::path::history_path(cfg)
+        nu_data::config::path::history_path_or_default(cfg)
     } else {
         nu_data::config::path::default_history_path()
     };
@@ -233,12 +234,24 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 context.scope.enter_scope();
                 let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
-                prompt_block.set_redirect(ExternalRedirection::Stdout);
+                if let Some(block) =
+                    std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut prompt_block)
+                {
+                    block.set_redirect(ExternalRedirection::Stdout);
+                }
 
                 if err.is_some() {
                     context.scope.exit_scope();
 
-                    format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
+                    format!(
+                        "{}{}{}{}{}{}> ",
+                        Color::Green.bold().prefix().to_string(),
+                        cwd,
+                        nu_ansi_term::ansi::RESET,
+                        Color::Cyan.bold().prefix().to_string(),
+                        current_branch(),
+                        nu_ansi_term::ansi::RESET
+                    )
                 } else {
                     let run_result = run_block(&prompt_block, &context, InputStream::empty());
                     context.scope.exit_scope();
@@ -272,7 +285,15 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                     }
                 }
             } else {
-                format!("\x1b[32m{}{}\x1b[m> ", cwd, current_branch())
+                format!(
+                    "{}{}{}{}{}{}> ",
+                    Color::Green.bold().prefix().to_string(),
+                    cwd,
+                    nu_ansi_term::ansi::RESET,
+                    Color::Cyan.bold().prefix().to_string(),
+                    current_branch(),
+                    nu_ansi_term::ansi::RESET
+                )
             }
         };
 
@@ -319,7 +340,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
         match line {
             LineResult::Success(line) => {
-                if options.save_history {
+                if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
                     let _ = rl.save_history(&history_path);
                 }
@@ -334,7 +355,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
 
             LineResult::Error(line, err) => {
-                if options.save_history {
+                if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
                     let _ = rl.save_history(&history_path);
                 }
@@ -420,15 +441,8 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
 }
 
 fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
-    if let Err(err) = context.load_config(&ConfigPath::Global(path.clone())) {
+    if let Err(err) = context.load_config(&ConfigPath::Global(path)) {
         context.host.lock().print_err(err, &Text::from(""));
-    } else {
-        //TODO current commands assume to find path to global cfg file under config-path
-        //TODO use newly introduced nuconfig::file_path instead
-        context.scope.add_var(
-            "config-path",
-            UntaggedValue::filepath(path).into_untagged_value(),
-        );
     }
 }
 

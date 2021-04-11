@@ -5,11 +5,6 @@ use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
-#[derive(Deserialize)]
-pub struct BuildStringArgs {
-    rest: Vec<Value>,
-}
-
 pub struct BuildString;
 
 impl WholeStreamCommand for BuildString {
@@ -28,7 +23,8 @@ impl WholeStreamCommand for BuildString {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (BuildStringArgs { rest }, _) = args.process()?;
+        let args = args.evaluate_once()?;
+        let rest: Vec<Value> = args.rest(0)?;
 
         let mut output_string = String::new();
 

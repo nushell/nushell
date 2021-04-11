@@ -13,3 +13,9 @@ pub use path::SubCommand as ConfigPath;
 pub use remove::SubCommand as ConfigRemove;
 pub use set::SubCommand as ConfigSet;
 pub use set_into::SubCommand as ConfigSetInto;
+
+use nu_errors::ShellError;
+
+pub fn err_no_global_cfg_present() -> ShellError {
+    ShellError::untagged_runtime_error("No global config found!")
+}

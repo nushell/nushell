@@ -598,6 +598,28 @@ impl Shell for FilesystemShell {
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
+        let rm_always_trash = nu_data::config::config(Tag::unknown())?
+            .get("rm_always_trash")
+            .map(|val| val.is_true())
+            .unwrap_or(false);
+
+        #[cfg(not(feature = "trash-support"))]
+        {
+            if rm_always_trash {
+                return Err(ShellError::untagged_runtime_error(
+                    "Cannot execute `rm`; the current configuration specifies \
+                    `rm_always_trash = true`, but the current nu executable was not \
+                    built with feature `trash_support`.",
+                ));
+            } else if _trash.item {
+                return Err(ShellError::labeled_error(
+                    "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled",
+                    "this option is only available if nu is built with the `trash-support` feature",
+                    _trash.tag
+                ));
+            }
+        }
+
         let name_tag = name;
 
         if targets.is_empty() {
@@ -691,10 +713,6 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
-                            let rm_always_trash = nu_data::config::config(Tag::unknown())?
-                                .get("rm_always_trash")
-                                .map(|val| val.is_true())
-                                .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
@@ -760,13 +778,10 @@ impl Shell for FilesystemShell {
             }
         };
 
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
+        Ok(OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::String(p.to_string_lossy().to_string()))
                 .into_value(&args.call_info.name_tag),
-        ));
-
-        Ok(stream.into())
+        )))
     }
 
     fn set_path(&mut self, path: String) {

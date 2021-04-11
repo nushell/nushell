@@ -1,10 +1,10 @@
-use crate::commands::table::options::{ConfigExtensions, NuConfig as TableConfiguration};
+use crate::commands::table::options::{ConfigExtensions, NuConfig};
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_table::{draw_table, Alignment, StyledString, TextStyle};
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -41,13 +41,13 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        table(TableConfiguration::new(), args)
+        table(args)
     }
 }
 
 pub fn from_list(
     values: &[Value],
-    configuration: &TableConfiguration,
+    configuration: &NuConfig,
     starting_idx: usize,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
 ) -> nu_table::Table {
@@ -56,7 +56,13 @@ pub fn from_list(
         .into_iter()
         .map(|x| StyledString::new(x, header_style))
         .collect();
-    let entries = values_to_entries(values, &mut headers, configuration, starting_idx, &color_hm);
+    let entries = values_to_entries(
+        values,
+        &mut headers,
+        &configuration,
+        starting_idx,
+        &color_hm,
+    );
     nu_table::Table {
         headers,
         data: entries,
@@ -67,7 +73,7 @@ pub fn from_list(
 fn values_to_entries(
     values: &[Value],
     headers: &mut Vec<StyledString>,
-    configuration: &TableConfiguration,
+    configuration: &NuConfig,
     starting_idx: usize,
     color_hm: &HashMap<String, nu_ansi_term::Style>,
 ) -> Vec<Vec<StyledString>> {
@@ -158,8 +164,9 @@ fn values_to_entries(
     entries
 }
 
-fn table(configuration: TableConfiguration, args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut args = args.evaluate_once()?;
+    let configuration = args.configs.lock().global_config();
 
     // Ideally, get_color_config would get all the colors configured in the config.toml
     // and create a style based on those settings. However, there are few places where
@@ -167,24 +174,12 @@ fn table(configuration: TableConfiguration, args: CommandArgs) -> Result<OutputS
     // more than just color, it needs fg & bg color, bold, dimmed, italic, underline,
     // blink, reverse, hidden, strikethrough and most of those aren't available in the
     // config.toml.... yet.
-    let color_hm = get_color_config();
+    let color_hm = get_color_config(&configuration);
 
-    let mut start_number = match args.get("start_number") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::Int(i)),
-            ..
-        }) => {
-            if let Some(num) = i.to_usize() {
-                num
-            } else {
-                return Err(ShellError::labeled_error(
-                    "Expected a row number",
-                    "expected a row number",
-                    &args.args.call_info.name_tag,
-                ));
-            }
-        }
-        _ => 0,
+    let mut start_number = if let Some(f) = args.get_flag("start_number") {
+        f?
+    } else {
+        0
     };
 
     let mut delay_slot = None;

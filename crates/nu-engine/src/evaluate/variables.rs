@@ -1,11 +1,16 @@
-use crate::evaluate::scope::Scope;
+use crate::{evaluate::scope::Scope, EvaluationContext};
 use indexmap::IndexMap;
-use nu_data::config::path::history_path;
+use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
-pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+pub fn nu(
+    scope: &Scope,
+    tag: impl Into<Tag>,
+    ctx: &EvaluationContext,
+) -> Result<Value, ShellError> {
     let env = &scope.get_env_vars();
     let tag = tag.into();
 
@@ -17,18 +22,33 @@ pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
         }
     }
+
     nu_dict.insert_value("env", dict.into_value());
 
-    let config_file = match scope.get_var("config-path") {
-        Some(Value {
-            value: UntaggedValue::Primitive(Primitive::FilePath(path)),
-            ..
-        }) => Some(path),
-        _ => None,
-    };
+    nu_dict.insert_value(
+        "history-path",
+        UntaggedValue::filepath(default_history_path()).into_value(&tag),
+    );
 
-    let config = nu_data::config::read(&tag, &config_file)?;
-    nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
+    if let Some(global_cfg) = &ctx.configs.lock().global_config {
+        nu_dict.insert_value(
+            "config",
+            UntaggedValue::row(global_cfg.vars.clone()).into_value(&tag),
+        );
+
+        nu_dict.insert_value(
+            "config-path",
+            UntaggedValue::filepath(global_cfg.file_path.clone()).into_value(&tag),
+        );
+
+        // overwrite hist-path if present
+        if let Some(hist_path) = history_path(global_cfg) {
+            nu_dict.insert_value(
+                "history-path",
+                UntaggedValue::filepath(hist_path).into_value(&tag),
+            );
+        }
+    }
 
     let mut table = vec![];
     for v in env.iter() {
@@ -50,17 +70,6 @@ pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let temp = std::env::temp_dir();
     nu_dict.insert_value("temp-dir", UntaggedValue::filepath(temp).into_value(&tag));
 
-    let config = if let Some(path) = config_file {
-        path
-    } else {
-        nu_data::config::default_path()?
-    };
-
-    nu_dict.insert_value(
-        "config-path",
-        UntaggedValue::filepath(config).into_value(&tag),
-    );
-
     #[cfg(feature = "rustyline-support")]
     {
         let keybinding_path = nu_data::keybinding::keybinding_path()?;
@@ -69,13 +78,6 @@ pub fn nu(scope: &Scope, tag: impl Into<Tag>) -> Result<Value, ShellError> {
             UntaggedValue::filepath(keybinding_path).into_value(&tag),
         );
     }
-
-    let config: Box<dyn nu_data::config::Conf> = Box::new(nu_data::config::NuConfig::new());
-    let history = history_path(&config);
-    nu_dict.insert_value(
-        "history-path",
-        UntaggedValue::filepath(history).into_value(&tag),
-    );
 
     Ok(nu_dict.into_value())
 }

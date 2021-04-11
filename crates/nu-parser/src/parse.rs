@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use indexmap::IndexMap;
 use log::trace;
@@ -425,8 +425,12 @@ fn parse_invocation(
     };
 
     scope.enter_scope();
-    let (classified_block, err) = classify_block(&lite_block, scope);
+    let (mut classified_block, err) = classify_block(&lite_block, scope);
     scope.exit_scope();
+
+    if let Some(x) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut classified_block) {
+        x.set_redirect(ExternalRedirection::Stdout);
+    }
 
     (
         SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
@@ -636,12 +640,12 @@ fn parse_interpolated_string(
     let group = Group::new(pipelines, lite_arg.span);
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Block::new(
+        expr: Expression::Invocation(Arc::new(Block::new(
             Signature::new("<invocation>"),
             vec![group],
             IndexMap::new(),
             lite_arg.span,
-        )),
+        ))),
         span: lite_arg.span,
     };
 
@@ -1284,7 +1288,7 @@ fn parse_positional_argument(
                 span,
             );
 
-            let arg = SpannedExpression::new(Expression::Block(block), span);
+            let arg = SpannedExpression::new(Expression::Block(Arc::new(block)), span);
 
             idx = new_idx - 1;
             if error.is_none() {
@@ -1327,7 +1331,7 @@ fn parse_positional_argument(
                         span,
                     );
 
-                    let arg = SpannedExpression::new(Expression::Block(block), span);
+                    let arg = SpannedExpression::new(Expression::Block(Arc::new(block)), span);
 
                     idx = new_idx - 1;
                     if error.is_none() {
@@ -1946,7 +1950,7 @@ fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError
 pub fn classify_block(
     lite_block: &LiteBlock,
     scope: &dyn ParserScope,
-) -> (Block, Option<ParseError>) {
+) -> (Arc<Block>, Option<ParseError>) {
     let mut output = Block::basic();
     let mut error = None;
 
@@ -2010,7 +2014,7 @@ pub fn classify_block(
                         span: Span::new(vars.0.span.start(), vars.1.span.end()),
                     },
                     SpannedExpression {
-                        expr: Expression::Block(block),
+                        expr: Expression::Block(Arc::new(block)),
                         span,
                     },
                 ]);
@@ -2044,22 +2048,23 @@ pub fn classify_block(
             output.definitions.insert(name, definition.clone());
         }
     }
+    output.infer_params();
 
-    (output, error)
+    (Arc::new(output), error)
 }
 
 pub fn parse(
     input: &str,
     span_offset: usize,
     scope: &dyn ParserScope,
-) -> (Block, Option<ParseError>) {
+) -> (Arc<Block>, Option<ParseError>) {
     let (output, error) = lex(input, span_offset);
     if error.is_some() {
-        return (Block::basic(), error);
+        return (Arc::new(Block::basic()), error);
     }
     let (lite_block, error) = parse_block(output);
     if error.is_some() {
-        return (Block::basic(), error);
+        return (Arc::new(Block::basic()), error);
     }
 
     classify_block(&lite_block, scope)

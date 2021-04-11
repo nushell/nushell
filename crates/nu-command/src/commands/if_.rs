@@ -9,13 +9,6 @@ use nu_protocol::{
 
 pub struct If;
 
-#[derive(Deserialize)]
-pub struct IfArgs {
-    condition: CapturedBlock,
-    then_case: CapturedBlock,
-    else_case: CapturedBlock,
-}
-
 impl WholeStreamCommand for If {
     fn name(&self) -> &str {
         "if"
@@ -67,14 +60,12 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
 
-    let (
-        IfArgs {
-            condition,
-            then_case,
-            else_case,
-        },
-        input,
-    ) = raw_args.process()?;
+    let args = raw_args.evaluate_once()?;
+    let condition: CapturedBlock = args.req(0)?;
+    let then_case: CapturedBlock = args.req(1)?;
+    let else_case: CapturedBlock = args.req(2)?;
+    let input = args.input;
+
     let cond = {
         if condition.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -85,7 +76,7 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         match condition.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
-                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
+                Some(ClassifiedCommand::Expr(expr)) => expr,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",

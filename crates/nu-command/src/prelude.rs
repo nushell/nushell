@@ -8,19 +8,6 @@ macro_rules! return_err {
     };
 }
 
-#[macro_export]
-macro_rules! stream {
-    ($($expr:expr),*) => {{
-        let mut v = VecDeque::new();
-
-        $(
-            v.push_back($expr);
-        )*
-
-        v
-    }}
-}
-
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use indexmap::{indexmap, IndexMap};
 pub(crate) use itertools::Itertools;
@@ -30,9 +17,8 @@ pub(crate) use nu_engine::EvaluationContext;
 pub(crate) use nu_engine::Example;
 pub(crate) use nu_engine::Host;
 pub(crate) use nu_engine::RawCommandArgs;
-pub(crate) use nu_engine::RunnableContext;
-pub(crate) use nu_engine::ShellManager;
 pub(crate) use nu_engine::{get_full_help, CommandArgs, Scope, WholeStreamCommand};
+pub(crate) use nu_engine::{RunnableContext, RunnableContextWithoutInput};
 pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_protocol::{out, row};
 pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem};

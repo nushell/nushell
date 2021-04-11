@@ -32,7 +32,7 @@ impl WholeStreamCommand for Command {
             .to_output_stream())
         } else {
             Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
-                ShellError::untagged_runtime_error("No global config found!"),
+                crate::commands::config::err_no_global_cfg_present(),
             ))]
             .into_iter()
             .to_output_stream())

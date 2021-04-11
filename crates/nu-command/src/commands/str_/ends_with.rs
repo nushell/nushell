@@ -8,12 +8,12 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-#[derive(Deserialize)]
+pub struct SubCommand;
+
 struct Arguments {
     pattern: Tagged<String>,
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
-pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -47,22 +47,26 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { pattern, rest }, input) = args.process()?;
-
-    let column_paths: Vec<_> = rest;
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            pattern: params.req(0)?,
+            column_paths: params.rest(1)?,
+        }))
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &pattern, v.tag())?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &options.pattern, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
-                    let pattern = pattern.clone();
+                for path in &options.column_paths {
+                    let options = options.clone();
+
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &pattern, old.tag())),
+                        Box::new(move |old| action(old, &options.pattern, old.tag())),
                     )?;
                 }
 

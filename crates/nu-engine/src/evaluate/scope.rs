@@ -73,7 +73,7 @@ impl Scope {
         }
     }
 
-    pub fn get_custom_commands_with_name(&self, name: &str) -> Option<Vec<Block>> {
+    pub fn get_custom_commands_with_name(&self, name: &str) -> Option<Vec<Arc<Block>>> {
         let custom_commands: Vec<_> = self
             .frames
             .lock()
@@ -319,7 +319,7 @@ impl ParserScope for Scope {
         self.get_command(name).is_some()
     }
 
-    fn add_definition(&self, block: Block) {
+    fn add_definition(&self, block: Arc<Block>) {
         if let Some(frame) = self.frames.lock().last_mut() {
             let name = block.params.name.clone();
             frame.custom_commands.insert(name.clone(), block.clone());
@@ -327,7 +327,7 @@ impl ParserScope for Scope {
         }
     }
 
-    fn get_definitions(&self) -> Vec<Block> {
+    fn get_definitions(&self) -> Vec<Arc<Block>> {
         let mut blocks = vec![];
         if let Some(frame) = self.frames.lock().last() {
             for (_, custom_command) in &frame.custom_commands {
@@ -368,7 +368,7 @@ pub struct ScopeFrame {
     pub vars: IndexMap<String, Value>,
     pub env: IndexMap<String, String>,
     pub commands: IndexMap<String, Command>,
-    pub custom_commands: IndexMap<String, Block>,
+    pub custom_commands: IndexMap<String, Arc<Block>>,
     pub aliases: IndexMap<String, Vec<Spanned<String>>>,
     ///Optional tag to better identify this scope frame later
     pub tag: Option<String>,

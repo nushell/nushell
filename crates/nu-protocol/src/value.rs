@@ -429,6 +429,22 @@ impl Value {
         matches!(&self.value, UntaggedValue::Primitive(_))
     }
 
+    /// View the Value as char, if possible
+    pub fn as_char(&self) -> Result<char, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_char(self.tag.span),
+            _ => Err(ShellError::type_error("char", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as unsigned size, if possible
+    pub fn as_usize(&self) -> Result<usize, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_usize(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
     /// View the Value as unsigned 64-bit, if possible
     pub fn as_u64(&self) -> Result<u64, ShellError> {
         match &self.value {
@@ -445,10 +461,26 @@ impl Value {
         }
     }
 
-    /// View the Value as signed 64-bit, if possible
+    /// View the Value as unsigned 32-bit, if possible
+    pub fn as_u32(&self) -> Result<u32, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_u32(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as signed 32-bit, if possible
     pub fn as_i32(&self) -> Result<i32, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(primitive) => primitive.as_i32(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as signed 16-bit, if possible
+    pub fn as_i16(&self) -> Result<i16, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_i16(self.tag.span),
             _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
         }
     }

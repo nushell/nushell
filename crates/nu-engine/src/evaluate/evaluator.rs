@@ -6,7 +6,7 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::did_you_mean;
 use nu_protocol::{
-    hir::{self, CapturedBlock, Expression, ExternalRedirection, RangeOperator, SpannedExpression},
+    hir::{self, CapturedBlock, Expression, RangeOperator, SpannedExpression},
     Dictionary,
 };
 use nu_protocol::{
@@ -154,11 +154,8 @@ pub fn evaluate_baseline_expr(
                 }
             }
 
-            let mut block = block.clone();
-            block.infer_params();
-
             Ok(
-                UntaggedValue::Block(Box::new(CapturedBlock::new(block, captured)))
+                UntaggedValue::Block(Box::new(CapturedBlock::new(block.clone(), captured)))
                     .into_value(&tag),
             )
         }
@@ -230,7 +227,7 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
 
 fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<Value, ShellError> {
     match name {
-        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag),
+        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag, ctx),
 
         "$scope" => crate::evaluate::variables::scope(
             &ctx.scope.get_aliases(),
@@ -279,9 +276,6 @@ fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Va
         Some(it) => InputStream::one(it),
         None => InputStream::empty(),
     };
-
-    let mut block = block.clone();
-    block.set_redirect(ExternalRedirection::Stdout);
 
     let result = run_block(&block, ctx, input)?;
 

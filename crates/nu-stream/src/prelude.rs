@@ -9,19 +9,6 @@ macro_rules! return_err {
 }
 
 #[macro_export]
-macro_rules! stream {
-    ($($expr:expr),*) => {{
-        let mut v = VecDeque::new();
-
-        $(
-            v.push_back($expr);
-        )*
-
-        v
-    }}
-}
-
-#[macro_export]
 macro_rules! trace_out_stream {
     (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {

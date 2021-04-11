@@ -7,13 +7,6 @@ use nu_source::Tagged;
 
 pub struct Let;
 
-#[derive(Deserialize)]
-pub struct LetArgs {
-    pub name: Tagged<String>,
-    pub equals: Tagged<String>,
-    pub rhs: CapturedBlock,
-}
-
 impl WholeStreamCommand for Let {
     fn name(&self) -> &str {
         "let"
@@ -46,8 +39,11 @@ impl WholeStreamCommand for Let {
 pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
+    let args = args.evaluate_once()?;
 
-    let (LetArgs { name, rhs, .. }, _) = args.process()?;
+    //let (LetArgs { name, rhs, .. }, _) = args.process()?;
+    let name: Tagged<String> = args.req(0)?;
+    let rhs: CapturedBlock = args.req(2)?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -59,7 +55,7 @@ pub fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         match rhs.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
-                Some(ClassifiedCommand::Expr(expr)) => (expr.clone(), rhs.captured.clone()),
+                Some(ClassifiedCommand::Expr(expr)) => (expr, &rhs.captured),
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a value",

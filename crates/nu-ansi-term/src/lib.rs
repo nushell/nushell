@@ -246,7 +246,7 @@ extern crate doc_comment;
 #[cfg(test)]
 doctest!("../README.md");
 
-mod ansi;
+pub mod ansi;
 pub use ansi::{Infix, Prefix, Suffix};
 
 mod style;
