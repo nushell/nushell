@@ -3,7 +3,6 @@ use indexmap::IndexMap;
 use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
 use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue, Value};
-use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
 pub fn nu(
