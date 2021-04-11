@@ -27,9 +27,10 @@ impl InputStream {
     }
 
     pub fn one(item: impl Into<Value>) -> InputStream {
-        let mut v: VecDeque<Value> = VecDeque::new();
-        v.push_back(item.into());
-        v.into()
+        InputStream {
+            values: Box::new(std::iter::once(item.into())),
+            empty: false,
+        }
     }
 
     pub fn into_vec(self) -> Vec<Value> {

@@ -778,13 +778,10 @@ impl Shell for FilesystemShell {
             }
         };
 
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
+        Ok(OutputStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::String(p.to_string_lossy().to_string()))
                 .into_value(&args.call_info.name_tag),
-        ));
-
-        Ok(stream.into())
+        )))
     }
 
     fn set_path(&mut self, path: String) {

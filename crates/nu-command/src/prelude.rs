@@ -8,19 +8,6 @@ macro_rules! return_err {
     };
 }
 
-#[macro_export]
-macro_rules! stream {
-    ($($expr:expr),*) => {{
-        let mut v = VecDeque::new();
-
-        $(
-            v.push_back($expr);
-        )*
-
-        v
-    }}
-}
-
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use indexmap::{indexmap, IndexMap};
 pub(crate) use itertools::Itertools;
