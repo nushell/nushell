@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use bigdecimal::Zero;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
@@ -69,11 +70,13 @@ fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 struct RangeIterator {
-    curr: Primitive,
-    end: Primitive,
+    curr: UntaggedValue,
+    end: UntaggedValue,
     tag: Tag,
     is_end_inclusive: bool,
     moves_up: bool,
+    one: UntaggedValue,
+    negative_one: UntaggedValue,
 }
 
 impl RangeIterator {
@@ -90,10 +93,12 @@ impl RangeIterator {
 
         RangeIterator {
             moves_up: start <= end,
-            curr: start,
-            end,
+            curr: UntaggedValue::Primitive(start),
+            end: UntaggedValue::Primitive(end),
             tag,
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
+            one: UntaggedValue::int(1),
+            negative_one: UntaggedValue::int(-1),
         }
     }
 }
@@ -101,50 +106,46 @@ impl RangeIterator {
 impl Iterator for RangeIterator {
     type Item = Result<ReturnSuccess, ShellError>;
     fn next(&mut self) -> Option<Self::Item> {
-        let ordering = if self.end == Primitive::Nothing {
+        use std::cmp::Ordering;
+
+        let ordering = if self.end == UntaggedValue::Primitive(Primitive::Nothing) {
             Ordering::Less
         } else {
-            let result =
-                nu_data::base::coerce_compare_primitive(&self.curr, &self.end).map_err(|_| {
-                    ShellError::labeled_error(
+            match (&self.curr, &self.end) {
+                (
+                    UntaggedValue::Primitive(Primitive::Int(x)),
+                    UntaggedValue::Primitive(Primitive::Int(y)),
+                ) => x.cmp(y),
+                (
+                    UntaggedValue::Primitive(Primitive::Decimal(x)),
+                    UntaggedValue::Primitive(Primitive::Decimal(y)),
+                ) => x.cmp(y),
+                (
+                    UntaggedValue::Primitive(Primitive::Decimal(x)),
+                    UntaggedValue::Primitive(Primitive::Int(y)),
+                ) => x.cmp(&(BigDecimal::zero() + y)),
+                (
+                    UntaggedValue::Primitive(Primitive::Int(x)),
+                    UntaggedValue::Primitive(Primitive::Decimal(y)),
+                ) => (BigDecimal::zero() + x).cmp(y),
+                _ => {
+                    return Some(Err(ShellError::labeled_error(
                         "Cannot create range",
                         "unsupported range",
                         self.tag.span,
-                    )
-                });
-
-            if let Err(result) = result {
-                return Some(Err(result));
+                    )))
+                }
             }
-
-            let result = result
-                .expect("Internal error: the error case was already protected, but that failed");
-
-            result.compare()
         };
-
-        use std::cmp::Ordering;
 
         if self.moves_up
             && (ordering == Ordering::Less || self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
+            let next_value = nu_data::value::compute_values(Operator::Plus, &self.curr, &self.one);
 
-            let next_value = nu_data::value::compute_values(
-                Operator::Plus,
-                &UntaggedValue::Primitive(self.curr.clone()),
-                &UntaggedValue::int(1),
-            );
+            let mut next = match next_value {
+                Ok(result) => result,
 
-            self.curr = match next_value {
-                Ok(result) => match result {
-                    UntaggedValue::Primitive(p) => p,
-                    _ => {
-                        return Some(Err(ShellError::unimplemented(
-                            "Internal error: expected a primitive result from increment",
-                        )));
-                    }
-                },
                 Err((left_type, right_type)) => {
                     return Some(Err(ShellError::coerce_error(
                         left_type.spanned(self.tag.span),
@@ -152,28 +153,18 @@ impl Iterator for RangeIterator {
                     )));
                 }
             };
-            Some(ReturnSuccess::value(output))
+            std::mem::swap(&mut self.curr, &mut next);
+
+            Some(ReturnSuccess::value(next.into_value(self.tag.clone())))
         } else if !self.moves_up
             && (ordering == Ordering::Greater
                 || self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
+            let next_value =
+                nu_data::value::compute_values(Operator::Plus, &self.curr, &self.negative_one);
 
-            let next_value = nu_data::value::compute_values(
-                Operator::Plus,
-                &UntaggedValue::Primitive(self.curr.clone()),
-                &UntaggedValue::int(-1),
-            );
-
-            self.curr = match next_value {
-                Ok(result) => match result {
-                    UntaggedValue::Primitive(p) => p,
-                    _ => {
-                        return Some(Err(ShellError::unimplemented(
-                            "Internal error: expected a primitive result from increment",
-                        )));
-                    }
-                },
+            let mut next = match next_value {
+                Ok(result) => result,
                 Err((left_type, right_type)) => {
                     return Some(Err(ShellError::coerce_error(
                         left_type.spanned(self.tag.span),
@@ -181,7 +172,9 @@ impl Iterator for RangeIterator {
                     )));
                 }
             };
-            Some(ReturnSuccess::value(output))
+            std::mem::swap(&mut self.curr, &mut next);
+
+            Some(ReturnSuccess::value(next.into_value(self.tag.clone())))
         } else {
             None
         }

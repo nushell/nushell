@@ -178,9 +178,7 @@ impl Shell for ValueShell {
             ));
         }
 
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::change_cwd(path));
-        Ok(stream.into())
+        Ok(OutputStream::one(ReturnSuccess::change_cwd(path)))
     }
 
     fn cp(&self, _args: CopyArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
@@ -220,11 +218,9 @@ impl Shell for ValueShell {
     }
 
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
+        Ok(OutputStream::one(
             UntaggedValue::string(self.path()).into_value(&args.call_info.name_tag),
-        ));
-        Ok(stream.into())
+        ))
     }
 
     fn set_path(&mut self, path: String) {

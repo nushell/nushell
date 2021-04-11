@@ -33,14 +33,31 @@ pub struct CommandArgs {
 
 pub type RunnableContext = CommandArgs;
 
+#[derive(Clone)]
 pub struct RunnableContextWithoutInput {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub call_info: UnevaluatedCallInfo,
     pub configs: Arc<Mutex<ConfigHolder>>,
     pub scope: Scope,
     pub name: Tag,
+}
+
+impl RunnableContextWithoutInput {
+    pub fn with_input(self, input: InputStream) -> CommandArgs {
+        CommandArgs {
+            shell_manager: self.shell_manager,
+            host: self.host,
+            current_errors: self.current_errors,
+            ctrl_c: self.ctrl_c,
+            call_info: self.call_info,
+            configs: self.configs,
+            scope: self.scope,
+            input,
+        }
+    }
 }
 
 #[derive(Getters, Clone)]
@@ -108,9 +125,10 @@ impl CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,
             configs: self.configs,
+            name: self.call_info.name_tag.clone(),
+            call_info: self.call_info,
             current_errors: self.current_errors,
             scope: self.scope,
-            name: self.call_info.name_tag,
         };
 
         (self.input, new_context)
