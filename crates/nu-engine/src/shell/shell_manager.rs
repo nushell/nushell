@@ -19,10 +19,23 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    /// Enters script mode at the current location
     pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
         let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
-        self.insert_at_current(Box::new(fs_shell));
+        self.shells.lock().push(Box::new(fs_shell));
+        self.current_shell
+            .store(self.shells.lock().len() - 1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// Enters cli mode at the current location
+    pub fn enter_cli_mode(&self) -> Result<(), std::io::Error> {
+        //New fs_shell starting from current path
+        let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Cli)?;
+        self.shells.lock().push(Box::new(fs_shell));
+        self.current_shell
+            .store(self.shells.lock().len() - 1, Ordering::SeqCst);
         Ok(())
     }
 
