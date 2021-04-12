@@ -2,6 +2,7 @@ pub mod commands;
 pub mod fs;
 pub mod macros;
 pub mod playground;
+pub mod trusted;
 pub mod value;
 
 pub struct Outcome {
