@@ -75,6 +75,7 @@ directories-support = [
     "nu-command/dirs",
     "nu-data/directories",
     "nu-data/dirs",
+    "nu-engine/directories",
     "nu-engine/dirs",
 ]
 ptree-support = ["nu-cli/ptree", "nu-command/ptree"]
