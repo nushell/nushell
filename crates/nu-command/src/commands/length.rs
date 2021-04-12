@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Length;
 
@@ -28,7 +28,7 @@ impl WholeStreamCommand for Length {
         "Show the total number of rows or items."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (LengthArgs { column }, input) = args.process()?;
 
@@ -38,7 +38,7 @@ impl WholeStreamCommand for Length {
             done: false,
             tag,
         }
-        .to_action_stream())
+        .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -65,7 +65,7 @@ struct CountIterator {
 }
 
 impl Iterator for CountIterator {
-    type Item = ReturnValue;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
@@ -79,7 +79,7 @@ impl Iterator for CountIterator {
                 match &first.value {
                     UntaggedValue::Row(dictionary) => dictionary.length(),
                     _ => {
-                        return Some(Err(ShellError::labeled_error(
+                        return Some(Value::error(ShellError::labeled_error(
                             "Cannot obtain column length",
                             "cannot obtain column length",
                             self.tag.clone(),
@@ -94,9 +94,7 @@ impl Iterator for CountIterator {
             input.count()
         };
 
-        Some(Ok(ReturnSuccess::Value(
-            UntaggedValue::int(length).into_value(self.tag.clone()),
-        )))
+        Some(UntaggedValue::int(length).into_value(self.tag.clone()))
     }
 }
 

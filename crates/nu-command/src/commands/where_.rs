@@ -3,7 +3,9 @@ use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, hir::ClassifiedCommand, ReturnSuccess, Signature, SyntaxShape,
+    hir::CapturedBlock,
+    hir::{ClassifiedCommand, SpannedExpression},
+    Signature, SyntaxShape, Value,
 };
 
 pub struct Command;
@@ -30,7 +32,7 @@ impl WholeStreamCommand for Command {
         "Filter table to match the condition."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         where_command(args)
     }
 
@@ -59,8 +61,8 @@ impl WholeStreamCommand for Command {
         ]
     }
 }
-fn where_command(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let ctx = Arc::new(EvaluationContext::from_args(&raw_args));
+fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let tag = raw_args.call_info.name_tag.clone();
     let (Arguments { block }, input) = raw_args.process()?;
     let condition = {
@@ -92,34 +94,13 @@ fn where_command(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     };
 
-    Ok(input
-        .filter_map(move |input| {
-            let condition = condition.clone();
-            let ctx = ctx.clone();
-
-            ctx.scope.enter_scope();
-            ctx.scope.add_vars(&block.captured.entries);
-            ctx.scope.add_var("$it", input.clone());
-
-            //FIXME: should we use the scope that's brought in as well?
-            let condition = evaluate_baseline_expr(&condition, &*ctx);
-            ctx.scope.exit_scope();
-
-            match condition {
-                Ok(condition) => match condition.as_bool() {
-                    Ok(b) => {
-                        if b {
-                            Some(Ok(ReturnSuccess::Value(input)))
-                        } else {
-                            None
-                        }
-                    }
-                    Err(e) => Some(Err(e)),
-                },
-                Err(e) => Some(Err(e)),
-            }
-        })
-        .to_action_stream())
+    Ok(WhereIterator {
+        block,
+        condition,
+        context,
+        input,
+    }
+    .to_output_stream())
 }
 
 #[cfg(test)]
@@ -132,5 +113,42 @@ mod tests {
         use crate::examples::test as test_examples;
 
         test_examples(Command {})
+    }
+}
+
+struct WhereIterator {
+    condition: Box<SpannedExpression>,
+    context: Arc<EvaluationContext>,
+    input: InputStream,
+    block: CapturedBlock,
+}
+
+impl Iterator for WhereIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(x) = self.input.next() {
+            self.context.scope.enter_scope();
+            self.context.scope.add_vars(&self.block.captured.entries);
+            self.context.scope.add_var("$it", x.clone());
+
+            //FIXME: should we use the scope that's brought in as well?
+            let condition = evaluate_baseline_expr(&self.condition, &self.context);
+            self.context.scope.exit_scope();
+
+            match condition {
+                Ok(condition) => match condition.as_bool() {
+                    Ok(b) => {
+                        if b {
+                            return Some(x);
+                        }
+                    }
+                    Err(e) => return Some(Value::error(e)),
+                },
+                Err(e) => return Some(Value::error(e)),
+            }
+        }
+
+        None
     }
 }
