@@ -60,8 +60,7 @@ impl WholeStreamCommand for Command {
                             let subtable =
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
-                            (subtable.into_iter().map(ReturnSuccess::value))
-                                .to_action_stream()
+                            (subtable.into_iter().map(ReturnSuccess::value)).to_action_stream()
                         } else {
                             (table
                                 .into_iter()

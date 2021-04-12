@@ -101,9 +101,7 @@ pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
         current_day_option,
     )?;
 
-    Ok(calendar_vec_deque
-        .into_iter()
-        .to_action_stream())
+    Ok(calendar_vec_deque.into_iter().to_action_stream())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {

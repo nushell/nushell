@@ -23,7 +23,7 @@ pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_protocol::{out, row};
 pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem};
 pub(crate) use nu_stream::{ActionStream, InputStream, Interruptible, OutputStream};
-pub(crate) use nu_stream::{ToInputStream, ToOutputStream, ToActionStream};
+pub(crate) use nu_stream::{ToActionStream, ToInputStream, ToOutputStream};
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
