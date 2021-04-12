@@ -1,6 +1,7 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
-use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
+use nu_engine::{maybe_print_errors, run_block, script, EvaluationContext};
+use std::error::Error;
 
 #[allow(unused_imports)]
 pub(crate) use nu_engine::script::{process_script, LineResult};
@@ -15,7 +16,7 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -24,10 +25,11 @@ use rustyline::{self, error::ReadlineError};
 
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
+use nu_protocol::{
+    hir::ExternalRedirection, ConfigPath, NuScript, RunScriptOptions, UntaggedValue, Value,
+};
 
 use log::trace;
-use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -52,45 +54,6 @@ impl Options {
             scripts: vec![],
             save_history: true,
         }
-    }
-}
-
-pub struct NuScript {
-    pub filepath: Option<OsString>,
-    pub contents: String,
-}
-
-impl NuScript {
-    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
-        let text = content
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        Ok(Self {
-            filepath: None,
-            contents: text,
-        })
-    }
-
-    pub fn get_code(&self) -> &str {
-        &self.contents
-    }
-
-    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
-        use std::fs::File;
-        use std::io::Read;
-
-        let path = path.to_os_string();
-        let mut file = File::open(&path)?;
-        let mut buffer = String::new();
-
-        file.read_to_string(&mut buffer)?;
-
-        Ok(Self {
-            filepath: Some(path),
-            contents: buffer,
-        })
     }
 }
 
@@ -123,7 +86,11 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn run_script_file(
+    options: Options,
+    run_options: RunScriptOptions,
+    context: EvaluationContext,
+) -> Result<(), Box<dyn Error>> {
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
@@ -133,12 +100,9 @@ pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(
     let _ = register_plugins(&context);
     let _ = configure_ctrl_c(&context);
 
-    let script = options
-        .scripts
-        .get(0)
-        .ok_or_else(|| ShellError::unexpected("Nu source code not available"))?;
-
-    run_script_standalone(script.get_code().to_string(), options.stdin, &context, true)?;
+    for script in options.scripts {
+        script::run_script(script, &run_options, &context);
+    }
 
     Ok(())
 }
@@ -215,6 +179,10 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
 
     let mut ctrlcbreak = false;
+
+    let mut run_options = RunScriptOptions::default()
+        .cli_mode(true)
+        .redirect_stdin(false);
 
     loop {
         if context.ctrl_c.load(Ordering::SeqCst) {
@@ -320,13 +288,10 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let cmd_start_time = std::time::Instant::now();
 
         let line = match convert_rustyline_result_to_string(readline) {
-            LineResult::Success(_) => process_script(
-                &session_text[line_start..],
-                &context,
-                false,
-                line_start,
-                true,
-            ),
+            LineResult::Success(_) => {
+                run_options = run_options.span_offset(line_start);
+                process_script(&session_text[line_start..], &run_options, &context)
+            }
             x => x,
         };
 
