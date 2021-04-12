@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
 struct Arguments {
@@ -27,14 +27,8 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let (Arguments { mut value }, input) = args.process()?;
-
-        let input: Vec<Value> = input.collect();
-
-        if let Some(first) = input.get(0) {
-            value.tag = first.tag();
-        }
 
         // Checks if we are trying to append a row literal
         if let Value {
@@ -47,11 +41,7 @@ impl WholeStreamCommand for Command {
             }
         }
 
-        Ok(input
-            .into_iter()
-            .chain(vec![value])
-            .map(ReturnSuccess::value)
-            .to_action_stream())
+        Ok(input.into_iter().chain(vec![value]).to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

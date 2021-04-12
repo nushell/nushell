@@ -27,7 +27,7 @@ impl WholeStreamCommand for Prepend {
         "Prepend the given row to the front of the table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         prepend(args)
     }
 
@@ -45,12 +45,12 @@ impl WholeStreamCommand for Prepend {
     }
 }
 
-fn prepend(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (PrependArgs { row }, input) = args.process()?;
 
     let bos = vec![row].into_iter();
 
-    Ok(bos.chain(input).to_action_stream())
+    Ok(bos.chain(input).to_output_stream())
 }
 
 #[cfg(test)]
