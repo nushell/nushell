@@ -47,7 +47,7 @@ fn from_vcf(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let collected: Vec<_> = iter.collect();
 
-    Ok(collected.into_iter().to_output_stream_with_actions())
+    Ok(collected.into_iter().to_action_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {

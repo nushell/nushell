@@ -249,7 +249,7 @@ fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &name_tag,
             )),
         }))
-    .to_output_stream_with_actions())
+    .to_action_stream())
 }
 
 #[cfg(test)]

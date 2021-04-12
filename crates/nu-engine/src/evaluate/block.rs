@@ -8,7 +8,7 @@ use nu_protocol::hir::{
 };
 use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
 use nu_source::{Span, Tag};
-use nu_stream::ToOutputStreamWithActions;
+use nu_stream::ToActionStream;
 use nu_stream::{InputStream, OutputStream};
 use std::sync::atomic::Ordering;
 
@@ -80,7 +80,7 @@ pub fn run_block(
             match output {
                 Ok(inp) if inp.is_empty() => {}
                 Ok(inp) => {
-                    let mut output_stream = inp.to_output_stream_with_actions();
+                    let mut output_stream = inp.to_action_stream();
 
                     match output_stream.next() {
                         Some(Ok(ReturnSuccess::Value(Value {

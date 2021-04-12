@@ -100,7 +100,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 // TODO If you're using the with-system-locale feature and you're on Windows, Clang 3.9 or higher is also required.

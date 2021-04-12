@@ -95,7 +95,7 @@ pub fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    Ok(parsed.into_iter().to_output_stream_with_actions())
+    Ok(parsed.into_iter().to_action_stream())
 }
 
 fn build_regex(input: &str, tag: Tag) -> Result<String, ShellError> {

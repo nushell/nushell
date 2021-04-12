@@ -84,7 +84,7 @@ fn format_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
             ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[derive(Debug)]

@@ -33,7 +33,7 @@ macro_rules! command {
                 fn command($args: EvaluatedCommandArgs, ( $($param_name),*, ): ( $($param_type),*, )) -> Result<OutputStream, ShellError> {
                     let output = $body;
 
-                    Ok(output.to_output_stream_with_actions())
+                    Ok(output.to_action_stream())
                 }
 
                 let $args = $args.evaluate_once(registry)?;

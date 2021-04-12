@@ -70,7 +70,7 @@ fn last(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok((iter).to_output_stream_with_actions())
+    Ok((iter).to_action_stream())
 }
 
 #[cfg(test)]

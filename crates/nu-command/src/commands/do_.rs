@@ -96,12 +96,12 @@ fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
             Ok(mut stream) => {
                 let output = stream.drain_vec();
                 context.clear_errors();
-                Ok(output.into_iter().to_output_stream_with_actions())
+                Ok(output.into_iter().to_action_stream())
             }
             Err(_) => Ok(ActionStream::empty()),
         }
     } else {
-        result.map(|x| x.to_output_stream_with_actions())
+        result.map(|x| x.to_action_stream())
     }
 }
 

@@ -150,7 +150,7 @@ fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                 result
             })?
-            .to_output_stream_with_actions())
+            .to_action_stream())
     } else {
         let initial = Ok(InputStream::one(start));
         Ok(input
@@ -177,7 +177,7 @@ fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                 context.scope.exit_scope();
                 result
             })?
-            .to_output_stream_with_actions())
+            .to_action_stream())
     }
 }
 

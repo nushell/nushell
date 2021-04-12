@@ -109,5 +109,5 @@ pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         })
         .collect::<Vec<_>>())
     .into_iter()
-    .to_output_stream_with_actions())
+    .to_action_stream())
 }

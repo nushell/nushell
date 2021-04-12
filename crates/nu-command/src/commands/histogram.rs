@@ -177,7 +177,7 @@ pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
             ReturnSuccess::value(fact.into_value())
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn evaluator(by: ColumnPath) -> Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send> {

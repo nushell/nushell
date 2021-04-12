@@ -83,5 +83,5 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream_with_actions()
+        .to_action_stream()
 }

@@ -69,7 +69,7 @@ fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 value_tag.span,
             )),
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

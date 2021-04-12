@@ -150,7 +150,7 @@ fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Err(e) => vec![Err(e)],
         })
         .interruptible(ctrl_c_copy)
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn glob_err_into(e: GlobError) -> ShellError {

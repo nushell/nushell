@@ -40,7 +40,7 @@ fn debug_value(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ReturnSuccess::debug_value(v)
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

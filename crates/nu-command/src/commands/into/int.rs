@@ -104,7 +104,7 @@ fn into_int(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

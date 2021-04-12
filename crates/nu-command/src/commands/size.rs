@@ -73,7 +73,7 @@ fn size(args: CommandArgs) -> ActionStream {
                 ))
             }
         })
-        .to_output_stream_with_actions()
+        .to_action_stream()
 }
 
 fn count(contents: &str, tag: impl Into<Tag>) -> Value {

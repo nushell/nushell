@@ -85,7 +85,7 @@ fn to_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn error_message(err: ParseErrorKind) -> &'static str {

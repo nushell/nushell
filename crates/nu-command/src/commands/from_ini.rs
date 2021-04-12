@@ -70,7 +70,7 @@ fn from_ini(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(list.into_iter().to_output_stream_with_actions()),
+            } => Ok(list.into_iter().to_action_stream()),
             x => Ok(ActionStream::one(x)),
         },
         Err(_) => Err(ShellError::labeled_error_with_secondary(

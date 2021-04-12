@@ -31,7 +31,7 @@ fn shuffle(args: CommandArgs) -> ActionStream {
     values
         .into_iter()
         .map(ReturnSuccess::value)
-        .to_output_stream_with_actions()
+        .to_action_stream()
 }
 
 #[cfg(test)]

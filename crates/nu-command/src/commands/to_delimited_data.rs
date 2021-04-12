@@ -217,5 +217,5 @@ pub fn to_delimited_data(
             }
         }
     }))
-    .to_output_stream_with_actions())
+    .to_action_stream())
 }

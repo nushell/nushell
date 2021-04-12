@@ -103,7 +103,7 @@ pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     Ok(calendar_vec_deque
         .into_iter()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {

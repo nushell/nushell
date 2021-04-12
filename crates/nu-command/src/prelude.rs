@@ -23,7 +23,7 @@ pub(crate) use nu_parser::ParserScope;
 pub(crate) use nu_protocol::{out, row};
 pub(crate) use nu_source::{AnchorLocation, PrettyDebug, Span, SpannedItem, Tag, TaggedItem};
 pub(crate) use nu_stream::{ActionStream, InputStream, Interruptible, OutputStream};
-pub(crate) use nu_stream::{ToInputStream, ToOutputStream, ToOutputStreamWithActions};
+pub(crate) use nu_stream::{ToInputStream, ToOutputStream, ToActionStream};
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
@@ -65,7 +65,7 @@ where
 
 // #[allow(clippy::wrong_self_convention)]
 // pub trait ToOutputStreamWithAction {
-//     fn to_output_stream_with_actions(self) -> ActionStream;
+//     fn to_action_stream(self) -> ActionStream;
 // }
 
 // impl<T, U> ToOutputStreamWithAction for T
@@ -73,7 +73,7 @@ where
 //     T: Iterator<Item = U> + Send + Sync + 'static,
 //     U: Into<nu_protocol::ReturnValue>,
 // {
-//     fn to_output_stream_with_actions(self) -> ActionStream {
+//     fn to_action_stream(self) -> ActionStream {
 //         ActionStream {
 //             values: Box::new(self.map(|item| item.into())),
 //         }

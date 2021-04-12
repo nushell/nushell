@@ -233,7 +233,7 @@ fn which(args: CommandArgs) -> Result<ActionStream, ShellError> {
         output.extend(values);
     }
 
-    Ok((output.into_iter().map(ReturnSuccess::value)).to_output_stream_with_actions())
+    Ok((output.into_iter().map(ReturnSuccess::value)).to_action_stream())
 }
 
 #[cfg(test)]

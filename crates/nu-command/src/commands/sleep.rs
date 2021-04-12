@@ -50,7 +50,7 @@ impl WholeStreamCommand for Sleep {
         // `echo | sleep 1sec` - nothing
         // `sleep 1sec`        - table with 0 elements
 
-        Ok(SleepIterator::new(total_dur, ctrl_c).to_output_stream_with_actions())
+        Ok(SleepIterator::new(total_dur, ctrl_c).to_action_stream())
 
         // if input.is_empty() {
         //     Ok(OutputStream::empty())

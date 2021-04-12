@@ -53,7 +53,7 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => list.into_iter().to_output_stream_with_actions(),
+            } => list.into_iter().to_action_stream(),
             x => ActionStream::one(ReturnSuccess::value(x)),
         })
     } else {
@@ -61,7 +61,7 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream_with_actions())
+        .to_action_stream())
     };
 
     result

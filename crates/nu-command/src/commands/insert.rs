@@ -168,5 +168,5 @@ fn insert(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         })
         .flatten()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }

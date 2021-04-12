@@ -119,7 +119,7 @@ fn where_command(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Err(e) => Some(Err(e)),
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

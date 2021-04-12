@@ -2,7 +2,7 @@ use nu_errors::ShellError;
 
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_stream::{ActionStream, ToOutputStreamWithActions};
+use nu_stream::{ActionStream, ToActionStream};
 
 use serde::Deserialize;
 
@@ -61,7 +61,7 @@ impl WholeStreamCommand for Command {
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
                             (subtable.into_iter().map(ReturnSuccess::value))
-                                .to_output_stream_with_actions()
+                                .to_action_stream()
                         } else {
                             (table
                                 .into_iter()
@@ -70,7 +70,7 @@ impl WholeStreamCommand for Command {
                                     v
                                 })
                                 .map(ReturnSuccess::value))
-                            .to_output_stream_with_actions()
+                            .to_action_stream()
                         }
                     }
                     _ => ActionStream::one(Ok(ReturnSuccess::Value(Value {
@@ -81,6 +81,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok((stream).flatten().to_output_stream_with_actions())
+        Ok((stream).flatten().to_action_stream())
     }
 }

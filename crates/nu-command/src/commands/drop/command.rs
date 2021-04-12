@@ -62,7 +62,7 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     Ok(if rows_to_drop == 0 {
-        v.into_iter().to_output_stream_with_actions()
+        v.into_iter().to_action_stream()
     } else {
         let k = if v.len() < rows_to_drop {
             0
@@ -72,6 +72,6 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         let iter = v.into_iter().take(k);
 
-        iter.to_output_stream_with_actions()
+        iter.to_action_stream()
     })
 }

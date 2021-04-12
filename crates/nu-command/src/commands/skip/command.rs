@@ -48,7 +48,7 @@ fn skip(args: CommandArgs) -> Result<ActionStream, ShellError> {
         1
     };
 
-    Ok(input.skip(rows_desired).to_output_stream_with_actions())
+    Ok(input.skip(rows_desired).to_action_stream())
 }
 
 #[cfg(test)]

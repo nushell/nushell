@@ -67,7 +67,7 @@ fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ReturnSuccess::value(item)
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
-use nu_stream::ToOutputStreamWithActions;
+use nu_stream::ToActionStream;
 
 pub struct Command;
 
@@ -118,7 +118,7 @@ fn all(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Err(e) => Err(e),
             }
         })?
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

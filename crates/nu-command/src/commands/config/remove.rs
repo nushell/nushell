@@ -56,7 +56,7 @@ pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
             )]
             .into_iter()
-            .to_output_stream_with_actions())
+            .to_action_stream())
         } else {
             Err(ShellError::labeled_error(
                 "Key does not exist in config",
@@ -69,7 +69,7 @@ pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream_with_actions())
+        .to_action_stream())
     };
 
     result

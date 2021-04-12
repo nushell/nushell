@@ -115,7 +115,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    Ok(values_vec_deque.into_iter().to_output_stream_with_actions())
+    Ok(values_vec_deque.into_iter().to_action_stream())
 }
 
 #[cfg(test)]

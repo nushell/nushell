@@ -6,7 +6,7 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
-use nu_stream::{ActionStream, ToOutputStreamWithActions};
+use nu_stream::{ActionStream, ToActionStream};
 use serde::{self, Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::io::prelude::*;
@@ -201,12 +201,10 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => {
-                                        params.into_iter().to_output_stream_with_actions()
+                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
-                                    Err(e) => vec![ReturnValue::Err(e)]
-                                        .into_iter()
-                                        .to_output_stream_with_actions(),
                                 },
 
                                 Err(e) => ActionStream::one(Err(
@@ -264,19 +262,17 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => {
-                                        params.into_iter().to_output_stream_with_actions()
+                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
-                                    Err(e) => vec![ReturnValue::Err(e)]
-                                        .into_iter()
-                                        .to_output_stream_with_actions(),
                                 },
                                 Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
                                     "Error while processing end_filter response: {:?} {}",
                                     e, input
                                 )))]
                                 .into_iter()
-                                .to_output_stream_with_actions(),
+                                .to_action_stream(),
                             }
                         }
                         Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
@@ -284,7 +280,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                             e
                         )))]
                         .into_iter()
-                        .to_output_stream_with_actions(),
+                        .to_action_stream(),
                     };
 
                     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -340,12 +336,10 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => {
-                                        params.into_iter().to_output_stream_with_actions()
+                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Err(e) => {
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
-                                    Err(e) => vec![ReturnValue::Err(e)]
-                                        .into_iter()
-                                        .to_output_stream_with_actions(),
                                 },
                                 Err(e) => ActionStream::one(Err(
                                     ShellError::untagged_runtime_error(format!(
@@ -363,7 +357,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
             }
         })
         .flatten()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[derive(new)]

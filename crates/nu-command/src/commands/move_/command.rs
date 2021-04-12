@@ -169,7 +169,7 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream_with_actions())
+            .to_action_stream())
     } else if let Some(before) = before {
         let member = columns.remove(0);
 
@@ -217,7 +217,7 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream_with_actions())
+            .to_action_stream())
     } else {
         Err(ShellError::labeled_error(
             "no columns given",

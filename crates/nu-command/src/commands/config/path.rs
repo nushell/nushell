@@ -41,6 +41,6 @@ pub fn path(args: CommandArgs) -> Result<ActionStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream_with_actions())
+        .to_action_stream())
     }
 }

@@ -83,7 +83,7 @@ fn nth(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 None
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

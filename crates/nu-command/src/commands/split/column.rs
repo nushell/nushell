@@ -102,7 +102,7 @@ fn split_column(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ))
             }
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

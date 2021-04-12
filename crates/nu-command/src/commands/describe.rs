@@ -36,7 +36,7 @@ pub fn describe(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)),
             )
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

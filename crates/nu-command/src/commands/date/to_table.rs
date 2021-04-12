@@ -87,7 +87,7 @@ fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

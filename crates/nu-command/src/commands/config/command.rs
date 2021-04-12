@@ -29,13 +29,13 @@ impl WholeStreamCommand for Command {
                 UntaggedValue::Row(result.into()).into_value(name),
             )]
             .into_iter()
-            .to_output_stream_with_actions())
+            .to_action_stream())
         } else {
             Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
                 crate::commands::config::err_no_global_cfg_present(),
             ))]
             .into_iter()
-            .to_output_stream_with_actions())
+            .to_action_stream())
         }
     }
 }

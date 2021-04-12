@@ -65,7 +65,7 @@ pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 .map(ReturnSuccess::value)
         })
         .flatten()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {

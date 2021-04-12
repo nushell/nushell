@@ -100,7 +100,7 @@ fn from_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     }
                 }
             })
-            .to_output_stream_with_actions())
+            .to_action_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
@@ -110,7 +110,7 @@ fn from_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 } => Ok(list
                     .into_iter()
                     .map(ReturnSuccess::value)
-                    .to_output_stream_with_actions()),
+                    .to_action_stream()),
 
                 x => Ok(ActionStream::one(ReturnSuccess::value(x))),
             },

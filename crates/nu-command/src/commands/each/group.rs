@@ -56,7 +56,7 @@ impl WholeStreamCommand for EachGroup {
 
         Ok(each_group_iterator
             .flatten()
-            .to_output_stream_with_actions())
+            .to_action_stream())
     }
 }
 

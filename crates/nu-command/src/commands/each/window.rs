@@ -83,7 +83,7 @@ impl WholeStreamCommand for EachWindow {
             })
             .filter_map(|x| x)
             .flatten()
-            .to_output_stream_with_actions())
+            .to_action_stream())
     }
 }
 

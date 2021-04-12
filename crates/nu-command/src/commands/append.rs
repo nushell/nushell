@@ -51,7 +51,7 @@ impl WholeStreamCommand for Command {
             .into_iter()
             .chain(vec![value])
             .map(ReturnSuccess::value)
-            .to_output_stream_with_actions())
+            .to_action_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

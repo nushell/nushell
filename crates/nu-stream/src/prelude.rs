@@ -53,16 +53,16 @@ where
 }
 
 #[allow(clippy::wrong_self_convention)]
-pub trait ToOutputStreamWithActions {
-    fn to_output_stream_with_actions(self) -> ActionStream;
+pub trait ToActionStream {
+    fn to_action_stream(self) -> ActionStream;
 }
 
-impl<T, U> ToOutputStreamWithActions for T
+impl<T, U> ToActionStream for T
 where
     T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<nu_protocol::ReturnValue>,
 {
-    fn to_output_stream_with_actions(self) -> ActionStream {
+    fn to_action_stream(self) -> ActionStream {
         ActionStream {
             values: Box::new(self.map(|item| item.into())),
         }

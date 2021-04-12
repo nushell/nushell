@@ -121,7 +121,7 @@ fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let result = run_block(&block.block, &context, input);
     context.scope.exit_scope();
 
-    result.map(|x| x.to_output_stream_with_actions())
+    result.map(|x| x.to_action_stream())
 }
 
 #[cfg(test)]

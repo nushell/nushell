@@ -59,7 +59,7 @@ fn range(args: CommandArgs) -> Result<ActionStream, ShellError> {
         .skip(from)
         .take(to - from + 1)
         .map(ReturnSuccess::value)
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

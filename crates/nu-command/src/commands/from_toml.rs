@@ -75,7 +75,7 @@ pub fn from_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 } => list
                     .into_iter()
                     .map(ReturnSuccess::value)
-                    .to_output_stream_with_actions(),
+                    .to_action_stream(),
                 x => ActionStream::one(ReturnSuccess::value(x)),
             },
             Err(_) => {

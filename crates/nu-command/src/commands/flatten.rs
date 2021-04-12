@@ -58,7 +58,7 @@ fn flatten(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Ok(input
         .map(move |item| flat_value(&columns, &item, &tag).into_iter())
         .flatten()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 enum TableInside<'a> {

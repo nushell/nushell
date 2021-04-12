@@ -116,7 +116,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     .shell_manager
                     .cd(cd_args, args.call_info.name_tag.clone());
 
-                return Ok(result?.to_output_stream_with_actions());
+                return Ok(result?.to_action_stream());
             }
         }
 
@@ -128,7 +128,7 @@ impl WholeStreamCommand for RunExternalCommand {
             external_redirection,
         );
 
-        Ok(result?.to_output_stream_with_actions())
+        Ok(result?.to_action_stream())
     }
 }
 

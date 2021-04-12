@@ -69,7 +69,7 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
             select_fields(&item, descs, item.tag())
         })
         .map(ReturnSuccess::value)
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 #[cfg(test)]

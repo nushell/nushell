@@ -48,7 +48,7 @@ fn tags(args: CommandArgs) -> ActionStream {
 
             tags.into_value()
         })
-        .to_output_stream_with_actions()
+        .to_action_stream()
 }
 
 #[cfg(test)]

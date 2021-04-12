@@ -104,7 +104,7 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 }
             })
             .flatten()
-            .to_output_stream_with_actions());
+            .to_action_stream());
     }
 
     Ok(input
@@ -120,7 +120,7 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         })
         .flatten()
-        .to_output_stream_with_actions())
+        .to_action_stream())
 }
 
 fn process_row(
