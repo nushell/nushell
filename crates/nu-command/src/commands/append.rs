@@ -28,7 +28,14 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (Arguments { mut value }, input) = args.process()?;
+        let (Arguments { mut value }, mut input) = args.process()?;
+
+        let mut prepend = vec![];
+
+        if let Some(first) = input.next() {
+            value.tag = first.tag();
+            prepend.push(first);
+        }
 
         // Checks if we are trying to append a row literal
         if let Value {
@@ -41,7 +48,10 @@ impl WholeStreamCommand for Command {
             }
         }
 
-        Ok(input.into_iter().chain(vec![value]).to_output_stream())
+        Ok(prepend
+            .into_iter()
+            .chain(input.into_iter().chain(vec![value]))
+            .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
