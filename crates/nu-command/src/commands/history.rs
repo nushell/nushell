@@ -25,12 +25,12 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         history(args)
     }
 }
 
-fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
     let (Arguments { clear }, _) = args.process()?;
@@ -44,7 +44,7 @@ fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
     match clear {
         Some(_) => {
             // This is a NOOP, the logic to clear is handled in cli.rs
-            Ok(OutputStream::empty())
+            Ok(ActionStream::empty())
         }
         None => {
             if let Ok(file) = File::open(path) {
@@ -57,7 +57,7 @@ fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(_) => None,
                 });
 
-                Ok(output.to_output_stream())
+                Ok(output.to_action_stream())
             } else {
                 Err(ShellError::labeled_error(
                     "Could not open history",

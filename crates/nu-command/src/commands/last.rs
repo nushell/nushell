@@ -28,7 +28,7 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         last(args)
     }
 
@@ -52,7 +52,7 @@ impl WholeStreamCommand for Last {
     }
 }
 
-fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn last(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (LastArgs { rows }, input) = args.process()?;
     let v: Vec<_> = input.into_vec();
 
@@ -70,7 +70,7 @@ fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok((iter).to_output_stream())
+    Ok((iter).to_action_stream())
 }
 
 #[cfg(test)]

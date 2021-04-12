@@ -24,7 +24,7 @@ impl WholeStreamCommand for Command {
         "Skip some number of rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         skip(args)
     }
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn skip(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
@@ -48,7 +48,7 @@ fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
         1
     };
 
-    Ok(input.skip(rows_desired).to_output_stream())
+    Ok(input.skip(rows_desired).to_action_stream())
 }
 
 #[cfg(test)]

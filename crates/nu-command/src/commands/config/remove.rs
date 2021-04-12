@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         remove(args)
     }
 
@@ -41,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
     let (Arguments { remove }, _) = args.process()?;
 
@@ -56,7 +56,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
             )]
             .into_iter()
-            .to_output_stream())
+            .to_action_stream())
         } else {
             Err(ShellError::labeled_error(
                 "Key does not exist in config",
@@ -69,7 +69,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream())
+        .to_action_stream())
     };
 
     result

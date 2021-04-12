@@ -30,7 +30,7 @@ impl WholeStreamCommand for Touch {
     fn usage(&self) -> &str {
         "Creates one or more files."
     }
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         touch(args)
     }
 
@@ -50,7 +50,7 @@ impl WholeStreamCommand for Touch {
     }
 }
 
-fn touch(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn touch(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (TouchArgs { target, rest }, _) = args.process()?;
 
     for item in vec![target].into_iter().chain(rest.into_iter()) {
@@ -66,7 +66,7 @@ fn touch(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }
 
 #[cfg(test)]

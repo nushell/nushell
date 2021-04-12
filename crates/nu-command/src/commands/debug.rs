@@ -23,12 +23,12 @@ impl WholeStreamCommand for Debug {
         "Print the Rust debug representation of the values."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         debug_value(args)
     }
 }
 
-fn debug_value(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn debug_value(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (DebugArgs { raw }, input) = args.process()?;
     Ok(input
         .map(move |v| {
@@ -40,7 +40,7 @@ fn debug_value(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::debug_value(v)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

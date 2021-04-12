@@ -19,7 +19,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random uuid4 string"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         uuid(args)
     }
 
@@ -32,10 +32,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn uuid(_args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn uuid(_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
 
-    Ok(OutputStream::one(ReturnSuccess::value(uuid_4)))
+    Ok(ActionStream::one(ReturnSuccess::value(uuid_4)))
 }
 
 #[cfg(test)]

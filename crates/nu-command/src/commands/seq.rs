@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::value::StrExt;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::cmp;
 
@@ -317,5 +317,5 @@ fn print_seq(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    (rows.into_iter().map(ReturnSuccess::value)).to_output_stream()
+    (rows.into_iter()).to_output_stream()
 }

@@ -19,8 +19,8 @@ impl WholeStreamCommand for To {
         "Convert table into an output format (based on subcommand, like csv, html, json, yaml)."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(ReturnSuccess::value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&To, &args.scope)).into_value(Tag::unknown()),
         )))
     }

@@ -28,7 +28,7 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         keep(args)
     }
 
@@ -53,7 +53,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn keep(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
@@ -61,7 +61,7 @@ fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
         1
     };
 
-    Ok(input.take(rows_desired).to_output_stream())
+    Ok(input.take(rows_desired).to_action_stream())
 }
 
 #[cfg(test)]

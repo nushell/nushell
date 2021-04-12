@@ -18,12 +18,12 @@ impl WholeStreamCommand for ToUrl {
         "Convert table into url-encoded text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_url(args)
     }
 }
 
-fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -69,7 +69,7 @@ fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 value_tag.span,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

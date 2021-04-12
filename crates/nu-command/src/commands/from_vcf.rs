@@ -21,12 +21,12 @@ impl WholeStreamCommand for FromVcf {
         "Parse text as .vcf and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_vcf(args)
     }
 }
 
-fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_vcf(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -47,7 +47,7 @@ fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let collected: Vec<_> = iter.collect();
 
-    Ok(collected.into_iter().to_output_stream())
+    Ok(collected.into_iter().to_action_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {

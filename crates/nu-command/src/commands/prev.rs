@@ -19,12 +19,12 @@ impl WholeStreamCommand for Previous {
         "Go to previous shell."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(previous(args))
     }
 }
 
-fn previous(_args: CommandArgs) -> OutputStream {
+fn previous(_args: CommandArgs) -> ActionStream {
     vec![Ok(ReturnSuccess::Action(CommandAction::PreviousShell))].into()
 }
 

@@ -1,7 +1,7 @@
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
@@ -69,7 +69,7 @@ impl ShellManager {
         self.shells.lock()[self.current_shell()].path()
     }
 
-    pub fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].pwd(args)
@@ -96,7 +96,7 @@ impl ShellManager {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
     }
 
@@ -137,40 +137,40 @@ impl ShellManager {
         args: LsArgs,
         name: Tag,
         ctrl_c: Arc<AtomicBool>,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].ls(args, name, ctrl_c)
     }
 
-    pub fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].cd(args, name)
     }
 
-    pub fn cp(&self, args: CopyArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn cp(&self, args: CopyArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
         shells[self.current_shell()].cp(args, name, &path)
     }
 
-    pub fn rm(&self, args: RemoveArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn rm(&self, args: RemoveArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
         shells[self.current_shell()].rm(args, name, &path)
     }
 
-    pub fn mkdir(&self, args: MkdirArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn mkdir(&self, args: MkdirArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();
         shells[self.current_shell()].mkdir(args, name, &path)
     }
 
-    pub fn mv(&self, args: MvArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    pub fn mv(&self, args: MvArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();

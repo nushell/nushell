@@ -24,7 +24,7 @@ impl WholeStreamCommand for Which {
         "Finds a program file, alias or custom command."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         which(args)
     }
 }
@@ -214,7 +214,7 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
     }
 }
 
-fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn which(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let scope = args.scope.clone();
 
     let (
@@ -233,7 +233,7 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         output.extend(values);
     }
 
-    Ok((output.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    Ok((output.into_iter().map(ReturnSuccess::value)).to_action_stream())
 }
 
 #[cfg(test)]

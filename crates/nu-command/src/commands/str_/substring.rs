@@ -40,7 +40,7 @@ impl WholeStreamCommand for SubCommand {
         "substrings text"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -86,7 +86,7 @@ impl From<(isize, isize)> for Substring {
 
 struct SubstringText(String, String);
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (options, input) = args.extract(|params| {
@@ -117,7 +117,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Value, ShellError> {

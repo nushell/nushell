@@ -20,7 +20,7 @@ impl WholeStreamCommand for Date {
         "Print the date in a structured table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_table(args)
     }
 
@@ -33,7 +33,7 @@ impl WholeStreamCommand for Date {
     }
 }
 
-fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
     let input = args.input;
@@ -87,7 +87,7 @@ fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

@@ -30,12 +30,12 @@ impl WholeStreamCommand for FromOds {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_ods(args)
     }
 }
 
-fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ods(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
 
@@ -87,7 +87,7 @@ fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]

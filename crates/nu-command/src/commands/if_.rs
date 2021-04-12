@@ -6,6 +6,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
+use nu_stream::OutputStream;
 
 pub struct If;
 
@@ -110,11 +111,15 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 };
                 context.scope.exit_scope();
 
-                result.map(|x| x.to_output_stream())
+                result
             }
-            Err(e) => Ok(vec![Err(e)].into_iter().to_output_stream()),
+            Err(e) => Ok(OutputStream::from_stream(
+                vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
+            )),
         },
-        Err(e) => Ok(vec![Err(e)].into_iter().to_output_stream()),
+        Err(e) => Ok(OutputStream::from_stream(
+            vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
+        )),
     }
 }
 

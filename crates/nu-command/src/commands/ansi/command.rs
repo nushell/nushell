@@ -112,7 +112,7 @@ Format: #
         ]
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let args = args.evaluate_once()?;
 
         let code: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
@@ -130,7 +130,7 @@ Format: #
                 ));
             }
             let output = format!("\x1b[{}", e.item);
-            return Ok(OutputStream::one(ReturnSuccess::value(
+            return Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(e.tag()),
             )));
         }
@@ -149,7 +149,7 @@ Format: #
             //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
             let output = format!("\x1b]{};", o.item);
-            return Ok(OutputStream::one(ReturnSuccess::value(
+            return Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(o.tag()),
             )));
         }
@@ -159,7 +159,7 @@ Format: #
             let ansi_code = str_to_ansi(&code.item);
 
             if let Some(output) = ansi_code {
-                Ok(OutputStream::one(ReturnSuccess::value(
+                Ok(ActionStream::one(ReturnSuccess::value(
                     UntaggedValue::string(output).into_value(code.tag()),
                 )))
             } else {

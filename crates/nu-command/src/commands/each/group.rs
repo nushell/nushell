@@ -2,9 +2,7 @@ use crate::commands::each::process_row;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -44,7 +42,7 @@ impl WholeStreamCommand for EachGroup {
         }]
     }
 
-    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
         let (each_args, input): (EachGroupArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
@@ -56,7 +54,7 @@ impl WholeStreamCommand for EachGroup {
             input,
         };
 
-        Ok(each_group_iterator.flatten().to_output_stream())
+        Ok(each_group_iterator.flatten().to_action_stream())
     }
 }
 
@@ -122,20 +120,9 @@ pub(crate) fn run_block_on_vec(
 
             // If it returned multiple values, we need to put them into a table and
             // return that.
-            let result = vec.into_iter().collect::<Result<Vec<ReturnSuccess>, _>>();
-            let result_table = match result {
-                Ok(t) => t,
-                Err(e) => return OutputStream::one(Err(e)),
-            };
-
-            let table = result_table
-                .into_iter()
-                .filter_map(|x| x.raw_value())
-                .collect();
-
-            OutputStream::one(Ok(ReturnSuccess::Value(UntaggedValue::Table(table).into())))
+            OutputStream::one(UntaggedValue::Table(vec).into_untagged_value())
         }
-        Err(e) => OutputStream::one(Err(e)),
+        Err(e) => OutputStream::one(Value::error(e)),
     }
 }
 

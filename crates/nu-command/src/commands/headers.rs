@@ -21,7 +21,7 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         headers(args)
     }
 
@@ -41,7 +41,7 @@ impl WholeStreamCommand for Headers {
     }
 }
 
-pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn headers(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let input = args.input;
     let rows: Vec<Value> = input.collect();
 
@@ -102,7 +102,7 @@ pub fn headers(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )),
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

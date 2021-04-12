@@ -31,12 +31,12 @@ impl WholeStreamCommand for Command {
         "Rotates the table by 90 degrees clockwise."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         rotate(args)
     }
 }
 
-pub fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (Arguments { rest }, input) = args.process()?;
 
@@ -48,7 +48,7 @@ pub fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let descs = descs.into_iter().rev().collect::<Vec<_>>();
 
     if total_rows == 0 {
-        return Ok(OutputStream::empty());
+        return Ok(ActionStream::empty());
     }
 
     let mut headers: Vec<String> = vec![];
@@ -113,5 +113,5 @@ pub fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .rev()
         .collect::<Vec<_>>())
     .into_iter()
-    .to_output_stream())
+    .to_action_stream())
 }

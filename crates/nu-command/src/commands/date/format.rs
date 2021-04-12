@@ -30,7 +30,7 @@ impl WholeStreamCommand for Date {
         "Format a given date using the given format string."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         format(args)
     }
 
@@ -50,7 +50,7 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let (FormatArgs { format, table }, input) = args.process()?;
 
@@ -91,7 +91,7 @@ pub fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

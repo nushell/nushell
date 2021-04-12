@@ -37,7 +37,7 @@ impl WholeStreamCommand for SubCommand {
         "converts text into integer"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -67,7 +67,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
         let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
@@ -100,7 +100,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, ShellError> {

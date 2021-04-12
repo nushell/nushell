@@ -36,12 +36,12 @@ impl WholeStreamCommand for ToCsv {
         "Convert table into .csv text "
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         to_csv(args)
     }
 }
 
-fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_csv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         ToCsvArgs {

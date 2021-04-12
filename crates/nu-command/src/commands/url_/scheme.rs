@@ -21,7 +21,7 @@ impl WholeStreamCommand for UrlScheme {
         "gets the scheme (eg http, file) of a url"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let (DefaultArguments { rest }, input) = args.process()?;
         Ok(operate(input, rest, &Url::scheme))
     }

@@ -31,7 +31,7 @@ impl WholeStreamCommand for Exec {
         "Execute command."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         exec(args)
     }
 
@@ -52,7 +52,7 @@ impl WholeStreamCommand for Exec {
 }
 
 #[cfg(unix)]
-fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
 
@@ -74,7 +74,7 @@ fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",

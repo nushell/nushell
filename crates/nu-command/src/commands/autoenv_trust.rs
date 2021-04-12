@@ -21,7 +21,7 @@ impl WholeStreamCommand for AutoenvTrust {
         "Trust a .nu-env file in the current or given directory"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let ctx = EvaluationContext::from_args(&args);
 
@@ -55,7 +55,7 @@ impl WholeStreamCommand for AutoenvTrust {
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(".nu-env trusted!").into_value(tag),
         )))
     }

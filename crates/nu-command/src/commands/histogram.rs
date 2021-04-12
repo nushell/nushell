@@ -31,7 +31,7 @@ impl WholeStreamCommand for Histogram {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         histogram(args)
     }
 
@@ -57,7 +57,7 @@ impl WholeStreamCommand for Histogram {
     }
 }
 
-pub fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (input, args) = args.evaluate_once()?.parts();
 
@@ -177,7 +177,7 @@ pub fn histogram(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             ReturnSuccess::value(fact.into_value())
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn evaluator(by: ColumnPath) -> Box<dyn Fn(usize, &Value) -> Result<Value, ShellError> + Send> {

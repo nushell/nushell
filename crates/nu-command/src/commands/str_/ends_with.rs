@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
         "checks if string ends with pattern"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -46,7 +46,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
         Ok(Arc::new(Arguments {
             pattern: params.req(0)?,
@@ -73,7 +73,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, pattern: &str, tag: impl Into<Tag>) -> Result<Value, ShellError> {

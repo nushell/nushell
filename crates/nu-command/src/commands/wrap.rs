@@ -31,7 +31,7 @@ impl WholeStreamCommand for Wrap {
         "Wraps the given data in a table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         wrap(args)
     }
 
@@ -77,7 +77,7 @@ impl WholeStreamCommand for Wrap {
     }
 }
 
-fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn wrap(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (WrapArgs { column }, input) = args.process()?;
     let mut result_table = vec![];
     let mut are_all_rows = true;
@@ -119,9 +119,9 @@ fn wrap(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let row = UntaggedValue::row(index_map).into_untagged_value();
 
-        Ok(OutputStream::one(ReturnSuccess::value(row)))
+        Ok(ActionStream::one(ReturnSuccess::value(row)))
     } else {
-        Ok((result_table.into_iter().map(ReturnSuccess::value)).to_output_stream())
+        Ok((result_table.into_iter().map(ReturnSuccess::value)).to_action_stream())
     }
 }
 

@@ -42,7 +42,7 @@ where
     Ok(v)
 }
 
-fn operate<F>(input: crate::InputStream, paths: Vec<ColumnPath>, action: &'static F) -> OutputStream
+fn operate<F>(input: crate::InputStream, paths: Vec<ColumnPath>, action: &'static F) -> ActionStream
 where
     F: Fn(&Url) -> &str + Send + Sync + 'static,
 {
@@ -63,5 +63,5 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream()
+        .to_action_stream()
 }

@@ -21,7 +21,7 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let rest: Vec<Value> = args.rest(0)?;
@@ -32,7 +32,7 @@ impl WholeStreamCommand for BuildString {
             output_string.push_str(&format_leaf(&r).plain_string(100_000))
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(tag),
         )))
     }

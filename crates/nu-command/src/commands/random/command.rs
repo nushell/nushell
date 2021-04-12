@@ -18,8 +18,8 @@ impl WholeStreamCommand for Command {
         "Generate random values."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(Ok(ReturnSuccess::Value(
             UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))
     }

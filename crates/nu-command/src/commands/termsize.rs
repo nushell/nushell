@@ -27,7 +27,7 @@ impl WholeStreamCommand for TermSize {
         "Returns the terminal size as W H"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (TermSizeArgs { wide, tall }, _) = args.process()?;
 
@@ -35,18 +35,18 @@ impl WholeStreamCommand for TermSize {
         match size {
             Some((w, h)) => {
                 if wide && !tall {
-                    Ok(OutputStream::one(UntaggedValue::int(w).into_value(tag)))
+                    Ok(ActionStream::one(UntaggedValue::int(w).into_value(tag)))
                 } else if !wide && tall {
-                    Ok(OutputStream::one(UntaggedValue::int(h).into_value(tag)))
+                    Ok(ActionStream::one(UntaggedValue::int(h).into_value(tag)))
                 } else {
                     let mut indexmap = IndexMap::with_capacity(2);
                     indexmap.insert("width".to_string(), UntaggedValue::int(w).into_value(&tag));
                     indexmap.insert("height".to_string(), UntaggedValue::int(h).into_value(&tag));
                     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
-                    Ok(OutputStream::one(value))
+                    Ok(ActionStream::one(value))
                 }
             }
-            _ => Ok(OutputStream::one(
+            _ => Ok(ActionStream::one(
                 UntaggedValue::string("0 0".to_string()).into_value(tag),
             )),
         }

@@ -35,7 +35,7 @@ impl WholeStreamCommand for PathJoin {
         "Joins an input path with another path"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathJoinArguments { path, rest }, input) = args.process()?;
         let args = Arc::new(PathJoinArguments { path, rest });

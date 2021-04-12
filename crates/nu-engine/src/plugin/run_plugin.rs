@@ -6,7 +6,7 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, ToActionStream};
 use serde::{self, Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::io::prelude::*;
@@ -106,12 +106,12 @@ impl WholeStreamCommand for PluginFilter {
         &self.config.usage
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         run_filter(self.path.clone(), args)
     }
 }
 
-fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
     let bos = vec![UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()]
@@ -175,7 +175,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
 
                     match request_raw {
                         Err(_) => {
-                            return OutputStream::one(Err(ShellError::labeled_error(
+                            return ActionStream::one(Err(ShellError::labeled_error(
                                 "Could not load json from plugin",
                                 "could not load json from plugin",
                                 &call_info.name_tag,
@@ -185,7 +185,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                             match stdin.write(format!("{}\n", request_raw).as_bytes()) {
                                 Ok(_) => {}
                                 Err(err) => {
-                                    return OutputStream::one(Err(ShellError::unexpected(
+                                    return ActionStream::one(Err(ShellError::unexpected(
                                         format!("{}", err),
                                     )));
                                 }
@@ -201,13 +201,13 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Ok(params) => params.into_iter().to_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
                                 },
 
-                                Err(e) => OutputStream::one(Err(
+                                Err(e) => ActionStream::one(Err(
                                     ShellError::untagged_runtime_error(format!(
                                         "Error while processing begin_filter response: {:?} {}",
                                         e, input
@@ -215,7 +215,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                                 )),
                             }
                         }
-                        Err(e) => OutputStream::one(Err(ShellError::untagged_runtime_error(
+                        Err(e) => ActionStream::one(Err(ShellError::untagged_runtime_error(
                             format!("Error while reading begin_filter response: {:?}", e),
                         ))),
                     }
@@ -236,7 +236,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
 
                     match request_raw {
                         Err(_) => {
-                            return OutputStream::one(Err(ShellError::labeled_error(
+                            return ActionStream::one(Err(ShellError::labeled_error(
                                 "Could not load json from plugin",
                                 "could not load json from plugin",
                                 &call_info.name_tag,
@@ -246,7 +246,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                             match stdin.write(format!("{}\n", request_raw).as_bytes()) {
                                 Ok(_) => {}
                                 Err(err) => {
-                                    return OutputStream::one(Err(ShellError::unexpected(
+                                    return ActionStream::one(Err(ShellError::unexpected(
                                         format!("{}", err),
                                     )));
                                 }
@@ -262,9 +262,9 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Ok(params) => params.into_iter().to_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
                                 },
                                 Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
@@ -272,7 +272,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                                     e, input
                                 )))]
                                 .into_iter()
-                                .to_output_stream(),
+                                .to_action_stream(),
                             }
                         }
                         Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
@@ -280,7 +280,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                             e
                         )))]
                         .into_iter()
-                        .to_output_stream(),
+                        .to_action_stream(),
                     };
 
                     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -295,7 +295,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                             // TODO: Handle error
                         }
                         Err(e) => {
-                            return OutputStream::one(Err(ShellError::untagged_runtime_error(
+                            return ActionStream::one(Err(ShellError::untagged_runtime_error(
                                 format!("Error while processing quit response: {:?}", e),
                             )));
                         }
@@ -322,7 +322,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                             // TODO: Handle error
                         }
                         Err(e) => {
-                            return OutputStream::one(Err(ShellError::untagged_runtime_error(
+                            return ActionStream::one(Err(ShellError::untagged_runtime_error(
                                 format!("Error while processing filter response: {:?}", e),
                             )));
                         }
@@ -336,12 +336,12 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_output_stream(),
+                                    Ok(params) => params.into_iter().to_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_output_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
                                     }
                                 },
-                                Err(e) => OutputStream::one(Err(
+                                Err(e) => ActionStream::one(Err(
                                     ShellError::untagged_runtime_error(format!(
                                     "Error while processing filter response: {:?}\n== input ==\n{}",
                                     e, input
@@ -349,7 +349,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
                                 )),
                             }
                         }
-                        Err(e) => OutputStream::one(Err(ShellError::untagged_runtime_error(
+                        Err(e) => ActionStream::one(Err(ShellError::untagged_runtime_error(
                             format!("Error while reading filter response: {:?}", e),
                         ))),
                     }
@@ -357,7 +357,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<OutputStream, ShellErro
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[derive(new)]
@@ -380,12 +380,12 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         run_sink(self.path.clone(), args)
     }
 }
 
-fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn run_sink(path: String, args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let call_info = args.call_info.clone();
 
@@ -429,7 +429,7 @@ fn run_sink(path: String, args: CommandArgs) -> Result<OutputStream, ShellError>
             if let Ok(mut child) = child {
                 let _ = child.wait();
 
-                Ok(OutputStream::empty())
+                Ok(ActionStream::empty())
             } else {
                 Err(ShellError::untagged_runtime_error(
                     "Could not create process for sink command",

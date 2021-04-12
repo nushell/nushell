@@ -28,7 +28,7 @@ impl WholeStreamCommand for First {
         "Show only the first number of rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         first(args)
     }
 
@@ -51,7 +51,7 @@ impl WholeStreamCommand for First {
     }
 }
 
-fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn first(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (FirstArgs { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
@@ -59,7 +59,7 @@ fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
         1
     };
 
-    Ok(input.take(rows_desired).to_output_stream())
+    Ok(input.take(rows_desired).to_action_stream())
 }
 
 #[cfg(test)]

@@ -54,7 +54,7 @@ impl WholeStreamCommand for PathFilestem {
         "Gets the file stem of a path"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (
             PathFilestemArguments {

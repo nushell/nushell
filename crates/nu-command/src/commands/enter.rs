@@ -50,7 +50,7 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         enter(args)
     }
 
@@ -75,7 +75,7 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 }
 
-fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let scope = raw_args.scope.clone();
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
@@ -88,7 +88,7 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let location_string = location.display().to_string();
 
     if location.is_dir() {
-        Ok(OutputStream::one(ReturnSuccess::action(
+        Ok(ActionStream::one(ReturnSuccess::action(
             CommandAction::EnterShell(location_string),
         )))
     } else {
@@ -129,8 +129,8 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                             scope,
                         };
                         let tag = tagged_contents.tag.clone();
-                        let mut result =
-                            converter.run(new_args.with_input(vec![tagged_contents]))?;
+                        let mut result = converter
+                            .run_with_actions(new_args.with_input(vec![tagged_contents]))?;
                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
                         Ok(result_vec
                             .into_iter()
@@ -143,19 +143,19 @@ fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 ),
                                 x => x,
                             })
-                            .to_output_stream())
+                            .to_action_stream())
                     } else {
-                        Ok(OutputStream::one(ReturnSuccess::action(
+                        Ok(ActionStream::one(ReturnSuccess::action(
                             CommandAction::EnterValueShell(tagged_contents),
                         )))
                     }
                 } else {
-                    Ok(OutputStream::one(ReturnSuccess::action(
+                    Ok(ActionStream::one(ReturnSuccess::action(
                         CommandAction::EnterValueShell(tagged_contents),
                     )))
                 }
             }
-            _ => Ok(OutputStream::one(ReturnSuccess::action(
+            _ => Ok(ActionStream::one(ReturnSuccess::action(
                 CommandAction::EnterValueShell(tagged_contents),
             ))),
         }

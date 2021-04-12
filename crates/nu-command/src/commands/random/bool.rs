@@ -30,7 +30,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random boolean value"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         bool_command(args)
     }
 
@@ -50,7 +50,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn bool_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (BoolArgs { bias }, _) = args.process()?;
 
     let mut probability = 0.5;
@@ -73,7 +73,7 @@ pub fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let bool_result: bool = rng.gen_bool(probability);
     let bool_untagged_value = UntaggedValue::boolean(bool_result);
 
-    Ok(OutputStream::one(ReturnSuccess::value(bool_untagged_value)))
+    Ok(ActionStream::one(ReturnSuccess::value(bool_untagged_value)))
 }
 
 #[cfg(test)]

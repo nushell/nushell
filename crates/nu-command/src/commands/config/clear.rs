@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "clear the config"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         clear(args)
     }
 
@@ -31,14 +31,14 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn clear(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
 
     let result = if let Some(global_cfg) = &mut args.configs.lock().global_config {
         global_cfg.vars.clear();
         global_cfg.write()?;
         ctx.reload_config(global_cfg)?;
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::Row(global_cfg.vars.clone().into()).into_value(args.call_info.name_tag),
         )))
     } else {
@@ -46,7 +46,7 @@ pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream())
+        .to_action_stream())
     };
 
     result

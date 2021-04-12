@@ -22,7 +22,7 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(size(args))
     }
 
@@ -54,7 +54,7 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs) -> OutputStream {
+fn size(args: CommandArgs) -> ActionStream {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;
@@ -73,7 +73,7 @@ fn size(args: CommandArgs) -> OutputStream {
                 ))
             }
         })
-        .to_output_stream()
+        .to_action_stream()
 }
 
 fn count(contents: &str, tag: impl Into<Tag>) -> Value {

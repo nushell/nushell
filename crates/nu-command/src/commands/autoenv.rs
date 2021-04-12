@@ -25,8 +25,8 @@ The .nu-env file has the same format as your $HOME/nu/config.toml file. By loadi
     fn signature(&self) -> Signature {
         Signature::build("autoenv")
     }
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(ReturnSuccess::value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Autoenv, &args.scope)).into_value(Tag::unknown()),
         )))
     }

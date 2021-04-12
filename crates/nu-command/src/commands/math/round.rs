@@ -29,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -57,7 +57,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { precision }, input) = args.process()?;
     let precision = precision.map(|p| p.item).unwrap_or(0);
 
@@ -66,7 +66,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(val)) => round_big_decimal(val, precision),
         other => round_default(other),
     });
-    Ok(OutputStream::from_input(mapped))
+    Ok(ActionStream::from_input(mapped))
 }
 
 fn round_big_int(val: BigInt) -> Value {

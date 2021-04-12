@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         set_into(args)
     }
 
@@ -41,7 +41,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn set_into(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
     let (Arguments { set_into: v }, input) = args.process()?;
@@ -71,7 +71,7 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
         global_cfg.write()?;
         ctx.reload_config(global_cfg)?;
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::row(global_cfg.vars.clone()).into_value(name),
         )))
     } else {
@@ -79,7 +79,7 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream())
+        .to_action_stream())
     };
 
     result

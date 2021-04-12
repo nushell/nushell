@@ -45,7 +45,7 @@ impl WholeStreamCommand for FromSsv {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_ssv(args)
     }
 }
@@ -246,7 +246,7 @@ fn from_ssv_string_to_value(
     UntaggedValue::Table(rows).into_value(&tag)
 }
 
-fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ssv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         FromSsvArgs {
@@ -276,8 +276,8 @@ fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             } => list
                 .into_iter()
                 .map(ReturnSuccess::value)
-                .to_output_stream(),
-            x => OutputStream::one(ReturnSuccess::value(x)),
+                .to_action_stream(),
+            x => ActionStream::one(ReturnSuccess::value(x)),
         },
     )
 }

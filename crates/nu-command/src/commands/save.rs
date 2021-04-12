@@ -155,12 +155,12 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         save(args)
     }
 }
 
-fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -230,7 +230,7 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         },
                         scope,
                     };
-                    let mut result = converter.run(new_args.with_input(input))?;
+                    let mut result = converter.run_with_actions(new_args.with_input(input))?;
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)

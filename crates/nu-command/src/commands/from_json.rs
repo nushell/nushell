@@ -27,7 +27,7 @@ impl WholeStreamCommand for FromJson {
         "Parse text as .json and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_json(args)
     }
 }
@@ -67,7 +67,7 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
     let (FromJsonArgs { objects }, input) = args.process()?;
@@ -100,7 +100,7 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             })
-            .to_output_stream())
+            .to_action_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
@@ -110,16 +110,16 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 } => Ok(list
                     .into_iter()
                     .map(ReturnSuccess::value)
-                    .to_output_stream()),
+                    .to_action_stream()),
 
-                x => Ok(OutputStream::one(ReturnSuccess::value(x))),
+                x => Ok(ActionStream::one(ReturnSuccess::value(x))),
             },
             Err(e) => {
                 let mut message = "Could not parse as JSON (".to_string();
                 message.push_str(&e.to_string());
                 message.push(')');
 
-                Ok(OutputStream::one(Err(
+                Ok(ActionStream::one(Err(
                     ShellError::labeled_error_with_secondary(
                         message,
                         "input cannot be parsed as JSON",

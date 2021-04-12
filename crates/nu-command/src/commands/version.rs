@@ -23,7 +23,7 @@ impl WholeStreamCommand for Version {
         "Display Nu version."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         version(args)
     }
 
@@ -36,7 +36,7 @@ impl WholeStreamCommand for Version {
     }
 }
 
-pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn version(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.args.span;
 
     let mut indexmap = IndexMap::with_capacity(4);
@@ -141,7 +141,7 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
     );
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
-    Ok(OutputStream::one(value))
+    Ok(ActionStream::one(value))
 }
 
 fn features_enabled() -> Vec<String> {

@@ -170,7 +170,7 @@ pub fn to_delimited_data(
     format_name: &'static str,
     input: InputStream,
     name: Tag,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let name_tag = name;
     let name_span = name_tag.span;
 
@@ -217,5 +217,5 @@ pub fn to_delimited_data(
             }
         }
     }))
-    .to_output_stream())
+    .to_action_stream())
 }

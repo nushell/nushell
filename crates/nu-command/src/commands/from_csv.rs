@@ -36,7 +36,7 @@ impl WholeStreamCommand for FromCsv {
         "Parse text as .csv and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_csv(args)
     }
 
@@ -66,7 +66,7 @@ impl WholeStreamCommand for FromCsv {
     }
 }
 
-fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_csv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (

@@ -30,7 +30,7 @@ impl WholeStreamCommand for Source {
         "Runs a script file in the current context."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         source(args)
     }
 
@@ -39,7 +39,7 @@ impl WholeStreamCommand for Source {
     }
 }
 
-pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
     let (SourceArgs { filename }, _) = args.process()?;
 
@@ -54,7 +54,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
             if let Err(err) = result {
                 ctx.error(err.into());
             }
-            Ok(OutputStream::empty())
+            Ok(ActionStream::empty())
         }
         Err(_) => {
             ctx.error(ShellError::labeled_error(
@@ -63,7 +63,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 filename.span(),
             ));
 
-            Ok(OutputStream::empty())
+            Ok(ActionStream::empty())
         }
     }
 }

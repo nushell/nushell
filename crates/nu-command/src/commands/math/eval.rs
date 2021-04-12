@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
         )
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         eval(args)
     }
 
@@ -45,13 +45,13 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn eval(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.span;
     let (SubCommandArgs { expression }, input) = args.process()?;
 
     if let Some(string) = expression {
         match parse(&string, &string.tag) {
-            Ok(value) => Ok(OutputStream::one(ReturnSuccess::value(value))),
+            Ok(value) => Ok(ActionStream::one(ReturnSuccess::value(value))),
             Err(err) => Err(ShellError::labeled_error(
                 "Math evaluation error",
                 err,
@@ -89,7 +89,7 @@ pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_action_stream())
     }
 }
 

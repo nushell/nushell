@@ -22,12 +22,12 @@ impl WholeStreamCommand for FromIcs {
         "Parse text as .ics and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_ics(args)
     }
 }
 
-fn from_ics(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_ics(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -52,7 +52,7 @@ fn from_ics(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(output.into_iter().to_output_stream())
+    Ok(output.into_iter().to_action_stream())
 }
 
 fn calendar_to_value(calendar: IcalCalendar, tag: Tag) -> Value {

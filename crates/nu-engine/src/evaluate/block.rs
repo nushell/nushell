@@ -8,16 +8,16 @@ use nu_protocol::hir::{
 };
 use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
 use nu_source::{Span, Tag};
-use nu_stream::InputStream;
-use nu_stream::ToOutputStream;
+use nu_stream::ToActionStream;
+use nu_stream::{InputStream, OutputStream};
 use std::sync::atomic::Ordering;
 
 pub fn run_block(
     block: &Block,
     ctx: &EvaluationContext,
     mut input: InputStream,
-) -> Result<InputStream, ShellError> {
-    let mut output: Result<InputStream, ShellError> = Ok(InputStream::empty());
+) -> Result<OutputStream, ShellError> {
+    let mut output: Result<InputStream, ShellError> = Ok(OutputStream::empty());
     for (_, definition) in block.definitions.iter() {
         ctx.scope.add_definition(definition.clone());
     }
@@ -47,13 +47,13 @@ pub fn run_block(
                         }
                     };
                     match output_stream.next() {
-                        Some(Ok(ReturnSuccess::Value(Value {
+                        Some(Value {
                             value: UntaggedValue::Error(e),
                             ..
-                        }))) => {
+                        }) => {
                             return Err(e);
                         }
-                        Some(Ok(_item)) => {
+                        Some(_item) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
@@ -68,9 +68,6 @@ pub fn run_block(
                                 return Err(err.clone());
                             }
                         }
-                        Some(Err(e)) => {
-                            return Err(e);
-                        }
                     }
                 }
             }
@@ -78,12 +75,12 @@ pub fn run_block(
                 return Err(e);
             }
         }
-        output = Ok(InputStream::empty());
+        output = Ok(OutputStream::empty());
         for pipeline in &group.pipelines {
             match output {
                 Ok(inp) if inp.is_empty() => {}
                 Ok(inp) => {
-                    let mut output_stream = inp.to_output_stream();
+                    let mut output_stream = inp.to_action_stream();
 
                     match output_stream.next() {
                         Some(Ok(ReturnSuccess::Value(Value {
@@ -123,7 +120,7 @@ pub fn run_block(
             }
             output = run_pipeline(pipeline, ctx, input);
 
-            input = InputStream::empty();
+            input = OutputStream::empty();
         }
     }
 
@@ -134,7 +131,7 @@ fn run_pipeline(
     commands: &Pipeline,
     ctx: &EvaluationContext,
     mut input: InputStream,
-) -> Result<InputStream, ShellError> {
+) -> Result<OutputStream, ShellError> {
     for item in commands.list.clone() {
         input = match item {
             ClassifiedCommand::Dynamic(call) => {

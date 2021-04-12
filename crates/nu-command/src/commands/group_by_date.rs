@@ -37,7 +37,7 @@ impl WholeStreamCommand for GroupByDate {
         "creates a table grouped by date."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         group_by_date(args)
     }
 
@@ -58,7 +58,7 @@ enum GroupByColumn {
     Name(Option<Tagged<String>>),
 }
 
-pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn group_by_date(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         GroupByDateArgs {
@@ -125,7 +125,7 @@ pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
         };
 
-        Ok(OutputStream::one(ReturnSuccess::value(value_result?)))
+        Ok(ActionStream::one(ReturnSuccess::value(value_result?)))
     }
 }
 

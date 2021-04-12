@@ -30,7 +30,7 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         format_command(args)
     }
 
@@ -43,7 +43,7 @@ impl WholeStreamCommand for Format {
     }
 }
 
-fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn format_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
     let (FormatArgs { pattern }, input) = args.process()?;
 
@@ -84,7 +84,7 @@ fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[derive(Debug)]

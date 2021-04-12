@@ -20,7 +20,7 @@ impl WholeStreamCommand for Date {
         "List supported time zones."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         list_timezone(args)
     }
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Date {
     }
 }
 
-fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn list_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
@@ -57,7 +57,7 @@ fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ))
     });
 
-    Ok(list.into_iter().to_output_stream())
+    Ok(list.into_iter().to_action_stream())
 }
 
 #[cfg(test)]

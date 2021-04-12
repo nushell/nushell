@@ -26,7 +26,7 @@ impl WholeStreamCommand for SubCommand {
         "Keeps rows while the condition matches."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let ctx = Arc::new(EvaluationContext::from_args(&args));
         let call_info = args.evaluate_once()?;
 
@@ -92,7 +92,7 @@ impl WholeStreamCommand for SubCommand {
 
                 matches!(result, Ok(ref v) if v.is_true())
             })
-            .to_output_stream())
+            .to_action_stream())
     }
 }
 

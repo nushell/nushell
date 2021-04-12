@@ -18,7 +18,7 @@ impl WholeStreamCommand for FromYaml {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_yaml(args)
     }
 }
@@ -38,7 +38,7 @@ impl WholeStreamCommand for FromYml {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         from_yaml(args)
     }
 }
@@ -131,7 +131,7 @@ pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     convert_yaml_value_to_nu_value(&v, tag)
 }
 
-fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -143,8 +143,8 @@ fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(list.into_iter().to_output_stream()),
-            x => Ok(OutputStream::one(x)),
+            } => Ok(list.into_iter().to_action_stream()),
+            x => Ok(ActionStream::one(x)),
         },
         Err(_) => Err(ShellError::labeled_error_with_secondary(
             "Could not parse as YAML",

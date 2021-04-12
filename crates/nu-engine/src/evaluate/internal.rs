@@ -5,10 +5,12 @@ use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::value_shell::ValueShell;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_protocol::hir::{ExternalRedirection, InternalCommand};
+use nu_protocol::hir::{
+    Expression, ExternalRedirection, InternalCommand, SpannedExpression, Synthetic,
+};
 use nu_protocol::{CommandAction, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
-use nu_stream::{InputStream, OutputStream};
+use nu_stream::{ActionStream, InputStream};
 
 pub(crate) fn run_internal_command(
     command: InternalCommand,
@@ -23,39 +25,52 @@ pub(crate) fn run_internal_command(
     let objects: InputStream = input;
 
     let internal_command = context.scope.expect_command(&command.name);
+    let internal_command = internal_command?;
 
-    let result = {
-        context.run_command(
-            internal_command?,
-            Tag::unknown_anchor(command.name_span),
-            command.args.clone(),
-            objects,
-        )?
-    };
-
-    Ok(InputStream::from_stream(InternalIterator {
-        command,
+    let result = context.run_command(
+        internal_command,
+        Tag::unknown_anchor(command.name_span),
+        command.args,
+        objects,
+    )?;
+    Ok(InputStream::from_stream(InternalIteratorSimple {
         context: context.clone(),
-        leftovers: vec![],
         input: result,
     }))
 }
 
-struct InternalIterator {
+struct InternalIteratorSimple {
     context: EvaluationContext,
-    command: InternalCommand,
-    leftovers: Vec<Value>,
-    input: OutputStream,
+    input: InputStream,
+}
+
+impl Iterator for InternalIteratorSimple {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.input.next() {
+            Some(Value {
+                value: UntaggedValue::Error(err),
+                ..
+            }) => {
+                self.context.error(err);
+                None
+            }
+            x => x,
+        }
+    }
+}
+
+pub struct InternalIterator {
+    pub context: EvaluationContext,
+    pub leftovers: Vec<Value>,
+    pub input: ActionStream,
 }
 
 impl Iterator for InternalIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // let head = Arc::new(command.args.head.clone());
-        // let context = context.clone();
-        // let command = Arc::new(command);
-
         if !self.leftovers.is_empty() {
             let output = self.leftovers.remove(0);
             return Some(output);
@@ -84,17 +99,23 @@ impl Iterator for InternalIterator {
                                 shell_manager: self.context.shell_manager.clone(),
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {
-                                        head: self.command.args.head.clone(),
+                                        head: Box::new(SpannedExpression {
+                                            expr: Expression::Synthetic(Synthetic::String(
+                                                command_name.clone(),
+                                            )),
+                                            span: tagged_contents.tag().span,
+                                        }),
                                         positional: None,
                                         named: None,
                                         span: Span::unknown(),
                                         external_redirection: ExternalRedirection::Stdout,
                                     },
-                                    name_tag: Tag::unknown_anchor(self.command.name_span),
+                                    name_tag: tagged_contents.tag(),
                                 },
                                 scope: self.context.scope.clone(),
                             };
-                            let result = converter.run(new_args.with_input(vec![tagged_contents]));
+                            let result = converter
+                                .run_with_actions(new_args.with_input(vec![tagged_contents]));
 
                             match result {
                                 Ok(mut result) => {

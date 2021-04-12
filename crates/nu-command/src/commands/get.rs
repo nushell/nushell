@@ -34,7 +34,7 @@ impl WholeStreamCommand for Command {
         "Open given cells as text."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         get(args)
     }
 
@@ -54,7 +54,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { mut rest }, mut input) = args.process()?;
     let (column_paths, _) = arguments(&mut rest)?;
 
@@ -66,7 +66,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(descs
             .into_iter()
             .map(ReturnSuccess::value)
-            .to_output_stream())
+            .to_action_stream())
     } else {
         trace!("get {:?}", column_paths);
         let output_stream = input
@@ -78,7 +78,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     .collect::<Vec<_>>()
             })
             .flatten()
-            .to_output_stream();
+            .to_action_stream();
         Ok(output_stream)
     }
 }

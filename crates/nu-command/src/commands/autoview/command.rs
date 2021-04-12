@@ -80,7 +80,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args)?;
+                            let result = text.run_with_actions(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
                             out!("{}", s);
@@ -162,7 +162,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args)?;
+                            let result = binary.run_with_actions(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
                             use pretty_hex::*;
@@ -255,7 +255,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(InputStream::empty())
 }
 
 fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawCommandArgs {

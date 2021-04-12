@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
         "collects a list of strings into a string"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         collect(args)
     }
 
@@ -46,7 +46,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn collect(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     let (options, input) = args.extract(|params| {
@@ -68,7 +68,7 @@ pub fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(strings) => {
             let output = strings.join(&separator);
 
-            Ok(OutputStream::one(ReturnSuccess::value(
+            Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(tag),
             )))
         }

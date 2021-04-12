@@ -33,7 +33,7 @@ impl WholeStreamCommand for Nth {
         "Return or skip only the selected rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         nth(args)
     }
 
@@ -58,7 +58,7 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn nth(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (
         NthArgs {
             row_number,
@@ -83,7 +83,7 @@ fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 None
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

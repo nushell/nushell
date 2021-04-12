@@ -34,7 +34,7 @@ impl WholeStreamCommand for Command {
         "Insert a new column with a given value."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         insert(args)
     }
 
@@ -66,7 +66,7 @@ fn process_row(
     input: Value,
     mut value: Arc<Value>,
     field: Arc<ColumnPath>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let value = Arc::make_mut(&mut value);
 
     Ok(match value {
@@ -116,17 +116,17 @@ fn process_row(
                             value: UntaggedValue::Row(_),
                             ..
                         } => match obj.insert_data_at_column_path(&field, result) {
-                            Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                            Err(e) => OutputStream::one(Err(e)),
+                            Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                            Err(e) => ActionStream::one(Err(e)),
                         },
-                        _ => OutputStream::one(Err(ShellError::labeled_error(
+                        _ => ActionStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             block_tag.clone(),
                         ))),
                     }
                 }
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         }
         value => match input {
@@ -139,18 +139,18 @@ fn process_row(
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {
-                Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                Err(e) => OutputStream::one(Err(e)),
+                Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                Err(e) => ActionStream::one(Err(e)),
             },
             _ => match input.insert_data_at_column_path(&field, value.clone()) {
-                Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                Err(e) => OutputStream::one(Err(e)),
+                Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                Err(e) => ActionStream::one(Err(e)),
             },
         },
     })
 }
 
-fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn insert(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let (Arguments { column, value }, input) = raw_args.process()?;
     let value = Arc::new(value);
@@ -164,9 +164,9 @@ fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             match process_row(context, input, value, column) {
                 Ok(s) => s,
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }

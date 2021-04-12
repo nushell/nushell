@@ -9,7 +9,7 @@ use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
 use nu_protocol::{hir, ConfigPath};
 use nu_source::{Span, Tag};
-use nu_stream::{InputStream, OutputStream};
+use nu_stream::InputStream;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
@@ -113,7 +113,7 @@ impl EvaluationContext {
         name_tag: Tag,
         args: hir::Call,
         input: InputStream,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<InputStream, ShellError> {
         let command_args = self.command_args(args, input, name_tag);
         command.run(command_args)
     }

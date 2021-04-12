@@ -18,8 +18,8 @@ impl WholeStreamCommand for Command {
         "Use mathematical functions as aggregate functions on a list of numbers or tables."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(Ok(ReturnSuccess::Value(
             UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         ))))
     }

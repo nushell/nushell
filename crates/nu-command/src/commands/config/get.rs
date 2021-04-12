@@ -27,7 +27,7 @@ impl WholeStreamCommand for SubCommand {
         "Gets a value from the config"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         get(args)
     }
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
@@ -53,15 +53,15 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => list.into_iter().to_output_stream(),
-            x => OutputStream::one(ReturnSuccess::value(x)),
+            } => list.into_iter().to_action_stream(),
+            x => ActionStream::one(ReturnSuccess::value(x)),
         })
     } else {
         Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
             crate::commands::config::err_no_global_cfg_present(),
         ))]
         .into_iter()
-        .to_output_stream())
+        .to_action_stream())
     };
 
     result

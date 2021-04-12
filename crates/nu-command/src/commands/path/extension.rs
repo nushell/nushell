@@ -40,7 +40,7 @@ impl WholeStreamCommand for PathExtension {
         "Gets the extension of a path"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathExtensionArguments { replace, rest }, input) = args.process()?;
         let args = Arc::new(PathExtensionArguments { replace, rest });

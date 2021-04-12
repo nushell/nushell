@@ -40,7 +40,7 @@ impl WholeStreamCommand for SubCommand {
         "pad a string with a character a certain length"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }
 
@@ -76,7 +76,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
         Ok(Arc::new(Arguments {
             length: params.req_named("length")?,
@@ -104,7 +104,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(

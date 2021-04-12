@@ -32,7 +32,7 @@ impl WholeStreamCommand for Rename {
         "Creates a new table with columns renamed."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         rename(args)
     }
 
@@ -61,7 +61,7 @@ impl WholeStreamCommand for Rename {
     }
 }
 
-pub fn rename(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn rename(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (Arguments { column_name, rest }, input) = args.process()?;
     let mut new_column_names = vec![vec![column_name]];
@@ -102,7 +102,7 @@ pub fn rename(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

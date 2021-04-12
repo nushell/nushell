@@ -25,7 +25,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
         "Untrust a .nu-env file in the current or given directory"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let ctx = EvaluationContext::from_args(&args);
         let file_to_untrust = match args.call_info.evaluate(&ctx)?.args.nth(0) {
@@ -79,7 +79,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(".nu-env untrusted!").into_value(tag),
         )))
     }

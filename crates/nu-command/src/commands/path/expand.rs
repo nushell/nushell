@@ -32,7 +32,7 @@ impl WholeStreamCommand for PathExpand {
         "Expands a path to its absolute form"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (PathExpandArguments { rest }, input) = args.process()?;
         let args = Arc::new(PathExpandArguments { rest });

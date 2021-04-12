@@ -29,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "Convert value to integer"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         into_int(args)
     }
 
@@ -85,7 +85,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn into_int(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (Arguments { rest: column_paths }, input) = args.process()?;
 
     Ok(input
@@ -104,7 +104,7 @@ fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

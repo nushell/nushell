@@ -5,6 +5,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
+use nu_stream::ToActionStream;
 
 pub struct Command;
 
@@ -30,7 +31,7 @@ impl WholeStreamCommand for Command {
         "Find if the table rows matches the condition."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         all(args)
     }
 
@@ -52,7 +53,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn all(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
     let tag = args.call_info.name_tag.clone();
     let (Arguments { block }, input) = args.process()?;
@@ -117,7 +118,7 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Err(e) => Err(e),
             }
         })?
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

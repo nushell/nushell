@@ -39,7 +39,7 @@ impl WholeStreamCommand for Command {
         "Update an existing column to have a new value."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         update(args)
     }
 
@@ -70,7 +70,7 @@ fn process_row(
     mut replacement: Arc<Value>,
     field: Arc<ColumnPath>,
     tag: Arc<Tag>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let tag = &*tag;
     let replacement = Arc::make_mut(&mut replacement);
 
@@ -121,21 +121,21 @@ fn process_row(
                             value: UntaggedValue::Row(_),
                             ..
                         } => match obj.replace_data_at_column_path(&field, result) {
-                            Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                            None => OutputStream::one(Err(ShellError::labeled_error(
+                            Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                            None => ActionStream::one(Err(ShellError::labeled_error(
                                 "update could not find place to insert column",
                                 "column name",
                                 obj.tag,
                             ))),
                         },
-                        _ => OutputStream::one(Err(ShellError::labeled_error(
+                        _ => ActionStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             block_tag.clone(),
                         ))),
                     }
                 }
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         }
         replacement => match input {
@@ -148,8 +148,8 @@ fn process_row(
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .replace_data_at_column_path(&field, replacement.clone())
             {
-                Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                None => OutputStream::one(Err(ShellError::labeled_error(
+                Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                None => ActionStream::one(Err(ShellError::labeled_error(
                     "update could not find place to insert column",
                     "column name",
                     field.maybe_span().unwrap_or(tag.span),
@@ -157,8 +157,8 @@ fn process_row(
             },
             Value { value: _, ref tag } => {
                 match input.replace_data_at_column_path(&field, replacement.clone()) {
-                    Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                    None => OutputStream::one(Err(ShellError::labeled_error(
+                    Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                    None => ActionStream::one(Err(ShellError::labeled_error(
                         "update could not find place to insert column",
                         "column name",
                         field.maybe_span().unwrap_or(tag.span),
@@ -169,7 +169,7 @@ fn process_row(
     })
 }
 
-fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn update(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let (Arguments { field, replacement }, input) = raw_args.process()?;
@@ -185,9 +185,9 @@ fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             match process_row(context, input, replacement, field, tag) {
                 Ok(s) => s,
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }

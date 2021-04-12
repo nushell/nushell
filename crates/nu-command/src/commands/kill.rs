@@ -48,7 +48,7 @@ impl WholeStreamCommand for Kill {
         "Kill a process using the process id."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         kill(args)
     }
 
@@ -73,7 +73,7 @@ impl WholeStreamCommand for Kill {
     }
 }
 
-fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (
         KillArgs {
             pid,
@@ -136,7 +136,7 @@ fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     cmd.status().expect("failed to execute shell command");
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }
 
 #[cfg(test)]

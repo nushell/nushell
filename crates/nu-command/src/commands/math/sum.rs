@@ -21,7 +21,7 @@ impl WholeStreamCommand for SubCommand {
         "Finds the sum of a list of numbers or tables"
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         run_with_function(args, summation)
     }
 

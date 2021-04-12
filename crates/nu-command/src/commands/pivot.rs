@@ -45,12 +45,12 @@ impl WholeStreamCommand for Pivot {
         "Pivots the table contents so rows become columns and columns become rows."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         pivot(args)
     }
 }
 
-pub fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn pivot(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (args, input): (PivotArgs, _) = args.process()?;
     let input = input.into_vec();
@@ -140,7 +140,7 @@ pub fn pivot(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         ReturnSuccess::value(dict.into_value())
     }))
-    .to_output_stream())
+    .to_action_stream())
 }
 
 #[cfg(test)]

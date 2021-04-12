@@ -17,12 +17,12 @@ impl WholeStreamCommand for Shuffle {
         "Shuffle rows randomly."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(shuffle(args))
     }
 }
 
-fn shuffle(args: CommandArgs) -> OutputStream {
+fn shuffle(args: CommandArgs) -> ActionStream {
     let input = args.input;
     let mut values: Vec<Value> = input.collect();
 
@@ -31,7 +31,7 @@ fn shuffle(args: CommandArgs) -> OutputStream {
     values
         .into_iter()
         .map(ReturnSuccess::value)
-        .to_output_stream()
+        .to_action_stream()
 }
 
 #[cfg(test)]
