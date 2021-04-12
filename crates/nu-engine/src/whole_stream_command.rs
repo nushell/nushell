@@ -137,6 +137,13 @@ impl WholeStreamCommand for Arc<Block> {
                     UntaggedValue::Table(elements).into_value(Span::new(start, end)),
                 );
             }
+        } else if block.params.rest_positional.is_some() {
+            //If there is a rest arg, but no args were provided,
+            //we have to set $rest to an empty table
+            ctx.scope.add_var(
+                "$rest",
+                UntaggedValue::Table(Vec::new()).into_value(Span::new(0, 0)),
+            );
         }
         if let Some(args) = evaluated.args.named {
             for named in &block.params.named {

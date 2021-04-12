@@ -279,6 +279,19 @@ fn run_custom_command_with_rest_and_flag() {
 }
 
 #[test]
+fn run_custom_command_with_empty_rest() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def rest-me-with-empty-rest [...rest: string] { echo $rest }; rest-me-with-empty-rest
+        "#
+    );
+
+    assert_eq!(actual.out, r#""#);
+    assert_eq!(actual.err, r#""#);
+}
+
+#[test]
 fn set_variable() {
     let actual = nu!(
         cwd: ".",
