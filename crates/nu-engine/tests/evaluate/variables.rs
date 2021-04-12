@@ -68,3 +68,21 @@ fn scope_variable_with_correct_number_of_aliases_present() {
         );
     })
 }
+
+#[test]
+fn scope_variable_with_command_present() {
+    Playground::setup("scope_commands_test_1", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("config.toml"));
+
+        nu.with_config(&file);
+        nu.with_files(vec![FileWithContent(
+            "config.toml",
+            "skip_welcome_message = true",
+        )]);
+
+        assert_that!(
+            nu.pipeline("def meaning-of-life [--number: int] { echo $number }; echo $scope.commands | get meaning-of-life"),
+            says().to_stdout("-h --help --number")
+        );
+    })
+}
