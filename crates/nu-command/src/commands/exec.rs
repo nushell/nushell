@@ -74,7 +74,7 @@ fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",
