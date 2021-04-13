@@ -38,7 +38,7 @@ pub trait WholeStreamCommand: Send + Sync {
         Ok(Box::new(crate::evaluate::internal::InternalIterator {
             context,
             input: stream,
-            leftovers: vec![],
+            leftovers: InputStream::empty(),
         })
         .to_output_stream())
     }

@@ -63,7 +63,7 @@ impl Iterator for InternalIteratorSimple {
 
 pub struct InternalIterator {
     pub context: EvaluationContext,
-    pub leftovers: Vec<Value>,
+    pub leftovers: InputStream,
     pub input: ActionStream,
 }
 
@@ -71,8 +71,7 @@ impl Iterator for InternalIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.leftovers.is_empty() {
-            let output = self.leftovers.remove(0);
+        if let Some(output) = self.leftovers.next() {
             return Some(output);
         }
 
@@ -114,45 +113,24 @@ impl Iterator for InternalIterator {
                                 },
                                 scope: self.context.scope.clone(),
                             };
-                            let result = converter
-                                .run_with_actions(new_args.with_input(vec![tagged_contents]));
+                            let result = converter.run(new_args.with_input(vec![tagged_contents]));
 
                             match result {
                                 Ok(mut result) => {
-                                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                                        result.drain_vec();
-
-                                    let mut output = vec![];
-                                    for res in result_vec {
-                                        match res {
-                                            Ok(ReturnSuccess::Value(Value {
-                                                value: UntaggedValue::Table(list),
-                                                ..
-                                            })) => {
-                                                for l in list {
-                                                    output.push(l);
-                                                }
-                                            }
-                                            Ok(ReturnSuccess::Value(Value { value, .. })) => {
-                                                output.push(value.into_value(contents_tag.clone()));
-                                            }
-                                            Err(e) => output.push(
-                                                UntaggedValue::Error(e).into_untagged_value(),
-                                            ),
-                                            _ => {}
-                                        }
-                                    }
-
-                                    let mut output = output.into_iter();
-
-                                    if let Some(x) = output.next() {
-                                        self.leftovers = output.collect();
-
+                                    if let Some(x) = result.next() {
+                                        self.leftovers =
+                                            InputStream::from_stream(result.map(move |x| Value {
+                                                value: x.value,
+                                                tag: contents_tag.clone(),
+                                            }));
                                         return Some(x);
+                                    } else {
+                                        return None;
                                     }
                                 }
                                 Err(err) => {
-                                    self.context.error(err);
+                                    self.leftovers = InputStream::empty();
+                                    return Some(Value::error(err));
                                 }
                             }
                         } else {
