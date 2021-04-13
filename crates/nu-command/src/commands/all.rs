@@ -1,17 +1,14 @@
 use crate::prelude::*;
+use iter_extensions::TryAllExt;
 use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
-};
-use nu_stream::ToActionStream;
+use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    block: CapturedBlock,
+struct AllArgs {
+    predicate: CapturedBlock,
 }
 
 impl WholeStreamCommand for Command {
@@ -31,7 +28,7 @@ impl WholeStreamCommand for Command {
         "Find if the table rows matches the condition."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         all(args)
     }
 
@@ -53,72 +50,56 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn all(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let ctx = Arc::new(EvaluationContext::from_args(&args));
-    let tag = args.call_info.name_tag.clone();
-    let (Arguments { block }, input) = args.process()?;
+fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let ctx = EvaluationContext::from_args(&args);
+    let mut args = args.evaluate_once()?;
+    let all_args = AllArgs {
+        predicate: args.req(0)?,
+    };
 
+    let err = Err(ShellError::labeled_error(
+        "Expected a condition",
+        "expected a condition",
+        args.call_info.name_tag.clone(),
+    ));
+
+    //This seems a little odd. Can't we have predicates with pipelines/multiple statements?
     let condition = {
-        if block.block.block.len() != 1 {
-            return Err(ShellError::labeled_error(
-                "Expected a condition",
-                "expected a condition",
-                tag,
-            ));
+        if all_args.predicate.block.block.len() != 1 {
+            return err;
         }
-        match block.block.block[0].pipelines.get(0) {
+        match all_args.predicate.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
                 Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
                 _ => {
-                    return Err(ShellError::labeled_error(
-                        "Expected a condition",
-                        "expected a condition",
-                        tag,
-                    ));
+                    return err;
                 }
             },
             None => {
-                return Err(ShellError::labeled_error(
-                    "Expected a condition",
-                    "expected a condition",
-                    tag,
-                ));
+                return err;
             }
         }
     };
 
-    let init = Ok(InputStream::one(
-        UntaggedValue::boolean(true).into_value(&tag),
-    ));
+    let condition = condition.clone();
+    let scope = args.scope.clone();
 
-    Ok(input
-        .fold(init, move |acc, row| {
-            let condition = condition.clone();
-            let ctx = ctx.clone();
-            ctx.scope.enter_scope();
-            ctx.scope.add_vars(&block.captured.entries);
-            ctx.scope.add_var("$it", row);
+    // Variables in nu are immutable. Having the same variable accross invocations
+    // of evaluate_baseline_expr does not mutate the variables and those each
+    // invocations are independent of each other!
+    scope.enter_scope();
+    scope.add_vars(&all_args.predicate.captured.entries);
+    let result: Result<bool, ShellError> = args.input.try_all(|row| {
+        //$it gets overwritten each invocation
+        scope.add_var("$it", row);
 
-            let condition = evaluate_baseline_expr(&condition, &*ctx);
-            ctx.scope.exit_scope();
+        let condition = evaluate_baseline_expr(&*condition, &ctx);
 
-            let curr = acc?.drain_vec();
-            let curr = curr
-                .get(0)
-                .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
-            let cond = curr.as_bool()?;
+        Ok(condition?.as_bool()?)
+    });
+    scope.exit_scope();
 
-            match condition {
-                Ok(condition) => match condition.as_bool() {
-                    Ok(b) => Ok(InputStream::one(
-                        UntaggedValue::boolean(cond && b).into_value(&curr.tag),
-                    )),
-                    Err(e) => Err(e),
-                },
-                Err(e) => Err(e),
-            }
-        })?
-        .to_action_stream())
+    Ok(OutputStream::one(result?))
 }
 
 #[cfg(test)]
