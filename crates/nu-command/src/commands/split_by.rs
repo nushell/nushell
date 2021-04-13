@@ -13,7 +13,6 @@ pub struct SplitByArgs {
     column_name: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SplitBy {
     fn name(&self) -> &str {
         "split-by"
@@ -31,15 +30,15 @@ impl WholeStreamCommand for SplitBy {
         "Creates a new table with the data from the inner tables split by the column given."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_by(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        split_by(args)
     }
 }
 
-pub async fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn split_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SplitByArgs { column_name }, input) = args.process().await?;
-    let values: Vec<Value> = input.collect().await;
+    let (SplitByArgs { column_name }, input) = args.process()?;
+    let values: Vec<Value> = input.collect();
 
     if values.len() > 1 || values.is_empty() {
         return Err(ShellError::labeled_error(
@@ -50,7 +49,7 @@ pub async fn split_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     let split = split(&column_name, &values[0], &name)?;
-    Ok(OutputStream::one(ReturnSuccess::value(split)))
+    Ok(ActionStream::one(ReturnSuccess::value(split)))
 }
 
 enum Grouper {

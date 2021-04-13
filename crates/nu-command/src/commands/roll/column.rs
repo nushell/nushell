@@ -31,7 +31,6 @@ impl Arguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "roll column"
@@ -48,27 +47,25 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table columns"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        roll(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        roll(args)
     }
 }
 
-pub async fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, input) = args.process().await?;
+pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (args, input) = args.process()?;
 
     Ok(input
         .map(move |value| {
-            futures::stream::iter({
-                let tag = value.tag();
+            let tag = value.tag();
 
-                roll_by(value, &args)
-                    .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
-                    .into_iter()
-                    .map(ReturnSuccess::value)
-            })
+            roll_by(value, &args)
+                .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
+                .into_iter()
+                .map(ReturnSuccess::value)
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {

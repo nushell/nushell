@@ -15,7 +15,6 @@ struct Arguments {
     sample: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math variance"
@@ -29,11 +28,11 @@ impl WholeStreamCommand for SubCommand {
         "Finds the variance of a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag.clone();
-        let (Arguments { sample }, mut input) = args.process().await?;
+        let (Arguments { sample }, mut input) = args.process()?;
 
-        let values: Vec<Value> = input.drain_vec().await;
+        let values: Vec<Value> = input.drain_vec();
 
         let n = if let Tagged { item: true, .. } = sample {
             values.len() - 1
@@ -80,13 +79,13 @@ impl WholeStreamCommand for SubCommand {
         }?;
 
         if res.value.is_table() {
-            Ok(OutputStream::from(
+            Ok(ActionStream::from(
                 res.table_entries()
                     .map(|v| ReturnSuccess::value(v.clone()))
                     .collect::<Vec<_>>(),
             ))
         } else {
-            Ok(OutputStream::one(ReturnSuccess::value(res)))
+            Ok(ActionStream::one(ReturnSuccess::value(res)))
         }
     }
 

@@ -13,7 +13,6 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "flatten"
@@ -27,8 +26,8 @@ impl WholeStreamCommand for Command {
         "Flatten the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        flatten(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        flatten(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -52,14 +51,14 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn flatten(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn flatten(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { rest: columns }, input) = args.process().await?;
+    let (Arguments { rest: columns }, input) = args.process()?;
 
     Ok(input
-        .map(move |item| futures::stream::iter(flat_value(&columns, &item, &tag).into_iter()))
+        .map(move |item| flat_value(&columns, &item, &tag).into_iter())
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
 
 enum TableInside<'a> {

@@ -11,7 +11,6 @@ struct Arguments {
     precision: Option<Tagged<i64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math round"
@@ -30,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,8 +57,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { precision }, input) = args.process().await?;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (Arguments { precision }, input) = args.process()?;
     let precision = precision.map(|p| p.item).unwrap_or(0);
 
     let mapped = input.map(move |val| match val.value {
@@ -67,7 +66,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(val)) => round_big_decimal(val, precision),
         other => round_default(other),
     });
-    Ok(OutputStream::from_input(mapped))
+    Ok(ActionStream::from_input(mapped))
 }
 
 fn round_big_int(val: BigInt) -> Value {
@@ -76,9 +75,12 @@ fn round_big_int(val: BigInt) -> Value {
 
 fn round_big_decimal(val: BigDecimal, precision: i64) -> Value {
     if precision > 0 {
-        UntaggedValue::decimal(val.round(precision)).into()
+        UntaggedValue::decimal(val.with_scale(precision + 1).round(precision)).into()
     } else {
-        let (rounded, _) = val.round(precision).as_bigint_and_exponent();
+        let (rounded, _) = val
+            .with_scale(precision + 1)
+            .round(precision)
+            .as_bigint_and_exponent();
         UntaggedValue::int(rounded).into()
     }
 }

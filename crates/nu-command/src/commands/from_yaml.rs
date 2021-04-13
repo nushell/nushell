@@ -3,10 +3,9 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromYAML;
+pub struct FromYaml;
 
-#[async_trait]
-impl WholeStreamCommand for FromYAML {
+impl WholeStreamCommand for FromYaml {
     fn name(&self) -> &str {
         "from yaml"
     }
@@ -19,15 +18,14 @@ impl WholeStreamCommand for FromYAML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_yaml(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_yaml(args)
     }
 }
 
-pub struct FromYML;
+pub struct FromYml;
 
-#[async_trait]
-impl WholeStreamCommand for FromYML {
+impl WholeStreamCommand for FromYml {
     fn name(&self) -> &str {
         "from yml"
     }
@@ -40,8 +38,8 @@ impl WholeStreamCommand for FromYML {
         "Parse text as .yaml/.yml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_yaml(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_yaml(args)
     }
 }
 
@@ -133,20 +131,20 @@ pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     convert_yaml_value_to_nu_value(&v, tag)
 }
 
-async fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     match from_yaml_string_to_value(concat_string.item, tag.clone()) {
         Ok(x) => match x {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(futures::stream::iter(list).to_output_stream()),
-            x => Ok(OutputStream::one(x)),
+            } => Ok(list.into_iter().to_action_stream()),
+            x => Ok(ActionStream::one(x)),
         },
         Err(_) => Err(ShellError::labeled_error_with_secondary(
             "Could not parse as YAML",
@@ -169,7 +167,7 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromYAML {})
+        test_examples(FromYaml {})
     }
 
     #[test]

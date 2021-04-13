@@ -6,7 +6,6 @@ use std::process::Command;
 
 pub struct Clear;
 
-#[async_trait]
 impl WholeStreamCommand for Clear {
     fn name(&self) -> &str {
         "clear"
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Clear {
         "Clears the terminal."
     }
 
-    async fn run(&self, _: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, _: CommandArgs) -> Result<InputStream, ShellError> {
         if cfg!(windows) {
             Command::new("cmd")
                 .args(&["/C", "cls"])
@@ -32,7 +31,7 @@ impl WholeStreamCommand for Clear {
                 .status()
                 .expect("failed to execute process");
         }
-        Ok(OutputStream::empty())
+        Ok(InputStream::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -6,7 +6,6 @@ use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date now"
@@ -20,20 +19,20 @@ impl WholeStreamCommand for Date {
         "Get the current date."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        now(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        now(args)
     }
 }
 
-pub async fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn now(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
     let now: DateTime<Local> = Local::now();
 
     let value = UntaggedValue::date(now.with_timezone(now.offset())).into_value(&tag);
 
-    Ok(OutputStream::one(value))
+    Ok(ActionStream::one(value))
 }
 
 #[cfg(test)]

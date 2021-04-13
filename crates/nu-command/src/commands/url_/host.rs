@@ -8,7 +8,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct UrlHost;
 
-#[async_trait]
 impl WholeStreamCommand for UrlHost {
     fn name(&self) -> &str {
         "url host"
@@ -23,9 +22,9 @@ impl WholeStreamCommand for UrlHost {
         "gets the host of a url"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process().await?;
-        operate(input, rest, &host).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process()?;
+        Ok(operate(input, rest, &host))
     }
 
     fn examples(&self) -> Vec<Example> {

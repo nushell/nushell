@@ -28,7 +28,6 @@ pub struct DuArgs {
     min_size: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Du {
     fn name(&self) -> &str {
         NAME
@@ -71,8 +70,8 @@ impl WholeStreamCommand for Du {
         "Find disk usage sizes of specified items."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        du(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        du(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -84,12 +83,12 @@ impl WholeStreamCommand for Du {
     }
 }
 
-async fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c.clone();
     let ctrl_c_copy = ctrl_c.clone();
 
-    let (args, _): (DuArgs, _) = args.process().await?;
+    let (args, _): (DuArgs, _) = args.process()?;
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(&x.item)
             .map(Option::Some)
@@ -131,7 +130,7 @@ async fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
         all,
     };
 
-    let inp = futures::stream::iter(paths);
+    let inp = paths;
 
     Ok(inp
         .flat_map(move |path| match path {
@@ -146,12 +145,12 @@ async fn du(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         output.push(Ok(ReturnSuccess::Value(v.into())));
                     }
                 }
-                futures::stream::iter(output)
+                output
             }
-            Err(e) => futures::stream::iter(vec![Err(e)]),
+            Err(e) => vec![Err(e)],
         })
         .interruptible(ctrl_c_copy)
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn glob_err_into(e: GlobError) -> ShellError {

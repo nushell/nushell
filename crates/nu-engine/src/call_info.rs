@@ -12,8 +12,8 @@ pub struct UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    pub async fn evaluate(self, ctx: &EvaluationContext) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, ctx).await?;
+    pub fn evaluate(self, ctx: &EvaluationContext) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, ctx)?;
 
         Ok(CallInfo {
             args,

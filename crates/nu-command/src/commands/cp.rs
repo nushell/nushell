@@ -5,7 +5,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Cpy;
 
-#[async_trait]
 impl WholeStreamCommand for Cpy {
     fn name(&self) -> &str {
         "cp"
@@ -26,10 +25,10 @@ impl WholeStreamCommand for Cpy {
         "Copy files."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let shell_manager = args.shell_manager.clone();
         let name = args.call_info.name_tag.clone();
-        let (args, _) = args.process().await?;
+        let (args, _) = args.process()?;
         shell_manager.cp(args, name)
     }
 

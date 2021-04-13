@@ -1,5 +1,6 @@
 use crate::completion;
 use crate::shell::completer::NuCompleter;
+use nu_ansi_term::Color;
 use nu_engine::{DefaultPalette, EvaluationContext, Painter};
 use nu_source::{Tag, Tagged};
 use std::borrow::Cow::{self, Owned};
@@ -79,7 +80,7 @@ impl rustyline::highlight::Highlighter for Helper {
     }
 
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
+        Owned(Color::DarkGray.prefix().to_string() + hint + nu_ansi_term::ansi::RESET)
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {

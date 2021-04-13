@@ -12,7 +12,6 @@ struct DateToTimeZoneArgs {
     timezone: Tagged<String>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date to-timezone"
@@ -27,14 +26,15 @@ impl WholeStreamCommand for Date {
     }
 
     fn usage(&self) -> &str {
-        "Convert a date to a given time zone.
-        
-Use `date list-timezone` to list all supported time zones.
-        "
+        "Convert a date to a given time zone."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_timezone(args).await
+    fn extra_usage(&self) -> &str {
+        "Use 'date list-timezone' to list all supported time zones."
+    }
+
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        to_timezone(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,9 +58,9 @@ Use `date list-timezone` to list all supported time zones.
     }
 }
 
-async fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DateToTimeZoneArgs { timezone }, input) = args.process().await?;
+    let (DateToTimeZoneArgs { timezone }, input) = args.process()?;
 
     Ok(input
         .map(move |value| match value {
@@ -85,7 +85,7 @@ async fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn error_message(err: ParseErrorKind) -> &'static str {

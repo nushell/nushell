@@ -15,7 +15,6 @@ pub struct Arguments {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "rotate counter-clockwise"
@@ -32,21 +31,21 @@ impl WholeStreamCommand for SubCommand {
         "Rotates the table by 90 degrees counter clockwise."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        rotate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        rotate(args)
     }
 }
 
-pub async fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { rest }, input) = args.process().await?;
+    let (Arguments { rest }, input) = args.process()?;
 
-    let input = input.into_vec().await;
+    let input = input.into_vec();
     let descs = merge_descriptors(&input);
     let total_rows = input.len();
 
     if total_rows == 0 {
-        return Ok(OutputStream::empty());
+        return Ok(ActionStream::empty());
     }
 
     let mut headers: Vec<String> = vec![];
@@ -75,43 +74,40 @@ pub async fn rotate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         &name,
     )?;
 
-    Ok(futures::stream::iter(
-        (0..descs.len())
-            .rev()
-            .map(move |row_number| {
-                let mut row = TaggedDictBuilder::new(&name);
+    Ok(((0..descs.len())
+        .rev()
+        .map(move |row_number| {
+            let mut row = TaggedDictBuilder::new(&name);
 
-                row.insert_value(
-                    rest.get(0)
-                        .map(|c| c.item.clone())
-                        .unwrap_or_else(|| String::from("Column0")),
-                    UntaggedValue::string(descs.get(row_number).unwrap_or(&String::new()))
-                        .into_untagged_value(),
-                );
+            row.insert_value(
+                rest.get(0)
+                    .map(|c| c.item.clone())
+                    .unwrap_or_else(|| String::from("Column0")),
+                UntaggedValue::string(descs.get(row_number).unwrap_or(&String::new()))
+                    .into_untagged_value(),
+            );
 
-                for (current_numbered_column, (column_name, _)) in values.row_entries().enumerate()
-                {
-                    let raw_column_path =
-                        format!("{}.0.{}", column_name, &descs[row_number]).spanned_unknown();
-                    let path = ColumnPath::build(&raw_column_path);
+            for (current_numbered_column, (column_name, _)) in values.row_entries().enumerate() {
+                let raw_column_path =
+                    format!("{}.0.{}", column_name, &descs[row_number]).spanned_unknown();
+                let path = ColumnPath::build(&raw_column_path);
 
-                    match &values.get_data_by_column_path(&path, Box::new(move |_, _, error| error))
-                    {
-                        Ok(x) => {
-                            row.insert_value(
-                                rest.get(current_numbered_column + 1)
-                                    .map(|c| c.item.clone())
-                                    .unwrap_or_else(|| column_name.to_string()),
-                                x.clone(),
-                            );
-                        }
-                        Err(_) => {}
+                match &values.get_data_by_column_path(&path, Box::new(move |_, _, error| error)) {
+                    Ok(x) => {
+                        row.insert_value(
+                            rest.get(current_numbered_column + 1)
+                                .map(|c| c.item.clone())
+                                .unwrap_or_else(|| column_name.to_string()),
+                            x.clone(),
+                        );
                     }
+                    Err(_) => {}
                 }
+            }
 
-                ReturnSuccess::value(row.into_value())
-            })
-            .collect::<Vec<_>>(),
-    )
-    .to_output_stream())
+            ReturnSuccess::value(row.into_value())
+        })
+        .collect::<Vec<_>>())
+    .into_iter()
+    .to_action_stream())
 }

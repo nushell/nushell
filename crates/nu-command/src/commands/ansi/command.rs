@@ -7,14 +7,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-struct AnsiArgs {
-    code: Value,
-    escape: Option<Tagged<String>>,
-    osc: Option<Tagged<String>>,
-}
-
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "ansi"
@@ -120,10 +112,15 @@ Format: #
         ]
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (AnsiArgs { code, escape, osc }, _) = args.process().await?;
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let args = args.evaluate_once()?;
+
+        let code: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
+        let escape: Option<Result<Tagged<String>, ShellError>> = args.get_flag("escape");
+        let osc: Option<Result<Tagged<String>, ShellError>> = args.get_flag("osc");
 
         if let Some(e) = escape {
+            let e = e?;
             let esc_vec: Vec<char> = e.item.chars().collect();
             if esc_vec[0] == '\\' {
                 return Err(ShellError::labeled_error(
@@ -133,12 +130,13 @@ Format: #
                 ));
             }
             let output = format!("\x1b[{}", e.item);
-            return Ok(OutputStream::one(ReturnSuccess::value(
+            return Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(e.tag()),
             )));
         }
 
         if let Some(o) = osc {
+            let o = o?;
             let osc_vec: Vec<char> = o.item.chars().collect();
             if osc_vec[0] == '\\' {
                 return Err(ShellError::labeled_error(
@@ -151,30 +149,38 @@ Format: #
             //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
             let output = format!("\x1b]{};", o.item);
-            return Ok(OutputStream::one(ReturnSuccess::value(
+            return Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(o.tag()),
             )));
         }
 
-        let code_string = code.as_string()?;
-        let ansi_code = str_to_ansi(code_string);
+        if let Some(code) = code {
+            let code = code?;
+            let ansi_code = str_to_ansi(&code.item);
 
-        if let Some(output) = ansi_code {
-            Ok(OutputStream::one(ReturnSuccess::value(
-                UntaggedValue::string(output).into_value(code.tag()),
-            )))
+            if let Some(output) = ansi_code {
+                Ok(ActionStream::one(ReturnSuccess::value(
+                    UntaggedValue::string(output).into_value(code.tag()),
+                )))
+            } else {
+                Err(ShellError::labeled_error(
+                    "Unknown ansi code",
+                    "unknown ansi code",
+                    code.tag(),
+                ))
+            }
         } else {
             Err(ShellError::labeled_error(
-                "Unknown ansi code",
-                "unknown ansi code",
-                code.tag(),
+                "Expected ansi code",
+                "expect ansi code",
+                args.call_info.name_tag.clone(),
             ))
         }
     }
 }
 
-pub fn str_to_ansi(s: String) -> Option<String> {
-    match s.as_str() {
+pub fn str_to_ansi(s: &str) -> Option<String> {
+    match s {
         "g" | "green" => Some(Color::Green.prefix().to_string()),
         "gb" | "green_bold" => Some(Color::Green.bold().prefix().to_string()),
         "gu" | "green_underline" => Some(Color::Green.underline().prefix().to_string()),
@@ -330,7 +336,7 @@ pub fn str_to_ansi(s: String) -> Option<String> {
 
         // Ansi RGB - Needs to be 32;2;r;g;b or 48;2;r;g;b
         // assuming the rgb will be passed via command and no here
-        "rgb_fg" => Some("\x1b[32;2;".to_string()),
+        "rgb_fg" => Some("\x1b[38;2;".to_string()),
         "rgb_bg" => Some("\x1b[48;2;".to_string()),
 
         // Ansi color index - Needs 38;5;idx or 48;5;idx where idx = 0 to 255

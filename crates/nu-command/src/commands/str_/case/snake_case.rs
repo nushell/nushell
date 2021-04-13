@@ -7,7 +7,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str snake-case"
@@ -24,8 +23,8 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to snake_case"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &to_snake_case).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args, &to_snake_case)
     }
 
     fn examples(&self) -> Vec<Example> {

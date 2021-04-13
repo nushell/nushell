@@ -16,7 +16,6 @@ pub struct KillArgs {
     pub signal: Option<Tagged<u32>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Kill {
     fn name(&self) -> &str {
         "kill"
@@ -49,8 +48,8 @@ impl WholeStreamCommand for Kill {
         "Kill a process using the process id."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        kill(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        kill(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,7 +73,7 @@ impl WholeStreamCommand for Kill {
     }
 }
 
-async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (
         KillArgs {
             pid,
@@ -84,7 +83,7 @@ async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
             signal,
         },
         ..,
-    ) = args.process().await?;
+    ) = args.process()?;
     let mut cmd = if cfg!(windows) {
         let mut cmd = Command::new("taskkill");
 
@@ -137,7 +136,7 @@ async fn kill(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     cmd.status().expect("failed to execute shell command");
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }
 
 #[cfg(test)]

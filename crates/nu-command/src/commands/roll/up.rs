@@ -13,7 +13,6 @@ pub struct Arguments {
     by: Option<Tagged<u64>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "roll up"
@@ -27,24 +26,22 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table rows"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        roll(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        roll(args)
     }
 }
 
-pub async fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (args, mut input) = args.process().await?;
+    let (args, mut input) = args.process()?;
 
-    let values = input.drain_vec().await;
+    let values = input.drain_vec();
 
-    Ok(futures::stream::iter(
-        roll_up(values, &args)
-            .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
-            .into_iter()
-            .map(ReturnSuccess::value),
-    )
-    .to_output_stream())
+    Ok((roll_up(values, &args)
+        .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
+        .into_iter()
+        .map(ReturnSuccess::value))
+    .to_action_stream())
 }
 
 fn roll_up(values: Vec<Value>, Arguments { by: ref n }: &Arguments) -> Option<Vec<Value>> {

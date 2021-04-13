@@ -13,7 +13,6 @@ pub struct DiceArgs {
     sides: Option<Tagged<u32>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random dice"
@@ -39,8 +38,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random dice roll"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        dice(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        dice(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,9 +58,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn dice(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DiceArgs { dice, sides }, _) = args.process().await?;
+    let (DiceArgs { dice, sides }, _) = args.process()?;
 
     let dice = if let Some(dice_tagged) = dice {
         *dice_tagged
@@ -80,7 +79,7 @@ pub async fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone())
     });
 
-    Ok(futures::stream::iter(iter).to_output_stream())
+    Ok((iter).to_action_stream())
 }
 
 #[cfg(test)]

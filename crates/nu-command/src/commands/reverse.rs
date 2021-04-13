@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Reverse;
 
-#[async_trait]
 impl WholeStreamCommand for Reverse {
     fn name(&self) -> &str {
         "reverse"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for Reverse {
         "Reverses the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reverse(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        reverse(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,12 +37,12 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
-async fn reverse(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn reverse(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let (input, _args) = args.parts();
 
-    let input = input.collect::<Vec<_>>().await;
-    Ok(futures::stream::iter(input.into_iter().rev().map(ReturnSuccess::value)).to_output_stream())
+    let input = input.collect::<Vec<_>>();
+    Ok((input.into_iter().rev().map(ReturnSuccess::value)).to_action_stream())
 }
 
 #[cfg(test)]

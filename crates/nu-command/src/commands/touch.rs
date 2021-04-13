@@ -14,7 +14,6 @@ pub struct TouchArgs {
     rest: Vec<Tagged<PathBuf>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Touch {
     fn name(&self) -> &str {
         "touch"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Touch {
     fn usage(&self) -> &str {
         "Creates one or more files."
     }
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        touch(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        touch(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,8 +50,8 @@ impl WholeStreamCommand for Touch {
     }
 }
 
-async fn touch(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (TouchArgs { target, rest }, _) = args.process().await?;
+fn touch(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (TouchArgs { target, rest }, _) = args.process()?;
 
     for item in vec![target].into_iter().chain(rest.into_iter()) {
         match OpenOptions::new().write(true).create(true).open(&item) {
@@ -67,7 +66,7 @@ async fn touch(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }
 
 #[cfg(test)]

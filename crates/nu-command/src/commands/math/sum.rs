@@ -8,7 +8,6 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math sum"
@@ -22,20 +21,8 @@ impl WholeStreamCommand for SubCommand {
         "Finds the sum of a list of numbers or tables"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_function(
-            RunnableContext {
-                input: args.input,
-                scope: args.scope.clone(),
-                shell_manager: args.shell_manager,
-                host: args.host,
-                ctrl_c: args.ctrl_c,
-                current_errors: args.current_errors,
-                name: args.call_info.name_tag,
-            },
-            summation,
-        )
-        .await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        run_with_function(args, summation)
     }
 
     fn examples(&self) -> Vec<Example> {

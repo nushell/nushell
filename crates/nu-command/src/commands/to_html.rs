@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::StreamExt;
+
 use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -79,10 +79,10 @@ impl Default for HtmlTheme {
 #[folder = "assets/"]
 struct Assets;
 
-pub struct ToHTML;
+pub struct ToHtml;
 
 #[derive(Deserialize)]
-pub struct ToHTMLArgs {
+pub struct ToHtmlArgs {
     html_color: bool,
     no_color: bool,
     dark: bool,
@@ -91,8 +91,7 @@ pub struct ToHTMLArgs {
     list: bool,
 }
 
-#[async_trait]
-impl WholeStreamCommand for ToHTML {
+impl WholeStreamCommand for ToHtml {
     fn name(&self) -> &str {
         "to html"
     }
@@ -124,8 +123,8 @@ impl WholeStreamCommand for ToHTML {
         "Convert table into simple HTML"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_html(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        to_html(args)
     }
 }
 
@@ -268,10 +267,10 @@ fn get_list_of_theme_names() -> Vec<String> {
     theme_names
 }
 
-async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_html(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let (
-        ToHTMLArgs {
+        ToHtmlArgs {
             html_color,
             no_color,
             dark,
@@ -280,8 +279,8 @@ async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
             list,
         },
         input,
-    ) = args.process().await?;
-    let input: Vec<Value> = input.collect().await;
+    ) = args.process()?;
+    let input: Vec<Value> = input.collect();
     let headers = nu_protocol::merge_descriptors(&input);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));
@@ -301,7 +300,7 @@ async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
         output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
 
         // Short circuit and return the output_string
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(name_tag),
         )))
     } else {
@@ -377,7 +376,7 @@ async fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
             output_string = run_regexes(&regex_hm, &output_string);
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(name_tag),
         )))
     }
@@ -758,6 +757,6 @@ mod tests {
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToHTML {})
+        test_examples(ToHtml {})
     }
 }

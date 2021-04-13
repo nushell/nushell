@@ -6,18 +6,17 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::Tagged;
 
-pub struct FromEML;
+pub struct FromEml;
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 
 #[derive(Deserialize, Clone)]
-pub struct FromEMLArgs {
+pub struct FromEmlArgs {
     #[serde(rename(deserialize = "preview-body"))]
     preview_body: Option<Tagged<usize>>,
 }
 
-#[async_trait]
-impl WholeStreamCommand for FromEML {
+impl WholeStreamCommand for FromEml {
     fn name(&self) -> &str {
         "from eml"
     }
@@ -35,8 +34,8 @@ impl WholeStreamCommand for FromEML {
         "Parse text as .eml and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_eml(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_eml(args)
     }
 }
 
@@ -73,10 +72,10 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_eml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (eml_args, input): (FromEMLArgs, _) = args.process().await?;
-    let value = input.collect_string(tag.clone()).await?;
+    let (eml_args, input): (FromEmlArgs, _) = args.process()?;
+    let value = input.collect_string(tag.clone())?;
 
     let body_preview = eml_args
         .preview_body
@@ -116,18 +115,18 @@ async fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         dict.insert_untagged("Body", UntaggedValue::string(body));
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::FromEML;
+    use super::FromEml;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromEML {})
+        test_examples(FromEml {})
     }
 }

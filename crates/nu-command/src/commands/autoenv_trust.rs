@@ -1,5 +1,5 @@
-use super::autoenv::read_trusted;
 use crate::prelude::*;
+use nu_data::config::read_trusted;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::SyntaxShape;
@@ -8,7 +8,6 @@ use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 pub struct AutoenvTrust;
 
-#[async_trait]
 impl WholeStreamCommand for AutoenvTrust {
     fn name(&self) -> &str {
         "autoenv trust"
@@ -22,11 +21,11 @@ impl WholeStreamCommand for AutoenvTrust {
         "Trust a .nu-env file in the current or given directory"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let ctx = EvaluationContext::from_args(&args);
 
-        let file_to_trust = match args.call_info.evaluate(&ctx).await?.args.nth(0) {
+        let file_to_trust = match args.call_info.evaluate(&ctx)?.args.nth(0) {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
@@ -56,7 +55,7 @@ impl WholeStreamCommand for AutoenvTrust {
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(".nu-env trusted!").into_value(tag),
         )))
     }

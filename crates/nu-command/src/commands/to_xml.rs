@@ -8,15 +8,14 @@ use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Write;
 
-pub struct ToXML;
+pub struct ToXml;
 
 #[derive(Deserialize)]
-pub struct ToXMLArgs {
+pub struct ToXmlArgs {
     pretty: Option<Value>,
 }
 
-#[async_trait]
-impl WholeStreamCommand for ToXML {
+impl WholeStreamCommand for ToXml {
     fn name(&self) -> &str {
         "to xml"
     }
@@ -34,8 +33,8 @@ impl WholeStreamCommand for ToXML {
         "Convert table into .xml text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_xml(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        to_xml(args)
     }
 }
 
@@ -132,11 +131,11 @@ pub fn write_xml_events<W: Write>(
     Ok(())
 }
 
-async fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
-    let (ToXMLArgs { pretty }, input) = args.process().await?;
-    let input: Vec<Value> = input.collect().await;
+    let (ToXmlArgs { pretty }, input) = args.process()?;
+    let input: Vec<Value> = input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {
@@ -150,51 +149,49 @@ async fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(
-        futures::stream::iter(to_process_input.into_iter().map(move |value| {
-            let mut w = pretty.as_ref().map_or_else(
-                || quick_xml::Writer::new(Cursor::new(Vec::new())),
-                |p| {
-                    quick_xml::Writer::new_with_indent(
-                        Cursor::new(Vec::new()),
-                        b' ',
-                        p.value.expect_int() as usize,
-                    )
-                },
-            );
+    Ok((to_process_input.into_iter().map(move |value| {
+        let mut w = pretty.as_ref().map_or_else(
+            || quick_xml::Writer::new(Cursor::new(Vec::new())),
+            |p| {
+                quick_xml::Writer::new_with_indent(
+                    Cursor::new(Vec::new()),
+                    b' ',
+                    p.value.expect_int() as usize,
+                )
+            },
+        );
 
-            let value_span = value.tag.span;
+        let value_span = value.tag.span;
 
-            match write_xml_events(&value, &mut w) {
-                Ok(_) => {
-                    let b = w.into_inner().into_inner();
-                    let s = String::from_utf8(b)?;
-                    ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag),
-                    )
-                }
-                Err(_) => Err(ShellError::labeled_error_with_secondary(
-                    "Expected a table with XML-compatible structure from pipeline",
-                    "requires XML-compatible input",
-                    name_span,
-                    "originates from here".to_string(),
-                    value_span,
-                )),
+        match write_xml_events(&value, &mut w) {
+            Ok(_) => {
+                let b = w.into_inner().into_inner();
+                let s = String::from_utf8(b)?;
+                ReturnSuccess::value(
+                    UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag),
+                )
             }
-        }))
-        .to_output_stream(),
-    )
+            Err(_) => Err(ShellError::labeled_error_with_secondary(
+                "Expected a table with XML-compatible structure from pipeline",
+                "requires XML-compatible input",
+                name_span,
+                "originates from here".to_string(),
+                value_span,
+            )),
+        }
+    }))
+    .to_action_stream())
 }
 
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToXML;
+    use super::ToXml;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToXML {})
+        test_examples(ToXml {})
     }
 }

@@ -3,16 +3,14 @@ use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
 use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
-use async_trait::async_trait;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, InputStream, OutputStream, ToOutputStream};
 use std::sync::Arc;
 
-#[async_trait]
 pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
@@ -26,7 +24,24 @@ pub trait WholeStreamCommand: Send + Sync {
         ""
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
+    fn run_with_actions(&self, _args: CommandArgs) -> Result<ActionStream, ShellError> {
+        return Err(ShellError::unimplemented(&format!(
+            "{} does not implement run or run_with_actions",
+            self.name()
+        )));
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
+        let context = EvaluationContext::from_args(&args);
+        let stream = self.run_with_actions(args)?;
+
+        Ok(Box::new(crate::evaluate::internal::InternalIterator {
+            context,
+            input: stream,
+            leftovers: InputStream::empty(),
+        })
+        .to_output_stream())
+    }
 
     fn is_binary(&self) -> bool {
         false
@@ -45,8 +60,8 @@ pub trait WholeStreamCommand: Send + Sync {
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
-#[async_trait]
-impl WholeStreamCommand for Block {
+
+impl WholeStreamCommand for Arc<Block> {
     fn name(&self) -> &str {
         &self.params.name
     }
@@ -59,14 +74,17 @@ impl WholeStreamCommand for Block {
         &self.params.usage
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
 
         let mut block = self.clone();
-        block.set_redirect(call_info.args.external_redirection);
+
+        if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block) {
+            block.set_redirect(call_info.args.external_redirection);
+        }
 
         let ctx = EvaluationContext::from_args(&args);
-        let evaluated = call_info.evaluate(&ctx).await?;
+        let evaluated = call_info.evaluate(&ctx)?;
 
         let input = args.input;
         ctx.scope.enter_scope();
@@ -119,6 +137,13 @@ impl WholeStreamCommand for Block {
                     UntaggedValue::Table(elements).into_value(Span::new(start, end)),
                 );
             }
+        } else if block.params.rest_positional.is_some() {
+            //If there is a rest arg, but no args were provided,
+            //we have to set $rest to an empty table
+            ctx.scope.add_var(
+                "$rest",
+                UntaggedValue::Table(Vec::new()).into_value(Span::new(0, 0)),
+            );
         }
         if let Some(args) = evaluated.args.named {
             for named in &block.params.named {
@@ -153,9 +178,9 @@ impl WholeStreamCommand for Block {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input).await;
+        let result = run_block(&block, &ctx, input);
         ctx.scope.exit_scope();
-        result.map(|x| x.to_output_stream())
+        result
     }
 
     fn is_binary(&self) -> bool {
@@ -210,14 +235,25 @@ impl Command {
         self.0.examples()
     }
 
-    pub async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
-            Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+            Ok(ActionStream::one(Ok(ReturnSuccess::Value(
                 UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
             ))))
         } else {
-            self.0.run(args).await
+            self.0.run_with_actions(args)
+        }
+    }
+
+    pub fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
+        if args.call_info.switch_present("help") {
+            let cl = self.0.clone();
+            Ok(InputStream::one(
+                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+            ))
+        } else {
+            self.0.run(args)
         }
     }
 

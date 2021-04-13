@@ -132,11 +132,11 @@ def e [] {echo hi}
     }
 
     #[test]
-    fn def_comment_with_sinqle_quote() {
+    fn def_comment_with_single_quote() {
         let input = r#"def f [] {
-	    	# shouldn't return error
-			echo hi
-		}"#;
+            # shouldn't return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
@@ -144,29 +144,29 @@ def e [] {echo hi}
     #[test]
     fn def_comment_with_double_quote() {
         let input = r#"def f [] {
-	    	# should "not return error
-			echo hi
-		}"#;
+            # should "not return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
 
     #[test]
-    fn def_comment_with_bracks() {
+    fn def_comment_with_bracket() {
         let input = r#"def f [] {
-	    	# should not [return error
-			echo hi
-		}"#;
+            # should not [return error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
 
     #[test]
-    fn def_comment_with_curly() {
+    fn def_comment_with_curly_brace() {
         let input = r#"def f [] {
-	    	# should not return {error
-			echo hi
-		}"#;
+            # should not return {error
+            echo hi
+        }"#;
         let (_result, err) = lex(input, 0);
         assert!(err.is_none());
     }
@@ -334,7 +334,7 @@ echo 42
 #[test]
 fn no_discarded_white_space_start_of_comment() {
     let code = r#"
-#No white_space at firt line ==> No white_space discarded
+#No white_space at first line ==> No white_space discarded
 #   Starting space is not discarded
 echo 42
         "#;
@@ -351,14 +351,14 @@ echo 42
         result.block[0].pipelines[0].commands[0].comments,
         Some(vec![
             LiteComment::new(
-                "No white_space at firt line ==> No white_space discarded"
+                "No white_space at first line ==> No white_space discarded"
                     .to_string()
-                    .spanned(Span::new(2, 58))
+                    .spanned(Span::new(2, 59))
             ),
             LiteComment::new(
                 "   Starting space is not discarded"
                     .to_string()
-                    .spanned(Span::new(60, 94))
+                    .spanned(Span::new(61, 95))
             ),
         ])
     );

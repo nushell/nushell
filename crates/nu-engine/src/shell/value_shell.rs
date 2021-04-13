@@ -3,13 +3,12 @@ use crate::maybe_text_codec::StringOrBinary;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
 use nu_errors::ShellError;
 use nu_protocol::ValueStructure;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
 use nu_source::SpannedItem;
 use nu_source::{Span, Tag, Tagged};
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 use nu_value_ext::ValueExt;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
@@ -100,7 +99,7 @@ impl Shell for ValueShell {
         LsArgs { path, .. }: LsArgs,
         name_tag: Tag,
         _ctrl_c: Arc<AtomicBool>,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
 
         if let Some(value) = &path {
@@ -134,7 +133,7 @@ impl Shell for ValueShell {
         Ok(output.into())
     }
 
-    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let destination = args.path;
 
         let path = match destination {
@@ -179,12 +178,10 @@ impl Shell for ValueShell {
             ));
         }
 
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::change_cwd(path));
-        Ok(stream.into())
+        Ok(ActionStream::one(ReturnSuccess::change_cwd(path)))
     }
 
-    fn cp(&self, _args: CopyArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn cp(&self, _args: CopyArgs, name: Tag, _path: &str) -> Result<ActionStream, ShellError> {
         Err(ShellError::labeled_error(
             "cp not currently supported on values",
             "not currently supported",
@@ -192,7 +189,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn mv(&self, _args: MvArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mv(&self, _args: MvArgs, name: Tag, _path: &str) -> Result<ActionStream, ShellError> {
         Err(ShellError::labeled_error(
             "mv not currently supported on values",
             "not currently supported",
@@ -200,7 +197,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn mkdir(&self, _args: MkdirArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mkdir(&self, _args: MkdirArgs, name: Tag, _path: &str) -> Result<ActionStream, ShellError> {
         Err(ShellError::labeled_error(
             "mkdir not currently supported on values",
             "not currently supported",
@@ -208,7 +205,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn rm(&self, _args: RemoveArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn rm(&self, _args: RemoveArgs, name: Tag, _path: &str) -> Result<ActionStream, ShellError> {
         Err(ShellError::labeled_error(
             "rm not currently supported on values",
             "not currently supported",
@@ -220,12 +217,10 @@ impl Shell for ValueShell {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(
             UntaggedValue::string(self.path()).into_value(&args.call_info.name_tag),
-        ));
-        Ok(stream.into())
+        ))
     }
 
     fn set_path(&mut self, path: String) {
@@ -238,7 +233,10 @@ impl Shell for ValueShell {
         _path: &Path,
         _name: Span,
         _with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
+        ShellError,
+    > {
         Err(ShellError::unimplemented(
             "open on help shell is not supported",
         ))
@@ -249,9 +247,14 @@ impl Shell for ValueShell {
         _path: &Path,
         _contents: &[u8],
         _name: Span,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         Err(ShellError::unimplemented(
             "save on help shell is not supported",
         ))
+    }
+
+    fn is_interactive(&self) -> bool {
+        //Value shell is always interactive
+        true
     }
 }

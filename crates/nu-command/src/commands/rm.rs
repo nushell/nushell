@@ -6,7 +6,6 @@ use nu_protocol::{Signature, SyntaxShape};
 
 pub struct Remove;
 
-#[async_trait]
 impl WholeStreamCommand for Remove {
     fn name(&self) -> &str {
         "rm"
@@ -33,8 +32,8 @@ impl WholeStreamCommand for Remove {
         "Remove file(s)."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        rm(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        rm(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -63,13 +62,13 @@ impl WholeStreamCommand for Remove {
     }
 }
 
-async fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager.clone();
-    let (args, _): (RemoveArgs, _) = args.process().await?;
+    let (args, _): (RemoveArgs, _) = args.process()?;
 
     if args.trash.item && args.permanent.item {
-        return Ok(OutputStream::one(Err(ShellError::labeled_error(
+        return Ok(ActionStream::one(Err(ShellError::labeled_error(
             "only one of --permanent and --trash can be used",
             "conflicting flags",
             name,

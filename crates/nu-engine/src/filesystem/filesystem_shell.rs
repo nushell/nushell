@@ -1,24 +1,21 @@
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::filesystem::dir_info::{DirBuilder, DirInfo};
 use crate::filesystem::path::canonicalize;
 use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
+use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
-use futures::stream::BoxStream;
-use futures::StreamExt;
-use futures_codec::FramedRead;
-use futures_util::TryStreamExt;
-use nu_protocol::{TaggedDictBuilder, Value};
+use nu_data::config::LocalConfigDiff;
+use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
-use nu_stream::{Interruptible, OutputStream, ToOutputStream};
-use std::collections::HashMap;
+use nu_stream::{ActionStream, Interruptible, ToActionStream};
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::{collections::HashMap, io::BufReader};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -27,9 +24,16 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 
+#[derive(Eq, PartialEq, Clone, Copy)]
+pub enum FilesystemShellMode {
+    Cli,
+    Script,
+}
+
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
+    pub(crate) mode: FilesystemShellMode,
 }
 
 impl std::fmt::Debug for FilesystemShell {
@@ -43,12 +47,17 @@ impl Clone for FilesystemShell {
         FilesystemShell {
             path: self.path.clone(),
             last_path: self.path.clone(),
+            mode: self.mode,
         }
     }
 }
 
 impl FilesystemShell {
-    pub fn basic() -> Result<FilesystemShell, Error> {
+    fn is_cli(&self) -> bool {
+        matches!(&self.mode, FilesystemShellMode::Cli)
+    }
+
+    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
@@ -57,15 +66,23 @@ impl FilesystemShell {
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
+            mode,
         })
     }
 
-    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(
+        path: String,
+        mode: FilesystemShellMode,
+    ) -> Result<FilesystemShell, std::io::Error> {
         let path = canonicalize(std::env::current_dir()?, &path)?;
         let path = path.display().to_string();
         let last_path = path.clone();
 
-        Ok(FilesystemShell { path, last_path })
+        Ok(FilesystemShell {
+            path,
+            last_path,
+            mode,
+        })
     }
 }
 
@@ -101,15 +118,35 @@ impl Shell for FilesystemShell {
         }: LsArgs,
         name_tag: Tag,
         ctrl_c: Arc<AtomicBool>,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let ctrl_c_copy = ctrl_c.clone();
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
                 let mut p = p.item;
                 if p.is_dir() {
+                    if permission_denied(&p) {
+                        #[cfg(unix)]
+                        let error_msg = format!(
+                            "The permissions of {:o} do not allow access for this user",
+                            p.metadata()
+                                .expect(
+                                    "this shouldn't be called since we already know there is a dir"
+                                )
+                                .permissions()
+                                .mode()
+                                & 0o0777
+                        );
+                        #[cfg(not(unix))]
+                        let error_msg = String::from("Permission denied");
+                        return Err(ShellError::labeled_error(
+                            "Permission denied",
+                            error_msg,
+                            &p_tag,
+                        ));
+                    }
                     if is_empty_dir(&p) {
-                        return Ok(OutputStream::empty());
+                        return Ok(ActionStream::empty());
                     }
                     p.push("*");
                 }
@@ -117,7 +154,7 @@ impl Shell for FilesystemShell {
             }
             None => {
                 if is_empty_dir(&self.path()) {
-                    return Ok(OutputStream::empty());
+                    return Ok(ActionStream::empty());
                 } else {
                     (PathBuf::from("./*"), name_tag.clone())
                 }
@@ -142,52 +179,53 @@ impl Shell for FilesystemShell {
 
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
 
-        Ok(futures::stream::iter(paths.filter_map(move |path| {
-            let path = match path.map_err(|e| ShellError::from(e.into_error())) {
-                Ok(path) => path,
-                Err(err) => return Some(Err(err)),
-            };
+        Ok(paths
+            .filter_map(move |path| {
+                let path = match path.map_err(|e| ShellError::from(e.into_error())) {
+                    Ok(path) => path,
+                    Err(err) => return Some(Err(err)),
+                };
 
-            if path_contains_hidden_folder(&path, &hidden_dirs) {
-                return None;
-            }
-
-            if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                if path.is_dir() {
-                    hidden_dirs.push(path);
+                if path_contains_hidden_folder(&path, &hidden_dirs) {
+                    return None;
                 }
-                return None;
-            }
 
-            let metadata = match std::fs::symlink_metadata(&path) {
-                Ok(metadata) => Some(metadata),
-                Err(e) => {
-                    if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
-                        None
-                    } else {
-                        return Some(Err(e.into()));
+                if !all && !hidden_dir_specified && is_hidden_dir(&path) {
+                    if path.is_dir() {
+                        hidden_dirs.push(path);
                     }
+                    return None;
                 }
-            };
 
-            let entry = dir_entry_dict(
-                &path,
-                metadata.as_ref(),
-                name_tag.clone(),
-                long,
-                short_names,
-                du,
-                ctrl_c.clone(),
-            )
-            .map(ReturnSuccess::Value);
+                let metadata = match std::fs::symlink_metadata(&path) {
+                    Ok(metadata) => Some(metadata),
+                    Err(e) => {
+                        if e.kind() == ErrorKind::PermissionDenied || e.kind() == ErrorKind::Other {
+                            None
+                        } else {
+                            return Some(Err(e.into()));
+                        }
+                    }
+                };
 
-            Some(entry)
-        }))
-        .interruptible(ctrl_c_copy)
-        .to_output_stream())
+                let entry = dir_entry_dict(
+                    &path,
+                    metadata.as_ref(),
+                    name_tag.clone(),
+                    long,
+                    short_names,
+                    du,
+                    ctrl_c.clone(),
+                )
+                .map(ReturnSuccess::Value);
+
+                Some(entry)
+            })
+            .interruptible(ctrl_c_copy)
+            .to_action_stream())
     }
 
-    fn cd(&self, args: CdArgs, name: Tag) -> Result<OutputStream, ShellError> {
+    fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
         let path = match args.path {
             None => match homedir_if_possible() {
                 Some(o) => o,
@@ -255,6 +293,43 @@ impl Shell for FilesystemShell {
             path.to_string_lossy().to_string(),
         ));
 
+        //Loading local configs in script mode, makes scripts behave different on different
+        //filesystems and might therefore surprise users. That's why we only load them in cli mode.
+        if self.is_cli() {
+            match dunce::canonicalize(self.path()) {
+                Err(e) => {
+                    let err = ShellError::untagged_runtime_error(format!(
+                        "Could not get absolute path from current fs shell. The error was: {:?}",
+                        e
+                    ));
+                    stream.push_back(ReturnSuccess::value(
+                        UntaggedValue::Error(err).into_value(Tag::unknown()),
+                    ));
+                }
+                Ok(current_pwd) => {
+                    let (changes, errs) = LocalConfigDiff::between(current_pwd, path);
+
+                    for err in errs {
+                        stream.push_back(ReturnSuccess::value(
+                            UntaggedValue::Error(err).into_value(Tag::unknown()),
+                        ));
+                    }
+
+                    for unload_cfg in changes.cfgs_to_unload {
+                        stream.push_back(ReturnSuccess::action(CommandAction::UnloadConfig(
+                            ConfigPath::Local(unload_cfg),
+                        )));
+                    }
+
+                    for load_cfg in changes.cfgs_to_load {
+                        stream.push_back(ReturnSuccess::action(CommandAction::LoadConfig(
+                            ConfigPath::Local(load_cfg),
+                        )));
+                    }
+                }
+            };
+        }
+
         Ok(stream.into())
     }
 
@@ -267,7 +342,7 @@ impl Shell for FilesystemShell {
         }: CopyArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let name_tag = name;
 
         let path = Path::new(path);
@@ -392,7 +467,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(OutputStream::empty())
+        Ok(ActionStream::empty())
     }
 
     fn mkdir(
@@ -403,7 +478,7 @@ impl Shell for FilesystemShell {
         }: MkdirArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let path = Path::new(path);
         let mut stream = VecDeque::new();
 
@@ -440,7 +515,7 @@ impl Shell for FilesystemShell {
         MvArgs { src, dst }: MvArgs,
         _name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         let path = Path::new(path);
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
@@ -508,7 +583,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(OutputStream::empty())
+        Ok(ActionStream::empty())
     }
 
     fn rm(
@@ -522,7 +597,29 @@ impl Shell for FilesystemShell {
         }: RemoveArgs,
         name: Tag,
         path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
+        let rm_always_trash = nu_data::config::config(Tag::unknown())?
+            .get("rm_always_trash")
+            .map(|val| val.is_true())
+            .unwrap_or(false);
+
+        #[cfg(not(feature = "trash-support"))]
+        {
+            if rm_always_trash {
+                return Err(ShellError::untagged_runtime_error(
+                    "Cannot execute `rm`; the current configuration specifies \
+                    `rm_always_trash = true`, but the current nu executable was not \
+                    built with feature `trash_support`.",
+                ));
+            } else if _trash.item {
+                return Err(ShellError::labeled_error(
+                    "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled",
+                    "this option is only available if nu is built with the `trash-support` feature",
+                    _trash.tag
+                ));
+            }
+        }
+
         let name_tag = name;
 
         if targets.is_empty() {
@@ -587,8 +684,9 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        Ok(
-            futures::stream::iter(all_targets.into_iter().map(move |(f, tag)| {
+        Ok(all_targets
+            .into_iter()
+            .map(move |(f, tag)| {
                 let is_empty = || match f.read_dir() {
                     Ok(mut p) => p.next().is_none(),
                     Err(_) => false,
@@ -597,22 +695,24 @@ impl Shell for FilesystemShell {
                 if let Ok(metadata) = f.symlink_metadata() {
                     #[cfg(unix)]
                     let is_socket = metadata.file_type().is_socket();
+                    #[cfg(unix)]
+                    let is_fifo = metadata.file_type().is_fifo();
+
                     #[cfg(not(unix))]
                     let is_socket = false;
+                    #[cfg(not(unix))]
+                    let is_fifo = false;
 
                     if metadata.is_file()
                         || metadata.file_type().is_symlink()
                         || recursive.item
                         || is_socket
+                        || is_fifo
                         || is_empty()
                     {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
-                            let rm_always_trash = nu_data::config::config(Tag::unknown())?
-                                .get("rm_always_trash")
-                                .map(|val| val.is_true())
-                                .unwrap_or(false);
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
@@ -625,7 +725,7 @@ impl Shell for FilesystemShell {
                         }
                         #[cfg(not(feature = "trash-support"))]
                         {
-                            result = if metadata.is_file() || is_socket {
+                            result = if metadata.is_file() || is_socket || is_fifo {
                                 std::fs::remove_file(&f)
                             } else {
                                 std::fs::remove_dir_all(&f)
@@ -657,16 +757,15 @@ impl Shell for FilesystemShell {
                         tag,
                     ))
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_action_stream())
     }
 
     fn path(&self) -> String {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
         let p = match dunce::canonicalize(path.as_path()) {
             Ok(p) => p,
@@ -679,13 +778,10 @@ impl Shell for FilesystemShell {
             }
         };
 
-        let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::String(p.to_string_lossy().to_string()))
                 .into_value(&args.call_info.name_tag),
-        ));
-
-        Ok(stream.into())
+        )))
     }
 
     fn set_path(&mut self, path: String) {
@@ -710,7 +806,10 @@ impl Shell for FilesystemShell {
         path: &Path,
         name: Span,
         with_encoding: Option<&'static Encoding>,
-    ) -> Result<BoxStream<'static, Result<StringOrBinary, ShellError>>, ShellError> {
+    ) -> Result<
+        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Sync + Send>,
+        ShellError,
+    > {
         let metadata = std::fs::metadata(&path);
 
         let read_full = if let Ok(metadata) = metadata {
@@ -721,8 +820,6 @@ impl Shell for FilesystemShell {
         };
 
         if read_full {
-            use futures_codec::Decoder;
-
             // We should, in theory, be able to read in the whole file as one chunk
             let buffer = std::fs::read(&path).map_err(|e| {
                 ShellError::labeled_error(
@@ -732,15 +829,15 @@ impl Shell for FilesystemShell {
                 )
             })?;
 
-            let mut bytes_mut = bytes::BytesMut::from(&buffer[..]);
+            let bytes_mut = bytes::BytesMut::from(&buffer[..]);
 
             let mut codec = MaybeTextCodec::new(with_encoding);
 
-            match codec.decode(&mut bytes_mut).map_err(|_| {
+            match codec.decode(&bytes_mut).map_err(|_| {
                 ShellError::labeled_error("Error opening file", "error opening file", name)
             })? {
-                Some(sb) => Ok(futures::stream::iter(vec![Ok(sb)].into_iter()).boxed()),
-                None => Ok(futures::stream::iter(vec![].into_iter()).boxed()),
+                Some(sb) => Ok(Box::new(vec![Ok(sb)].into_iter())),
+                None => Ok(Box::new(vec![].into_iter())),
             }
         } else {
             // We don't know that this is a finite file, so treat it as a stream
@@ -751,14 +848,10 @@ impl Shell for FilesystemShell {
                     name,
                 )
             })?;
-            let async_reader = futures::io::AllowStdIo::new(f);
-            let sob_stream = FramedRead::new(async_reader, MaybeTextCodec::new(with_encoding))
-                .map_err(move |_| {
-                    ShellError::labeled_error("Error opening file", "error opening file", name)
-                })
-                .into_stream();
+            let buf_reader = BufReader::new(f);
+            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::new(with_encoding));
 
-            Ok(sob_stream.boxed())
+            Ok(Box::new(buf_codec))
         }
     }
 
@@ -767,15 +860,19 @@ impl Shell for FilesystemShell {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> Result<ActionStream, ShellError> {
         match std::fs::write(full_path, save_data) {
-            Ok(_) => Ok(OutputStream::empty()),
+            Ok(_) => Ok(ActionStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),
                 "IO error while saving",
                 name,
             )),
         }
+    }
+
+    fn is_interactive(&self) -> bool {
+        self.mode == FilesystemShellMode::Cli
     }
 }
 
@@ -854,6 +951,13 @@ fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
     match dir.as_ref().read_dir() {
         Err(_) => true,
         Ok(mut s) => s.next().is_none(),
+    }
+}
+
+fn permission_denied(dir: impl AsRef<Path>) -> bool {
+    match dir.as_ref().read_dir() {
+        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
+        Ok(_) => false,
     }
 }
 

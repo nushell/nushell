@@ -2,9 +2,8 @@ use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tag};
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 
-use async_trait::async_trait;
 use serde::Deserialize;
 
 pub struct Command;
@@ -14,7 +13,6 @@ struct Arguments {
     path: Option<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "stub open"
@@ -28,15 +26,15 @@ impl WholeStreamCommand for Command {
         "Generates tables and metadata that mimics behavior of real commands in controlled ways."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
-        let (Arguments { path: mocked_path }, _input) = args.process().await?;
+        let (Arguments { path: mocked_path }, _input) = args.process()?;
 
         let out = UntaggedValue::string("Yehuda Katz in Ecuador");
 
         if let Some(true) = mocked_path {
-            Ok(OutputStream::one(Ok(ReturnSuccess::Value(Value {
+            Ok(ActionStream::one(Ok(ReturnSuccess::Value(Value {
                 value: out,
                 tag: Tag {
                     anchor: Some(mock_path()),
@@ -44,7 +42,7 @@ impl WholeStreamCommand for Command {
                 },
             }))))
         } else {
-            Ok(OutputStream::one(Ok(ReturnSuccess::Value(
+            Ok(ActionStream::one(Ok(ReturnSuccess::Value(
                 out.into_value(name_tag),
             ))))
         }

@@ -6,7 +6,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str ltrim"
@@ -30,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
         "trims whitespace or character from the beginning of text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &trim_left).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args, &trim_left)
     }
 
     fn examples(&self) -> Vec<Example> {

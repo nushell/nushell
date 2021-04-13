@@ -5,7 +5,6 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math abs"
@@ -19,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "Returns absolute values of a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let mapped = args.input.map(move |val| match val.value {
             UntaggedValue::Primitive(Primitive::Int(val)) => {
                 UntaggedValue::int(val.magnitude().clone()).into()
@@ -32,7 +31,7 @@ impl WholeStreamCommand for SubCommand {
             }
             other => abs_default(other),
         });
-        Ok(OutputStream::from_input(mapped))
+        Ok(ActionStream::from_input(mapped))
     }
 
     fn examples(&self) -> Vec<Example> {

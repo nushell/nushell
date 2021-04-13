@@ -37,7 +37,6 @@ fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, Shell
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for RunExternalCommand {
     fn name(&self) -> &str {
         "run_external"
@@ -63,7 +62,7 @@ impl WholeStreamCommand for RunExternalCommand {
         true
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let positionals = args.call_info.args.positional.clone().ok_or_else(|| {
             ShellError::untagged_runtime_error("positional arguments unexpectedly empty")
         })?;
@@ -83,9 +82,9 @@ impl WholeStreamCommand for RunExternalCommand {
             EvaluationContext {
                 scope: args.scope.clone(),
                 host: args.host.clone(),
-                user_recently_used_autoenv_untrust: Arc::new(AtomicBool::new(false)),
                 shell_manager: args.shell_manager.clone(),
                 ctrl_c: args.ctrl_c.clone(),
+                configs: args.configs.clone(),
                 current_errors: Arc::new(Mutex::new(vec![])),
                 windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
             }
@@ -105,7 +104,7 @@ impl WholeStreamCommand for RunExternalCommand {
         // If we're in interactive mode, we will "auto cd". That is, instead of interpreting
         // this as an external command, we will see it as a path and `cd` into it.
         if is_interactive {
-            if let Some(path) = maybe_autocd_dir(&command, &mut external_context).await {
+            if let Some(path) = maybe_autocd_dir(&command, &mut external_context) {
                 let cd_args = CdArgs {
                     path: Some(Tagged {
                         item: PathBuf::from(path),
@@ -117,7 +116,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     .shell_manager
                     .cd(cd_args, args.call_info.name_tag.clone());
 
-                return Ok(result?.to_output_stream());
+                return Ok(result?.to_action_stream());
             }
         }
 
@@ -127,23 +126,19 @@ impl WholeStreamCommand for RunExternalCommand {
             &mut external_context,
             input,
             external_redirection,
-        )
-        .await;
+        );
 
-        Ok(result?.to_output_stream())
+        Ok(result?.to_action_stream())
     }
 }
 
 #[allow(unused_variables)]
-async fn maybe_autocd_dir<'a>(
-    cmd: &ExternalCommand,
-    ctx: &mut EvaluationContext,
-) -> Option<String> {
+fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Option<String> {
     // We will "auto cd" if
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.
     let name = &cmd.name;
-    let path_name = if name.ends_with(std::path::MAIN_SEPARATOR)
+    let path_name = if name.ends_with(std::path::is_separator)
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()

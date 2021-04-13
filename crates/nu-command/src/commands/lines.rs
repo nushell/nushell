@@ -6,7 +6,6 @@ use parking_lot::Mutex;
 
 pub struct Lines;
 
-#[async_trait]
 impl WholeStreamCommand for Lines {
     fn name(&self) -> &str {
         "lines"
@@ -20,8 +19,8 @@ impl WholeStreamCommand for Lines {
         "Split single string into rows, one per line."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        lines(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        lines(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -43,87 +42,78 @@ fn ends_with_line_ending(st: &str) -> bool {
     }
 }
 
-async fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn lines(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let leftover_string = Arc::new(Mutex::new(String::new()));
-    let args = args.evaluate_once().await?;
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let name_span = tag.span;
 
-    let eos = futures::stream::iter(vec![
-        UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()
-    ]);
+    let eos = vec![UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()];
 
     Ok(args
         .input
         .chain(eos)
         .filter_map(move |item| {
             let leftover_string = leftover_string.clone();
-            async move {
-                match item {
-                    Value {
-                        value: UntaggedValue::Primitive(Primitive::String(st)),
-                        ..
-                    } => {
-                        let mut leftover_string = leftover_string.lock();
+            match item {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(st)),
+                    ..
+                } => {
+                    let mut leftover_string = leftover_string.lock();
 
-                        let mut buffer = leftover_string.clone();
-                        buffer.push_str(&st);
+                    let mut buffer = leftover_string.clone();
+                    buffer.push_str(&st);
 
-                        let mut lines: Vec<String> =
-                            buffer.lines().map(|x| x.to_string()).collect();
+                    let mut lines: Vec<String> = buffer.lines().map(|x| x.to_string()).collect();
 
-                        leftover_string.clear();
+                    leftover_string.clear();
 
-                        if !ends_with_line_ending(&st) {
-                            if let Some(last) = lines.pop() {
-                                leftover_string.push_str(&last);
-                            }
-                        }
-
-                        if !lines.is_empty() {
-                            let success_lines: Vec<_> = lines
-                                .iter()
-                                .map(|x| {
-                                    ReturnSuccess::value(
-                                        UntaggedValue::string(x).into_untagged_value(),
-                                    )
-                                })
-                                .collect();
-
-                            Some(futures::stream::iter(success_lines))
-                        } else {
-                            None
+                    if !ends_with_line_ending(&st) {
+                        if let Some(last) = lines.pop() {
+                            leftover_string.push_str(&last);
                         }
                     }
-                    Value {
-                        value: UntaggedValue::Primitive(Primitive::EndOfStream),
-                        ..
-                    } => {
-                        let st = (&*leftover_string).lock().clone();
-                        if !st.is_empty() {
-                            Some(futures::stream::iter(vec![ReturnSuccess::value(
-                                UntaggedValue::string(st).into_untagged_value(),
-                            )]))
-                        } else {
-                            None
-                        }
+
+                    if !lines.is_empty() {
+                        let success_lines: Vec<_> = lines
+                            .iter()
+                            .map(|x| {
+                                ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())
+                            })
+                            .collect();
+
+                        Some(success_lines)
+                    } else {
+                        None
                     }
-                    Value {
-                        tag: value_span, ..
-                    } => Some(futures::stream::iter(vec![Err(
-                        ShellError::labeled_error_with_secondary(
-                            "Expected a string from pipeline",
-                            "requires string input",
-                            name_span,
-                            "value originates from here",
-                            value_span,
-                        ),
-                    )])),
                 }
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::EndOfStream),
+                    ..
+                } => {
+                    let st = (&*leftover_string).lock().clone();
+                    if !st.is_empty() {
+                        Some(vec![ReturnSuccess::value(
+                            UntaggedValue::string(st).into_untagged_value(),
+                        )])
+                    } else {
+                        None
+                    }
+                }
+                Value {
+                    tag: value_span, ..
+                } => Some(vec![Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    value_span,
+                ))]),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

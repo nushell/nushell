@@ -8,7 +8,6 @@ use rand::thread_rng;
 
 pub struct Shuffle;
 
-#[async_trait]
 impl WholeStreamCommand for Shuffle {
     fn name(&self) -> &str {
         "shuffle"
@@ -18,18 +17,21 @@ impl WholeStreamCommand for Shuffle {
         "Shuffle rows randomly."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        shuffle(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(shuffle(args))
     }
 }
 
-async fn shuffle(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn shuffle(args: CommandArgs) -> ActionStream {
     let input = args.input;
-    let mut values: Vec<Value> = input.collect().await;
+    let mut values: Vec<Value> = input.collect();
 
     values.shuffle(&mut thread_rng());
 
-    Ok(futures::stream::iter(values.into_iter().map(ReturnSuccess::value)).to_output_stream())
+    values
+        .into_iter()
+        .map(ReturnSuccess::value)
+        .to_action_stream()
 }
 
 #[cfg(test)]

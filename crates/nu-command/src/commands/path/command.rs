@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Path;
 
-#[async_trait]
 impl WholeStreamCommand for Path {
     fn name(&self) -> &str {
         "path"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for Path {
         "Explore and manipulate paths."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(ReturnSuccess::value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Path, &args.scope)).into_value(Tag::unknown()),
         )))
     }

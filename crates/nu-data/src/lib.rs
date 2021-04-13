@@ -1,5 +1,4 @@
 pub mod base;
-pub mod command;
 pub mod config;
 pub mod dict;
 pub mod keybinding;

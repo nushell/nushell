@@ -8,7 +8,6 @@ use nu_protocol::Signature;
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date utc"
@@ -22,13 +21,13 @@ impl WholeStreamCommand for Date {
         "return the current date in utc."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        utc(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        utc(args)
     }
 }
 
-pub async fn utc(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn utc(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
     let no_fmt = "".to_string();

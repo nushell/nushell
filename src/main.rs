@@ -17,6 +17,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("no-history")
+                .hidden(true)
+                .long("no-history")
+                .multiple(false)
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("loglevel")
                 .short("l")
                 .long("loglevel")
@@ -36,7 +43,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .hidden(true)
                 .long("testbin")
                 .value_name("TESTBIN")
-                .possible_values(&["cococo", "iecho", "fail", "nonu", "chop", "repeater"])
+                .possible_values(&[
+                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater",
+                ])
                 .takes_value(true),
         )
         .arg(
@@ -79,6 +88,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if let Some(bin) = matches.value_of("testbin") {
         match bin {
+            "echo_env" => binaries::echo_env(),
             "cococo" => binaries::cococo(),
             "iecho" => binaries::iecho(),
             "fail" => binaries::fail(),
@@ -95,6 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .value_of("config-file")
         .map(std::ffi::OsString::from);
     options.stdin = matches.is_present("stdin");
+    options.save_history = !matches.is_present("no-history");
 
     let loglevel = match matches.value_of("loglevel") {
         None => LevelFilter::Warn,
@@ -139,7 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(values) => {
             options.scripts = vec![NuScript::code(values)?];
 
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            nu_cli::run_script_file(options)?;
             return Ok(());
         }
     }
@@ -150,20 +161,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
 
-            futures::executor::block_on(nu_cli::run_script_file(options))?;
+            nu_cli::run_script_file(options)?;
             return Ok(());
         }
 
         None => {
-            let mut context = create_default_context(true)?;
+            let context = create_default_context(true)?;
 
             if !matches.is_present("skip-plugins") {
-                let _ = nu_cli::register_plugins(&mut context);
+                let _ = nu_cli::register_plugins(&context);
             }
 
             #[cfg(feature = "rustyline-support")]
             {
-                futures::executor::block_on(nu_cli::cli(context, options))?;
+                nu_cli::cli(context, options)?;
             }
 
             #[cfg(not(feature = "rustyline-support"))]

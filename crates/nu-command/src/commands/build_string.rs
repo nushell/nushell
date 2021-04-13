@@ -5,14 +5,8 @@ use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
-#[derive(Deserialize)]
-pub struct BuildStringArgs {
-    rest: Vec<Value>,
-}
-
 pub struct BuildString;
 
-#[async_trait]
 impl WholeStreamCommand for BuildString {
     fn name(&self) -> &str {
         "build-string"
@@ -27,9 +21,10 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (BuildStringArgs { rest }, _) = args.process().await?;
+        let args = args.evaluate_once()?;
+        let rest: Vec<Value> = args.rest(0)?;
 
         let mut output_string = String::new();
 
@@ -37,7 +32,7 @@ impl WholeStreamCommand for BuildString {
             output_string.push_str(&format_leaf(&r).plain_string(100_000))
         }
 
-        Ok(OutputStream::one(ReturnSuccess::value(
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(output_string).into_value(tag),
         )))
     }

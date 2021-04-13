@@ -1,6 +1,5 @@
 use crate::commands::each;
 use crate::prelude::*;
-use futures::stream::once;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_engine::{CommandArgs, Example};
@@ -8,7 +7,7 @@ use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-use nu_stream::OutputStream;
+use nu_stream::ActionStream;
 
 pub struct Reduce;
 
@@ -19,7 +18,6 @@ pub struct ReduceArgs {
     numbered: Tagged<bool>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Reduce {
     fn name(&self) -> &str {
         "reduce"
@@ -49,8 +47,8 @@ impl WholeStreamCommand for Reduce {
         "Block must be (A, A) -> A unless --fold is selected, in which case it may be A, B -> A."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reduce(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        reduce(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -79,32 +77,32 @@ impl WholeStreamCommand for Reduce {
     }
 }
 
-async fn process_row(
+fn process_row(
     block: Arc<CapturedBlock>,
     context: &EvaluationContext,
     row: Value,
 ) -> Result<InputStream, ShellError> {
     let row_clone = row.clone();
-    let input_stream = once(async { Ok(row_clone) }).to_input_stream();
+    let input_stream = vec![Ok(row_clone)].into_iter().to_input_stream();
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
     context.scope.add_var("$it", row);
-    let result = run_block(&block.block, context, input_stream).await;
+    let result = run_block(&block.block, context, input_stream);
     context.scope.exit_scope();
 
-    Ok(result?)
+    result
 }
 
-async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let span = raw_args.call_info.name_tag.span;
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process().await?;
+    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process()?;
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = if !input.is_empty() {
         match reduce_args.fold {
             None => {
-                let first = input.next().await.expect("non-empty stream");
+                let first = input.next().expect("non-empty stream");
 
                 (1, first)
             }
@@ -132,30 +130,27 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Arc::clone(&block);
                 let row = each::make_indexed_item(input.0 + ioffset, input.1);
 
-                async move {
-                    let values = acc?.drain_vec().await;
+                let values = acc?.drain_vec();
 
-                    let f = if values.len() == 1 {
-                        let value = values
-                            .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
-                        value.clone()
-                    } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
-                    } else {
-                        UntaggedValue::table(&values).into_untagged_value()
-                    };
+                let f = if values.len() == 1 {
+                    let value = values
+                        .get(0)
+                        .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                    value.clone()
+                } else if values.is_empty() {
+                    UntaggedValue::nothing().into_untagged_value()
+                } else {
+                    UntaggedValue::table(&values).into_untagged_value()
+                };
 
-                    context.scope.enter_scope();
-                    context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row).await;
-                    context.scope.exit_scope();
+                context.scope.enter_scope();
+                context.scope.add_var("$acc", f);
+                let result = process_row(block, &*context, row);
+                context.scope.exit_scope();
 
-                    result
-                }
-            })
-            .await?
-            .to_output_stream())
+                result
+            })?
+            .to_action_stream())
     } else {
         let initial = Ok(InputStream::one(start));
         Ok(input
@@ -163,29 +158,26 @@ async fn reduce(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Arc::clone(&block);
                 let context = context.clone();
 
-                async move {
-                    let values = acc?.drain_vec().await;
+                let values = acc?.drain_vec();
 
-                    let f = if values.len() == 1 {
-                        let value = values
-                            .get(0)
-                            .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
-                        value.clone()
-                    } else if values.is_empty() {
-                        UntaggedValue::nothing().into_untagged_value()
-                    } else {
-                        UntaggedValue::table(&values).into_untagged_value()
-                    };
+                let f = if values.len() == 1 {
+                    let value = values
+                        .get(0)
+                        .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                    value.clone()
+                } else if values.is_empty() {
+                    UntaggedValue::nothing().into_untagged_value()
+                } else {
+                    UntaggedValue::table(&values).into_untagged_value()
+                };
 
-                    context.scope.enter_scope();
-                    context.scope.add_var("$acc", f);
-                    let result = process_row(block, &*context, row).await;
-                    context.scope.exit_scope();
-                    result
-                }
-            })
-            .await?
-            .to_output_stream())
+                context.scope.enter_scope();
+                context.scope.add_var("$acc", f);
+                let result = process_row(block, &*context, row);
+                context.scope.exit_scope();
+                result
+            })?
+            .to_action_stream())
     }
 }
 

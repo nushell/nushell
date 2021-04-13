@@ -7,7 +7,6 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math floor"
@@ -21,22 +20,15 @@ impl WholeStreamCommand for SubCommand {
         "Applies the floor function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let input = args.input;
+
         run_with_numerical_functions_on_stream(
-            RunnableContext {
-                input: args.input,
-                scope: args.scope.clone(),
-                shell_manager: args.shell_manager,
-                host: args.host,
-                ctrl_c: args.ctrl_c,
-                current_errors: args.current_errors,
-                name: args.call_info.name_tag,
-            },
+            input,
             floor_big_int,
             floor_big_decimal,
             floor_default,
         )
-        .await
     }
 
     fn examples(&self) -> Vec<Example> {

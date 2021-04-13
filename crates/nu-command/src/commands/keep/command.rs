@@ -11,7 +11,6 @@ pub struct Arguments {
     rows: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "keep"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        keep(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        keep(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,15 +53,15 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rows }, input) = args.process().await?;
+fn keep(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (Arguments { rows }, input) = args.process()?;
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
         1
     };
 
-    Ok(input.take(rows_desired).to_output_stream())
+    Ok(input.take(rows_desired).to_action_stream())
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use futures::stream::StreamExt;
+
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
@@ -11,7 +11,6 @@ pub struct LengthArgs {
     column: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
         "length"
@@ -29,33 +28,17 @@ impl WholeStreamCommand for Length {
         "Show the total number of rows or items."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (LengthArgs { column }, input) = args.process().await?;
-        let rows: Vec<Value> = input.collect().await;
+        let (LengthArgs { column }, input) = args.process()?;
 
-        let length = if column {
-            if rows.is_empty() {
-                0
-            } else {
-                match &rows[0].value {
-                    UntaggedValue::Row(dictionary) => dictionary.length(),
-                    _ => {
-                        return Err(ShellError::labeled_error(
-                            "Cannot obtain column length",
-                            "cannot obtain column length",
-                            tag,
-                        ));
-                    }
-                }
-            }
-        } else {
-            rows.len()
-        };
-
-        Ok(OutputStream::one(
-            UntaggedValue::int(length).into_value(tag),
-        ))
+        Ok(CountIterator {
+            column,
+            input,
+            done: false,
+            tag,
+        }
+        .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,6 +54,47 @@ impl WholeStreamCommand for Length {
                 result: None,
             },
         ]
+    }
+}
+
+struct CountIterator {
+    column: bool,
+    input: InputStream,
+    done: bool,
+    tag: Tag,
+}
+
+impl Iterator for CountIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        self.done = true;
+
+        let length = if self.column {
+            if let Some(first) = self.input.next() {
+                match &first.value {
+                    UntaggedValue::Row(dictionary) => dictionary.length(),
+                    _ => {
+                        return Some(Value::error(ShellError::labeled_error(
+                            "Cannot obtain column length",
+                            "cannot obtain column length",
+                            self.tag.clone(),
+                        )));
+                    }
+                }
+            } else {
+                0
+            }
+        } else {
+            let input = &mut self.input;
+            input.count()
+        };
+
+        Some(UntaggedValue::int(length).into_value(self.tag.clone()))
     }
 }
 

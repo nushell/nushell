@@ -6,17 +6,10 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
 };
+use nu_stream::OutputStream;
 
 pub struct If;
 
-#[derive(Deserialize)]
-pub struct IfArgs {
-    condition: CapturedBlock,
-    then_case: CapturedBlock,
-    else_case: CapturedBlock,
-}
-
-#[async_trait]
 impl WholeStreamCommand for If {
     fn name(&self) -> &str {
         "if"
@@ -45,8 +38,8 @@ impl WholeStreamCommand for If {
         "Run blocks if a condition is true or false."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        if_command(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        if_command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,18 +57,16 @@ impl WholeStreamCommand for If {
         ]
     }
 }
-async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
 
-    let (
-        IfArgs {
-            condition,
-            then_case,
-            else_case,
-        },
-        input,
-    ) = raw_args.process().await?;
+    let args = raw_args.evaluate_once()?;
+    let condition: CapturedBlock = args.req(0)?;
+    let then_case: CapturedBlock = args.req(1)?;
+    let else_case: CapturedBlock = args.req(2)?;
+    let input = args.input;
+
     let cond = {
         if condition.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -86,7 +77,7 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         match condition.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
-                Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
+                Some(ClassifiedCommand::Expr(expr)) => expr,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a condition",
@@ -109,22 +100,26 @@ async fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     context.scope.add_vars(&condition.captured.entries);
 
     //FIXME: should we use the scope that's brought in as well?
-    let condition = evaluate_baseline_expr(&cond, &*context).await;
+    let condition = evaluate_baseline_expr(&cond, &*context);
     match condition {
         Ok(condition) => match condition.as_bool() {
             Ok(b) => {
                 let result = if b {
-                    run_block(&then_case.block, &*context, input).await
+                    run_block(&then_case.block, &*context, input)
                 } else {
-                    run_block(&else_case.block, &*context, input).await
+                    run_block(&else_case.block, &*context, input)
                 };
                 context.scope.exit_scope();
 
-                result.map(|x| x.to_output_stream())
+                result
             }
-            Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+            Err(e) => Ok(OutputStream::from_stream(
+                vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
+            )),
         },
-        Err(e) => Ok(futures::stream::iter(vec![Err(e)].into_iter()).to_output_stream()),
+        Err(e) => Ok(OutputStream::from_stream(
+            vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
+        )),
     }
 }
 

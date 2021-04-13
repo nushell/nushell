@@ -21,8 +21,6 @@ use crate::commands::{
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
 
-use futures::executor::block_on;
-
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
@@ -56,7 +54,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         println!("{:#?}", block);
 
         if let Some(expected) = &sample_pipeline.result {
-            let result = block_on(evaluate_block(block, &mut ctx))?;
+            let result = evaluate_block(block, &mut ctx)?;
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
                 .map_or(Ok(()), Err)?;
@@ -113,7 +111,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         let block = parse_line(sample_pipeline.example, &ctx)?;
 
         if let Some(expected) = &sample_pipeline.result {
-            let result = block_on(evaluate_block(block, &mut ctx))?;
+            let result = evaluate_block(block, &mut ctx)?;
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
                 .map_or(Ok(()), Err)?;
@@ -179,7 +177,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         let block = parse_line(&pipeline_with_anchor, &ctx)?;
 
         if sample_pipeline.result.is_some() {
-            let result = block_on(evaluate_block(block, &mut ctx))?;
+            let result = evaluate_block(block, &mut ctx)?;
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
                 .map_or(Ok(()), Err)?;
@@ -225,21 +223,19 @@ fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, Sh
     Ok(ClassifiedBlock { block, failed: err })
 }
 
-async fn evaluate_block(
+fn evaluate_block(
     block: ClassifiedBlock,
     ctx: &mut EvaluationContext,
 ) -> Result<Vec<Value>, ShellError> {
     let input_stream = InputStream::empty();
-    let env = ctx.get_env();
 
     ctx.scope.enter_scope();
-    ctx.scope.add_env(env);
 
-    let result = run_block(&block.block, ctx, input_stream).await;
+    let result = run_block(&block.block, ctx, input_stream);
 
     ctx.scope.exit_scope();
 
-    let result = result?.drain_vec().await;
+    let result = result?.drain_vec();
     Ok(result)
 }
 

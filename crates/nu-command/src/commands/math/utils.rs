@@ -6,25 +6,30 @@ use indexmap::map::IndexMap;
 
 pub type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellError>;
 
-pub async fn run_with_function(
-    RunnableContext {
-        mut input, name, ..
-    }: RunnableContext,
+pub fn run_with_function(
+    args: impl Into<RunnableContext>,
     mf: MathFunction,
-) -> Result<OutputStream, ShellError> {
-    let values: Vec<Value> = input.drain_vec().await;
+) -> Result<ActionStream, ShellError> {
+    let RunnableContext {
+        mut input,
+        call_info,
+        ..
+    } = args.into();
+    let name = call_info.name_tag;
+
+    let values: Vec<Value> = input.drain_vec();
 
     let res = calculate(&values, &name, mf);
     match res {
         Ok(v) => {
             if v.value.is_table() {
-                Ok(OutputStream::from(
+                Ok(ActionStream::from(
                     v.table_entries()
                         .map(|v| ReturnSuccess::value(v.clone()))
                         .collect::<Vec<_>>(),
                 ))
             } else {
-                Ok(OutputStream::one(ReturnSuccess::value(v)))
+                Ok(ActionStream::one(ReturnSuccess::value(v)))
             }
         }
         Err(e) => Err(e),
@@ -37,18 +42,18 @@ pub type DecimalFunction = fn(val: BigDecimal) -> Value;
 
 pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
 
-pub async fn run_with_numerical_functions_on_stream(
-    RunnableContext { input, .. }: RunnableContext,
+pub fn run_with_numerical_functions_on_stream(
+    input: InputStream,
     int_function: IntFunction,
     decimal_function: DecimalFunction,
     default_function: DefaultFunction,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => int_function(val),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
         other => default_function(other),
     });
-    Ok(OutputStream::from_input(mapped))
+    Ok(ActionStream::from_input(mapped))
 }
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {

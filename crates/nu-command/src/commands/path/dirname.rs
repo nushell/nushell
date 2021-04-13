@@ -22,7 +22,6 @@ impl PathSubcommandArguments for PathDirnameArguments {
     }
 }
 
-#[async_trait]
 impl WholeStreamCommand for PathDirname {
     fn name(&self) -> &str {
         "path dirname"
@@ -49,7 +48,7 @@ impl WholeStreamCommand for PathDirname {
         "Gets the parent directory of a path"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let (
             PathDirnameArguments {
@@ -58,13 +57,13 @@ impl WholeStreamCommand for PathDirname {
                 rest,
             },
             input,
-        ) = args.process().await?;
+        ) = args.process()?;
         let args = Arc::new(PathDirnameArguments {
             replace,
             num_levels,
             rest,
         });
-        operate(input, &action, tag.span, args).await
+        Ok(operate(input, &action, tag.span, args))
     }
 
     #[cfg(windows)]

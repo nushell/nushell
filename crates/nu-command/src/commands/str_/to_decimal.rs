@@ -11,14 +11,12 @@ use nu_value_ext::ValueExt;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str to-decimal"
@@ -35,8 +33,8 @@ impl WholeStreamCommand for SubCommand {
         "converts text into decimal"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,19 +46,21 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest }, input) = args.process().await?;
-
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        Ok(Arguments {
+            column_paths: params.rest_args()?,
+        })
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag())),
@@ -70,7 +70,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

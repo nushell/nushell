@@ -7,15 +7,14 @@ use nu_protocol::{
 use serde::Serialize;
 use serde_json::json;
 
-pub struct ToJSON;
+pub struct ToJson;
 
 #[derive(Deserialize)]
-pub struct ToJSONArgs {
+pub struct ToJsonArgs {
     pretty: Option<Value>,
 }
 
-#[async_trait]
-impl WholeStreamCommand for ToJSON {
+impl WholeStreamCommand for ToJson {
     fn name(&self) -> &str {
         "to json"
     }
@@ -33,8 +32,8 @@ impl WholeStreamCommand for ToJSON {
         "Converts table data into JSON text."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_json(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        to_json(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -158,11 +157,11 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (ToJSONArgs { pretty }, input) = args.process().await?;
+    let (ToJsonArgs { pretty }, input) = args.process()?;
     let name_span = name_tag.span;
-    let input: Vec<Value> = input.collect().await;
+    let input: Vec<Value> = input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {
@@ -176,8 +175,9 @@ async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => vec![],
     };
 
-    Ok(futures::stream::iter(to_process_input.into_iter().map(
-        move |value| match value_to_json_value(&value) {
+    Ok((to_process_input
+        .into_iter()
+        .map(move |value| match value_to_json_value(&value) {
             Ok(json_value) => {
                 let value_span = value.tag.span;
 
@@ -248,20 +248,19 @@ async fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 "requires JSON-compatible input",
                 &name_tag,
             )),
-        },
-    ))
-    .to_output_stream())
+        }))
+    .to_action_stream())
 }
 
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToJSON;
+    use super::ToJson;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToJSON {})
+        test_examples(ToJson {})
     }
 }

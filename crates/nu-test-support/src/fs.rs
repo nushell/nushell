@@ -45,7 +45,7 @@ impl From<AbsoluteFile> for PathBuf {
 }
 
 pub struct AbsolutePath {
-    inner: PathBuf,
+    pub inner: PathBuf,
 }
 
 impl AbsolutePath {
@@ -196,8 +196,8 @@ pub fn delete_file_at(full_path: impl AsRef<Path>) {
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let full_path = full_path.as_ref();
 
-    if let Some(parent) = full_path.parent() {
-        panic!(format!("{:?} exists", parent.display()));
+    if full_path.parent().is_some() {
+        panic!("path exists");
     }
 
     std::fs::write(full_path, b"fake data")

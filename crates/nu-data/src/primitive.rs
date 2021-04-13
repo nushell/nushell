@@ -1,6 +1,6 @@
+use crate::config::NuConfig;
 use nu_ansi_term::{Color, Style};
 use nu_protocol::{hir::Number, Primitive, Value};
-use nu_source::Tag;
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
 
@@ -121,7 +121,9 @@ fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, Style>) {
     }
 }
 
-pub fn get_color_config() -> HashMap<String, Style> {
+pub fn get_color_config(config: &NuConfig) -> HashMap<String, Style> {
+    let config = &config.vars;
+
     // create the hashmap
     let mut hm: HashMap<String, Style> = HashMap::new();
     // set some defaults
@@ -146,76 +148,74 @@ pub fn get_color_config() -> HashMap<String, Style> {
     hm.insert("index_color".to_string(), Color::Green.bold());
     hm.insert(
         "leading_trailing_space_bg".to_string(),
-        Style::default().on(Color::RGB(128, 128, 128)),
+        Style::default().on(Color::Rgb(128, 128, 128)),
     );
 
     // populate hashmap from config values
-    if let Ok(config) = crate::config::config(Tag::unknown()) {
-        if let Some(primitive_color_vars) = config.get("color_config") {
-            for (key, value) in primitive_color_vars.row_entries() {
-                match key.as_ref() {
-                    "primitive_int" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_decimal" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_filesize" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_string" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_line" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_columnpath" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_pattern" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_boolean" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_date" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_duration" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_range" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_path" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "primitive_binary" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "separator_color" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "header_align" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "header_color" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "header_bold" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "header_style" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "index_color" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    "leading_trailing_space_bg" => {
-                        update_hashmap(&key, &value, &mut hm);
-                    }
-                    _ => (),
+    if let Some(primitive_color_vars) = config.get("color_config") {
+        for (key, value) in primitive_color_vars.row_entries() {
+            match key.as_ref() {
+                "primitive_int" => {
+                    update_hashmap(&key, &value, &mut hm);
                 }
+                "primitive_decimal" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_filesize" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_string" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_line" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_columnpath" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_pattern" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_boolean" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_date" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_duration" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_range" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_path" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "primitive_binary" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "separator_color" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "header_align" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "header_color" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "header_bold" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "header_style" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "index_color" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                "leading_trailing_space_bg" => {
+                    update_hashmap(&key, &value, &mut hm);
+                }
+                _ => (),
             }
         }
     }

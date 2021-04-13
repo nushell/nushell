@@ -6,12 +6,16 @@ use nu_source::Tagged;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
-pub struct SubCommandArgs {
+struct Arguments {
     separator: Option<Tagged<String>>,
 }
 
-#[async_trait]
+impl Arguments {
+    pub fn separator(&self) -> &str {
+        self.separator.as_ref().map_or("", |sep| &sep.item)
+    }
+}
+
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str collect"
@@ -29,8 +33,8 @@ impl WholeStreamCommand for SubCommand {
         "collects a list of strings into a string"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        collect(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        collect(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -42,20 +46,29 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn collect(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (SubCommandArgs { separator }, input) = args.process().await?;
-    let separator = separator.map(|tagged| tagged.item).unwrap_or_default();
 
-    let strings: Vec<Result<String, ShellError>> =
-        input.map(|value| value.as_string()).collect().await;
+    let (options, input) = args.extract(|params| {
+        Ok(Arguments {
+            separator: if let Some(arg) = params.opt(0) {
+                Some(arg?)
+            } else {
+                None
+            },
+        })
+    })?;
+
+    let separator = options.separator();
+
+    let strings: Vec<Result<String, ShellError>> = input.map(|value| value.as_string()).collect();
     let strings: Result<Vec<_>, _> = strings.into_iter().collect::<Result<_, _>>();
 
     match strings {
         Ok(strings) => {
             let output = strings.join(&separator);
 
-            Ok(OutputStream::one(ReturnSuccess::value(
+            Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(tag),
             )))
         }

@@ -6,15 +6,14 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;
 
-pub struct FromXLSX;
+pub struct FromXlsx;
 
 #[derive(Deserialize)]
-pub struct FromXLSXArgs {
+pub struct FromXlsxArgs {
     noheaders: bool,
 }
 
-#[async_trait]
-impl WholeStreamCommand for FromXLSX {
+impl WholeStreamCommand for FromXlsx {
     fn name(&self) -> &str {
         "from xlsx"
     }
@@ -31,21 +30,21 @@ impl WholeStreamCommand for FromXLSX {
         "Parse binary Excel(.xlsx) data and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_xlsx(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_xlsx(args)
     }
 }
 
-async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_xlsx(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
     let (
-        FromXLSXArgs {
+        FromXlsxArgs {
             noheaders: _noheaders,
         },
         input,
-    ) = args.process().await?;
-    let value = input.collect_binary(tag.clone()).await?;
+    ) = args.process()?;
+    let value = input.collect_binary(tag.clone())?;
 
     let buf: Cursor<Vec<u8>> = Cursor::new(value.item);
     let mut xls = Xlsx::<_>::new(buf).map_err(|_| {
@@ -88,18 +87,18 @@ async fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(OutputStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::FromXLSX;
+    use super::FromXlsx;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromXLSX {})
+        test_examples(FromXlsx {})
     }
 }

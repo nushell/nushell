@@ -5,7 +5,6 @@ use nu_protocol::Signature;
 
 pub struct Pwd;
 
-#[async_trait]
 impl WholeStreamCommand for Pwd {
     fn name(&self) -> &str {
         "pwd"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for Pwd {
         "Output the current working directory."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        pwd(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        pwd(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -32,9 +31,9 @@ impl WholeStreamCommand for Pwd {
     }
 }
 
-pub async fn pwd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn pwd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once().await?;
+    let args = args.evaluate_once()?;
 
     shell_manager.pwd(args)
 }

@@ -7,14 +7,6 @@ use nu_source::Tagged;
 
 pub struct Let;
 
-#[derive(Deserialize)]
-pub struct LetArgs {
-    pub name: Tagged<String>,
-    pub equals: Tagged<String>,
-    pub rhs: CapturedBlock,
-}
-
-#[async_trait]
 impl WholeStreamCommand for Let {
     fn name(&self) -> &str {
         "let"
@@ -35,8 +27,8 @@ impl WholeStreamCommand for Let {
         "Create a variable and give it a value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        letcmd(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        letcmd(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,11 +36,14 @@ impl WholeStreamCommand for Let {
     }
 }
 
-pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
+    let args = args.evaluate_once()?;
 
-    let (LetArgs { name, rhs, .. }, _) = args.process().await?;
+    //let (LetArgs { name, rhs, .. }, _) = args.process()?;
+    let name: Tagged<String> = args.req(0)?;
+    let rhs: CapturedBlock = args.req(2)?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -60,7 +55,7 @@ pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         match rhs.block.block[0].pipelines.get(0) {
             Some(item) => match item.list.get(0) {
-                Some(ClassifiedCommand::Expr(expr)) => (expr.clone(), rhs.captured.clone()),
+                Some(ClassifiedCommand::Expr(expr)) => (expr, &rhs.captured),
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Expected a value",
@@ -82,14 +77,14 @@ pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ctx.scope.enter_scope();
     ctx.scope.add_vars(&captured.entries);
 
-    let value = evaluate_baseline_expr(&expr, &ctx).await;
+    let value = evaluate_baseline_expr(&expr, &ctx);
 
     ctx.scope.exit_scope();
 
     let value = value?;
 
     let name = if name.item.starts_with('$') {
-        name.item.clone()
+        name.item
     } else {
         format!("${}", name.item)
     };
@@ -99,5 +94,5 @@ pub async fn letcmd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // variable should be set into.
     ctx.scope.add_var(name, value);
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }

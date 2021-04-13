@@ -11,15 +11,13 @@ use nu_value_ext::{as_string, ValueExt};
 use std::cmp::Ordering;
 use std::convert::TryInto;
 
-#[derive(Deserialize)]
 struct Arguments {
     range: Value,
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str substring"
@@ -42,8 +40,8 @@ impl WholeStreamCommand for SubCommand {
         "substrings text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -88,34 +86,38 @@ impl From<(isize, isize)> for Substring {
 
 struct SubstringText(String, String);
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
-    let (Arguments { range, rest }, input) = args.process().await?;
+    let (options, input) = args.extract(|params| {
+        Ok(Arguments {
+            range: params.req(0)?,
+            column_paths: params.rest(1)?,
+        })
+    })?;
 
-    let column_paths: Vec<_> = rest;
-    let options = process_arguments(range, name)?.into();
+    let indexes = Arc::new(process_arguments(&options, name)?.into());
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &options, v.tag())?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &indexes, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
-                    let options = options.clone();
+                for path in &options.column_paths {
+                    let indexes = indexes.clone();
 
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &options, old.tag())),
+                        Box::new(move |old| action(old, &indexes, old.tag())),
                     )?;
                 }
 
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Value, ShellError> {
@@ -175,10 +177,13 @@ fn action(input: &Value, options: &Substring, tag: impl Into<Tag>) -> Result<Val
     }
 }
 
-fn process_arguments(range: Value, name: impl Into<Tag>) -> Result<(isize, isize), ShellError> {
+fn process_arguments(
+    options: &Arguments,
+    name: impl Into<Tag>,
+) -> Result<(isize, isize), ShellError> {
     let name = name.into();
 
-    let search = match &range.value {
+    let search = match &options.range.value {
         UntaggedValue::Table(indexes) => {
             if indexes.len() > 2 {
                 Err(ShellError::labeled_error(

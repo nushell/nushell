@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests;
 
-use crate::ToBSON;
+use crate::ToBson;
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{ReturnValue, Signature, Value};
 use nu_source::Tag;
 
-impl Plugin for ToBSON {
+impl Plugin for ToBson {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("to bson")
             .desc("Convert table into .bson binary")

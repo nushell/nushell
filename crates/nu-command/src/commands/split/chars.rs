@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split chars"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for SubCommand {
         "splits a string's characters into separate rows"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_chars(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(split_chars(args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -38,21 +37,19 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_chars(args: CommandArgs) -> ActionStream {
     let name = args.call_info.name_tag.clone();
     let input = args.input;
-    Ok(input
+    input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {
-                futures::stream::iter(
-                    s.chars()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(move |x| ReturnSuccess::value(Value::from(x.to_string()))),
-                )
-                .to_output_stream()
+                s.chars()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .map(move |x| ReturnSuccess::value(Value::from(x.to_string())))
+                    .to_action_stream()
             } else {
-                OutputStream::one(Err(ShellError::labeled_error_with_secondary(
+                ActionStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name.span,
@@ -61,7 +58,7 @@ async fn split_chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )))
             }
         })
-        .to_output_stream())
+        .to_action_stream()
 }
 
 #[cfg(test)]

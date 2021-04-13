@@ -5,7 +5,6 @@ use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct Tags;
 
-#[async_trait]
 impl WholeStreamCommand for Tags {
     fn name(&self) -> &str {
         "tags"
@@ -19,12 +18,12 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(tags(args))
     }
 }
 
-fn tags(args: CommandArgs) -> OutputStream {
+fn tags(args: CommandArgs) -> ActionStream {
     args.input
         .map(move |v| {
             let mut tags = TaggedDictBuilder::new(v.tag());
@@ -49,7 +48,7 @@ fn tags(args: CommandArgs) -> OutputStream {
 
             tags.into_value()
         })
-        .to_output_stream()
+        .to_action_stream()
 }
 
 #[cfg(test)]

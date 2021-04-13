@@ -4,10 +4,9 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use std::collections::HashMap;
 
-pub struct FromINI;
+pub struct FromIni;
 
-#[async_trait]
-impl WholeStreamCommand for FromINI {
+impl WholeStreamCommand for FromIni {
     fn name(&self) -> &str {
         "from ini"
     }
@@ -20,8 +19,8 @@ impl WholeStreamCommand for FromINI {
         "Parse text as .ini and create table"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_ini(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_ini(args)
     }
 }
 
@@ -60,19 +59,19 @@ pub fn from_ini_string_to_value(
     Ok(convert_ini_top_to_nu_value(&v, tag))
 }
 
-async fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_ini(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     match from_ini_string_to_value(concat_string.item, tag.clone()) {
         Ok(x) => match x {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(futures::stream::iter(list).to_output_stream()),
-            x => Ok(OutputStream::one(x)),
+            } => Ok(list.into_iter().to_action_stream()),
+            x => Ok(ActionStream::one(x)),
         },
         Err(_) => Err(ShellError::labeled_error_with_secondary(
             "Could not parse as INI",
@@ -86,13 +85,13 @@ async fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromINI;
+    use super::FromIni;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromINI {})
+        test_examples(FromIni {})
     }
 }

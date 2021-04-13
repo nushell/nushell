@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{hir, EvaluatedArgs, UntaggedValue, Value};
 
-pub(crate) async fn evaluate_args(
+pub(crate) fn evaluate_args(
     call: &hir::Call,
     ctx: &EvaluationContext,
 ) -> Result<EvaluatedArgs, ShellError> {
@@ -13,7 +13,7 @@ pub(crate) async fn evaluate_args(
 
     if let Some(positional) = &call.positional {
         for pos in positional {
-            let result = evaluate_baseline_expr(pos, ctx).await?;
+            let result = evaluate_baseline_expr(pos, ctx)?;
             positional_args.push(result);
         }
     }
@@ -33,7 +33,7 @@ pub(crate) async fn evaluate_args(
                     named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                 }
                 hir::NamedValue::Value(_, expr) => {
-                    named_args.insert(name.clone(), evaluate_baseline_expr(expr, ctx).await?);
+                    named_args.insert(name.clone(), evaluate_baseline_expr(expr, ctx)?);
                 }
                 _ => {}
             };

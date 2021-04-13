@@ -6,7 +6,6 @@ use uuid_crate::Uuid;
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random uuid"
@@ -20,8 +19,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random uuid4 string"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        uuid(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        uuid(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -33,10 +32,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn uuid(_args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn uuid(_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
 
-    Ok(OutputStream::one(ReturnSuccess::value(uuid_4)))
+    Ok(ActionStream::one(ReturnSuccess::value(uuid_4)))
 }
 
 #[cfg(test)]

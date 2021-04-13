@@ -7,7 +7,6 @@ use nu_protocol::{Dictionary, ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Date;
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date list-timezone"
@@ -21,8 +20,8 @@ impl WholeStreamCommand for Date {
         "List supported time zones."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        list_timezone(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        list_timezone(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,8 +40,8 @@ impl WholeStreamCommand for Date {
     }
 }
 
-async fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn list_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
     let list = TZ_VARIANTS.iter().map(move |tz| {
@@ -58,7 +57,7 @@ async fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ))
     });
 
-    Ok(futures::stream::iter(list).to_output_stream())
+    Ok(list.into_iter().to_action_stream())
 }
 
 #[cfg(test)]

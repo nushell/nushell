@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     lex::tokens::LiteCommand,
     parse::{classify_block, util::trim_quotes},
@@ -64,8 +66,11 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
                 let (mut block, err) = classify_block(&lite_block, scope);
                 scope.exit_scope();
 
-                block.params = signature;
-                block.params.name = name;
+                if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block)
+                {
+                    block.params = signature;
+                    block.params.name = name;
+                }
 
                 scope.add_definition(block);
 
@@ -100,7 +105,12 @@ pub(crate) fn parse_definition_prototype(
         err = error;
     }
 
-    scope.add_definition(Block::new(signature, vec![], IndexMap::new(), call.span()));
+    scope.add_definition(Arc::new(Block::new(
+        signature,
+        vec![],
+        IndexMap::new(),
+        call.span(),
+    )));
 
     err
 }

@@ -13,7 +13,6 @@ pub struct GroupByDateArgs {
     format: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for GroupByDate {
     fn name(&self) -> &str {
         "group-by date"
@@ -38,8 +37,8 @@ impl WholeStreamCommand for GroupByDate {
         "creates a table grouped by date."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        group_by_date(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        group_by_date(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -59,7 +58,7 @@ enum GroupByColumn {
     Name(Option<Tagged<String>>),
 }
 
-pub async fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn group_by_date(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let (
         GroupByDateArgs {
@@ -67,8 +66,8 @@ pub async fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError
             format,
         },
         input,
-    ) = args.process().await?;
-    let values: Vec<Value> = input.collect().await;
+    ) = args.process()?;
+    let values: Vec<Value> = input.collect();
 
     if values.is_empty() {
         Err(ShellError::labeled_error(
@@ -126,7 +125,7 @@ pub async fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError
             }
         };
 
-        Ok(OutputStream::one(ReturnSuccess::value(value_result?)))
+        Ok(ActionStream::one(ReturnSuccess::value(value_result?)))
     }
 }
 

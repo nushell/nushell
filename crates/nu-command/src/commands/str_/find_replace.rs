@@ -9,17 +9,15 @@ use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 use regex::Regex;
 
-#[derive(Deserialize)]
 struct Arguments {
+    all: bool,
     find: Tagged<String>,
     replace: Tagged<String>,
-    rest: Vec<ColumnPath>,
-    all: bool,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str find-replace"
@@ -40,8 +38,8 @@ impl WholeStreamCommand for SubCommand {
         "finds and replaces text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -60,69 +58,63 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-#[derive(Clone)]
-struct FindReplace(String, String);
+struct FindReplace<'a>(&'a str, &'a str);
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            find,
-            replace,
-            rest,
-            all,
-        },
-        input,
-    ) = args.process().await?;
-    let options = FindReplace(find.item, replace.item);
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            all: params.has_flag("all"),
+            find: params.req(0)?,
+            replace: params.req(1)?,
+            column_paths: params.rest(2)?,
+        }))
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &options, v.tag(), all)?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &options, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     let options = options.clone();
 
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &options, old.tag(), all)),
+                        Box::new(move |old| action(old, &options, old.tag())),
                     )?;
                 }
 
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(
     input: &Value,
-    options: &FindReplace,
+    Arguments {
+        find, replace, all, ..
+    }: &Arguments,
     tag: impl Into<Tag>,
-    all: bool,
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            let find = &options.0;
-            let replacement = &options.1;
+            let FindReplace(find, replacement) = FindReplace(&find, &replace);
+            let regex = Regex::new(find);
 
-            let regex = Regex::new(find.as_str());
-
-            let out = match regex {
+            Ok(match regex {
                 Ok(re) => {
-                    if all {
-                        UntaggedValue::string(re.replace_all(s, replacement.as_str()).to_owned())
+                    if *all {
+                        UntaggedValue::string(re.replace_all(s, replacement).to_owned())
                     } else {
-                        UntaggedValue::string(re.replace(s, replacement.as_str()).to_owned())
+                        UntaggedValue::string(re.replace(s, replacement).to_owned())
                     }
                 }
                 Err(_) => UntaggedValue::string(s),
-            };
-
-            Ok(out.into_value(tag))
+            }
+            .into_value(tag))
         }
         other => {
             let got = format!("got {}", other.type_name());
@@ -138,8 +130,8 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::{action, FindReplace, SubCommand};
-    use nu_source::Tag;
+    use super::{action, Arguments, SubCommand};
+    use nu_source::{Tag, TaggedItem};
     use nu_test_support::value::string;
 
     #[test]
@@ -152,11 +144,15 @@ mod tests {
     #[test]
     fn can_have_capture_groups() {
         let word = string("Cargo.toml");
-        let expected = string("Carga.toml");
-        let all = false;
-        let find_replace_options = FindReplace("Cargo.(.+)".to_string(), "Carga.$1".to_string());
 
-        let actual = action(&word, &find_replace_options, Tag::unknown(), all).unwrap();
-        assert_eq!(actual, expected);
+        let options = Arguments {
+            find: String::from("Cargo.(.+)").tagged_unknown(),
+            replace: String::from("Carga.$1").tagged_unknown(),
+            column_paths: vec![],
+            all: false,
+        };
+
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+        assert_eq!(actual, string("Carga.toml"));
     }
 }

@@ -317,6 +317,10 @@ impl PrettyDebug for ShellError {
                 DbgDocBldr::error("Unknown Error")
                     + DbgDocBldr::delimit("(", DbgDocBldr::description(reason), ")")
             }
+            ProximateShellError::Unimplemented { reason } => {
+                DbgDocBldr::error("Unimplemented")
+                    + DbgDocBldr::delimit("(", DbgDocBldr::description(reason), ")")
+            }
             ProximateShellError::ExternalPlaceholderError => {
                 DbgDocBldr::error("non-zero external exit code")
             }
@@ -618,6 +622,7 @@ impl ShellError {
             }
 
             ProximateShellError::UntaggedRuntimeError { reason } => Some(Diagnostic::error().with_message(format!("Error: {}", reason))),
+            ProximateShellError::Unimplemented { reason } => Some(Diagnostic::error().with_message(format!("Inimplemented: {}", reason))),
             ProximateShellError::ExternalPlaceholderError => None,
         }
     }
@@ -654,11 +659,15 @@ impl ShellError {
     }
 
     pub fn unimplemented(title: impl Into<String>) -> ShellError {
-        ShellError::untagged_runtime_error(&format!("Unimplemented: {}", title.into()))
+        ShellError::unimplemented(&format!("Unimplemented: {}", title.into()))
     }
 
     pub fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::untagged_runtime_error(&format!("Unexpected: {}", title.into()))
+    }
+
+    pub fn is_unimplemented(&self) -> bool {
+        matches!(self.error, ProximateShellError::Unimplemented { .. })
     }
 }
 
@@ -765,6 +774,9 @@ pub enum ProximateShellError {
     UntaggedRuntimeError {
         reason: String,
     },
+    Unimplemented {
+        reason: String,
+    },
     ExternalPlaceholderError,
 }
 
@@ -797,6 +809,7 @@ impl HasFallibleSpan for ProximateShellError {
             ProximateShellError::Diagnostic(_) => return None,
             ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
             ProximateShellError::UntaggedRuntimeError { .. } => return None,
+            ProximateShellError::Unimplemented { .. } => return None,
             ProximateShellError::ExternalPlaceholderError => return None,
         })
     }

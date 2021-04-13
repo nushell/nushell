@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use nu_data::config::{Conf, NuConfig};
-use nu_engine::history_path;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
@@ -14,7 +12,6 @@ struct Arguments {
 
 pub struct History;
 
-#[async_trait]
 impl WholeStreamCommand for History {
     fn name(&self) -> &str {
         "history"
@@ -28,22 +25,26 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        history(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        history(args)
     }
 }
 
-async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let config: Box<dyn Conf> = Box::new(NuConfig::new());
+fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { clear }, _) = args.process().await?;
+    let ctx = EvaluationContext::from_args(&args);
+    let (Arguments { clear }, _) = args.process()?;
 
-    let path = history_path(&config);
+    let path = if let Some(global_cfg) = &ctx.configs.lock().global_config {
+        nu_data::config::path::history_path_or_default(global_cfg)
+    } else {
+        nu_data::config::path::default_history_path()
+    };
 
     match clear {
         Some(_) => {
             // This is a NOOP, the logic to clear is handled in cli.rs
-            Ok(OutputStream::empty())
+            Ok(ActionStream::empty())
         }
         None => {
             if let Ok(file) = File::open(path) {
@@ -56,7 +57,7 @@ async fn history(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(_) => None,
                 });
 
-                Ok(futures::stream::iter(output).to_output_stream())
+                Ok(output.to_action_stream())
             } else {
                 Err(ShellError::labeled_error(
                     "Could not open history",

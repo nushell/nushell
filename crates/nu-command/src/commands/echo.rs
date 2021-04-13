@@ -1,19 +1,12 @@
 use crate::prelude::*;
+use bigdecimal::Zero;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
-use nu_protocol::{
-    Primitive, Range, RangeInclusion, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Range, RangeInclusion, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Echo;
 
-#[derive(Deserialize, Debug)]
-pub struct EchoArgs {
-    pub rest: Vec<Value>,
-}
-
-#[async_trait]
 impl WholeStreamCommand for Echo {
     fn name(&self) -> &str {
         "echo"
@@ -27,8 +20,8 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        echo(args).await
+    fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
+        echo(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,36 +40,37 @@ impl WholeStreamCommand for Echo {
     }
 }
 
-async fn echo(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, _): (EchoArgs, _) = args.process().await?;
+fn echo(args: CommandArgs) -> Result<InputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let rest: Vec<Value> = args.rest(0)?;
 
-    let stream = args.rest.into_iter().map(|i| match i.as_string() {
-        Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(s).into_value(i.tag.clone()),
-        ))),
+    let stream = rest.into_iter().map(|i| match i.as_string() {
+        Ok(s) => InputStream::one(UntaggedValue::string(s).into_value(i.tag.clone())),
         _ => match i {
             Value {
                 value: UntaggedValue::Table(table),
                 ..
-            } => futures::stream::iter(table.into_iter().map(ReturnSuccess::value))
-                .to_output_stream(),
+            } => InputStream::from_stream(table.into_iter()),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Range(range)),
                 tag,
-            } => futures::stream::iter(RangeIterator::new(*range, tag)).to_output_stream(),
-            x => OutputStream::one(Ok(ReturnSuccess::Value(x))),
+            } => InputStream::from_stream(RangeIterator::new(*range, tag)),
+            x => InputStream::one(x),
         },
     });
 
-    Ok(futures::stream::iter(stream).flatten().to_output_stream())
+    Ok(InputStream::from_stream(stream.flatten()))
 }
 
 struct RangeIterator {
-    curr: Primitive,
-    end: Primitive,
+    curr: UntaggedValue,
+    end: UntaggedValue,
     tag: Tag,
     is_end_inclusive: bool,
     moves_up: bool,
+    one: UntaggedValue,
+    negative_one: UntaggedValue,
+    done: bool,
 }
 
 impl RangeIterator {
@@ -93,98 +87,104 @@ impl RangeIterator {
 
         RangeIterator {
             moves_up: start <= end,
-            curr: start,
-            end,
+            curr: UntaggedValue::Primitive(start),
+            end: UntaggedValue::Primitive(end),
             tag,
             is_end_inclusive: matches!(range.to.1, RangeInclusion::Inclusive),
+            one: UntaggedValue::int(1),
+            negative_one: UntaggedValue::int(-1),
+            done: false,
         }
     }
 }
 
 impl Iterator for RangeIterator {
-    type Item = Result<ReturnSuccess, ShellError>;
+    type Item = Value;
     fn next(&mut self) -> Option<Self::Item> {
-        let ordering = if self.end == Primitive::Nothing {
+        use std::cmp::Ordering;
+        if self.done {
+            return None;
+        }
+
+        let ordering = if self.end == UntaggedValue::Primitive(Primitive::Nothing) {
             Ordering::Less
         } else {
-            let result =
-                nu_data::base::coerce_compare_primitive(&self.curr, &self.end).map_err(|_| {
-                    ShellError::labeled_error(
-                        "Cannot create range",
-                        "unsupported range",
-                        self.tag.span,
-                    )
-                });
-
-            if let Err(result) = result {
-                return Some(Err(result));
+            match (&self.curr, &self.end) {
+                (
+                    UntaggedValue::Primitive(Primitive::Int(x)),
+                    UntaggedValue::Primitive(Primitive::Int(y)),
+                ) => x.cmp(y),
+                (
+                    UntaggedValue::Primitive(Primitive::Decimal(x)),
+                    UntaggedValue::Primitive(Primitive::Decimal(y)),
+                ) => x.cmp(y),
+                (
+                    UntaggedValue::Primitive(Primitive::Decimal(x)),
+                    UntaggedValue::Primitive(Primitive::Int(y)),
+                ) => x.cmp(&(BigDecimal::zero() + y)),
+                (
+                    UntaggedValue::Primitive(Primitive::Int(x)),
+                    UntaggedValue::Primitive(Primitive::Decimal(y)),
+                ) => (BigDecimal::zero() + x).cmp(y),
+                _ => {
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::labeled_error(
+                            "Cannot create range",
+                            "unsupported range",
+                            self.tag.span,
+                        ))
+                        .into_untagged_value(),
+                    );
+                }
             }
-
-            let result = result
-                .expect("Internal error: the error case was already protected, but that failed");
-
-            result.compare()
         };
-
-        use std::cmp::Ordering;
 
         if self.moves_up
             && (ordering == Ordering::Less || self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
+            let next_value = nu_data::value::compute_values(Operator::Plus, &self.curr, &self.one);
 
-            let next_value = nu_data::value::compute_values(
-                Operator::Plus,
-                &UntaggedValue::Primitive(self.curr.clone()),
-                &UntaggedValue::int(1),
-            );
+            let mut next = match next_value {
+                Ok(result) => result,
 
-            self.curr = match next_value {
-                Ok(result) => match result {
-                    UntaggedValue::Primitive(p) => p,
-                    _ => {
-                        return Some(Err(ShellError::unimplemented(
-                            "Internal error: expected a primitive result from increment",
-                        )));
-                    }
-                },
                 Err((left_type, right_type)) => {
-                    return Some(Err(ShellError::coerce_error(
-                        left_type.spanned(self.tag.span),
-                        right_type.spanned(self.tag.span),
-                    )));
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::coerce_error(
+                            left_type.spanned(self.tag.span),
+                            right_type.spanned(self.tag.span),
+                        ))
+                        .into_untagged_value(),
+                    );
                 }
             };
-            Some(ReturnSuccess::value(output))
+            std::mem::swap(&mut self.curr, &mut next);
+
+            Some(next.into_value(self.tag.clone()))
         } else if !self.moves_up
             && (ordering == Ordering::Greater
                 || self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let output = UntaggedValue::Primitive(self.curr.clone()).into_value(self.tag.clone());
+            let next_value =
+                nu_data::value::compute_values(Operator::Plus, &self.curr, &self.negative_one);
 
-            let next_value = nu_data::value::compute_values(
-                Operator::Plus,
-                &UntaggedValue::Primitive(self.curr.clone()),
-                &UntaggedValue::int(-1),
-            );
-
-            self.curr = match next_value {
-                Ok(result) => match result {
-                    UntaggedValue::Primitive(p) => p,
-                    _ => {
-                        return Some(Err(ShellError::unimplemented(
-                            "Internal error: expected a primitive result from increment",
-                        )));
-                    }
-                },
+            let mut next = match next_value {
+                Ok(result) => result,
                 Err((left_type, right_type)) => {
-                    return Some(Err(ShellError::coerce_error(
-                        left_type.spanned(self.tag.span),
-                        right_type.spanned(self.tag.span),
-                    )));
+                    self.done = true;
+                    return Some(
+                        UntaggedValue::Error(ShellError::coerce_error(
+                            left_type.spanned(self.tag.span),
+                            right_type.spanned(self.tag.span),
+                        ))
+                        .into_untagged_value(),
+                    );
                 }
             };
-            Some(ReturnSuccess::value(output))
+            std::mem::swap(&mut self.curr, &mut next);
+
+            Some(next.into_value(self.tag.clone()))
         } else {
             None
         }

@@ -4,15 +4,14 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::Signature;
 
-pub struct FromTSV;
+pub struct FromTsv;
 
 #[derive(Deserialize)]
-pub struct FromTSVArgs {
+pub struct FromTsvArgs {
     noheaders: bool,
 }
 
-#[async_trait]
-impl WholeStreamCommand for FromTSV {
+impl WholeStreamCommand for FromTsv {
     fn name(&self) -> &str {
         "from tsv"
     }
@@ -29,27 +28,27 @@ impl WholeStreamCommand for FromTSV {
         "Parse text as .tsv and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_tsv(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_tsv(args)
     }
 }
 
-async fn from_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_tsv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (FromTSVArgs { noheaders }, input) = args.process().await?;
+    let (FromTsvArgs { noheaders }, input) = args.process()?;
 
-    from_delimited_data(noheaders, '\t', "TSV", input, name).await
+    from_delimited_data(noheaders, '\t', "TSV", input, name)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::FromTSV;
+    use super::FromTsv;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromTSV {})
+        test_examples(FromTsv {})
     }
 }

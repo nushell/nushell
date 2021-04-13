@@ -8,16 +8,14 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-#[derive(Deserialize)]
 struct Arguments {
     pattern: Tagged<String>,
-    rest: Vec<ColumnPath>,
     insensitive: bool,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str contains"
@@ -37,8 +35,8 @@ impl WholeStreamCommand for SubCommand {
         "Checks if string contains pattern"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,50 +55,52 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            pattern,
-            rest,
-            insensitive,
-        },
-        input,
-    ) = args.process().await?;
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            pattern: params.req(0)?,
+            insensitive: params.has_flag("insensitive"),
+            column_paths: params.rest(1)?,
+        }))
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &pattern, insensitive, v.tag())?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &options, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
-                    let pattern = pattern.clone();
+                for path in &options.column_paths {
+                    let options = options.clone();
+
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &pattern, insensitive, old.tag())),
+                        Box::new(move |old| action(old, &options, old.tag())),
                     )?;
                 }
 
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(
     input: &Value,
-    pattern: &str,
-    insensitive: bool,
+    Arguments {
+        ref pattern,
+        insensitive,
+        ..
+    }: &Arguments,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            let contains = if insensitive {
+            let contains = if *insensitive {
                 s.to_lowercase().contains(&pattern.to_lowercase())
             } else {
-                s.contains(pattern)
+                s.contains(&pattern.item)
             };
 
             Ok(UntaggedValue::boolean(contains).into_value(tag))
@@ -119,9 +119,9 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::{action, SubCommand};
+    use super::{action, Arguments, SubCommand};
     use nu_protocol::UntaggedValue;
-    use nu_source::Tag;
+    use nu_source::{Tag, TaggedItem};
     use nu_test_support::value::string;
 
     #[test]
@@ -134,44 +134,64 @@ mod tests {
     #[test]
     fn string_contains_other_string_case_sensitive() {
         let word = string("Cargo.tomL");
-        let pattern = ".tomL";
-        let insensitive = false;
-        let expected = UntaggedValue::boolean(true).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
+        let options = Arguments {
+            pattern: String::from(".tomL").tagged_unknown(),
+            insensitive: false,
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::boolean(true).into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn string_does_not_contain_other_string_case_sensitive() {
         let word = string("Cargo.tomL");
-        let pattern = "Lomt.";
-        let insensitive = false;
-        let expected = UntaggedValue::boolean(false).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
+        let options = Arguments {
+            pattern: String::from("Lomt.").tagged_unknown(),
+            insensitive: false,
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::boolean(false).into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn string_contains_other_string_case_insensitive() {
         let word = string("Cargo.ToMl");
-        let pattern = ".TOML";
-        let insensitive = true;
-        let expected = UntaggedValue::boolean(true).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
+        let options = Arguments {
+            pattern: String::from(".TOML").tagged_unknown(),
+            insensitive: true,
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::boolean(true).into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn string_does_not_contain_other_string_case_insensitive() {
         let word = string("Cargo.tOml");
-        let pattern = "lomt.";
-        let insensitive = true;
-        let expected = UntaggedValue::boolean(false).into_untagged_value();
 
-        let actual = action(&word, &pattern, insensitive, Tag::unknown()).unwrap();
+        let options = Arguments {
+            pattern: String::from("lomt.").tagged_unknown(),
+            insensitive: true,
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::boolean(false).into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 }

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 #[derive(Deserialize)]
 struct Arguments {
@@ -10,7 +10,6 @@ struct Arguments {
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "append"
@@ -28,13 +27,14 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (Arguments { mut value }, input) = args.process().await?;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let (Arguments { mut value }, mut input) = args.process()?;
 
-        let input: Vec<Value> = input.collect().await;
+        let mut prepend = vec![];
 
-        if let Some(first) = input.get(0) {
+        if let Some(first) = input.next() {
             value.tag = first.tag();
+            prepend.push(first);
         }
 
         // Checks if we are trying to append a row literal
@@ -48,18 +48,13 @@ impl WholeStreamCommand for Command {
             }
         }
 
-        Ok(futures::stream::iter(
-            input
-                .into_iter()
-                .chain(vec![value])
-                .map(ReturnSuccess::value),
-        )
-        .to_output_stream())
+        Ok(prepend
+            .into_iter()
+            .chain(input.into_iter().chain(vec![value]))
+            .to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::row;
-
         vec![
             Example {
                 description: "Add values to the end of the table",

@@ -13,7 +13,6 @@ struct DefaultArgs {
 
 pub struct Default;
 
-#[async_trait]
 impl WholeStreamCommand for Default {
     fn name(&self) -> &str {
         "default"
@@ -33,8 +32,8 @@ impl WholeStreamCommand for Default {
         "Sets a default row's column if missing."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        default(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        default(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -46,8 +45,8 @@ impl WholeStreamCommand for Default {
     }
 }
 
-async fn default(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (DefaultArgs { column, value }, input) = args.process().await?;
+fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (DefaultArgs { column, value }, input) = args.process()?;
 
     Ok(input
         .map(move |item| {
@@ -68,7 +67,7 @@ async fn default(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(item)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

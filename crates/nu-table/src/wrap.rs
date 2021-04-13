@@ -62,7 +62,7 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
                     width: {
                         // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
                         // and x.chars().count() with all types of combinations. Currently, it appears that
-                        // getting the max of char count and unicode width seems to produce the best layout.
+                        // getting the max of char count and Unicode width seems to produce the best layout.
                         // However, it's not perfect.
                         let c = x.chars().count();
                         let u = UnicodeWidthStr::width(x);
@@ -252,13 +252,17 @@ pub fn wrap<'a>(
         };
 
         if let Some(leading_match) = re_leading.find(&current_line.clone()) {
-            String::insert_str(&mut current_line, leading_match.end(), "\x1b[0m");
+            String::insert_str(
+                &mut current_line,
+                leading_match.end(),
+                nu_ansi_term::ansi::RESET,
+            );
             String::insert_str(&mut current_line, leading_match.start(), &bg_color_string);
         }
 
         if let Some(trailing_match) = re_trailing.find(&current_line.clone()) {
             String::insert_str(&mut current_line, trailing_match.start(), &bg_color_string);
-            current_line += "\x1b[0m";
+            current_line += nu_ansi_term::ansi::RESET;
         }
 
         output.push(WrappedLine {

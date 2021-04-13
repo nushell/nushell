@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct From;
 
-#[async_trait]
 impl WholeStreamCommand for From {
     fn name(&self) -> &str {
         "from"
@@ -19,8 +18,8 @@ impl WholeStreamCommand for From {
         "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(ReturnSuccess::value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&From, &args.scope)).into_value(Tag::unknown()),
         )))
     }

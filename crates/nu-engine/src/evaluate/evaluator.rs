@@ -1,13 +1,12 @@
 use crate::evaluate::block::run_block;
 use crate::evaluate::operator::apply_operator;
 use crate::evaluation_context::EvaluationContext;
-use async_recursion::async_recursion;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::did_you_mean;
 use nu_protocol::{
-    hir::{self, CapturedBlock, Expression, ExternalRedirection, RangeOperator, SpannedExpression},
+    hir::{self, CapturedBlock, Expression, RangeOperator, SpannedExpression},
     Dictionary,
 };
 use nu_protocol::{
@@ -17,8 +16,7 @@ use nu_source::{Span, SpannedItem, Tag};
 use nu_stream::InputStream;
 use nu_value_ext::ValueExt;
 
-#[async_recursion]
-pub async fn evaluate_baseline_expr(
+pub fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     ctx: &EvaluationContext,
 ) -> Result<Value, ShellError> {
@@ -39,12 +37,12 @@ pub async fn evaluate_baseline_expr(
         }
         Expression::Variable(var, _) => evaluate_reference(&var, ctx, tag),
         Expression::Command => unimplemented!(),
-        Expression::Invocation(block) => evaluate_invocation(block, ctx).await,
+        Expression::Invocation(block) => evaluate_invocation(block, ctx),
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
-            let left = evaluate_baseline_expr(&binary.left, ctx).await?;
-            let right = evaluate_baseline_expr(&binary.right, ctx).await?;
+            let left = evaluate_baseline_expr(&binary.left, ctx)?;
+            let right = evaluate_baseline_expr(&binary.right, ctx)?;
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
@@ -66,13 +64,13 @@ pub async fn evaluate_baseline_expr(
         }
         Expression::Range(range) => {
             let left = if let Some(left) = &range.left {
-                evaluate_baseline_expr(&left, ctx).await?
+                evaluate_baseline_expr(&left, ctx)?
             } else {
                 Value::nothing()
             };
 
             let right = if let Some(right) = &range.right {
-                evaluate_baseline_expr(&right, ctx).await?
+                evaluate_baseline_expr(&right, ctx)?
             } else {
                 Value::nothing()
             };
@@ -98,7 +96,7 @@ pub async fn evaluate_baseline_expr(
             let mut output_headers = vec![];
 
             for expr in headers {
-                let val = evaluate_baseline_expr(&expr, ctx).await?;
+                let val = evaluate_baseline_expr(&expr, ctx)?;
 
                 let header = val.as_string()?;
                 output_headers.push(header);
@@ -126,7 +124,7 @@ pub async fn evaluate_baseline_expr(
 
                 let mut row_output = IndexMap::new();
                 for cell in output_headers.iter().zip(row.iter()) {
-                    let val = evaluate_baseline_expr(&cell.1, ctx).await?;
+                    let val = evaluate_baseline_expr(&cell.1, ctx)?;
                     row_output.insert(cell.0.clone(), val);
                 }
                 output_table.push(UntaggedValue::row(row_output).into_value(tag.clone()));
@@ -138,7 +136,7 @@ pub async fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(&expr, ctx).await?;
+                let expr = evaluate_baseline_expr(&expr, ctx)?;
                 exprs.push(expr);
             }
 
@@ -156,16 +154,13 @@ pub async fn evaluate_baseline_expr(
                 }
             }
 
-            let mut block = block.clone();
-            block.infer_params();
-
             Ok(
-                UntaggedValue::Block(Box::new(CapturedBlock::new(block, captured)))
+                UntaggedValue::Block(Box::new(CapturedBlock::new(block.clone(), captured)))
                     .into_value(&tag),
             )
         }
         Expression::Path(path) => {
-            let value = evaluate_baseline_expr(&path.head, ctx).await?;
+            let value = evaluate_baseline_expr(&path.head, ctx)?;
             let mut item = value;
 
             for member in &path.tail {
@@ -232,7 +227,13 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
 
 fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<Value, ShellError> {
     match name {
-        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag),
+        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag, ctx),
+
+        "$scope" => crate::evaluate::variables::scope(
+            &ctx.scope.get_aliases(),
+            &ctx.scope.get_commands(),
+            tag,
+        ),
 
         "$true" => Ok(Value {
             value: UntaggedValue::boolean(true),
@@ -262,29 +263,23 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
             Some(v) => Ok(v),
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
-                "unknown variable",
+                format!("unknown variable: {}", x),
                 tag.span,
             )),
         },
     }
 }
 
-async fn evaluate_invocation(
-    block: &hir::Block,
-    ctx: &EvaluationContext,
-) -> Result<Value, ShellError> {
+fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let input = match ctx.scope.get_var("$it") {
         Some(it) => InputStream::one(it),
         None => InputStream::empty(),
     };
 
-    let mut block = block.clone();
-    block.set_redirect(ExternalRedirection::Stdout);
+    let result = run_block(&block, ctx, input)?;
 
-    let result = run_block(&block, ctx, input).await?;
-
-    let output = result.into_vec().await;
+    let output = result.into_vec();
 
     if let Some(e) = ctx.get_errors().get(0) {
         return Err(e.clone());

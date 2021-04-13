@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
@@ -11,15 +12,13 @@ use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Num;
 
-#[derive(Deserialize)]
 struct Arguments {
-    rest: Vec<ColumnPath>,
     radix: Option<Tagged<u32>>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str to-int"
@@ -29,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str to-int")
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .rest(
-                SyntaxShape::ColumnPath,
+                SyntaxShape::Any,
                 "optionally convert text into integer by column paths",
             )
     }
@@ -38,8 +37,8 @@ impl WholeStreamCommand for SubCommand {
         "converts text into integer"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,21 +67,30 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest, radix }, input) = args.process().await?;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
-    let radix = radix.map(|r| r.item).unwrap_or(10);
+        Ok(Arguments {
+            radix: if let Some(arg) = params.get_flag("radix") {
+                Some(arg?)
+            } else {
+                None
+            },
+            column_paths,
+        })
+    })?;
 
-    let column_paths: Vec<ColumnPath> = rest;
+    let radix = options.radix.as_ref().map(|r| r.item).unwrap_or(10);
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
+            if options.column_paths.is_empty() {
                 ReturnSuccess::value(action(&v, v.tag(), radix)?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
+                for path in &options.column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag(), radix)),
@@ -92,7 +100,7 @@ async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, ShellError> {

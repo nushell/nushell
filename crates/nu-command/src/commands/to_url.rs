@@ -3,10 +3,9 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
-pub struct ToURL;
+pub struct ToUrl;
 
-#[async_trait]
-impl WholeStreamCommand for ToURL {
+impl WholeStreamCommand for ToUrl {
     fn name(&self) -> &str {
         "to url"
     }
@@ -19,13 +18,13 @@ impl WholeStreamCommand for ToURL {
         "Convert table into url-encoded text"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        to_url(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        to_url(args)
     }
 }
 
-async fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
@@ -70,18 +69,18 @@ async fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 value_tag.span,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::ToURL;
+    use super::ToUrl;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(ToURL {})
+        test_examples(ToUrl {})
     }
 }

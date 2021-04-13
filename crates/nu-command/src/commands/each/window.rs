@@ -16,7 +16,6 @@ pub struct EachWindowArgs {
     stride: Option<Tagged<usize>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for EachWindow {
     fn name(&self) -> &str {
         "each window"
@@ -50,16 +49,15 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    async fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
-        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process().await?;
+        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
         let mut window: Vec<_> = input
             .by_ref()
             .take(*each_args.window_size - 1)
-            .collect::<Vec<_>>()
-            .await;
+            .collect::<Vec<_>>();
 
         // `window` must start with dummy values, which will be removed on the first iteration
         let stride = each_args.stride.map(|x| *x).unwrap_or(1);
@@ -67,7 +65,7 @@ impl WholeStreamCommand for EachWindow {
 
         Ok(input
             .enumerate()
-            .then(move |(i, input)| {
+            .map(move |(i, input)| {
                 // This would probably be more efficient if `last` was a VecDeque
                 // But we can't have that because it needs to be put into a Table
                 window.remove(0);
@@ -77,17 +75,15 @@ impl WholeStreamCommand for EachWindow {
                 let context = context.clone();
                 let local_window = window.clone();
 
-                async move {
-                    if i % stride == 0 {
-                        Some(run_block_on_vec(local_window, block, context).await)
-                    } else {
-                        None
-                    }
+                if i % stride == 0 {
+                    Some(run_block_on_vec(local_window, block, context))
+                } else {
+                    None
                 }
             })
-            .filter_map(|x| async { x })
+            .filter_map(|x| x)
             .flatten()
-            .to_output_stream())
+            .to_action_stream())
     }
 }
 

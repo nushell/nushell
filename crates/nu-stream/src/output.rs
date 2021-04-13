@@ -1,106 +1,110 @@
 use crate::prelude::*;
-use futures::stream::iter;
 use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 use std::iter::IntoIterator;
 
-pub struct OutputStream {
-    pub values: BoxStream<'static, ReturnValue>,
+pub type OutputStream = InputStream;
+
+pub struct ActionStream {
+    pub values: Box<dyn Iterator<Item = ReturnValue> + Send + Sync>,
 }
 
-impl OutputStream {
-    pub fn new(values: impl Stream<Item = ReturnValue> + Send + 'static) -> OutputStream {
-        OutputStream {
-            values: values.boxed(),
-        }
-    }
-
-    pub fn empty() -> OutputStream {
-        let v: VecDeque<ReturnValue> = VecDeque::new();
-        v.into()
-    }
-
-    pub fn one(item: impl Into<ReturnValue>) -> OutputStream {
-        let item = item.into();
-        futures::stream::once(async move { item }).to_output_stream()
-    }
-
-    pub fn from_input(input: impl Stream<Item = Value> + Send + 'static) -> OutputStream {
-        OutputStream {
-            values: input.map(ReturnSuccess::value).boxed(),
-        }
-    }
-
-    pub fn drain_vec(&mut self) -> impl Future<Output = Vec<ReturnValue>> {
-        let mut values: BoxStream<'static, ReturnValue> = iter(VecDeque::new()).boxed();
-        std::mem::swap(&mut values, &mut self.values);
-
-        values.collect()
-    }
-}
-
-impl Stream for OutputStream {
+impl Iterator for ActionStream {
     type Item = ReturnValue;
 
-    fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> core::task::Poll<Option<Self::Item>> {
-        Stream::poll_next(std::pin::Pin::new(&mut self.values), cx)
+    fn next(&mut self) -> Option<Self::Item> {
+        self.values.next()
     }
 }
 
-impl From<InputStream> for OutputStream {
-    fn from(input: InputStream) -> OutputStream {
-        OutputStream {
-            values: input.map(ReturnSuccess::value).boxed(),
+impl ActionStream {
+    pub fn new(values: impl Iterator<Item = ReturnValue> + Send + Sync + 'static) -> ActionStream {
+        ActionStream {
+            values: Box::new(values),
+        }
+    }
+
+    pub fn empty() -> ActionStream {
+        ActionStream {
+            values: Box::new(std::iter::empty()),
+        }
+    }
+
+    pub fn one(item: impl Into<ReturnValue>) -> ActionStream {
+        let item = item.into();
+        ActionStream {
+            values: Box::new(std::iter::once(item)),
+        }
+    }
+
+    pub fn from_input(input: impl Iterator<Item = Value> + Send + Sync + 'static) -> ActionStream {
+        ActionStream {
+            values: Box::new(input.map(ReturnSuccess::value)),
+        }
+    }
+
+    pub fn drain_vec(&mut self) -> Vec<ReturnValue> {
+        let mut output = vec![];
+
+        while let Some(x) = self.values.next() {
+            output.push(x);
+        }
+
+        output
+    }
+}
+
+impl From<InputStream> for ActionStream {
+    fn from(input: InputStream) -> ActionStream {
+        ActionStream {
+            values: Box::new(input.into_iter().map(ReturnSuccess::value)),
         }
     }
 }
 
-impl From<BoxStream<'static, Value>> for OutputStream {
-    fn from(input: BoxStream<'static, Value>) -> OutputStream {
-        OutputStream {
-            values: input.map(ReturnSuccess::value).boxed(),
+// impl From<impl Iterator<Item = Value> + Send + Sync + 'static> for OutputStream {
+//     fn from(input: impl Iterator<Item = Value> + Send + Sync + 'static) -> OutputStream {
+//         OutputStream {
+//             values: Box::new(input.map(ReturnSuccess::value)),
+//         }
+//     }
+// }
+
+// impl From<BoxStream<'static, ReturnValue>> for OutputStream {
+//     fn from(input: BoxStream<'static, ReturnValue>) -> OutputStream {
+//         OutputStream { values: input }
+//     }
+// }
+
+impl From<VecDeque<ReturnValue>> for ActionStream {
+    fn from(input: VecDeque<ReturnValue>) -> ActionStream {
+        ActionStream {
+            values: Box::new(input.into_iter()),
         }
     }
 }
 
-impl From<BoxStream<'static, ReturnValue>> for OutputStream {
-    fn from(input: BoxStream<'static, ReturnValue>) -> OutputStream {
-        OutputStream { values: input }
-    }
-}
-
-impl From<VecDeque<ReturnValue>> for OutputStream {
-    fn from(input: VecDeque<ReturnValue>) -> OutputStream {
-        OutputStream {
-            values: futures::stream::iter(input).boxed(),
-        }
-    }
-}
-
-impl From<VecDeque<Value>> for OutputStream {
-    fn from(input: VecDeque<Value>) -> OutputStream {
+impl From<VecDeque<Value>> for ActionStream {
+    fn from(input: VecDeque<Value>) -> ActionStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
-        OutputStream {
-            values: futures::stream::iter(stream).boxed(),
+        ActionStream {
+            values: Box::new(stream),
         }
     }
 }
 
-impl From<Vec<ReturnValue>> for OutputStream {
-    fn from(input: Vec<ReturnValue>) -> OutputStream {
-        OutputStream {
-            values: futures::stream::iter(input).boxed(),
+impl From<Vec<ReturnValue>> for ActionStream {
+    fn from(input: Vec<ReturnValue>) -> ActionStream {
+        ActionStream {
+            values: Box::new(input.into_iter()),
         }
     }
 }
 
-impl From<Vec<Value>> for OutputStream {
-    fn from(input: Vec<Value>) -> OutputStream {
+impl From<Vec<Value>> for ActionStream {
+    fn from(input: Vec<Value>) -> ActionStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
-        OutputStream {
-            values: futures::stream::iter(stream).boxed(),
+        ActionStream {
+            values: Box::new(stream),
         }
     }
 }

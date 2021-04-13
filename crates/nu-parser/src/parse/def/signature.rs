@@ -311,11 +311,11 @@ fn parse_signature_item_end(tokens: &[Token]) -> (Option<String>, usize, Option<
     );
     ////Separating flags/parameters is optional.
     ////If this should change, the below code would raise a warning whenever 2 parameters/flags are
-    ////not delmited by <,> or <eol>
+    ////not delimited by <,> or <eol>
     //if there is next item, but it's not comma, then it must be Optional(#Comment) + <eof>
     //let parsed_delimiter = parsed_comma || parsed_eol;
     //if !parsed_delimiter && i < tokens.len() {
-    //    //If not parsed , or eol but more tokens are comming
+    //    //If not parsed , or eol but more tokens are coming
     //    err = err.or(Some(ParseError::mismatch(
     //        "Newline or ','",
     //        (token[i-1].to_string() + token[i].to_string()).spanned(token[i-1].span.until(token[i].span))

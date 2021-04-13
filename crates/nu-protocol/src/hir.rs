@@ -1,7 +1,7 @@
 use std::cmp::{Ord, Ordering, PartialOrd};
-use std::convert::From;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::{convert::From, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -53,14 +53,14 @@ impl InternalCommand {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ClassifiedBlock {
-    pub block: Block,
+    pub block: Arc<Block>,
     // this is not a Result to make it crystal clear that these shapes
     // aren't intended to be used directly with `?`
     pub failed: Option<ParseError>,
 }
 
 impl ClassifiedBlock {
-    pub fn new(block: Block, failed: Option<ParseError>) -> ClassifiedBlock {
+    pub fn new(block: Arc<Block>, failed: Option<ParseError>) -> ClassifiedBlock {
         ClassifiedBlock { block, failed }
     }
 }
@@ -159,12 +159,12 @@ impl Group {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct CapturedBlock {
-    pub block: Block,
+    pub block: Arc<Block>,
     pub captured: Dictionary,
 }
 
 impl CapturedBlock {
-    pub fn new(block: Block, captured: Dictionary) -> Self {
+    pub fn new(block: Arc<Block>, captured: Dictionary) -> Self {
         Self { block, captured }
     }
 }
@@ -173,7 +173,7 @@ impl CapturedBlock {
 pub struct Block {
     pub params: Signature,
     pub block: Vec<Group>,
-    pub definitions: IndexMap<String, Block>,
+    pub definitions: IndexMap<String, Arc<Block>>,
     pub span: Span,
 }
 
@@ -181,7 +181,7 @@ impl Block {
     pub fn new(
         params: Signature,
         block: Vec<Group>,
-        definitions: IndexMap<String, Block>,
+        definitions: IndexMap<String, Arc<Block>>,
         span: Span,
     ) -> Block {
         Block {
@@ -356,6 +356,8 @@ pub enum Unit {
     Kibibyte,
     Mebibyte,
     Gibibyte,
+    Tebibyte,
+    Pebibyte,
 
     // Duration units
     Nanosecond,
@@ -366,8 +368,6 @@ pub enum Unit {
     Hour,
     Day,
     Week,
-    Month,
-    Year,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
@@ -546,6 +546,8 @@ impl Unit {
             Unit::Kibibyte => "KiB",
             Unit::Mebibyte => "MiB",
             Unit::Gibibyte => "GiB",
+            Unit::Tebibyte => "TiB",
+            Unit::Pebibyte => "PiB",
             Unit::Nanosecond => "ns",
             Unit::Microsecond => "us",
             Unit::Millisecond => "ms",
@@ -554,8 +556,6 @@ impl Unit {
             Unit::Hour => "hr",
             Unit::Day => "day",
             Unit::Week => "wk",
-            Unit::Month => "mon",
-            Unit::Year => "yr",
         }
     }
 
@@ -575,6 +575,10 @@ impl Unit {
             Unit::Kibibyte => filesize(convert_number_to_u64(&size) * 1024),
             Unit::Mebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
             Unit::Gibibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
+            Unit::Tebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
+            Unit::Pebibyte => {
+                filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
+            }
 
             Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
@@ -616,28 +620,6 @@ impl Unit {
                     * 1000
                     * 1000,
             ),
-            // FIXME: Number of days per month should not always be 30.
-            Unit::Month => duration(
-                size.to_bigint().expect("Conversion should never fail.")
-                    * 30
-                    * 24
-                    * 60
-                    * 60
-                    * 1000
-                    * 1000
-                    * 1000,
-            ),
-            // FIXME: Number of days per year should not be 365.
-            Unit::Year => duration(
-                size.to_bigint().expect("Conversion should never fail.")
-                    * 365
-                    * 24
-                    * 60
-                    * 60
-                    * 1000
-                    * 1000
-                    * 1000,
-            ),
         }
     }
 }
@@ -650,7 +632,7 @@ pub fn duration(nanos: BigInt) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::Duration(nanos))
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Deserialize, Serialize)]
 pub struct SpannedExpression {
     pub expr: Expression,
     pub span: Span,
@@ -1044,7 +1026,7 @@ pub enum Expression {
     Variable(String, Span),
     Binary(Box<Binary>),
     Range(Box<Range>),
-    Block(hir::Block),
+    Block(Arc<hir::Block>),
     List(Vec<SpannedExpression>),
     Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
     Path(Box<Path>),
@@ -1052,7 +1034,7 @@ pub enum Expression {
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
     Command,
-    Invocation(hir::Block),
+    Invocation(Arc<hir::Block>),
 
     Boolean(bool),
 

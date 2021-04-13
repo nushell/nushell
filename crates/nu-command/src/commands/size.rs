@@ -9,7 +9,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Size;
 
-#[async_trait]
 impl WholeStreamCommand for Size {
     fn name(&self) -> &str {
         "size"
@@ -23,7 +22,7 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(size(args))
     }
 
@@ -41,7 +40,7 @@ impl WholeStreamCommand for Size {
                 .into()]),
             },
             Example {
-                description: "Counts unicode characters correctly in a string",
+                description: "Counts Unicode characters correctly in a string",
                 example: r#"echo "Amélie Amelie" | size"#,
                 result: Some(vec![UntaggedValue::row(indexmap! {
                         "lines".to_string() => UntaggedValue::int(0).into(),
@@ -55,7 +54,7 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs) -> OutputStream {
+fn size(args: CommandArgs) -> ActionStream {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;
@@ -74,7 +73,7 @@ fn size(args: CommandArgs) -> OutputStream {
                 ))
             }
         })
-        .to_output_stream()
+        .to_action_stream()
 }
 
 fn count(contents: &str, tag: impl Into<Tag>) -> Value {

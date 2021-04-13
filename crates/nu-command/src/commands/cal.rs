@@ -7,7 +7,6 @@ use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Cal;
 
-#[async_trait]
 impl WholeStreamCommand for Cal {
     fn name(&self) -> &str {
         "cal"
@@ -41,8 +40,8 @@ impl WholeStreamCommand for Cal {
         "Display a calendar."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        cal(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        cal(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,8 +65,8 @@ impl WholeStreamCommand for Cal {
     }
 }
 
-pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let mut calendar_vec_deque = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
 
@@ -76,7 +75,7 @@ pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
 
-    let month_range = if let Some(full_year_value) = args.get("full-year") {
+    let month_range = if let Some(full_year_value) = args.call_info.args.get("full-year") {
         if let Ok(year_u64) = full_year_value.as_u64() {
             selected_year = year_u64 as i32;
 
@@ -102,7 +101,7 @@ pub async fn cal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         current_day_option,
     )?;
 
-    Ok(futures::stream::iter(calendar_vec_deque).to_output_stream())
+    Ok(calendar_vec_deque.into_iter().to_action_stream())
 }
 
 fn get_invalid_year_shell_error(year_tag: &Tag) -> ShellError {
@@ -210,7 +209,7 @@ fn add_month_to_table(
 
     let month_helper = match month_helper_result {
         Ok(month_helper) => month_helper,
-        Err(()) => match args.get("full-year") {
+        Err(()) => match args.call_info.args.get("full-year") {
             Some(full_year_value) => {
                 return Err(get_invalid_year_shell_error(&full_year_value.tag()))
             }
@@ -236,7 +235,7 @@ fn add_month_to_table(
 
     let mut week_start_day = days_of_the_week[0].to_string();
 
-    if let Some(week_start_value) = args.get("week-start") {
+    if let Some(week_start_value) = args.call_info.args.get("week-start") {
         if let Ok(day) = week_start_value.as_string() {
             if days_of_the_week.contains(&day.as_str()) {
                 week_start_day = day;
@@ -265,10 +264,10 @@ fn add_month_to_table(
     let mut day_number: u32 = 1;
     let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
 
-    let should_show_year_column = args.has("year");
-    let should_show_quarter_column = args.has("quarter");
-    let should_show_month_column = args.has("month");
-    let should_show_month_names = args.has("month-names");
+    let should_show_year_column = args.has_flag("year");
+    let should_show_quarter_column = args.has_flag("quarter");
+    let should_show_month_column = args.has_flag("month");
+    let should_show_month_names = args.has_flag("month-names");
 
     while day_number <= day_limit {
         let mut indexmap = IndexMap::new();

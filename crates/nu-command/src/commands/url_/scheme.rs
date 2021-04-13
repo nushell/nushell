@@ -8,7 +8,6 @@ use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct UrlScheme;
 
-#[async_trait]
 impl WholeStreamCommand for UrlScheme {
     fn name(&self) -> &str {
         "url scheme"
@@ -22,9 +21,9 @@ impl WholeStreamCommand for UrlScheme {
         "gets the scheme (eg http, file) of a url"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process().await?;
-        operate(input, rest, &Url::scheme).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let (DefaultArguments { rest }, input) = args.process()?;
+        Ok(operate(input, rest, &Url::scheme))
     }
 
     fn examples(&self) -> Vec<Example> {

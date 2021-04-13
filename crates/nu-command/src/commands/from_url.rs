@@ -3,10 +3,9 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
 
-pub struct FromURL;
+pub struct FromUrl;
 
-#[async_trait]
-impl WholeStreamCommand for FromURL {
+impl WholeStreamCommand for FromUrl {
     fn name(&self) -> &str {
         "from url"
     }
@@ -19,17 +18,17 @@ impl WholeStreamCommand for FromURL {
         "Parse url-encoded string as a table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_url(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_url(args)
     }
 }
 
-async fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once().await?;
+fn from_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 
-    let concat_string = input.collect_string(tag.clone()).await?;
+    let concat_string = input.collect_string(tag.clone())?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string.item);
 
@@ -41,7 +40,7 @@ async fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 row.insert_untagged(k, UntaggedValue::string(v));
             }
 
-            Ok(OutputStream::one(ReturnSuccess::value(row.into_value())))
+            Ok(ActionStream::one(ReturnSuccess::value(row.into_value())))
         }
         _ => Err(ShellError::labeled_error_with_secondary(
             "String not compatible with url-encoding",
@@ -55,13 +54,13 @@ async fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromURL;
+    use super::FromUrl;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromURL {})
+        test_examples(FromUrl {})
     }
 }

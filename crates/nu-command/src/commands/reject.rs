@@ -12,7 +12,6 @@ pub struct RejectArgs {
 
 pub struct Reject;
 
-#[async_trait]
 impl WholeStreamCommand for Reject {
     fn name(&self) -> &str {
         "reject"
@@ -26,8 +25,8 @@ impl WholeStreamCommand for Reject {
         "Remove the given columns from the table. If you want to remove rows, try 'drop'."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        reject(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        reject(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -39,9 +38,9 @@ impl WholeStreamCommand for Reject {
     }
 }
 
-async fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (RejectArgs { rest: fields }, input) = args.process().await?;
+    let (RejectArgs { rest: fields }, input) = args.process()?;
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Reject requires fields",
@@ -54,7 +53,7 @@ async fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

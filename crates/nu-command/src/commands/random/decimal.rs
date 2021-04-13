@@ -14,7 +14,6 @@ pub struct DecimalArgs {
     range: Option<Tagged<NumericRange>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "random decimal"
@@ -28,8 +27,8 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        decimal(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        decimal(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,8 +57,8 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub async fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (DecimalArgs { range }, _) = args.process().await?;
+pub fn decimal(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (DecimalArgs { range }, _) = args.process()?;
 
     let (min, max) = if let Some(range) = &range {
         (range.item.min() as f64, range.item.max() as f64)
@@ -77,7 +76,7 @@ pub async fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(Ordering::Equal) => {
             let untagged_result = UntaggedValue::decimal_from_float(min, Span::new(64, 64));
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
         _ => {
             let mut thread_rng = thread_rng();
@@ -85,7 +84,7 @@ pub async fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let untagged_result = UntaggedValue::decimal_from_float(result, Span::new(64, 64));
 
-            Ok(OutputStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
         }
     }
 }

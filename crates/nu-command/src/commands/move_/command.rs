@@ -14,7 +14,6 @@ pub struct Arguments {
     before: Option<ColumnPath>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "move"
@@ -41,8 +40,8 @@ impl WholeStreamCommand for Command {
         "Move columns."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -83,7 +82,7 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = raw_args.call_info.name_tag.clone();
     let (
         Arguments {
@@ -92,7 +91,7 @@ async fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             after,
         },
         input,
-    ) = raw_args.process().await?;
+    ) = raw_args.process()?;
 
     if columns.is_empty() {
         return Err(ShellError::labeled_error(
@@ -170,7 +169,7 @@ async fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_action_stream())
     } else if let Some(before) = before {
         let member = columns.remove(0);
 
@@ -218,7 +217,7 @@ async fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_output_stream())
+            .to_action_stream())
     } else {
         Err(ShellError::labeled_error(
             "no columns given",

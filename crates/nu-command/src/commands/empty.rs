@@ -8,7 +8,6 @@ use nu_protocol::{
 };
 
 use crate::utils::arguments::arguments;
-use futures::stream::once;
 use nu_value_ext::{as_string, ValueExt};
 
 #[derive(Deserialize)]
@@ -18,7 +17,6 @@ pub struct Arguments {
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "empty?"
@@ -35,8 +33,8 @@ impl WholeStreamCommand for Command {
         "Check for empty values."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        is_empty(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        is_empty(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -81,81 +79,75 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn is_empty(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let (Arguments { mut rest }, input) = args.process().await?;
+    let (Arguments { mut rest }, input) = args.process()?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
         arguments(&mut rest)?;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {
-        let stream = futures::stream::iter(vec![
-            UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)
-        ]);
+        let stream = vec![UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)].into_iter();
 
         return Ok(InputStream::from_stream(stream)
-            .then(move |input| {
+            .map(move |input| {
                 let tag = name_tag.clone();
                 let context = context.clone();
                 let block = default_block.clone();
                 let columns = vec![];
 
-                async {
-                    match process_row(context, input, block, columns, tag).await {
-                        Ok(s) => s,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+                match process_row(context, input, block, columns, tag) {
+                    Ok(s) => s,
+                    Err(e) => ActionStream::one(Err(e)),
                 }
             })
             .flatten()
-            .to_output_stream());
+            .to_action_stream());
     }
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
             let block = default_block.clone();
             let columns = columns.clone();
 
-            async {
-                match process_row(context, input, block, columns, tag).await {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(context, input, block, columns, tag) {
+                Ok(s) => s,
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     default_block: Arc<Option<Box<CapturedBlock>>>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let _tag = &*tag;
     let mut out = Arc::new(None);
     let results = Arc::make_mut(&mut out);
 
     if let Some(default_block) = &*default_block {
         let for_block = input.clone();
-        let input_stream = once(async { Ok(for_block) }).to_input_stream();
+        let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
         context.scope.enter_scope();
         context.scope.add_vars(&default_block.captured.entries);
         context.scope.add_var("$it", input.clone());
 
-        let stream = run_block(&default_block.block, &*context, input_stream).await;
+        let stream = run_block(&default_block.block, &*context, input_stream);
         context.scope.exit_scope();
 
         let mut stream = stream?;
         *results = Some({
-            let values = stream.drain_vec().await;
+            let values = stream.drain_vec();
 
             let errors = context.get_errors();
 
@@ -186,7 +178,7 @@ async fn process_row(
             ref tag,
         } => {
             if column_paths.is_empty() {
-                Ok(OutputStream::one(ReturnSuccess::value({
+                Ok(ActionStream::one(ReturnSuccess::value({
                     let is_empty = input.is_empty();
 
                     if default_block.is_some() {
@@ -229,10 +221,10 @@ async fn process_row(
                     }
                 }
 
-                Ok(OutputStream::one(ReturnSuccess::value(obj)))
+                Ok(ActionStream::one(ReturnSuccess::value(obj)))
             }
         }
-        other => Ok(OutputStream::one(ReturnSuccess::value({
+        other => Ok(ActionStream::one(ReturnSuccess::value({
             if other.is_empty() {
                 results
                     .clone()

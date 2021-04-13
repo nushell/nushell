@@ -14,7 +14,6 @@ pub struct DefArgs {
     pub block: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Def {
     fn name(&self) -> &str {
         "def"
@@ -35,11 +34,11 @@ impl WholeStreamCommand for Def {
         "Create a command and set it to a definition."
     }
 
-    async fn run(&self, _args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, _args: CommandArgs) -> Result<ActionStream, ShellError> {
         // Currently, we don't do anything here because we should have already
         // installed the definition as we entered the scope
         // We just create a command so that we can get proper coloring
-        Ok(OutputStream::empty())
+        Ok(ActionStream::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

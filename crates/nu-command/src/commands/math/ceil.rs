@@ -7,7 +7,6 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math ceil"
@@ -21,22 +20,10 @@ impl WholeStreamCommand for SubCommand {
         "Applies the ceil function to a list of numbers"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        run_with_numerical_functions_on_stream(
-            RunnableContext {
-                input: args.input,
-                scope: args.scope.clone(),
-                shell_manager: args.shell_manager,
-                host: args.host,
-                ctrl_c: args.ctrl_c,
-                current_errors: args.current_errors,
-                name: args.call_info.name_tag,
-            },
-            ceil_big_int,
-            ceil_big_decimal,
-            ceil_default,
-        )
-        .await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let input = args.input;
+
+        run_with_numerical_functions_on_stream(input, ceil_big_int, ceil_big_decimal, ceil_default)
     }
 
     fn examples(&self) -> Vec<Example> {

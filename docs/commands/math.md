@@ -13,6 +13,7 @@ Currently the following functions are implemented:
 * `math min`: Finds the minimum within a list of numbers or tables
 * `math mode`: Finds the most frequent element(s) within a list of numbers or tables
 * `math round`: Applies the round function to a list of numbers
+* `math sqrt`: Applies the square root function to a list of numbers
 * `math stddev`: Finds the standard deviation of a list of numbers or tables
 * `math sum`: Finds the sum of a list of numbers or tables
 * `math product`: Finds the product of a list of numbers or tables
@@ -145,6 +146,15 @@ To get the average of the file sizes in a directory, simply pipe the size column
  0 │  2
  1 │  2
  2 │ -3
+───┴────
+```
+
+```shell
+> echo [4 16 0.25] | math sqrt
+───┬────
+ 0 │  2
+ 1 │  4
+ 2 │  0.5
 ───┴────
 ```
 

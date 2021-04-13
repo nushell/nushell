@@ -8,16 +8,14 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-#[derive(Deserialize)]
 struct Arguments {
     length: Tagged<usize>,
     character: Tagged<String>,
-    rest: Vec<ColumnPath>,
+    column_paths: Vec<ColumnPath>,
 }
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str lpad"
@@ -42,8 +40,8 @@ impl WholeStreamCommand for SubCommand {
         "pad a string with a character a certain length"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,7 +66,7 @@ impl WholeStreamCommand for SubCommand {
                 result: Some(vec![UntaggedValue::string("123").into_untagged_value()]),
             },
             Example {
-                description: "Use lpad to pad unicode",
+                description: "Use lpad to pad Unicode",
                 example: "echo '▉' | str lpad -l 10 -c '▉'",
                 result: Some(vec![
                     UntaggedValue::string("▉▉▉▉▉▉▉▉▉▉").into_untagged_value()
@@ -78,55 +76,53 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        Arguments {
-            length,
-            character,
-            rest,
-        },
-        input,
-    ) = args.process().await?;
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            length: params.req_named("length")?,
+            character: params.req_named("character")?,
+            column_paths: params.rest_args()?,
+        }))
+    })?;
 
     Ok(input
         .map(move |v| {
-            let len = length.item;
-            let character = character.item.clone();
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, len, character, v.tag())?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &options, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
-                    let str_clone = character.clone();
+                for path in &options.column_paths {
+                    let options = options.clone();
+
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, len, str_clone, old.tag())),
+                        Box::new(move |old| action(old, &options, old.tag())),
                     )?;
                 }
 
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(
     input: &Value,
-    length: usize,
-    character: String,
+    Arguments {
+        character, length, ..
+    }: &Arguments,
     tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            if length < s.len() {
+            if **length < s.len() {
                 Ok(
-                    UntaggedValue::string(s.chars().take(length).collect::<String>())
+                    UntaggedValue::string(s.chars().take(**length).collect::<String>())
                         .into_value(tag),
                 )
             } else {
-                let mut res = character.repeat(length - s.chars().count());
+                let mut res = character.repeat(**length - s.chars().count());
                 res += s.as_ref();
                 Ok(UntaggedValue::string(res).into_value(tag))
             }
@@ -144,10 +140,10 @@ fn action(
 
 #[cfg(test)]
 mod tests {
-    use super::{action, SubCommand};
+    use super::{action, Arguments, SubCommand};
     use nu_errors::ShellError;
     use nu_protocol::UntaggedValue;
-    use nu_source::Tag;
+    use nu_source::{Tag, TaggedItem};
     use nu_test_support::value::string;
 
     #[test]
@@ -160,22 +156,32 @@ mod tests {
     #[test]
     fn left_pad_with_zeros() {
         let word = string("123");
-        let pad_char = '0'.to_string();
-        let pad_len = 10;
-        let expected = UntaggedValue::string("0000000123").into_untagged_value();
 
-        let actual = action(&word, pad_len, pad_char, Tag::unknown()).unwrap();
+        let options = Arguments {
+            character: String::from("0").tagged_unknown(),
+            length: 10_usize.tagged_unknown(),
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::string("0000000123").into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn left_pad_but_truncate() {
         let word = string("123456789");
-        let pad_char = '0'.to_string();
-        let pad_len = 3;
-        let expected = UntaggedValue::string("123").into_untagged_value();
 
-        let actual = action(&word, pad_len, pad_char, Tag::unknown()).unwrap();
+        let options = Arguments {
+            character: String::from("0").tagged_unknown(),
+            length: 3_usize.tagged_unknown(),
+            column_paths: vec![],
+        };
+
+        let expected = UntaggedValue::string("123").into_untagged_value();
+        let actual = action(&word, &options, Tag::unknown()).unwrap();
+
         assert_eq!(actual, expected);
     }
 }

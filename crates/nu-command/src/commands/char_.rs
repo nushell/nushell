@@ -1,19 +1,11 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Char;
 
-#[derive(Deserialize)]
-struct CharArgs {
-    name: Tagged<String>,
-    rest: Vec<Tagged<String>>,
-    unicode: bool,
-}
-
-#[async_trait]
 impl WholeStreamCommand for Char {
     fn name(&self) -> &str {
         "char"
@@ -26,8 +18,8 @@ impl WholeStreamCommand for Char {
                 SyntaxShape::Any,
                 "the name of the character to output",
             )
-            .rest(SyntaxShape::String, "multiple unicode bytes")
-            .switch("unicode", "unicode string i.e. 1f378", Some('u'))
+            .rest(SyntaxShape::String, "multiple Unicode bytes")
+            .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
     }
 
     fn usage(&self) -> &str {
@@ -51,12 +43,12 @@ impl WholeStreamCommand for Char {
                 ]),
             },
             Example {
-                description: "Output unicode character",
+                description: "Output Unicode character",
                 example: r#"char -u 1f378"#,
                 result: Some(vec![Value::from("\u{1f378}")]),
             },
             Example {
-                description: "Output multi-byte unicode character",
+                description: "Output multi-byte Unicode character",
                 example: r#"char -u 1F468 200D 1F466 200D 1F466"#,
                 result: Some(vec![Value::from(
                     "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
@@ -65,19 +57,16 @@ impl WholeStreamCommand for Char {
         ]
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (
-            CharArgs {
-                name,
-                rest,
-                unicode,
-            },
-            _,
-        ) = args.process().await?;
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        let args = args.evaluate_once()?;
+
+        let name: Tagged<String> = args.req(0)?;
+        let rest: Vec<Value> = args.rest(1)?;
+        let unicode = args.has_flag("unicode");
 
         if unicode {
             if !rest.is_empty() {
-                // Setup a new buffer to put all the unicode bytes in
+                // Setup a new buffer to put all the Unicode bytes in
                 let mut multi_byte = String::new();
                 // Get the first byte
                 let decoded_char = string_to_unicode_char(&name.item, &name.tag);
@@ -87,25 +76,26 @@ impl WholeStreamCommand for Char {
                 }
                 // Get the rest of the bytes
                 for byte_part in rest {
+                    let byte_part: Tagged<String> = FromValue::from_value(&byte_part)?;
                     let decoded_char = string_to_unicode_char(&byte_part, &byte_part.tag);
                     match decoded_char {
                         Ok(ch) => multi_byte.push(ch),
                         Err(e) => return Err(e),
                     }
                 }
-                Ok(OutputStream::one(ReturnSuccess::value(
+                Ok(ActionStream::one(ReturnSuccess::value(
                     UntaggedValue::string(multi_byte).into_value(name.tag),
                 )))
             } else {
                 let decoded_char = string_to_unicode_char(&name.item, &name.tag);
                 if let Ok(ch) = decoded_char {
-                    Ok(OutputStream::one(ReturnSuccess::value(
+                    Ok(ActionStream::one(ReturnSuccess::value(
                         UntaggedValue::string(ch).into_value(name.tag()),
                     )))
                 } else {
                     Err(ShellError::labeled_error(
-                        "error decoding unicode character",
-                        "error decoding unicode character",
+                        "error decoding Unicode character",
+                        "error decoding Unicode character",
                         name.tag(),
                     ))
                 }
@@ -113,7 +103,7 @@ impl WholeStreamCommand for Char {
         } else {
             let special_character = str_to_character(&name.item);
             if let Some(output) = special_character {
-                Ok(OutputStream::one(ReturnSuccess::value(
+                Ok(ActionStream::one(ReturnSuccess::value(
                     UntaggedValue::string(output).into_value(name.tag()),
                 )))
             } else {
@@ -136,8 +126,8 @@ fn string_to_unicode_char(s: &str, t: &Tag) -> Result<char, ShellError> {
         Ok(ch)
     } else {
         Err(ShellError::labeled_error(
-            "error decoding unicode character",
-            "error decoding unicode character",
+            "error decoding Unicode character",
+            "error decoding Unicode character",
             t,
         ))
     }

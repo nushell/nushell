@@ -8,14 +8,13 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-#[derive(Deserialize)]
-struct Arguments {
-    pattern: Tagged<String>,
-    rest: Vec<ColumnPath>,
-}
 pub struct SubCommand;
 
-#[async_trait]
+struct Arguments {
+    pattern: Tagged<String>,
+    column_paths: Vec<ColumnPath>,
+}
+
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "str ends-with"
@@ -34,8 +33,8 @@ impl WholeStreamCommand for SubCommand {
         "checks if string ends with pattern"
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -47,30 +46,34 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-async fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { pattern, rest }, input) = args.process().await?;
-
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (options, input) = args.extract(|params| {
+        Ok(Arc::new(Arguments {
+            pattern: params.req(0)?,
+            column_paths: params.rest(1)?,
+        }))
+    })?;
 
     Ok(input
         .map(move |v| {
-            if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &pattern, v.tag())?)
+            if options.column_paths.is_empty() {
+                ReturnSuccess::value(action(&v, &options.pattern, v.tag())?)
             } else {
                 let mut ret = v;
 
-                for path in &column_paths {
-                    let pattern = pattern.clone();
+                for path in &options.column_paths {
+                    let options = options.clone();
+
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, &pattern, old.tag())),
+                        Box::new(move |old| action(old, &options.pattern, old.tag())),
                     )?;
                 }
 
                 ReturnSuccess::value(ret)
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 fn action(input: &Value, pattern: &str, tag: impl Into<Tag>) -> Result<Value, ShellError> {

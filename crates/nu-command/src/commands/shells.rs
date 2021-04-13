@@ -6,7 +6,6 @@ use std::sync::atomic::Ordering;
 
 pub struct Shells;
 
-#[async_trait]
 impl WholeStreamCommand for Shells {
     fn name(&self) -> &str {
         "shells"
@@ -20,12 +19,12 @@ impl WholeStreamCommand for Shells {
         "Display the list of current shells."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(shells(args))
     }
 }
 
-fn shells(args: CommandArgs) -> OutputStream {
+fn shells(args: CommandArgs) -> ActionStream {
     let mut shells_out = VecDeque::new();
     let tag = args.call_info.name_tag;
 

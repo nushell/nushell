@@ -15,7 +15,6 @@ pub struct FormatArgs {
     table: bool,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
         "date format"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Date {
         "Format a given date using the given format string."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        format(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        format(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -51,9 +50,9 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub async fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (FormatArgs { format, table }, input) = args.process().await?;
+    let (FormatArgs { format, table }, input) = args.process()?;
 
     Ok(input
         .map(move |value| match value {
@@ -92,7 +91,7 @@ pub async fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

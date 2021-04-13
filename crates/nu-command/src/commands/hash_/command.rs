@@ -5,7 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "hash"
@@ -22,8 +21,8 @@ impl WholeStreamCommand for Command {
         "Apply hash function."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(OutputStream::one(ReturnSuccess::value(
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
         )))
     }

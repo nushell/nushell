@@ -1,22 +1,19 @@
-use crate::run_block;
-use crate::{path::canonicalize, print::maybe_print_errors};
-use crate::{MaybeTextCodec, StringOrBinary};
-use futures::StreamExt;
-use futures_codec::FramedRead;
+use crate::{maybe_print_errors, path::canonicalize, run_block};
+use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
     Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
     SpannedExpression,
 };
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
 use crate::EvaluationContext;
 use log::{debug, trace};
 use nu_source::{Span, Tag, Text};
-use std::iter::Iterator;
 use std::path::Path;
 use std::{error::Error, sync::atomic::Ordering};
+use std::{io::BufReader, iter::Iterator};
 
 #[derive(Debug)]
 pub enum LineResult {
@@ -36,8 +33,24 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
+pub fn run_script_in_dir(
+    script: String,
+    dir: &Path,
+    ctx: &EvaluationContext,
+) -> Result<(), Box<dyn Error>> {
+    //Save path before to switch back to it after executing script
+    let path_before = ctx.shell_manager.path();
+
+    ctx.shell_manager
+        .set_path(dir.to_string_lossy().to_string());
+    run_script_standalone(script, false, ctx, false)?;
+    ctx.shell_manager.set_path(path_before);
+
+    Ok(())
+}
+
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-pub async fn process_script(
+pub fn process_script(
     script_text: &str,
     ctx: &EvaluationContext,
     redirect_stdin: bool,
@@ -146,8 +159,10 @@ pub async fn process_script(
         }
 
         let input_stream = if redirect_stdin {
-            let file = futures::io::AllowStdIo::new(std::io::stdin());
-            let stream = FramedRead::new(file, MaybeTextCodec::default()).map(|line| {
+            let file = std::io::stdin();
+            let buf_reader = BufReader::new(file);
+            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
+            let stream = buf_codec.map(|line| {
                 if let Ok(line) = line {
                     let primitive = match line {
                         StringOrBinary::String(s) => Primitive::String(s),
@@ -168,50 +183,43 @@ pub async fn process_script(
         };
 
         trace!("{:#?}", block);
-        let env = ctx.get_env();
 
-        ctx.scope.add_env_to_base(env);
-        let result = run_block(&block, ctx, input_stream).await;
+        let result = run_block(&block, ctx, input_stream);
 
         match result {
             Ok(input) => {
                 // Running a pipeline gives us back a stream that we can then
                 // work through. At the top level, we just want to pull on the
                 // values to compute them.
-                use futures::stream::TryStreamExt;
 
                 let autoview_cmd = ctx
                     .get_command("autoview")
                     .expect("Could not find autoview command");
 
-                if let Ok(mut output_stream) = ctx
-                    .run_command(
-                        autoview_cmd,
-                        Tag::unknown(),
-                        Call::new(
-                            Box::new(SpannedExpression::new(
-                                Expression::string("autoview".to_string()),
-                                Span::unknown(),
-                            )),
+                if let Ok(mut output_stream) = ctx.run_command(
+                    autoview_cmd,
+                    Tag::unknown(),
+                    Call::new(
+                        Box::new(SpannedExpression::new(
+                            Expression::string("autoview".to_string()),
                             Span::unknown(),
-                        ),
-                        input,
-                    )
-                    .await
-                {
+                        )),
+                        Span::unknown(),
+                    ),
+                    input,
+                ) {
                     loop {
-                        match output_stream.try_next().await {
-                            Ok(Some(ReturnSuccess::Value(Value {
+                        match output_stream.next() {
+                            Some(Value {
                                 value: UntaggedValue::Error(e),
                                 ..
-                            }))) => return LineResult::Error(line.to_string(), e),
-                            Ok(Some(_item)) => {
+                            }) => return LineResult::Error(line.to_string(), e),
+                            Some(_item) => {
                                 if ctx.ctrl_c.load(Ordering::SeqCst) {
                                     break;
                                 }
                             }
-                            Ok(None) => break,
-                            Err(e) => return LineResult::Error(line.to_string(), e),
+                            None => break,
                         }
                     }
                 }
@@ -223,13 +231,17 @@ pub async fn process_script(
     }
 }
 
-pub async fn run_script_standalone(
+pub fn run_script_standalone(
     script_text: String,
     redirect_stdin: bool,
     context: &EvaluationContext,
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let line = process_script(&script_text, context, redirect_stdin, 0, false).await;
+    context
+        .shell_manager
+        .enter_script_mode()
+        .map_err(Box::new)?;
+    let line = process_script(&script_text, context, redirect_stdin, 0, false);
 
     match line {
         LineResult::Success(line) => {
@@ -264,5 +276,9 @@ pub async fn run_script_standalone(
 
         _ => {}
     }
+
+    //exit script mode shell
+    context.shell_manager.remove_at_current();
+
     Ok(())
 }

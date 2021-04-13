@@ -9,46 +9,9 @@ macro_rules! return_err {
 }
 
 #[macro_export]
-macro_rules! stream {
-    ($($expr:expr),*) => {{
-        let mut v = VecDeque::new();
-
-        $(
-            v.push_back($expr);
-        )*
-
-        v
-    }}
-}
-
-#[macro_export]
-macro_rules! trace_stream {
-    (target: $target:tt, $desc:tt = $expr:expr) => {{
-        if log::log_enabled!(target: $target, log::Level::Trace) {
-            use futures::stream::StreamExt;
-
-            let objects = $expr.inspect(move |o| {
-                trace!(
-                    target: $target,
-                    "{} = {}",
-                    $desc,
-                    nu_source::PrettyDebug::plain_string(o, 70)
-                );
-            });
-
-            nu_stream::InputStream::from_stream(objects.boxed())
-        } else {
-            $expr
-        }
-    }};
-}
-
-#[macro_export]
 macro_rules! trace_out_stream {
     (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
-            use futures::stream::StreamExt;
-
             let objects = $expr.inspect(move |o| {
                 trace!(
                     target: $target,
@@ -68,27 +31,40 @@ macro_rules! trace_out_stream {
     }};
 }
 
-pub(crate) use futures::stream::BoxStream;
-pub(crate) use futures::{Stream, StreamExt};
 pub(crate) use std::collections::VecDeque;
-pub(crate) use std::future::Future;
 pub(crate) use std::sync::Arc;
 
-pub(crate) use crate::{InputStream, OutputStream};
+use nu_protocol::Value;
+
+pub(crate) use crate::{ActionStream, InputStream, OutputStream};
 
 #[allow(clippy::wrong_self_convention)]
 pub trait ToOutputStream {
     fn to_output_stream(self) -> OutputStream;
 }
 
-impl<T, U> ToOutputStream for T
+impl<T> ToOutputStream for T
 where
-    T: Stream<Item = U> + Send + 'static,
-    U: Into<nu_protocol::ReturnValue>,
+    T: Iterator<Item = Value> + Send + Sync + 'static,
 {
     fn to_output_stream(self) -> OutputStream {
-        OutputStream {
-            values: self.map(|item| item.into()).boxed(),
+        OutputStream::from_stream(self)
+    }
+}
+
+#[allow(clippy::wrong_self_convention)]
+pub trait ToActionStream {
+    fn to_action_stream(self) -> ActionStream;
+}
+
+impl<T, U> ToActionStream for T
+where
+    T: Iterator<Item = U> + Send + Sync + 'static,
+    U: Into<nu_protocol::ReturnValue>,
+{
+    fn to_action_stream(self) -> ActionStream {
+        ActionStream {
+            values: Box::new(self.map(|item| item.into())),
         }
     }
 }

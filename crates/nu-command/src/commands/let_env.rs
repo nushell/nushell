@@ -14,7 +14,6 @@ pub struct LetEnvArgs {
     pub rhs: CapturedBlock,
 }
 
-#[async_trait]
 impl WholeStreamCommand for LetEnv {
     fn name(&self) -> &str {
         "let-env"
@@ -39,8 +38,8 @@ impl WholeStreamCommand for LetEnv {
         "Create an environment variable and give it a value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        set_env(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        set_env(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -48,11 +47,11 @@ impl WholeStreamCommand for LetEnv {
     }
 }
 
-pub async fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn set_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
-    let (LetEnvArgs { name, rhs, .. }, _) = args.process().await?;
+    let (LetEnvArgs { name, rhs, .. }, _) = args.process()?;
 
     let (expr, captured) = {
         if rhs.block.block.len() != 1 {
@@ -86,19 +85,19 @@ pub async fn set_env(args: CommandArgs) -> Result<OutputStream, ShellError> {
     ctx.scope.enter_scope();
     ctx.scope.add_vars(&captured.entries);
 
-    let value = evaluate_baseline_expr(&expr, &ctx).await;
+    let value = evaluate_baseline_expr(&expr, &ctx);
 
     ctx.scope.exit_scope();
 
     let value = value?;
     let value = value.as_string()?;
 
-    let name = name.item.clone();
+    let name = name.item;
 
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
     ctx.scope.add_env_var(name, value);
 
-    Ok(OutputStream::empty())
+    Ok(ActionStream::empty())
 }

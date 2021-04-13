@@ -1,4 +1,4 @@
-use crate::commands::autoview::options::{ConfigExtensions, NuConfig as AutoViewConfiguration};
+use crate::commands::autoview::options::ConfigExtensions;
 use crate::prelude::*;
 use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
@@ -7,12 +7,9 @@ use nu_errors::ShellError;
 use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
-use parking_lot::Mutex;
-use std::sync::atomic::AtomicBool;
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "autoview"
@@ -26,17 +23,8 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table or list."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        autoview(RunnableContext {
-            input: args.input,
-            scope: args.scope.clone(),
-            shell_manager: args.shell_manager,
-            host: args.host,
-            ctrl_c: args.ctrl_c,
-            current_errors: args.current_errors,
-            name: args.call_info.name_tag,
-        })
-        .await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        autoview(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,57 +43,28 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub struct RunnableContextWithoutInput {
-    pub shell_manager: ShellManager,
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub scope: Scope,
-    pub name: Tag,
-}
+pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
+    let configuration = context.configs.lock().global_config();
 
-impl RunnableContextWithoutInput {
-    pub fn convert(context: RunnableContext) -> (InputStream, RunnableContextWithoutInput) {
-        let new_context = RunnableContextWithoutInput {
-            shell_manager: context.shell_manager,
-            host: context.host,
-            ctrl_c: context.ctrl_c,
-            current_errors: context.current_errors,
-            scope: context.scope,
-            name: context.name,
-        };
-        (context.input, new_context)
-    }
-}
+    let binary = context.scope.get_command("binaryview");
+    let text = context.scope.get_command("textview");
+    let table = context.scope.get_command("table");
 
-pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let configuration = AutoViewConfiguration::new();
+    let (mut input_stream, context) = context.split();
 
-    let binary = context.get_command("binaryview");
-    let text = context.get_command("textview");
-    let table = context.get_command("table");
-
-    let pivot_mode = configuration.pivot_mode();
-
-    let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
-    let term_width = context.host.lock().width();
-    let color_hm = get_color_config();
-
-    if let Some(x) = input_stream.next().await {
-        match input_stream.next().await {
+    if let Some(x) = input_stream.next() {
+        match input_stream.next() {
             Some(y) => {
                 let ctrl_c = context.ctrl_c.clone();
                 let xy = vec![x, y];
-                let xy_stream = futures::stream::iter(xy)
-                    .chain(input_stream)
-                    .interruptible(ctrl_c);
+                let xy_stream = xy.into_iter().chain(input_stream).interruptible(ctrl_c);
 
                 let stream = InputStream::from_stream(xy_stream);
 
                 if let Some(table) = table {
                     let command_args = create_default_command_args(&context).with_input(stream);
-                    let result = table.run(command_args).await?;
-                    result.collect::<Vec<_>>().await;
+                    let result = table.run(command_args)?;
+                    let _ = result.collect::<Vec<_>>();
                 }
             }
             _ => {
@@ -121,8 +80,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             );
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = text.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = text.run_with_actions(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             out!("{}", s);
                         }
@@ -203,8 +162,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = binary.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = binary.run_with_actions(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             use pretty_hex::*;
                             out!("{:?}", b.hex_dump());
@@ -219,41 +178,57 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                     }
 
                     Value {
-                        value: UntaggedValue::Row(row),
+                        value: UntaggedValue::Row(ref row),
                         ..
-                    } if pivot_mode.is_always()
-                        || (pivot_mode.is_auto()
-                            && (row
-                                .entries
-                                .iter()
-                                .map(|(_, v)| v.convert_to_string())
-                                .collect::<Vec<_>>()
-                                .iter()
-                                .fold(0usize, |acc, len| acc + len.len())
-                                + row.entries.iter().count() * 2)
-                                > term_width) =>
-                    {
-                        let mut entries = vec![];
-                        for (key, value) in row.entries.iter() {
-                            entries.push(vec![
-                                nu_table::StyledString::new(
-                                    key.to_string(),
-                                    TextStyle::new()
-                                        .alignment(nu_table::Alignment::Left)
-                                        .fg(nu_ansi_term::Color::Green)
-                                        .bold(Some(true)),
-                                ),
-                                nu_table::StyledString::new(
-                                    format_leaf(value).plain_string(100_000),
-                                    nu_table::TextStyle::basic_left(),
-                                ),
-                            ]);
+                    } => {
+                        let pivot_mode = configuration.pivot_mode();
+
+                        let term_width = context.host.lock().width();
+                        if pivot_mode.is_always()
+                            || (pivot_mode.is_auto()
+                                && (row
+                                    .entries
+                                    .iter()
+                                    .map(|(_, v)| v.convert_to_string())
+                                    .collect::<Vec<_>>()
+                                    .iter()
+                                    .fold(0usize, |acc, len| acc + len.len())
+                                    + row.entries.iter().count() * 2)
+                                    > term_width)
+                        {
+                            let mut entries = vec![];
+                            for (key, value) in row.entries.iter() {
+                                entries.push(vec![
+                                    nu_table::StyledString::new(
+                                        key.to_string(),
+                                        TextStyle::new()
+                                            .alignment(nu_table::Alignment::Left)
+                                            .fg(nu_ansi_term::Color::Green)
+                                            .bold(Some(true)),
+                                    ),
+                                    nu_table::StyledString::new(
+                                        format_leaf(value).plain_string(100_000),
+                                        nu_table::TextStyle::basic_left(),
+                                    ),
+                                ]);
+                            }
+
+                            let color_hm = get_color_config(&configuration);
+
+                            let table =
+                                nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
+
+                            println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
+                        } else if let Some(table) = table {
+                            let mut stream = VecDeque::new();
+                            stream.push_back(x);
+                            let command_args =
+                                create_default_command_args(&context).with_input(stream);
+                            let result = table.run(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
+                        } else {
+                            out!("{:?}", row);
                         }
-
-                        let table =
-                            nu_table::Table::new(vec![], entries, nu_table::Theme::compact());
-
-                        println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
                     }
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Nothing),
@@ -269,8 +244,8 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
                             stream.push_back(x);
                             let command_args =
                                 create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args).await?;
-                            result.collect::<Vec<_>>().await;
+                            let result = table.run(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
                         } else {
                             out!("{:?}", item);
                         }
@@ -280,7 +255,7 @@ pub async fn autoview(context: RunnableContext) -> Result<OutputStream, ShellErr
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(InputStream::empty())
 }
 
 fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawCommandArgs {
@@ -288,6 +263,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
     RawCommandArgs {
         host: context.host.clone(),
         ctrl_c: context.ctrl_c.clone(),
+        configs: context.configs.clone(),
         current_errors: context.current_errors.clone(),
         shell_manager: context.shell_manager.clone(),
         call_info: UnevaluatedCallInfo {

@@ -15,7 +15,6 @@ struct Arguments {
 
 pub struct Command;
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "select"
@@ -29,8 +28,8 @@ impl WholeStreamCommand for Command {
         "Down-select table to only these columns."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        select(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        select(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,9 +48,9 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn select(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { mut rest }, mut input) = args.process().await?;
+    let (Arguments { mut rest }, input) = args.process()?;
     let (columns, _) = arguments(&mut rest)?;
 
     if columns.is_empty() {
@@ -64,7 +63,7 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut bring_back: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
-    while let Some(value) = input.next().await {
+    for value in input {
         for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,
@@ -137,7 +136,7 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let keys = bring_back.keys().cloned().collect::<Vec<String>>();
 
-    Ok(futures::stream::iter((0..max).map(move |current| {
+    Ok(((0..max).map(move |current| {
         let mut out = TaggedDictBuilder::new(name.clone());
 
         for k in &keys {
@@ -156,5 +155,5 @@ async fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         ReturnSuccess::value(out.into_value())
     }))
-    .to_output_stream())
+    .to_action_stream())
 }

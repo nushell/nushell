@@ -3,15 +3,14 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct FromJSON;
+pub struct FromJson;
 
 #[derive(Deserialize)]
-pub struct FromJSONArgs {
+pub struct FromJsonArgs {
     objects: bool,
 }
 
-#[async_trait]
-impl WholeStreamCommand for FromJSON {
+impl WholeStreamCommand for FromJson {
     fn name(&self) -> &str {
         "from json"
     }
@@ -28,8 +27,8 @@ impl WholeStreamCommand for FromJSON {
         "Parse text as .json and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_json(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_json(args)
     }
 }
 
@@ -68,17 +67,18 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
-    let (FromJSONArgs { objects }, input) = args.process().await?;
-    let concat_string = input.collect_string(name_tag.clone()).await?;
+    let (FromJsonArgs { objects }, input) = args.process()?;
+    let concat_string = input.collect_string(name_tag.clone())?;
 
     let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
 
     if objects {
-        Ok(
-            futures::stream::iter(string_clone.into_iter().filter_map(move |json_str| {
+        Ok(string_clone
+            .into_iter()
+            .filter_map(move |json_str| {
                 if json_str.is_empty() {
                     return None;
                 }
@@ -99,27 +99,27 @@ async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         )))
                     }
                 }
-            }))
-            .to_output_stream(),
-        )
+            })
+            .to_action_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => Ok(
-                    futures::stream::iter(list.into_iter().map(ReturnSuccess::value))
-                        .to_output_stream(),
-                ),
-                x => Ok(OutputStream::one(ReturnSuccess::value(x))),
+                } => Ok(list
+                    .into_iter()
+                    .map(ReturnSuccess::value)
+                    .to_action_stream()),
+
+                x => Ok(ActionStream::one(ReturnSuccess::value(x))),
             },
             Err(e) => {
                 let mut message = "Could not parse as JSON (".to_string();
                 message.push_str(&e.to_string());
                 message.push(')');
 
-                Ok(OutputStream::one(Err(
+                Ok(ActionStream::one(Err(
                     ShellError::labeled_error_with_secondary(
                         message,
                         "input cannot be parsed as JSON",
@@ -135,13 +135,13 @@ async fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::FromJSON;
+    use super::FromJson;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromJSON {})
+        test_examples(FromJson {})
     }
 }

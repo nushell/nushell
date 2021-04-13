@@ -2,7 +2,7 @@ use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::as_string;
 
@@ -13,7 +13,6 @@ pub struct Arguments {
     grouper: Option<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "group-by"
@@ -31,8 +30,8 @@ impl WholeStreamCommand for Command {
         "Create a new table grouped."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        group_by(args).await
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        group_by(args)
     }
 
     #[allow(clippy::unwrap_used)]
@@ -128,12 +127,12 @@ enum Grouper {
     ByBlock,
 }
 
-pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let (Arguments { grouper }, input) = args.process().await?;
+    let (Arguments { grouper }, input) = args.process()?;
 
-    let values: Vec<Value> = input.collect().await;
+    let values: Vec<Value> = input.collect();
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let mut group_strategy = Grouper::ByColumn(None);
 
@@ -149,10 +148,9 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let run = block.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, context, value.clone()).await {
+                match crate::commands::each::process_row(run, context, value.clone()) {
                     Ok(mut s) => {
-                        let collection: Vec<Result<ReturnSuccess, ShellError>> =
-                            s.drain_vec().await;
+                        let collection: Vec<Value> = s.drain_vec();
 
                         if collection.len() > 1 {
                             return Err(ShellError::labeled_error(
@@ -163,14 +161,12 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         }
 
                         let value = match collection.get(0) {
-                            Some(Ok(return_value)) => {
-                                return_value.raw_value().unwrap_or_else(|| {
-                                    UntaggedValue::string(error_key).into_value(&name)
-                                })
-                            }
-                            Some(Err(_)) | None => {
-                                UntaggedValue::string(error_key).into_value(&name)
-                            }
+                            Some(Value {
+                                value: UntaggedValue::Error(_),
+                                ..
+                            })
+                            | None => UntaggedValue::string(error_key).into_value(&name),
+                            Some(return_value) => return_value.clone(),
                         };
 
                         keys.push(as_string(&value));
@@ -209,7 +205,7 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let group_value = match group_strategy {
         Grouper::ByBlock => {
-            let map = keys.clone();
+            let map = keys;
 
             let block = Box::new(move |idx: usize, row: &Value| match map.get(idx) {
                 Some(Ok(key)) => Ok(key.clone()),
@@ -222,7 +218,7 @@ pub async fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Grouper::ByColumn(column_name) => group(&column_name, &values, &name),
     };
 
-    Ok(OutputStream::one(ReturnSuccess::value(group_value?)))
+    Ok(OutputStream::one(group_value?))
 }
 
 pub fn group(

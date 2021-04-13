@@ -7,8 +7,6 @@ use nu_protocol::{
 };
 use nu_value_ext::ValueExt;
 
-use futures::stream::once;
-
 pub struct Command;
 
 #[derive(Deserialize)]
@@ -17,7 +15,6 @@ pub struct Arguments {
     value: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "insert"
@@ -37,8 +34,8 @@ impl WholeStreamCommand for Command {
         "Insert a new column with a given value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        insert(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        insert(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,12 +61,12 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     mut value: Arc<Value>,
     field: Arc<ColumnPath>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let value = Arc::make_mut(&mut value);
 
     Ok(match value {
@@ -78,19 +75,19 @@ async fn process_row(
             tag: block_tag,
         } => {
             let for_block = input.clone();
-            let input_stream = once(async { Ok(for_block) }).to_input_stream();
+            let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
             context.scope.enter_scope();
             context.scope.add_vars(&block.captured.entries);
             context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block.block, &*context, input_stream).await;
+            let result = run_block(&block.block, &*context, input_stream);
 
             context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
-                    let values = stream.drain_vec().await;
+                    let values = stream.drain_vec();
 
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
@@ -119,17 +116,17 @@ async fn process_row(
                             value: UntaggedValue::Row(_),
                             ..
                         } => match obj.insert_data_at_column_path(&field, result) {
-                            Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                            Err(e) => OutputStream::one(Err(e)),
+                            Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                            Err(e) => ActionStream::one(Err(e)),
                         },
-                        _ => OutputStream::one(Err(ShellError::labeled_error(
+                        _ => ActionStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             block_tag.clone(),
                         ))),
                     }
                 }
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         }
         value => match input {
@@ -142,36 +139,34 @@ async fn process_row(
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .insert_data_at_column_path(&field, value.clone())
             {
-                Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                Err(e) => OutputStream::one(Err(e)),
+                Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                Err(e) => ActionStream::one(Err(e)),
             },
             _ => match input.insert_data_at_column_path(&field, value.clone()) {
-                Ok(v) => OutputStream::one(ReturnSuccess::value(v)),
-                Err(e) => OutputStream::one(Err(e)),
+                Ok(v) => ActionStream::one(ReturnSuccess::value(v)),
+                Err(e) => ActionStream::one(Err(e)),
             },
         },
     })
 }
 
-async fn insert(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn insert(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { column, value }, input) = raw_args.process().await?;
+    let (Arguments { column, value }, input) = raw_args.process()?;
     let value = Arc::new(value);
     let column = Arc::new(column);
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let context = context.clone();
             let value = value.clone();
             let column = column.clone();
 
-            async {
-                match process_row(context, input, value, column).await {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(context, input, value, column) {
+                Ok(s) => s,
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }

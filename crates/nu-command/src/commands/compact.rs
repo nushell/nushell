@@ -1,6 +1,5 @@
 use crate::prelude::*;
-use futures::future;
-use futures::stream::StreamExt;
+
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -13,7 +12,6 @@ pub struct CompactArgs {
     rest: Vec<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Compact {
     fn name(&self) -> &str {
         "compact"
@@ -27,8 +25,8 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        compact(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        compact(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,11 +38,11 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub async fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (CompactArgs { rest: columns }, input) = args.process().await?;
+pub fn compact(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let (CompactArgs { rest: columns }, input) = args.process()?;
     Ok(input
         .filter_map(move |item| {
-            future::ready(if columns.is_empty() {
+            if columns.is_empty() {
                 if !item.is_empty() {
                     Some(ReturnSuccess::value(item))
                 } else {
@@ -67,9 +65,9 @@ pub async fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     _ => None,
                 }
-            })
+            }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

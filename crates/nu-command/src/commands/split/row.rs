@@ -12,7 +12,6 @@ struct SplitRowArgs {
 
 pub struct SubCommand;
 
-#[async_trait]
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "split row"
@@ -30,14 +29,14 @@ impl WholeStreamCommand for SubCommand {
         "splits contents over multiple rows via the separator."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        split_row(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        split_row(args)
     }
 }
 
-async fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn split_row(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SplitRowArgs { separator }, input) = args.process().await?;
+    let (SplitRowArgs { separator }, input) = args.process()?;
     Ok(input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {
@@ -56,14 +55,14 @@ async fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 trace!("split result = {:?}", split_result);
 
-                futures::stream::iter(split_result.into_iter().map(move |s| {
+                (split_result.into_iter().map(move |s| {
                     ReturnSuccess::value(
                         UntaggedValue::Primitive(Primitive::String(s)).into_value(&v.tag),
                     )
                 }))
-                .to_output_stream()
+                .to_action_stream()
             } else {
-                OutputStream::one(Err(ShellError::labeled_error_with_secondary(
+                ActionStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name.span,
@@ -72,7 +71,7 @@ async fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )))
             }
         })
-        .to_output_stream())
+        .to_action_stream())
 }
 
 #[cfg(test)]

@@ -17,7 +17,6 @@ pub struct EnterArgs {
     encoding: Option<Tagged<String>>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Enter {
     fn name(&self) -> &str {
         "enter"
@@ -51,8 +50,8 @@ For a more complete list of encodings please refer to the encoding_rs
 documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        enter(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        enter(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -76,38 +75,21 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 }
 
-async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let scope = raw_args.scope.clone();
     let shell_manager = raw_args.shell_manager.clone();
     let head = raw_args.call_info.args.head.clone();
     let ctrl_c = raw_args.ctrl_c.clone();
+    let configs = raw_args.configs.clone();
     let current_errors = raw_args.current_errors.clone();
     let host = raw_args.host.clone();
     let tag = raw_args.call_info.name_tag.clone();
-    let (EnterArgs { location, encoding }, _) = raw_args.process().await?;
+    let (EnterArgs { location, encoding }, _) = raw_args.process()?;
     let location_string = location.display().to_string();
-    let location_clone = location_string.clone();
 
-    if location_string.starts_with("help") {
-        let spec = location_string.split(':').collect::<Vec<&str>>();
-
-        if spec.len() == 2 {
-            let (_, command) = (spec[0], spec[1]);
-
-            if scope.has_command(command) {
-                return Ok(OutputStream::one(ReturnSuccess::action(
-                    CommandAction::EnterHelpShell(
-                        UntaggedValue::string(command).into_value(Tag::unknown()),
-                    ),
-                )));
-            }
-        }
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterHelpShell(UntaggedValue::nothing().into_value(Tag::unknown())),
-        )))
-    } else if location.is_dir() {
-        Ok(OutputStream::one(ReturnSuccess::action(
-            CommandAction::EnterShell(location_clone),
+    if location.is_dir() {
+        Ok(ActionStream::one(ReturnSuccess::action(
+            CommandAction::EnterShell(location_string),
         )))
     } else {
         // If it's a file, attempt to open the file as a value and enter it
@@ -118,11 +100,10 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let (file_extension, tagged_contents) = crate::commands::open::fetch(
             &full_path,
-            &PathBuf::from(location_clone),
+            &PathBuf::from(location_string),
             span,
             encoding,
-        )
-        .await?;
+        )?;
 
         match tagged_contents.value {
             UntaggedValue::Primitive(Primitive::String(_)) => {
@@ -132,6 +113,7 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,
+                            configs,
                             current_errors,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
@@ -142,18 +124,17 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     span: Span::unknown(),
                                     external_redirection: ExternalRedirection::Stdout,
                                 },
-                                name_tag: tag.clone(),
+                                name_tag: tag,
                             },
-                            scope: scope.clone(),
+                            scope,
                         };
                         let tag = tagged_contents.tag.clone();
                         let mut result = converter
-                            .run(new_args.with_input(vec![tagged_contents]))
-                            .await?;
-                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                            result.drain_vec().await;
-                        Ok(futures::stream::iter(result_vec.into_iter().map(
-                            move |res| match res {
+                            .run_with_actions(new_args.with_input(vec![tagged_contents]))?;
+                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
+                        Ok(result_vec
+                            .into_iter()
+                            .map(move |res| match res {
                                 Ok(ReturnSuccess::Value(Value { value, .. })) => Ok(
                                     ReturnSuccess::Action(CommandAction::EnterValueShell(Value {
                                         value,
@@ -161,21 +142,20 @@ async fn enter(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     })),
                                 ),
                                 x => x,
-                            },
-                        ))
-                        .to_output_stream())
+                            })
+                            .to_action_stream())
                     } else {
-                        Ok(OutputStream::one(ReturnSuccess::action(
+                        Ok(ActionStream::one(ReturnSuccess::action(
                             CommandAction::EnterValueShell(tagged_contents),
                         )))
                     }
                 } else {
-                    Ok(OutputStream::one(ReturnSuccess::action(
+                    Ok(ActionStream::one(ReturnSuccess::action(
                         CommandAction::EnterValueShell(tagged_contents),
                     )))
                 }
             }
-            _ => Ok(OutputStream::one(ReturnSuccess::action(
+            _ => Ok(ActionStream::one(ReturnSuccess::action(
                 CommandAction::EnterValueShell(tagged_contents),
             ))),
         }

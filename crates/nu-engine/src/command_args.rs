@@ -1,9 +1,10 @@
-use crate::call_info::UnevaluatedCallInfo;
 use crate::deserializer::ConfigDeserializer;
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::evaluation_context::EvaluationContext;
 use crate::shell::shell_manager::ShellManager;
+use crate::FromValue;
+use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
@@ -22,11 +23,41 @@ use std::sync::Arc;
 pub struct CommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
     pub scope: Scope,
     pub input: InputStream,
+}
+
+pub type RunnableContext = CommandArgs;
+
+#[derive(Clone)]
+pub struct RunnableContextWithoutInput {
+    pub shell_manager: ShellManager,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
+    pub ctrl_c: Arc<AtomicBool>,
+    pub call_info: UnevaluatedCallInfo,
+    pub configs: Arc<Mutex<ConfigHolder>>,
+    pub scope: Scope,
+    pub name: Tag,
+}
+
+impl RunnableContextWithoutInput {
+    pub fn with_input(self, input: InputStream) -> CommandArgs {
+        CommandArgs {
+            shell_manager: self.shell_manager,
+            host: self.host,
+            current_errors: self.current_errors,
+            ctrl_c: self.ctrl_c,
+            call_info: self.call_info,
+            configs: self.configs,
+            scope: self.scope,
+            input,
+        }
+    }
 }
 
 #[derive(Getters, Clone)]
@@ -35,6 +66,7 @@ pub struct RawCommandArgs {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub scope: Scope,
     pub call_info: UnevaluatedCallInfo,
@@ -45,6 +77,7 @@ impl RawCommandArgs {
         CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,
+            configs: self.configs,
             current_errors: self.current_errors,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
@@ -61,27 +94,57 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub async fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
-        let ctx = EvaluationContext::from_args(&self);
-        let host = self.host.clone();
-        let ctrl_c = self.ctrl_c.clone();
-        let shell_manager = self.shell_manager.clone();
+    pub fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+        let ctx = EvaluationContext::new(
+            self.scope,
+            self.host,
+            self.current_errors,
+            self.ctrl_c,
+            self.configs,
+            self.shell_manager,
+            Arc::new(Mutex::new(std::collections::HashMap::new())),
+        );
+
         let input = self.input;
-        let call_info = self.call_info.evaluate(&ctx).await?;
-        let scope = self.scope.clone();
+        let call_info = self.call_info.evaluate(&ctx)?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
-            host,
-            ctrl_c,
-            shell_manager,
+            ctx.host,
+            ctx.ctrl_c,
+            ctx.configs,
+            ctx.shell_manager,
             call_info,
             input,
-            scope,
+            ctx.scope,
         ))
     }
 
-    pub async fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once().await?;
+    pub fn split(self) -> (InputStream, RunnableContextWithoutInput) {
+        let new_context = RunnableContextWithoutInput {
+            shell_manager: self.shell_manager,
+            host: self.host,
+            ctrl_c: self.ctrl_c,
+            configs: self.configs,
+            name: self.call_info.name_tag.clone(),
+            call_info: self.call_info,
+            current_errors: self.current_errors,
+            scope: self.scope,
+        };
+
+        (self.input, new_context)
+    }
+
+    pub fn extract<T>(
+        self,
+        f: impl FnOnce(&EvaluatedCommandArgs) -> Result<T, ShellError>,
+    ) -> Result<(T, InputStream), ShellError> {
+        let evaluated_args = self.evaluate_once()?;
+
+        Ok((f(&evaluated_args.args)?, evaluated_args.input))
+    }
+
+    pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
+        let args = self.evaluate_once()?;
         let call_info = args.call_info.clone();
 
         let mut deserializer = ConfigDeserializer::from_call_info(call_info);
@@ -106,6 +169,7 @@ impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
         host: Arc<parking_lot::Mutex<dyn Host>>,
         ctrl_c: Arc<AtomicBool>,
+        configs: Arc<Mutex<ConfigHolder>>,
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
@@ -115,6 +179,7 @@ impl EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
                 ctrl_c,
+                configs,
                 shell_manager,
                 call_info,
                 scope,
@@ -145,6 +210,7 @@ impl EvaluatedWholeStreamCommandArgs {
 pub struct EvaluatedCommandArgs {
     pub host: Arc<parking_lot::Mutex<dyn Host>>,
     pub ctrl_c: Arc<AtomicBool>,
+    pub configs: Arc<Mutex<ConfigHolder>>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
     pub scope: Scope,
@@ -163,11 +229,55 @@ impl EvaluatedCommandArgs {
             .ok_or_else(|| ShellError::unimplemented("Better error: expect_nth"))
     }
 
-    pub fn get(&self, name: &str) -> Option<&Value> {
-        self.call_info.args.get(name)
+    pub fn get_flag<T: FromValue>(&self, name: &str) -> Option<Result<T, ShellError>> {
+        self.call_info
+            .args
+            .get(name)
+            .map(|x| FromValue::from_value(x))
     }
 
-    pub fn has(&self, name: &str) -> bool {
+    pub fn req_named<T: FromValue>(&self, name: &str) -> Result<T, ShellError> {
+        self.call_info
+            .args
+            .expect_get(name)
+            .and_then(|x| FromValue::from_value(x))
+    }
+
+    pub fn has_flag(&self, name: &str) -> bool {
         self.call_info.args.has(name)
+    }
+
+    pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
+        if let Some(v) = self.nth(pos) {
+            FromValue::from_value(v)
+        } else {
+            Err(ShellError::labeled_error(
+                "Position beyond end of command arguments",
+                "can't access beyond end of command arguments",
+                self.call_info.name_tag.span,
+            ))
+        }
+    }
+
+    pub fn opt<T: FromValue>(&self, pos: usize) -> Option<Result<T, ShellError>> {
+        if let Some(v) = self.nth(pos) {
+            Some(FromValue::from_value(v))
+        } else {
+            None
+        }
+    }
+
+    pub fn rest_args<T: FromValue>(&self) -> Result<Vec<T>, ShellError> {
+        self.rest(0)
+    }
+
+    pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for val in self.call_info.args.positional_iter().skip(starting_pos) {
+            output.push(FromValue::from_value(val)?);
+        }
+
+        Ok(output)
     }
 }

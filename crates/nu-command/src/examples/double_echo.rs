@@ -2,10 +2,8 @@ use nu_errors::ShellError;
 
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_stream::{OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, ToActionStream};
 
-use async_trait::async_trait;
-use futures::StreamExt;
 use serde::Deserialize;
 
 pub struct Command;
@@ -15,7 +13,6 @@ struct Arguments {
     pub rest: Vec<Value>,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "echo"
@@ -29,12 +26,12 @@ impl WholeStreamCommand for Command {
         "Mock echo."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-        let (Arguments { rest }, input) = args.process().await?;
+        let (Arguments { rest }, input) = args.process()?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
-        let input: Vec<Value> = input.collect().await;
+        let input: Vec<Value> = input.collect();
 
         if let Some(first) = input.get(0) {
             base_value = first.clone()
@@ -43,7 +40,7 @@ impl WholeStreamCommand for Command {
         let stream = rest.into_iter().map(move |i| {
             let base_value = base_value.clone();
             match i.as_string() {
-                Ok(s) => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                Ok(s) => ActionStream::one(Ok(ReturnSuccess::Value(Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag: base_value.tag,
                 }))),
@@ -63,22 +60,19 @@ impl WholeStreamCommand for Command {
                             let subtable =
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
-                            futures::stream::iter(subtable.into_iter().map(ReturnSuccess::value))
-                                .to_output_stream()
+                            (subtable.into_iter().map(ReturnSuccess::value)).to_action_stream()
                         } else {
-                            futures::stream::iter(
-                                table
-                                    .into_iter()
-                                    .map(move |mut v| {
-                                        v.tag = base_value.tag();
-                                        v
-                                    })
-                                    .map(ReturnSuccess::value),
-                            )
-                            .to_output_stream()
+                            (table
+                                .into_iter()
+                                .map(move |mut v| {
+                                    v.tag = base_value.tag();
+                                    v
+                                })
+                                .map(ReturnSuccess::value))
+                            .to_action_stream()
                         }
                     }
-                    _ => OutputStream::one(Ok(ReturnSuccess::Value(Value {
+                    _ => ActionStream::one(Ok(ReturnSuccess::Value(Value {
                         value: i.value.clone(),
                         tag: base_value.tag,
                     }))),
@@ -86,6 +80,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok(futures::stream::iter(stream).flatten().to_output_stream())
+        Ok((stream).flatten().to_action_stream())
     }
 }

@@ -4,16 +4,15 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
-pub struct FromCSV;
+pub struct FromCsv;
 
 #[derive(Deserialize)]
-pub struct FromCSVArgs {
+pub struct FromCsvArgs {
     noheaders: bool,
     separator: Option<Value>,
 }
 
-#[async_trait]
-impl WholeStreamCommand for FromCSV {
+impl WholeStreamCommand for FromCsv {
     fn name(&self) -> &str {
         "from csv"
     }
@@ -37,8 +36,8 @@ impl WholeStreamCommand for FromCSV {
         "Parse text as .csv and create table."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        from_csv(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        from_csv(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,16 +66,16 @@ impl WholeStreamCommand for FromCSV {
     }
 }
 
-async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn from_csv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let (
-        FromCSVArgs {
+        FromCsvArgs {
             noheaders,
             separator,
         },
         input,
-    ) = args.process().await?;
+    ) = args.process()?;
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),
@@ -100,18 +99,18 @@ async fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => ',',
     };
 
-    from_delimited_data(noheaders, sep, "CSV", input, name).await
+    from_delimited_data(noheaders, sep, "CSV", input, name)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::FromCSV;
+    use super::FromCsv;
     use super::ShellError;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
-        test_examples(FromCSV {})
+        test_examples(FromCsv {})
     }
 }

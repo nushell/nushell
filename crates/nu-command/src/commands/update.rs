@@ -8,8 +8,6 @@ use nu_protocol::{
 use nu_source::HasFallibleSpan;
 use nu_value_ext::ValueExt;
 
-use futures::stream::once;
-
 pub struct Command;
 
 #[derive(Deserialize)]
@@ -18,7 +16,6 @@ pub struct Arguments {
     replacement: Value,
 }
 
-#[async_trait]
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "update"
@@ -42,8 +39,8 @@ impl WholeStreamCommand for Command {
         "Update an existing column to have a new value."
     }
 
-    async fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        update(args).await
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        update(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -67,13 +64,13 @@ impl WholeStreamCommand for Command {
     }
 }
 
-async fn process_row(
+fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
     mut replacement: Arc<Value>,
     field: Arc<ColumnPath>,
     tag: Arc<Tag>,
-) -> Result<OutputStream, ShellError> {
+) -> Result<ActionStream, ShellError> {
     let tag = &*tag;
     let replacement = Arc::make_mut(&mut replacement);
 
@@ -83,19 +80,19 @@ async fn process_row(
             tag: block_tag,
         } => {
             let for_block = input.clone();
-            let input_stream = once(async { Ok(for_block) }).to_input_stream();
+            let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
             context.scope.enter_scope();
             context.scope.add_var("$it", input.clone());
             context.scope.add_vars(&captured_block.captured.entries);
 
-            let result = run_block(&captured_block.block, &*context, input_stream).await;
+            let result = run_block(&captured_block.block, &*context, input_stream);
 
             context.scope.exit_scope();
 
             match result {
                 Ok(mut stream) => {
-                    let values = stream.drain_vec().await;
+                    let values = stream.drain_vec();
 
                     let errors = context.get_errors();
                     if let Some(error) = errors.first() {
@@ -124,21 +121,21 @@ async fn process_row(
                             value: UntaggedValue::Row(_),
                             ..
                         } => match obj.replace_data_at_column_path(&field, result) {
-                            Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                            None => OutputStream::one(Err(ShellError::labeled_error(
+                            Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                            None => ActionStream::one(Err(ShellError::labeled_error(
                                 "update could not find place to insert column",
                                 "column name",
                                 obj.tag,
                             ))),
                         },
-                        _ => OutputStream::one(Err(ShellError::labeled_error(
+                        _ => ActionStream::one(Err(ShellError::labeled_error(
                             "Unrecognized type in stream",
                             "original value",
                             block_tag.clone(),
                         ))),
                     }
                 }
-                Err(e) => OutputStream::one(Err(e)),
+                Err(e) => ActionStream::one(Err(e)),
             }
         }
         replacement => match input {
@@ -151,8 +148,8 @@ async fn process_row(
                 .unwrap_or_else(|| UntaggedValue::nothing().into_untagged_value())
                 .replace_data_at_column_path(&field, replacement.clone())
             {
-                Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                None => OutputStream::one(Err(ShellError::labeled_error(
+                Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                None => ActionStream::one(Err(ShellError::labeled_error(
                     "update could not find place to insert column",
                     "column name",
                     field.maybe_span().unwrap_or(tag.span),
@@ -160,8 +157,8 @@ async fn process_row(
             },
             Value { value: _, ref tag } => {
                 match input.replace_data_at_column_path(&field, replacement.clone()) {
-                    Some(v) => OutputStream::one(ReturnSuccess::value(v)),
-                    None => OutputStream::one(Err(ShellError::labeled_error(
+                    Some(v) => ActionStream::one(ReturnSuccess::value(v)),
+                    None => ActionStream::one(Err(ShellError::labeled_error(
                         "update could not find place to insert column",
                         "column name",
                         field.maybe_span().unwrap_or(tag.span),
@@ -172,27 +169,25 @@ async fn process_row(
     })
 }
 
-async fn update(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn update(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { field, replacement }, input) = raw_args.process().await?;
+    let (Arguments { field, replacement }, input) = raw_args.process()?;
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 
     Ok(input
-        .then(move |input| {
+        .map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
             let replacement = replacement.clone();
             let field = field.clone();
 
-            async {
-                match process_row(context, input, replacement, field, tag).await {
-                    Ok(s) => s,
-                    Err(e) => OutputStream::one(Err(e)),
-                }
+            match process_row(context, input, replacement, field, tag) {
+                Ok(s) => s,
+                Err(e) => ActionStream::one(Err(e)),
             }
         })
         .flatten()
-        .to_output_stream())
+        .to_action_stream())
 }
