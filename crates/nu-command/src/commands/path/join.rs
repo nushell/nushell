@@ -1,4 +1,4 @@
-use super::{handle_value, join_path, PathSubcommandArguments};
+use super::{handle_value, join_path, operate_column_paths, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -150,21 +150,7 @@ where
             }
         }
     } else {
-        input
-            .map(move |v| {
-                let mut ret = v;
-
-                for path in args.get_column_paths() {
-                    let cloned_args = Arc::clone(&args);
-                    ret = ret.swap_data_by_column_path(
-                        path,
-                        Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
-                    )?;
-                }
-
-                ReturnSuccess::value(ret)
-            })
-            .to_output_stream()
+        operate_column_paths(input, action, span, args)
     }
 }
 

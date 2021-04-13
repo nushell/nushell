@@ -162,7 +162,7 @@ where
     }
 }
 
-fn operate<F, T>(
+fn operate_column_paths<F, T>(
     input: crate::InputStream,
     action: &'static F,
     span: Span,
@@ -174,21 +174,36 @@ where
 {
     input
         .map(move |v| {
-            if args.get_column_paths().is_empty() {
-                ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?)
-            } else {
-                let mut ret = v;
+            let mut ret = v;
 
-                for path in args.get_column_paths() {
-                    let cloned_args = Arc::clone(&args);
-                    ret = ret.swap_data_by_column_path(
-                        path,
-                        Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
-                    )?;
-                }
-
-                ReturnSuccess::value(ret)
+            for path in args.get_column_paths() {
+                let cloned_args = Arc::clone(&args);
+                ret = ret.swap_data_by_column_path(
+                    path,
+                    Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
+                )?;
             }
+
+            ReturnSuccess::value(ret)
         })
         .to_action_stream()
+}
+
+fn operate<F, T>(
+    input: crate::InputStream,
+    action: &'static F,
+    span: Span,
+    args: Arc<T>,
+) -> OutputStream
+where
+    T: PathSubcommandArguments + Send + Sync + 'static,
+    F: Fn(&Path, Tag, &T) -> Value + Send + Sync + 'static,
+{
+    if args.get_column_paths().is_empty() {
+        input
+            .map(move |v| ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?))
+            .to_output_stream()
+    } else {
+        operate_column_paths(input, action, span, args)
+    }
 }
