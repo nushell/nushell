@@ -769,23 +769,32 @@ fn parse_table(
     )
 }
 
-fn is_number_in_paranthesis(item: &String) -> bool{
-    let mut chars = item.chars();
+fn try_parse_number_in_paranthesis(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>){
+    let mut chars = lite_arg.item.chars();
 
     match (chars.next(), chars.next_back()) {
         (Some('('), Some(')')) => {
             
             if let Ok(x) = chars.as_str().trim().parse::<BigInt>() {
-                return true;
+
+                (
+                SpannedExpression::new(Expression::integer(x), lite_arg.span),
+                None,
+            )
             } else if let Ok(x) = chars.as_str().trim().parse::<BigDecimal>() {
-                return true;
+                (
+                    SpannedExpression::new(Expression::decimal(x), lite_arg.span),
+                    None,
+                )
+            } else {
+                (garbage(lite_arg.span), Some(ParseError::mismatch("missing closing bracket", lite_arg.clone())))
             }
             
         },
-        (_, _) => return false
+        (Some('('), _) => (garbage(lite_arg.span), Some(ParseError::mismatch("missing closing bracket", lite_arg.clone()))),
+        (_, Some(')')) => (garbage(lite_arg.span),Some(ParseError::mismatch("missing starting bracket", lite_arg.clone()))),
+        (_, _) => (garbage(lite_arg.span),Some(ParseError::mismatch("number in paranthesis", lite_arg.clone())))
     }
-    return false;
-    
 }
 
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
@@ -798,28 +807,14 @@ fn parse_arg(
         return parse_dollar_expr(&lite_arg, scope);
     }
 
-    if lite_arg.item.starts_with('(') && is_number_in_paranthesis(&lite_arg.item) {
-        let mut chars = lite_arg.item.chars();
-        chars.next(); chars.next_back();
-        let string_number = chars.as_str().trim();
-        if let Ok(x) = string_number.parse::<BigInt>() {
-            return (
-                SpannedExpression::new(Expression::integer(x), lite_arg.span),
-                None,
-            );
-        } else if let Ok(x) = string_number.trim().parse::<BigDecimal>() {
-            return(
-                SpannedExpression::new(Expression::decimal(x), lite_arg.span),
-                None,
-            );
-        } else {
-            return (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("number", lite_arg.clone())),
-            );
+    // before anything else, try to see if this is a number in paranthesis
+    if lite_arg.item.starts_with('(') {
+        let (expr, err) = try_parse_number_in_paranthesis(lite_arg);
+        if err.is_none(){
+            return (expr, None);
         }
     }
-
+   
     match expected_type {
         SyntaxShape::Number => {
             if let Ok(x) = lite_arg.item.parse::<BigInt>() {
