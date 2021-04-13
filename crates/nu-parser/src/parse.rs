@@ -743,32 +743,66 @@ fn parse_table(
 }
 
 /// Parse the given argument in brackets () as a number
-fn parse_number_in_brackets(
+fn parse_number_in_paranthesis(
     expected_type: SyntaxShape,
     scope: &dyn ParserScope,
     lite_arg: &Spanned<String>,
-    ) -> (SpannedExpression, Option<ParseError>) {
-
-        if lite_arg.item.starts_with('(') && lite_arg.item.len() > 1 {
-
-            if lite_arg.item.chars().last().unwrap() != ')'{
-                let error = Some(ParseError::argument_error(
-                    lite_arg.clone(),
-                    ArgumentError::MissingClosingBracket(format!("{:?}", "don't knwo what should be here".to_string())),
-                ));
-
-                (garbage(lite_arg.span), error)
-            } else {
-                // number is wrapped around paranthesis (), thus we remove them
-                let number_as_string = String::from(&lite_arg.item[1..lite_arg.item.len()-1].to_string());
-                let span_number = Spanned{span: lite_arg.span, item: number_as_string};
-                parse_arg(expected_type, scope, &span_number)
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut chars = lite_arg.item.chars();
+    match (chars.next(), chars.next_back()) {
+        (Some('('), Some(')')) => {
+            let number_as_string =
+                String::from(&lite_arg.item[1..lite_arg.item.len() - 1].to_string());
+            let span_number = Spanned {
+                span: lite_arg.span,
+                item: number_as_string,
+            };
+            parse_arg(expected_type, scope, &span_number)
         }
-    } else {
-        (garbage(lite_arg.span),
-        Some(ParseError::mismatch("number", lite_arg.clone())))
+        (_, _) => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("number", lite_arg.clone())),
+        ),
     }
 }
+
+
+
+// fn is_math_expression(
+//     incoming_idx: usize,
+//     lite_args: &[Spanned<String>],
+//     scope: &dyn ParserScope,
+// ) -> bool {
+//     println!("checking if math expr");
+//     let (size, math_expr, err) = parse_math_expression(0, lite_args, scope, false);
+
+//     println!("{:?}", &err);
+//     match err {
+//         Some(_) => false,
+//         None => true,
+//     }
+// }
+
+fn is_number_in_paranthesis(item: &String) -> bool{
+    let mut chars = item.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('('), Some(')')) => {
+            
+            if let Ok(x) = chars.as_str().parse::<BigInt>() {
+                return true;
+            } else if let Ok(x) = chars.as_str().parse::<BigDecimal>() {
+                return true;
+            }
+            
+        },
+        (_, _) => return false
+    }
+    return false;
+    
+}
+
+
 
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
@@ -780,10 +814,30 @@ fn parse_arg(
         return parse_dollar_expr(&lite_arg, scope);
     }
 
-    if lite_arg.item.starts_with('(') && lite_arg.item.chars().last().unwrap() == ')' {
-        return parse_number_in_brackets(expected_type, scope, &lite_arg);
-    }
+    // if lite_arg.item.starts_with('(') && is_number_in_paranthesis(&lite_arg.item) {
+    //     let mut chars = lite_arg.item.chars();
+    //     println!("{:?}", &chars);
+    //     chars.next();
+    //     chars.next_back();
+    //     if let Ok(x) = chars.as_str().parse::<BigInt>() {
+    //         return (
+    //             SpannedExpression::new(Expression::integer(x), lite_arg.span),
+    //             None,
+    //         );
+    //     } else if let Ok(x) = chars.as_str().parse::<BigDecimal>() {
+    //         return(
+    //             SpannedExpression::new(Expression::decimal(x), lite_arg.span),
+    //             None,
+    //         );
+    //     } else {
+    //         return (
+    //             garbage(lite_arg.span),
+    //             Some(ParseError::mismatch("number", lite_arg.clone())),
+    //         );
+    //     }
+    // }
 
+    // println!("{:?}", &lite_arg);
     match expected_type {
         SyntaxShape::Number => {
             if let Ok(x) = lite_arg.item.parse::<BigInt>() {
@@ -1070,7 +1124,9 @@ fn parse_parenthesized_expression(
                 return (garbage(lite_arg.span), err);
             }
 
+            println!("{:?}", &tokens);
             let (lite_block, err) = parse_block(tokens);
+            println!("{:?}", &lite_block);
             if err.is_some() {
                 return (garbage(lite_arg.span), err);
             }
@@ -1083,7 +1139,6 @@ fn parse_parenthesized_expression(
             }
 
             let mut lite_pipeline = lite_block.block[0].clone();
-
             let mut collection = vec![];
             for lite_pipeline in lite_pipeline.pipelines.iter_mut() {
                 for lite_cmd in lite_pipeline.commands.iter_mut() {
@@ -1110,6 +1165,7 @@ fn parse_possibly_parenthesized(
 ) {
     if lite_arg.item.starts_with('(') {
         let (lhs, err) = parse_parenthesized_expression(lite_arg, scope, shorthand_mode);
+        println!("{:?}", &lhs);
         ((None, lhs), err)
     } else {
         let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
@@ -1399,15 +1455,29 @@ fn parse_internal_command(
     idx += 1; // Start where the arguments begin
 
     while idx < lite_cmd.parts.len() {
-        if lite_cmd.parts[idx].item.starts_with('(') && lite_cmd.parts[idx].item.len() > 1 {
-            let (number, err) = parse_number_in_brackets(SyntaxShape::Number, scope, &lite_cmd.parts[idx]);
-            if err.is_none(){
-                positional.push(number);
-                current_positional +=1;
-            } else {
-                error = err;
-            }
-        } else if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
+
+    //     if lite_cmd.parts[idx].item.starts_with('(') 
+
+
+    //     // && !is_math_expression(0, &[lite_cmd.parts[idx].clone()], scope)
+    //     && lite_cmd.parts[idx].item.len() > 1
+    // {
+
+    //     let (number, err) =
+    //         parse_number_in_paranthesis(SyntaxShape::Number, scope, &lite_cmd.parts[idx]);
+            
+
+    //     match err {
+    //         Some(e) => error = Some(e),
+    //         None => {
+    //             positional.push(number);
+    //             current_positional += 1;
+    //         }
+    //     }
+    // } 
+    // else 
+
+      if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
                 get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
 
