@@ -51,7 +51,9 @@ impl Scope {
 
         for frame in self.frames.lock().iter().rev() {
             for (name, command) in frame.commands.iter() {
-                output.insert(name.clone(), command.signature());
+                if !output.contains_key(name) {
+                    output.insert(name.clone(), command.signature());
+                }
             }
         }
 
@@ -120,8 +122,8 @@ impl Scope {
             names.append(&mut frame_command_names);
         }
 
-        names.dedup();
         names.sort();
+        names.dedup();
 
         names
     }
