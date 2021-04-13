@@ -1,6 +1,5 @@
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
-use nu_command::commands::default_context::create_default_context;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
 
 #[allow(unused_imports)]
@@ -124,9 +123,7 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn run_script_file(options: Options) -> Result<(), Box<dyn Error>> {
-    let context = create_default_context(false)?;
-
+pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
