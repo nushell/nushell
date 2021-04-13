@@ -43,7 +43,7 @@ impl WholeStreamCommand for PathDirname {
     }
 
     fn usage(&self) -> &str {
-        "Gets the parent directory of a path"
+        "Get the parent directory of a path"
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
@@ -69,12 +69,12 @@ impl WholeStreamCommand for PathDirname {
                 ))]),
             },
             Example {
-                description: "Set how many levels up to skip",
+                description: "Walk up two levels",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("C:\\Users\\joe"))]),
             },
             Example {
-                description: "Replace the part that would be returned with custom string",
+                description: "Replace the part that would be returned with a custom path",
                 example:
                     "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
@@ -93,12 +93,12 @@ impl WholeStreamCommand for PathDirname {
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/code"))]),
             },
             Example {
-                description: "Set how many levels up to skip",
+                description: "Walk up two levels",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe"))]),
             },
             Example {
-                description: "Replace the part that would be returned with custom string",
+                description: "Replace the part that would be returned with a custom path",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/viking/code/test.txt",

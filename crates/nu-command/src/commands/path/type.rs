@@ -29,7 +29,7 @@ impl WholeStreamCommand for PathType {
     }
 
     fn usage(&self) -> &str {
-        "Gives the type of the object a path refers to (e.g., file, dir, symlink)"
+        "Get the type of the object a path refers to (e.g., file, dir, symlink)"
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {

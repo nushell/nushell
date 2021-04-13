@@ -10,7 +10,7 @@ pub struct PathJoin;
 
 struct PathJoinArguments {
     rest: Vec<ColumnPath>,
-    appendix: Option<Tagged<String>>,
+    append: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
@@ -28,7 +28,7 @@ impl WholeStreamCommand for PathJoin {
         Signature::build("path join")
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
-                "appendix",
+                "append",
                 SyntaxShape::String,
                 "Path to append to the input",
                 Some('a'),
@@ -40,8 +40,8 @@ impl WholeStreamCommand for PathJoin {
     }
 
     fn extra_usage(&self) -> &str {
-        "Optionally, append additional to the result. It is designed to accept the output of 'path
-parse' and 'path split' subdommands."
+        r#"Optionally, append an additional path to the result. It is designed to accept
+the output of 'path parse' and 'path split' subdommands."#
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
@@ -49,7 +49,7 @@ parse' and 'path split' subdommands."
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathJoinArguments {
             rest: args.rest_args()?,
-            appendix: args.get_flag("appendix").transpose()?,
+            append: args.get_flag("append").transpose()?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -155,8 +155,8 @@ where
 }
 
 fn action(path: &Path, tag: Tag, args: &PathJoinArguments) -> Value {
-    if let Some(ref appendix) = args.appendix {
-        UntaggedValue::filepath(path.join(&appendix.item)).into_value(tag)
+    if let Some(ref append) = args.append {
+        UntaggedValue::filepath(path.join(&append.item)).into_value(tag)
     } else {
         UntaggedValue::filepath(path).into_value(tag)
     }

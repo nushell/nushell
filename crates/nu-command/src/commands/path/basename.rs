@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathBasename {
     }
 
     fn usage(&self) -> &str {
-        "Gets the final component of a path"
+        "Get the final component of a path"
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {

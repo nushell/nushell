@@ -56,7 +56,7 @@ impl WholeStreamCommand for PathSplit {
                 ]),
             },
             Example {
-                description: "Replace the 'name' column with split paths",
+                description: "Split all paths under the 'name' column",
                 example: r"ls | path split name",
                 result: None,
             },
@@ -77,7 +77,7 @@ impl WholeStreamCommand for PathSplit {
                 ]),
             },
             Example {
-                description: "Replace the 'name' column with split paths",
+                description: "Split all paths under the 'name' column",
                 example: r"ls | path split name",
                 result: None,
             },

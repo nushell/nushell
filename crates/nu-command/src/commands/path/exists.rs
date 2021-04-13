@@ -28,7 +28,7 @@ impl WholeStreamCommand for PathExists {
     }
 
     fn usage(&self) -> &str {
-        "Checks whether a path exists"
+        "Check whether a path exists"
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
@@ -44,7 +44,7 @@ impl WholeStreamCommand for PathExists {
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Check if file exists",
+            description: "Check if a file exists",
             example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
             result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
         }]
@@ -53,7 +53,7 @@ impl WholeStreamCommand for PathExists {
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Check if file exists",
+            description: "Check if a file exists",
             example: "echo '/home/joe/todo.txt' | path exists",
             result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
         }]
