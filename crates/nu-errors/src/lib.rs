@@ -173,7 +173,7 @@ impl PrettyDebug for ArgumentError {
                     + DbgDocBldr::description("`")
             }
             ArgumentError::InvalidExternalWord => DbgDocBldr::description("invalid word"),
-            ArgumentError::MissingClosingBracket(name ) => {
+            ArgumentError::MissingClosingBracket(name) => {
                 DbgDocBldr::description("missing )")
                     + DbgDocBldr::description(name)
                     + DbgDocBldr::description(" ")
