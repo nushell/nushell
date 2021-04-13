@@ -52,7 +52,10 @@ impl Scope {
         for frame in self.frames.lock().iter().rev() {
             for (name, command) in frame.commands.iter() {
                 if !output.contains_key(name) {
-                    output.insert(name.clone(), command.signature());
+                    let mut sig = command.signature();
+                    // don't show --help and -h in the command arguments for $scope.commands
+                    sig.remove_named("help");
+                    output.insert(name.clone(), sig);
                 }
             }
         }
