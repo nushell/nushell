@@ -44,9 +44,11 @@ impl ActionStream {
 
     pub fn drain_vec(&mut self) -> Vec<ReturnValue> {
         let mut output = vec![];
+
         while let Some(x) = self.values.next() {
             output.push(x);
         }
+
         output
     }
 }
