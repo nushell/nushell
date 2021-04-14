@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use chrono::{Datelike, Timelike};
+use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-
 pub struct Date;
 
 impl WholeStreamCommand for Date {
@@ -33,54 +32,68 @@ impl WholeStreamCommand for Date {
     }
 }
 
+fn date_to_indexmap(dt: DateTime<FixedOffset>, tag: &Tag) -> Value {
+    let mut indexmap = IndexMap::new();
+
+    indexmap.insert(
+        "year".to_string(),
+        UntaggedValue::int(dt.year()).into_value(tag),
+    );
+    indexmap.insert(
+        "month".to_string(),
+        UntaggedValue::int(dt.month()).into_value(tag),
+    );
+    indexmap.insert(
+        "day".to_string(),
+        UntaggedValue::int(dt.day()).into_value(tag),
+    );
+    indexmap.insert(
+        "hour".to_string(),
+        UntaggedValue::int(dt.hour()).into_value(tag),
+    );
+    indexmap.insert(
+        "minute".to_string(),
+        UntaggedValue::int(dt.minute()).into_value(tag),
+    );
+    indexmap.insert(
+        "second".to_string(),
+        UntaggedValue::int(dt.second()).into_value(tag),
+    );
+
+    let tz = dt.offset();
+    indexmap.insert(
+        "timezone".to_string(),
+        UntaggedValue::string(format!("{}", tz)).into_value(tag),
+    );
+
+    UntaggedValue::Row(Dictionary::from(indexmap)).into_value(tag)
+}
+
 fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
     let input = args.input;
-
     Ok(input
         .map(move |value| match value {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
                 ..
-            } => {
-                let mut indexmap = IndexMap::new();
+            } => ReturnSuccess::value(date_to_indexmap(dt, &tag)),
+            Value {
+                value: UntaggedValue::Row(Dictionary { entries, .. }),
+                ..
+            } => match entries.get("current date").unwrap().value {
+                UntaggedValue::Primitive(Primitive::Date(dt)) => {
+                    let value = date_to_indexmap(dt, &tag);
+                    ReturnSuccess::value(value)
+                }
+                _ => {
+                    let indexmap = IndexMap::new();
+                    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
 
-                indexmap.insert(
-                    "year".to_string(),
-                    UntaggedValue::int(dt.year()).into_value(&tag),
-                );
-                indexmap.insert(
-                    "month".to_string(),
-                    UntaggedValue::int(dt.month()).into_value(&tag),
-                );
-                indexmap.insert(
-                    "day".to_string(),
-                    UntaggedValue::int(dt.day()).into_value(&tag),
-                );
-                indexmap.insert(
-                    "hour".to_string(),
-                    UntaggedValue::int(dt.hour()).into_value(&tag),
-                );
-                indexmap.insert(
-                    "minute".to_string(),
-                    UntaggedValue::int(dt.minute()).into_value(&tag),
-                );
-                indexmap.insert(
-                    "second".to_string(),
-                    UntaggedValue::int(dt.second()).into_value(&tag),
-                );
-
-                let tz = dt.offset();
-                indexmap.insert(
-                    "timezone".to_string(),
-                    UntaggedValue::string(format!("{}", tz)).into_value(&tag),
-                );
-
-                let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
-
-                ReturnSuccess::value(value)
-            }
+                    ReturnSuccess::value(value)
+                }
+            },
             _ => Err(ShellError::labeled_error(
                 "Expected a date from pipeline",
                 "requires date input",

@@ -2,7 +2,7 @@ use crate::prelude::*;
 use chrono::{DateTime, Local};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Signature, UntaggedValue};
+use nu_protocol::{Dictionary, Primitive, Signature, UntaggedValue};
 
 pub struct Date;
 
@@ -33,10 +33,10 @@ pub fn now(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "current date".to_string(),
-        UntaggedValue::string(now.with_timezone(now.offset()).to_string()).into_value(&tag),
+        UntaggedValue::date(now.with_timezone(now.offset())).into_value(&tag),
     );
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
-
+    
     Ok(ActionStream::one(value))
 }
 
