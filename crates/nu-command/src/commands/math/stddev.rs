@@ -2,16 +2,10 @@ use super::variance::compute_variance as variance;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
-use nu_source::Tagged;
+use nu_protocol::{Dictionary, Primitive, Signature, UntaggedValue, Value};
 use std::str::FromStr;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-struct Arguments {
-    sample: Tagged<bool>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -30,13 +24,14 @@ impl WholeStreamCommand for SubCommand {
         "Finds the stddev of a list of numbers or tables"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let mut args = raw_args.evaluate_once()?;
+
+        let sample: bool = args.has_flag("sample");
+        let values: Vec<Value> = args.input.drain_vec();
         let name = args.call_info.name_tag.clone();
-        let (Arguments { sample }, mut input) = args.process()?;
 
-        let values: Vec<Value> = input.drain_vec();
-
-        let n = if let Tagged { item: true, .. } = sample {
+        let n = if sample == true {
             values.len() - 1
         } else {
             values.len()
@@ -81,13 +76,13 @@ impl WholeStreamCommand for SubCommand {
         }?;
 
         if res.value.is_table() {
-            Ok(ActionStream::from(
+            Ok(OutputStream::from(
                 res.table_entries()
-                    .map(|v| ReturnSuccess::value(v.clone()))
+                    .map(|v| v.clone())
                     .collect::<Vec<_>>(),
             ))
         } else {
-            Ok(ActionStream::one(ReturnSuccess::value(res)))
+            Ok(OutputStream::one(res))
         }
     }
 

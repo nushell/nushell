@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "Returns absolute values of a list of numbers"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mapped = args.input.map(move |val| match val.value {
             UntaggedValue::Primitive(Primitive::Int(val)) => {
                 UntaggedValue::int(val.magnitude().clone()).into()
@@ -31,7 +31,7 @@ impl WholeStreamCommand for SubCommand {
             }
             other => abs_default(other),
         });
-        Ok(ActionStream::from_input(mapped))
+        Ok(mapped.to_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

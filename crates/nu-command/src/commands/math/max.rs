@@ -20,7 +20,7 @@ impl WholeStreamCommand for SubCommand {
         "Finds the maximum within a list of numbers or tables"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_function(args, maximum)
     }
 

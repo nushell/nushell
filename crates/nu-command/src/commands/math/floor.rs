@@ -20,7 +20,7 @@ impl WholeStreamCommand for SubCommand {
         "Applies the floor function to a list of numbers"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let input = args.input;
 
         run_with_numerical_functions_on_stream(

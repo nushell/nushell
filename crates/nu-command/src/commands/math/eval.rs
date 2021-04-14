@@ -1,15 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct SubCommandArgs {
-    expression: Option<Tagged<String>>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -28,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
         )
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         eval(args)
     }
 
@@ -45,13 +40,15 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn eval(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let name = args.call_info.name_tag.span;
-    let (SubCommandArgs { expression }, input) = args.process()?;
+pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let expression: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
+    let name = args.call_info.name_tag.clone();
+    let input = args.input;
 
-    if let Some(string) = expression {
+    if let Some(Ok(string)) = expression {
         match parse(&string, &string.tag) {
-            Ok(value) => Ok(ActionStream::one(ReturnSuccess::value(value))),
+            Ok(value) => Ok(OutputStream::one(value)),
             Err(err) => Err(ShellError::labeled_error(
                 "Math evaluation error",
                 err,
@@ -59,12 +56,12 @@ pub fn eval(args: CommandArgs) -> Result<ActionStream, ShellError> {
             )),
         }
     } else {
-        Ok(input
+        let mapped: Result<Vec<_>, _> = input
             .map(move |x| {
-                if let Some(Tagged {
+                if let Some(Ok(Tagged {
                     tag,
                     item: expression,
-                }) = &expression
+                })) = &expression
                 {
                     UntaggedValue::string(expression).into_value(tag)
                 } else {
@@ -74,7 +71,7 @@ pub fn eval(args: CommandArgs) -> Result<ActionStream, ShellError> {
             .map(move |input| {
                 if let Ok(string) = input.as_string() {
                     match parse(&string, &input.tag) {
-                        Ok(value) => ReturnSuccess::value(value),
+                        Ok(value) => Ok(value),
                         Err(err) => Err(ShellError::labeled_error(
                             "Math evaluation error",
                             err,
@@ -85,11 +82,14 @@ pub fn eval(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     Err(ShellError::labeled_error(
                         "Expected a string from pipeline",
                         "requires string input",
-                        name,
+                        name.clone(),
                     ))
                 }
-            })
-            .to_action_stream())
+            }).collect();
+        match mapped {
+            Ok(values) => Ok(OutputStream::from(values)),
+            Err(e) => Err(e)
+        }
     }
 }
 
