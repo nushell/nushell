@@ -342,7 +342,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             LineResult::Success(line) => {
                 if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
-                    let _ = rl.save_history(&history_path);
+                    let _ = rl.append_history(&history_path);
                 }
                 maybe_print_errors(&context, Text::from(session_text.clone()));
             }
@@ -350,14 +350,14 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             LineResult::ClearHistory => {
                 if options.save_history {
                     rl.clear_history();
-                    let _ = rl.save_history(&history_path);
+                    let _ = rl.append_history(&history_path);
                 }
             }
 
             LineResult::Error(line, err) => {
                 if options.save_history && !line.trim().is_empty() {
                     rl.add_history_entry(&line);
-                    let _ = rl.save_history(&history_path);
+                    let _ = rl.append_history(&history_path);
                 }
 
                 context
@@ -390,7 +390,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
                 if ctrlcbreak {
                     if options.save_history {
-                        let _ = rl.save_history(&history_path);
+                        let _ = rl.append_history(&history_path);
                     }
                     std::process::exit(0);
                 } else {
@@ -416,7 +416,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
     // we are ok if we can not save history
     if options.save_history {
-        let _ = rl.save_history(&history_path);
+        let _ = rl.append_history(&history_path);
     }
 
     Ok(())
