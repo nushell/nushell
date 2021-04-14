@@ -150,7 +150,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(values) => {
             options.scripts = vec![NuScript::code(values)?];
 
-            nu_cli::run_script_file(options)?;
+            let context = create_default_context(false)?;
+            nu_cli::run_script_file(context, options)?;
             return Ok(());
         }
     }
@@ -161,7 +162,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             options.scripts = vec![NuScript::source_file(filepath.as_os_str())?];
 
-            nu_cli::run_script_file(options)?;
+            let context = create_default_context(false)?;
+            nu_cli::run_script_file(context, options)?;
             return Ok(());
         }
 
