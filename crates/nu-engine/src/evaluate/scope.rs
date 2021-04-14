@@ -34,7 +34,7 @@ impl Scope {
     }
 
     pub fn get_aliases(&self) -> IndexMap<String, Vec<Spanned<String>>> {
-        let mut output = IndexMap::new();
+        let mut output: IndexMap<String, Vec<Spanned<String>>> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.aliases.iter() {
@@ -43,11 +43,12 @@ impl Scope {
                 }
             }
         }
-        output
+
+        output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
     }
 
     pub fn get_commands(&self) -> IndexMap<String, Signature> {
-        let mut output = IndexMap::new();
+        let mut output: IndexMap<String, Signature> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
             for (name, command) in frame.commands.iter() {
@@ -60,7 +61,22 @@ impl Scope {
             }
         }
 
-        output
+        output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
+    }
+
+    pub fn get_vars(&self) -> IndexMap<String, Value> {
+        //FIXME: should this be an iterator?
+        let mut output: IndexMap<String, Value> = IndexMap::new();
+
+        for frame in self.frames.lock().iter().rev() {
+            for v in frame.vars.iter() {
+                if !output.contains_key(v.0) {
+                    output.insert(v.0.clone(), v.1.clone());
+                }
+            }
+        }
+
+        output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
     }
 
     pub fn get_aliases_with_name(&self, name: &str) -> Option<Vec<Vec<Spanned<String>>>> {
@@ -109,8 +125,9 @@ impl Scope {
             names.append(&mut frame_command_names);
         }
 
-        names.dedup();
+        // Sort needs to happen first because dedup works on consecutive dupes only
         names.sort();
+        names.dedup();
 
         names
     }
@@ -125,6 +142,7 @@ impl Scope {
             names.append(&mut frame_command_names);
         }
 
+        // Sort needs to happen first because dedup works on consecutive dupes only
         names.sort();
         names.dedup();
 
@@ -164,21 +182,6 @@ impl Scope {
                 name
             )))
         }
-    }
-
-    pub fn get_vars(&self) -> IndexMap<String, Value> {
-        //FIXME: should this be an iterator?
-        let mut output = IndexMap::new();
-
-        for frame in self.frames.lock().iter().rev() {
-            for v in frame.vars.iter() {
-                if !output.contains_key(v.0) {
-                    output.insert(v.0.clone(), v.1.clone());
-                }
-            }
-        }
-
-        output
     }
 
     pub fn get_env_vars(&self) -> IndexMap<String, String> {
