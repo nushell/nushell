@@ -82,7 +82,7 @@ fn scope_variable_with_command_present() {
 
         assert_that!(
             nu.pipeline("def meaning-of-life [--number: int] { echo $number }; echo $scope.commands | get meaning-of-life"),
-            says().to_stdout("-h --help --number")
+            says().to_stdout("--number")
         );
     })
 }
