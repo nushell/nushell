@@ -23,9 +23,9 @@ pub fn run_with_function(
     match res {
         Ok(v) => {
             if v.value.is_table() {
-                Ok(OutputStream::from(v.table_entries()
-                        .map(|v| v.clone())
-                        .collect::<Vec<_>>()))
+                Ok(OutputStream::from(
+                    v.table_entries().map(|v| v.clone()).collect::<Vec<_>>(),
+                ))
             } else {
                 Ok(OutputStream::one(v))
             }

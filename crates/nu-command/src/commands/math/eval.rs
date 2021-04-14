@@ -85,10 +85,11 @@ pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         name.clone(),
                     ))
                 }
-            }).collect();
+            })
+            .collect();
         match mapped {
             Ok(values) => Ok(OutputStream::from(values)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }

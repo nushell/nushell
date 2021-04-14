@@ -3,9 +3,7 @@ use bigdecimal::FromPrimitive;
 use nu_data::value::compute_values;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::Operator, Dictionary, Primitive, Signature, UntaggedValue, Value,
-};
+use nu_protocol::{hir::Operator, Dictionary, Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -75,9 +73,7 @@ impl WholeStreamCommand for SubCommand {
 
         if res.value.is_table() {
             Ok(OutputStream::from(
-                res.table_entries()
-                    .map(|v| v.clone())
-                    .collect::<Vec<_>>(),
+                res.table_entries().map(|v| v.clone()).collect::<Vec<_>>(),
             ))
         } else {
             Ok(OutputStream::one(res))

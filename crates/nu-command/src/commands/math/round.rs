@@ -63,7 +63,9 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => round_big_int(val),
-        UntaggedValue::Primitive(Primitive::Decimal(val)) => round_big_decimal(val, precision.into()),
+        UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+            round_big_decimal(val, precision.into())
+        }
         other => round_default(other),
     });
     Ok(mapped.to_output_stream())

@@ -77,9 +77,7 @@ impl WholeStreamCommand for SubCommand {
 
         if res.value.is_table() {
             Ok(OutputStream::from(
-                res.table_entries()
-                    .map(|v| v.clone())
-                    .collect::<Vec<_>>(),
+                res.table_entries().map(|v| v.clone()).collect::<Vec<_>>(),
             ))
         } else {
             Ok(OutputStream::one(res))
