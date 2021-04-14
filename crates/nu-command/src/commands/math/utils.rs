@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Dictionary, Primitive, UntaggedValue, Value};
 
 use indexmap::map::IndexMap;
 
@@ -9,7 +9,7 @@ pub type MathFunction = fn(values: &[Value], tag: &Tag) -> Result<Value, ShellEr
 pub fn run_with_function(
     args: impl Into<RunnableContext>,
     mf: MathFunction,
-) -> Result<ActionStream, ShellError> {
+) -> Result<OutputStream, ShellError> {
     let RunnableContext {
         mut input,
         call_info,
@@ -23,13 +23,11 @@ pub fn run_with_function(
     match res {
         Ok(v) => {
             if v.value.is_table() {
-                Ok(ActionStream::from(
-                    v.table_entries()
-                        .map(|v| ReturnSuccess::value(v.clone()))
-                        .collect::<Vec<_>>(),
+                Ok(OutputStream::from(
+                    v.table_entries().cloned().collect::<Vec<_>>(),
                 ))
             } else {
-                Ok(ActionStream::one(ReturnSuccess::value(v)))
+                Ok(OutputStream::one(v))
             }
         }
         Err(e) => Err(e),
@@ -47,13 +45,13 @@ pub fn run_with_numerical_functions_on_stream(
     int_function: IntFunction,
     decimal_function: DecimalFunction,
     default_function: DefaultFunction,
-) -> Result<ActionStream, ShellError> {
+) -> Result<OutputStream, ShellError> {
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => int_function(val),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
         other => default_function(other),
     });
-    Ok(ActionStream::from_input(mapped))
+    Ok(mapped.to_output_stream())
 }
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {

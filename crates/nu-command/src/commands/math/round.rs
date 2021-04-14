@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
-struct Arguments {
-    precision: Option<Tagged<i64>>,
-}
-
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "math round"
@@ -29,7 +24,7 @@ impl WholeStreamCommand for SubCommand {
         "Applies the round function to a list of numbers"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -57,16 +52,23 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { precision }, input) = args.process()?;
-    let precision = precision.map(|p| p.item).unwrap_or(0);
-
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let precision: Option<Result<Tagged<i16>, ShellError>> = args.get_flag("precision");
+    let input = args.input;
+    let precision = if let Some(precision) = precision {
+        precision?.item
+    } else {
+        0
+    };
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => round_big_int(val),
-        UntaggedValue::Primitive(Primitive::Decimal(val)) => round_big_decimal(val, precision),
+        UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+            round_big_decimal(val, precision.into())
+        }
         other => round_default(other),
     });
-    Ok(ActionStream::from_input(mapped))
+    Ok(mapped.to_output_stream())
 }
 
 fn round_big_int(val: BigInt) -> Value {
