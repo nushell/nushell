@@ -3,6 +3,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_source::Tagged;
 #[cfg(windows)]
 use std::path::Component;
 use std::path::Path;
@@ -11,6 +12,7 @@ pub struct PathParse;
 
 struct PathParseArguments {
     rest: Vec<ColumnPath>,
+    extension: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathParseArguments {
@@ -27,6 +29,12 @@ impl WholeStreamCommand for PathParse {
     fn signature(&self) -> Signature {
         Signature::build("path parse")
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .named(
+                "extension",
+                SyntaxShape::String,
+                "Manually supply the extension (without the dot)",
+                Some('e'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -43,6 +51,7 @@ On Windows, an extra 'prefix' column is added."#
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathParseArguments {
             rest: args.rest_args()?,
+            extension: args.get_flag("extension").transpose()?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
@@ -57,8 +66,13 @@ On Windows, an extra 'prefix' column is added."#
                 result: None,
             },
             Example {
-                description: "Replace the extension",
-                example: r"echo 'C:\Users\viking\spam.txt' | path parse | update extension { = egg }",
+                description: "Replace a complex extension",
+                example: r"echo 'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { = txt }",
+                result: None,
+            },
+            Example {
+                description: "Ignore the extension",
+                example: r"echo 'C:\Users\viking.d' | path parse -e ''",
                 result: None,
             },
             Example {
@@ -78,8 +92,13 @@ On Windows, an extra 'prefix' column is added."#
                 result: None,
             },
             Example {
-                description: "Replace the extension",
-                example: r"echo '/home/viking/spam.txt' | path parse | update extension { = egg }",
+                description: "Replace a complex extension",
+                example: r"echo '/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { = txt }",
+                result: None,
+            },
+            Example {
+                description: "Ignore the extension",
+                example: r"echo '/etc/conf.d' | path parse -e ''",
                 result: None,
             },
             Example {
@@ -91,18 +110,9 @@ On Windows, an extra 'prefix' column is added."#
     }
 }
 
-fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Value {
-    let parent = path.parent().unwrap_or_else(|| Path::new(""));
-    let filestem = path
-        .file_stem()
-        .unwrap_or_else(|| "".as_ref())
-        .to_string_lossy();
-    let extension = path
-        .extension()
-        .unwrap_or_else(|| "".as_ref())
-        .to_string_lossy();
-
+fn action(path: &Path, tag: Tag, args: &PathParseArguments) -> Value {
     let mut dict = TaggedDictBuilder::new(&tag);
+
     #[cfg(windows)]
     {
         // The prefix is only valid on Windows. On non-Windows, it's always empty.
@@ -114,9 +124,41 @@ fn action(path: &Path, tag: Tag, _args: &PathParseArguments) -> Value {
         };
         dict.insert_untagged("prefix", UntaggedValue::string(prefix));
     }
+
+    let parent = path.parent().unwrap_or_else(|| "".as_ref());
     dict.insert_untagged("parent", UntaggedValue::filepath(parent));
-    dict.insert_untagged("stem", UntaggedValue::string(filestem));
-    dict.insert_untagged("extension", UntaggedValue::string(extension));
+
+    let basename = path
+        .file_name()
+        .unwrap_or_else(|| "".as_ref())
+        .to_string_lossy();
+
+    match &args.extension {
+        Some(Tagged { item: ext, .. }) => {
+            let ext_with_dot = [".", ext].concat();
+            if basename.ends_with(&ext_with_dot) && !ext.is_empty() {
+                let stem = basename.trim_end_matches(&ext_with_dot);
+                dict.insert_untagged("stem", UntaggedValue::string(stem));
+                dict.insert_untagged("extension", UntaggedValue::string(ext));
+            } else {
+                dict.insert_untagged("stem", UntaggedValue::string(basename));
+                dict.insert_untagged("extension", UntaggedValue::string(""));
+            }
+        }
+        None => {
+            let stem = path
+                .file_stem()
+                .unwrap_or_else(|| "".as_ref())
+                .to_string_lossy();
+            let extension = path
+                .extension()
+                .unwrap_or_else(|| "".as_ref())
+                .to_string_lossy();
+
+            dict.insert_untagged("stem", UntaggedValue::string(stem));
+            dict.insert_untagged("extension", UntaggedValue::string(extension));
+        }
+    }
 
     dict.into_value()
 }
