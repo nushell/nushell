@@ -24,7 +24,7 @@ pub fn run_with_function(
         Ok(v) => {
             if v.value.is_table() {
                 Ok(OutputStream::from(
-                    v.table_entries().map(|v| v.clone()).collect::<Vec<_>>(),
+                    v.table_entries().cloned().collect::<Vec<_>>(),
                 ))
             } else {
                 Ok(OutputStream::one(v))

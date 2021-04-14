@@ -31,7 +31,7 @@ impl WholeStreamCommand for SubCommand {
         let values: Vec<Value> = args.input.drain_vec();
         let name = args.call_info.name_tag.clone();
 
-        let n = if sample == true {
+        let n = if sample {
             values.len() - 1
         } else {
             values.len()
@@ -77,7 +77,7 @@ impl WholeStreamCommand for SubCommand {
 
         if res.value.is_table() {
             Ok(OutputStream::from(
-                res.table_entries().map(|v| v.clone()).collect::<Vec<_>>(),
+                res.table_entries().cloned().collect::<Vec<_>>(),
             ))
         } else {
             Ok(OutputStream::one(res))
