@@ -232,6 +232,7 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
         "$scope" => crate::evaluate::variables::scope(
             &ctx.scope.get_aliases(),
             &ctx.scope.get_commands(),
+            &ctx.scope.get_vars(),
             tag,
         ),
 
