@@ -434,6 +434,30 @@ fn index_cell_alt() {
 }
 
 #[test]
+fn not_echoing_ranges_without_numbers() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo ..
+        "#
+    );
+
+    assert_eq!(actual.out, "..");
+}
+
+#[test]
+fn not_echoing_exclusive_ranges_without_numbers() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo ..<
+        "#
+    );
+
+    assert_eq!(actual.out, "..<");
+}
+
+#[test]
 fn echoing_ranges() {
     let actual = nu!(
         cwd: ".",

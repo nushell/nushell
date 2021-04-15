@@ -227,6 +227,15 @@ fn parse_range(
         );
     };
 
+    if lite_arg.item[0..dotdot_pos].is_empty()
+        && lite_arg.item[(dotdot_pos + operator_str.len())..].is_empty()
+    {
+        return (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("range", lite_arg.clone())),
+        );
+    }
+
     let numbers: Vec<_> = lite_arg.item.split(operator_str).collect();
 
     if numbers.len() != 2 {
