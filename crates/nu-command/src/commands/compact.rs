@@ -7,9 +7,8 @@ use nu_source::Tagged;
 
 pub struct Compact;
 
-#[derive(Deserialize)]
 pub struct CompactArgs {
-    rest: Vec<Tagged<String>>,
+    columns: Vec<Tagged<String>>,
 }
 
 impl WholeStreamCommand for Compact {
@@ -25,7 +24,7 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         compact(args)
     }
 
@@ -38,13 +37,18 @@ impl WholeStreamCommand for Compact {
     }
 }
 
-pub fn compact(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (CompactArgs { rest: columns }, input) = args.process()?;
+pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let (args, input) = args.extract(|params| {
+        Ok(CompactArgs {
+            columns: params.rest(0)?,
+        })
+    })?;
+
     Ok(input
         .filter_map(move |item| {
-            if columns.is_empty() {
+            if args.columns.is_empty() {
                 if !item.is_empty() {
-                    Some(ReturnSuccess::value(item))
+                    Some(item)
                 } else {
                     None
                 }
@@ -54,11 +58,12 @@ pub fn compact(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         value: UntaggedValue::Row(ref r),
                         ..
                     } => {
-                        if columns
+                        if args
+                            .columns
                             .iter()
                             .all(|field| r.get_data(field).borrow().is_some())
                         {
-                            Some(ReturnSuccess::value(item))
+                            Some(item)
                         } else {
                             None
                         }
@@ -67,7 +72,7 @@ pub fn compact(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 }
             }
         })
-        .to_action_stream())
+        .to_output_stream())
 }
 
 #[cfg(test)]
