@@ -2,7 +2,7 @@ use crate::{evaluate::scope::Scope, EvaluationContext};
 use indexmap::IndexMap;
 use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
-use nu_protocol::{ShellTypeName, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Dictionary, ShellTypeName, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
 pub fn nu(
@@ -110,21 +110,32 @@ pub fn scope(
         commands_dict.insert_untagged(name, UntaggedValue::string(&signature.allowed().join(" ")))
     }
 
-    let mut vars_dict = TaggedDictBuilder::new(&tag);
-    for (name, val) in variables.iter() {
-        let val_type = UntaggedValue::string(format!(
-            "{} ({})",
-            val.convert_to_string(),
-            ShellTypeName::type_name(&val.clone())
-        ));
-        vars_dict.insert_value(name, val_type)
-    }
+    let var_list: Vec<Value> = variables
+        .iter()
+        .map(|var| {
+            let mut entries: IndexMap<String, Value> = IndexMap::new();
+            let name = var.0.trim_start_matches('$');
+            entries.insert(
+                "name".to_string(),
+                UntaggedValue::string(name).into_value(&tag),
+            );
+            entries.insert(
+                "value".to_string(),
+                UntaggedValue::string(var.1.convert_to_string()).into_value(&tag),
+            );
+            entries.insert(
+                "type".to_string(),
+                UntaggedValue::string(ShellTypeName::type_name(&var.1)).into_value(&tag),
+            );
+            UntaggedValue::Row(Dictionary { entries }).into_value(&tag)
+        })
+        .collect();
 
     scope_dict.insert_value("aliases", aliases_dict.into_value());
 
     scope_dict.insert_value("commands", commands_dict.into_value());
 
-    scope_dict.insert_value("variables", vars_dict.into_value());
+    scope_dict.insert_value("variables", UntaggedValue::Table(var_list).into_value(&tag));
 
     Ok(scope_dict.into_value())
 }
