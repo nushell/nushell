@@ -2,7 +2,7 @@ use crate::prelude::*;
 use csv::WriterBuilder;
 use indexmap::{indexset, IndexSet};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_source::Spanned;
 use nu_value_ext::{as_string, ValueExt};
 
@@ -170,7 +170,7 @@ pub fn to_delimited_data(
     format_name: &'static str,
     input: InputStream,
     name: Tag,
-) -> Result<ActionStream, ShellError> {
+) -> Result<OutputStream, ShellError> {
     let name_tag = name;
     let name_span = name_tag.span;
 
@@ -197,9 +197,7 @@ pub fn to_delimited_data(
                         x.replace_range(0..start, "");
                     }
                 }
-                ReturnSuccess::value(
-                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                )
+                UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag)
             }
             Err(_) => {
                 let expected = format!(
@@ -207,7 +205,7 @@ pub fn to_delimited_data(
                     format_name
                 );
                 let requires = format!("requires {}-compatible input", format_name);
-                Err(ShellError::labeled_error_with_secondary(
+                Value::error(ShellError::labeled_error_with_secondary(
                     expected,
                     requires,
                     name_span,
@@ -217,5 +215,5 @@ pub fn to_delimited_data(
             }
         }
     }))
-    .to_action_stream())
+    .to_output_stream())
 }

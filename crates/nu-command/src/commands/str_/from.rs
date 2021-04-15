@@ -71,11 +71,7 @@ impl WholeStreamCommand for SubCommand {
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
         Ok(Arguments {
-            decimals: if let Some(arg) = params.get_flag("decimals") {
-                Some(arg?)
-            } else {
-                None
-            },
+            decimals: params.get_flag("decimals")?,
             group_digits: false,
             column_paths: params.rest_args()?,
         })

@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tagged};
 use regex::Regex;
 use rust_embed::RustEmbed;
@@ -81,16 +81,6 @@ struct Assets;
 
 pub struct ToHtml;
 
-#[derive(Deserialize)]
-pub struct ToHtmlArgs {
-    html_color: bool,
-    no_color: bool,
-    dark: bool,
-    partial: bool,
-    theme: Option<Tagged<String>>,
-    list: bool,
-}
-
 impl WholeStreamCommand for ToHtml {
     fn name(&self) -> &str {
         "to html"
@@ -123,7 +113,7 @@ impl WholeStreamCommand for ToHtml {
         "Convert table into simple HTML"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_html(args)
     }
 }
@@ -267,20 +257,17 @@ fn get_list_of_theme_names() -> Vec<String> {
     theme_names
 }
 
-fn to_html(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (
-        ToHtmlArgs {
-            html_color,
-            no_color,
-            dark,
-            partial,
-            theme,
-            list,
-        },
-        input,
-    ) = args.process()?;
-    let input: Vec<Value> = input.collect();
+    let args = args.evaluate_once()?;
+    let html_color = args.has_flag("html_color");
+    let no_color = args.has_flag("no_color");
+    let dark = args.has_flag("dark");
+    let partial = args.has_flag("partial");
+    let list = args.has_flag("list");
+    let theme: Option<Tagged<String>> = args.get_flag("theme")?;
+
+    let input: Vec<Value> = args.input.collect();
     let headers = nu_protocol::merge_descriptors(&input);
     let headers = Some(headers)
         .filter(|headers| !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()));
@@ -300,9 +287,9 @@ fn to_html(args: CommandArgs) -> Result<ActionStream, ShellError> {
         output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
 
         // Short circuit and return the output_string
-        Ok(ActionStream::one(ReturnSuccess::value(
+        Ok(OutputStream::one(
             UntaggedValue::string(output_string).into_value(name_tag),
-        )))
+        ))
     } else {
         let theme_tag = match &theme {
             Some(v) => &v.tag,
@@ -376,9 +363,9 @@ fn to_html(args: CommandArgs) -> Result<ActionStream, ShellError> {
             output_string = run_regexes(&regex_hm, &output_string);
         }
 
-        Ok(ActionStream::one(ReturnSuccess::value(
+        Ok(OutputStream::one(
             UntaggedValue::string(output_string).into_value(name_tag),
-        )))
+        ))
     }
 }
 

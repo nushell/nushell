@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct ToUrl;
 
@@ -18,12 +18,12 @@ impl WholeStreamCommand for ToUrl {
         "Convert table into url-encoded text"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_url(args)
     }
 }
 
-fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -41,7 +41,7 @@ fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
                             row_vec.push((k.clone(), s.to_string()));
                         }
                         _ => {
-                            return Err(ShellError::labeled_error_with_secondary(
+                            return Value::error(ShellError::labeled_error_with_secondary(
                                 "Expected table with string values",
                                 "requires table with strings",
                                 &tag,
@@ -53,15 +53,15 @@ fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 }
 
                 match serde_urlencoded::to_string(row_vec) {
-                    Ok(s) => ReturnSuccess::value(UntaggedValue::string(s).into_value(&tag)),
-                    _ => Err(ShellError::labeled_error(
+                    Ok(s) => UntaggedValue::string(s).into_value(&tag),
+                    _ => Value::error(ShellError::labeled_error(
                         "Failed to convert to url-encoded",
                         "cannot url-encode",
                         &tag,
                     )),
                 }
             }
-            Value { tag: value_tag, .. } => Err(ShellError::labeled_error_with_secondary(
+            Value { tag: value_tag, .. } => Value::error(ShellError::labeled_error_with_secondary(
                 "Expected a table from pipeline",
                 "requires table input",
                 &tag,
@@ -69,7 +69,7 @@ fn to_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 value_tag.span,
             )),
         })
-        .to_action_stream())
+        .to_output_stream())
 }
 
 #[cfg(test)]

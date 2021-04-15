@@ -3,18 +3,12 @@ use ::eml_parser::eml::*;
 use ::eml_parser::EmlParser;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct FromEml;
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
-
-#[derive(Deserialize, Clone)]
-pub struct FromEmlArgs {
-    #[serde(rename(deserialize = "preview-body"))]
-    preview_body: Option<Tagged<usize>>,
-}
 
 impl WholeStreamCommand for FromEml {
     fn name(&self) -> &str {
@@ -34,7 +28,7 @@ impl WholeStreamCommand for FromEml {
         "Parse text as .eml and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_eml(args)
     }
 }
@@ -72,15 +66,15 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
     }
 }
 
-fn from_eml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (eml_args, input): (FromEmlArgs, _) = args.process()?;
-    let value = input.collect_string(tag.clone())?;
+    let args = args.evaluate_once()?;
 
-    let body_preview = eml_args
-        .preview_body
-        .map(|b| b.item)
-        .unwrap_or(DEFAULT_BODY_PREVIEW);
+    let preview_body: Option<Tagged<usize>> = args.get_flag("preview-body")?;
+
+    let value = args.input.collect_string(tag.clone())?;
+
+    let body_preview = preview_body.map(|b| b.item).unwrap_or(DEFAULT_BODY_PREVIEW);
 
     let eml = EmlParser::from_string(value.item)
         .with_body_preview(body_preview)
@@ -115,7 +109,7 @@ fn from_eml(args: CommandArgs) -> Result<ActionStream, ShellError> {
         dict.insert_untagged("Body", UntaggedValue::string(body));
     }
 
-    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(OutputStream::one(dict.into_value()))
 }
 
 #[cfg(test)]

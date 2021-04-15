@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct FromUrl;
 
@@ -18,12 +18,12 @@ impl WholeStreamCommand for FromUrl {
         "Parse url-encoded string as a table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_url(args)
     }
 }
 
-fn from_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -40,7 +40,7 @@ fn from_url(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 row.insert_untagged(k, UntaggedValue::string(v));
             }
 
-            Ok(ActionStream::one(ReturnSuccess::value(row.into_value())))
+            Ok(OutputStream::one(row.into_value()))
         }
         _ => Err(ShellError::labeled_error_with_secondary(
             "String not compatible with url-encoding",

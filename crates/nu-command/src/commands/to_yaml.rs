@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, UnspannedPathMember, UntaggedValue, Value};
 
 pub struct ToYaml;
 
@@ -18,7 +18,7 @@ impl WholeStreamCommand for ToYaml {
         "Convert table into .yaml/.yml text"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_yaml(args)
     }
 }
@@ -113,7 +113,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     })
 }
 
-fn to_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
@@ -137,10 +137,9 @@ fn to_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         match value_to_yaml_value(&value) {
             Ok(yaml_value) => match serde_yaml::to_string(&yaml_value) {
-                Ok(x) => ReturnSuccess::value(
-                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                ),
-                _ => Err(ShellError::labeled_error_with_secondary(
+                Ok(x) => UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+
+                _ => Value::error(ShellError::labeled_error_with_secondary(
                     "Expected a table with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
                     name_span,
@@ -148,14 +147,14 @@ fn to_yaml(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     value_span,
                 )),
             },
-            _ => Err(ShellError::labeled_error(
+            _ => Value::error(ShellError::labeled_error(
                 "Expected a table with YAML-compatible structure from pipeline",
                 "requires YAML-compatible input",
                 &name_tag,
             )),
         }
     }))
-    .to_action_stream())
+    .to_output_stream())
 }
 
 #[cfg(test)]

@@ -229,11 +229,12 @@ impl EvaluatedCommandArgs {
             .ok_or_else(|| ShellError::unimplemented("Better error: expect_nth"))
     }
 
-    pub fn get_flag<T: FromValue>(&self, name: &str) -> Option<Result<T, ShellError>> {
-        self.call_info
-            .args
-            .get(name)
-            .map(|x| FromValue::from_value(x))
+    pub fn get_flag<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
+        if let Some(arg) = self.call_info.args.get(name) {
+            FromValue::from_value(arg).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn req_named<T: FromValue>(&self, name: &str) -> Result<T, ShellError> {
@@ -259,11 +260,11 @@ impl EvaluatedCommandArgs {
         }
     }
 
-    pub fn opt<T: FromValue>(&self, pos: usize) -> Option<Result<T, ShellError>> {
+    pub fn opt<T: FromValue>(&self, pos: usize) -> Result<Option<T>, ShellError> {
         if let Some(v) = self.nth(pos) {
-            Some(FromValue::from_value(v))
+            FromValue::from_value(v).map(Some)
         } else {
-            None
+            Ok(None)
         }
     }
 

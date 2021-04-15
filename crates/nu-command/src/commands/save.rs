@@ -126,12 +126,6 @@ macro_rules! process_binary_return_success {
     }};
 }
 
-#[derive(Deserialize)]
-pub struct SaveArgs {
-    path: Option<Tagged<PathBuf>>,
-    raw: bool,
-}
-
 impl WholeStreamCommand for Save {
     fn name(&self) -> &str {
         "save"
@@ -155,12 +149,12 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         save(args)
     }
 }
 
-fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -172,14 +166,12 @@ fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let shell_manager = raw_args.shell_manager.clone();
 
     let head = raw_args.call_info.args.head.clone();
-    let (
-        SaveArgs {
-            path,
-            raw: save_raw,
-        },
-        input,
-    ) = raw_args.process()?;
-    let input: Vec<Value> = input.collect();
+    let args = raw_args.evaluate_once()?;
+
+    let path: Option<Tagged<PathBuf>> = args.opt(0)?;
+    let save_raw = args.has_flag("raw");
+
+    let input: Vec<Value> = args.input.collect();
     if path.is_none() {
         let mut should_return_file_path_error = true;
 

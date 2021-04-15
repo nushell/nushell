@@ -3,15 +3,10 @@ use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    PathMember, Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
-    UnspannedPathMember, UntaggedValue, Value,
+    PathMember, Primitive, Signature, SyntaxShape, TaggedDictBuilder, UnspannedPathMember,
+    UntaggedValue, Value,
 };
 use nu_value_ext::{as_string, get_data_by_column_path};
-
-#[derive(Deserialize)]
-struct Arguments {
-    rest: Vec<Value>,
-}
 
 pub struct Command;
 
@@ -28,7 +23,7 @@ impl WholeStreamCommand for Command {
         "Down-select table to only these columns."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         select(args)
     }
 
@@ -48,9 +43,11 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn select(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { mut rest }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let mut rest = args.rest(0)?;
+    let input = args.input;
     let (columns, _) = arguments(&mut rest)?;
 
     if columns.is_empty() {
@@ -153,7 +150,7 @@ fn select(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         }
 
-        ReturnSuccess::value(out.into_value())
+        out.into_value()
     }))
-    .to_action_stream())
+    .to_output_stream())
 }

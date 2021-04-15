@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromToml;
 
@@ -18,7 +18,7 @@ impl WholeStreamCommand for FromToml {
         "Parse text as .toml and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_toml(args)
     }
 }
@@ -60,7 +60,7 @@ pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
 
-pub fn from_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -72,11 +72,8 @@ pub fn from_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => list
-                    .into_iter()
-                    .map(ReturnSuccess::value)
-                    .to_action_stream(),
-                x => ActionStream::one(ReturnSuccess::value(x)),
+                } => list.into_iter().to_output_stream(),
+                x => OutputStream::one(x),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error_with_secondary(

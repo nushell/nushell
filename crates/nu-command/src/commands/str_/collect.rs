@@ -51,11 +51,7 @@ pub fn collect(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let (options, input) = args.extract(|params| {
         Ok(Arguments {
-            separator: if let Some(arg) = params.opt(0) {
-                Some(arg?)
-            } else {
-                None
-            },
+            separator: params.opt(0)?,
         })
     })?;
 
