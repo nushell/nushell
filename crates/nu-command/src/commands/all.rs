@@ -81,7 +81,6 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let condition = condition.clone();
     let scope = args.scope.clone();
 
     // Variables in nu are immutable. Having the same variable accross invocations
@@ -95,7 +94,7 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let condition = evaluate_baseline_expr(&*condition, &ctx);
 
-        Ok(condition?.as_bool()?)
+        condition?.as_bool()
     });
     scope.exit_scope();
 
