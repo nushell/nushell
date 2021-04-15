@@ -11,7 +11,6 @@ version = "0.29.2"
 doctest = false
 
 [dependencies]
-iter-extensions = { version = "0.29.2", path = "../iter-extensions" }
 nu-data = { version = "0.29.2", path = "../nu-data" }
 nu-engine = { version = "0.29.2", path = "../nu-engine" }
 nu-errors = { version = "0.29.2", path = "../nu-errors" }
