@@ -1,21 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct FromSsv;
-
-#[derive(Deserialize)]
-pub struct FromSsvArgs {
-    noheaders: bool,
-    #[serde(rename(deserialize = "aligned-columns"))]
-    aligned_columns: bool,
-    #[serde(rename(deserialize = "minimum-spaces"))]
-    minimum_spaces: Option<Tagged<usize>>,
-}
 
 const STRING_REPRESENTATION: &str = "from ssv";
 const DEFAULT_MINIMUM_SPACES: usize = 2;
@@ -45,7 +34,7 @@ impl WholeStreamCommand for FromSsv {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ssv(args)
     }
 }
@@ -246,17 +235,15 @@ fn from_ssv_string_to_value(
     UntaggedValue::Table(rows).into_value(&tag)
 }
 
-fn from_ssv(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (
-        FromSsvArgs {
-            noheaders,
-            aligned_columns,
-            minimum_spaces,
-        },
-        input,
-    ) = args.process()?;
-    let concat_string = input.collect_string(name.clone())?;
+    let args = args.evaluate_once()?;
+
+    let noheaders = args.has_flag("noheaders");
+    let aligned_columns = args.has_flag("aligned-columns");
+    let minimum_spaces: Option<Tagged<usize>> = args.get_flag("minimum-spaces")?;
+
+    let concat_string = args.input.collect_string(name.clone())?;
     let split_at = match minimum_spaces {
         Some(number) => number.item,
         None => DEFAULT_MINIMUM_SPACES,
@@ -273,11 +260,8 @@ fn from_ssv(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => list
-                .into_iter()
-                .map(ReturnSuccess::value)
-                .to_action_stream(),
-            x => ActionStream::one(ReturnSuccess::value(x)),
+            } => list.into_iter().to_output_stream(),
+            x => OutputStream::one(x),
         },
     )
 }

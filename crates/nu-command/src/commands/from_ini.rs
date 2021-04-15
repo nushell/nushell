@@ -19,7 +19,7 @@ impl WholeStreamCommand for FromIni {
         "Parse text as .ini and create table"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ini(args)
     }
 }
@@ -59,7 +59,7 @@ pub fn from_ini_string_to_value(
     Ok(convert_ini_top_to_nu_value(&v, tag))
 }
 
-fn from_ini(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -70,8 +70,8 @@ fn from_ini(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(list.into_iter().to_action_stream()),
-            x => Ok(ActionStream::one(x)),
+            } => Ok(list.into_iter().to_output_stream()),
+            x => Ok(OutputStream::one(x)),
         },
         Err(_) => Err(ShellError::labeled_error_with_secondary(
             "Could not parse as INI",

@@ -176,8 +176,8 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // config.toml.... yet.
     let color_hm = get_color_config(&configuration);
 
-    let mut start_number = if let Some(f) = args.get_flag("start_number") {
-        f?
+    let mut start_number = if let Some(f) = args.get_flag("start_number")? {
+        f
     } else {
         0
     };

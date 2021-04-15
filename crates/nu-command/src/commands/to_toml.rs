@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, UnspannedPathMember, UntaggedValue, Value};
 
 pub struct ToToml;
 
@@ -18,20 +18,9 @@ impl WholeStreamCommand for ToToml {
         "Convert table into .toml text"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_toml(args)
     }
-    // TODO: add an example here. What commands to run to get a Row(Dictionary)?
-    // fn examples(&self) -> Vec<Example> {
-    //     vec![
-    //         Example {
-    //             description:
-    //                 "Outputs an TOML string representing TOML document",
-    //             example: "echo [1 2 3] | to json",
-    //             result: Some(vec![Value::from("[1,2,3]")]),
-    //         },
-    //     ]
-    // }
 }
 
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
@@ -139,7 +128,7 @@ fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
@@ -161,10 +150,9 @@ fn to_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
         let value_span = value.tag.span;
         match value_to_toml_value(&value) {
             Ok(toml_value) => match toml::to_string(&toml_value) {
-                Ok(x) => ReturnSuccess::value(
-                    UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
-                ),
-                _ => Err(ShellError::labeled_error_with_secondary(
+                Ok(x) => UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
+
+                _ => Value::error(ShellError::labeled_error_with_secondary(
                     "Expected a table with TOML-compatible structure.tag() from pipeline",
                     "requires TOML-compatible input",
                     name_span,
@@ -172,14 +160,14 @@ fn to_toml(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     value_span,
                 )),
             },
-            _ => Err(ShellError::labeled_error(
+            _ => Value::error(ShellError::labeled_error(
                 "Expected a table with TOML-compatible structure from pipeline",
                 "requires TOML-compatible input",
                 &name_tag,
             )),
         }
     }))
-    .to_action_stream())
+    .to_output_stream())
 }
 
 #[cfg(test)]

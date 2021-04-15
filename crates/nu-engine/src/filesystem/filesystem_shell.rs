@@ -9,7 +9,7 @@ use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
-use nu_stream::{ActionStream, Interruptible, ToActionStream};
+use nu_stream::{ActionStream, Interruptible, OutputStream, ToActionStream};
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
@@ -860,9 +860,9 @@ impl Shell for FilesystemShell {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
-    ) -> Result<ActionStream, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         match std::fs::write(full_path, save_data) {
-            Ok(_) => Ok(ActionStream::empty()),
+            Ok(_) => Ok(OutputStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),
                 "IO error while saving",

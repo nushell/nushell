@@ -1,10 +1,9 @@
-extern crate ical;
 use crate::prelude::*;
 use ical::parser::vcard::component::*;
 use ical::property::Property;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromVcf;
 
@@ -21,12 +20,12 @@ impl WholeStreamCommand for FromVcf {
         "Parse text as .vcf and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_vcf(args)
     }
 }
 
-fn from_vcf(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
@@ -37,8 +36,8 @@ fn from_vcf(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let parser = ical::VcardParser::new(cursor);
 
     let iter = parser.map(move |contact| match contact {
-        Ok(c) => ReturnSuccess::value(contact_to_value(c, tag.clone())),
-        Err(_) => Err(ShellError::labeled_error(
+        Ok(c) => contact_to_value(c, tag.clone()),
+        Err(_) => Value::error(ShellError::labeled_error(
             "Could not parse as .vcf",
             "input cannot be parsed as .vcf",
             tag.clone(),
@@ -47,7 +46,7 @@ fn from_vcf(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let collected: Vec<_> = iter.collect();
 
-    Ok(collected.into_iter().to_action_stream())
+    Ok(collected.into_iter().to_output_stream())
 }
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {

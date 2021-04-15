@@ -1,7 +1,7 @@
 use crate::shell::Shell;
 use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
-use nu_stream::ActionStream;
+use nu_stream::{ActionStream, OutputStream};
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
@@ -96,7 +96,7 @@ impl ShellManager {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
-    ) -> Result<ActionStream, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
     }
 

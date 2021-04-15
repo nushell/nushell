@@ -6,9 +6,8 @@ use nu_parser::ParserScope;
 use nu_protocol::hir::{
     Block, Call, ClassifiedCommand, Expression, Pipeline, SpannedExpression, Synthetic,
 };
-use nu_protocol::{ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{UntaggedValue, Value};
 use nu_source::{Span, Tag};
-use nu_stream::ToActionStream;
 use nu_stream::{InputStream, OutputStream};
 use std::sync::atomic::Ordering;
 
@@ -79,17 +78,15 @@ pub fn run_block(
         for pipeline in &group.pipelines {
             match output {
                 Ok(inp) if inp.is_empty() => {}
-                Ok(inp) => {
-                    let mut output_stream = inp.to_action_stream();
-
+                Ok(mut output_stream) => {
                     match output_stream.next() {
-                        Some(Ok(ReturnSuccess::Value(Value {
+                        Some(Value {
                             value: UntaggedValue::Error(e),
                             ..
-                        }))) => {
+                        }) => {
                             return Err(e);
                         }
-                        Some(Ok(_item)) => {
+                        Some(_item) => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
@@ -108,9 +105,6 @@ pub fn run_block(
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
-                        }
-                        Some(Err(e)) => {
-                            return Err(e);
                         }
                     }
                 }

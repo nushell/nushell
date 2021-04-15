@@ -2,8 +2,7 @@ use crate::prelude::*;
 use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ExternalRedirection, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    hir::ExternalRedirection, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
@@ -81,10 +80,10 @@ macro_rules! process_string_return_success {
         let mut result_string = String::new();
         for res in $result_vec {
             match res {
-                Ok(ReturnSuccess::Value(Value {
+                Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     ..
-                })) => {
+                } => {
                     result_string.push_str(&s);
                 }
                 _ => {
@@ -105,10 +104,10 @@ macro_rules! process_binary_return_success {
         let mut result_binary: Vec<u8> = Vec::new();
         for res in $result_vec {
             match res {
-                Ok(ReturnSuccess::Value(Value {
+                Value {
                     value: UntaggedValue::Primitive(Primitive::Binary(b)),
                     ..
-                })) => {
+                } => {
                     for u in b.into_iter() {
                         result_binary.push(u);
                     }
@@ -124,12 +123,6 @@ macro_rules! process_binary_return_success {
         }
         Ok(result_binary)
     }};
-}
-
-#[derive(Deserialize)]
-pub struct SaveArgs {
-    path: Option<Tagged<PathBuf>>,
-    raw: bool,
 }
 
 impl WholeStreamCommand for Save {
@@ -155,12 +148,12 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         save(args)
     }
 }
 
-fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -172,14 +165,12 @@ fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let shell_manager = raw_args.shell_manager.clone();
 
     let head = raw_args.call_info.args.head.clone();
-    let (
-        SaveArgs {
-            path,
-            raw: save_raw,
-        },
-        input,
-    ) = raw_args.process()?;
-    let input: Vec<Value> = input.collect();
+    let args = raw_args.evaluate_once()?;
+
+    let path: Option<Tagged<PathBuf>> = args.opt(0)?;
+    let save_raw = args.has_flag("raw");
+
+    let input: Vec<Value> = args.input.collect();
     if path.is_none() {
         let mut should_return_file_path_error = true;
 
@@ -230,8 +221,8 @@ fn save(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                         },
                         scope,
                     };
-                    let mut result = converter.run_with_actions(new_args.with_input(input))?;
-                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
+                    let mut result = converter.run(new_args.with_input(input))?;
+                    let result_vec: Vec<Value> = result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)
                     } else {

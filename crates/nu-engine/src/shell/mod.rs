@@ -1,4 +1,4 @@
-use nu_stream::ActionStream;
+use nu_stream::{ActionStream, OutputStream};
 
 use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
@@ -49,5 +49,5 @@ pub trait Shell: std::fmt::Debug {
         path: &Path,
         contents: &[u8],
         name: Span,
-    ) -> Result<ActionStream, ShellError>;
+    ) -> Result<OutputStream, ShellError>;
 }

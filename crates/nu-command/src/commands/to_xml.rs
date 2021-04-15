@@ -2,18 +2,13 @@ use crate::prelude::*;
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Write;
 
 pub struct ToXml;
-
-#[derive(Deserialize)]
-pub struct ToXmlArgs {
-    pretty: Option<Value>,
-}
 
 impl WholeStreamCommand for ToXml {
     fn name(&self) -> &str {
@@ -33,7 +28,7 @@ impl WholeStreamCommand for ToXml {
         "Convert table into .xml text"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_xml(args)
     }
 }
@@ -131,11 +126,12 @@ pub fn write_xml_events<W: Write>(
     Ok(())
 }
 
-fn to_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
-    let (ToXmlArgs { pretty }, input) = args.process()?;
-    let input: Vec<Value> = input.collect();
+    let args = args.evaluate_once()?;
+    let pretty: Option<Value> = args.get_flag("pretty")?;
+    let input: Vec<Value> = args.input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {
@@ -166,12 +162,16 @@ fn to_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
         match write_xml_events(&value, &mut w) {
             Ok(_) => {
                 let b = w.into_inner().into_inner();
-                let s = String::from_utf8(b)?;
-                ReturnSuccess::value(
-                    UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag),
-                )
+                let s = if let Ok(s) = String::from_utf8(b) {
+                    s
+                } else {
+                    return Value::error(ShellError::untagged_runtime_error(
+                        "Could not convert a string to utf-8",
+                    ));
+                };
+                UntaggedValue::Primitive(Primitive::String(s)).into_value(&name_tag)
             }
-            Err(_) => Err(ShellError::labeled_error_with_secondary(
+            Err(_) => Value::error(ShellError::labeled_error_with_secondary(
                 "Expected a table with XML-compatible structure from pipeline",
                 "requires XML-compatible input",
                 name_span,
@@ -180,7 +180,7 @@ fn to_xml(args: CommandArgs) -> Result<ActionStream, ShellError> {
             )),
         }
     }))
-    .to_action_stream())
+    .to_output_stream())
 }
 
 #[cfg(test)]

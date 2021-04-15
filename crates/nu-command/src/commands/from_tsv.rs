@@ -6,11 +6,6 @@ use nu_protocol::Signature;
 
 pub struct FromTsv;
 
-#[derive(Deserialize)]
-pub struct FromTsvArgs {
-    noheaders: bool,
-}
-
 impl WholeStreamCommand for FromTsv {
     fn name(&self) -> &str {
         "from tsv"
@@ -28,14 +23,16 @@ impl WholeStreamCommand for FromTsv {
         "Parse text as .tsv and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_tsv(args)
     }
 }
 
-fn from_tsv(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (FromTsvArgs { noheaders }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let noheaders = args.has_flag("noheaders");
+    let input = args.input;
 
     from_delimited_data(noheaders, '\t', "TSV", input, name)
 }

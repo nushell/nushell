@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Command;
 
@@ -37,7 +37,7 @@ impl WholeStreamCommand for Command {
         "Convert table into simple Markdown"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_md(args)
     }
 
@@ -82,19 +82,23 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn to_md(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (arguments, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let arguments = Arguments {
+        per_element: args.has_flag("per-element"),
+        pretty: args.has_flag("pretty"),
+    };
 
-    let input: Vec<Value> = input.collect();
+    let input: Vec<Value> = args.input.collect();
 
-    Ok(ActionStream::one(ReturnSuccess::value(
+    Ok(OutputStream::one(
         UntaggedValue::string(process(&input, arguments)).into_value(if input.is_empty() {
             name_tag
         } else {
             input[0].tag()
         }),
-    )))
+    ))
 }
 
 fn process(

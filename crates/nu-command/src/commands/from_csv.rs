@@ -6,12 +6,6 @@ use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct FromCsv;
 
-#[derive(Deserialize)]
-pub struct FromCsvArgs {
-    noheaders: bool,
-    separator: Option<Value>,
-}
-
 impl WholeStreamCommand for FromCsv {
     fn name(&self) -> &str {
         "from csv"
@@ -36,7 +30,7 @@ impl WholeStreamCommand for FromCsv {
         "Parse text as .csv and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_csv(args)
     }
 
@@ -66,16 +60,14 @@ impl WholeStreamCommand for FromCsv {
     }
 }
 
-fn from_csv(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
+    let args = args.evaluate_once()?;
 
-    let (
-        FromCsvArgs {
-            noheaders,
-            separator,
-        },
-        input,
-    ) = args.process()?;
+    let noheaders = args.has_flag("noheaders");
+    let separator: Option<Value> = args.get_flag("separator")?;
+    let input = args.input;
+
     let sep = match separator {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(s)),

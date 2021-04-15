@@ -131,21 +131,9 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
         Ok(Arguments {
-            timezone: if let Some(arg) = params.get_flag("timezone") {
-                Some(arg?)
-            } else {
-                None
-            },
-            offset: if let Some(arg) = params.get_flag("offset") {
-                Some(arg?)
-            } else {
-                None
-            },
-            format: if let Some(arg) = params.get_flag("format") {
-                Some(arg?)
-            } else {
-                None
-            },
+            timezone: params.get_flag("timezone")?,
+            offset: params.get_flag("offset")?,
+            format: params.get_flag("format")?,
             column_paths,
         })
     })?;

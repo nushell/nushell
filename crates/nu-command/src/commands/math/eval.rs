@@ -42,11 +42,11 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
-    let expression: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
+    let expression: Option<Tagged<String>> = args.opt(0)?;
     let name = args.call_info.name_tag.clone();
     let input = args.input;
 
-    if let Some(Ok(string)) = expression {
+    if let Some(string) = expression {
         match parse(&string, &string.tag) {
             Ok(value) => Ok(OutputStream::one(value)),
             Err(err) => Err(ShellError::labeled_error(
@@ -58,10 +58,10 @@ pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
     } else {
         let mapped: Result<Vec<_>, _> = input
             .map(move |x| {
-                if let Some(Ok(Tagged {
+                if let Some(Tagged {
                     tag,
                     item: expression,
-                })) = &expression
+                }) = &expression
                 {
                     UntaggedValue::string(expression).into_value(tag)
                 } else {

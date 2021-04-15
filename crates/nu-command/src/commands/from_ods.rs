@@ -3,15 +3,10 @@ use calamine::*;
 use nu_data::TaggedListBuilder;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;
 
 pub struct FromOds;
-
-#[derive(Deserialize)]
-pub struct FromOdsArgs {
-    noheaders: bool,
-}
 
 impl WholeStreamCommand for FromOds {
     fn name(&self) -> &str {
@@ -19,33 +14,23 @@ impl WholeStreamCommand for FromOds {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from ods").switch(
-            "noheaders",
-            "don't treat the first row as column names",
-            Some('n'),
-        )
+        Signature::build("from ods")
     }
 
     fn usage(&self) -> &str {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ods(args)
     }
 }
 
-fn from_ods(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
 
-    let (
-        FromOdsArgs {
-            noheaders: _noheaders,
-        },
-        input,
-    ) = args.process()?;
-    let bytes = input.collect_binary(tag.clone())?;
+    let bytes = args.input.collect_binary(tag.clone())?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes.item);
     let mut ods = Ods::<_>::new(buf).map_err(|_| {
         ShellError::labeled_error("Could not load ods file", "could not load ods file", &tag)
@@ -87,7 +72,7 @@ fn from_ods(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(OutputStream::one(dict.into_value()))
 }
 
 #[cfg(test)]

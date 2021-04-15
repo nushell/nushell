@@ -1,18 +1,11 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value};
 use serde::Serialize;
 use serde_json::json;
 
 pub struct ToJson;
-
-#[derive(Deserialize)]
-pub struct ToJsonArgs {
-    pretty: Option<Value>,
-}
 
 impl WholeStreamCommand for ToJson {
     fn name(&self) -> &str {
@@ -32,7 +25,7 @@ impl WholeStreamCommand for ToJson {
         "Converts table data into JSON text."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_json(args)
     }
 
@@ -157,11 +150,13 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (ToJsonArgs { pretty }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let pretty: Option<Value> = args.get_flag("pretty")?;
+
     let name_span = name_tag.span;
-    let input: Vec<Value> = input.collect();
+    let input: Vec<Value> = args.input.collect();
 
     let to_process_input = match input.len() {
         x if x > 1 => {
@@ -221,7 +216,7 @@ fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                             }
 
                             if pretty_format_failed {
-                                return Err(ShellError::labeled_error(
+                                return Value::error(ShellError::labeled_error(
                                     "Pretty formatting failed",
                                     "failed",
                                     pretty_value.tag(),
@@ -229,12 +224,10 @@ fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                             }
                         }
 
-                        ReturnSuccess::value(
-                            UntaggedValue::Primitive(Primitive::String(serde_json_string))
-                                .into_value(&value.tag),
-                        )
+                        UntaggedValue::Primitive(Primitive::String(serde_json_string))
+                            .into_value(&value.tag)
                     }
-                    _ => Err(ShellError::labeled_error_with_secondary(
+                    _ => Value::error(ShellError::labeled_error_with_secondary(
                         "Expected a table with JSON-compatible structure.tag() from pipeline",
                         "requires JSON-compatible input",
                         name_span,
@@ -243,13 +236,13 @@ fn to_json(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )),
                 }
             }
-            _ => Err(ShellError::labeled_error(
+            _ => Value::error(ShellError::labeled_error(
                 "Expected a table with JSON-compatible structure from pipeline",
                 "requires JSON-compatible input",
                 &name_tag,
             )),
         }))
-    .to_action_stream())
+    .to_output_stream())
 }
 
 #[cfg(test)]

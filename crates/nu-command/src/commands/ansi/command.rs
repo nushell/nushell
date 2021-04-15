@@ -115,12 +115,11 @@ Format: #
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let args = args.evaluate_once()?;
 
-        let code: Option<Result<Tagged<String>, ShellError>> = args.opt(0);
-        let escape: Option<Result<Tagged<String>, ShellError>> = args.get_flag("escape");
-        let osc: Option<Result<Tagged<String>, ShellError>> = args.get_flag("osc");
+        let code: Option<Tagged<String>> = args.opt(0)?;
+        let escape: Option<Tagged<String>> = args.get_flag("escape")?;
+        let osc: Option<Tagged<String>> = args.get_flag("osc")?;
 
         if let Some(e) = escape {
-            let e = e?;
             let esc_vec: Vec<char> = e.item.chars().collect();
             if esc_vec[0] == '\\' {
                 return Err(ShellError::labeled_error(
@@ -136,7 +135,6 @@ Format: #
         }
 
         if let Some(o) = osc {
-            let o = o?;
             let osc_vec: Vec<char> = o.item.chars().collect();
             if osc_vec[0] == '\\' {
                 return Err(ShellError::labeled_error(
@@ -155,7 +153,6 @@ Format: #
         }
 
         if let Some(code) = code {
-            let code = code?;
             let ansi_code = str_to_ansi(&code.item);
 
             if let Some(output) = ansi_code {

@@ -93,11 +93,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
         Ok(Arc::new(Arguments {
             pattern: params.req(0)?,
-            range: if let Some(arg) = params.get_flag("range") {
-                Some(arg?)
-            } else {
-                None
-            },
+            range: params.get_flag("range")?,
             end: params.has_flag("end"),
             column_paths: params.rest(1)?,
         }))

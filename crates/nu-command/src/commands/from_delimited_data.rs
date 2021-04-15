@@ -51,7 +51,7 @@ pub fn from_delimited_data(
     format_name: &'static str,
     input: InputStream,
     name: Tag,
-) -> Result<ActionStream, ShellError> {
+) -> Result<OutputStream, ShellError> {
     let name_tag = name;
     let concat_string = input.collect_string(name_tag.clone())?;
     let sample_lines = concat_string.item.lines().take(3).collect_vec().join("\n");
@@ -61,8 +61,8 @@ pub fn from_delimited_data(
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => Ok(list.into_iter().to_action_stream()),
-            x => Ok(ActionStream::one(x)),
+            } => Ok(list.into_iter().to_output_stream()),
+            x => Ok(OutputStream::one(x)),
         },
         Err(err) => {
             let line_one = match pretty_csv_error(err) {

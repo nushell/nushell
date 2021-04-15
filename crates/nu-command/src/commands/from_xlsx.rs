@@ -3,15 +3,10 @@ use calamine::*;
 use nu_data::TaggedListBuilder;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 use std::io::Cursor;
 
 pub struct FromXlsx;
-
-#[derive(Deserialize)]
-pub struct FromXlsxArgs {
-    noheaders: bool,
-}
 
 impl WholeStreamCommand for FromXlsx {
     fn name(&self) -> &str {
@@ -30,21 +25,16 @@ impl WholeStreamCommand for FromXlsx {
         "Parse binary Excel(.xlsx) data and create table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_xlsx(args)
     }
 }
 
-fn from_xlsx(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
-    let (
-        FromXlsxArgs {
-            noheaders: _noheaders,
-        },
-        input,
-    ) = args.process()?;
-    let value = input.collect_binary(tag.clone())?;
+
+    let value = args.input.collect_binary(tag.clone())?;
 
     let buf: Cursor<Vec<u8>> = Cursor::new(value.item);
     let mut xls = Xlsx::<_>::new(buf).map_err(|_| {
@@ -87,7 +77,7 @@ fn from_xlsx(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    Ok(ActionStream::one(ReturnSuccess::value(dict.into_value())))
+    Ok(OutputStream::one(dict.into_value()))
 }
 
 #[cfg(test)]

@@ -641,7 +641,7 @@ impl ShellError {
     }
 
     pub fn unimplemented(title: impl Into<String>) -> ShellError {
-        ShellError::unimplemented(&format!("Unimplemented: {}", title.into()))
+        ShellError::untagged_runtime_error(&format!("Unimplemented: {}", title.into()))
     }
 
     pub fn unexpected(title: impl Into<String>) -> ShellError {

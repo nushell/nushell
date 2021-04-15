@@ -161,7 +161,8 @@ table-pager = ["nu-command/table-pager"]
 #strip = "symbols" #Couldn't get working +nightly
 codegen-units = 1 #Reduce parallel codegen units
 lto = true #Link Time Optimization
-opt-level = 'z' #Optimize for size
+# opt-level = 'z' #Optimize for size
+# debug = true
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

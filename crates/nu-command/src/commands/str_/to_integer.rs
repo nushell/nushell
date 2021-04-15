@@ -72,11 +72,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         let (column_paths, _) = arguments(&mut params.rest_args()?)?;
 
         Ok(Arguments {
-            radix: if let Some(arg) = params.get_flag("radix") {
-                Some(arg?)
-            } else {
-                None
-            },
+            radix: params.get_flag("radix")?,
             column_paths,
         })
     })?;

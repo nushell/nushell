@@ -166,6 +166,26 @@ impl FromValue for PathBuf {
     }
 }
 
+impl FromValue for Tagged<PathBuf> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
+                tag,
+            } => Ok(PathBuf::from(s).tagged(tag)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::FilePath(p)),
+                tag,
+            } => Ok(p.clone().tagged(tag)),
+            Value { tag, .. } => Err(ShellError::labeled_error(
+                "Can't convert to filepath",
+                "can't convert to filepath",
+                tag.span,
+            )),
+        }
+    }
+}
+
 impl FromValue for ColumnPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {

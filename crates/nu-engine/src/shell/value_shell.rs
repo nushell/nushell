@@ -8,7 +8,7 @@ use nu_protocol::ValueStructure;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
 use nu_source::SpannedItem;
 use nu_source::{Span, Tag, Tagged};
-use nu_stream::ActionStream;
+use nu_stream::{ActionStream, OutputStream};
 use nu_value_ext::ValueExt;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
@@ -247,7 +247,7 @@ impl Shell for ValueShell {
         _path: &Path,
         _contents: &[u8],
         _name: Span,
-    ) -> Result<ActionStream, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         Err(ShellError::unimplemented(
             "save on help shell is not supported",
         ))
