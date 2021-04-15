@@ -129,19 +129,19 @@ fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                             scope,
                         };
                         let tag = tagged_contents.tag.clone();
-                        let mut result = converter
-                            .run_with_actions(new_args.with_input(vec![tagged_contents]))?;
-                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
+                        let mut result =
+                            converter.run(new_args.with_input(vec![tagged_contents]))?;
+                        let result_vec: Vec<Value> = result.drain_vec();
                         Ok(result_vec
                             .into_iter()
-                            .map(move |res| match res {
-                                Ok(ReturnSuccess::Value(Value { value, .. })) => Ok(
-                                    ReturnSuccess::Action(CommandAction::EnterValueShell(Value {
+                            .map(move |res| {
+                                let Value { value, .. } = res;
+                                Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
+                                    Value {
                                         value,
                                         tag: tag.clone(),
-                                    })),
-                                ),
-                                x => x,
+                                    },
+                                )))
                             })
                             .to_action_stream())
                     } else {

@@ -2,8 +2,7 @@ use crate::prelude::*;
 use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ExternalRedirection, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    hir::ExternalRedirection, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
@@ -81,10 +80,10 @@ macro_rules! process_string_return_success {
         let mut result_string = String::new();
         for res in $result_vec {
             match res {
-                Ok(ReturnSuccess::Value(Value {
+                Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     ..
-                })) => {
+                } => {
                     result_string.push_str(&s);
                 }
                 _ => {
@@ -105,10 +104,10 @@ macro_rules! process_binary_return_success {
         let mut result_binary: Vec<u8> = Vec::new();
         for res in $result_vec {
             match res {
-                Ok(ReturnSuccess::Value(Value {
+                Value {
                     value: UntaggedValue::Primitive(Primitive::Binary(b)),
                     ..
-                })) => {
+                } => {
                     for u in b.into_iter() {
                         result_binary.push(u);
                     }
@@ -222,8 +221,8 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                         },
                         scope,
                     };
-                    let mut result = converter.run_with_actions(new_args.with_input(input))?;
-                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec();
+                    let mut result = converter.run(new_args.with_input(input))?;
+                    let result_vec: Vec<Value> = result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)
                     } else {
