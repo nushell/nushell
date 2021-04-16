@@ -32,10 +32,10 @@ impl Plugin for QueryJson {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            } => Ok(begin_json_query(s, (*self.query).tagged(&self.tag))
-                .into_iter()
-                .map(ReturnSuccess::value)
-                .collect()),
+            } => match begin_json_query(s, (*self.query).tagged(&self.tag)) {
+                Ok(result) => Ok(result.into_iter().map(ReturnSuccess::value).collect()),
+                Err(err) => Err(err),
+            },
             Value { tag, .. } => Err(ShellError::labeled_error_with_secondary(
                 "Expected text from pipeline",
                 "requires text input",

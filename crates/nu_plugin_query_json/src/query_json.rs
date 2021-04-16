@@ -1,4 +1,5 @@
 use gjson::Value as gjValue;
+use nu_errors::ShellError;
 use nu_protocol::Value;
 use nu_source::{Tag, Tagged};
 
@@ -22,7 +23,7 @@ impl Default for QueryJson {
     }
 }
 
-pub fn begin_json_query(input: String, query: Tagged<&str>) -> Vec<Value> {
+pub fn begin_json_query(input: String, query: Tagged<&str>) -> Result<Vec<Value>, ShellError> {
     execute_json_query(input, query.item.to_string(), query.tag())
 }
 
@@ -30,8 +31,16 @@ fn execute_json_query(
     input_string: String,
     query_string: String,
     tag: impl Into<Tag>,
-) -> Vec<Value> {
-    let _tag = tag.into();
+) -> Result<Vec<Value>, ShellError> {
+    let tag = tag.into();
+    let is_valid_json = gjson::valid(input_string.as_str());
+    if !is_valid_json {
+        return Err(ShellError::labeled_error(
+            "invalid json",
+            "invalid json",
+            tag,
+        ));
+    }
     let mut ret: Vec<Value> = vec![];
     let val: gjValue = gjson::get(input_string.as_str(), &query_string);
 
@@ -39,7 +48,7 @@ fn execute_json_query(
     let json_val = Value::from(json_str);
     ret.push(json_val);
 
-    ret
+    Ok(ret)
 }
 
 #[cfg(test)]
