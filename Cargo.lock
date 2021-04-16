@@ -2052,6 +2052,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gjson"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "864178e25a00c41404f1728997c9a21a7b746be1faefe6ce4dc41eb48bb4234f"
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3110,6 +3116,7 @@ dependencies = [
  "nu_plugin_match",
  "nu_plugin_post",
  "nu_plugin_ps",
+ "nu_plugin_query_json",
  "nu_plugin_s3",
  "nu_plugin_selector",
  "nu_plugin_start",
@@ -3702,6 +3709,18 @@ dependencies = [
  "nu-source",
  "num-bigint 0.3.2",
  "sysinfo",
+]
+
+[[package]]
+name = "nu_plugin_query_json"
+version = "0.29.2"
+dependencies = [
+ "gjson",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-test-support",
 ]
 
 [[package]]
