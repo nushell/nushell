@@ -18,6 +18,21 @@ impl WholeStreamCommand for Path {
         "Explore and manipulate paths."
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"There are three ways to represent a path:
+
+  * As a path literal, e.g., '/home/viking/spam.txt'
+  * As a structured path: a table with 'parent', 'stem', and 'extension' (and
+    'prefix' on Windows) columns. This format is produced by the 'path parse'
+    subcommand.
+  * As a list of path parts, e.g., '[ / home viking spam.txt ]'. This format is
+    produced by the 'path split' subcommand.
+
+All subcommands accept all three variants as an input. Furthermore, the 'path
+join' subcommand can be used to join the separated representations back into the
+path literal."#
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Path, &args.scope)).into_value(Tag::unknown()),

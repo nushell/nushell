@@ -67,7 +67,7 @@ parse' and 'path split' subdommands."
             },
             Example {
                 description: "Join a list of parts into a path",
-                example: r"echo [ C: Users viking spam.txt ] | path join",
+                example: r"echo [ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"C:\Users\viking\spam.txt",
                 ))]),
@@ -94,7 +94,7 @@ parse' and 'path split' subdommands."
             },
             Example {
                 description: "Join a list of parts into a path",
-                example: r"echo [ / home viking spam.txt ] | path join",
+                example: r"echo [ '/' 'home' 'viking' 'spam.txt' ] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"/home/viking/spam.txt",
                 ))]),

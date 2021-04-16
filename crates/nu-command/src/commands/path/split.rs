@@ -28,7 +28,7 @@ impl WholeStreamCommand for PathSplit {
     }
 
     fn usage(&self) -> &str {
-        "Split a path into parts along a separator."
+        "Split a path into parts by a separator."
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

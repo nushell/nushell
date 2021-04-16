@@ -34,8 +34,8 @@ impl WholeStreamCommand for PathParse {
     }
 
     fn extra_usage(&self) -> &str {
-        "Each path is split into 'parent', 'stem' and 'extension' fields. On Windows, extra \
-'prefix' column is added."
+        r#"Each path is split into 'parent', 'stem' and 'extension' fields.
+On Windows, extra 'prefix' column is added."#
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -57,6 +57,11 @@ impl WholeStreamCommand for PathParse {
                 result: None,
             },
             Example {
+                description: "Replace the extension",
+                example: r"echo 'C:\Users\viking\spam.txt' | path parse | update extension { = egg }",
+                result: None,
+            },
+            Example {
                 description: "Replace the 'name' column with parsed paths",
                 example: r"ls | path parse name",
                 result: None,
@@ -70,6 +75,11 @@ impl WholeStreamCommand for PathParse {
             Example {
                 description: "Parse a path",
                 example: r"echo '/home/viking/spam.txt' | path parse",
+                result: None,
+            },
+            Example {
+                description: "Replace the extension",
+                example: r"echo '/home/viking/spam.txt' | path parse | update extension { = egg }",
                 result: None,
             },
             Example {
