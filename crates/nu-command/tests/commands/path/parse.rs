@@ -1,6 +1,19 @@
 use nu_test_support::{nu, pipeline};
 
-use super::join_path_sep;
+#[cfg(windows)]
+#[test]
+fn parses_single_path_prefix() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+        r#"
+            echo 'C:\users\viking\spam.txt'
+            | path parse
+            | get prefix
+        "#
+    ));
+
+    assert_eq!(actual.out, "C:");
+}
 
 #[test]
 fn parses_single_path_parent() {
@@ -13,8 +26,7 @@ fn parses_single_path_parent() {
         "#
     ));
 
-    let expected = join_path_sep(&["home", "viking"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(actual.out, "home/viking");
 }
 
 #[test]
@@ -29,6 +41,62 @@ fn parses_single_path_stem() {
     ));
 
     assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn parses_custom_extension_gets_extension() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+        r#"
+            echo 'home/viking/spam.tar.gz' 
+            | path parse -e tar.gz
+            | get extension
+        "#
+    ));
+
+    assert_eq!(actual.out, "tar.gz");
+}
+
+#[test]
+fn parses_custom_extension_gets_stem() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+        r#"
+            echo 'home/viking/spam.tar.gz' 
+            | path parse -e tar.gz
+            | get stem
+        "#
+    ));
+
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn parses_ignoring_extension_gets_extension() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+        r#"
+            echo 'home/viking/spam.tar.gz' 
+            | path parse -e ''
+            | get extension
+        "#
+    ));
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn parses_ignoring_extension_gets_stem() {
+    let actual = nu!(
+        cwd: "tests", pipeline(
+        r#"
+            echo 'home/viking/spam.tar.gz' 
+            | path parse -e ""
+            | get stem
+        "#
+    ));
+
+    assert_eq!(actual.out, "spam.tar.gz");
 }
 
 #[test]
