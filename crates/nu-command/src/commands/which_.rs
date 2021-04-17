@@ -1,5 +1,3 @@
-use std::iter;
-
 use crate::prelude::*;
 use indexmap::map::IndexMap;
 use log::trace;
@@ -169,8 +167,7 @@ fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
 
 #[derive(Debug)]
 struct WhichArgs {
-    application: Tagged<String>,
-    rest: Vec<Tagged<String>>,
+    applications: Vec<Tagged<String>>,
     all: bool,
 }
 
@@ -220,14 +217,13 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
 
     let which_args = WhichArgs {
-        application: args.req(0)?,
-        rest: args.rest(1)?,
+        applications: args.rest_with_minimum(0, 1)?,
         all: args.get_switch("all")?,
     };
 
     let mut output = vec![];
 
-    for app in iter::once(which_args.application).chain(which_args.rest) {
+    for app in which_args.applications {
         let values = which_single(app, which_args.all, &args.scope);
         output.extend(values);
     }

@@ -290,4 +290,18 @@ impl EvaluatedCommandArgs {
 
         Ok(output)
     }
+
+    pub fn rest_with_minimum<T: FromValue>(
+        &self,
+        pos: usize,
+        count: usize,
+    ) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+        for i in pos..pos + count {
+            output.push(self.req(i)?);
+        }
+        output.extend(self.rest(pos + count)?);
+
+        Ok(output)
+    }
 }
