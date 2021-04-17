@@ -88,13 +88,14 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // invocations are independent of each other!
     scope.enter_scope();
     scope.add_vars(&all_args.predicate.captured.entries);
+    //`try_all` is like `all`, but with short-circuiting for Err
     let result: Result<bool, ShellError> = args.input.try_all(|row| {
         //$it gets overwritten each invocation
         scope.add_var("$it", row);
 
-        let condition = evaluate_baseline_expr(&*condition, &ctx);
+        let condition = evaluate_baseline_expr(&*condition, &ctx)?;
 
-        condition?.as_bool()
+        condition.as_bool()
     });
     scope.exit_scope();
 
