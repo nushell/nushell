@@ -2,7 +2,9 @@ use crate::prelude::*;
 use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};
+use nu_protocol::{
+    hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue,
+};
 
 pub struct Command;
 
@@ -51,7 +53,8 @@ impl WholeStreamCommand for Command {
 
 fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
-    let mut args = args.evaluate_once()?;
+    let tag = args.call_info.name_tag.clone();
+    let args = args.evaluate_once()?;
     let all_args = AllArgs {
         predicate: args.req(0)?,
     };
@@ -82,24 +85,41 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let scope = args.scope.clone();
 
+    let init = Ok(InputStream::one(
+        UntaggedValue::boolean(true).into_value(&tag),
+    ));
+
     // Variables in nu are immutable. Having the same variable accross invocations
     // of evaluate_baseline_expr does not mutate the variables and those each
     // invocations are independent of each other!
     scope.enter_scope();
     scope.add_vars(&all_args.predicate.captured.entries);
-    let result = args.input.all(|row| {
-        //$it gets overwritten each invocation
-        scope.add_var("$it", row);
+    let result = args.input.fold(init, move |acc, row| {
+        let condition = condition.clone();
+        let ctx = ctx.clone();
+        ctx.scope.add_var("$it", row);
 
-        let condition = evaluate_baseline_expr(&*condition, &ctx);
+        let condition = evaluate_baseline_expr(&condition, &ctx);
+
+        let curr = acc?.drain_vec();
+        let curr = curr
+            .get(0)
+            .ok_or_else(|| ShellError::unexpected("No value to check with"))?;
+        let cond = curr.as_bool()?;
+
         match condition {
-            Ok(cond) => cond.as_bool().unwrap_or(false),
-            Err(_) => false,
+            Ok(condition) => match condition.as_bool() {
+                Ok(b) => Ok(InputStream::one(
+                    UntaggedValue::boolean(cond && b).into_value(&curr.tag),
+                )),
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e),
         }
     });
     scope.exit_scope();
 
-    Ok(OutputStream::one(result))
+    Ok(result?.to_output_stream())
 }
 
 #[cfg(test)]
