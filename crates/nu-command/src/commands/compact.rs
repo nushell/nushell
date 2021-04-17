@@ -45,31 +45,19 @@ pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     Ok(input
-        .filter_map(move |item| {
+        .filter(move |item| {
             if args.columns.is_empty() {
-                if !item.is_empty() {
-                    Some(item)
-                } else {
-                    None
-                }
+                !item.is_empty()
+            } else if let Value {
+                value: UntaggedValue::Row(ref r),
+                ..
+            } = item
+            {
+                args.columns
+                    .iter()
+                    .all(|field| r.get_data(field).borrow().is_some())
             } else {
-                match item {
-                    Value {
-                        value: UntaggedValue::Row(ref r),
-                        ..
-                    } => {
-                        if args
-                            .columns
-                            .iter()
-                            .all(|field| r.get_data(field).borrow().is_some())
-                        {
-                            Some(item)
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                }
+                false
             }
         })
         .to_output_stream())
