@@ -102,22 +102,16 @@ where
                 let split_result = handle_value(&action, &v, span, Arc::clone(&args));
 
                 match split_result {
-                    Ok(val) => {
-                        if let Value {
-                            value: UntaggedValue::Table(parts),
-                            ..
-                        } = val
-                        {
-                            parts.into_iter().to_output_stream()
-                        } else {
-                            OutputStream::one(Value::error(ShellError::labeled_error(
-                                "Internal Error",
-                                "unexpected result from the split function",
-                                span,
-                            )))
-                        }
-                    }
+                    Ok(Value {
+                        value: UntaggedValue::Table(parts),
+                        ..
+                    }) => parts.into_iter().to_output_stream(),
                     Err(e) => OutputStream::one(Value::error(e)),
+                    _ => OutputStream::one(Value::error(ShellError::labeled_error(
+                        "Internal Error",
+                        "unexpected result from the split function",
+                        span,
+                    ))),
                 }
             })
             .to_output_stream()
