@@ -31,7 +31,7 @@ impl WholeStreamCommand for PathExists {
         "Check whether a path exists"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathExistsArguments {

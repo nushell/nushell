@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue};
 
 pub struct Path;
 
@@ -33,10 +33,10 @@ join' subcommand can be used to join the structured path or path parts back into
 the path literal."#
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        Ok(ActionStream::one(ReturnSuccess::value(
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        Ok(OutputStream::one(
             UntaggedValue::string(get_full_help(&Path, &args.scope)).into_value(Tag::unknown()),
-        )))
+        ))
     }
 }
 

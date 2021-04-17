@@ -51,7 +51,7 @@ On Windows, an extra 'prefix' column is added."#
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathParseArguments {
             rest: args.rest_args()?,
-            extension: args.get_flag("extension").transpose()?,
+            extension: args.get_flag("extension")?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

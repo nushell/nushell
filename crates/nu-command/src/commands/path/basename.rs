@@ -39,12 +39,12 @@ impl WholeStreamCommand for PathBasename {
         "Get the final component of a path"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathBasenameArguments {
             rest: args.rest_args()?,
-            replace: args.get_flag("replace").transpose()?,
+            replace: args.get_flag("replace")?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

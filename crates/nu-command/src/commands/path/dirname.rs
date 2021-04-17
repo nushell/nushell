@@ -46,13 +46,13 @@ impl WholeStreamCommand for PathDirname {
         "Get the parent directory of a path"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathDirnameArguments {
             rest: args.rest_args()?,
-            replace: args.get_flag("replace").transpose()?,
-            num_levels: args.get_flag("num-levels").transpose()?,
+            replace: args.get_flag("replace")?,
+            num_levels: args.get_flag("num-levels")?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

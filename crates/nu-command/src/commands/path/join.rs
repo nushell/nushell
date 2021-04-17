@@ -2,7 +2,7 @@ use super::{handle_value, join_path, operate_column_paths, PathSubcommandArgumen
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::Path;
 
@@ -44,12 +44,12 @@ impl WholeStreamCommand for PathJoin {
 the output of 'path parse' and 'path split' subdommands."#
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathJoinArguments {
             rest: args.rest_args()?,
-            append: args.get_flag("append").transpose()?,
+            append: args.get_flag("append")?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -136,17 +136,18 @@ where
             // operate one-by-one like the other path subcommands
             parts
                 .into_iter()
-                .map(move |v| {
-                    ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?)
-                })
+                .map(
+                    move |v| match handle_value(&action, &v, span, Arc::clone(&args)) {
+                        Ok(v) => v,
+                        Err(e) => Value::error(e),
+                    },
+                )
                 .to_output_stream()
         } else {
             // join the whole input stream
             match join_path(&parts.collect_vec(), &span) {
-                Ok(path_buf) => {
-                    OutputStream::one(ReturnSuccess::value(action(&path_buf, tag, &args)))
-                }
-                Err(err) => OutputStream::one(Err(err)),
+                Ok(path_buf) => OutputStream::one(action(&path_buf, tag, &args)),
+                Err(e) => OutputStream::one(Value::error(e)),
             }
         }
     } else {

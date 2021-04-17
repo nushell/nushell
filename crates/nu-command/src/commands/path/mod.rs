@@ -11,8 +11,7 @@ mod r#type;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Dictionary, MaybeOwned, Primitive, ReturnSuccess, ShellTypeName, UntaggedValue,
-    Value,
+    ColumnPath, Dictionary, MaybeOwned, Primitive, ShellTypeName, UntaggedValue, Value,
 };
 use nu_source::Span;
 use std::path::{Path, PathBuf};
@@ -167,7 +166,7 @@ fn operate_column_paths<F, T>(
     action: &'static F,
     span: Span,
     args: Arc<T>,
-) -> ActionStream
+) -> OutputStream
 where
     T: PathSubcommandArguments + Send + Sync + 'static,
     F: Fn(&Path, Tag, &T) -> Value + Send + Sync + 'static,
@@ -178,15 +177,18 @@ where
 
             for path in args.get_column_paths() {
                 let cloned_args = Arc::clone(&args);
-                ret = ret.swap_data_by_column_path(
+                ret = match ret.swap_data_by_column_path(
                     path,
                     Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
-                )?;
+                ) {
+                    Ok(v) => v,
+                    Err(e) => Value::error(e),
+                };
             }
 
-            ReturnSuccess::value(ret)
+            ret
         })
-        .to_action_stream()
+        .to_output_stream()
 }
 
 fn operate<F, T>(
@@ -201,7 +203,12 @@ where
 {
     if args.get_column_paths().is_empty() {
         input
-            .map(move |v| ReturnSuccess::value(handle_value(&action, &v, span, Arc::clone(&args))?))
+            .map(
+                move |v| match handle_value(&action, &v, span, Arc::clone(&args)) {
+                    Ok(v) => v,
+                    Err(e) => Value::error(e),
+                },
+            )
             .to_output_stream()
     } else {
         operate_column_paths(input, action, span, args)

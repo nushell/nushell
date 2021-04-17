@@ -2,7 +2,7 @@ use super::{handle_value, operate_column_paths, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::Path;
 
 pub struct PathSplit;
@@ -108,19 +108,16 @@ where
                             ..
                         } = val
                         {
-                            parts
-                                .into_iter()
-                                .map(ReturnSuccess::value)
-                                .to_output_stream()
+                            parts.into_iter().to_output_stream()
                         } else {
-                            OutputStream::one(Err(ShellError::labeled_error(
+                            OutputStream::one(Value::error(ShellError::labeled_error(
                                 "Internal Error",
                                 "unexpected result from the split function",
                                 span,
                             )))
                         }
                     }
-                    Err(e) => OutputStream::one(Err(e)),
+                    Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
             .to_output_stream()
