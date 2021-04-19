@@ -38,6 +38,7 @@ nu_plugin_inc = { version = "0.29.2", path = "./crates/nu_plugin_inc", optional 
 nu_plugin_match = { version = "0.29.2", path = "./crates/nu_plugin_match", optional = true }
 nu_plugin_post = { version = "0.29.2", path = "./crates/nu_plugin_post", optional = true }
 nu_plugin_ps = { version = "0.29.2", path = "./crates/nu_plugin_ps", optional = true }
+nu_plugin_query_json = { version = "0.29.2", path = "./crates/nu_plugin_query_json", optional = true }
 nu_plugin_s3 = { version = "0.29.2", path = "./crates/nu_plugin_s3", optional = true }
 nu_plugin_selector = { version = "0.29.2", path = "./crates/nu_plugin_selector", optional = true }
 nu_plugin_start = { version = "0.29.2", path = "./crates/nu_plugin_start", optional = true }
@@ -121,6 +122,7 @@ extra = [
     "chart",
     "xpath",
     "selector",
+    "query-json",
 ]
 
 wasi = ["inc", "match", "ptree-support", "match", "tree", "rustyline-support"]
@@ -141,6 +143,7 @@ binaryview = ["nu_plugin_binaryview"]
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
 clipboard-cli = ["nu-cli/clipboard-cli", "nu-command/clipboard-cli"]
+query-json = ["nu_plugin_query_json"]
 s3 = ["nu_plugin_s3"]
 selector = ["nu_plugin_selector"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
@@ -213,6 +216,11 @@ required-features = ["binaryview"]
 name = "nu_plugin_extra_tree"
 path = "src/plugins/nu_plugin_extra_tree.rs"
 required-features = ["tree"]
+
+[[bin]]
+name = "nu_plugin_extra_query_json"
+path = "src/plugins/nu_plugin_extra_query_json.rs"
+required-features = ["query-json"]
 
 [[bin]]
 name = "nu_plugin_extra_start"
