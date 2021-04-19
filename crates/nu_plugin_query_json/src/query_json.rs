@@ -44,10 +44,19 @@ fn execute_json_query(
     let mut ret: Vec<Value> = vec![];
     let val: gjValue = gjson::get(input_string.as_str(), &query_string);
     let gjv = convert_gjson_value_to_nu_value(&val, &tag);
-    // let json_str = val.json();
-    // let json_val = Value::from(json_str);
-    // ret.push(json_val);
-    ret.push(gjv);
+
+    match gjv.value {
+        UntaggedValue::Primitive(_) => ret.push(gjv),
+        UntaggedValue::Row(_) => ret.push(gjv),
+        UntaggedValue::Table(t) => {
+            // Unravel the table so it's not a table inside of a table in the output
+            for v in t.iter() {
+                let c = v.clone();
+                ret.push(c)
+            }
+        }
+        _ => (()),
+    }
 
     Ok(ret)
 }
@@ -64,26 +73,13 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, tag: impl Into<Tag>) -> Value {
             });
 
             UntaggedValue::Table(values).into_value(&tag)
-            // let table = UntaggedValue::Table(values).into_value(&tag);
-
-            // table.into_iter().map(ReturnSuccess::value).collect()
-
-            // let mut collected = TaggedDictBuilder::new(&tag);
-            // v.each(|_k, v| {
-            //     // eprintln!("k:{} v:{}", k.str(), v.str());
-            //     collected.insert_value(
-            //         "results".to_string(),
-            //         convert_gjson_value_to_nu_value(&v, &tag),
-            //     );
-            //     true
-            // });
-            // collected.into_value()
         }
         gjson::Kind::Null => UntaggedValue::nothing().into_value(&tag),
         gjson::Kind::False => UntaggedValue::boolean(false).into_value(&tag),
         gjson::Kind::Number => UntaggedValue::int(v.i64()).into_value(&tag),
         gjson::Kind::String => UntaggedValue::string(v.str()).into_value(&tag),
         gjson::Kind::True => UntaggedValue::boolean(true).into_value(&tag),
+        // I'm not sure how to test this, so it may not work
         gjson::Kind::Object => {
             // eprint!("Object: ");
             let mut collected = TaggedDictBuilder::new(&tag);
