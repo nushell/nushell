@@ -237,15 +237,6 @@ impl EvaluatedCommandArgs {
         }
     }
 
-    // If switch is present returns true, otherwise false
-    // Returns error if flag with name `name` has a value and the value is not convertible to bool
-    pub fn get_switch(&self, name: &str) -> Result<bool, ShellError> {
-        match self.get_flag(name)? {
-            Some(v) => Ok(v),
-            None => Ok(false),
-        }
-    }
-
     pub fn req_named<T: FromValue>(&self, name: &str) -> Result<T, ShellError> {
         self.call_info
             .args

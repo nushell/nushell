@@ -218,7 +218,7 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let which_args = WhichArgs {
         applications: args.rest_with_minimum(0, 1)?,
-        all: args.get_switch("all")?,
+        all: args.has_flag("all"),
     };
 
     let mut output = vec![];
