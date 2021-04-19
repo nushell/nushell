@@ -55,7 +55,7 @@ fn execute_json_query(
                 ret.push(c)
             }
         }
-        _ => (()),
+        _ => (),
     }
 
     Ok(ret)
