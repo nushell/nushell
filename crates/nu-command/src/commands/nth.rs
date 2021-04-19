@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -33,7 +33,7 @@ impl WholeStreamCommand for Nth {
         "Return or skip only the selected rows."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         nth(args)
     }
 
@@ -58,7 +58,7 @@ impl WholeStreamCommand for Nth {
     }
 }
 
-fn nth(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (
         NthArgs {
             row_number,
@@ -68,22 +68,60 @@ fn nth(args: CommandArgs) -> Result<ActionStream, ShellError> {
         input,
     ) = args.process()?;
 
-    let row_numbers = vec![vec![row_number], and_rows]
-        .into_iter()
-        .flatten()
-        .map(|x| x.item)
-        .collect::<Vec<u64>>();
+    let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
+    rows.push(row_number.item as usize);
+    rows.sort_unstable();
 
-    Ok(input
-        .enumerate()
-        .filter_map(move |(idx, item)| {
-            if row_numbers.contains(&(idx as u64)) ^ skip {
-                Some(ReturnSuccess::value(item))
+    Ok(NthIterator {
+        input,
+        rows,
+        skip,
+        current: 0,
+    }
+    .to_output_stream())
+}
+
+struct NthIterator {
+    input: InputStream,
+    rows: Vec<usize>,
+    skip: bool,
+    current: usize,
+}
+
+impl Iterator for NthIterator {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if !self.skip {
+                if let Some(row) = self.rows.get(0) {
+                    if self.current == *row {
+                        self.rows.remove(0);
+                        self.current += 1;
+                        return self.input.next();
+                    } else {
+                        self.current += 1;
+                        let _ = self.input.next();
+                        continue;
+                    }
+                } else {
+                    return None;
+                }
+            } else if let Some(row) = self.rows.get(0) {
+                if self.current == *row {
+                    self.rows.remove(0);
+                    self.current += 1;
+                    let _ = self.input.next();
+                    continue;
+                } else {
+                    self.current += 1;
+                    return self.input.next();
+                }
             } else {
-                None
+                return self.input.next();
             }
-        })
-        .to_action_stream())
+        }
+    }
 }
 
 #[cfg(test)]
