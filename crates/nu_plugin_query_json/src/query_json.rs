@@ -33,6 +33,8 @@ fn execute_json_query(
     tag: impl Into<Tag>,
 ) -> Result<Vec<Value>, ShellError> {
     let tag = tag.into();
+
+    // Validate the json before trying to query it
     let is_valid_json = gjson::valid(input_string.as_str());
     if !is_valid_json {
         return Err(ShellError::labeled_error(
@@ -41,24 +43,50 @@ fn execute_json_query(
             tag,
         ));
     }
+
     let mut ret: Vec<Value> = vec![];
     let val: gjValue = gjson::get(input_string.as_str(), &query_string);
-    let gjv = convert_gjson_value_to_nu_value(&val, &tag);
 
-    match gjv.value {
-        UntaggedValue::Primitive(_) => ret.push(gjv),
-        UntaggedValue::Row(_) => ret.push(gjv),
-        UntaggedValue::Table(t) => {
-            // Unravel the table so it's not a table inside of a table in the output
-            for v in t.iter() {
-                let c = v.clone();
-                ret.push(c)
+    if query_contains_modifiers(query_string.as_str()) {
+        let json_str = val.json();
+        let json_val = Value::from(json_str);
+        ret.push(json_val);
+    } else {
+        let gjv = convert_gjson_value_to_nu_value(&val, &tag);
+
+        match gjv.value {
+            UntaggedValue::Primitive(_) => ret.push(gjv),
+            UntaggedValue::Row(_) => ret.push(gjv),
+            UntaggedValue::Table(t) => {
+                // Unravel the table so it's not a table inside of a table in the output
+                for v in t.iter() {
+                    let c = v.clone();
+                    ret.push(c)
+                }
             }
+            _ => (),
         }
-        _ => (),
     }
 
     Ok(ret)
+}
+fn query_contains_modifiers(query: &str) -> bool {
+    // https://github.com/tidwall/gjson.rs documents 7 modifiers as of 4/19/21
+    // Some of these modifiers mean we really need to output the data as a string
+    // instead of tabular data. Others don't matter.
+
+    // Output as String
+    // @ugly: Remove all whitespace from a json document.
+    // @pretty: Make the json document more human readable.
+    query.contains("@ugly") || query.contains("@pretty")
+
+    // Output as Tablular
+    // Since it's output as tabular, which is our default, we can just ignore these
+    // @reverse: Reverse an array or the members of an object.
+    // @this: Returns the current element. It can be used to retrieve the root element.
+    // @valid: Ensure the json document is valid.
+    // @flatten: Flattens an array.
+    // @join: Joins multiple objects into a single object.
 }
 
 fn convert_gjson_value_to_nu_value(v: &gjValue, tag: impl Into<Tag>) -> Value {
