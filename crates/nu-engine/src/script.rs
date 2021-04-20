@@ -101,6 +101,7 @@ pub fn process_script(
                     })
                     .unwrap_or("");
 
+                ctx.sync_path_to_env();
                 if internal_name == "run_external"
                     && args
                         .positional

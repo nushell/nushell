@@ -98,6 +98,17 @@ impl EvaluationContext {
         }
     }
 
+    pub fn sync_path_to_env(&self) {
+        let env_vars = self.scope.get_env_vars();
+
+        for (var, val) in env_vars {
+            if var == "PATH" || var == "Path" || var == "path" {
+                std::env::set_var(var, val);
+                break;
+            }
+        }
+    }
+
     #[allow(unused)]
     pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
         self.scope.get_command(name)

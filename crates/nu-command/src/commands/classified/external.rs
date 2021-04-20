@@ -25,6 +25,7 @@ pub(crate) fn run_external_command(
 ) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
+    context.sync_path_to_env();
     if !context.host.lock().is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
