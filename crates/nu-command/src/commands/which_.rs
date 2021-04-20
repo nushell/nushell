@@ -3,7 +3,7 @@ use indexmap::map::IndexMap;
 use log::trace;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Which;
@@ -24,7 +24,7 @@ impl WholeStreamCommand for Which {
         "Finds a program file, alias or custom command."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         which(args)
     }
 }
@@ -165,10 +165,9 @@ fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
     vec![]
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 struct WhichArgs {
-    application: Tagged<String>,
-    rest: Vec<Tagged<String>>,
+    applications: Vec<Tagged<String>>,
     all: bool,
 }
 
@@ -214,26 +213,22 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
     }
 }
 
-fn which(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let scope = args.scope.clone();
+fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
 
-    let (
-        WhichArgs {
-            application,
-            rest,
-            all,
-        },
-        _,
-    ) = args.process()?;
+    let which_args = WhichArgs {
+        applications: args.rest_with_minimum(0, 1)?,
+        all: args.has_flag("all"),
+    };
 
     let mut output = vec![];
 
-    for app in vec![application].into_iter().chain(rest.into_iter()) {
-        let values = which_single(app, all, &scope);
+    for app in which_args.applications {
+        let values = which_single(app, which_args.all, &args.scope);
         output.extend(values);
     }
 
-    Ok((output.into_iter().map(ReturnSuccess::value)).to_action_stream())
+    Ok(output.into_iter().to_output_stream())
 }
 
 #[cfg(test)]
