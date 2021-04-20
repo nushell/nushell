@@ -72,15 +72,15 @@ fn picks_up_env_keys_when_entering_trusted_directory_indirectly() {
         sandbox.with_files(vec![FileWithContent(
             ".nu-env",
             r#"[env]
-                nu-version = "0.30.0" "#,
+                nu-ver = "0.30.0" "#,
         )]);
 
-        let expected = "0.29.2";
+        let expected = "0.30.0";
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().join("crates"), r#"
                 cd ../../autoenv_test_3
-                echo $nu.env.nu-version
+                echo $nu.env.nu-ver
             "#)
         });
 
