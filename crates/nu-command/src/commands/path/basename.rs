@@ -8,10 +8,9 @@ use std::path::Path;
 
 pub struct PathBasename;
 
-#[derive(Deserialize)]
 struct PathBasenameArguments {
-    replace: Option<Tagged<String>>,
     rest: Vec<ColumnPath>,
+    replace: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathBasenameArguments {
@@ -27,24 +26,28 @@ impl WholeStreamCommand for PathBasename {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "replace",
                 SyntaxShape::String,
                 "Return original path with basename replaced by this string",
                 Some('r'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "Gets the final component of a path"
+        "Get the final component of a path"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathBasenameArguments { replace, rest }, input) = args.process()?;
-        let args = Arc::new(PathBasenameArguments { replace, rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathBasenameArguments {
+            rest: args.rest_args()?,
+            replace: args.get_flag("replace")?,
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
@@ -84,14 +87,16 @@ impl WholeStreamCommand for PathBasename {
     }
 }
 
-fn action(path: &Path, args: &PathBasenameArguments) -> UntaggedValue {
-    match args.replace {
+fn action(path: &Path, tag: Tag, args: &PathBasenameArguments) -> Value {
+    let untagged = match args.replace {
         Some(ref basename) => UntaggedValue::filepath(path.with_file_name(&basename.item)),
         None => UntaggedValue::string(match path.file_name() {
             Some(filename) => filename.to_string_lossy(),
             None => "".into(),
         }),
-    }
+    };
+
+    untagged.into_value(tag)
 }
 
 #[cfg(test)]

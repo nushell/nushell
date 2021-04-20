@@ -2,12 +2,11 @@ use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use std::path::{Path, PathBuf};
 
 pub struct PathExpand;
 
-#[derive(Deserialize)]
 struct PathExpandArguments {
     rest: Vec<ColumnPath>,
 }
@@ -29,14 +28,17 @@ impl WholeStreamCommand for PathExpand {
     }
 
     fn usage(&self) -> &str {
-        "Expands a path to its absolute form"
+        "Expand a path to its absolute form"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExpandArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathExpandArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathExpandArguments {
+            rest: args.rest_args()?,
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
@@ -60,11 +62,13 @@ impl WholeStreamCommand for PathExpand {
     }
 }
 
-fn action(path: &Path, _args: &PathExpandArguments) -> UntaggedValue {
+fn action(path: &Path, tag: Tag, _args: &PathExpandArguments) -> Value {
     let ps = path.to_string_lossy();
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
+
     UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+        .into_value(tag)
 }
 
 #[cfg(test)]

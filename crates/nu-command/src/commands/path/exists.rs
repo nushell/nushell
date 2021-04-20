@@ -7,7 +7,6 @@ use std::path::Path;
 
 pub struct PathExists;
 
-#[derive(Deserialize)]
 struct PathExistsArguments {
     rest: Vec<ColumnPath>,
 }
@@ -29,20 +28,23 @@ impl WholeStreamCommand for PathExists {
     }
 
     fn usage(&self) -> &str {
-        "Checks whether a path exists"
+        "Check whether a path exists"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExistsArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathExistsArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let args = args.evaluate_once()?;
+        let cmd_args = Arc::new(PathExistsArguments {
+            rest: args.rest_args()?,
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Check if file exists",
+            description: "Check if a file exists",
             example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
             result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
         }]
@@ -51,15 +53,15 @@ impl WholeStreamCommand for PathExists {
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Check if file exists",
+            description: "Check if a file exists",
             example: "echo '/home/joe/todo.txt' | path exists",
             result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
         }]
     }
 }
 
-fn action(path: &Path, _args: &PathExistsArguments) -> UntaggedValue {
-    UntaggedValue::boolean(path.exists())
+fn action(path: &Path, tag: Tag, _args: &PathExistsArguments) -> Value {
+    UntaggedValue::boolean(path.exists()).into_value(tag)
 }
 
 #[cfg(test)]
