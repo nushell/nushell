@@ -169,7 +169,17 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                if let Some(env_paths) = self.scope.get_env("PATH") {
+                let env_paths = if let Some(env_paths) = self.scope.get_env("PATH") {
+                    Some(env_paths)
+                } else if let Some(env_paths) = self.scope.get_env("Path") {
+                    Some(env_paths)
+                } else if let Some(env_paths) = self.scope.get_env("path") {
+                    Some(env_paths)
+                } else {
+                    None
+                };
+
+                if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
                     //No duplicates! Remove env_paths already existing in cfg_paths
                     env_paths.retain(|env_path| !cfg_paths.contains(env_path));
@@ -230,7 +240,17 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                if let Some(env_paths) = self.scope.get_env("PATH") {
+                let env_paths = if let Some(env_paths) = self.scope.get_env("PATH") {
+                    Some(env_paths)
+                } else if let Some(env_paths) = self.scope.get_env("Path") {
+                    Some(env_paths)
+                } else if let Some(env_paths) = self.scope.get_env("path") {
+                    Some(env_paths)
+                } else {
+                    None
+                };
+
+                if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
                     //No duplicates! Remove env_paths already existing in cfg_paths
                     env_paths.retain(|env_path| !cfg_paths.contains(env_path));
