@@ -138,6 +138,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
     //   - the command name ends in a path separator, or
     //   - it's not a command on the path and no arguments were given.
     let name = &cmd.name;
+    ctx.sync_path_to_env();
     let path_name = if name.ends_with(std::path::is_separator)
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
