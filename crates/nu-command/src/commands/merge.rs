@@ -6,7 +6,8 @@ use nu_engine::WholeStreamCommand;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::CapturedBlock, hir::ExternalRedirection, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
 };
 pub struct Merge;
 
@@ -53,7 +54,12 @@ fn merge(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
-    let result = run_block(&block.block, &context, InputStream::empty());
+    let result = run_block(
+        &block.block,
+        &context,
+        InputStream::empty(),
+        ExternalRedirection::Stdout,
+    );
     context.scope.exit_scope();
 
     let table: Option<Vec<Value>> = match result {

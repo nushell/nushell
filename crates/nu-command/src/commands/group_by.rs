@@ -2,6 +2,7 @@ use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_protocol::hir::ExternalRedirection;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::as_string;
@@ -148,7 +149,12 @@ pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let run = block.clone();
                 let context = context.clone();
 
-                match crate::commands::each::process_row(run, context, value.clone()) {
+                match crate::commands::each::process_row(
+                    run,
+                    context,
+                    value.clone(),
+                    ExternalRedirection::Stdout,
+                ) {
                     Ok(mut s) => {
                         let collection: Vec<Value> = s.drain_vec();
 

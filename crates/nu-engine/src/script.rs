@@ -2,8 +2,8 @@ use crate::{maybe_print_errors, path::canonicalize, run_block};
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
-    Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
-    SpannedExpression,
+    Call, ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, Literal,
+    NamedArguments, SpannedExpression,
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
@@ -185,7 +185,7 @@ pub fn process_script(
 
         trace!("{:#?}", block);
 
-        let result = run_block(&block, ctx, input_stream);
+        let result = run_block(&block, ctx, input_stream, ExternalRedirection::None);
 
         match result {
             Ok(input) => {

@@ -77,11 +77,9 @@ impl WholeStreamCommand for Arc<Block> {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
 
-        let mut block = self.clone();
+        let block = self.clone();
 
-        if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block) {
-            block.set_redirect(call_info.args.external_redirection);
-        }
+        let external_redirection = args.call_info.args.external_redirection;
 
         let ctx = EvaluationContext::from_args(&args);
         let evaluated = call_info.evaluate(&ctx)?;
@@ -178,7 +176,7 @@ impl WholeStreamCommand for Arc<Block> {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input);
+        let result = run_block(&block, &ctx, input, external_redirection);
         ctx.scope.exit_scope();
         result
     }

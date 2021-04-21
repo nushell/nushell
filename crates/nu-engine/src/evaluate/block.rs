@@ -4,7 +4,8 @@ use crate::evaluation_context::EvaluationContext;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::{
-    Block, Call, ClassifiedCommand, Expression, Pipeline, SpannedExpression, Synthetic,
+    Block, Call, ClassifiedCommand, Expression, ExternalRedirection, Pipeline, SpannedExpression,
+    Synthetic,
 };
 use nu_protocol::{UntaggedValue, Value};
 use nu_source::{Span, Tag};
@@ -15,13 +16,15 @@ pub fn run_block(
     block: &Block,
     ctx: &EvaluationContext,
     mut input: InputStream,
+    external_redirection: ExternalRedirection,
 ) -> Result<OutputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(OutputStream::empty());
     for (_, definition) in block.definitions.iter() {
         ctx.scope.add_definition(definition.clone());
     }
 
-    for group in &block.block {
+    let num_groups = block.block.len();
+    for (group_num, group) in block.block.iter().enumerate() {
         match output {
             Ok(inp) if inp.is_empty() => {}
             Ok(inp) => {
@@ -75,7 +78,9 @@ pub fn run_block(
             }
         }
         output = Ok(OutputStream::empty());
-        for pipeline in &group.pipelines {
+
+        let num_pipelines = group.pipelines.len();
+        for (pipeline_num, pipeline) in group.pipelines.iter().enumerate() {
             match output {
                 Ok(inp) if inp.is_empty() => {}
                 Ok(mut output_stream) => {
@@ -112,7 +117,13 @@ pub fn run_block(
                     return Err(e);
                 }
             }
-            output = run_pipeline(pipeline, ctx, input);
+            output = if group_num == (num_groups - 1) && pipeline_num == (num_pipelines - 1) {
+                // we're at the end of the block, so use the given external redirection
+                run_pipeline(pipeline, ctx, input, external_redirection)
+            } else {
+                // otherwise, we're in the middle of the block, so use a default redirection
+                run_pipeline(pipeline, ctx, input, ExternalRedirection::Stdout)
+            };
 
             input = OutputStream::empty();
         }
@@ -125,13 +136,15 @@ fn run_pipeline(
     commands: &Pipeline,
     ctx: &EvaluationContext,
     mut input: InputStream,
+    external_redirection: ExternalRedirection,
 ) -> Result<OutputStream, ShellError> {
-    for item in commands.list.clone() {
-        input = match item {
+    let num_commands = commands.list.len();
+    for (command_num, command) in commands.list.iter().enumerate() {
+        input = match command {
             ClassifiedCommand::Dynamic(call) => {
                 let mut args = vec![];
-                if let Some(positional) = call.positional {
-                    for pos in &positional {
+                if let Some(positional) = &call.positional {
+                    for pos in positional {
                         let result = run_expression_block(pos, ctx)?.into_vec();
                         args.push(result);
                     }
@@ -160,7 +173,8 @@ fn run_pipeline(
                         {
                             ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
-                        let result = run_block(&captured_block.block, ctx, input);
+                        let result =
+                            run_block(&captured_block.block, ctx, input, external_redirection);
                         ctx.scope.exit_scope();
 
                         let result = result?;
@@ -174,9 +188,17 @@ fn run_pipeline(
 
             ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx)?,
 
-            ClassifiedCommand::Error(err) => return Err(err.into()),
+            ClassifiedCommand::Error(err) => return Err(err.clone().into()),
 
-            ClassifiedCommand::Internal(left) => run_internal_command(left, ctx, input)?,
+            ClassifiedCommand::Internal(left) => {
+                if command_num == (num_commands - 1) {
+                    let mut left = left.clone();
+                    left.args.external_redirection = external_redirection;
+                    run_internal_command(&left, ctx, input)?
+                } else {
+                    run_internal_command(left, ctx, input)?
+                }
+            }
         };
     }
 

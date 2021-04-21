@@ -2,6 +2,7 @@ use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_protocol::hir::ExternalRedirection;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
@@ -81,7 +82,12 @@ fn process_row(
             context.scope.add_vars(&block.captured.entries);
             context.scope.add_var("$it", input.clone());
 
-            let result = run_block(&block.block, &*context, input_stream);
+            let result = run_block(
+                &block.block,
+                &*context,
+                input_stream,
+                ExternalRedirection::Stdout,
+            );
 
             context.scope.exit_scope();
 

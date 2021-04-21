@@ -434,12 +434,8 @@ fn parse_invocation(
     };
 
     scope.enter_scope();
-    let (mut classified_block, err) = classify_block(&lite_block, scope);
+    let (classified_block, err) = classify_block(&lite_block, scope);
     scope.exit_scope();
-
-    if let Some(x) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut classified_block) {
-        x.set_redirect(ExternalRedirection::Stdout);
-    }
 
     (
         SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),

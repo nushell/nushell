@@ -12,9 +12,6 @@ use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, Spann
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-pub struct RunExternalArgs {}
-
 #[derive(new)]
 pub struct RunExternalCommand {
     /// Whether or not nushell is being used in an interactive context
