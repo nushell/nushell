@@ -59,6 +59,7 @@ impl WholeStreamCommand for If {
 }
 fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = raw_args.call_info.name_tag.clone();
+    let external_redirection = raw_args.call_info.args.external_redirection;
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
 
     let args = raw_args.evaluate_once()?;
@@ -105,9 +106,9 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(condition) => match condition.as_bool() {
             Ok(b) => {
                 let result = if b {
-                    run_block(&then_case.block, &*context, input)
+                    run_block(&then_case.block, &*context, input, external_redirection)
                 } else {
-                    run_block(&else_case.block, &*context, input)
+                    run_block(&else_case.block, &*context, input, external_redirection)
                 };
                 context.scope.exit_scope();
 

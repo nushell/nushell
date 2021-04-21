@@ -5,7 +5,10 @@ use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{Block, CapturedBlock, ClassifiedCommand, Group, InternalCommand, Pipeline},
+    hir::{
+        Block, CapturedBlock, ClassifiedCommand, ExternalRedirection, Group, InternalCommand,
+        Pipeline,
+    },
     Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
@@ -84,7 +87,12 @@ fn benchmark(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     // let start = time();
 
     context.scope.enter_scope();
-    let result = run_block(&block.block, &context, input);
+    let result = run_block(
+        &block.block,
+        &context,
+        input,
+        ExternalRedirection::StdoutAndStderr,
+    );
     context.scope.exit_scope();
     let output = result?.into_vec();
 
@@ -154,7 +162,12 @@ where
         let time_block = add_implicit_autoview(time_block.block);
 
         context.scope.enter_scope();
-        let result = run_block(&time_block, context, benchmark_output);
+        let result = run_block(
+            &time_block,
+            context,
+            benchmark_output,
+            ExternalRedirection::StdoutAndStderr,
+        );
         context.scope.exit_scope();
         result?;
         context.clear_errors();

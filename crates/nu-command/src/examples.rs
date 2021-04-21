@@ -11,7 +11,7 @@ use stub_generate::{mock_path, Command as StubOpen};
 use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::hir::ClassifiedBlock;
+use nu_protocol::hir::{ClassifiedBlock, ExternalRedirection};
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
@@ -231,7 +231,7 @@ fn evaluate_block(
 
     ctx.scope.enter_scope();
 
-    let result = run_block(&block.block, ctx, input_stream);
+    let result = run_block(&block.block, ctx, input_stream, ExternalRedirection::Stdout);
 
     ctx.scope.exit_scope();
 

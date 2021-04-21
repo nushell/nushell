@@ -229,13 +229,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
-                let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
-
-                if let Some(block) =
-                    std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut prompt_block)
-                {
-                    block.set_redirect(ExternalRedirection::Stdout);
-                }
+                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 if err.is_some() {
                     context.scope.exit_scope();
@@ -250,7 +244,12 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                         nu_ansi_term::ansi::RESET
                     )
                 } else {
-                    let run_result = run_block(&prompt_block, &context, InputStream::empty());
+                    let run_result = run_block(
+                        &prompt_block,
+                        &context,
+                        InputStream::empty(),
+                        ExternalRedirection::Stdout,
+                    );
                     context.scope.exit_scope();
 
                     match run_result {
@@ -485,7 +484,12 @@ pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, She
 
     let input_stream = InputStream::empty();
 
-    let result = run_block(&classified_block, ctx, input_stream);
+    let result = run_block(
+        &classified_block,
+        ctx,
+        input_stream,
+        ExternalRedirection::Stdout,
+    );
     ctx.scope.exit_scope();
 
     result?.collect_string(Tag::unknown()).map(|x| x.item)

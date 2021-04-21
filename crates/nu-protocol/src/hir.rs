@@ -206,16 +206,6 @@ impl Block {
         self.infer_params();
     }
 
-    pub fn set_redirect(&mut self, external_redirection: ExternalRedirection) {
-        if let Some(group) = self.block.last_mut() {
-            if let Some(pipeline) = group.pipelines.last_mut() {
-                if let Some(ClassifiedCommand::Internal(internal)) = pipeline.list.last_mut() {
-                    internal.args.external_redirection = external_redirection;
-                }
-            }
-        }
-    }
-
     pub fn has_it_usage(&self) -> bool {
         self.block.iter().any(|x| x.has_it_usage())
     }

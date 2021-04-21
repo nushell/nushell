@@ -5,7 +5,9 @@ use nu_engine::WholeStreamCommand;
 use nu_engine::{CommandArgs, Example};
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::CapturedBlock, hir::ExternalRedirection, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use nu_stream::ActionStream;
 
@@ -88,7 +90,12 @@ fn process_row(
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
     context.scope.add_var("$it", row);
-    let result = run_block(&block.block, context, input_stream);
+    let result = run_block(
+        &block.block,
+        context,
+        input_stream,
+        ExternalRedirection::Stdout,
+    );
     context.scope.exit_scope();
 
     result

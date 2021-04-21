@@ -68,6 +68,13 @@ fn correctly_escape_external_arguments() {
     assert_eq!(actual.out, "$0");
 }
 
+#[test]
+fn redirects_custom_command_external() {
+    let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length "#);
+
+    assert_eq!(actual.out, "8");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

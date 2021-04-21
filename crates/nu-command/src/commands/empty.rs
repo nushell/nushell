@@ -3,8 +3,8 @@ use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape,
-    UntaggedValue, Value,
+    hir::CapturedBlock, hir::ExternalRedirection, ColumnPath, Primitive, ReturnSuccess, Signature,
+    SyntaxShape, UntaggedValue, Value,
 };
 
 use crate::utils::arguments::arguments;
@@ -142,7 +142,12 @@ fn process_row(
         context.scope.add_vars(&default_block.captured.entries);
         context.scope.add_var("$it", input.clone());
 
-        let stream = run_block(&default_block.block, &*context, input_stream);
+        let stream = run_block(
+            &default_block.block,
+            &*context,
+            input_stream,
+            ExternalRedirection::Stdout,
+        );
         context.scope.exit_scope();
 
         let mut stream = stream?;

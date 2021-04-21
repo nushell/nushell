@@ -51,6 +51,7 @@ impl WholeStreamCommand for EachWindow {
 
     fn run_with_actions(&self, raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
+        let external_redirection = raw_args.call_info.args.external_redirection;
         let (each_args, mut input): (EachWindowArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
@@ -76,7 +77,12 @@ impl WholeStreamCommand for EachWindow {
                 let local_window = window.clone();
 
                 if i % stride == 0 {
-                    Some(run_block_on_vec(local_window, block, context))
+                    Some(run_block_on_vec(
+                        local_window,
+                        block,
+                        context,
+                        external_redirection,
+                    ))
                 } else {
                     None
                 }

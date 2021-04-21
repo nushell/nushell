@@ -13,7 +13,7 @@ use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{ActionStream, InputStream};
 
 pub(crate) fn run_internal_command(
-    command: InternalCommand,
+    command: &InternalCommand,
     context: &EvaluationContext,
     input: InputStream,
 ) -> Result<InputStream, ShellError> {
@@ -30,7 +30,7 @@ pub(crate) fn run_internal_command(
     let result = context.run_command(
         internal_command,
         Tag::unknown_anchor(command.name_span),
-        command.args,
+        command.args.clone(), // FIXME: this is inefficient
         objects,
     )?;
     Ok(InputStream::from_stream(InternalIteratorSimple {

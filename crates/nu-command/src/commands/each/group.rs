@@ -2,7 +2,10 @@ use crate::commands::each::process_row;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{hir::CapturedBlock, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::{CapturedBlock, ExternalRedirection},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use serde::Deserialize;
 
@@ -44,6 +47,7 @@ impl WholeStreamCommand for EachGroup {
 
     fn run_with_actions(&self, raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
+        let external_redirection = raw_args.call_info.args.external_redirection;
         let (each_args, input): (EachGroupArgs, _) = raw_args.process()?;
         let block = Arc::new(Box::new(each_args.block));
 
@@ -52,6 +56,7 @@ impl WholeStreamCommand for EachGroup {
             context,
             group_size: each_args.group_size.item,
             input,
+            external_redirection,
         };
 
         Ok(each_group_iterator.flatten().to_action_stream())
@@ -63,6 +68,7 @@ struct EachGroupIterator {
     context: Arc<EvaluationContext>,
     group_size: usize,
     input: InputStream,
+    external_redirection: ExternalRedirection,
 }
 
 impl Iterator for EachGroupIterator {
@@ -89,6 +95,7 @@ impl Iterator for EachGroupIterator {
             group,
             self.block.clone(),
             self.context.clone(),
+            self.external_redirection,
         ))
     }
 }
@@ -97,13 +104,14 @@ pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
     block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
+    external_redirection: ExternalRedirection,
 ) -> OutputStream {
     let value = Value {
         value: UntaggedValue::Table(input),
         tag: Tag::unknown(),
     };
 
-    match process_row(block, context, value) {
+    match process_row(block, context, value, external_redirection) {
         Ok(s) => {
             // We need to handle this differently depending on whether process_row
             // returned just 1 value or if it returned multiple as a stream.

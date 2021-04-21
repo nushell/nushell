@@ -278,7 +278,7 @@ fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Va
         None => InputStream::empty(),
     };
 
-    let result = run_block(&block, ctx, input)?;
+    let result = run_block(&block, ctx, input, hir::ExternalRedirection::Stdout)?;
 
     let output = result.into_vec();
 

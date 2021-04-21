@@ -68,19 +68,9 @@ impl WholeStreamCommand for WithEnv {
 }
 
 fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let redirection = raw_args.call_info.args.external_redirection;
+    let external_redirection = raw_args.call_info.args.external_redirection;
     let context = EvaluationContext::from_args(&raw_args);
-    let (
-        WithEnvArgs {
-            variable,
-            mut block,
-        },
-        input,
-    ) = raw_args.process()?;
-
-    if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block.block) {
-        block.set_redirect(redirection);
-    }
+    let (WithEnvArgs { variable, block }, input) = raw_args.process()?;
 
     let mut env = IndexMap::new();
 
@@ -118,7 +108,7 @@ fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     context.scope.add_env(env);
     context.scope.add_vars(&block.captured.entries);
 
-    let result = run_block(&block.block, &context, input);
+    let result = run_block(&block.block, &context, input, external_redirection);
     context.scope.exit_scope();
 
     result.map(|x| x.to_action_stream())

@@ -4,7 +4,8 @@ use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    hir::{CapturedBlock, ExternalRedirection},
+    Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 
 pub struct Each;
@@ -62,6 +63,7 @@ pub fn process_row(
     captured_block: Arc<Box<CapturedBlock>>,
     context: Arc<EvaluationContext>,
     input: Value,
+    external_redirection: ExternalRedirection,
 ) -> Result<OutputStream, ShellError> {
     let input_clone = input.clone();
     // When we process a row, we need to know whether the block wants to have the contents of the row as
@@ -86,7 +88,12 @@ pub fn process_row(
         context.scope.add_var("$it", input);
     }
 
-    let result = run_block(&captured_block.block, &*context, input_stream);
+    let result = run_block(
+        &captured_block.block,
+        &*context,
+        input_stream,
+        external_redirection,
+    );
 
     context.scope.exit_scope();
 
@@ -103,6 +110,7 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
 
 fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
+    let external_redirection = raw_args.call_info.args.external_redirection;
     let args = raw_args.evaluate_once()?;
 
     let block: CapturedBlock = args.req(0)?;
@@ -119,7 +127,7 @@ fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
-                match process_row(block, context, row) {
+                match process_row(block, context, row, external_redirection) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
@@ -133,7 +141,7 @@ fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = block.clone();
                 let context = context.clone();
 
-                match process_row(block, context, input) {
+                match process_row(block, context, input, external_redirection) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
