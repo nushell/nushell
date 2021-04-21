@@ -35,33 +35,6 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
-fn treats_dot_dot_as_path_not_range() {
-    Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            r#"
-                name,rusty_luck,origin
-                Jason,1,Canada
-            "#,
-        )]);
-
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
-        r#"
-            mkdir temp;
-            cd temp;
-            echo $(open ../nu_times.csv).name | autoview;
-            cd ..;
-            rmdir temp
-            "#
-        ));
-
-        // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Jason");
-    })
-}
-
-#[test]
 fn invocation_properly_redirects() {
     let actual = nu!(
         cwd: ".",

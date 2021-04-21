@@ -486,11 +486,13 @@ fn parse_dollar_expr(
         //Return invocation
         trace!("Parsing invocation expression");
         parse_invocation(lite_arg, scope)
-    } else if let (expr, None) = parse_range(lite_arg, scope) {
-        (expr, None)
-    } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
-        (expr, None)
+    } else if lite_arg.item.contains("..") {
+        parse_range(lite_arg, scope)
+    } else if lite_arg.item.contains('.') {
+        trace!("Parsing path expression");
+        parse_full_column_path(lite_arg, scope)
     } else {
+        trace!("Parsing variable expression");
         parse_variable(lite_arg, scope)
     }
 }
