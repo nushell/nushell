@@ -1,7 +1,9 @@
 use crate::prelude::*;
 use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::ExternalRedirection, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -152,7 +154,6 @@ impl WholeStreamCommand for Save {
 }
 
 fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let external_redirection = raw_args.call_info.args.external_redirection;
     let mut full_path = PathBuf::from(raw_args.shell_manager.path());
     let name_tag = raw_args.call_info.name_tag.clone();
     let name = raw_args.call_info.name_tag.clone();
@@ -214,7 +215,7 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 positional: None,
                                 named: None,
                                 span: Span::unknown(),
-                                external_redirection,
+                                external_redirection: ExternalRedirection::Stdout,
                             },
                             name_tag: name_tag.clone(),
                         },
