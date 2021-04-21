@@ -391,6 +391,17 @@ fn proper_shadow_set_aliases() {
     assert_eq!(actual.out, "falsetruefalse");
 }
 
+#[test]
+fn run_dynamic_blocks() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let block = { echo "holaaaa" }; $block
+        "#
+    );
+    assert_eq!(actual.out, "holaaaa");
+}
+
 #[cfg(feature = "which")]
 #[test]
 fn argument_invocation_reports_errors() {

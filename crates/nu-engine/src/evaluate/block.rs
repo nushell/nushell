@@ -137,50 +137,34 @@ fn run_pipeline(
                     }
                 }
 
-                match &call.head.expr {
-                    Expression::Block(block) => {
+                let block = run_expression_block(&call.head, ctx)?.into_vec();
+
+                if block.len() != 1 {
+                    return Err(ShellError::labeled_error(
+                        "Dynamic commands must start with a block",
+                        "needs to be a block",
+                        call.head.span,
+                    ));
+                }
+
+                match &block[0].value {
+                    UntaggedValue::Block(captured_block) => {
                         ctx.scope.enter_scope();
-                        for (param, value) in block.params.positional.iter().zip(args.iter()) {
+                        ctx.scope.add_vars(&captured_block.captured.entries);
+                        for (param, value) in captured_block
+                            .block
+                            .params
+                            .positional
+                            .iter()
+                            .zip(args.iter())
+                        {
                             ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
-                        let result = run_block(&block, ctx, input);
+                        let result = run_block(&captured_block.block, ctx, input);
                         ctx.scope.exit_scope();
 
                         let result = result?;
                         return Ok(result);
-                    }
-                    Expression::Variable(v, span) => {
-                        if let Some(value) = ctx.scope.get_var(v) {
-                            match &value.value {
-                                UntaggedValue::Block(captured_block) => {
-                                    ctx.scope.enter_scope();
-                                    ctx.scope.add_vars(&captured_block.captured.entries);
-                                    for (param, value) in captured_block
-                                        .block
-                                        .params
-                                        .positional
-                                        .iter()
-                                        .zip(args.iter())
-                                    {
-                                        ctx.scope.add_var(param.0.name(), value[0].clone());
-                                    }
-                                    let result = run_block(&captured_block.block, ctx, input);
-                                    ctx.scope.exit_scope();
-
-                                    let result = result?;
-                                    return Ok(result);
-                                }
-                                _ => {
-                                    return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
-                                }
-                            }
-                        } else {
-                            return Err(ShellError::labeled_error(
-                                "Variable not found",
-                                "variable not found",
-                                span,
-                            ));
-                        }
                     }
                     _ => {
                         return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
