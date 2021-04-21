@@ -140,3 +140,36 @@ fn removes_config_values() {
         assert!(file_contents(&file).is_empty());
     })
 }
+
+#[test]
+#[ignore = "This test is reproduciable by hand and succeeds when run locally, but fails only for linux stable CI"]
+fn updates_config_even_if_config_changed_externally() {
+    Playground::setup("updates_config_when_changed", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("config.toml"));
+
+        nu.with_config(&file);
+        nu.with_files(vec![
+            FileWithContent(
+                "config.toml",
+                r#"
+                skip_welcome_message = true
+                hi = "hi"
+                "#,
+            ),
+            FileWithContent(
+                "config.toml.2",
+                r#"
+                hi = "bye"
+                "#,
+            ),
+        ]);
+
+        assert_that!(
+            nu.pipeline("config get hi")
+                .and_then("do {rm config.toml ; = $noting}")
+                .and_then("cp config.toml.2 config.toml")
+                .and_then("config get hi"),
+            says().to_stdout("hibye")
+        );
+    })
+}

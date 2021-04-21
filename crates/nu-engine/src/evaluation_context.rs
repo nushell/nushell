@@ -1,9 +1,9 @@
-use crate::evaluate::scope::{Scope, ScopeFrame};
+use crate::env::{basic_host::BasicHost, host::Host};
+use crate::evaluate::scope::Scope;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
-use crate::{env::basic_host::BasicHost, Host};
 use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, Conf, NuConfig};
@@ -264,15 +264,14 @@ impl EvaluationContext {
             .transpose()?;
 
         let tag = config::cfg_path_to_scope_tag(&cfg.file_path);
-        let mut frame = ScopeFrame::with_tag(tag.clone());
 
-        frame.env = cfg.env_map();
-        if let Some(path) = joined_paths {
-            frame.env.insert(NATIVE_PATH_ENV_VAR.to_string(), path);
-        }
-        frame.exitscripts = exit_scripts;
-
-        self.scope.update_frame_with_tag(frame, &tag)?;
+        self.scope.update_frame_with_tag(&tag, |frame| {
+            frame.env = cfg.env_map();
+            if let Some(path) = joined_paths {
+                frame.env.insert(NATIVE_PATH_ENV_VAR.to_string(), path);
+            }
+            frame.exitscripts = exit_scripts;
+        });
 
         Ok(())
     }

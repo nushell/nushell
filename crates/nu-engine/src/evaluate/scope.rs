@@ -300,21 +300,19 @@ impl Scope {
         })
     }
 
-    pub fn update_frame_with_tag(&self, frame: ScopeFrame, tag: &str) -> Result<(), ShellError> {
+    /// Update frame with tag `tag` by applying function `f` on the frame
+    /// Returns true if tag was found, false otherwise
+    pub fn update_frame_with_tag(&self, tag: &str, f: impl FnOnce(&mut ScopeFrame)) -> bool {
         let mut frames = self.frames.lock();
         let tag = Some(tag);
-        for f in frames.iter_mut().rev() {
-            if f.tag.as_deref() == tag {
-                *f = frame;
-                return Ok(());
+        for frame in frames.iter_mut().rev() {
+            if frame.tag.as_deref() == tag {
+                f(frame);
+                return true;
             }
         }
 
-        // Frame not found, return err
-        Err(ShellError::untagged_runtime_error(format!(
-            "Can't update frame with tag {:?}. No such frame present!",
-            tag
-        )))
+        false
     }
 }
 
