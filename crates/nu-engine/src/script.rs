@@ -153,7 +153,7 @@ pub fn process_script(
                                     format!("{}\\", name.to_string())
                                 }
                             } else {
-                                name.to_string();
+                                name.to_string()
                             }
                         }
                         #[cfg(not(windows))]
