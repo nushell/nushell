@@ -82,9 +82,7 @@ rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-cli/term", "nu-command/term"]
 uuid-support = ["nu-cli/uuid_crate", "nu-command/uuid_crate"]
 which-support = [
-    "nu-cli/ichwh",
     "nu-cli/which",
-    "nu-command/ichwh",
     "nu-command/which",
     "nu-engine/which",
 ]

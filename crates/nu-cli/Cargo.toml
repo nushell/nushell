@@ -57,7 +57,6 @@ getset = "0.1.1"
 glob = "0.3.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
-ichwh = { version = "0.3.4", optional = true }
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"

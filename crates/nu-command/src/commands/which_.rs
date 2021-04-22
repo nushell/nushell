@@ -135,32 +135,28 @@ macro_rules! entry_path {
     };
 }
 
-#[cfg(feature = "ichwh")]
+#[cfg(feature = "which")]
 fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
-    use futures::executor::block_on;
-
-    block_on(ichwh::which(item))
-        .unwrap_or(None)
-        .map(|path| entry_path!(item, path.into(), tag))
+    which::which(item)
+        .map(|path| entry_path!(item, path, tag))
+        .ok()
 }
 
-#[cfg(not(feature = "ichwh"))]
+#[cfg(not(feature = "which"))]
 fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
     None
 }
 
-#[cfg(feature = "ichwh")]
+#[cfg(feature = "which")]
 fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
-    use futures::executor::block_on;
-
-    block_on(ichwh::which_all(&item))
+    which::which_all(&item)
+        .map(|iter| {
+            iter.map(|path| entry_path!(item, path, tag.clone()))
+                .collect()
+        })
         .unwrap_or_default()
-        .into_iter()
-        .map(|path| entry_path!(item, path.into(), tag.clone()))
-        .collect()
 }
-
-#[cfg(not(feature = "ichwh"))]
+#[cfg(not(feature = "which"))]
 fn get_all_entries_in_path(_: &str, _: Tag) -> Vec<Value> {
     vec![]
 }
