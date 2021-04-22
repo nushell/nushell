@@ -16,7 +16,8 @@ use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
+    StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -93,6 +94,8 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let base_context = basic_evaluation_context()?;
 
     base_context.add_commands(vec![
+        whole_stream_command(Math),
+        whole_stream_command(MathMode {}),
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(Get {}),
