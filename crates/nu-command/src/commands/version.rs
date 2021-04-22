@@ -192,11 +192,6 @@ fn features_enabled() -> Vec<String> {
         names.push("which".to_string());
     }
 
-    #[cfg(feature = "ichwh")]
-    {
-        names.push("ichwh".to_string());
-    }
-
     #[cfg(feature = "zip")]
     {
         names.push("zip".to_string());
