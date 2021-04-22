@@ -138,7 +138,7 @@ macro_rules! entry_path {
 #[cfg(feature = "which")]
 fn get_first_entry_in_path(item: &str, tag: Tag) -> Option<Value> {
     which::which(item)
-        .map(|path| entry_path!(item, path.into(), tag))
+        .map(|path| entry_path!(item, path, tag))
         .ok()
 }
 
@@ -151,7 +151,7 @@ fn get_first_entry_in_path(_: &str, _: Tag) -> Option<Value> {
 fn get_all_entries_in_path(item: &str, tag: Tag) -> Vec<Value> {
     which::which_all(&item)
         .map(|iter| {
-            iter.map(|path| entry_path!(item, path.into(), tag.clone()))
+            iter.map(|path| entry_path!(item, path, tag.clone()))
                 .collect()
         })
         .unwrap_or_default()
