@@ -62,6 +62,21 @@ fn reduce_numbered_example() {
 }
 
 #[test]
+fn reduce_numbered_integer_addition_example() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo [1 2 3 4]
+        | reduce -n {= $acc.item + $it.item }
+        | get item
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
 fn folding_with_tables() {
     let actual = nu!(
         cwd: ".", pipeline(
