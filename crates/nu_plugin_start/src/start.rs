@@ -2,7 +2,6 @@ use nu_errors::ShellError;
 use nu_protocol::{CallInfo, Value};
 use nu_source::{Tag, Tagged, TaggedItem};
 use std::path::Path;
-
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 
@@ -24,7 +23,7 @@ impl Start {
 
     pub fn parse(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
         self.tag = call_info.name_tag.clone();
-        self.parse_filenames(&call_info)?;
+        self.parse_input_parameters(&call_info)?;
         self.parse_application(&call_info);
         Ok(())
     }
@@ -72,20 +71,46 @@ impl Start {
         Ok(result)
     }
 
-    fn parse_filenames(&mut self, call_info: &CallInfo) -> Result<(), ShellError> {
+    fn parse_input_parameters(&mut self, call_info: &CallInfo) -> Result<(), ShellError> {
         let candidates = match &call_info.args.positional {
             Some(values) => {
                 let mut result = vec![];
 
                 for value in values.iter() {
-                    let res = self.glob_to_values(value)?;
-                    result.extend(res);
+                    let val_str = value.as_string();
+                    match val_str {
+                        Ok(s) => {
+                            if s.to_ascii_lowercase().starts_with("http")
+                                || s.to_ascii_lowercase().starts_with("https")
+                            {
+                                if webbrowser::open(&s).is_ok() {
+                                    result.push("http/web".to_string().tagged_unknown())
+                                } else {
+                                    return Err(ShellError::labeled_error(
+                                        &format!("error opening {}", &s),
+                                        "error opening url",
+                                        self.tag.span,
+                                    ));
+                                }
+                            } else {
+                                let res = self.glob_to_values(value)?;
+                                result.extend(res);
+                            }
+                        }
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                "no input given",
+                                self.tag.span,
+                            ));
+                        }
+                    }
                 }
 
                 if result.is_empty() {
                     return Err(ShellError::labeled_error(
-                        "No filename(s) given",
-                        "no filename(s) given",
+                        "No input given",
+                        "no input given",
                         self.tag.span,
                     ));
                 }
@@ -93,15 +118,17 @@ impl Start {
             }
             None => {
                 return Err(ShellError::labeled_error(
-                    "No filename(s) given",
-                    "no filename(s) given",
+                    "No input given",
+                    "no input given",
                     self.tag.span,
                 ))
             }
         };
 
         for candidate in candidates {
-            self.add_filename(candidate)?;
+            if !candidate.contains("http/web") {
+                self.add_filename(candidate)?;
+            }
         }
 
         Ok(())
