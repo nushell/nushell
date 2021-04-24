@@ -30,6 +30,8 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+use super::nu_dataframe::NuDataFrame;
+
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum UntaggedValue {
@@ -47,6 +49,9 @@ pub enum UntaggedValue {
 
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
+
+    /// NuDataframe
+    Dataframe(NuDataFrame),
 }
 
 impl UntaggedValue {
@@ -634,6 +639,7 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Table(_) => "table",
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
+            UntaggedValue::Dataframe(_) => "dataframe",
         }
     }
 }

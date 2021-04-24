@@ -69,6 +69,9 @@ pub enum Type {
     BeginningOfStream,
     /// End of stream marker (used as bookend markers rather than actual values)
     EndOfStream,
+
+    /// Dataframe
+    Dataframe,
 }
 
 /// A shape representation of the type of a row
@@ -183,6 +186,7 @@ impl Type {
             UntaggedValue::Table(table) => Type::from_table(table.iter()),
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,
+            UntaggedValue::Dataframe(_) => Type::Dataframe,
         }
     }
 }
@@ -287,6 +291,7 @@ impl PrettyDebug for Type {
                     })
             }
             Type::Block => ty("block"),
+            Type::Dataframe => ty("dataframe"),
         }
     }
 }
