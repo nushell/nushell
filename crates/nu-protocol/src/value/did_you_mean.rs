@@ -24,28 +24,28 @@ pub fn did_you_mean(obj_source: &Value, field_tried: String) -> Option<Vec<Strin
 
 /// Borrowed from https://crates.io/crates/natural
 fn levenshtein_distance(str1: &str, str2: &str) -> usize {
-    let n = str1.len();
-    let m = str2.len();
+    let mut current: Vec<usize> = (0..str1.len() + 1).collect();
+    let str1_chars: Vec<char> = str1.chars().collect();
+    let str2_chars: Vec<char> = str2.chars().collect();
 
-    let mut current: Vec<usize> = (0..n + 1).collect();
-    let a_vec: Vec<char> = str1.chars().collect();
-    let b_vec: Vec<char> = str2.chars().collect();
+    let str1_len = str1_chars.len();
+    let str2_len = str2_chars.len();
 
-    for i in 1..m + 1 {
+    for str2_index in 1..str2_len + 1 {
         let previous = current;
-        current = vec![0; n + 1];
-        current[0] = i;
-        for j in 1..n + 1 {
-            let add = previous[j] + 1;
-            let delete = current[j - 1] + 1;
-            let mut change = previous[j - 1];
-            if a_vec[j - 1] != b_vec[i - 1] {
+        current = vec![0; str1_len + 1];
+        current[0] = str2_index;
+        for str1_index in 1..str1_len + 1 {
+            let add = previous[str1_index] + 1;
+            let delete = current[str1_index - 1] + 1;
+            let mut change = previous[str1_index - 1];
+            if str1_chars[str1_index - 1] != str2_chars[str2_index - 1] {
                 change += 1
             }
-            current[j] = min3(add, delete, change);
+            current[str1_index] = min3(add, delete, change);
         }
     }
-    current[n]
+    current[str1_len]
 }
 
 fn min3<T: Ord>(a: T, b: T, c: T) -> T {
