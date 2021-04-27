@@ -1,6 +1,7 @@
 use crate::commands::table::options::{ConfigExtensions, NuConfig};
 use crate::prelude::*;
 use crate::primitive::get_color_config;
+use futures::executor::block_on;
 use nu_data::value::{format_leaf, style_leaf};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -194,7 +195,7 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
         .finish();
 
-    let stream_data = {
+    let stream_data = async {
         let finished = Arc::new(AtomicBool::new(false));
         // we are required to clone finished, for use within the callback, otherwise we get borrow errors
         #[cfg(feature = "table-pager")]
@@ -204,7 +205,7 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
             // This is called when the pager finishes, to indicate to the
             // while loop below to finish, in case of long running InputStream consumer
             // that doesn't finish by the time the user quits out of the pager
-            pager.lock().add_exit_callback(move || {
+            pager.lock().await.add_exit_callback(move || {
                 finished_within_callback.store(true, Ordering::Relaxed);
             });
         }
@@ -265,7 +266,7 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let output = draw_table(&t, term_width, &color_hm);
                 #[cfg(feature = "table-pager")]
                 {
-                    let mut pager = pager.lock();
+                    let mut pager = pager.lock().await;
                     writeln!(pager.lines, "{}", output).map_err(|_| {
                         ShellError::untagged_runtime_error("Error writing to pager")
                     })?;
@@ -280,7 +281,7 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         #[cfg(feature = "table-pager")]
         {
-            let mut pager_lock = pager.lock();
+            let mut pager_lock = pager.lock().await;
             pager_lock.data_finished();
         }
 
@@ -290,13 +291,14 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     #[cfg(feature = "table-pager")]
     {
         let (minus_result, streaming_result) =
-            join(minus::async_std_updating(pager.clone()), stream_data);
+            block_on(join(minus::async_std_updating(pager.clone()), stream_data));
         minus_result.map_err(|_| ShellError::untagged_runtime_error("Error paging data"))?;
         streaming_result?;
     }
 
     #[cfg(not(feature = "table-pager"))]
-    stream_data.map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
+    block_on(stream_data)
+        .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
 }
