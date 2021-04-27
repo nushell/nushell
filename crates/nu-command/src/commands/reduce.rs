@@ -155,7 +155,17 @@ fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                 let result = process_row(block, &*context, row);
                 context.scope.exit_scope();
 
-                result
+                // we make sure that result is an indexed item
+                result.and_then(|mut acc| {
+                    let values = acc.drain_vec();
+                    let value = values
+                        .get(0)
+                        .ok_or_else(|| ShellError::unexpected("No value to update with"))?;
+                    Ok(InputStream::one(match value.value {
+                        UntaggedValue::Primitive(_) => each::make_indexed_item(0, value.clone()),
+                        _ => value.clone(),
+                    }))
+                })
             })?
             .to_action_stream())
     } else {
