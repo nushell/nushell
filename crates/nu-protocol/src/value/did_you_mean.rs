@@ -91,4 +91,12 @@ mod test {
 
         assert_eq!(None, did_you_mean(&empty_source, "hat".to_string()))
     }
+
+    #[test]
+    fn test_levenshtein_distance() {
+        assert_eq!(super::levenshtein_distance("hello world", "hello world"), 0);
+        assert_eq!(super::levenshtein_distance("hello", "hello world"), 6);
+        assert_eq!(super::levenshtein_distance("°C", "°C"), 0);
+        assert_eq!(super::levenshtein_distance("°", "°C"), 1);
+    }
 }
