@@ -42,6 +42,8 @@ pub enum InlineShape {
     Block,
     // TODO: Error type
     Error,
+    // TODO: Dataframe type
+    Dataframe,
 
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
@@ -123,6 +125,7 @@ impl InlineShape {
             UntaggedValue::Table(table) => InlineShape::from_table(table.iter()),
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
+            UntaggedValue::Dataframe(_) => InlineShape::Dataframe,
         }
     }
 
@@ -312,6 +315,7 @@ impl PrettyDebug for FormatInlineShape {
             .group(),
             InlineShape::Block => DbgDocBldr::opaque("block"),
             InlineShape::Error => DbgDocBldr::error("error"),
+            InlineShape::Dataframe => DbgDocBldr::error("dataframe"),
             InlineShape::BeginningOfStream => DbgDocBldr::blank(),
             InlineShape::EndOfStream => DbgDocBldr::blank(),
         }

@@ -75,6 +75,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Table(l) => toml::Value::Array(collect_values(l)?),
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
+        UntaggedValue::Dataframe(_) => toml::Value::String("<Dataframe>".to_string()),
         UntaggedValue::Primitive(Primitive::Range(_)) => toml::Value::String("<Range>".to_string()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -218,7 +219,7 @@ mod tests {
             [owner]
             name = "Tom Preston-Werner"
             dob = 1979-05-27T07:32:00-08:00 # First class dates
-            
+
             [dependencies]
             rustyline = "4.1.0"
             sysinfo = "0.8.4"
