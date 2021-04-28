@@ -1,16 +1,21 @@
+use std::path::PathBuf;
+
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    nu_dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::NamedValue, nu_dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue,
 };
-use nu_source::Tagged;
-use std::fs::File;
-use std::path::PathBuf;
 
+use nu_source::Tagged;
 use polars::prelude::{CsvReader, SerReader};
 
 pub struct Dataframe;
+
+#[derive(Deserialize)]
+pub struct OpenArgs {
+    file: Tagged<PathBuf>,
+}
 
 impl WholeStreamCommand for Dataframe {
     fn name(&self) -> &str {
@@ -47,22 +52,19 @@ impl WholeStreamCommand for Dataframe {
 // If both options are found, then an error is returned to the user.
 // The InputStream can have a table and a dictionary as input variable.
 fn load_dataframe(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args
-        .call_info
+    // The file has priority over stream input
+    if let Some(NamedValue::Value(_, _)) = args
+        .call_info()
         .args
         .named
         .as_ref()
-        .map(|a| a.named.contains_key("file"))
-        .is_some()
+        .map(|named| named.named.get("file"))
+        .flatten()
     {
-        create_from_file(args)
-    } else {
-        let tag = args.call_info.name_tag.clone();
-        let init =
-            InputStream::one(UntaggedValue::Primitive(Primitive::Boolean(true)).into_value(&tag));
-
-        Ok(init.to_output_stream())
+        return create_from_file(args);
     }
+
+    create_from_input(args)
 }
 
 fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -70,47 +72,69 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // of the command used
     let tag = args.call_info.name_tag.clone();
 
-    // When the arguments get evaluated, the EvaluationContext is used
-    // to mark the scope and other variables related to the input
+    // Parsing the arguments that the function uses
+    let (OpenArgs { file }, _) = args.process()?;
+
+    // Needs more detail and arguments while loading the dataframe
+    // Options:
+    //  - has header
+    //  - infer schema
+    //  - delimiter
+    //  - csv or parquet <- extracted from extension
+    let csv_reader = match CsvReader::from_path(file.item) {
+        Ok(csv_reader) => csv_reader,
+        Err(e) => {
+            return Err(ShellError::labeled_error(
+                "Unable to parse file",
+                format!("{}", e),
+                &file.tag,
+            ))
+        }
+    };
+
+    let df = match csv_reader.infer_schema(None).has_header(true).finish() {
+        Ok(csv_reader) => csv_reader,
+        Err(e) => {
+            return Err(ShellError::labeled_error(
+                "Error while parsing dataframe",
+                format!("{}", e),
+                &file.tag,
+            ))
+        }
+    };
+
+    let nu_dataframe = NuDataFrame {
+        dataframe: Some(df),
+    };
+
+    let init = InputStream::one(UntaggedValue::Dataframe(nu_dataframe).into_value(&tag));
+
+    return Ok(init.to_output_stream());
+}
+
+fn create_from_input(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
 
     //println!("{:?}", args.args.call_info.args);
     //println!("{:?}", args.input.into_vec());
 
-    // The flag file has priority over the input stream
-    if let Some(value) = args.get_flag::<Value>("file")? {
-        if let UntaggedValue::Primitive(Primitive::FilePath(path)) = value.value {
-            // Needs more detail and arguments while loading the dataframe
-            // Options:
-            //  - has header
-            //  - infer schema
-            //  - delimiter
-            //  - csv or parquet <- extracted from extension
-            let csv_reader = match CsvReader::from_path(path) {
-                Ok(df) => df,
-                Err(e) => {
-                    return Err(ShellError::labeled_error(
-                        "Unable to parse file",
-                        format!("error: {}", e),
-                        &value.tag,
-                    ))
-                }
-            };
+    // When the arguments get evaluated, the EvaluationContext is used
+    // to mark the scope and other variables related to the input
+    //let args = args.evaluate_once()?;
 
-            let df = csv_reader
-                .infer_schema(None)
-                .has_header(true)
-                .finish()
-                .expect("error");
+    let input_args = args.input.into_vec();
 
-            let nu_dataframe = NuDataFrame {
-                dataframe: Some(df),
-            };
+    //if input_args.len() > 1 {
+    //    return Err(ShellError::labeled_error(
+    //        "Too many input arguments",
+    //        "Only one input argument",
+    //        &tag,
+    //    ));
+    //}
 
-            let init = InputStream::one(UntaggedValue::Dataframe(nu_dataframe).into_value(&tag));
-
-            return Ok(init.to_output_stream());
-        }
+    for val in input_args {
+        println!("{:#?}", val);
     }
 
     let init =
