@@ -1,4 +1,7 @@
-use crate::{maybe_print_errors, path::canonicalize, run_block};
+use crate::{
+    evaluate::internal::InternalIterator, maybe_print_errors, path::canonicalize, run_block,
+    shell::CdArgs,
+};
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
@@ -10,8 +13,8 @@ use nu_stream::{InputStream, ToInputStream};
 
 use crate::EvaluationContext;
 use log::{debug, trace};
-use nu_source::{Span, Tag, Text};
-use std::path::Path;
+use nu_source::{AnchorLocation, Span, Tag, Tagged, Text};
+use std::path::{Path, PathBuf};
 use std::{error::Error, sync::atomic::Ordering};
 use std::{io::BufReader, iter::Iterator};
 
@@ -83,7 +86,9 @@ pub fn process_script(
             && block.block[0].pipelines[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
-                ref name, ref args, ..
+                ref name,
+                ref args,
+                name_span,
             }) = block.block[0].pipelines[0].list[0]
             {
                 let internal_name = name;
@@ -117,44 +122,67 @@ pub fn process_script(
                     && Path::new(&name).is_dir()
                     && !ctx.host.lock().is_external_cmd(&name)
                 {
-                    // Here we work differently if we're in Windows because of the expected Windows behavior
-                    #[cfg(windows)]
-                    {
-                        if name.ends_with(':') {
-                            // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
-                            // But first, we need to save where we are now
-                            let current_path = ctx.shell_manager.path();
+                    let tag = Tag {
+                        anchor: Some(AnchorLocation::Source(line.into())),
+                        span: name_span,
+                    };
+                    let path = {
+                        // Here we work differently if we're in Windows because of the expected Windows behavior
+                        #[cfg(windows)]
+                        {
+                            if name.ends_with(':') {
+                                // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
+                                // But first, we need to save where we are now
+                                let current_path = ctx.shell_manager.path();
 
-                            let split_path: Vec<_> = current_path.split(':').collect();
-                            if split_path.len() > 1 {
-                                ctx.windows_drives_previous_cwd
-                                    .lock()
-                                    .insert(split_path[0].to_string(), current_path);
-                            }
+                                let split_path: Vec<_> = current_path.split(':').collect();
+                                if split_path.len() > 1 {
+                                    ctx.windows_drives_previous_cwd
+                                        .lock()
+                                        .insert(split_path[0].to_string(), current_path);
+                                }
 
-                            let name = name.to_uppercase();
-                            let new_drive: Vec<_> = name.split(':').collect();
+                                let name = name.to_uppercase();
+                                let new_drive: Vec<_> = name.split(':').collect();
 
-                            if let Some(val) =
-                                ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
-                            {
-                                ctx.shell_manager.set_path(val.to_string());
-                                return LineResult::Success(line.to_string());
+                                if let Some(val) =
+                                    ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
+                                {
+                                    val.to_string()
+                                } else {
+                                    format!("{}\\", name.to_string())
+                                }
                             } else {
-                                ctx.shell_manager
-                                    .set_path(format!("{}\\", name.to_string()));
-                                return LineResult::Success(line.to_string());
+                                name.to_string()
                             }
-                        } else {
-                            ctx.shell_manager.set_path(name.to_string());
-                            return LineResult::Success(line.to_string());
                         }
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        ctx.shell_manager.set_path(name.to_string());
-                        return LineResult::Success(line.to_string());
-                    }
+                        #[cfg(not(windows))]
+                        {
+                            name.to_string()
+                        }
+                    };
+
+                    let cd_args = CdArgs {
+                        path: Some(Tagged {
+                            item: PathBuf::from(path),
+                            tag: tag.clone(),
+                        }),
+                    };
+
+                    return match ctx.shell_manager.cd(cd_args, tag) {
+                        Err(e) => LineResult::Error(line.to_string(), e),
+                        Ok(stream) => {
+                            let iter = InternalIterator {
+                                context: ctx.clone(),
+                                leftovers: InputStream::empty(),
+                                input: stream,
+                            };
+                            for _ in iter {
+                                //nullopt, commands are run by iterating over iter
+                            }
+                            LineResult::Success(line.to_string())
+                        }
+                    };
                 }
             }
         }
