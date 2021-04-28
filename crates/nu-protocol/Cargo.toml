@@ -25,7 +25,7 @@ num-traits = "0.2.14"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.5"
 
-polars = {version="0.12.0", git = "https://github.com/ritchie46/polars", rev = "623994615cda40137045e81e4c15a86403e12efb"}
+polars = {version="0.12.0", git = "https://github.com/ritchie46/polars", rev = "27173e78d471f4fa96d175d38a4f010076fb4c1f"}
 
 # implement conversions
 serde_json = "1.0"
