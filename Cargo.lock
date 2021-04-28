@@ -200,6 +200,31 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 name = "arrow"
 version = "4.0.0-SNAPSHOT"
 source = "git+https://github.com/apache/arrow?rev=9a4ef4696b8b9d46e203f164345ee9c19cbac46c#9a4ef4696b8b9d46e203f164345ee9c19cbac46c"
+<<<<<<< HEAD
+=======
+dependencies = [
+ "cfg_aliases",
+ "chrono",
+ "csv",
+ "flatbuffers",
+ "hex 0.4.3",
+ "indexmap",
+ "lazy_static 1.4.0",
+ "lexical-core",
+ "num 0.3.1",
+ "rand 0.7.3",
+ "regex 1.4.3",
+ "serde 1.0.124",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
+name = "async-attributes"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 dependencies = [
  "cfg_aliases",
  "chrono",
@@ -434,7 +459,11 @@ dependencies = [
  "clap",
  "console",
  "content_inspector",
+<<<<<<< HEAD
  "dirs 3.0.2",
+=======
+ "dirs 3.0.1",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
  "encoding",
  "error-chain",
  "git2",
@@ -1361,6 +1390,20 @@ dependencies = [
 [[package]]
 name = "dirs"
 version = "1.0.5"
+<<<<<<< HEAD
+=======
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fd78930633bd1c6e35c4b42b1df7b0cbc6bc191146e512bb3bedf243fcc3901"
+dependencies = [
+ "libc",
+ "redox_users 0.3.5",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "dirs"
+version = "3.0.1"
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fd78930633bd1c6e35c4b42b1df7b0cbc6bc191146e512bb3bedf243fcc3901"
 dependencies = [
@@ -2189,7 +2232,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f837c62de05dc9cc71ff6486cd85de8856a330395ae338a04bfcefe5e91075"
 dependencies = [
  "num 0.2.1",
+<<<<<<< HEAD
  "regex 1.4.6",
+=======
+ "regex 1.4.3",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 ]
 
 [[package]]
@@ -2526,7 +2573,11 @@ checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg",
  "hashbrown 0.9.1",
+<<<<<<< HEAD
  "serde 1.0.125",
+=======
+ "serde 1.0.124",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 ]
 
 [[package]]
@@ -2695,9 +2746,15 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "lexical"
+<<<<<<< HEAD
 version = "5.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f404a90a744e32e8be729034fc33b90cf2a56418fbf594d69aa3c0214ad414e5"
+=======
+version = "5.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a11b9b772d42a9cf7ff6742d4695054070432742b19cecea07e7c4eca8173d25"
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 dependencies = [
  "cfg-if 1.0.0",
  "lexical-core",
@@ -3590,7 +3647,11 @@ dependencies = [
  "num-integer",
  "num-traits 0.2.14",
  "polars",
+<<<<<<< HEAD
  "serde 1.0.125",
+=======
+ "serde 1.0.124",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
  "serde_bytes",
  "serde_json",
  "serde_yaml",
@@ -3984,6 +4045,17 @@ dependencies = [
  "num-integer",
  "num-traits 0.2.14",
  "serde 1.0.125",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -4547,7 +4619,11 @@ dependencies = [
  "polars-arrow",
  "prettytable-rs",
  "rayon",
+<<<<<<< HEAD
  "regex 1.4.6",
+=======
+ "regex 1.4.3",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
  "thiserror",
  "unsafe_unwrap",
 ]
@@ -4571,7 +4647,11 @@ dependencies = [
  "polars-arrow",
  "polars-core",
  "rayon",
+<<<<<<< HEAD
  "regex 1.4.6",
+=======
+ "regex 1.4.3",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 ]
 
 [[package]]
@@ -5234,7 +5314,11 @@ dependencies = [
  "byteorder",
  "lazy_static 1.4.0",
  "num 0.2.1",
+<<<<<<< HEAD
  "serde 1.0.125",
+=======
+ "serde 1.0.124",
+>>>>>>> 6f0f39e426cbef668c3a0856dee9fc37052bb9f0
 ]
 
 [[package]]
