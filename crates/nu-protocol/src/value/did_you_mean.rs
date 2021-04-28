@@ -1,5 +1,4 @@
 use crate::Value;
-use std::cmp;
 
 /// Prepares a list of "sounds like" matches (using edit distance) for the string you're trying to find
 pub fn did_you_mean(obj_source: &Value, field_tried: String) -> Option<Vec<String>> {
@@ -22,34 +21,65 @@ pub fn did_you_mean(obj_source: &Value, field_tried: String) -> Option<Vec<Strin
     }
 }
 
-/// Borrowed from https://crates.io/crates/natural
-fn levenshtein_distance(str1: &str, str2: &str) -> usize {
-    let mut current: Vec<usize> = (0..str1.len() + 1).collect();
-    let str1_chars: Vec<char> = str1.chars().collect();
-    let str2_chars: Vec<char> = str2.chars().collect();
+// Borrowed from here https://github.com/wooorm/levenshtein-rs
+pub fn levenshtein_distance(a: &str, b: &str) -> usize {
+    let mut result = 0;
 
-    let str1_len = str1_chars.len();
-    let str2_len = str2_chars.len();
+    /* Shortcut optimizations / degenerate cases. */
+    if a == b {
+        return result;
+    }
 
-    for str2_index in 1..str2_len + 1 {
-        let previous = current;
-        current = vec![0; str1_len + 1];
-        current[0] = str2_index;
-        for str1_index in 1..str1_len + 1 {
-            let add = previous[str1_index] + 1;
-            let delete = current[str1_index - 1] + 1;
-            let mut change = previous[str1_index - 1];
-            if str1_chars[str1_index - 1] != str2_chars[str2_index - 1] {
-                change += 1
-            }
-            current[str1_index] = min3(add, delete, change);
+    let length_a = a.chars().count();
+    let length_b = b.chars().count();
+
+    if length_a == 0 {
+        return length_b;
+    }
+
+    if length_b == 0 {
+        return length_a;
+    }
+
+    /* Initialize the vector.
+     *
+     * This is why it’s fast, normally a matrix is used,
+     * here we use a single vector. */
+    let mut cache: Vec<usize> = (1..).take(length_a).collect();
+    let mut distance_a;
+    let mut distance_b;
+
+    /* Loop. */
+    for (index_b, code_b) in b.chars().enumerate() {
+        result = index_b;
+        distance_a = index_b;
+
+        for (index_a, code_a) in a.chars().enumerate() {
+            distance_b = if code_a == code_b {
+                distance_a
+            } else {
+                distance_a + 1
+            };
+
+            distance_a = cache[index_a];
+
+            result = if distance_a > result {
+                if distance_b > result {
+                    result + 1
+                } else {
+                    distance_b
+                }
+            } else if distance_b > distance_a {
+                distance_a + 1
+            } else {
+                distance_b
+            };
+
+            cache[index_a] = result;
         }
     }
-    current[str1_len]
-}
 
-fn min3<T: Ord>(a: T, b: T, c: T) -> T {
-    cmp::min(a, cmp::min(b, c))
+    result
 }
 
 #[cfg(test)]
