@@ -1,10 +1,13 @@
 use std::hash::{Hash, Hasher};
 use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
 
+use bigdecimal::ToPrimitive;
 use nu_errors::ShellError;
 use polars::prelude::DataFrame;
 use serde::de::{Deserialize, Deserializer, Visitor};
 use serde::Serialize;
+
+use std::any::Any;
 use std::fmt;
 
 use crate::{Primitive, UntaggedValue, Value};
@@ -137,6 +140,29 @@ impl NuDataFrame {
                     return Err(ShellError::labeled_error(
                         "Format not supported",
                         "Value not supported for conversion",
+                        &value.tag,
+                    ));
+                }
+            }
+        }
+
+        let col = column_values.values().next().unwrap();
+        for value in col {
+            match &value.value {
+                UntaggedValue::Primitive(Primitive::Int(a)) => {
+                    println!("BigInt: {:?}", a);
+                    let test = a.to_i64().unwrap();
+                    println!("i64: {}", test);
+                }
+                UntaggedValue::Primitive(Primitive::Decimal(a)) => {
+                    println!("Decimal: {:?}", a);
+                    let test = b.to_f64().unwrap();
+                    println!("f64: {}", test);
+                }
+                _ => {
+                    return Err(ShellError::labeled_error(
+                        "Fucking error",
+                        "Error",
                         &value.tag,
                     ));
                 }
