@@ -4,7 +4,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::NamedValue, nu_dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue,
+    hir::NamedValue, nu_dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue,
 };
 
 use nu_source::Tagged;
@@ -123,7 +123,7 @@ fn create_from_input(args: CommandArgs) -> Result<OutputStream, ShellError> {
     // to mark the scope and other variables related to the input
     //let args = args.evaluate_once()?;
 
-    let input_args = args.input.into_vec();
+    //let input_args = args.input.into_vec();
 
     //if input_args.len() > 1 {
     //    return Err(ShellError::labeled_error(
@@ -133,12 +133,9 @@ fn create_from_input(args: CommandArgs) -> Result<OutputStream, ShellError> {
     //    ));
     //}
 
-    for val in input_args {
-        println!("{:#?}", val);
-    }
+    let df = NuDataFrame::try_from_iter(args.input)?;
 
-    let init =
-        InputStream::one(UntaggedValue::Primitive(Primitive::Boolean(true)).into_value(&tag));
+    let init = InputStream::one(UntaggedValue::Dataframe(df).into_value(&tag));
 
     Ok(init.to_output_stream())
 }
