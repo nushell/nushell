@@ -494,6 +494,22 @@ impl Value {
         }
     }
 
+    /// View the Value as signed 32-bit float, if possible
+    pub fn as_f32(&self) -> Result<f32, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_f32(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as signed 64-bit float, if possible
+    pub fn as_f64(&self) -> Result<f64, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_f64(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
     /// View the Value as boolean, if possible
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match &self.value {

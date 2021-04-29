@@ -115,26 +115,7 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
 fn create_from_input(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
-
-    //println!("{:?}", args.args.call_info.args);
-    //println!("{:?}", args.input.into_vec());
-
-    // When the arguments get evaluated, the EvaluationContext is used
-    // to mark the scope and other variables related to the input
-    //let args = args.evaluate_once()?;
-
-    //let input_args = args.input.into_vec();
-
-    //if input_args.len() > 1 {
-    //    return Err(ShellError::labeled_error(
-    //        "Too many input arguments",
-    //        "Only one input argument",
-    //        &tag,
-    //    ));
-    //}
-
-    let df = NuDataFrame::try_from_iter(args.input)?;
-
+    let df = NuDataFrame::try_from_iter(args.input, &tag)?;
     let init = InputStream::one(UntaggedValue::Dataframe(df).into_value(&tag));
 
     Ok(init.to_output_stream())
