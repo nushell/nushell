@@ -142,15 +142,12 @@ fn insert_row(column_values: &mut ColumnMap, dictionary: Dictionary) -> Result<(
             match &value.value {
                 UntaggedValue::Primitive(Primitive::Int(_)) => {
                     col_val.value_type = InputValue::Integer;
-                    col_val.values.push(value);
                 }
                 UntaggedValue::Primitive(Primitive::Decimal(_)) => {
                     col_val.value_type = InputValue::Decimal;
-                    col_val.values.push(value);
                 }
                 UntaggedValue::Primitive(Primitive::String(_)) => {
                     col_val.value_type = InputValue::String;
-                    col_val.values.push(value);
                 }
                 _ => {
                     return Err(ShellError::labeled_error(
@@ -160,6 +157,7 @@ fn insert_row(column_values: &mut ColumnMap, dictionary: Dictionary) -> Result<(
                     ));
                 }
             }
+            col_val.values.push(value);
         } else {
             let prev_value = &col_val.values[col_val.values.len() - 1];
 
