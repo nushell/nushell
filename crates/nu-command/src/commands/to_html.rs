@@ -435,7 +435,7 @@ fn html_value(value: &Value) -> String {
                             output_string.push_str("\">");
                         }
                         _ => {
-                            let output = pretty_hex::pretty_hex(&b);
+                            let output = nu_pretty_hex::pretty_hex(&b);
 
                             output_string.push_str("<pre>");
                             output_string.push_str(&output);
@@ -444,7 +444,7 @@ fn html_value(value: &Value) -> String {
                     }
                 }
                 _ => {
-                    let output = pretty_hex::pretty_hex(&b);
+                    let output = nu_pretty_hex::pretty_hex(&b);
 
                     output_string.push_str("<pre>");
                     output_string.push_str(&output);

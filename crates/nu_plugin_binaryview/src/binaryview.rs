@@ -1,7 +1,7 @@
 use crossterm::{style::Attribute, ExecutableCommand};
-use nu_protocol::outln;
+use nu_pretty_hex::*;
+use nu_protocol::{outln, Value};
 use nu_source::AnchorLocation;
-use pretty_hex::*;
 
 #[derive(Default)]
 pub struct BinaryView;
@@ -16,6 +16,8 @@ pub fn view_binary(
     b: &[u8],
     source: Option<&AnchorLocation>,
     lores_mode: bool,
+    skip: Option<&Value>,
+    length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
         if let (0x4e, 0x45, 0x53) = (b[0], b[1], b[2]) {
@@ -23,7 +25,8 @@ pub fn view_binary(
             return Ok(());
         }
     }
-    view_contents(b, source, lores_mode)?;
+
+    view_contents(b, source, lores_mode, skip, length)?;
     Ok(())
 }
 
@@ -207,7 +210,29 @@ pub fn view_contents(
     buffer: &[u8],
     _source: Option<&AnchorLocation>,
     lores_mode: bool,
+    skip: Option<&Value>,
+    length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let skip_bytes = match skip {
+        Some(s) => Some(s.as_usize().unwrap_or(0)),
+        None => None,
+    };
+
+    let num_bytes = match length {
+        Some(b) => Some(b.as_usize().unwrap_or(0)),
+        None => None,
+    };
+
+    let config = HexConfig {
+        title: true,
+        ascii: true,
+        width: 16,
+        group: 4,
+        chunk: 1,
+        skip: skip_bytes,
+        length: num_bytes,
+    };
+
     let mut raw_image_buffer = load_from_png_buffer(buffer);
 
     if raw_image_buffer.is_err() {
@@ -216,7 +241,7 @@ pub fn view_contents(
 
     if raw_image_buffer.is_err() {
         //Not yet supported
-        outln!("{:?}", buffer.hex_dump());
+        outln!("{}", config_hex(&buffer, config));
         return Ok(());
     }
     let raw_image_buffer = raw_image_buffer?;
@@ -270,7 +295,8 @@ pub fn view_contents(
         }
         _ => {
             //Not yet supported
-            outln!("{:?}", buffer.hex_dump());
+            // outln!("{:?}", buffer.hex_dump());
+            outln!("{}", config_hex(&buffer, config));
             return Ok(());
         }
     }
