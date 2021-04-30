@@ -16,7 +16,6 @@ enum InputValue {
     Integer,
     Decimal,
     String,
-    None,
 }
 
 #[derive(Debug)]
@@ -28,7 +27,7 @@ struct ColumnValues {
 impl Default for ColumnValues {
     fn default() -> Self {
         Self {
-            value_type: InputValue::None,
+            value_type: InputValue::Integer,
             values: Vec::new(),
         }
     }
@@ -112,6 +111,7 @@ impl NuDataFrame {
         for value in iter {
             match value.value {
                 UntaggedValue::Row(dictionary) => insert_row(&mut column_values, dictionary)?,
+                UntaggedValue::Table(table) => insert_table(&mut column_values, table)?,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Format not supported",
@@ -131,56 +131,79 @@ impl NuDataFrame {
 // the column values have the same type value.
 fn insert_row(column_values: &mut ColumnMap, dictionary: Dictionary) -> Result<(), ShellError> {
     for (key, value) in dictionary.entries {
-        let col_val = match column_values.entry(key) {
-            Entry::Vacant(entry) => entry.insert(ColumnValues::default()),
-            Entry::Occupied(entry) => entry.into_mut(),
-        };
+        insert_value(value, key, column_values)?;
+    }
 
-        // Checking that the type for the value is the same
-        // for the previous value in the column
-        if col_val.values.is_empty() {
-            match &value.value {
-                UntaggedValue::Primitive(Primitive::Int(_)) => {
-                    col_val.value_type = InputValue::Integer;
-                }
-                UntaggedValue::Primitive(Primitive::Decimal(_)) => {
-                    col_val.value_type = InputValue::Decimal;
-                }
-                UntaggedValue::Primitive(Primitive::String(_)) => {
-                    col_val.value_type = InputValue::String;
-                }
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Only primitive values accepted",
-                        "Not a primitive value",
-                        &value.tag,
-                    ));
-                }
+    Ok(())
+}
+
+// Inserting the values found in a UntaggedValue::Table
+// All the entries for the table are checked in order to check if
+// the column values have the same type value.
+// The names for the columns are the enumerated numbers from the values
+fn insert_table(column_values: &mut ColumnMap, table: Vec<Value>) -> Result<(), ShellError> {
+    for (index, value) in table.into_iter().enumerate() {
+        let key = format!("{}", index);
+        insert_value(value, key, column_values)?;
+    }
+
+    Ok(())
+}
+
+fn insert_value(
+    value: Value,
+    key: String,
+    column_values: &mut ColumnMap,
+) -> Result<(), ShellError> {
+    let col_val = match column_values.entry(key) {
+        Entry::Vacant(entry) => entry.insert(ColumnValues::default()),
+        Entry::Occupied(entry) => entry.into_mut(),
+    };
+
+    // Checking that the type for the value is the same
+    // for the previous value in the column
+    if col_val.values.is_empty() {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Int(_)) => {
+                col_val.value_type = InputValue::Integer;
             }
-            col_val.values.push(value);
-        } else {
-            let prev_value = &col_val.values[col_val.values.len() - 1];
+            UntaggedValue::Primitive(Primitive::Decimal(_)) => {
+                col_val.value_type = InputValue::Decimal;
+            }
+            UntaggedValue::Primitive(Primitive::String(_)) => {
+                col_val.value_type = InputValue::String;
+            }
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Only primitive values accepted",
+                    "Not a primitive value",
+                    &value.tag,
+                ));
+            }
+        }
+        col_val.values.push(value);
+    } else {
+        let prev_value = &col_val.values[col_val.values.len() - 1];
 
-            match (&prev_value.value, &value.value) {
-                (
-                    UntaggedValue::Primitive(Primitive::Int(_)),
-                    UntaggedValue::Primitive(Primitive::Int(_)),
-                )
-                | (
-                    UntaggedValue::Primitive(Primitive::Decimal(_)),
-                    UntaggedValue::Primitive(Primitive::Decimal(_)),
-                )
-                | (
-                    UntaggedValue::Primitive(Primitive::String(_)),
-                    UntaggedValue::Primitive(Primitive::String(_)),
-                ) => col_val.values.push(value),
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Different values in column",
-                        "Value with different type",
-                        &value.tag,
-                    ));
-                }
+        match (&prev_value.value, &value.value) {
+            (
+                UntaggedValue::Primitive(Primitive::Int(_)),
+                UntaggedValue::Primitive(Primitive::Int(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Decimal(_)),
+                UntaggedValue::Primitive(Primitive::Decimal(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::String(_)),
+                UntaggedValue::Primitive(Primitive::String(_)),
+            ) => col_val.values.push(value),
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Different values in column",
+                    "Value with different type",
+                    &value.tag,
+                ));
             }
         }
     }
@@ -213,7 +236,6 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
                 let series = Series::new(&name, series_values?);
                 df_series.push(series)
             }
-            InputValue::None => {}
         }
     }
 
