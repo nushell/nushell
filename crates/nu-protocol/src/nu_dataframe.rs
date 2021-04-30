@@ -39,7 +39,7 @@ type ColumnMap = HashMap<String, ColumnValues>;
 // a way to use serde with dataframes
 #[derive(Debug, Clone, Serialize)]
 pub struct NuDataFrame {
-    #[serde(skip_serializing, default)]
+    #[serde(skip_serializing)]
     pub dataframe: Option<DataFrame>,
 }
 
