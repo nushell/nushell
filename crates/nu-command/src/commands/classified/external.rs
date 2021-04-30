@@ -199,247 +199,250 @@ fn spawn(
     trace!(target: "nu::run::external", "built command {:?}", process);
 
     // TODO Switch to async_std::process once it's stabilized
-    if let Ok(mut child) = process.spawn() {
-        let (tx, rx) = mpsc::sync_channel(0);
+    match process.spawn() {
+        Ok(mut child) => {
+            let (tx, rx) = mpsc::sync_channel(0);
 
-        let mut stdin = child.stdin.take();
+            let mut stdin = child.stdin.take();
 
-        let stdin_write_tx = tx.clone();
-        let stdout_read_tx = tx;
-        let stdin_name_tag = command.name_tag.clone();
-        let stdout_name_tag = command.name_tag;
+            let stdin_write_tx = tx.clone();
+            let stdout_read_tx = tx;
+            let stdin_name_tag = command.name_tag.clone();
+            let stdout_name_tag = command.name_tag;
 
-        std::thread::spawn(move || {
-            if !input.is_empty() {
-                let mut stdin_write = stdin
-                    .take()
-                    .expect("Internal error: could not get stdin pipe for external command");
+            std::thread::spawn(move || {
+                if !input.is_empty() {
+                    let mut stdin_write = stdin
+                        .take()
+                        .expect("Internal error: could not get stdin pipe for external command");
 
-                for value in input {
-                    match &value.value {
-                        UntaggedValue::Primitive(Primitive::Nothing) => continue,
-                        UntaggedValue::Primitive(Primitive::String(s)) => {
-                            if stdin_write.write(s.as_bytes()).is_err() {
-                                // Other side has closed, so exit
-                                return Ok(());
-                            }
-                        }
-                        UntaggedValue::Primitive(Primitive::Binary(b)) => {
-                            if stdin_write.write(b).is_err() {
-                                // Other side has closed, so exit
-                                return Ok(());
-                            }
-                        }
-                        unsupported => {
-                            println!("Unsupported: {:?}", unsupported);
-                            let _ = stdin_write_tx.send(Ok(Value {
-                                value: UntaggedValue::Error(ShellError::labeled_error(
-                                    format!(
-                                        "Received unexpected type from pipeline ({})",
-                                        unsupported.type_name()
-                                    ),
-                                    "expected a string",
-                                    stdin_name_tag.clone(),
-                                )),
-                                tag: stdin_name_tag,
-                            }));
-                            return Err(());
-                        }
-                    };
-                }
-            }
-
-            Ok(())
-        });
-
-        std::thread::spawn(move || {
-            if external_redirection == ExternalRedirection::Stdout
-                || external_redirection == ExternalRedirection::StdoutAndStderr
-            {
-                let stdout = if let Some(stdout) = child.stdout.take() {
-                    stdout
-                } else {
-                    let _ = stdout_read_tx.send(Ok(Value {
-                        value: UntaggedValue::Error(ShellError::labeled_error(
-                            "Can't redirect the stdout for external command",
-                            "can't redirect stdout",
-                            &stdout_name_tag,
-                        )),
-                        tag: stdout_name_tag,
-                    }));
-                    return Err(());
-                };
-
-                // let file = futures::io::AllowStdIo::new(stdout);
-                // let stream = FramedRead::new(file, MaybeTextCodec::default());
-                let buf_read = BufReader::new(stdout);
-                let buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
-
-                for line in buf_codec {
-                    match line {
-                        Ok(line) => match line {
-                            StringOrBinary::String(s) => {
-                                let result = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Primitive(Primitive::String(s.clone())),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-
-                                if result.is_err() {
-                                    break;
+                    for value in input {
+                        match &value.value {
+                            UntaggedValue::Primitive(Primitive::Nothing) => continue,
+                            UntaggedValue::Primitive(Primitive::String(s)) => {
+                                if stdin_write.write(s.as_bytes()).is_err() {
+                                    // Other side has closed, so exit
+                                    return Ok(());
                                 }
                             }
-                            StringOrBinary::Binary(b) => {
-                                let result = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Primitive(Primitive::Binary(
-                                        b.into_iter().collect(),
-                                    )),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-
-                                if result.is_err() {
-                                    break;
+                            UntaggedValue::Primitive(Primitive::Binary(b)) => {
+                                if stdin_write.write(b).is_err() {
+                                    // Other side has closed, so exit
+                                    return Ok(());
                                 }
                             }
-                        },
-                        Err(e) => {
-                            // If there's an exit status, it makes sense that we may error when
-                            // trying to read from its stdout pipe (likely been closed). In that
-                            // case, don't emit an error.
-                            let should_error = match child.wait() {
-                                Ok(exit_status) => !exit_status.success(),
-                                Err(_) => true,
-                            };
-
-                            if should_error {
-                                let _ = stdout_read_tx.send(Ok(Value {
+                            unsupported => {
+                                println!("Unsupported: {:?}", unsupported);
+                                let _ = stdin_write_tx.send(Ok(Value {
                                     value: UntaggedValue::Error(ShellError::labeled_error(
-                                        format!("Unable to read from stdout ({})", e),
-                                        "unable to read from stdout",
-                                        &stdout_name_tag,
+                                        format!(
+                                            "Received unexpected type from pipeline ({})",
+                                            unsupported.type_name()
+                                        ),
+                                        "expected a string",
+                                        stdin_name_tag.clone(),
                                     )),
-                                    tag: stdout_name_tag.clone(),
+                                    tag: stdin_name_tag,
                                 }));
+                                return Err(());
                             }
-
-                            return Ok(());
-                        }
+                        };
                     }
                 }
-            }
-            if external_redirection == ExternalRedirection::Stderr
-                || external_redirection == ExternalRedirection::StdoutAndStderr
-            {
-                let stderr = if let Some(stderr) = child.stderr.take() {
-                    stderr
-                } else {
-                    let _ = stdout_read_tx.send(Ok(Value {
-                        value: UntaggedValue::Error(ShellError::labeled_error(
-                            "Can't redirect the stderr for external command",
-                            "can't redirect stderr",
-                            &stdout_name_tag,
-                        )),
-                        tag: stdout_name_tag,
-                    }));
-                    return Err(());
-                };
 
-                // let file = futures::io::AllowStdIo::new(stderr);
-                // let stream = FramedRead::new(file, MaybeTextCodec::default());
-                let buf_reader = BufReader::new(stderr);
-                let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
+                Ok(())
+            });
 
-                for line in buf_codec {
-                    match line {
-                        Ok(line) => match line {
-                            StringOrBinary::String(s) => {
-                                let result = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error(s),
-                                    ),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-
-                                if result.is_err() {
-                                    break;
-                                }
-                            }
-                            StringOrBinary::Binary(_) => {
-                                let result = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error("<binary stderr>"),
-                                    ),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-
-                                if result.is_err() {
-                                    break;
-                                }
-                            }
-                        },
-                        Err(e) => {
-                            // If there's an exit status, it makes sense that we may error when
-                            // trying to read from its stdout pipe (likely been closed). In that
-                            // case, don't emit an error.
-                            let should_error = match child.wait() {
-                                Ok(exit_status) => !exit_status.success(),
-                                Err(_) => true,
-                            };
-
-                            if should_error {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        format!("Unable to read from stdout ({})", e),
-                                        "unable to read from stdout",
-                                        &stdout_name_tag,
-                                    )),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
-
-                            return Ok(());
-                        }
-                    }
-                }
-            }
-
-            // We can give an error when we see a non-zero exit code, but this is different
-            // than what other shells will do.
-            let external_failed = match child.wait() {
-                Err(_) => true,
-                Ok(exit_status) => !exit_status.success(),
-            };
-
-            if external_failed {
-                let cfg = nu_data::config::config(Tag::unknown());
-                if let Ok(cfg) = cfg {
-                    if cfg.contains_key("nonzero_exit_errors") {
+            std::thread::spawn(move || {
+                if external_redirection == ExternalRedirection::Stdout
+                    || external_redirection == ExternalRedirection::StdoutAndStderr
+                {
+                    let stdout = if let Some(stdout) = child.stdout.take() {
+                        stdout
+                    } else {
                         let _ = stdout_read_tx.send(Ok(Value {
                             value: UntaggedValue::Error(ShellError::labeled_error(
-                                "External command failed",
-                                "command failed",
+                                "Can't redirect the stdout for external command",
+                                "can't redirect stdout",
                                 &stdout_name_tag,
                             )),
-                            tag: stdout_name_tag.clone(),
+                            tag: stdout_name_tag,
                         }));
+                        return Err(());
+                    };
+
+                    // let file = futures::io::AllowStdIo::new(stdout);
+                    // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                    let buf_read = BufReader::new(stdout);
+                    let buf_codec = BufCodecReader::new(buf_read, MaybeTextCodec::default());
+
+                    for line in buf_codec {
+                        match line {
+                            Ok(line) => match line {
+                                StringOrBinary::String(s) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Primitive(Primitive::String(
+                                            s.clone(),
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                                StringOrBinary::Binary(b) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Primitive(Primitive::Binary(
+                                            b.into_iter().collect(),
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                // If there's an exit status, it makes sense that we may error when
+                                // trying to read from its stdout pipe (likely been closed). In that
+                                // case, don't emit an error.
+                                let should_error = match child.wait() {
+                                    Ok(exit_status) => !exit_status.success(),
+                                    Err(_) => true,
+                                };
+
+                                if should_error {
+                                    let _ = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(ShellError::labeled_error(
+                                            format!("Unable to read from stdout ({})", e),
+                                            "unable to read from stdout",
+                                            &stdout_name_tag,
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+                                }
+
+                                return Ok(());
+                            }
+                        }
                     }
                 }
-                let _ = stdout_read_tx.send(Ok(Value {
-                    value: UntaggedValue::Error(ShellError::external_non_zero()),
-                    tag: stdout_name_tag,
-                }));
-            }
+                if external_redirection == ExternalRedirection::Stderr
+                    || external_redirection == ExternalRedirection::StdoutAndStderr
+                {
+                    let stderr = if let Some(stderr) = child.stderr.take() {
+                        stderr
+                    } else {
+                        let _ = stdout_read_tx.send(Ok(Value {
+                            value: UntaggedValue::Error(ShellError::labeled_error(
+                                "Can't redirect the stderr for external command",
+                                "can't redirect stderr",
+                                &stdout_name_tag,
+                            )),
+                            tag: stdout_name_tag,
+                        }));
+                        return Err(());
+                    };
 
-            Ok(())
-        });
+                    // let file = futures::io::AllowStdIo::new(stderr);
+                    // let stream = FramedRead::new(file, MaybeTextCodec::default());
+                    let buf_reader = BufReader::new(stderr);
+                    let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
 
-        let stream = ChannelReceiver::new(rx);
-        Ok(stream.to_input_stream())
-    } else {
-        Err(ShellError::labeled_error(
-            "Failed to spawn process",
+                    for line in buf_codec {
+                        match line {
+                            Ok(line) => match line {
+                                StringOrBinary::String(s) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::untagged_runtime_error(s),
+                                        ),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                                StringOrBinary::Binary(_) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::untagged_runtime_error("<binary stderr>"),
+                                        ),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                // If there's an exit status, it makes sense that we may error when
+                                // trying to read from its stdout pipe (likely been closed). In that
+                                // case, don't emit an error.
+                                let should_error = match child.wait() {
+                                    Ok(exit_status) => !exit_status.success(),
+                                    Err(_) => true,
+                                };
+
+                                if should_error {
+                                    let _ = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(ShellError::labeled_error(
+                                            format!("Unable to read from stdout ({})", e),
+                                            "unable to read from stdout",
+                                            &stdout_name_tag,
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+                                }
+
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+
+                // We can give an error when we see a non-zero exit code, but this is different
+                // than what other shells will do.
+                let external_failed = match child.wait() {
+                    Err(_) => true,
+                    Ok(exit_status) => !exit_status.success(),
+                };
+
+                if external_failed {
+                    let cfg = nu_data::config::config(Tag::unknown());
+                    if let Ok(cfg) = cfg {
+                        if cfg.contains_key("nonzero_exit_errors") {
+                            let _ = stdout_read_tx.send(Ok(Value {
+                                value: UntaggedValue::Error(ShellError::labeled_error(
+                                    "External command failed",
+                                    "command failed",
+                                    &stdout_name_tag,
+                                )),
+                                tag: stdout_name_tag.clone(),
+                            }));
+                        }
+                    }
+                    let _ = stdout_read_tx.send(Ok(Value {
+                        value: UntaggedValue::Error(ShellError::external_non_zero()),
+                        tag: stdout_name_tag,
+                    }));
+                }
+
+                Ok(())
+            });
+
+            let stream = ChannelReceiver::new(rx);
+            Ok(stream.to_input_stream())
+        }
+        Err(e) => Err(ShellError::labeled_error(
+            format!("{}", e),
             "failed to spawn",
             &command.name_tag,
-        ))
+        )),
     }
 }
 
