@@ -136,10 +136,7 @@ impl NuDataFrame {
 
     pub fn head(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
         if let Some(df) = &self.dataframe {
-            let to_row = match rows {
-                Some(rows) => rows,
-                None => 5,
-            };
+            let to_row = rows.unwrap_or(5);
 
             let mut values = self.to_rows(0, to_row)?;
 
@@ -155,7 +152,7 @@ impl NuDataFrame {
                         tag: Tag::unknown(),
                     };
 
-                    dictionary.insert(format!("{}", name), indicator);
+                    dictionary.insert(name.to_string(), indicator);
                 }
 
                 let extra_column = Value {
@@ -199,7 +196,7 @@ impl NuDataFrame {
                         tag: Tag::unknown(),
                     };
 
-                    dictionary_row.insert(format!("{}", name), dict_val);
+                    dictionary_row.insert(name.to_string(), dict_val);
                 }
 
                 let value = Value {

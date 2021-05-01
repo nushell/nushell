@@ -128,7 +128,7 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let init = InputStream::one(UntaggedValue::Dataframe(nu_dataframe).into_value(&tag));
 
-    return Ok(init.to_output_stream());
+    Ok(init.to_output_stream())
 }
 
 fn create_from_input(args: CommandArgs) -> Result<OutputStream, ShellError> {

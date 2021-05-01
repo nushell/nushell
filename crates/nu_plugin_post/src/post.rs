@@ -400,6 +400,13 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         }
 
         UntaggedValue::Table(l) => serde_json::Value::Array(json_list(l)?),
+        UntaggedValue::Dataframe(_) => {
+            return Err(ShellError::labeled_error(
+                "No conversion for dataframe",
+                "No conversion for dataframe",
+                &v.tag,
+            ))
+        }
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => {
             serde_json::Value::Null
