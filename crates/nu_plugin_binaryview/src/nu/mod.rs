@@ -17,7 +17,7 @@ impl Plugin for BinaryView {
                 Some('s'),
             )
             .named(
-                "byte_length",
+                "bytes",
                 SyntaxShape::Int,
                 "show y number of bytes",
                 Some('b'),
@@ -30,7 +30,7 @@ impl Plugin for BinaryView {
             if let UntaggedValue::Primitive(Primitive::Binary(b)) = &v.value {
                 let low_res = call_info.args.has("lores");
                 let skip = call_info.args.get("skip");
-                let length = call_info.args.get("byte_length");
+                let length = call_info.args.get("bytes");
                 let _ = view_binary(&b, value_anchor.as_ref(), low_res, skip, length);
             }
         }

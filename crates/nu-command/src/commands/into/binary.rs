@@ -36,49 +36,46 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to integer in table",
-                example: "echo [[num]; ['-5'] [4] [1.5]] | into int num",
+                description: "convert string to a nushell binary primitive",
+                example:
+                    "echo 'This is a string that is exactly 52 characters long.' | into binary",
+                result: Some(vec![UntaggedValue::binary(
+                    "This is a string that is exactly 52 characters long."
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                )
+                .into()]),
+            },
+            Example {
+                description: "convert a number to a nushell binary primitive",
+                example: "echo 1 | into binary",
                 result: Some(vec![
-                    UntaggedValue::row(indexmap! {
-                        "num".to_string() => UntaggedValue::int(-5).into(),
-                    })
-                    .into(),
-                    UntaggedValue::row(indexmap! {
-                        "num".to_string() => UntaggedValue::int(4).into(),
-                    })
-                    .into(),
-                    UntaggedValue::row(indexmap! {
-                        "num".to_string() => UntaggedValue::int(1).into(),
-                    })
-                    .into(),
+                    UntaggedValue::binary(BigInt::from(1).to_bytes_le().1).into()
                 ]),
             },
             Example {
-                description: "Convert string to integer",
-                example: "echo '2' | into int",
-                result: Some(vec![UntaggedValue::int(2).into()]),
-            },
-            Example {
-                description: "Convert decimal to integer",
-                example: "echo 5.9 | into int",
-                result: Some(vec![UntaggedValue::int(5).into()]),
-            },
-            Example {
-                description: "Convert decimal string to integer",
-                example: "echo '5.9' | into int",
-                result: Some(vec![UntaggedValue::int(5).into()]),
-            },
-            Example {
-                description: "Convert file size to integer",
-                example: "echo 4KB | into int",
-                result: Some(vec![UntaggedValue::int(4000).into()]),
-            },
-            Example {
-                description: "Convert bool to integer",
-                example: "echo $false $true | into int",
+                description: "convert a boolean to a nushell binary primitive",
+                example: "echo $true | into binary",
                 result: Some(vec![
-                    UntaggedValue::int(0).into(),
-                    UntaggedValue::int(1).into(),
+                    UntaggedValue::binary(BigInt::from(1).to_bytes_le().1).into()
+                ]),
+            },
+            Example {
+                description: "convert a filesize to a nushell binary primitive",
+                example: "ls | where name == LICENSE | get size | into binary",
+                result: None,
+            },
+            Example {
+                description: "convert a filepath to a nushell binary primitive",
+                example: "ls | where name == LICENSE | get name | path expand | into binary",
+                result: None,
+            },
+            Example {
+                description: "convert a decimal to a nushell binary primitive",
+                example: "echo 1.234 | into binary",
+                result: Some(vec![
+                    UntaggedValue::binary(BigInt::from(1).to_bytes_le().1).into()
                 ]),
             },
         ]
