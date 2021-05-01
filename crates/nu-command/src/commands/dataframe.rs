@@ -81,7 +81,7 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
     //  - infer schema
     //  - delimiter
     //  - csv or parquet <- extracted from extension
-    let csv_reader = match CsvReader::from_path(file.item) {
+    let csv_reader = match CsvReader::from_path(&file.item) {
         Ok(csv_reader) => csv_reader,
         Err(e) => {
             return Err(ShellError::labeled_error(
@@ -103,8 +103,20 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
+    let file_name = match file.item.into_os_string().into_string() {
+        Ok(name) => name,
+        Err(e) => {
+            return Err(ShellError::labeled_error(
+                "Error with file name",
+                format!("{:?}", e),
+                &file.tag,
+            ))
+        }
+    };
+
     let nu_dataframe = NuDataFrame {
         dataframe: Some(df),
+        name: file_name,
     };
 
     let init = InputStream::one(UntaggedValue::Dataframe(nu_dataframe).into_value(&tag));

@@ -46,11 +46,15 @@ type ColumnMap = HashMap<String, ColumnValues>;
 pub struct NuDataFrame {
     #[serde(skip_serializing)]
     pub dataframe: Option<DataFrame>,
+    pub name: String,
 }
 
 impl Default for NuDataFrame {
     fn default() -> Self {
-        NuDataFrame { dataframe: None }
+        NuDataFrame {
+            dataframe: None,
+            name: String::from("From Stream"),
+        }
     }
 }
 
@@ -179,88 +183,27 @@ impl NuDataFrame {
             let mut values: Vec<Value> = Vec::new();
 
             for i in from_row..to_row {
+                // There are no bound checks in polars when selecting a row
                 if i >= df.height() {
                     break;
                 }
-                let row = df.get_row(i);
 
-                let mut dictionary = Dictionary::default();
+                let row = df.get_row(i);
+                let mut dictionary_row = Dictionary::default();
 
                 for (val, name) in row.0.iter().zip(column_names.iter()) {
-                    let untagged_val: UntaggedValue = match val {
-                        AnyValue::Null => UntaggedValue::Primitive(Primitive::Nothing),
-                        AnyValue::Utf8(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Boolean(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Float32(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Float64(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Int32(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Int64(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::UInt8(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::UInt16(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Int8(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Int16(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::UInt32(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::UInt64(a) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Date32(a) => {
-                            // elapsed time in day since 1970-01-01
-                            let seconds = *a as i64 * SECS_PER_DAY;
-                            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
-                            // Zero length offset
-                            let offset = FixedOffset::east(0);
-                            let datetime =
-                                DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-                            UntaggedValue::Primitive(Primitive::Date(datetime))
-                        }
-                        AnyValue::Date64(a) => {
-                            // elapsed time in milliseconds since 1970-01-01
-                            let seconds = *a / 1000;
-                            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
-                            // Zero length offset
-                            let offset = FixedOffset::east(0);
-                            let datetime =
-                                DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-                            UntaggedValue::Primitive(Primitive::Date(datetime))
-                        }
-                        AnyValue::Time64(a, _) => UntaggedValue::Primitive((*a).into()),
-                        AnyValue::Duration(a, unit) => {
-                            let nanoseconds = match unit {
-                                TimeUnit::Second => *a / 1_000_000_000,
-                                TimeUnit::Millisecond => *a / 1_000_000,
-                                TimeUnit::Microsecond => *a / 1_000,
-                                TimeUnit::Nanosecond => *a,
-                            };
-
-                            if let Some(bigint) = BigInt::from_i64(nanoseconds) {
-                                UntaggedValue::Primitive(Primitive::Duration(bigint))
-                            } else {
-                                unreachable!(
-                                    "Internal error: protocol did not use compatible decimal"
-                                )
-                            }
-                        }
-                        AnyValue::List(_) => {
-                            return Err(ShellError::labeled_error(
-                                "Format not supported",
-                                "Value not supported for conversion",
-                                Tag::unknown(),
-                            ));
-                        }
-                    };
+                    let untagged_val = anyvalue_to_untagged(val)?;
 
                     let dict_val = Value {
                         value: untagged_val,
                         tag: Tag::unknown(),
                     };
 
-                    dictionary.insert(format!("{}", name), dict_val);
+                    dictionary_row.insert(format!("{}", name), dict_val);
                 }
 
                 let value = Value {
-                    value: UntaggedValue::Row(dictionary),
+                    value: UntaggedValue::Row(dictionary_row),
                     tag: Tag::unknown(),
                 };
 
@@ -276,6 +219,70 @@ impl NuDataFrame {
             ))
         }
     }
+}
+
+// Converts a polars AnyValue to an UntaggedValue
+// This is used when printing values coming for polars dataframes
+fn anyvalue_to_untagged(anyvalue: &AnyValue) -> Result<UntaggedValue, ShellError> {
+    Ok(match anyvalue {
+        AnyValue::Null => UntaggedValue::Primitive(Primitive::Nothing),
+        AnyValue::Utf8(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Boolean(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Float32(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Float64(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Int32(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Int64(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::UInt8(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::UInt16(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Int8(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Int16(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::UInt32(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::UInt64(a) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Date32(a) => {
+            // elapsed time in day since 1970-01-01
+            let seconds = *a as i64 * SECS_PER_DAY;
+            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
+
+            // Zero length offset
+            let offset = FixedOffset::east(0);
+            let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+
+            UntaggedValue::Primitive(Primitive::Date(datetime))
+        }
+        AnyValue::Date64(a) => {
+            // elapsed time in milliseconds since 1970-01-01
+            let seconds = *a / 1000;
+            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
+
+            // Zero length offset
+            let offset = FixedOffset::east(0);
+            let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+
+            UntaggedValue::Primitive(Primitive::Date(datetime))
+        }
+        AnyValue::Time64(a, _) => UntaggedValue::Primitive((*a).into()),
+        AnyValue::Duration(a, unit) => {
+            let nanoseconds = match unit {
+                TimeUnit::Second => *a / 1_000_000_000,
+                TimeUnit::Millisecond => *a / 1_000_000,
+                TimeUnit::Microsecond => *a / 1_000,
+                TimeUnit::Nanosecond => *a,
+            };
+
+            if let Some(bigint) = BigInt::from_i64(nanoseconds) {
+                UntaggedValue::Primitive(Primitive::Duration(bigint))
+            } else {
+                unreachable!("Internal error: protocol did not use compatible decimal")
+            }
+        }
+        AnyValue::List(_) => {
+            return Err(ShellError::labeled_error(
+                "Format not supported",
+                "Value not supported for conversion",
+                Tag::unknown(),
+            ));
+        }
+    })
 }
 
 // Inserting the values found in a UntaggedValue::Row
@@ -396,6 +403,7 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
     match df {
         Ok(df) => Ok(NuDataFrame {
             dataframe: Some(df),
+            name: "From stream".to_string(),
         }),
         Err(e) => {
             return Err(ShellError::labeled_error(

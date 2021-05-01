@@ -235,7 +235,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                         ..
                     } => {
                         if let Some(table) = table {
-                            // TODO. Configure the parameter to to_rows from file. It can be
+                            // TODO. Configure the parameter rows from file. It can be
                             // adjusted to see a certain amount of values in the head
                             let command_args =
                                 create_default_command_args(&context).with_input(df.head(Some(5))?);
