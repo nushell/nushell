@@ -40,11 +40,18 @@ impl WholeStreamCommand for Dataframe {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Takes a file name and creates a dataframe",
-            example: "dataframe -f test.csv",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Takes a file name and creates a dataframe",
+                example: "dataframe -f test.csv",
+                result: None,
+            },
+            Example {
+                description: "Takes an input stream and converts it to a dataframe",
+                example: "echo [[a b];[1 2] [3 4]] | dataframe",
+                result: None,
+            },
+        ]
     }
 }
 
