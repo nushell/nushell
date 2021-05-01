@@ -153,11 +153,17 @@ fn values_to_entries(
         headers.insert(
             0,
             StyledString::new(
-                "#".to_owned(),
-                TextStyle::new()
-                    .alignment(Alignment::Center)
-                    .fg(nu_ansi_term::Color::Green)
-                    .bold(Some(true)),
+                "#".to_string(),
+                TextStyle::new().alignment(Alignment::Center).style(
+                    color_hm
+                        .get("header_color")
+                        .unwrap_or(
+                            &nu_ansi_term::Style::default()
+                                .bold()
+                                .fg(nu_ansi_term::Color::Green),
+                        )
+                        .to_owned(),
+                ),
             ),
         );
     }
