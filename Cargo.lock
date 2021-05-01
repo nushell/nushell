@@ -184,6 +184,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
+name = "as-slice"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45403b49e3954a4b8428a0ac21a4b7afadccf92bfd96273f1a58cd4812496ae0"
+dependencies = [
+ "generic-array 0.12.4",
+ "generic-array 0.13.3",
+ "generic-array 0.14.4",
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1969,6 +1981,24 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
+name = "generic-array"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f797e67af32588215eaaab8327027ee8e71b9dd0b2b26996aedf20c030fce309"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
+name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
@@ -2109,6 +2139,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4041af86e63ac4298ce40e5cca669066e75b6f1aa3390fe2561ffa5e1d9f4cc"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2124,6 +2163,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d99cf782f0dc4372d26846bec3de7804ceb5df083c2d4462c0b8d2330e894fa8"
 dependencies = [
  "hashbrown",
+]
+
+[[package]]
+name = "heapless"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "634bd4d29cbf24424d0a4bfcbf80c6960129dc24424752a7d1d1390607023422"
+dependencies = [
+ "as-slice",
+ "generic-array 0.14.4",
+ "hash32",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -3109,6 +3160,15 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bd69a141e8fdfa5ac882d8b816db2b9ad138ef7e3baa7cb753a9b3789aa8c7e"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "nu-ansi-term"
 version = "0.30.1"
 dependencies = [
  "doc-comment",
@@ -3158,7 +3218,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "log 0.4.14",
  "meval",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-command",
  "nu-data",
  "nu-engine",
@@ -3166,6 +3226,7 @@ dependencies = [
  "nu-json",
  "nu-parser",
  "nu-plugin",
+ "nu-pretty-hex",
  "nu-protocol",
  "nu-source",
  "nu-stream",
@@ -3177,7 +3238,6 @@ dependencies = [
  "num-traits 0.2.14",
  "parking_lot 0.11.1",
  "pin-utils",
- "pretty-hex",
  "ptree",
  "query_interface",
  "quick-xml 0.21.0",
@@ -3258,13 +3318,14 @@ dependencies = [
  "md5 0.7.0",
  "meval",
  "minus",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-data",
  "nu-engine",
  "nu-errors",
  "nu-json",
  "nu-parser",
  "nu-plugin",
+ "nu-pretty-hex",
  "nu-protocol",
  "nu-source",
  "nu-stream",
@@ -3276,7 +3337,6 @@ dependencies = [
  "num-traits 0.2.14",
  "parking_lot 0.11.1",
  "pin-utils",
- "pretty-hex",
  "ptree",
  "query_interface",
  "quick-xml 0.21.0",
@@ -3331,7 +3391,7 @@ dependencies = [
  "getset",
  "indexmap",
  "log 0.4.14",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-errors",
  "nu-protocol",
  "nu-source",
@@ -3375,7 +3435,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "log 0.4.14",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-data",
  "nu-errors",
  "nu-parser",
@@ -3410,7 +3470,7 @@ dependencies = [
  "derive-new",
  "getset",
  "glob",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-source",
  "num-bigint 0.3.2",
  "num-traits 0.2.14",
@@ -3474,6 +3534,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-pretty-hex"
+version = "0.30.1"
+dependencies = [
+ "heapless",
+ "nu-ansi-term 0.29.0",
+ "rand 0.8.3",
+]
+
+[[package]]
 name = "nu-protocol"
 version = "0.30.1"
 dependencies = [
@@ -3521,7 +3590,7 @@ dependencies = [
 name = "nu-table"
 version = "0.30.1"
 dependencies = [
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "regex 1.4.3",
  "unicode-width",
 ]
@@ -3564,12 +3633,12 @@ dependencies = [
  "crossterm 0.19.0",
  "image 0.22.5",
  "neso",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-errors",
  "nu-plugin",
+ "nu-pretty-hex",
  "nu-protocol",
  "nu-source",
- "pretty-hex",
  "rawkey",
 ]
 
@@ -3755,7 +3824,7 @@ name = "nu_plugin_textview"
 version = "0.30.1"
 dependencies = [
  "bat",
- "nu-ansi-term",
+ "nu-ansi-term 0.30.1",
  "nu-data",
  "nu-errors",
  "nu-plugin",
@@ -4383,12 +4452,6 @@ checksum = "f60c0d9f6fc88ecdd245d90c1920ff76a430ab34303fc778d33b1d0a4c3bf6d3"
 dependencies = [
  "typed-arena",
 ]
-
-[[package]]
-name = "pretty-hex"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5c99d529f0d30937f6f4b8a86d988047327bb88d04d2c4afc356de74722131"
 
 [[package]]
 name = "pretty_env_logger"

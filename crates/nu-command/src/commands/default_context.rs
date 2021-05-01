@@ -122,6 +122,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Update),
             whole_stream_command(Insert),
             whole_stream_command(Into),
+            whole_stream_command(IntoBinary),
             whole_stream_command(IntoInt),
             whole_stream_command(SplitBy),
             // Row manipulation
