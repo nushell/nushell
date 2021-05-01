@@ -162,11 +162,13 @@ fn test_config() {
 fn test_hex_write_with_simple_config() {
     let config = HexConfig::simple();
     let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    // let expected =
+    //     core::str::from_utf8(b"00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f").unwrap();
     let expected =
-        core::str::from_utf8(b"00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f").unwrap();
+        "\u{1b}[38;5;242m00\u{1b}[0m \u{1b}[1;35m01\u{1b}[0m \u{1b}[1;35m02\u{1b}[0m \u{1b}[1;";
     let mut buffer = heapless::Vec::<u8, heapless::consts::U50>::new();
 
-    hex_write(&mut buffer, &bytes, config).unwrap();
+    hex_write(&mut buffer, &bytes, config);
 
     let have = core::str::from_utf8(&buffer).unwrap();
     assert_eq!(expected, have);
