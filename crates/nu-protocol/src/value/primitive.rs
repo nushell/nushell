@@ -354,16 +354,34 @@ impl From<BigInt> for Primitive {
     }
 }
 
-impl From<f64> for Primitive {
-    /// Helper to convert from 64-bit float to a Primitive value
-    fn from(float: f64) -> Primitive {
-        if let Some(f) = BigDecimal::from_f64(float) {
-            Primitive::Decimal(f)
-        } else {
-            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+// Macro to define the From trait for native types to primitives
+// The from trait requires a converter that will be applied to the
+// native type.
+macro_rules! from_native_to_primitive {
+    ($native_type:ty, $primitive_type:expr, $converter: expr) => {
+        // e.g. from u32 -> Primitive
+        impl From<$native_type> for Primitive {
+            fn from(int: $native_type) -> Primitive {
+                if let Some(i) = $converter(int) {
+                    $primitive_type(i)
+                } else {
+                    unreachable!("Internal error: protocol did not use compatible decimal")
+                }
+            }
         }
-    }
+    };
 }
+
+from_native_to_primitive!(i8, Primitive::Int, BigInt::from_i8);
+from_native_to_primitive!(i16, Primitive::Int, BigInt::from_i16);
+from_native_to_primitive!(i32, Primitive::Int, BigInt::from_i32);
+from_native_to_primitive!(i64, Primitive::Int, BigInt::from_i64);
+from_native_to_primitive!(u8, Primitive::Int, BigInt::from_u8);
+from_native_to_primitive!(u16, Primitive::Int, BigInt::from_u16);
+from_native_to_primitive!(u32, Primitive::Int, BigInt::from_u32);
+from_native_to_primitive!(u64, Primitive::Int, BigInt::from_u64);
+from_native_to_primitive!(f32, Primitive::Decimal, BigDecimal::from_f32);
+from_native_to_primitive!(f64, Primitive::Decimal, BigDecimal::from_f64);
 
 impl From<chrono::Duration> for Primitive {
     fn from(duration: chrono::Duration) -> Primitive {

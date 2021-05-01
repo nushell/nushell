@@ -1,15 +1,20 @@
 use std::hash::{Hash, Hasher};
 use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
 
+use bigdecimal::FromPrimitive;
+use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::Tag;
-use polars::prelude::{DataFrame, NamedFrom, Series};
+use num_bigint::BigInt;
+use polars::prelude::{AnyValue, DataFrame, NamedFrom, Series, TimeUnit};
 use serde::de::{Deserialize, Deserializer, Visitor};
 use serde::Serialize;
 
 use std::fmt;
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
+
+const SECS_PER_DAY: i64 = 86_400;
 
 #[derive(Debug)]
 enum InputValue {
@@ -123,6 +128,153 @@ impl NuDataFrame {
         }
 
         from_parsed_columns(column_values, tag)
+    }
+
+    pub fn head(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+        if let Some(df) = &self.dataframe {
+            let to_row = match rows {
+                Some(rows) => rows,
+                None => 5,
+            };
+
+            let mut values = self.to_rows(0, to_row)?;
+
+            // If there are more values available in the dataframe,
+            // then an extra row is added with "..." to indicate this
+            if df.height() > values.len() {
+                let column_names = df.get_column_names();
+
+                let mut dictionary = Dictionary::default();
+                for name in column_names {
+                    let indicator = Value {
+                        value: UntaggedValue::Primitive(Primitive::String("...".to_string())),
+                        tag: Tag::unknown(),
+                    };
+
+                    dictionary.insert(format!("{}", name), indicator);
+                }
+
+                let extra_column = Value {
+                    value: UntaggedValue::Row(dictionary),
+                    tag: Tag::unknown(),
+                };
+
+                values.push(extra_column);
+            }
+
+            Ok(values)
+        } else {
+            Err(ShellError::labeled_error(
+                "No dataframe found",
+                "No dataframe found",
+                Tag::unknown(),
+            ))
+        }
+    }
+
+    pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
+        if let Some(df) = &self.dataframe {
+            let column_names = df.get_column_names();
+
+            let mut values: Vec<Value> = Vec::new();
+
+            for i in from_row..to_row {
+                if i >= df.height() {
+                    break;
+                }
+                let row = df.get_row(i);
+
+                let mut dictionary = Dictionary::default();
+
+                for (val, name) in row.0.iter().zip(column_names.iter()) {
+                    let untagged_val: UntaggedValue = match val {
+                        AnyValue::Null => UntaggedValue::Primitive(Primitive::Nothing),
+                        AnyValue::Utf8(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Boolean(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Float32(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Float64(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Int32(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Int64(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::UInt8(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::UInt16(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Int8(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Int16(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::UInt32(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::UInt64(a) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Date32(a) => {
+                            // elapsed time in day since 1970-01-01
+                            let seconds = *a as i64 * SECS_PER_DAY;
+                            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
+
+                            // Zero length offset
+                            let offset = FixedOffset::east(0);
+                            let datetime =
+                                DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+
+                            UntaggedValue::Primitive(Primitive::Date(datetime))
+                        }
+                        AnyValue::Date64(a) => {
+                            // elapsed time in milliseconds since 1970-01-01
+                            let seconds = *a / 1000;
+                            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
+
+                            // Zero length offset
+                            let offset = FixedOffset::east(0);
+                            let datetime =
+                                DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
+
+                            UntaggedValue::Primitive(Primitive::Date(datetime))
+                        }
+                        AnyValue::Time64(a, _) => UntaggedValue::Primitive((*a).into()),
+                        AnyValue::Duration(a, unit) => {
+                            let nanoseconds = match unit {
+                                TimeUnit::Second => *a / 1_000_000_000,
+                                TimeUnit::Millisecond => *a / 1_000_000,
+                                TimeUnit::Microsecond => *a / 1_000,
+                                TimeUnit::Nanosecond => *a,
+                            };
+
+                            if let Some(bigint) = BigInt::from_i64(nanoseconds) {
+                                UntaggedValue::Primitive(Primitive::Duration(bigint))
+                            } else {
+                                unreachable!(
+                                    "Internal error: protocol did not use compatible decimal"
+                                )
+                            }
+                        }
+                        AnyValue::List(_) => {
+                            return Err(ShellError::labeled_error(
+                                "Format not supported",
+                                "Value not supported for conversion",
+                                Tag::unknown(),
+                            ));
+                        }
+                    };
+
+                    let dict_val = Value {
+                        value: untagged_val,
+                        tag: Tag::unknown(),
+                    };
+
+                    dictionary.insert(format!("{}", name), dict_val);
+                }
+
+                let value = Value {
+                    value: UntaggedValue::Row(dictionary),
+                    tag: Tag::unknown(),
+                };
+
+                values.push(value);
+            }
+
+            Ok(values)
+        } else {
+            Err(ShellError::labeled_error(
+                "No dataframe found",
+                "No dataframe found",
+                Tag::unknown(),
+            ))
+        }
     }
 }
 
@@ -240,8 +392,6 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
     }
 
     let df = DataFrame::new(df_series);
-
-    println!("{:?}", df);
 
     match df {
         Ok(df) => Ok(NuDataFrame {

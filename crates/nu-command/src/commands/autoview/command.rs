@@ -231,6 +231,19 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                         }
                     }
                     Value {
+                        value: UntaggedValue::Dataframe(df),
+                        ..
+                    } => {
+                        if let Some(table) = table {
+                            // TODO. Configure the parameter to to_rows from file. It can be
+                            // adjusted to see a certain amount of values in the head
+                            let command_args =
+                                create_default_command_args(&context).with_input(df.head(Some(5))?);
+                            let result = table.run(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
+                        }
+                    }
+                    Value {
                         value: UntaggedValue::Primitive(Primitive::Nothing),
                         ..
                     } => {

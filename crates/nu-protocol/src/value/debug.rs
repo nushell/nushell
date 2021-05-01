@@ -24,7 +24,7 @@ impl PrettyDebug for Value {
             .nest(),
             UntaggedValue::Error(_) => DbgDocBldr::error("error"),
             UntaggedValue::Block(_) => DbgDocBldr::opaque("block"),
-            UntaggedValue::Dataframe(_) => DbgDocBldr::opaque("dataframe"),
+            UntaggedValue::Dataframe(_) => DbgDocBldr::opaque("dataframe_prettydebug_for_Value"),
         }
     }
 }

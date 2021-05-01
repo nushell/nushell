@@ -315,7 +315,7 @@ impl PrettyDebug for FormatInlineShape {
             .group(),
             InlineShape::Block => DbgDocBldr::opaque("block"),
             InlineShape::Error => DbgDocBldr::error("error"),
-            InlineShape::Dataframe => DbgDocBldr::error("dataframe"),
+            InlineShape::Dataframe => DbgDocBldr::error("dataframe_pretty_FormatInlineShape"),
             InlineShape::BeginningOfStream => DbgDocBldr::blank(),
             InlineShape::EndOfStream => DbgDocBldr::blank(),
         }

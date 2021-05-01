@@ -291,7 +291,7 @@ impl PrettyDebug for Type {
                     })
             }
             Type::Block => ty("block"),
-            Type::Dataframe => ty("dataframe"),
+            Type::Dataframe => ty("dataframe_pretty_debug_for_Type"),
         }
     }
 }
