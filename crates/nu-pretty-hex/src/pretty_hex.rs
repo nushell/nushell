@@ -6,7 +6,7 @@ use nu_ansi_term::{Color, Style};
 /// and ASCII column.
 pub fn simple_hex<T: AsRef<[u8]>>(source: &T) -> String {
     let mut writer = String::new();
-    hex_write(&mut writer, source, HexConfig::simple()).unwrap_or(());
+    hex_write(&mut writer, source, HexConfig::simple(), None).unwrap_or(());
     writer
 }
 
@@ -16,14 +16,14 @@ where
     T: AsRef<[u8]>,
     W: fmt::Write,
 {
-    hex_write(writer, source, HexConfig::simple())
+    hex_write(writer, source, HexConfig::simple(), None)
 }
 
 /// Return a multi-line hexdump in default format complete with addressing, hex digits,
 /// and ASCII representation.
 pub fn pretty_hex<T: AsRef<[u8]>>(source: &T) -> String {
     let mut writer = String::new();
-    hex_write(&mut writer, source, HexConfig::default()).unwrap_or(());
+    hex_write(&mut writer, source, HexConfig::default(), Some(true)).unwrap_or(());
     writer
 }
 
@@ -34,13 +34,13 @@ where
     T: AsRef<[u8]>,
     W: fmt::Write,
 {
-    hex_write(writer, source, HexConfig::default())
+    hex_write(writer, source, HexConfig::default(), Some(true))
 }
 
 /// Return a hexdump of `source` in specified format.
 pub fn config_hex<T: AsRef<[u8]>>(source: &T, cfg: HexConfig) -> String {
     let mut writer = String::new();
-    hex_write(&mut writer, source, cfg).unwrap_or(());
+    hex_write(&mut writer, source, cfg, Some(true)).unwrap_or(());
     writer
 }
 
@@ -141,11 +141,18 @@ fn categorize_byte(byte: &u8) -> (Style, Option<char>) {
 }
 
 /// Write hex dump in specified format.
-pub fn hex_write<T, W>(writer: &mut W, source: &T, cfg: HexConfig) -> fmt::Result
+pub fn hex_write<T, W>(
+    writer: &mut W,
+    source: &T,
+    cfg: HexConfig,
+    with_color: Option<bool>,
+) -> fmt::Result
 where
     T: AsRef<[u8]>,
     W: fmt::Write,
 {
+    let use_color = with_color.unwrap_or(false);
+
     if source.as_ref().is_empty() {
         return Ok(());
     }
@@ -168,16 +175,24 @@ where
     let source_part = String::from_utf8_lossy(&source_part_vec[..]);
 
     if cfg.title {
-        writeln!(
-            writer,
-            "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other {4}non_ascii{5}",
-            source_part.as_bytes().as_ref().len(),
-            Style::default().fg(Color::Cyan).bold().prefix(),
-            Style::default().fg(Color::Green).bold().prefix(),
-            Style::default().fg(Color::Purple).bold().prefix(),
-            Style::default().fg(Color::Yellow).bold().prefix(),
-            Style::default().fg(Color::Yellow).suffix()
-        )?;
+        if use_color {
+            writeln!(
+                writer,
+                "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other {4}non_ascii{5}",
+                source_part.as_bytes().as_ref().len(),
+                Style::default().fg(Color::Cyan).bold().prefix(),
+                Style::default().fg(Color::Green).bold().prefix(),
+                Style::default().fg(Color::Purple).bold().prefix(),
+                Style::default().fg(Color::Yellow).bold().prefix(),
+                Style::default().fg(Color::Yellow).suffix()
+            )?;
+        } else {
+            writeln!(
+                writer,
+                "Length: {0} (0x{0:x}) bytes",
+                source_part.as_bytes().as_ref().len(),
+            )?;
+        }
     }
 
     let lines = source_part.as_bytes().as_ref().chunks(if cfg.width > 0 {
@@ -191,24 +206,32 @@ where
     for (i, row) in lines.enumerate() {
         if cfg.width > 0 {
             let style = Style::default().fg(Color::Cyan);
-            write!(
-                writer,
-                "{}{:08x}{}:   ",
-                style.prefix(),
-                i * cfg.width + skip,
-                style.suffix()
-            )?;
+            if use_color {
+                write!(
+                    writer,
+                    "{}{:08x}{}:   ",
+                    style.prefix(),
+                    i * cfg.width + skip,
+                    style.suffix()
+                )?;
+            } else {
+                write!(writer, "{:08x}:   ", i * cfg.width + skip,)?;
+            }
         }
         for (i, x) in row.as_ref().iter().enumerate() {
-            let (style, _char) = categorize_byte(x);
-            write!(
-                writer,
-                "{}{}{:02x}{}",
-                cfg.delimiter(i),
-                style.prefix(),
-                x,
-                style.suffix()
-            )?;
+            if use_color {
+                let (style, _char) = categorize_byte(x);
+                write!(
+                    writer,
+                    "{}{}{:02x}{}",
+                    cfg.delimiter(i),
+                    style.prefix(),
+                    x,
+                    style.suffix()
+                )?;
+            } else {
+                write!(writer, "{}{:02x}", cfg.delimiter(i), x,)?;
+            }
         }
         if cfg.ascii {
             for j in row.len()..cfg.width {
@@ -221,13 +244,17 @@ where
                     Some(c) => c,
                     None => *x as char,
                 };
-                write!(
-                    writer,
-                    "{}{}{}",
-                    style.prefix(),
-                    replacement_char,
-                    style.suffix()
-                )?;
+                if use_color {
+                    write!(
+                        writer,
+                        "{}{}{}",
+                        style.prefix(),
+                        replacement_char,
+                        style.suffix()
+                    )?;
+                } else {
+                    write!(writer, "{}", replacement_char,)?;
+                }
             }
         }
         if i + 1 < lines_len {
@@ -243,14 +270,14 @@ pub struct Hex<'a, T: 'a>(&'a T, HexConfig);
 impl<'a, T: 'a + AsRef<[u8]>> fmt::Display for Hex<'a, T> {
     /// Formats the value by `simple_hex_write` using the given formatter.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        hex_write(f, self.0, self.1.to_simple())
+        hex_write(f, self.0, self.1.to_simple(), None)
     }
 }
 
 impl<'a, T: 'a + AsRef<[u8]>> fmt::Debug for Hex<'a, T> {
     /// Formats the value by `pretty_hex_write` using the given formatter.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        hex_write(f, self.0, self.1)
+        hex_write(f, self.0, self.1, None)
     }
 }
 
