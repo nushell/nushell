@@ -199,7 +199,7 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 [[package]]
 name = "arrow"
 version = "4.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow-rs?rev=c3fe3bab9905739fdda75301dab07a18c91731bd#c3fe3bab9905739fdda75301dab07a18c91731bd"
+source = "git+https://github.com/apache/arrow-rs?rev=d008f31b107c1030a1f5144c164e8ca8bf543576#d008f31b107c1030a1f5144c164e8ca8bf543576"
 dependencies = [
  "cfg_aliases",
  "chrono",
@@ -209,6 +209,7 @@ dependencies = [
  "indexmap",
  "lazy_static 1.4.0",
  "lexical-core",
+ "multiversion",
  "num 0.3.1",
  "rand 0.7.3",
  "regex 1.4.6",
@@ -3047,6 +3048,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "multiversion"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "025c962a3dd3cc5e0e520aa9c612201d127dcdf28616974961a649dca64f5373"
+dependencies = [
+ "multiversion-macros",
+]
+
+[[package]]
+name = "multiversion-macros"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8a3e2bde382ebf960c1f3e79689fa5941625fe9bf694a1cb64af3e85faff3af"
+dependencies = [
+ "proc-macro2",
+ "quote 1.0.9",
+ "syn 1.0.71",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4513,7 +4534,7 @@ dependencies = [
 [[package]]
 name = "polars"
 version = "0.13.1"
-source = "git+https://github.com/ritchie46/polars?rev=27173e78d471f4fa96d175d38a4f010076fb4c1f#27173e78d471f4fa96d175d38a4f010076fb4c1f"
+source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4523,7 +4544,7 @@ dependencies = [
 [[package]]
 name = "polars-arrow"
 version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=27173e78d471f4fa96d175d38a4f010076fb4c1f#27173e78d471f4fa96d175d38a4f010076fb4c1f"
+source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4533,7 +4554,7 @@ dependencies = [
 [[package]]
 name = "polars-core"
 version = "0.13.2"
-source = "git+https://github.com/ritchie46/polars?rev=27173e78d471f4fa96d175d38a4f010076fb4c1f#27173e78d471f4fa96d175d38a4f010076fb4c1f"
+source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4555,7 +4576,7 @@ dependencies = [
 [[package]]
 name = "polars-io"
 version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=27173e78d471f4fa96d175d38a4f010076fb4c1f#27173e78d471f4fa96d175d38a4f010076fb4c1f"
+source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4577,7 +4598,7 @@ dependencies = [
 [[package]]
 name = "polars-lazy"
 version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=27173e78d471f4fa96d175d38a4f010076fb4c1f#27173e78d471f4fa96d175d38a4f010076fb4c1f"
+source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
 dependencies = [
  "ahash 0.7.2",
  "itertools",
