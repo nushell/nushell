@@ -11,6 +11,8 @@ pub struct SubCommand;
 #[derive(Deserialize)]
 pub struct Arguments {
     pub rest: Vec<ColumnPath>,
+    pub skip: Option<Value>,
+    pub bytes: Option<Value>,
 }
 
 impl WholeStreamCommand for SubCommand {
@@ -19,10 +21,23 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into binary").rest(
-            SyntaxShape::ColumnPath,
-            "column paths to convert to binary (for table input)",
-        )
+        Signature::build("into binary")
+            .rest(
+                SyntaxShape::ColumnPath,
+                "column paths to convert to binary (for table input)",
+            )
+            .named(
+                "skip",
+                SyntaxShape::Int,
+                "skip x number of bytes",
+                Some('s'),
+            )
+            .named(
+                "bytes",
+                SyntaxShape::Int,
+                "show y number of bytes",
+                Some('b'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -41,6 +56,30 @@ impl WholeStreamCommand for SubCommand {
                     "echo 'This is a string that is exactly 52 characters long.' | into binary",
                 result: Some(vec![UntaggedValue::binary(
                     "This is a string that is exactly 52 characters long."
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                )
+                .into()]),
+            },
+            Example {
+                description: "convert string to a nushell binary primitive",
+                example:
+                    "echo 'This is a string that is exactly 52 characters long.' | into binary --skip 10",
+                result: Some(vec![UntaggedValue::binary(
+                    "string that is exactly 52 characters long."
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                )
+                .into()]),
+            },
+            Example {
+                description: "convert string to a nushell binary primitive",
+                example:
+                    "echo 'This is a string that is exactly 52 characters long.' | into binary --skip 10 --bytes 10",
+                result: Some(vec![UntaggedValue::binary(
+                    "string tha"
                         .to_string()
                         .as_bytes()
                         .to_vec(),
@@ -83,18 +122,27 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn into_binary(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { rest: column_paths }, input) = args.process()?;
+    let (
+        Arguments {
+            rest: column_paths,
+            skip,
+            bytes,
+        },
+        input,
+    ) = args.process()?;
 
     Ok(input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                ReturnSuccess::value(action(&v, v.tag(), &skip, &bytes)?)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
+                    let skip_clone = skip.clone();
+                    let bytes_clone = bytes.clone();
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, old.tag())),
+                        Box::new(move |old| action(old, old.tag(), &skip_clone, &bytes_clone)),
                     )?;
                 }
 
@@ -104,16 +152,49 @@ fn into_binary(args: CommandArgs) -> Result<ActionStream, ShellError> {
         .to_action_stream())
 }
 
-pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+pub fn bigint_to_endian(n: &BigInt) -> Vec<u8> {
+    if cfg!(target_endian = "little") {
+        // eprintln!("Little Endian");
+        n.to_bytes_le().1
+    } else {
+        // eprintln!("Big Endian");
+        n.to_bytes_be().1
+    }
+}
+
+pub fn action(
+    input: &Value,
+    tag: impl Into<Tag>,
+    skip: &Option<Value>,
+    bytes: &Option<Value>,
+) -> Result<Value, ShellError> {
     let tag = tag.into();
+    let skip_bytes = match skip {
+        Some(s) => s.as_usize().unwrap_or(0),
+        None => 0usize,
+    };
+
+    let num_bytes = match bytes {
+        Some(b) => b.as_usize().unwrap_or(0),
+        None => 0usize,
+    };
+
     match &input.value {
         UntaggedValue::Primitive(prim) => Ok(UntaggedValue::binary(match prim {
-            Primitive::Binary(b) => b.to_vec(),
-            // TODO: Several places here we use Little Endian. We should probably
-            // query the host to determine if it's Big Endian or Little Endian
-            Primitive::Int(n_ref) => n_ref.to_bytes_le().1,
+            Primitive::Binary(b) => {
+                if num_bytes == 0usize {
+                    b.to_vec().into_iter().skip(skip_bytes).collect()
+                } else {
+                    b.to_vec()
+                        .into_iter()
+                        .skip(skip_bytes)
+                        .take(num_bytes)
+                        .collect()
+                }
+            }
+            Primitive::Int(n_ref) => bigint_to_endian(n_ref),
             Primitive::Decimal(dec) => match dec.to_bigint() {
-                Some(n) => n.to_bytes_le().1,
+                Some(n) => bigint_to_endian(&n),
                 None => {
                     return Err(ShellError::unimplemented(
                         "failed to convert decimal to int",
@@ -121,17 +202,35 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
                 }
             },
             Primitive::Filesize(a_filesize) => match a_filesize.to_bigint() {
-                Some(n) => n.to_bytes_le().1,
+                Some(n) => bigint_to_endian(&n),
                 None => {
                     return Err(ShellError::unimplemented(
                         "failed to convert filesize to bigint",
                     ));
                 }
             },
-            Primitive::String(a_string) => a_string.as_bytes().to_vec(),
+            Primitive::String(a_string) => {
+                // a_string.as_bytes().to_vec()
+                if num_bytes == 0usize {
+                    a_string
+                        .as_bytes()
+                        .to_vec()
+                        .into_iter()
+                        .skip(skip_bytes)
+                        .collect()
+                } else {
+                    a_string
+                        .as_bytes()
+                        .to_vec()
+                        .into_iter()
+                        .skip(skip_bytes)
+                        .take(num_bytes)
+                        .collect()
+                }
+            }
             Primitive::Boolean(a_bool) => match a_bool {
-                false => BigInt::from(0).to_bytes_le().1,
-                true => BigInt::from(1).to_bytes_le().1,
+                false => bigint_to_endian(&BigInt::from(0)),
+                true => bigint_to_endian(&BigInt::from(1)),
             },
             Primitive::Date(a_date) => a_date.format("%c").to_string().as_bytes().to_vec(),
             Primitive::FilePath(a_filepath) => a_filepath
