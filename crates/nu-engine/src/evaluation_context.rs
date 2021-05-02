@@ -1,9 +1,10 @@
-use crate::env::host::Host;
 use crate::evaluate::scope::{Scope, ScopeFrame};
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
+use crate::{env::basic_host::BasicHost, Host};
+use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
@@ -45,6 +46,23 @@ impl EvaluationContext {
             configs,
             shell_manager,
             windows_drives_previous_cwd,
+        }
+    }
+
+    pub fn basic() -> EvaluationContext {
+        let scope = Scope::new();
+        let mut host = BasicHost {};
+        let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
+        scope.add_env(env_vars);
+
+        EvaluationContext {
+            scope,
+            host: Arc::new(parking_lot::Mutex::new(Box::new(host))),
+            current_errors: Arc::new(Mutex::new(vec![])),
+            ctrl_c: Arc::new(AtomicBool::new(false)),
+            configs: Arc::new(Mutex::new(ConfigHolder::new())),
+            shell_manager: ShellManager::basic(),
+            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
     }
 

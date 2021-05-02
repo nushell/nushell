@@ -1,5 +1,3 @@
-pub mod basic_evaluation_context;
-pub mod basic_shell_manager;
 mod call_info;
 mod command_args;
 mod config_holder;
@@ -18,8 +16,6 @@ pub mod script;
 pub mod shell;
 mod whole_stream_command;
 
-pub use crate::basic_evaluation_context::basic_evaluation_context;
-pub use crate::basic_shell_manager::basic_shell_manager;
 pub use crate::call_info::UnevaluatedCallInfo;
 pub use crate::command_args::{
     CommandArgs, EvaluatedCommandArgs, EvaluatedCommandArgsWithoutInput, RunnableContext,

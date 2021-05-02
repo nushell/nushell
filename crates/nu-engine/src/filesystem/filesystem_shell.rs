@@ -11,7 +11,7 @@ use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, OutputStream, ToActionStream};
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -57,17 +57,17 @@ impl FilesystemShell {
         matches!(&self.mode, FilesystemShellMode::Cli)
     }
 
-    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> FilesystemShell {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
         };
 
-        Ok(FilesystemShell {
+        FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
             mode,
-        })
+        }
     }
 
     pub fn with_location(
@@ -713,6 +713,7 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
+                            use std::io::Error;
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))

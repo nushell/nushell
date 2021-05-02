@@ -19,6 +19,15 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    pub fn basic() -> ShellManager {
+        ShellManager {
+            current_shell: Arc::new(AtomicUsize::new(0)),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
+                FilesystemShellMode::Cli,
+            ))])),
+        }
+    }
+
     pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
         let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
