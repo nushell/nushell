@@ -40,6 +40,7 @@ impl FromValue for num_bigint::BigInt {
         }
     }
 }
+
 impl FromValue for Tagged<u64> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let tag = v.tag.clone();
