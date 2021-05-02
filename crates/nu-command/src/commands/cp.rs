@@ -26,7 +26,7 @@ impl WholeStreamCommand for Cpy {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let shell_manager = args.shell_manager.clone();
+        let shell_manager = args.shell_manager();
         let name = args.call_info.name_tag.clone();
         let (args, _) = args.process()?;
         shell_manager.cp(args, name)

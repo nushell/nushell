@@ -43,14 +43,15 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
-    let configuration = context.configs.lock().global_config();
+pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let configuration = args.configs().lock().global_config();
+    let tag = args.call_info.name_tag.clone();
 
-    let binary = context.scope.get_command("binaryview");
-    let text = context.scope.get_command("textview");
-    let table = context.scope.get_command("table");
-
-    let (mut input_stream, context) = context.split();
+    let binary = args.scope().get_command("binaryview");
+    let text = args.scope().get_command("textview");
+    let table = args.scope().get_command("table");
+    let context = args.context;
+    let mut input_stream = args.input;
 
     if let Some(x) = input_stream.next() {
         match input_stream.next() {
@@ -62,7 +63,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                 let stream = InputStream::from_stream(xy_stream);
 
                 if let Some(table) = table {
-                    let command_args = create_default_command_args(&context).with_input(stream);
+                    let command_args = create_default_command_args(&context, stream, tag);
                     let result = table.run(command_args)?;
                     let _ = result.collect::<Vec<_>>();
                 }
@@ -74,12 +75,13 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                         tag: Tag { anchor, span },
                     } if anchor.is_some() => {
                         if let Some(text) = text {
-                            let mut stream = VecDeque::new();
-                            stream.push_back(
-                                UntaggedValue::string(s).into_value(Tag { anchor, span }),
+                            let command_args = create_default_command_args(
+                                &context,
+                                InputStream::one(
+                                    UntaggedValue::string(s).into_value(Tag { anchor, span }),
+                                ),
+                                tag,
                             );
-                            let command_args =
-                                create_default_command_args(&context).with_input(stream);
                             let result = text.run_with_actions(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
@@ -158,10 +160,8 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                         ..
                     } => {
                         if let Some(binary) = binary {
-                            let mut stream = VecDeque::new();
-                            stream.push_back(x);
                             let command_args =
-                                create_default_command_args(&context).with_input(stream);
+                                create_default_command_args(&context, InputStream::one(x), tag);
                             let result = binary.run_with_actions(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
@@ -220,10 +220,8 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
 
                             println!("{}", nu_table::draw_table(&table, term_width, &color_hm));
                         } else if let Some(table) = table {
-                            let mut stream = VecDeque::new();
-                            stream.push_back(x);
                             let command_args =
-                                create_default_command_args(&context).with_input(stream);
+                                create_default_command_args(&context, InputStream::one(x), tag);
                             let result = table.run(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
@@ -240,10 +238,8 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                         value: ref item, ..
                     } => {
                         if let Some(table) = table {
-                            let mut stream = VecDeque::new();
-                            stream.push_back(x);
                             let command_args =
-                                create_default_command_args(&context).with_input(stream);
+                                create_default_command_args(&context, InputStream::one(x), tag);
                             let result = table.run(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
@@ -258,14 +254,14 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(InputStream::empty())
 }
 
-fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawCommandArgs {
-    let span = context.name.span;
-    RawCommandArgs {
-        host: context.host.clone(),
-        ctrl_c: context.ctrl_c.clone(),
-        configs: context.configs.clone(),
-        current_errors: context.current_errors.clone(),
-        shell_manager: context.shell_manager.clone(),
+fn create_default_command_args(
+    context: &EvaluationContext,
+    input: InputStream,
+    tag: Tag,
+) -> CommandArgs {
+    let span = tag.span;
+    CommandArgs {
+        context: context.clone(),
         call_info: UnevaluatedCallInfo {
             args: hir::Call {
                 head: Box::new(SpannedExpression::new(
@@ -277,9 +273,9 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 span,
                 external_redirection: ExternalRedirection::Stdout,
             },
-            name_tag: context.name.clone(),
+            name_tag: tag,
         },
-        scope: Scope::new(),
+        input,
     }
 }
 

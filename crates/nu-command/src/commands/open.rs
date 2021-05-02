@@ -100,11 +100,11 @@ pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, Sh
 }
 
 fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let scope = args.scope.clone();
-    let cwd = PathBuf::from(args.shell_manager.path());
-    let shell_manager = args.shell_manager.clone();
+    let scope = args.scope().clone();
+    let shell_manager = args.shell_manager();
+    let cwd = PathBuf::from(shell_manager.path());
     let name = args.call_info.name_tag.clone();
-    let ctrl_c = args.ctrl_c.clone();
+    let ctrl_c = args.ctrl_c();
 
     let (
         OpenArgs {

@@ -32,7 +32,7 @@ impl WholeStreamCommand for Pwd {
 }
 
 pub fn pwd(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let shell_manager = args.shell_manager.clone();
+    let shell_manager = args.shell_manager();
     let args = args.evaluate_once()?;
 
     shell_manager.pwd(args)

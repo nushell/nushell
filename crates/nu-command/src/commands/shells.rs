@@ -26,12 +26,14 @@ impl WholeStreamCommand for Shells {
 
 fn shells(args: CommandArgs) -> ActionStream {
     let mut shells_out = VecDeque::new();
+    let shell_manager = args.shell_manager();
     let tag = args.call_info.name_tag;
+    let active_index = shell_manager.current_shell.load(Ordering::SeqCst);
 
-    for (index, shell) in args.shell_manager.shells.lock().iter().enumerate() {
+    for (index, shell) in shell_manager.shells.lock().iter().enumerate() {
         let mut dict = TaggedDictBuilder::new(&tag);
 
-        if index == (*args.shell_manager.current_shell).load(Ordering::SeqCst) {
+        if index == active_index {
             dict.insert_untagged("active", true);
         } else {
             dict.insert_untagged("active", false);

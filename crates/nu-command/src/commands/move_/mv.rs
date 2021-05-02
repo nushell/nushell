@@ -55,7 +55,7 @@ impl WholeStreamCommand for Mv {
 
 fn mv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let shell_manager = args.shell_manager.clone();
+    let shell_manager = args.shell_manager();
     let (args, _) = args.process()?;
 
     shell_manager.mv(args, name)

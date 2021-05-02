@@ -534,7 +534,7 @@ mod tests {
     use super::{run_external_command, InputStream};
 
     #[cfg(feature = "which")]
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::EvaluationContext;
 
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
@@ -557,8 +557,7 @@ mod tests {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
-        let mut ctx =
-            basic_evaluation_context().expect("There was a problem creating a basic context.");
+        let mut ctx = EvaluationContext::basic();
 
         assert!(run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout).is_err());
     }
@@ -566,7 +565,7 @@ mod tests {
     // fn failure_run() -> Result<(), ShellError> {
     //     let cmd = ExternalBuilder::for_name("fail").build();
 
-    //     let mut ctx = crate::cli::basic_evaluation_context().expect("There was a problem creating a basic context.");
+    //     let mut ctx = crate::cli::EvaluationContext::basic().expect("There was a problem creating a basic context.");
     //     let stream = run_external_command(cmd, &mut ctx, None, false)
     //         ?
     //         .expect("There was a problem running the external command.");

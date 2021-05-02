@@ -21,9 +21,9 @@ impl WholeStreamCommand for Command {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let name = args.call_info.name_tag;
+        let name = args.call_info.name_tag.clone();
 
-        if let Some(global_cfg) = &args.configs.lock().global_config {
+        if let Some(global_cfg) = &args.configs().lock().global_config {
             let result = global_cfg.vars.clone();
             Ok(vec![ReturnSuccess::value(
                 UntaggedValue::Row(result.into()).into_value(name),

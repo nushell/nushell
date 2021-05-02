@@ -1,5 +1,5 @@
 use crate::shell::Shell;
-use crate::{command_args::EvaluatedWholeStreamCommandArgs, FilesystemShell};
+use crate::{command_args::EvaluatedCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
 use nu_stream::{ActionStream, OutputStream};
 
@@ -19,6 +19,15 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
+    pub fn basic() -> ShellManager {
+        ShellManager {
+            current_shell: Arc::new(AtomicUsize::new(0)),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
+                FilesystemShellMode::Cli,
+            ))])),
+        }
+    }
+
     pub fn enter_script_mode(&self) -> Result<(), std::io::Error> {
         //New fs_shell starting from current path
         let fs_shell = FilesystemShell::with_location(self.path(), FilesystemShellMode::Script)?;
@@ -69,7 +78,7 @@ impl ShellManager {
         self.shells.lock()[self.current_shell()].path()
     }
 
-    pub fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+    pub fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].pwd(args)

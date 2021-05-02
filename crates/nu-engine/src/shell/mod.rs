@@ -1,6 +1,6 @@
 use nu_stream::{ActionStream, OutputStream};
 
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::command_args::EvaluatedCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
 pub use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use encoding_rs::Encoding;
@@ -33,7 +33,7 @@ pub trait Shell: std::fmt::Debug {
     fn mv(&self, args: MvArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn rm(&self, args: RemoveArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn path(&self) -> String;
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError>;
+    fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError>;
     fn set_path(&mut self, path: String);
     fn open(
         &self,
