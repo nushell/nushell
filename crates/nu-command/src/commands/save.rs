@@ -153,19 +153,16 @@ impl WholeStreamCommand for Save {
     }
 }
 
-fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut full_path = PathBuf::from(raw_args.shell_manager.path());
-    let name_tag = raw_args.call_info.name_tag.clone();
-    let name = raw_args.call_info.name_tag.clone();
-    let scope = raw_args.scope.clone();
-    let host = raw_args.host.clone();
-    let ctrl_c = raw_args.ctrl_c.clone();
-    let configs = raw_args.configs.clone();
-    let current_errors = raw_args.current_errors.clone();
-    let shell_manager = raw_args.shell_manager.clone();
+fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let shell_manager = args.shell_manager();
+    let mut full_path = PathBuf::from(shell_manager.path());
+    let name_tag = args.call_info.name_tag.clone();
+    let name = args.call_info.name_tag.clone();
+    let context = args.context.clone();
+    let scope = args.scope().clone();
 
-    let head = raw_args.call_info.args.head.clone();
-    let args = raw_args.evaluate_once()?;
+    let head = args.call_info.args.head.clone();
+    let args = args.evaluate_once()?;
 
     let path: Option<Tagged<PathBuf>> = args.opt(0)?;
     let save_raw = args.has_flag("raw");
@@ -203,12 +200,8 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
             if let Some(extension) = full_path.extension() {
                 let command_name = format!("to {}", extension.to_string_lossy());
                 if let Some(converter) = scope.get_command(&command_name) {
-                    let new_args = RawCommandArgs {
-                        host,
-                        ctrl_c,
-                        configs,
-                        current_errors,
-                        shell_manager: shell_manager.clone(),
+                    let new_args = CommandArgs {
+                        context,
                         call_info: UnevaluatedCallInfo {
                             args: nu_protocol::hir::Call {
                                 head,
@@ -219,9 +212,9 @@ fn save(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
                             },
                             name_tag: name_tag.clone(),
                         },
-                        scope,
+                        input: InputStream::from_stream(input.into_iter()),
                     };
-                    let mut result = converter.run(new_args.with_input(input))?;
+                    let mut result = converter.run(new_args)?;
                     let result_vec: Vec<Value> = result.drain_vec();
                     if converter.is_binary() {
                         process_binary_return_success!('scope, result_vec, name_tag)

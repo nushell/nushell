@@ -35,7 +35,7 @@ impl WholeStreamCommand for Sleep {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let ctrl_c = args.ctrl_c().clone();
+        let ctrl_c = args.ctrl_c();
 
         let (SleepArgs { duration, rest }, _) = args.process()?;
 

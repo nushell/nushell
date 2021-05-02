@@ -38,7 +38,7 @@ impl WholeStreamCommand for Help {
 
 fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let scope = args.scope.clone();
+    let scope = args.scope().clone();
     let (HelpArgs { rest }, ..) = args.process()?;
 
     if !rest.is_empty() {

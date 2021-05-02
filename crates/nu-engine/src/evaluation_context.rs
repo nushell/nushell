@@ -49,15 +49,7 @@ impl EvaluationContext {
     }
 
     pub fn from_args(args: &CommandArgs) -> EvaluationContext {
-        EvaluationContext {
-            scope: args.scope.clone(),
-            host: args.host.clone(),
-            current_errors: args.current_errors.clone(),
-            ctrl_c: args.ctrl_c.clone(),
-            configs: args.configs.clone(),
-            shell_manager: args.shell_manager.clone(),
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-        }
+        args.context.clone()
     }
 
     pub fn error(&self, error: ShellError) {
@@ -135,13 +127,8 @@ impl EvaluationContext {
 
     fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            configs: self.configs.clone(),
-            current_errors: self.current_errors.clone(),
-            shell_manager: self.shell_manager.clone(),
+            context: self.clone(),
             call_info: self.call_info(args, name_tag),
-            scope: self.scope.clone(),
             input,
         }
     }

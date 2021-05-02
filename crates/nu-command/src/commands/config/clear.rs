@@ -34,7 +34,7 @@ impl WholeStreamCommand for SubCommand {
 pub fn clear(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
 
-    let result = if let Some(global_cfg) = &mut args.configs.lock().global_config {
+    let result = if let Some(global_cfg) = &mut args.configs().lock().global_config {
         global_cfg.vars.clear();
         global_cfg.write()?;
         ctx.reload_config(global_cfg)?;

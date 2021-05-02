@@ -1,4 +1,4 @@
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
+use crate::command_args::EvaluatedCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
@@ -217,7 +217,7 @@ impl Shell for ValueShell {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+    fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError> {
         Ok(ActionStream::one(
             UntaggedValue::string(self.path()).into_value(&args.call_info.name_tag),
         ))

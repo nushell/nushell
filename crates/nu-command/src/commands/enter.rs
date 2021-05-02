@@ -75,16 +75,12 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 }
 
-fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let scope = raw_args.scope.clone();
-    let shell_manager = raw_args.shell_manager.clone();
-    let head = raw_args.call_info.args.head.clone();
-    let ctrl_c = raw_args.ctrl_c.clone();
-    let configs = raw_args.configs.clone();
-    let current_errors = raw_args.current_errors.clone();
-    let host = raw_args.host.clone();
-    let tag = raw_args.call_info.name_tag.clone();
-    let (EnterArgs { location, encoding }, _) = raw_args.process()?;
+fn enter(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let head = args.call_info.args.head.clone();
+    let context = args.context.clone();
+    let scope = args.scope().clone();
+    let path = args.context.shell_manager.path();
+    let (EnterArgs { location, encoding }, _) = args.process()?;
     let location_string = location.display().to_string();
 
     if location.is_dir() {
@@ -93,7 +89,7 @@ fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         )))
     } else {
         // If it's a file, attempt to open the file as a value and enter it
-        let cwd = shell_manager.path();
+        let cwd = path;
 
         let full_path = std::path::PathBuf::from(cwd);
         let span = location.span();
@@ -110,12 +106,9 @@ fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                 if let Some(extension) = file_extension {
                     let command_name = format!("from {}", extension);
                     if let Some(converter) = scope.get_command(&command_name) {
-                        let new_args = RawCommandArgs {
-                            host,
-                            ctrl_c,
-                            configs,
-                            current_errors,
-                            shell_manager,
+                        let tag = tagged_contents.tag.clone();
+                        let new_args = CommandArgs {
+                            context,
                             call_info: UnevaluatedCallInfo {
                                 args: nu_protocol::hir::Call {
                                     head,
@@ -124,13 +117,11 @@ fn enter(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                                     span: Span::unknown(),
                                     external_redirection: ExternalRedirection::Stdout,
                                 },
-                                name_tag: tag,
+                                name_tag: tag.clone(),
                             },
-                            scope,
+                            input: InputStream::one(tagged_contents),
                         };
-                        let tag = tagged_contents.tag.clone();
-                        let mut result =
-                            converter.run(new_args.with_input(vec![tagged_contents]))?;
+                        let mut result = converter.run(new_args)?;
                         let result_vec: Vec<Value> = result.drain_vec();
                         Ok(result_vec
                             .into_iter()

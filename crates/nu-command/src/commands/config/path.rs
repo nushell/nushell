@@ -32,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn path(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    if let Some(global_cfg) = &mut args.configs.lock().global_config {
+    if let Some(global_cfg) = &mut args.configs().lock().global_config {
         Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::Primitive(Primitive::FilePath(global_cfg.file_path.clone())),
         )))

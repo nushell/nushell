@@ -21,71 +21,38 @@ use std::sync::Arc;
 #[derive(Getters)]
 #[get = "pub"]
 pub struct CommandArgs {
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub shell_manager: ShellManager,
+    pub context: EvaluationContext,
     pub call_info: UnevaluatedCallInfo,
-    pub scope: Scope,
     pub input: InputStream,
 }
 
+impl CommandArgs {
+    pub fn scope(&self) -> &Scope {
+        &self.context.scope
+    }
+
+    pub fn host(&self) -> Arc<parking_lot::Mutex<Box<dyn Host>>> {
+        self.context.host.clone()
+    }
+
+    pub fn current_errors(&self) -> Arc<Mutex<Vec<ShellError>>> {
+        self.context.current_errors.clone()
+    }
+
+    pub fn ctrl_c(&self) -> Arc<AtomicBool> {
+        self.context.ctrl_c.clone()
+    }
+
+    pub fn configs(&self) -> Arc<Mutex<ConfigHolder>> {
+        self.context.configs.clone()
+    }
+
+    pub fn shell_manager(&self) -> ShellManager {
+        self.context.shell_manager.clone()
+    }
+}
+
 pub type RunnableContext = CommandArgs;
-
-#[derive(Clone)]
-pub struct RunnableContextWithoutInput {
-    pub shell_manager: ShellManager,
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub call_info: UnevaluatedCallInfo,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub scope: Scope,
-    pub name: Tag,
-}
-
-impl RunnableContextWithoutInput {
-    pub fn with_input(self, input: InputStream) -> CommandArgs {
-        CommandArgs {
-            shell_manager: self.shell_manager,
-            host: self.host,
-            current_errors: self.current_errors,
-            ctrl_c: self.ctrl_c,
-            call_info: self.call_info,
-            configs: self.configs,
-            scope: self.scope,
-            input,
-        }
-    }
-}
-
-#[derive(Getters, Clone)]
-#[get = "pub"]
-pub struct RawCommandArgs {
-    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub current_errors: Arc<Mutex<Vec<ShellError>>>,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub shell_manager: ShellManager,
-    pub scope: Scope,
-    pub call_info: UnevaluatedCallInfo,
-}
-
-impl RawCommandArgs {
-    pub fn with_input(self, input: impl Into<InputStream>) -> CommandArgs {
-        CommandArgs {
-            host: self.host,
-            ctrl_c: self.ctrl_c,
-            configs: self.configs,
-            current_errors: self.current_errors,
-            shell_manager: self.shell_manager,
-            call_info: self.call_info,
-            scope: self.scope,
-            input: input.into(),
-        }
-    }
-}
 
 impl std::fmt::Debug for CommandArgs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,49 +61,18 @@ impl std::fmt::Debug for CommandArgs {
 }
 
 impl CommandArgs {
-    pub fn evaluate_once(self) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
-        let ctx = EvaluationContext::new(
-            self.scope,
-            self.host,
-            self.current_errors,
-            self.ctrl_c,
-            self.configs,
-            self.shell_manager,
-            Arc::new(Mutex::new(std::collections::HashMap::new())),
-        );
+    pub fn evaluate_once(self) -> Result<EvaluatedCommandArgs, ShellError> {
+        let ctx = self.context.clone();
 
         let input = self.input;
         let call_info = self.call_info.evaluate(&ctx)?;
 
-        Ok(EvaluatedWholeStreamCommandArgs::new(
-            ctx.host,
-            ctx.ctrl_c,
-            ctx.configs,
-            ctx.shell_manager,
-            call_info,
-            input,
-            ctx.scope,
-        ))
-    }
-
-    pub fn split(self) -> (InputStream, RunnableContextWithoutInput) {
-        let new_context = RunnableContextWithoutInput {
-            shell_manager: self.shell_manager,
-            host: self.host,
-            ctrl_c: self.ctrl_c,
-            configs: self.configs,
-            name: self.call_info.name_tag.clone(),
-            call_info: self.call_info,
-            current_errors: self.current_errors,
-            scope: self.scope,
-        };
-
-        (self.input, new_context)
+        Ok(EvaluatedCommandArgs::new(ctx, call_info, input))
     }
 
     pub fn extract<T>(
         self,
-        f: impl FnOnce(&EvaluatedCommandArgs) -> Result<T, ShellError>,
+        f: impl FnOnce(&EvaluatedCommandArgsWithoutInput) -> Result<T, ShellError>,
     ) -> Result<(T, InputStream), ShellError> {
         let evaluated_args = self.evaluate_once()?;
 
@@ -153,37 +89,26 @@ impl CommandArgs {
     }
 }
 
-pub struct EvaluatedWholeStreamCommandArgs {
-    pub args: EvaluatedCommandArgs,
+pub struct EvaluatedCommandArgs {
+    pub args: EvaluatedCommandArgsWithoutInput,
     pub input: InputStream,
 }
 
-impl Deref for EvaluatedWholeStreamCommandArgs {
-    type Target = EvaluatedCommandArgs;
+impl Deref for EvaluatedCommandArgs {
+    type Target = EvaluatedCommandArgsWithoutInput;
     fn deref(&self) -> &Self::Target {
         &self.args
     }
 }
 
-impl EvaluatedWholeStreamCommandArgs {
+impl EvaluatedCommandArgs {
     pub fn new(
-        host: Arc<parking_lot::Mutex<dyn Host>>,
-        ctrl_c: Arc<AtomicBool>,
-        configs: Arc<Mutex<ConfigHolder>>,
-        shell_manager: ShellManager,
+        context: EvaluationContext,
         call_info: CallInfo,
         input: impl Into<InputStream>,
-        scope: Scope,
-    ) -> EvaluatedWholeStreamCommandArgs {
-        EvaluatedWholeStreamCommandArgs {
-            args: EvaluatedCommandArgs {
-                host,
-                ctrl_c,
-                configs,
-                shell_manager,
-                call_info,
-                scope,
-            },
+    ) -> EvaluatedCommandArgs {
+        EvaluatedCommandArgs {
+            args: EvaluatedCommandArgsWithoutInput { context, call_info },
             input: input.into(),
         }
     }
@@ -193,13 +118,13 @@ impl EvaluatedWholeStreamCommandArgs {
     }
 
     pub fn parts(self) -> (InputStream, EvaluatedArgs) {
-        let EvaluatedWholeStreamCommandArgs { args, input } = self;
+        let EvaluatedCommandArgs { args, input } = self;
 
         (input, args.call_info.args)
     }
 
-    pub fn split(self) -> (InputStream, EvaluatedCommandArgs) {
-        let EvaluatedWholeStreamCommandArgs { args, input } = self;
+    pub fn split(self) -> (InputStream, EvaluatedCommandArgsWithoutInput) {
+        let EvaluatedCommandArgs { args, input } = self;
 
         (input, args)
     }
@@ -207,18 +132,26 @@ impl EvaluatedWholeStreamCommandArgs {
 
 #[derive(Getters, new)]
 #[get = "pub(crate)"]
-pub struct EvaluatedCommandArgs {
-    pub host: Arc<parking_lot::Mutex<dyn Host>>,
-    pub ctrl_c: Arc<AtomicBool>,
-    pub configs: Arc<Mutex<ConfigHolder>>,
-    pub shell_manager: ShellManager,
+pub struct EvaluatedCommandArgsWithoutInput {
+    pub context: EvaluationContext,
     pub call_info: CallInfo,
-    pub scope: Scope,
 }
 
-impl EvaluatedCommandArgs {
+impl EvaluatedCommandArgsWithoutInput {
     pub fn nth(&self, pos: usize) -> Option<&Value> {
         self.call_info.args.nth(pos)
+    }
+
+    pub fn scope(&self) -> Scope {
+        self.context.scope.clone()
+    }
+
+    pub fn configs(&self) -> Arc<Mutex<ConfigHolder>> {
+        self.context.configs.clone()
+    }
+
+    pub fn host(&self) -> Arc<parking_lot::Mutex<Box<dyn Host>>> {
+        self.context.host.clone()
     }
 
     /// Get the nth positional argument, error if not possible

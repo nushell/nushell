@@ -4,7 +4,7 @@ use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
-use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
+use crate::{command_args::EvaluatedCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
@@ -765,7 +765,7 @@ impl Shell for FilesystemShell {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+    fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
         let p = match dunce::canonicalize(path.as_path()) {
             Ok(p) => p,

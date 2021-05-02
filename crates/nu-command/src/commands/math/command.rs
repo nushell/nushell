@@ -20,7 +20,7 @@ impl WholeStreamCommand for Command {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(
-            UntaggedValue::string(get_full_help(&Command, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Command, args.scope())).into_value(Tag::unknown()),
         ))
     }
 }
