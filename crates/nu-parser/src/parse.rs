@@ -975,57 +975,62 @@ fn get_flags_from_flag(
     cmd: &Spanned<String>,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
-    if arg.item.starts_with('-') {
-        // It's a flag (or set of flags)
-        let mut output = vec![];
-        let mut error = None;
+    if !arg.item.starts_with('-') {
+        // It's not a flag, so don't bother with it
+        return (vec![], None);
+    }
 
-        let remainder: String = arg.item.chars().skip(1).collect();
+    let mut output = vec![];
+    let mut error = None;
 
-        if remainder.starts_with('-') {
+    let mut remainder = arg.item.chars().skip(1);
+
+    if let Some(first) = remainder.next() {
+        if first == '-' {
             // Long flag expected
-            let remainder: String = remainder.chars().skip(1).collect();
-            if let Some((named_type, _)) = signature.named.get(&remainder) {
-                output.push((remainder.clone(), named_type.clone()));
+            let remainder_str: String = arg.item.chars().skip(2).collect();
+            if let Some((named_type, _)) = signature.named.get(&remainder_str) {
+                output.push((remainder_str.clone(), named_type.clone()));
             } else {
                 error = Some(ParseError::argument_error(
                     cmd.clone(),
                     ArgumentError::UnexpectedFlag(arg.clone()),
                 ));
             }
-        } else {
-            // Short flag(s) expected
-            let mut starting_pos = arg.span.start() + 1;
-            for c in remainder.chars() {
-                let mut found = false;
-                for (full_name, named_arg) in signature.named.iter() {
-                    if Some(c) == named_arg.0.get_short() {
-                        found = true;
-                        output.push((full_name.clone(), named_arg.0.clone()));
-                        break;
-                    }
-                }
+            return (output, error);
+        } else if first >= '0' && first <= '9' {
+            // It's not a flag, so don't bother with it
+            return (vec![], None);
+        }
+    }
 
-                if !found {
-                    error = Some(ParseError::argument_error(
-                        cmd.clone(),
-                        ArgumentError::UnexpectedFlag(
-                            arg.item
-                                .clone()
-                                .spanned(Span::new(starting_pos, starting_pos + c.len_utf8())),
-                        ),
-                    ));
-                }
-
-                starting_pos += c.len_utf8();
+    // Short flag(s) expected
+    let mut starting_pos = arg.span.start() + 1;
+    for c in arg.item.chars().skip(1) {
+        let mut found = false;
+        for (full_name, named_arg) in signature.named.iter() {
+            if Some(c) == named_arg.0.get_short() {
+                found = true;
+                output.push((full_name.clone(), named_arg.0.clone()));
+                break;
             }
         }
 
-        (output, error)
-    } else {
-        // It's not a flag, so don't bother with it
-        (vec![], None)
+        if !found {
+            error = Some(ParseError::argument_error(
+                cmd.clone(),
+                ArgumentError::UnexpectedFlag(
+                    arg.item
+                        .clone()
+                        .spanned(Span::new(starting_pos, starting_pos + c.len_utf8())),
+                ),
+            ));
+        }
+
+        starting_pos += c.len_utf8();
     }
+
+    (output, error)
 }
 
 /// This is a bit of a "fix-up" of previously parsed areas. In cases where we're in shorthand mode (eg in the `where` command), we need
@@ -1364,6 +1369,23 @@ fn parse_positional_argument(
     (idx, arg, error)
 }
 
+/// True for short or longform flags. False otherwise
+pub fn str_is_flag(item: &str) -> bool {
+    if item.starts_with('-') {
+        if let Some(first) = item.chars().skip(1).next() {
+            if first >= '0' && first <= '9' {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 /// Does a full parse of an internal command using the lite-ly parse command as a starting point
 /// This main focus at this level is to understand what flags were passed in, what positional arguments were passed in, what rest arguments were passed in
 /// and to ensure that the basic requirements in terms of number of each were met.
@@ -1397,7 +1419,7 @@ fn parse_internal_command(
     idx += 1; // Start where the arguments begin
 
     while idx < lite_cmd.parts.len() {
-        if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
+        if str_is_flag(&lite_cmd.parts[idx].item) {
             let (named_types, err) =
                 get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
 

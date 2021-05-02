@@ -1,3 +1,4 @@
+use nu_parser::str_is_flag;
 use nu_protocol::hir::*;
 use nu_source::{Span, Spanned, SpannedItem};
 
@@ -103,7 +104,7 @@ impl<'s> Flatten<'s> {
             result.extend(positionals.flat_map(|positional| match positional.expr {
                 Expression::Garbage => {
                     let garbage = positional.span.slice(self.line);
-                    let location = if garbage.starts_with('-') {
+                    let location = if str_is_flag(garbage) {
                         LocationType::Flag(internal.name.clone())
                     } else {
                         // TODO we may be able to map this to the name of a positional,

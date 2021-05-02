@@ -336,7 +336,21 @@ fn is_rest(token: &Token) -> bool {
 ///True for short or longform flags. False otherwise
 fn is_flag(token: &Token) -> bool {
     match &token.contents {
-        TokenContents::Baseline(item) => item.starts_with('-'),
+        TokenContents::Baseline(item) => {
+            if item.starts_with('-') {
+                if let Some(first) = item.chars().skip(1).next() {
+                    if first >= '0' && first <= '9' {
+                        false
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
         _ => false,
     }
 }
