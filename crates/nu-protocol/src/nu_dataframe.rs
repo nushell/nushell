@@ -134,42 +134,46 @@ impl NuDataFrame {
         from_parsed_columns(column_values, tag)
     }
 
-    pub fn head(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+    // Print is made out a head and if the dataframe is too large, then a tail
+    pub fn print(&self) -> Result<Vec<Value>, ShellError> {
         if let Some(df) = &self.dataframe {
-            let to_row = rows.unwrap_or(5);
+            let size: usize = 5;
+            let mut values = self.head(Some(size))?;
 
-            let mut values = self.to_rows(0, to_row)?;
+            if df.height() > size {
+                add_separator(&mut values, df);
 
-            // If there are more values available in the dataframe,
-            // then an extra row is added with "..." to indicate this
-            if df.height() > values.len() {
-                let column_names = df.get_column_names();
+                let remaining = df.height() - size;
+                let tail_size = remaining.min(size);
+                let mut tail_values = self.tail(Some(tail_size))?;
 
-                let mut dictionary = Dictionary::default();
-                for name in column_names {
-                    let indicator = Value {
-                        value: UntaggedValue::Primitive(Primitive::String("...".to_string())),
-                        tag: Tag::unknown(),
-                    };
-
-                    dictionary.insert(name.to_string(), indicator);
-                }
-
-                let extra_column = Value {
-                    value: UntaggedValue::Row(dictionary),
-                    tag: Tag::unknown(),
-                };
-
-                values.push(extra_column);
+                values.append(&mut tail_values);
             }
 
             Ok(values)
         } else {
-            Err(ShellError::labeled_error(
-                "No dataframe found",
-                "No dataframe found",
-                Tag::unknown(),
-            ))
+            unreachable!()
+        }
+    }
+
+    pub fn head(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+        let to_row = rows.unwrap_or(5);
+        let values = self.to_rows(0, to_row)?;
+
+        Ok(values)
+    }
+
+    pub fn tail(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+        if let Some(df) = &self.dataframe {
+            let to_row = df.height();
+            let size = rows.unwrap_or(5);
+            let from_row = to_row.saturating_sub(size);
+
+            let values = self.to_rows(from_row, to_row)?;
+
+            Ok(values)
+        } else {
+            unreachable!()
         }
     }
 
@@ -179,12 +183,8 @@ impl NuDataFrame {
 
             let mut values: Vec<Value> = Vec::new();
 
-            for i in from_row..to_row {
-                // There are no bound checks in polars when selecting a row
-                if i >= df.height() {
-                    break;
-                }
-
+            let upper_row = to_row.min(df.height());
+            for i in from_row..upper_row {
                 let row = df.get_row(i);
                 let mut dictionary_row = Dictionary::default();
 
@@ -209,13 +209,32 @@ impl NuDataFrame {
 
             Ok(values)
         } else {
-            Err(ShellError::labeled_error(
-                "No dataframe found",
-                "No dataframe found",
-                Tag::unknown(),
-            ))
+            unreachable!()
         }
     }
+}
+
+// Adds a separator to the vector of values using the column names from the
+// dataframe to create the Values Row
+fn add_separator(values: &mut Vec<Value>, df: &DataFrame) {
+    let column_names = df.get_column_names();
+
+    let mut dictionary = Dictionary::default();
+    for name in column_names {
+        let indicator = Value {
+            value: UntaggedValue::Primitive(Primitive::String("...".to_string())),
+            tag: Tag::unknown(),
+        };
+
+        dictionary.insert(name.to_string(), indicator);
+    }
+
+    let extra_column = Value {
+        value: UntaggedValue::Row(dictionary),
+        tag: Tag::unknown(),
+    };
+
+    values.push(extra_column);
 }
 
 // Converts a polars AnyValue to an UntaggedValue

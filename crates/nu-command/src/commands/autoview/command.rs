@@ -238,7 +238,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                             // TODO. Configure the parameter rows from file. It can be
                             // adjusted to see a certain amount of values in the head
                             let command_args =
-                                create_default_command_args(&context).with_input(df.head(Some(5))?);
+                                create_default_command_args(&context).with_input(df.print()?);
                             let result = table.run(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         }
