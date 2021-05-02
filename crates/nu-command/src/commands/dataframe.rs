@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::NamedValue, nu_dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue,
-};
+use nu_protocol::{dataframe::NuDataFrame, hir::NamedValue, Signature, SyntaxShape, UntaggedValue};
 
 use nu_source::Tagged;
 use polars::prelude::{CsvReader, SerReader};

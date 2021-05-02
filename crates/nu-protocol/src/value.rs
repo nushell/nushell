@@ -30,7 +30,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use super::nu_dataframe::NuDataFrame;
+use super::dataframe::NuDataFrame;
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]

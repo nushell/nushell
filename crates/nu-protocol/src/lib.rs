@@ -3,9 +3,9 @@ mod macros;
 
 mod call_info;
 pub mod config_path;
+pub mod dataframe;
 pub mod hir;
 mod maybe_owned;
-pub mod nu_dataframe;
 mod return_value;
 mod signature;
 mod syntax_shape;
