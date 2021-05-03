@@ -165,7 +165,7 @@ pub fn autoview(context: CommandArgs) -> Result<OutputStream, ShellError> {
                             let result = binary.run_with_actions(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         } else {
-                            use pretty_hex::*;
+                            use nu_pretty_hex::*;
                             out!("{:?}", b.hex_dump());
                         }
                     }

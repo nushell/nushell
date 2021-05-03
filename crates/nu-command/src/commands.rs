@@ -173,6 +173,7 @@ pub(crate) use echo::Echo;
 pub(crate) use empty::Command as Empty;
 pub(crate) use if_::If;
 pub(crate) use into::Into;
+pub(crate) use into::IntoBinary;
 pub(crate) use into::IntoInt;
 pub(crate) use nu::NuPlugin;
 pub(crate) use update::Command as Update;
