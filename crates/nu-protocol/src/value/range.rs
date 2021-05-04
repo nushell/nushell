@@ -35,3 +35,53 @@ pub struct Range {
     pub from: (Spanned<Primitive>, RangeInclusion),
     pub to: (Spanned<Primitive>, RangeInclusion),
 }
+
+impl Range {
+    pub fn min_u64(&self) -> u64 {
+        self.from
+            .0
+            .item
+            .as_u64(self.from.0.span)
+            .unwrap_or(u64::MIN)
+            .saturating_add(match self.from.1 {
+                RangeInclusion::Inclusive => 0,
+                RangeInclusion::Exclusive => 1,
+            })
+    }
+
+    pub fn max_u64(&self) -> u64 {
+        self.to
+            .0
+            .item
+            .as_u64(self.to.0.span)
+            .unwrap_or(u64::MAX)
+            .saturating_sub(match self.to.1 {
+                RangeInclusion::Inclusive => 0,
+                RangeInclusion::Exclusive => 1,
+            })
+    }
+
+    pub fn min_usize(&self) -> usize {
+        self.from
+            .0
+            .item
+            .as_usize(self.from.0.span)
+            .unwrap_or(usize::MIN)
+            .saturating_add(match self.from.1 {
+                RangeInclusion::Inclusive => 0,
+                RangeInclusion::Exclusive => 1,
+            })
+    }
+
+    pub fn max_usize(&self) -> usize {
+        self.to
+            .0
+            .item
+            .as_usize(self.to.0.span)
+            .unwrap_or(usize::MAX)
+            .saturating_sub(match self.to.1 {
+                RangeInclusion::Inclusive => 0,
+                RangeInclusion::Exclusive => 1,
+            })
+    }
+}
