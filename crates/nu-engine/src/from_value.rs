@@ -267,6 +267,22 @@ impl FromValue for Range {
     }
 }
 
+impl FromValue for Tagged<Range> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        match v.value {
+            UntaggedValue::Primitive(Primitive::Range(ref range)) => {
+                Ok((*range.clone()).tagged(tag))
+            }
+            _ => Err(ShellError::labeled_error(
+                "Can't convert to range",
+                "can't convert to range",
+                tag.span,
+            )),
+        }
+    }
+}
+
 impl FromValue for Vec<u8> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
