@@ -301,7 +301,9 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
         };
 
-        rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
+        if let Some(helper) = rl.helper_mut() {
+            helper.colored_prompt = colored_prompt;
+        }
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
