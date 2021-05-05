@@ -1,8 +1,8 @@
 use crate::call_info::UnevaluatedCallInfo;
-use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
 use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::value_shell::ValueShell;
+use crate::CommandArgs;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
@@ -90,12 +90,8 @@ impl Iterator for InternalIterator {
                         let contents_tag = tagged_contents.tag.clone();
                         let command_name = format!("from {}", extension);
                         if let Some(converter) = self.context.scope.get_command(&command_name) {
-                            let new_args = RawCommandArgs {
-                                host: self.context.host.clone(),
-                                ctrl_c: self.context.ctrl_c.clone(),
-                                configs: self.context.configs.clone(),
-                                current_errors: self.context.current_errors.clone(),
-                                shell_manager: self.context.shell_manager.clone(),
+                            let new_args = CommandArgs {
+                                context: self.context.clone(),
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {
                                         head: Box::new(SpannedExpression {
@@ -111,9 +107,9 @@ impl Iterator for InternalIterator {
                                     },
                                     name_tag: tagged_contents.tag(),
                                 },
-                                scope: self.context.scope.clone(),
+                                input: InputStream::one(tagged_contents),
                             };
-                            let result = converter.run(new_args.with_input(vec![tagged_contents]));
+                            let result = converter.run(new_args);
 
                             match result {
                                 Ok(mut result) => {

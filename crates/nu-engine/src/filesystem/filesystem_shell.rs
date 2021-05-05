@@ -4,14 +4,14 @@ use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
-use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
+use crate::{command_args::EvaluatedCommandArgs, BufCodecReader};
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, OutputStream, ToActionStream};
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -57,17 +57,17 @@ impl FilesystemShell {
         matches!(&self.mode, FilesystemShellMode::Cli)
     }
 
-    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> FilesystemShell {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
         };
 
-        Ok(FilesystemShell {
+        FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
             mode,
-        })
+        }
     }
 
     pub fn with_location(
@@ -713,6 +713,7 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
+                            use std::io::Error;
                             result = if _trash.item || (rm_always_trash && !_permanent.item) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
@@ -765,7 +766,7 @@ impl Shell for FilesystemShell {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+    fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
         let p = match dunce::canonicalize(path.as_path()) {
             Ok(p) => p,

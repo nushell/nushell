@@ -46,8 +46,8 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let scope = args.scope.clone();
-        let shell_manager = args.shell_manager.clone();
+        let scope = args.scope().clone();
+        let shell_manager = args.shell_manager();
         let (Arguments { load_path }, _) = args.process()?;
 
         if let Some(Tagged {

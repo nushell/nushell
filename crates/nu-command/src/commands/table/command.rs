@@ -173,7 +173,7 @@ fn values_to_entries(
 
 fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut args = args.evaluate_once()?;
-    let configuration = args.configs.lock().global_config();
+    let configuration = args.configs().lock().global_config();
 
     // Ideally, get_color_config would get all the colors configured in the config.toml
     // and create a style based on those settings. However, there are few places where
@@ -191,7 +191,7 @@ fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut delay_slot = None;
 
-    let term_width = args.host.lock().width();
+    let term_width = args.host().lock().width();
 
     #[cfg(feature = "table-pager")]
     let pager = Pager::new()

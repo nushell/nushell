@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
-use nu_engine::{EvaluatedWholeStreamCommandArgs, WholeStreamCommand};
+use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
 
@@ -165,7 +165,7 @@ fn get_current_date() -> (i32, u32, u32) {
 }
 
 fn add_months_of_year_to_table(
-    args: &EvaluatedWholeStreamCommandArgs,
+    args: &EvaluatedCommandArgs,
     mut calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
     selected_year: i32,
@@ -198,7 +198,7 @@ fn add_months_of_year_to_table(
 }
 
 fn add_month_to_table(
-    args: &EvaluatedWholeStreamCommandArgs,
+    args: &EvaluatedCommandArgs,
     calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
     selected_year: i32,

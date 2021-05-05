@@ -83,7 +83,7 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let scope = args.scope.clone();
+    let scope = args.scope();
 
     let init = Ok(InputStream::one(
         UntaggedValue::boolean(true).into_value(&tag),

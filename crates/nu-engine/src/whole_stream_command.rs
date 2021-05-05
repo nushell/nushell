@@ -237,7 +237,8 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(ActionStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_full_help(&*cl, &args.context.scope))
+                    .into_value(Tag::unknown()),
             ))))
         } else {
             self.0.run_with_actions(args)
@@ -248,7 +249,8 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(InputStream::one(
-                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_full_help(&*cl, &args.context.scope))
+                    .into_value(Tag::unknown()),
             ))
         } else {
             self.0.run(args)

@@ -2,7 +2,6 @@ use crate::commands::classified::external;
 use crate::prelude::*;
 
 use derive_new::new;
-use parking_lot::Mutex;
 use std::path::PathBuf;
 
 use nu_engine::shell::CdArgs;
@@ -75,17 +74,7 @@ impl WholeStreamCommand for RunExternalCommand {
             })
             .and_then(spanned_expression_to_string)?;
 
-        let mut external_context = {
-            EvaluationContext {
-                scope: args.scope.clone(),
-                host: args.host.clone(),
-                shell_manager: args.shell_manager.clone(),
-                ctrl_c: args.ctrl_c.clone(),
-                configs: args.configs.clone(),
-                current_errors: Arc::new(Mutex::new(vec![])),
-                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
-            }
-        };
+        let mut external_context = args.context.clone();
 
         let is_interactive = self.interactive;
 
@@ -111,7 +100,7 @@ impl WholeStreamCommand for RunExternalCommand {
 
                 let result = external_context
                     .shell_manager
-                    .cd(cd_args, args.call_info.name_tag.clone());
+                    .cd(cd_args, args.call_info.name_tag);
 
                 return Ok(result?.to_action_stream());
             }

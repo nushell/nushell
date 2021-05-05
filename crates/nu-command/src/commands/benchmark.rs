@@ -70,11 +70,11 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-fn benchmark(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let tag = raw_args.call_info.args.span;
-    let mut context = EvaluationContext::from_args(&raw_args);
-    let scope = raw_args.scope.clone();
-    let (BenchmarkArgs { block, passthrough }, input) = raw_args.process()?;
+fn benchmark(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let tag = args.call_info.args.span;
+    let mut context = EvaluationContext::from_args(&args);
+    let scope = args.scope().clone();
+    let (BenchmarkArgs { block, passthrough }, input) = args.process()?;
 
     let env = scope.get_env_vars();
     let name = generate_free_name(&env);

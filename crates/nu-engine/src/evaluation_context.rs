@@ -1,9 +1,10 @@
-use crate::env::host::Host;
 use crate::evaluate::scope::{Scope, ScopeFrame};
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
+use crate::{env::basic_host::BasicHost, Host};
+use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
@@ -48,16 +49,25 @@ impl EvaluationContext {
         }
     }
 
-    pub fn from_args(args: &CommandArgs) -> EvaluationContext {
+    pub fn basic() -> EvaluationContext {
+        let scope = Scope::new();
+        let mut host = BasicHost {};
+        let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
+        scope.add_env(env_vars);
+
         EvaluationContext {
-            scope: args.scope.clone(),
-            host: args.host.clone(),
-            current_errors: args.current_errors.clone(),
-            ctrl_c: args.ctrl_c.clone(),
-            configs: args.configs.clone(),
-            shell_manager: args.shell_manager.clone(),
+            scope,
+            host: Arc::new(parking_lot::Mutex::new(Box::new(host))),
+            current_errors: Arc::new(Mutex::new(vec![])),
+            ctrl_c: Arc::new(AtomicBool::new(false)),
+            configs: Arc::new(Mutex::new(ConfigHolder::new())),
+            shell_manager: ShellManager::basic(),
             windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
+    }
+
+    pub fn from_args(args: &CommandArgs) -> EvaluationContext {
+        args.context.clone()
     }
 
     pub fn error(&self, error: ShellError) {
@@ -135,13 +145,8 @@ impl EvaluationContext {
 
     fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            configs: self.configs.clone(),
-            current_errors: self.current_errors.clone(),
-            shell_manager: self.shell_manager.clone(),
+            context: self.clone(),
             call_info: self.call_info(args, name_tag),
-            scope: self.scope.clone(),
             input,
         }
     }

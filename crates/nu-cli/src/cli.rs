@@ -301,7 +301,9 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
         };
 
-        rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
+        if let Some(helper) = rl.helper_mut() {
+            helper.colored_prompt = colored_prompt;
+        }
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
@@ -513,14 +515,14 @@ fn current_branch() -> String {
 
 #[cfg(test)]
 mod tests {
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::EvaluationContext;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = basic_evaluation_context().unwrap();
+            let context = EvaluationContext::basic();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

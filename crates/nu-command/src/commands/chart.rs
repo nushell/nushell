@@ -20,14 +20,14 @@ impl WholeStreamCommand for Chart {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        if args.scope.get_command("chart bar").is_none() {
+        if args.scope().get_command("chart bar").is_none() {
             return Err(ShellError::untagged_runtime_error(
                 "nu_plugin_chart not installed.",
             ));
         }
 
         Ok(ActionStream::one(Ok(ReturnSuccess::Value(
-            UntaggedValue::string(get_full_help(&Chart, &args.scope)).into_value(Tag::unknown()),
+            UntaggedValue::string(get_full_help(&Chart, args.scope())).into_value(Tag::unknown()),
         ))))
     }
 }

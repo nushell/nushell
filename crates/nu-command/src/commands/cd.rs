@@ -26,7 +26,7 @@ impl WholeStreamCommand for Cd {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag.clone();
-        let shell_manager = args.shell_manager.clone();
+        let shell_manager = args.shell_manager();
         let (args, _): (CdArgs, _) = args.process()?;
         shell_manager.cd(args, name)
     }
