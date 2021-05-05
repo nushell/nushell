@@ -13,8 +13,16 @@ impl WholeStreamCommand for Uniq {
     fn signature(&self) -> Signature {
         Signature::build("uniq")
             .switch("count", "Count the unique rows", Some('c'))
-            .switch("repeated", "Count the rows that has more than one value", Some('d'))
-            .switch("ignore-case", "Ignore differences in case when comparing", Some('i'))
+            .switch(
+                "repeated",
+                "Count the rows that has more than one value",
+                Some('d'),
+            )
+            .switch(
+                "ignore-case",
+                "Ignore differences in case when comparing",
+                Some('i'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -39,9 +47,7 @@ impl WholeStreamCommand for Uniq {
             Example {
                 description: "Only print duplicate lines, one for each group",
                 example: "echo [1 2 2] | uniq -d",
-                result: Some(vec![
-                    UntaggedValue::int(2).into()
-                ]),
+                result: Some(vec![UntaggedValue::int(2).into()]),
             },
             Example {
                 description: "Ignore differences in case when comparing",
@@ -75,7 +81,11 @@ fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
     use nu_protocol::value::StringExt;
 
     if value.is_string() {
-        value.value.expect_string().to_lowercase().to_string_value(value.tag)
+        value
+            .value
+            .expect_string()
+            .to_lowercase()
+            .to_string_value(value.tag)
     } else {
         value
     }
@@ -103,10 +113,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let mut values_vec_deque = VecDeque::new();
 
     let values = if show_repeated {
-        uniq_values
-            .into_iter()
-            .filter(|i| i.1 > 1)
-            .collect::<_>()
+        uniq_values.into_iter().filter(|i| i.1 > 1).collect::<_>()
     } else {
         uniq_values
     };
