@@ -92,9 +92,11 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             serde_yaml::Value::Sequence(out)
         }
         UntaggedValue::Error(e) => return Err(e.clone()),
-        UntaggedValue::Block(_)
-        | UntaggedValue::Primitive(Primitive::Range(_))
-        | UntaggedValue::Dataframe(_) => serde_yaml::Value::Null,
+        UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => {
+            serde_yaml::Value::Null
+        }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::Dataframe(_) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
             b.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))

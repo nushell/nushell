@@ -71,6 +71,7 @@ pub enum Type {
     EndOfStream,
 
     /// Dataframe
+    #[cfg(feature = "dataframe")]
     Dataframe,
 }
 
@@ -186,6 +187,7 @@ impl Type {
             UntaggedValue::Table(table) => Type::from_table(table.iter()),
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,
+            #[cfg(feature = "dataframe")]
             UntaggedValue::Dataframe(_) => Type::Dataframe,
         }
     }
@@ -291,6 +293,7 @@ impl PrettyDebug for Type {
                     })
             }
             Type::Block => ty("block"),
+            #[cfg(feature = "dataframe")]
             Type::Dataframe => ty("dataframe_pretty_debug_for_Type"),
         }
     }

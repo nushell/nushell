@@ -43,3 +43,4 @@ users = "0.11.0"
 [features]
 directories = ["directories-next"]
 dirs = ["dirs-next"]
+dataframe = ["nu-protocol/dataframe"]

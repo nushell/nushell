@@ -3,7 +3,6 @@ mod macros;
 
 mod call_info;
 pub mod config_path;
-pub mod dataframe;
 pub mod hir;
 mod maybe_owned;
 mod return_value;
@@ -12,6 +11,9 @@ mod syntax_shape;
 mod type_name;
 mod type_shape;
 pub mod value;
+
+#[cfg(feature = "dataframe")]
+pub mod dataframe;
 
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::config_path::ConfigPath;

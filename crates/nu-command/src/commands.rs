@@ -26,6 +26,7 @@ pub(crate) mod compact;
 pub(crate) mod config;
 pub(crate) mod constants;
 pub(crate) mod cp;
+#[cfg(feature = "dataframe")]
 pub(crate) mod dataframe;
 pub(crate) mod date;
 pub(crate) mod debug;
@@ -184,6 +185,7 @@ pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use all::Command as All;
 pub(crate) use any::Command as Any;
+#[cfg(feature = "dataframe")]
 pub(crate) use dataframe::Dataframe;
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;

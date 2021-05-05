@@ -250,6 +250,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
+            #[cfg(feature = "dataframe")]
             whole_stream_command(Dataframe),
         ]);
 

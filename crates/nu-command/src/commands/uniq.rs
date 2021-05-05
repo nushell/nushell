@@ -97,9 +97,17 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
                             tag: item.0.tag,
                         }
                     }
-                    UntaggedValue::Table(_) | UntaggedValue::Dataframe(_) => {
+                    UntaggedValue::Table(_) => {
                         return Err(ShellError::labeled_error(
-                            "uniq -c cannot operate on tables or dataframes.",
+                            "uniq -c cannot operate on tables.",
+                            "source",
+                            item.0.tag.span,
+                        ))
+                    }
+                    #[cfg(feature = "dataframe")]
+                    UntaggedValue::Dataframe(_) => {
+                        return Err(ShellError::labeled_error(
+                            "uniq -c cannot operate on dataframes.",
                             "source",
                             item.0.tag.span,
                         ))

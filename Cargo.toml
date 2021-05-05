@@ -158,6 +158,15 @@ zip-support = ["nu-cli/zip", "nu-command/zip"]
 #This is disabled in extra for now
 table-pager = ["nu-command/table-pager"]
 
+#dataframe feature for nushell
+dataframe = [
+    "nu-protocol/dataframe",
+    "nu-command/dataframe",
+    "nu-value-ext/dataframe",
+    "nu-data/dataframe"
+]
+
+
 [profile.release]
 #strip = "symbols" #Couldn't get working +nightly
 codegen-units = 1 #Reduce parallel codegen units

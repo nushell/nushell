@@ -111,9 +111,11 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
 
         UntaggedValue::Table(l) => serde_json::Value::Array(json_list(l)?),
         UntaggedValue::Error(e) => return Err(e.clone()),
-        UntaggedValue::Block(_)
-        | UntaggedValue::Primitive(Primitive::Range(_))
-        | UntaggedValue::Dataframe(_) => serde_json::Value::Null,
+        UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => {
+            serde_json::Value::Null
+        }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::Dataframe(_) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
                 .map(|x| {

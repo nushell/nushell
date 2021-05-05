@@ -721,10 +721,11 @@ pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, 
     match &value.value {
         UntaggedValue::Primitive(_) => MaybeOwned::Borrowed(value),
         UntaggedValue::Row(o) => o.get_data(desc),
-        UntaggedValue::Block(_)
-        | UntaggedValue::Table(_)
-        | UntaggedValue::Error(_)
-        | UntaggedValue::Dataframe(_) => {
+        UntaggedValue::Block(_) | UntaggedValue::Table(_) | UntaggedValue::Error(_) => {
+            MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
+        }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::Dataframe(_) => {
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
     }

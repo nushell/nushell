@@ -30,7 +30,8 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use super::dataframe::NuDataFrame;
+#[cfg(feature = "dataframe")]
+use crate::dataframe::NuDataFrame;
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -51,6 +52,7 @@ pub enum UntaggedValue {
     Block(Box<hir::CapturedBlock>),
 
     /// NuDataframe
+    #[cfg(feature = "dataframe")]
     Dataframe(NuDataFrame),
 }
 
@@ -655,6 +657,7 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Table(_) => "table",
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
+            #[cfg(feature = "dataframe")]
             UntaggedValue::Dataframe(_) => "dataframe",
         }
     }
