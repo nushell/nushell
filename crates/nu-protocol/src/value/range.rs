@@ -1,5 +1,6 @@
 use crate::value::Primitive;
 use derive_new::new;
+use nu_errors::ShellError;
 use nu_source::{DbgDocBldr, DebugDocBuilder, Spanned};
 use serde::{Deserialize, Serialize};
 
@@ -37,51 +38,63 @@ pub struct Range {
 }
 
 impl Range {
-    pub fn min_u64(&self) -> u64 {
-        self.from
-            .0
-            .item
-            .as_u64(self.from.0.span)
-            .unwrap_or(u64::MIN)
-            .saturating_add(match self.from.1 {
-                RangeInclusion::Inclusive => 0,
-                RangeInclusion::Exclusive => 1,
-            })
+    pub fn min_u64(&self) -> Result<u64, ShellError> {
+        let (from, range_incl) = &self.from;
+
+        let minval = if let Primitive::Nothing = from.item {
+            u64::MIN
+        } else {
+            from.item.as_u64(from.span)?
+        };
+
+        match range_incl {
+            RangeInclusion::Inclusive => Ok(minval),
+            RangeInclusion::Exclusive => Ok(minval.saturating_add(1)),
+        }
     }
 
-    pub fn max_u64(&self) -> u64 {
-        self.to
-            .0
-            .item
-            .as_u64(self.to.0.span)
-            .unwrap_or(u64::MAX)
-            .saturating_sub(match self.to.1 {
-                RangeInclusion::Inclusive => 0,
-                RangeInclusion::Exclusive => 1,
-            })
+    pub fn max_u64(&self) -> Result<u64, ShellError> {
+        let (to, range_incl) = &self.to;
+
+        let maxval = if let Primitive::Nothing = to.item {
+            u64::MAX
+        } else {
+            to.item.as_u64(to.span)?
+        };
+
+        match range_incl {
+            RangeInclusion::Inclusive => Ok(maxval),
+            RangeInclusion::Exclusive => Ok(maxval.saturating_sub(1)),
+        }
     }
 
-    pub fn min_usize(&self) -> usize {
-        self.from
-            .0
-            .item
-            .as_usize(self.from.0.span)
-            .unwrap_or(usize::MIN)
-            .saturating_add(match self.from.1 {
-                RangeInclusion::Inclusive => 0,
-                RangeInclusion::Exclusive => 1,
-            })
+    pub fn min_usize(&self) -> Result<usize, ShellError> {
+        let (from, range_incl) = &self.from;
+
+        let minval = if let Primitive::Nothing = from.item {
+            usize::MIN
+        } else {
+            from.item.as_usize(from.span)?
+        };
+
+        match range_incl {
+            RangeInclusion::Inclusive => Ok(minval),
+            RangeInclusion::Exclusive => Ok(minval.saturating_add(1)),
+        }
     }
 
-    pub fn max_usize(&self) -> usize {
-        self.to
-            .0
-            .item
-            .as_usize(self.to.0.span)
-            .unwrap_or(usize::MAX)
-            .saturating_sub(match self.to.1 {
-                RangeInclusion::Inclusive => 0,
-                RangeInclusion::Exclusive => 1,
-            })
+    pub fn max_usize(&self) -> Result<usize, ShellError> {
+        let (to, range_incl) = &self.to;
+
+        let maxval = if let Primitive::Nothing = to.item {
+            usize::MAX
+        } else {
+            to.item.as_usize(to.span)?
+        };
+
+        match range_incl {
+            RangeInclusion::Inclusive => Ok(maxval),
+            RangeInclusion::Exclusive => Ok(maxval.saturating_sub(1)),
+        }
     }
 }

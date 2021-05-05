@@ -62,7 +62,7 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let (min, max) = if let Some(range) = &cmd_args.range {
-        (range.min_u64(), range.max_u64())
+        (range.min_u64()?, range.max_u64()?)
     } else {
         (0, u64::MAX)
     };

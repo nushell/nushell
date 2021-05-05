@@ -37,8 +37,8 @@ fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
         range: args.req(0)?,
     };
 
-    let from = cmd_args.range.min_usize();
-    let to = cmd_args.range.max_usize();
+    let from = cmd_args.range.min_usize()?;
+    let to = cmd_args.range.max_usize()?;
 
     if from > to {
         Ok(OutputStream::one(Value::nothing()))
