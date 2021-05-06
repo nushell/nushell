@@ -377,10 +377,7 @@ impl VarSyntaxShapeDeductor {
             .iter()
             .map(|decl| {
                 let usage: VarUsage = decl.into();
-                let deduction = match deducer.inferences.get(&usage) {
-                    Some(vec) => Some(vec.clone()),
-                    None => None,
-                };
+                let deduction = deducer.inferences.get(&usage).cloned();
                 (decl.clone(), deduction)
             })
             .collect())
@@ -1023,7 +1020,7 @@ impl VarSyntaxShapeDeductor {
                                     Some(combination)
                                 }
                             })
-                            .filter_map(|elem| elem)
+                            .flatten()
                             .collect()
                         }
                         //No any's intersection of both is result
@@ -1044,7 +1041,7 @@ impl VarSyntaxShapeDeductor {
                                         Some(combination)
                                     }
                                 })
-                                .filter_map(|elem| elem)
+                                .flatten()
                                 .collect();
                             if intersection.is_empty() {
                                 //TODO pass all labels somehow

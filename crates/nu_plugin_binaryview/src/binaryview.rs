@@ -213,15 +213,9 @@ pub fn view_contents(
     skip: Option<&Value>,
     length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let skip_bytes = match skip {
-        Some(s) => Some(s.as_usize().unwrap_or(0)),
-        None => None,
-    };
+    let skip_bytes = skip.map(|s| s.as_usize().unwrap_or(0));
 
-    let num_bytes = match length {
-        Some(b) => Some(b.as_usize().unwrap_or(0)),
-        None => None,
-    };
+    let num_bytes = length.map(|b| b.as_usize().unwrap_or(0));
 
     let config = HexConfig {
         title: true,
