@@ -129,6 +129,14 @@ pub fn parse_full_column_path(
                     error = err;
                 }
                 head = Some(invoc.expr);
+            } else if head.is_none() && current_part.starts_with('(') && current_part.ends_with(')')
+            {
+                let (invoc, err) =
+                    parse_simple_invocation(&current_part.clone().spanned(part_span), scope);
+                if error.is_none() {
+                    error = err;
+                }
+                head = Some(invoc.expr);
             } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
@@ -875,7 +883,7 @@ fn parse_arg(
 
     // before anything else, try to see if this is a number in paranthesis
     if lite_arg.item.starts_with('(') {
-        let (expr, err) = parse_simple_invocation(&lite_arg, scope);
+        let (expr, err) = parse_full_column_path(&lite_arg, scope);
         if err.is_none() {
             return (expr, None);
         }
