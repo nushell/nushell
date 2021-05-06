@@ -386,82 +386,80 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        for entry in sources {
-            if let Ok(entry) = entry {
-                let mut sources = FileStructure::new();
-                sources.walk_decorate(&entry)?;
+        for entry in sources.into_iter().flatten() {
+            let mut sources = FileStructure::new();
+            sources.walk_decorate(&entry)?;
 
-                if entry.is_file() {
-                    let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
-                        if destination.is_dir() {
-                            let mut dest = canonicalize(&path, &dst.item)?;
-                            if let Some(name) = entry.file_name() {
-                                dest.push(name);
-                            }
-                            Ok((source_file, dest))
-                        } else {
-                            Ok((source_file, destination.clone()))
+            if entry.is_file() {
+                let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
+                    if destination.is_dir() {
+                        let mut dest = canonicalize(&path, &dst.item)?;
+                        if let Some(name) = entry.file_name() {
+                            dest.push(name);
                         }
-                    })?;
+                        Ok((source_file, dest))
+                    } else {
+                        Ok((source_file, destination.clone()))
+                    }
+                })?;
 
-                    for (src, dst) in sources {
-                        if src.is_file() {
-                            std::fs::copy(src, dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
-                            })?;
+                for (src, dst) in sources {
+                    if src.is_file() {
+                        std::fs::copy(src, dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                        })?;
+                    }
+                }
+            } else if entry.is_dir() {
+                let destination = if !destination.exists() {
+                    destination.clone()
+                } else {
+                    match entry.file_name() {
+                        Some(name) => destination.join(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Copy aborted. Not a valid path",
+                                "not a valid path",
+                                dst.tag,
+                            ))
                         }
                     }
-                } else if entry.is_dir() {
-                    let destination = if !destination.exists() {
-                        destination.clone()
-                    } else {
-                        match entry.file_name() {
-                            Some(name) => destination.join(name),
-                            None => {
-                                return Err(ShellError::labeled_error(
-                                    "Copy aborted. Not a valid path",
-                                    "not a valid path",
-                                    dst.tag,
-                                ))
-                            }
-                        }
-                    };
+                };
 
-                    std::fs::create_dir_all(&destination).map_err(|e| {
-                        ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
-                    })?;
+                std::fs::create_dir_all(&destination).map_err(|e| {
+                    ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
+                })?;
 
-                    let sources = sources.paths_applying_with(|(source_file, depth_level)| {
-                        let mut dest = destination.clone();
-                        let path = canonicalize(&path, &source_file)?;
+                let sources = sources.paths_applying_with(|(source_file, depth_level)| {
+                    let mut dest = destination.clone();
+                    let path = canonicalize(&path, &source_file)?;
 
-                        let comps: Vec<_> = path
-                            .components()
-                            .map(|fragment| fragment.as_os_str())
-                            .rev()
-                            .take(1 + depth_level)
-                            .collect();
+                    let comps: Vec<_> = path
+                        .components()
+                        .map(|fragment| fragment.as_os_str())
+                        .rev()
+                        .take(1 + depth_level)
+                        .collect();
 
-                        for fragment in comps.into_iter().rev() {
-                            dest.push(fragment);
-                        }
+                    for fragment in comps.into_iter().rev() {
+                        dest.push(fragment);
+                    }
 
-                        Ok((PathBuf::from(&source_file), dest))
-                    })?;
+                    Ok((PathBuf::from(&source_file), dest))
+                })?;
 
-                    let dst_tag = &dst.tag;
-                    for (src, dst) in sources {
-                        if src.is_dir() && !dst.exists() {
-                            std::fs::create_dir_all(&dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
-                            })?;
-                        }
+                let dst_tag = &dst.tag;
+                for (src, dst) in sources {
+                    if src.is_dir() && !dst.exists() {
+                        std::fs::create_dir_all(&dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
+                        })?;
+                    }
 
-                        if src.is_file() {
-                            std::fs::copy(&src, &dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
-                            })?;
-                        }
+                    if src.is_file() {
+                        std::fs::copy(&src, &dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                        })?;
                     }
                 }
             }
@@ -574,13 +572,11 @@ impl Shell for FilesystemShell {
                 .collect();
         }
 
-        for entry in sources {
-            if let Ok(entry) = entry {
-                move_file(
-                    TaggedPathBuf(&entry, &src.tag),
-                    TaggedPathBuf(&destination, &dst.tag),
-                )?
-            }
+        for entry in sources.into_iter().flatten() {
+            move_file(
+                TaggedPathBuf(&entry, &src.tag),
+                TaggedPathBuf(&destination, &dst.tag),
+            )?
         }
 
         Ok(ActionStream::empty())

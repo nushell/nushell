@@ -76,10 +76,10 @@ pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     let column_grouper = if !columns.is_empty() {
-        match columns.remove(0).split_last() {
-            Some((key, _)) => Some(key.as_string().tagged(&name)),
-            None => None,
-        }
+        columns
+            .remove(0)
+            .split_last()
+            .map(|(key, _)| key.as_string().tagged(&name))
     } else {
         None
     };

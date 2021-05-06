@@ -16,19 +16,11 @@ pub struct Labels {
 
 impl Labels {
     pub fn at(&self, idx: usize) -> Option<&str> {
-        if let Some(k) = self.x.get(idx) {
-            Some(&k[..])
-        } else {
-            None
-        }
+        self.x.get(idx).map(|k| &k[..])
     }
 
     pub fn at_split(&self, idx: usize) -> Option<&str> {
-        if let Some(k) = self.y.get(idx) {
-            Some(&k[..])
-        } else {
-            None
-        }
+        self.y.get(idx).map(|k| &k[..])
     }
 
     pub fn grouped(&self) -> impl Iterator<Item = &String> {
