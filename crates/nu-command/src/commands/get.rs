@@ -228,8 +228,8 @@ pub fn get_column_from_row_error(
         } => {
             let primary_label = format!("There isn't a column named '{}'", &column);
 
-            if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried.as_string()) {
-                Some(ShellError::labeled_error_with_secondary(
+            did_you_mean(&obj_source, column_path_tried.as_string()).map(|suggestions| {
+                ShellError::labeled_error_with_secondary(
                     "Unknown column",
                     primary_label,
                     column_path_tried.span,
@@ -239,10 +239,8 @@ pub fn get_column_from_row_error(
                         &obj_source.data_descriptors().join(", ")
                     ),
                     column_path_tried.span.since(path_members_span),
-                ))
-            } else {
-                None
-            }
+                )
+            })
         }
         PathMember {
             unspanned: UnspannedPathMember::Int(idx),

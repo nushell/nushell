@@ -181,14 +181,10 @@ impl Dictionary {
 
     /// Get a mutable entry that matches a key, if possible
     pub fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Value> {
-        match self
-            .entries
+        self.entries
             .iter_mut()
             .find(|(desc_name, _)| *desc_name == name)
-        {
-            Some((_, v)) => Some(v),
-            None => None,
-        }
+            .map(|(_, v)| v)
     }
 
     /// Insert a new key/value pair into the dictionary

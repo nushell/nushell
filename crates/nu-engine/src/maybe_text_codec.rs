@@ -27,8 +27,8 @@ pub struct BufCodecReader<R: Read> {
 impl<R: Read> BufCodecReader<R> {
     pub fn new(input: BufReader<R>, maybe_text_codec: MaybeTextCodec) -> Self {
         BufCodecReader {
-            input,
             maybe_text_codec,
+            input,
         }
     }
 }

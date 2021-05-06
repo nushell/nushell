@@ -178,10 +178,8 @@ impl EvaluationContext {
                     Some(env_paths)
                 } else if let Some(env_paths) = self.scope.get_env("Path") {
                     Some(env_paths)
-                } else if let Some(env_paths) = self.scope.get_env("path") {
-                    Some(env_paths)
                 } else {
-                    None
+                    self.scope.get_env("path")
                 };
 
                 if let Some(env_paths) = env_paths {
@@ -249,10 +247,8 @@ impl EvaluationContext {
                     Some(env_paths)
                 } else if let Some(env_paths) = self.scope.get_env("Path") {
                     Some(env_paths)
-                } else if let Some(env_paths) = self.scope.get_env("path") {
-                    Some(env_paths)
                 } else {
-                    None
+                    self.scope.get_env("path")
                 };
 
                 if let Some(env_paths) = env_paths {

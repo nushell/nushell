@@ -59,8 +59,8 @@ impl NuConfig {
         };
 
         Ok(NuConfig {
-            file_path,
             vars,
+            file_path,
             modified_at,
         })
     }

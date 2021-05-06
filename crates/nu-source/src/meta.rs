@@ -794,10 +794,7 @@ where
 
 impl<T> HasFallibleSpan for Option<Spanned<T>> {
     fn maybe_span(&self) -> Option<Span> {
-        match self {
-            None => None,
-            Some(value) => Some(value.span),
-        }
+        self.as_ref().map(|value| value.span)
     }
 }
 
@@ -815,10 +812,7 @@ where
 
 impl<T> HasFallibleSpan for Option<Tagged<T>> {
     fn maybe_span(&self) -> Option<Span> {
-        match self {
-            None => None,
-            Some(value) => Some(value.tag.span),
-        }
+        self.as_ref().map(|value| value.tag.span)
     }
 }
 
