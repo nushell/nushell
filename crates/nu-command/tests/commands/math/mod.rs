@@ -12,7 +12,7 @@ fn one_arg() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1
+            1
         "#
     ));
 
@@ -24,7 +24,7 @@ fn add() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 + 1
+            1 + 1
         "#
     ));
 
@@ -36,7 +36,7 @@ fn add_compound() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 + 2 + 2
+            1 + 2 + 2
         "#
     ));
 
@@ -48,7 +48,7 @@ fn precedence_of_operators() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 + 2 * 2
+            1 + 2 * 2
         "#
     ));
 
@@ -60,7 +60,7 @@ fn precedence_of_operators2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 + 2 * 2 + 1
+            1 + 2 * 2 + 1
         "#
     ));
 
@@ -72,7 +72,7 @@ fn division_of_ints() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 4 / 2
+            4 / 2
         "#
     ));
 
@@ -84,7 +84,7 @@ fn division_of_ints2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 / 4
+            1 / 4
         "#
     ));
 
@@ -96,7 +96,7 @@ fn error_zero_division_int_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 / 0
+            1 / 0
         "#
     ));
 
@@ -108,7 +108,7 @@ fn error_zero_division_decimal_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1.0 / 0
+            1.0 / 0
         "#
     ));
 
@@ -120,7 +120,7 @@ fn error_zero_division_int_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1 / 0.0
+            1 / 0.0
         "#
     ));
 
@@ -132,7 +132,7 @@ fn error_zero_division_decimal_decimal() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1.0 / 0.0
+            1.0 / 0.0
         "#
     ));
 
@@ -144,7 +144,7 @@ fn proper_precedence_history() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 2 / 2 / 2 + 1
+            2 / 2 / 2 + 1
         "#
     ));
 
@@ -156,7 +156,7 @@ fn parens_precedence() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 4 * (6 - 3)
+            4 * (6 - 3)
         "#
     ));
 
@@ -168,7 +168,7 @@ fn modulo() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 9 mod 2
+            9 mod 2
         "#
     ));
 
@@ -180,7 +180,7 @@ fn duration_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1wk + 1day
+            1wk + 1day
         "#
     ));
 
@@ -192,7 +192,7 @@ fn duration_decimal_math() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 5.5day + 0.5day
+            5.5day + 0.5day
         "#
     ));
 
@@ -204,7 +204,7 @@ fn duration_math_with_nanoseconds() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1wk + 10ns
+            1wk + 10ns
         "#
     ));
 
@@ -216,7 +216,7 @@ fn duration_decimal_math_with_nanoseconds() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1.5wk + 10ns
+            1.5wk + 10ns
         "#
     ));
 
@@ -228,7 +228,7 @@ fn duration_math_with_negative() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 1day - 1wk
+            1day - 1wk
         "#
     ));
 
@@ -240,7 +240,7 @@ fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 4 > 3 && 2 > 1
+            4 > 3 && 2 > 1
         "#
     ));
 
@@ -252,7 +252,7 @@ fn compound_comparison2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            = 4 < 3 || 2 > 1
+            4 < 3 || 2 > 1
         "#
     ));
 
@@ -276,7 +276,7 @@ fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where (a == 2 && b == 1) || b == 2 | to json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json
         "#
     ));
 

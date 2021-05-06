@@ -100,7 +100,7 @@ impl WholeStreamCommand for Command {
             Example {
                 description:
                     "use the block form to generate a grouping key when each row gets processed",
-                example: "echo [1 3 1 3 2 1 1] | group-by { = ($it - 1) mod 3 }",
+                example: "echo [1 3 1 3 2 1 1] | group-by { ($it - 1) mod 3 }",
                 result: Some(vec![UntaggedValue::row(indexmap! {
                     "0".to_string() => UntaggedValue::Table(vec![
                         UntaggedValue::int(1).into(),

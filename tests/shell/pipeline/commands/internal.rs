@@ -202,7 +202,7 @@ fn run_custom_command() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def add-me [x y] { = $x + $y}; add-me 10 5
+            def add-me [x y] { $x + $y}; add-me 10 5
         "#
     );
 
@@ -325,7 +325,7 @@ fn set_variable() {
         r#"
             let x = 5
             let y = 12
-            = $x + $y
+            $x + $y
         "#
     );
 
@@ -396,7 +396,7 @@ fn run_dynamic_blocks() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let block = { echo "holaaaa" }; $block
+        let block = { echo "holaaaa" }; do $block
         "#
     );
     assert_eq!(actual.out, "holaaaa");
@@ -644,7 +644,7 @@ fn filesize_math() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100 * 10kb
+        100 * 10kb
         "#
     );
 
@@ -658,7 +658,7 @@ fn filesize_math2() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100 / 10kb
+        100 / 10kb
         "#
     );
 
@@ -670,7 +670,7 @@ fn filesize_math3() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100kb / 10
+        100kb / 10
         "#
     );
 
@@ -681,7 +681,7 @@ fn filesize_math4() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100kb * 5
+        100kb * 5
         "#
     );
 
@@ -693,7 +693,7 @@ fn filesize_math5() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1kb
+        1001 * 1kb
         "#
     );
 
@@ -705,7 +705,7 @@ fn filesize_math6() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1mb
+        1001 * 1mb
         "#
     );
 
@@ -717,7 +717,7 @@ fn filesize_math7() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1gb
+        1001 * 1gb
         "#
     );
 
@@ -753,7 +753,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 10000000000000000day }
+        ls | get modified | each { $it + 10000000000000000day }
         "#)
     );
 
@@ -765,7 +765,7 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000000day }
+        ls | get modified | each { $it + 1000000000day }
         "#)
     );
 

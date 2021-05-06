@@ -57,17 +57,17 @@ impl WholeStreamCommand for Reduce {
         vec![
             Example {
                 description: "Simple summation (equivalent to math sum)",
-                example: "echo 1 2 3 4 | reduce { = $acc + $it }",
+                example: "echo 1 2 3 4 | reduce { $acc + $it }",
                 result: Some(vec![UntaggedValue::int(10).into()]),
             },
             Example {
                 description: "Summation from starting value using fold",
-                example: "echo 1 2 3 4 | reduce -f $(= -1) { = $acc + $it }",
+                example: "echo 1 2 3 4 | reduce -f (-1) { $acc + $it }",
                 result: Some(vec![UntaggedValue::int(9).into()]),
             },
             Example {
                 description: "Folding with rows",
-                example: "<table> | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }",
+                example: "<table> | reduce -f 1.6 { $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }",
                 result: None,
             },
             Example {

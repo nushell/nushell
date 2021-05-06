@@ -172,6 +172,12 @@ pub fn parse_full_column_path(
                     error = err;
                 }
                 head = Some(invoc.expr);
+            } else if current_part.starts_with('(') && current_part.ends_with(')') {
+                let (invoc, err) = parse_simple_invocation(&current_part.spanned(part_span), scope);
+                if error.is_none() {
+                    error = err;
+                }
+                head = Some(invoc.expr);
             } else if current_part.starts_with('$') {
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
@@ -812,65 +818,6 @@ fn parse_table(
     )
 }
 
-/// Tries to parse a number in a paranthesis, e.g., (123) or (-123)
-fn try_parse_number_in_paranthesis(
-    lite_arg: &Spanned<String>,
-) -> (SpannedExpression, Option<ParseError>) {
-    let mut chars = lite_arg.item.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some('('), Some(')')) => {
-            match chars.as_str().trim().parse::<BigInt>() {
-                Ok(parsed_integer) => (
-                    SpannedExpression::new(Expression::integer(parsed_integer), lite_arg.span),
-                    None,
-                ),
-                // we don't care if it does not manage to parse it, because then likely it is not a number
-                Err(_) => {
-                    match chars.as_str().trim().parse::<BigDecimal>() {
-                        Ok(parsed_decimal) => (
-                            SpannedExpression::new(
-                                Expression::decimal(parsed_decimal),
-                                lite_arg.span,
-                            ),
-                            None,
-                        ),
-                        // we don't care if it does not manage to parse it, because then likely it is not a number
-                        Err(_) => (
-                            garbage(lite_arg.span),
-                            Some(ParseError::mismatch(
-                                "cannot parse number",
-                                lite_arg.clone(),
-                            )),
-                        ),
-                    }
-                }
-            }
-        }
-        (Some('('), _) => (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch(
-                "missing closing bracket",
-                lite_arg.clone(),
-            )),
-        ),
-        (_, Some(')')) => (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch(
-                "missing starting bracket",
-                lite_arg.clone(),
-            )),
-        ),
-        (_, _) => (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch(
-                "number in paranthesis",
-                lite_arg.clone(),
-            )),
-        ),
-    }
-}
-
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -1157,69 +1104,15 @@ fn shorthand_reparse(
     }
 }
 
-fn parse_parenthesized_expression(
-    lite_arg: &Spanned<String>,
-    scope: &dyn ParserScope,
-    shorthand_mode: bool,
-) -> (SpannedExpression, Option<ParseError>) {
-    let mut chars = lite_arg.item.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some('('), Some(')')) => {
-            // We have a literal row
-            let string: String = chars.collect();
-
-            // We haven't done much with the inner string, so let's go ahead and work with it
-            let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
-            if err.is_some() {
-                return (garbage(lite_arg.span), err);
-            }
-
-            let (lite_block, err) = parse_block(tokens);
-            if err.is_some() {
-                return (garbage(lite_arg.span), err);
-            }
-
-            if lite_block.block.len() != 1 {
-                return (
-                    garbage(lite_arg.span),
-                    Some(ParseError::mismatch("math expression", lite_arg.clone())),
-                );
-            }
-
-            let mut lite_pipeline = lite_block.block[0].clone();
-
-            let mut collection = vec![];
-            for lite_pipeline in lite_pipeline.pipelines.iter_mut() {
-                for lite_cmd in lite_pipeline.commands.iter_mut() {
-                    collection.append(&mut lite_cmd.parts);
-                }
-            }
-            let (_, expr, err) = parse_math_expression(0, &collection[..], scope, shorthand_mode);
-            (expr, err)
-        }
-        _ => (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch("table", lite_arg.clone())),
-        ),
-    }
-}
-
 fn parse_possibly_parenthesized(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
-    shorthand_mode: bool,
 ) -> (
     (Option<Spanned<String>>, SpannedExpression),
     Option<ParseError>,
 ) {
-    // if lite_arg.item.starts_with('(') {
-    //     let (lhs, err) = parse_parenthesized_expression(lite_arg, scope, shorthand_mode);
-    //     ((None, lhs), err)
-    // } else {
     let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
     ((Some(lite_arg.clone()), lhs), err)
-    // }
 }
 
 /// Handle parsing math expressions, complete with working with the precedence of the operators
@@ -1240,8 +1133,7 @@ pub fn parse_math_expression(
     let mut working_exprs = vec![];
     let mut prec = vec![];
 
-    let (lhs_working_expr, err) =
-        parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
+    let (lhs_working_expr, err) = parse_possibly_parenthesized(&lite_args[idx], scope);
 
     if error.is_none() {
         error = err;
@@ -1279,8 +1171,7 @@ pub fn parse_math_expression(
             prec
         );
 
-        let (rhs_working_expr, err) =
-            parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
+        let (rhs_working_expr, err) = parse_possibly_parenthesized(&lite_args[idx], scope);
 
         if error.is_none() {
             error = err;

@@ -47,7 +47,7 @@ fn plugins_are_declared_with_wix() {
                 | wrap wix
             }
             | default wix _
-            | each { if $it.wix != $it.cargo { = 1 } { = 0 } }
+            | each { if $it.wix != $it.cargo { 1 } { 0 } }
             | math sum
             "#
     ));
