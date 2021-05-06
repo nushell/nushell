@@ -443,6 +443,38 @@ fn parse_invocation(
     )
 }
 
+fn parse_simple_invocation(
+    lite_arg: &Spanned<String>,
+    scope: &dyn ParserScope,
+) -> (SpannedExpression, Option<ParseError>) {
+    // We have a command invocation
+    let string: String = lite_arg
+        .item
+        .chars()
+        .skip(1)
+        .take(lite_arg.item.chars().count() - 2)
+        .collect();
+
+    // We haven't done much with the inner string, so let's go ahead and work with it
+    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+    if err.is_some() {
+        return (garbage(lite_arg.span), err);
+    };
+    let (lite_block, err) = parse_block(tokens);
+    if err.is_some() {
+        return (garbage(lite_arg.span), err);
+    };
+
+    scope.enter_scope();
+    let (classified_block, err) = classify_block(&lite_block, scope);
+    scope.exit_scope();
+
+    (
+        SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
+        err,
+    )
+}
+
 fn parse_variable(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
@@ -843,7 +875,7 @@ fn parse_arg(
 
     // before anything else, try to see if this is a number in paranthesis
     if lite_arg.item.starts_with('(') {
-        let (expr, err) = try_parse_number_in_paranthesis(lite_arg);
+        let (expr, err) = parse_simple_invocation(&lite_arg, scope);
         if err.is_none() {
             return (expr, None);
         }
@@ -1173,13 +1205,13 @@ fn parse_possibly_parenthesized(
     (Option<Spanned<String>>, SpannedExpression),
     Option<ParseError>,
 ) {
-    if lite_arg.item.starts_with('(') {
-        let (lhs, err) = parse_parenthesized_expression(lite_arg, scope, shorthand_mode);
-        ((None, lhs), err)
-    } else {
-        let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
-        ((Some(lite_arg.clone()), lhs), err)
-    }
+    // if lite_arg.item.starts_with('(') {
+    //     let (lhs, err) = parse_parenthesized_expression(lite_arg, scope, shorthand_mode);
+    //     ((None, lhs), err)
+    // } else {
+    let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
+    ((Some(lite_arg.clone()), lhs), err)
+    // }
 }
 
 /// Handle parsing math expressions, complete with working with the precedence of the operators
@@ -1740,22 +1772,32 @@ fn parse_call(
             })),
             error,
         );
-    } else if lite_cmd.parts[0].item.starts_with('$') || lite_cmd.parts[0].item.starts_with('{') {
+    // } else if lite_cmd.parts[0].item.starts_with('(') {
+    //     let (expr, err) = parse_simple_invocation(&lite_cmd.parts[0], scope);
+    //     error = error.or(err);
+    //     return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
+    } else if lite_cmd.parts[0].item.starts_with('{') {
         return parse_value_call(lite_cmd, scope);
-    } else if lite_cmd.parts[0].item == "=" {
-        let expr = if lite_cmd.parts.len() > 1 {
-            let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[1..], scope, false);
-            error = error.or(err);
-            expr
-        } else {
-            error = error.or_else(|| {
-                Some(ParseError::argument_error(
-                    lite_cmd.parts[0].clone(),
-                    ArgumentError::MissingMandatoryPositional("an expression".into()),
-                ))
-            });
-            garbage(lite_cmd.span())
-        };
+    } else if lite_cmd.parts[0].item.starts_with('$')
+        || lite_cmd.parts[0].item.starts_with('\"')
+        || lite_cmd.parts[0].item.starts_with('\'')
+        || lite_cmd.parts[0].item.starts_with('`')
+        || lite_cmd.parts[0].item.starts_with('-')
+        || lite_cmd.parts[0].item.starts_with('0')
+        || lite_cmd.parts[0].item.starts_with('1')
+        || lite_cmd.parts[0].item.starts_with('2')
+        || lite_cmd.parts[0].item.starts_with('3')
+        || lite_cmd.parts[0].item.starts_with('4')
+        || lite_cmd.parts[0].item.starts_with('5')
+        || lite_cmd.parts[0].item.starts_with('6')
+        || lite_cmd.parts[0].item.starts_with('7')
+        || lite_cmd.parts[0].item.starts_with('8')
+        || lite_cmd.parts[0].item.starts_with('9')
+        || lite_cmd.parts[0].item.starts_with('[')
+        || lite_cmd.parts[0].item.starts_with('(')
+    {
+        let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[..], scope, false);
+        error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts[0].item == "alias" {
         let error = parse_alias(&lite_cmd, scope);
@@ -1924,77 +1966,6 @@ fn expand_shorthand_forms(
         (lite_pipeline.clone(), None, None)
     }
 }
-
-// pub fn parse_block(lite_block: &LiteBlock, scope: &dyn ParserScope) -> ClassifiedBlock {
-//     let mut block = vec![];
-//     let mut error = None;
-//     for lite_group in &lite_block.block {
-//         let mut command_list = vec![];
-//         for lite_pipeline in &lite_group.pipelines {
-//             let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
-//             if error.is_none() {
-//                 error = err;
-//             }
-
-//             let (pipeline, err) = parse_pipeline(&lite_pipeline, scope);
-
-//             let pipeline = if let Some(vars) = vars {
-//                 let span = pipeline.commands.span;
-//                 let group = Group::new(vec![pipeline.commands.clone()], span);
-//                 let block = hir::Block::new(vec![], vec![group], span);
-//                 let mut call = hir::Call::new(
-//                     Box::new(SpannedExpression {
-//                         expr: Expression::string("with-env".to_string()),
-//                         span,
-//                     }),
-//                     span,
-//                 );
-//                 call.positional = Some(vec![
-//                     SpannedExpression {
-//                         expr: Expression::List(vec![
-//                             SpannedExpression {
-//                                 expr: Expression::string(vars.0.item),
-//                                 span: vars.0.span,
-//                             },
-//                             SpannedExpression {
-//                                 expr: Expression::string(vars.1.item),
-//                                 span: vars.1.span,
-//                             },
-//                         ]),
-//                         span: Span::new(vars.0.span.start(), vars.1.span.end()),
-//                     },
-//                     SpannedExpression {
-//                         expr: Expression::Block(block),
-//                         span,
-//                     },
-//                 ]);
-//                 let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
-//                     name: "with-env".to_string(),
-//                     name_span: Span::unknown(),
-//                     args: call,
-//                 });
-//                 ClassifiedPipeline {
-//                     commands: Pipeline {
-//                         list: vec![classified_with_env],
-//                         span,
-//                     },
-//                 }
-//             } else {
-//                 pipeline
-//             };
-
-//             command_list.push(pipeline.commands);
-//             if error.is_none() {
-//                 error = err;
-//             }
-//         }
-//         let group = Group::new(command_list, lite_block.span());
-//         block.push(group);
-//     }
-//     let block = Block::new(vec![], block, lite_block.span());
-
-//     ClassifiedBlock::new(block, error)
-// }
 
 fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
     if call.parts.len() < 4 {
