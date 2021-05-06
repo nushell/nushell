@@ -1,1 +1,1 @@
-cargo install --path . --force --features=extra
+cargo install --path . --features=extra
