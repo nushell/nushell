@@ -97,4 +97,28 @@ impl Range {
             RangeInclusion::Exclusive => Ok(maxval.saturating_sub(1)),
         }
     }
+
+    pub fn min_f64(&self) -> Result<f64, ShellError> {
+        let from = &self.from.0;
+
+        if let Primitive::Nothing = from.item {
+            Ok(f64::MIN)
+        } else {
+            Ok(from.item.as_f64(from.span)?)
+        }
+
+        // How would inclusive vs. exclusive range work here?
+    }
+
+    pub fn max_f64(&self) -> Result<f64, ShellError> {
+        let to = &self.to.0;
+
+        if let Primitive::Nothing = to.item {
+            Ok(f64::MAX)
+        } else {
+            Ok(to.item.as_f64(to.span)?)
+        }
+
+        // How would inclusive vs. exclusive range work here?
+    }
 }
