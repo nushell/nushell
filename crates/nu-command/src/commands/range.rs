@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{RangeInclusion, Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape, Value};
 
 struct RangeArgs {
     range: nu_protocol::Range,
@@ -37,30 +37,8 @@ fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
         range: args.req(0)?,
     };
 
-    let (from, left_inclusive) = cmd_args.range.from;
-    let (to, right_inclusive) = cmd_args.range.to;
-    let from_span = from.span;
-    let to_span = to.span;
-
-    let from = from
-        .map(|from| from.as_usize(from_span))
-        .item
-        .unwrap_or(0)
-        .saturating_add(if left_inclusive == RangeInclusion::Inclusive {
-            0
-        } else {
-            1
-        });
-
-    let to = to
-        .map(|to| to.as_usize(to_span))
-        .item
-        .unwrap_or(usize::MAX)
-        .saturating_sub(if right_inclusive == RangeInclusion::Inclusive {
-            0
-        } else {
-            1
-        });
+    let from = cmd_args.range.min_usize()?;
+    let to = cmd_args.range.max_usize()?;
 
     if from > to {
         Ok(OutputStream::one(Value::nothing()))

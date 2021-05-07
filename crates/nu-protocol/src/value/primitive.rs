@@ -129,6 +129,30 @@ impl Primitive {
         }
     }
 
+    /// Converts a primitive value to a f64, if possible. Uses a span to build an error if the conversion isn't possible.
+    pub fn as_f64(&self, span: Span) -> Result<f64, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_f64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a 64-bit floating point",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_f64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit floating point",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     /// Converts a primitive value to a i64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_i64(&self, span: Span) -> Result<i64, ShellError> {
         match self {

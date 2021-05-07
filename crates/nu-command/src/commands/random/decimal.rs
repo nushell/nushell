@@ -1,17 +1,15 @@
 use crate::prelude::*;
-use nu_engine::deserializer::NumericRange;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Range, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct DecimalArgs {
-    range: Option<Tagged<NumericRange>>,
+    range: Option<Tagged<Range>>,
 }
 
 impl WholeStreamCommand for SubCommand {
@@ -27,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random decimal within a range [min..max]"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         decimal(args)
     }
 
@@ -49,19 +47,22 @@ impl WholeStreamCommand for SubCommand {
                 result: None,
             },
             Example {
-                description: "Generate a random decimal between 1 and 10",
-                example: "random decimal 1..10",
+                description: "Generate a random decimal between 1.0 and 1.1",
+                example: "random decimal 1.0..1.1",
                 result: None,
             },
         ]
     }
 }
 
-pub fn decimal(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (DecimalArgs { range }, _) = args.process()?;
+pub fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let cmd_args = DecimalArgs {
+        range: args.opt(0)?,
+    };
 
-    let (min, max) = if let Some(range) = &range {
-        (range.item.min() as f64, range.item.max() as f64)
+    let (min, max) = if let Some(range) = &cmd_args.range {
+        (range.item.min_f64()?, range.item.max_f64()?)
     } else {
         (0.0, 1.0)
     };
@@ -70,21 +71,23 @@ pub fn decimal(args: CommandArgs) -> Result<ActionStream, ShellError> {
         Some(Ordering::Greater) => Err(ShellError::labeled_error(
             format!("Invalid range {}..{}", min, max),
             "expected a valid range",
-            range
+            cmd_args
+                .range
                 .expect("Unexpected ordering error in random decimal")
                 .span(),
         )),
-        Some(Ordering::Equal) => {
-            let untagged_result = UntaggedValue::decimal_from_float(min, Span::new(64, 64));
-            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
-        }
+        Some(Ordering::Equal) => Ok(OutputStream::one(UntaggedValue::decimal_from_float(
+            min,
+            Span::new(64, 64),
+        ))),
         _ => {
             let mut thread_rng = thread_rng();
             let result: f64 = thread_rng.gen_range(min, max);
 
-            let untagged_result = UntaggedValue::decimal_from_float(result, Span::new(64, 64));
-
-            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(OutputStream::one(UntaggedValue::decimal_from_float(
+                result,
+                Span::new(64, 64),
+            )))
         }
     }
 }
