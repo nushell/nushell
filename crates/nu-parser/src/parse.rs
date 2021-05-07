@@ -209,8 +209,7 @@ pub fn parse_full_column_path(
                 Expression::path(
                     SpannedExpression::new(
                         Expression::variable("$it".into(), lite_arg.span),
-                        //lite_arg.span,
-                        Span::default(),
+                        lite_arg.span,
                     ),
                     output,
                 ),
@@ -705,10 +704,13 @@ fn parse_external_arg(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_dollar_expr(&lite_arg, scope);
-    }
-
-    if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
+        parse_dollar_expr(&lite_arg, scope)
+    } else if lite_arg.item.starts_with('(') {
+        parse_simple_invocation(&lite_arg, scope)
+    } else if lite_arg.item.starts_with('`')
+        && lite_arg.item.len() > 1
+        && lite_arg.item.ends_with('`')
+    {
         // This is an interpolated string
         parse_interpolated_string(&lite_arg, scope)
     } else {

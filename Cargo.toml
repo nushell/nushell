@@ -81,11 +81,7 @@ ptree-support = ["nu-cli/ptree", "nu-command/ptree"]
 rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-cli/term", "nu-command/term"]
 uuid-support = ["nu-cli/uuid_crate", "nu-command/uuid_crate"]
-which-support = [
-    "nu-cli/which",
-    "nu-command/which",
-    "nu-engine/which",
-]
+which-support = ["nu-cli/which", "nu-command/which", "nu-engine/which"]
 
 default = [
     "nu-cli/shadow-rs",
