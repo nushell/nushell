@@ -94,8 +94,7 @@ pub fn parse_full_column_path(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    let mut delimiter = '.';
-    let mut inside_delimiter = false;
+    let mut inside_delimiter = vec![];
     let mut output = vec![];
     let mut current_part = String::new();
     let mut start_index = 0;
@@ -106,16 +105,14 @@ pub fn parse_full_column_path(
 
     for (idx, c) in lite_arg.item.char_indices() {
         last_index = idx;
-        if inside_delimiter {
-            if c == delimiter {
-                inside_delimiter = false;
+        if c == '(' {
+            inside_delimiter.push(')');
+        } else if let Some(delimiter) = inside_delimiter.last() {
+            if c == *delimiter {
+                inside_delimiter.pop();
             }
-        } else if c == '(' {
-            inside_delimiter = true;
-            delimiter = ')';
         } else if c == '\'' || c == '"' {
-            inside_delimiter = true;
-            delimiter = c;
+            inside_delimiter.push(c);
         } else if c == '.' {
             let part_span = Span::new(
                 lite_arg.span.start() + start_index,
@@ -212,7 +209,8 @@ pub fn parse_full_column_path(
                 Expression::path(
                     SpannedExpression::new(
                         Expression::variable("$it".into(), lite_arg.span),
-                        lite_arg.span,
+                        //lite_arg.span,
+                        Span::default(),
                     ),
                     output,
                 ),
