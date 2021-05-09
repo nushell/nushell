@@ -1,13 +1,12 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use rand::prelude::{thread_rng, Rng};
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct BoolArgs {
     bias: Option<Tagged<f64>>,
 }
@@ -30,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random boolean value"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         bool_command(args)
     }
 
@@ -50,12 +49,15 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn bool_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (BoolArgs { bias }, _) = args.process()?;
+pub fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let cmd_args = BoolArgs {
+        bias: args.get_flag("bias")?,
+    };
 
     let mut probability = 0.5;
 
-    if let Some(prob) = bias {
+    if let Some(prob) = cmd_args.bias {
         probability = *prob as f64;
 
         let probability_is_valid = (0.0..=1.0).contains(&probability);
@@ -71,9 +73,8 @@ pub fn bool_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let mut rng = thread_rng();
     let bool_result: bool = rng.gen_bool(probability);
-    let bool_untagged_value = UntaggedValue::boolean(bool_result);
 
-    Ok(ActionStream::one(ReturnSuccess::value(bool_untagged_value)))
+    Ok(OutputStream::one(UntaggedValue::boolean(bool_result)))
 }
 
 #[cfg(test)]
