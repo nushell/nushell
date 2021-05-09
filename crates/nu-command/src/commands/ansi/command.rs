@@ -96,7 +96,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi rb) Hello " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi rb) Hello " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
@@ -104,7 +104,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi -e '3;93;41m') Hello $(ansi reset) " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),

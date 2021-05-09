@@ -50,7 +50,7 @@ fn treats_dot_dot_as_path_not_range() {
         r#"
             mkdir temp;
             cd temp;
-            echo $(open ../nu_times.csv).name | autoview;
+            echo (open ../nu_times.csv).name | autoview;
             cd ..;
             rmdir temp
             "#
@@ -66,7 +66,7 @@ fn invocation_properly_redirects() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo $(nu --testbin cococo "hello") | str collect
+            echo (nu --testbin cococo "hello") | str collect
         "#
     );
 
@@ -78,7 +78,7 @@ fn argument_invocation() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo "foo" | each { echo $(echo $it) }
+            echo "foo" | each { echo (echo $it) }
         "#
     );
 
@@ -102,7 +102,7 @@ fn invocation_handles_dot() {
         let actual = nu!(
         cwd: dirs.test(), pipeline(
         r#"
-            echo $(open nu_times.csv)
+            echo (open nu_times.csv)
             | get name
             | each { nu --testbin chop $it | lines }
             | nth 3
@@ -214,7 +214,7 @@ fn run_custom_command_with_flag() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo --bar 10
+        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } { echo $bar } }; foo --bar 10
         "#
     );
 
@@ -226,7 +226,7 @@ fn run_custom_command_with_flag_missing() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo
+        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } { echo $bar } }; foo
         "#
     );
 
@@ -407,7 +407,7 @@ fn run_dynamic_blocks() {
 fn argument_invocation_reports_errors() {
     let actual = nu!(
         cwd: ".",
-        "echo $(ferris_is_not_here.exe)"
+        "echo (ferris_is_not_here.exe)"
     );
 
     assert!(actual.err.contains("Command not found"));

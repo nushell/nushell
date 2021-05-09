@@ -34,7 +34,7 @@ fn automatically_change_directory() {
             cwd: dirs.test(),
             r#"
                 autodir
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -300,7 +300,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    nu --testbin cococo $(ls | get name)
+                    nu --testbin cococo (ls | get name)
                 "#
                 ));
 

@@ -69,7 +69,7 @@ impl WholeStreamCommand for Command {
             },
             Example {
                 description: "Treat each row as a markdown element",
-                example: "echo [[H1]; [\"Welcome to Nushell\"]] | append $(ls | first 2) | to md --per-element --pretty",
+                example: "echo [[H1]; [\"Welcome to Nushell\"]] | append (ls | first 2) | to md --per-element --pretty",
                 result: Some(vec![Value::from(one(r#"
                     # Welcome to Nushell
                     | name       | type | chickens | modified   |

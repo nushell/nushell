@@ -8,7 +8,7 @@ fn reports_emptiness() {
             echo [[are_empty];
                      [([[check]; [[]]      ])]
                      [([[check]; [""]      ])]
-                     [([[check]; [$(wrap)] ])]
+                     [([[check]; [(wrap)] ])]
             ]
             | get are_empty
             | empty? check
@@ -50,7 +50,7 @@ fn sets_block_run_value_for_many_empty_columns() {
                      [  boost   check   ];
                      [     1,    []     ]
                      [     1,    ""     ]
-                     [     1,  $(wrap)  ]
+                     [     1,  (wrap)  ]
             ]
             | empty? boost check { 1 }
             | get boost check

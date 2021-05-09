@@ -384,7 +384,7 @@ mod tests {
         #[test]
         fn completes_incomplete_nested_structure() {
             let registry: VecRegistry = vec![Signature::build("sys")].into();
-            let line = "echo $(sy";
+            let line = "echo (sy";
 
             assert_eq!(
                 completion_location(line, &registry, 8),

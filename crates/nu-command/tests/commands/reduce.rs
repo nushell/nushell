@@ -8,7 +8,7 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { $it + $( math eval `{{$acc}}^1.05` )}
+        | reduce -f 20 { $it + ( math eval `{{$acc}}^1.05` )}
         | str from -d 1
         "#
         )
@@ -21,7 +21,7 @@ fn reduce_table_column() {
         r#"
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
-        | reduce -f 20 { $it.total + $( math eval `{{$acc}}^1.05` )}
+        | reduce -f 20 { $it.total + ( math eval `{{$acc}}^1.05` )}
         | str from -d 1
         "#
         )
@@ -38,7 +38,7 @@ fn reduce_rows_example() {
         echo a,b 1,2 3,4
         | split column ,
         | headers
-        | reduce -f 1.6 { $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }
+        | reduce -f 1.6 { $acc * ($it.a | str to-int) + ($it.b | str to-int) }
         "#
         )
     );
@@ -52,7 +52,7 @@ fn reduce_numbered_example() {
         cwd: ".", pipeline(
         r#"
         echo one longest three bar
-        | reduce -n { if $(echo $it.item | str length) > $(echo $acc.item | str length) {echo $it} {echo $acc}}
+        | reduce -n { if ($it.item | str length) > ($acc.item | str length) {echo $it} {echo $acc}}
         | get index
         "#
         )

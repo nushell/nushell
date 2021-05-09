@@ -39,12 +39,12 @@ impl WholeStreamCommand for Command {
             },
             Example {
                 description: "flatten a column having a nested table",
-                example: "echo [[origin, people]; [Ecuador, $(echo [[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal",
+                example: "echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal",
                 result: Some(vec![Value::from("arepa")]),
             },
             Example {
                 description: "restrict the flattening by passing column names",
-                example: "echo [[origin, crate, versions]; [World, $(echo [[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
+                example: "echo [[origin, crate, versions]; [World, (echo [[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
                 result: Some(vec![Value::from("0.22")]),
             }
         ]

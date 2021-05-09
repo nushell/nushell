@@ -145,7 +145,7 @@ fn requote(orig_value: String) -> String {
     if should_quote {
         if quotes.is_empty() {
             // TODO we don't really have an escape character, so there isn't a great option right
-            //      now. One possibility is `{{$(char backtick)}}`
+            //      now. One possibility is `{{(char backtick)}}`
             value.to_string()
         } else {
             let quote = quotes[0];

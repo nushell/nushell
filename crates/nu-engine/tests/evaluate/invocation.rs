@@ -6,7 +6,7 @@ fn test_parse_invocation_with_range() {
         cwd: ".",
         r#"
         let foo = 3
-        echo $(echo 1..$foo | each { echo $it }) | to json
+        echo (echo 1..$foo | each { $it }) | to json
         "#
     );
     assert_eq!(actual.out, "[1,2,3]")

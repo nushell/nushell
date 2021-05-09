@@ -35,7 +35,7 @@ fn sets_the_column_from_an_invocation() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | insert content $(open --raw cargo_sample.toml | lines | first 5)
+            | insert content (open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"
         "#
