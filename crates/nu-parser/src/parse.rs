@@ -1,5 +1,6 @@
 use std::{path::Path, sync::Arc};
 
+use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
@@ -12,11 +13,12 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::lex::lexer::{lex, parse_block};
 use crate::lex::tokens::{LiteBlock, LiteCommand, LitePipeline};
 use crate::path::expand_path;
-use crate::scope::ParserScope;
-use bigdecimal::BigDecimal;
+use crate::{
+    lex::lexer::{lex, parse_block},
+    ParserScope,
+};
 
 use self::{
     def::{parse_definition, parse_definition_prototype},
@@ -119,17 +121,9 @@ pub fn parse_full_column_path(
                 lite_arg.span.start() + idx,
             );
 
-            if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
+            if head.is_none() && current_part.starts_with('(') && current_part.ends_with(')') {
                 let (invoc, err) =
                     parse_invocation(&current_part.clone().spanned(part_span), scope);
-                if error.is_none() {
-                    error = err;
-                }
-                head = Some(invoc.expr);
-            } else if head.is_none() && current_part.starts_with('(') && current_part.ends_with(')')
-            {
-                let (invoc, err) =
-                    parse_simple_invocation(&current_part.clone().spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
@@ -163,14 +157,8 @@ pub fn parse_full_column_path(
         );
 
         if head.is_none() {
-            if current_part.starts_with("$(") && current_part.ends_with(')') {
+            if current_part.starts_with('(') && current_part.ends_with(')') {
                 let (invoc, err) = parse_invocation(&current_part.spanned(part_span), scope);
-                if error.is_none() {
-                    error = err;
-                }
-                head = Some(invoc.expr);
-            } else if current_part.starts_with('(') && current_part.ends_with(')') {
-                let (invoc, err) = parse_simple_invocation(&current_part.spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
@@ -430,38 +418,6 @@ fn parse_invocation(
     let string: String = lite_arg
         .item
         .chars()
-        .skip(2)
-        .take(lite_arg.item.chars().count() - 3)
-        .collect();
-
-    // We haven't done much with the inner string, so let's go ahead and work with it
-    let (tokens, err) = lex(&string, lite_arg.span.start() + 2);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
-    };
-    let (lite_block, err) = parse_block(tokens);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
-    };
-
-    scope.enter_scope();
-    let (classified_block, err) = classify_block(&lite_block, scope);
-    scope.exit_scope();
-
-    (
-        SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
-        err,
-    )
-}
-
-fn parse_simple_invocation(
-    lite_arg: &Spanned<String>,
-    scope: &dyn ParserScope,
-) -> (SpannedExpression, Option<ParseError>) {
-    // We have a command invocation
-    let string: String = lite_arg
-        .item
-        .chars()
         .skip(1)
         .take(lite_arg.item.chars().count() - 2)
         .collect();
@@ -511,21 +467,7 @@ fn parse_dollar_expr(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
-    if lite_arg.item == "$true" {
-        (
-            SpannedExpression::new(Expression::boolean(true), lite_arg.span),
-            None,
-        )
-    } else if lite_arg.item == "$false" {
-        (
-            SpannedExpression::new(Expression::boolean(false), lite_arg.span),
-            None,
-        )
-    } else if lite_arg.item.ends_with(')') {
-        //Return invocation
-        trace!("Parsing invocation expression");
-        parse_invocation(lite_arg, scope)
-    } else if let (expr, None) = parse_range(lite_arg, scope) {
+    if let (expr, None) = parse_range(lite_arg, scope) {
         (expr, None)
     } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
         (expr, None)
@@ -706,7 +648,7 @@ fn parse_external_arg(
     if lite_arg.item.starts_with('$') {
         parse_dollar_expr(&lite_arg, scope)
     } else if lite_arg.item.starts_with('(') {
-        parse_simple_invocation(&lite_arg, scope)
+        parse_invocation(&lite_arg, scope)
     } else if lite_arg.item.starts_with('`')
         && lite_arg.item.len() > 1
         && lite_arg.item.ends_with('`')
