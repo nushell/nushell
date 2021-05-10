@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_ansi_term::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Command;
@@ -112,7 +112,7 @@ Format: #
         ]
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let args = args.evaluate_once()?;
 
         let code: Option<Tagged<String>> = args.opt(0)?;
@@ -129,9 +129,9 @@ Format: #
                 ));
             }
             let output = format!("\x1b[{}", e.item);
-            return Ok(ActionStream::one(ReturnSuccess::value(
+            return Ok(OutputStream::one(
                 UntaggedValue::string(output).into_value(e.tag()),
-            )));
+            ));
         }
 
         if let Some(o) = osc {
@@ -147,18 +147,18 @@ Format: #
             //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
             let output = format!("\x1b]{};", o.item);
-            return Ok(ActionStream::one(ReturnSuccess::value(
+            return Ok(OutputStream::one(
                 UntaggedValue::string(output).into_value(o.tag()),
-            )));
+            ));
         }
 
         if let Some(code) = code {
             let ansi_code = str_to_ansi(&code.item);
 
             if let Some(output) = ansi_code {
-                Ok(ActionStream::one(ReturnSuccess::value(
+                Ok(OutputStream::one(
                     UntaggedValue::string(output).into_value(code.tag()),
-                )))
+                ))
             } else {
                 Err(ShellError::labeled_error(
                     "Unknown ansi code",
