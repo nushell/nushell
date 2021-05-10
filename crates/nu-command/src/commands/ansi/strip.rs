@@ -2,16 +2,11 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tag;
 use strip_ansi_escapes::strip;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-struct Arguments {
-    rest: Vec<ColumnPath>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -43,10 +38,12 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (Arguments { rest }, input) = args.process()?;
-    let column_paths: Vec<_> = rest;
+    let args = args.evaluate_once()?;
 
-    let result: Vec<Value> = input
+    let column_paths: Vec<_> = args.rest_args()?;
+
+    let result: Vec<Value> = args
+        .input
         .map(move |v| {
             if column_paths.is_empty() {
                 action(&v, v.tag())
