@@ -50,7 +50,7 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         benchmark(args)
     }
 
@@ -70,7 +70,7 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-fn benchmark(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.args.span;
     let mut context = EvaluationContext::from_args(&args);
     let scope = args.scope().clone();
@@ -142,10 +142,10 @@ fn benchmark_output<T, Output>(
     passthrough: Option<CapturedBlock>,
     tag: T,
     context: &mut EvaluationContext,
-) -> Result<ActionStream, ShellError>
+) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
-    Output: Into<ActionStream>,
+    Output: Into<OutputStream>,
 {
     let value = UntaggedValue::Row(Dictionary::from(
         indexmap
@@ -174,7 +174,7 @@ where
 
         Ok(block_output.into())
     } else {
-        let benchmark_output = ActionStream::one(value);
+        let benchmark_output = OutputStream::one(value);
         Ok(benchmark_output)
     }
 }
