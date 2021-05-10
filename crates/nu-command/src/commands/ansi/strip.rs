@@ -2,9 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tag;
 use strip_ansi_escapes::strip;
 
@@ -31,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "strip ansi escape sequences from string"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -44,14 +42,14 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (Arguments { rest }, input) = args.process()?;
     let column_paths: Vec<_> = rest;
 
-    Ok(input
+    let result: Vec<Value> = input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                action(&v, v.tag())
             } else {
                 let mut ret = v;
 
@@ -62,10 +60,12 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .collect::<Result<Vec<Value>, _>>()?;
+
+    Ok(OutputStream::from_stream(result.into_iter()))
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
