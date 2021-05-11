@@ -53,10 +53,8 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             x => OutputStream::one(x),
         })
     } else {
-        let value = Value {
-            value: UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present()),
-            tag: name,
-        };
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
 
         Ok(OutputStream::one(value))
     };

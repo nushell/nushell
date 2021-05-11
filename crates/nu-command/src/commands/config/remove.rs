@@ -50,10 +50,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
             global_cfg.write()?;
             ctx.reload_config(global_cfg)?;
 
-            let value = Value {
-                value: UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present()),
-                tag: remove.tag,
-            };
+            let value: Value = UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag);
 
             Ok(OutputStream::one(value))
         } else {
@@ -64,10 +61,8 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ))
         }
     } else {
-        let value = Value {
-            value: UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present()),
-            tag: name,
-        };
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
 
         Ok(OutputStream::one(value))
     };
