@@ -65,7 +65,7 @@ fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok(OutputStream::from_stream(iter.into_iter()))
+    Ok(OutputStream::from_stream(iter))
 }
 
 #[cfg(test)]
