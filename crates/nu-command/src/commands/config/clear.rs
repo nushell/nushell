@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue};
 
 pub struct SubCommand;
 
@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         "clear the config"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         clear(args)
     }
 
@@ -31,22 +31,22 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn clear(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
 
     let result = if let Some(global_cfg) = &mut args.configs().lock().global_config {
         global_cfg.vars.clear();
         global_cfg.write()?;
         ctx.reload_config(global_cfg)?;
-        Ok(ActionStream::one(ReturnSuccess::value(
-            UntaggedValue::Row(global_cfg.vars.clone().into()).into_value(args.call_info.name_tag),
-        )))
+
+        let value = UntaggedValue::Row(global_cfg.vars.clone().into()).into_value(name);
+        Ok(OutputStream::one(value))
     } else {
-        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
-            crate::commands::config::err_no_global_cfg_present(),
-        ))]
-        .into_iter()
-        .to_action_stream())
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
+
+        Ok(OutputStream::one(value))
     };
 
     result
