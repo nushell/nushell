@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::value::StrExt;
+use nu_protocol::value::{DecimalExt, I64Ext, StrExt};
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::cmp;
@@ -57,16 +57,33 @@ impl WholeStreamCommand for Seq {
                 description: "sequence 1 to 10 with newline separator",
                 example: "seq 1 10",
                 result: Some(vec![
-                    UntaggedValue::string("1").into(),
-                    UntaggedValue::string("2").into(),
-                    UntaggedValue::string("3").into(),
-                    UntaggedValue::string("4").into(),
-                    UntaggedValue::string("5").into(),
-                    UntaggedValue::string("6").into(),
-                    UntaggedValue::string("7").into(),
-                    UntaggedValue::string("8").into(),
-                    UntaggedValue::string("9").into(),
-                    UntaggedValue::string("10").into(),
+                    UntaggedValue::int(1).into(),
+                    UntaggedValue::int(2).into(),
+                    UntaggedValue::int(3).into(),
+                    UntaggedValue::int(4).into(),
+                    UntaggedValue::int(5).into(),
+                    UntaggedValue::int(6).into(),
+                    UntaggedValue::int(7).into(),
+                    UntaggedValue::int(8).into(),
+                    UntaggedValue::int(9).into(),
+                    UntaggedValue::int(10).into(),
+                ]),
+            },
+            Example {
+                description: "sequence 1.0 to 2.0 by 0.1s with newline separator",
+                example: "seq 1.0 0.1 2.0",
+                result: Some(vec![
+                    UntaggedValue::decimal_from_float(1.0000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.1000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.2000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.3000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.4000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.5000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.6000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.7000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.8000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(1.9000, Span::default()).into(),
+                    UntaggedValue::decimal_from_float(2.0000, Span::default()).into(),
                 ]),
             },
             Example {
@@ -291,17 +308,29 @@ fn print_seq(
 ) -> OutputStream {
     let mut i = 0isize;
     let mut value = first + i as f64 * step;
+    // for string output
     let mut ret_str = "".to_owned();
+    // for number output
+    let mut ret_num = vec![];
+    // If the separator and terminator are line endings we can convert to numbers
+    let use_num =
+        (separator == "\n" || separator == "\r") && (terminator == "\n" || terminator == "\r");
+
     while !done_printing(value, step, last) {
-        let istr = format!("{:.*}", largest_dec, value);
-        let ilen = istr.len();
-        let before_dec = istr.find('.').unwrap_or(ilen);
-        if pad && before_dec < padding {
-            for _ in 0..(padding - before_dec) {
-                ret_str.push('0');
+        if use_num {
+            ret_num.push(value);
+        } else {
+            // formatting for string output with potential padding
+            let istr = format!("{:.*}", largest_dec, value);
+            let ilen = istr.len();
+            let before_dec = istr.find('.').unwrap_or(ilen);
+            if pad && before_dec < padding {
+                for _ in 0..(padding - before_dec) {
+                    ret_str.push('0');
+                }
             }
+            ret_str.push_str(&istr);
         }
-        ret_str.push_str(&istr);
         i += 1;
         value = first + i as f64 * step;
         if !done_printing(value, step, last) {
@@ -309,13 +338,44 @@ fn print_seq(
         }
     }
 
-    if (first >= last && step < 0f64) || (first <= last && step > 0f64) {
+    if !use_num && ((first >= last && step < 0f64) || (first <= last && step > 0f64)) {
         ret_str.push_str(&terminator);
     }
 
-    let rows: Vec<Value> = ret_str
-        .lines()
-        .map(|v| v.to_str_value_create_tag())
-        .collect();
-    (rows.into_iter()).to_output_stream()
+    if use_num {
+        // we'd like to keep the datatype the same for the output, so check
+        // and see if any of the output is really decimals, and if it is
+        // we'll make the entire output decimals
+        let contains_decimals = vec_contains_decimals(&ret_num);
+        let rows: Vec<Value> = ret_num
+            .iter()
+            .map(|v| {
+                if contains_decimals {
+                    v.to_value_create_tag()
+                } else {
+                    let vi64 = *v as i64;
+                    vi64.to_value_create_tag()
+                }
+            })
+            .collect();
+        (rows.into_iter()).to_output_stream()
+    } else {
+        let rows: Vec<Value> = ret_str
+            .lines()
+            .map(|v| v.to_str_value_create_tag())
+            .collect();
+        (rows.into_iter()).to_output_stream()
+    }
+}
+
+fn vec_contains_decimals(array: &[f64]) -> bool {
+    let mut found_decimal = false;
+    for x in array {
+        if x.fract() != 0.0 {
+            found_decimal = true;
+            break;
+        }
+    }
+
+    found_decimal
 }
