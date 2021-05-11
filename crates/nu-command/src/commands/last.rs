@@ -52,7 +52,7 @@ fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let v: Vec<_> = args.input.into_vec();
 
     let end_rows_desired = if let Some(quantity) = rows {
-        quantity.as_i64()? as usize
+        quantity.as_usize()?
     } else {
         1
     };
