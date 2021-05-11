@@ -19,12 +19,12 @@ impl WholeStreamCommand for Date {
         "Get the current date."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         now(args)
     }
 }
 
-pub fn now(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
@@ -32,7 +32,7 @@ pub fn now(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let value = UntaggedValue::date(now.with_timezone(now.offset())).into_value(&tag);
 
-    Ok(ActionStream::one(value))
+    Ok(OutputStream::one(value))
 }
 
 #[cfg(test)]

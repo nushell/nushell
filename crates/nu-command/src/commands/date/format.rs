@@ -1,19 +1,11 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    Dictionary, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{Dictionary, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::fmt::{self, write};
 
 pub struct Date;
-
-#[derive(Deserialize)]
-pub struct FormatArgs {
-    format: Tagged<String>,
-    table: bool,
-}
 
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
@@ -30,7 +22,7 @@ impl WholeStreamCommand for Date {
         "Format a given date using the given format string."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         format(args)
     }
 
@@ -50,11 +42,15 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (FormatArgs { format, table }, input) = args.process()?;
+    let args = args.evaluate_once()?;
 
-    Ok(input
+    let format: Tagged<String> = args.req(0)?;
+    let table: Option<bool> = args.get_flag("table")?;
+
+    Ok(args
+        .input
         .map(move |value| match value {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
@@ -70,7 +66,7 @@ pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         &format.tag,
                     ))
                 } else {
-                    let value = if table {
+                    let value = if table.is_some() {
                         let mut indexmap = IndexMap::new();
                         indexmap.insert(
                             "formatted".to_string(),
@@ -82,7 +78,7 @@ pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         UntaggedValue::string(&output).into_value(&tag)
                     };
 
-                    ReturnSuccess::value(value)
+                    Ok(value)
                 }
             }
             _ => Err(ShellError::labeled_error(
@@ -91,7 +87,7 @@ pub fn format(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &tag,
             )),
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 #[cfg(test)]

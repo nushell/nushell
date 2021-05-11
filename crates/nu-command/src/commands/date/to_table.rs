@@ -3,7 +3,7 @@ use chrono::{Datelike, Timelike};
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Dictionary, Primitive, Signature, UntaggedValue, Value};
 
 pub struct Date;
 
@@ -20,7 +20,7 @@ impl WholeStreamCommand for Date {
         "Print the date in a structured table."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_table(args)
     }
 
@@ -33,7 +33,7 @@ impl WholeStreamCommand for Date {
     }
 }
 
-fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
     let input = args.input;
@@ -79,7 +79,7 @@ fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                 let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
 
-                ReturnSuccess::value(value)
+                Ok(value)
             }
             _ => Err(ShellError::labeled_error(
                 "Expected a date from pipeline",
@@ -87,7 +87,7 @@ fn to_table(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &tag,
             )),
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 #[cfg(test)]

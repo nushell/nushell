@@ -3,7 +3,7 @@ use chrono_tz::TZ_VARIANTS;
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, ReturnSuccess, Signature, UntaggedValue};
+use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct Date;
 
@@ -20,7 +20,7 @@ impl WholeStreamCommand for Date {
         "List supported time zones."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         list_timezone(args)
     }
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Date {
     }
 }
 
-fn list_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
 
@@ -52,12 +52,10 @@ fn list_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
             UntaggedValue::string(tz.name()).into_value(&tag),
         );
 
-        Ok(ReturnSuccess::Value(
-            UntaggedValue::Row(Dictionary { entries }).into_value(&tag),
-        ))
+        Ok(UntaggedValue::Row(Dictionary { entries }).into_value(&tag))
     });
 
-    Ok(list.into_iter().to_action_stream())
+    Ok(list.into_iter().to_input_stream())
 }
 
 #[cfg(test)]
