@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct Last;
 
-#[derive(Deserialize)]
-pub struct LastArgs {
-    rows: Option<Tagged<u64>>,
-}
-
 impl WholeStreamCommand for Last {
     fn name(&self) -> &str {
         "last"
@@ -28,7 +23,7 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         last(args)
     }
 
@@ -52,12 +47,13 @@ impl WholeStreamCommand for Last {
     }
 }
 
-fn last(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (LastArgs { rows }, input) = args.process()?;
-    let v: Vec<_> = input.into_vec();
+fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let rows = args.nth(0).cloned();
+    let v: Vec<_> = args.input.into_vec();
 
     let end_rows_desired = if let Some(quantity) = rows {
-        *quantity as usize
+        quantity.as_i64()? as usize
     } else {
         1
     };
@@ -70,7 +66,7 @@ fn last(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let iter = v.into_iter().skip(beginning_rows_to_skip);
 
-    Ok((iter).to_action_stream())
+    Ok(OutputStream::from_stream(iter.into_iter()))
 }
 
 #[cfg(test)]
