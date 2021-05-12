@@ -8,14 +8,14 @@ use nu_protocol::{dataframe::NuDataFrame, hir::NamedValue, Signature, SyntaxShap
 use nu_source::Tagged;
 use polars::prelude::{CsvReader, SerReader};
 
-pub struct Dataframe;
+pub struct Command;
 
 #[derive(Deserialize)]
 pub struct OpenArgs {
     file: Tagged<PathBuf>,
 }
 
-impl WholeStreamCommand for Dataframe {
+impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "dataframe"
     }
