@@ -1,15 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    remove: Tagged<String>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -28,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         remove(args)
     }
 
@@ -41,9 +36,11 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let (Arguments { remove }, _) = args.process()?;
+    let args = args.evaluate_once()?;
+    let remove: Tagged<String> = args.req(0)?;
 
     let key = remove.to_string();
 
@@ -52,11 +49,10 @@ pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
             global_cfg.vars.swap_remove(&key);
             global_cfg.write()?;
             ctx.reload_config(global_cfg)?;
-            Ok(vec![ReturnSuccess::value(
-                UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag()),
-            )]
-            .into_iter()
-            .to_action_stream())
+
+            let value: Value = UntaggedValue::row(global_cfg.vars.clone()).into_value(remove.tag);
+
+            Ok(OutputStream::one(value))
         } else {
             Err(ShellError::labeled_error(
                 "Key does not exist in config",
@@ -65,11 +61,10 @@ pub fn remove(args: CommandArgs) -> Result<ActionStream, ShellError> {
             ))
         }
     } else {
-        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
-            crate::commands::config::err_no_global_cfg_present(),
-        ))]
-        .into_iter()
-        .to_action_stream())
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
+
+        Ok(OutputStream::one(value))
     };
 
     result

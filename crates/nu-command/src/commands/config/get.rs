@@ -1,14 +1,9 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    column_path: ColumnPath,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -27,7 +22,7 @@ impl WholeStreamCommand for SubCommand {
         "Gets a value from the config"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         get(args)
     }
 
@@ -40,11 +35,12 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
+    let args = args.evaluate_once()?;
 
-    let (Arguments { column_path }, _) = args.process()?;
+    let column_path = args.req(0)?;
 
     let result = if let Some(global_cfg) = &ctx.configs.lock().global_config {
         let result = UntaggedValue::row(global_cfg.vars.clone()).into_value(&name);
@@ -53,15 +49,14 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => list.into_iter().to_action_stream(),
-            x => ActionStream::one(ReturnSuccess::value(x)),
+            } => OutputStream::from_stream(list.into_iter()),
+            x => OutputStream::one(x),
         })
     } else {
-        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
-            crate::commands::config::err_no_global_cfg_present(),
-        ))]
-        .into_iter()
-        .to_action_stream())
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
+
+        Ok(OutputStream::one(value))
     };
 
     result
