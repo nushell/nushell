@@ -1,17 +1,15 @@
 use crate::prelude::*;
-use nu_engine::deserializer::NumericRange;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Range, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct IntegerArgs {
-    range: Option<Tagged<NumericRange>>,
+    range: Option<Tagged<Range>>,
 }
 
 impl WholeStreamCommand for SubCommand {
@@ -27,7 +25,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random integer [min..max]"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         integer(args)
     }
 
@@ -57,11 +55,14 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn integer(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (IntegerArgs { range }, _) = args.process()?;
+pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let cmd_args = IntegerArgs {
+        range: args.opt(0)?,
+    };
 
-    let (min, max) = if let Some(range) = &range {
-        (range.item.min(), range.item.max())
+    let (min, max) = if let Some(range) = &cmd_args.range {
+        (range.min_u64()?, range.max_u64()?)
     } else {
         (0, u64::MAX)
     };
@@ -70,23 +71,23 @@ pub fn integer(args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ordering::Greater => Err(ShellError::labeled_error(
             format!("Invalid range {}..{}", min, max),
             "expected a valid range",
-            range
+            cmd_args
+                .range
                 .expect("Unexpected ordering error in random integer")
                 .span(),
         )),
-        Ordering::Equal => {
-            let untagged_result = UntaggedValue::int(min).into_value(Tag::unknown());
-            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
-        }
+        Ordering::Equal => Ok(OutputStream::one(
+            UntaggedValue::int(min).into_value(Tag::unknown()),
+        )),
         _ => {
             let mut thread_rng = thread_rng();
             // add 1 to max, because gen_range is right-exclusive
             let max = max.saturating_add(1);
             let result: u64 = thread_rng.gen_range(min, max);
 
-            let untagged_result = UntaggedValue::int(result).into_value(Tag::unknown());
-
-            Ok(ActionStream::one(ReturnSuccess::value(untagged_result)))
+            Ok(OutputStream::one(
+                UntaggedValue::int(result).into_value(Tag::unknown()),
+            ))
         }
     }
 }

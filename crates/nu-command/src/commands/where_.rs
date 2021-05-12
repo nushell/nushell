@@ -95,10 +95,10 @@ fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     Ok(WhereIterator {
-        block,
         condition,
         context,
         input,
+        block,
     }
     .to_output_stream())
 }

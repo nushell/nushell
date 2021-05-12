@@ -3,7 +3,7 @@ use nu_errors::ShellError;
 
 use nu_data::value::format_leaf;
 use nu_engine::WholeStreamCommand;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct BuildString;
 
@@ -21,7 +21,7 @@ impl WholeStreamCommand for BuildString {
         "Builds a string from the arguments."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let rest: Vec<Value> = args.rest(0)?;
@@ -32,9 +32,9 @@ impl WholeStreamCommand for BuildString {
             output_string.push_str(&format_leaf(&r).plain_string(100_000))
         }
 
-        Ok(ActionStream::one(ReturnSuccess::value(
+        Ok(OutputStream::one(
             UntaggedValue::string(output_string).into_value(tag),
-        )))
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {

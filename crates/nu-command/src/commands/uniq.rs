@@ -11,7 +11,18 @@ impl WholeStreamCommand for Uniq {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("uniq").switch("count", "Count the unique rows", Some('c'))
+        Signature::build("uniq")
+            .switch("count", "Count the unique rows", Some('c'))
+            .switch(
+                "repeated",
+                "Count the rows that has more than one value",
+                Some('d'),
+            )
+            .switch(
+                "ignore-case",
+                "Ignore differences in case when comparing",
+                Some('i'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -34,6 +45,19 @@ impl WholeStreamCommand for Uniq {
                 ]),
             },
             Example {
+                description: "Only print duplicate lines, one for each group",
+                example: "echo [1 2 2] | uniq -d",
+                result: Some(vec![UntaggedValue::int(2).into()]),
+            },
+            Example {
+                description: "Ignore differences in case when comparing",
+                example: "echo ['hello' 'goodbye' 'Hello'] | uniq -i",
+                result: Some(vec![
+                    UntaggedValue::string("hello").into(),
+                    UntaggedValue::string("goodbye").into(),
+                ]),
+            },
+            Example {
                 description: "Remove duplicate rows and show counts of a list/table",
                 example: "echo [1 2 2] | uniq -c",
                 result: Some(vec![
@@ -53,22 +77,49 @@ impl WholeStreamCommand for Uniq {
     }
 }
 
+fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
+    use nu_protocol::value::StringExt;
+
+    if value.is_string() {
+        value
+            .value
+            .expect_string()
+            .to_lowercase()
+            .to_string_value(value.tag)
+    } else {
+        value
+    }
+}
+
 fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let should_show_count = args.has_flag("count");
+    let show_repeated = args.has_flag("repeated");
+    let ignore_case = args.has_flag("ignore-case");
     let input = args.input;
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();
         for line in input.into_vec() {
-            *counter.entry(line).or_insert(0) += 1;
+            let item = if ignore_case {
+                to_lowercase(line)
+            } else {
+                line
+            };
+            *counter.entry(item).or_insert(0) += 1;
         }
         counter
     };
 
     let mut values_vec_deque = VecDeque::new();
 
+    let values = if show_repeated {
+        uniq_values.into_iter().filter(|i| i.1 > 1).collect::<_>()
+    } else {
+        uniq_values
+    };
+
     if should_show_count {
-        for item in uniq_values {
+        for item in values {
             use nu_protocol::Value;
             let value = {
                 match item.0.value {
@@ -118,7 +169,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
             values_vec_deque.push_back(value);
         }
     } else {
-        for item in uniq_values {
+        for item in values {
             values_vec_deque.push_back(item.0);
         }
     }

@@ -272,10 +272,7 @@ fn move_after(table: &Value, columns: &[String], from: &ColumnPath) -> Result<Va
 
     Ok(select_fields(
         table,
-        &reordered_columns
-            .into_iter()
-            .filter_map(|v| v)
-            .collect::<Vec<_>>(),
+        &reordered_columns.into_iter().flatten().collect::<Vec<_>>(),
         &table.tag,
     ))
 }
@@ -321,10 +318,7 @@ fn move_before(table: &Value, columns: &[String], from: &ColumnPath) -> Result<V
 
     Ok(select_fields(
         table,
-        &reordered_columns
-            .into_iter()
-            .filter_map(|v| v)
-            .collect::<Vec<_>>(),
+        &reordered_columns.into_iter().flatten().collect::<Vec<_>>(),
         &table.tag,
     ))
 }

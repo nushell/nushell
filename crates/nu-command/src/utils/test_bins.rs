@@ -68,18 +68,16 @@ pub fn chop() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    for line in stdin.lock().lines() {
-        if let Ok(given) = line {
-            let chopped = if given.is_empty() {
-                &given
-            } else {
-                let to = given.len() - 1;
-                &given[..to]
-            };
+    for given in stdin.lock().lines().flatten() {
+        let chopped = if given.is_empty() {
+            &given
+        } else {
+            let to = given.len() - 1;
+            &given[..to]
+        };
 
-            if let Err(_e) = writeln!(stdout, "{}", chopped) {
-                break;
-            }
+        if let Err(_e) = writeln!(stdout, "{}", chopped) {
+            break;
         }
     }
 

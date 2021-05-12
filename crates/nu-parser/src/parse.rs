@@ -772,6 +772,65 @@ fn parse_table(
     )
 }
 
+/// Tries to parse a number in a paranthesis, e.g., (123) or (-123)
+fn try_parse_number_in_paranthesis(
+    lite_arg: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut chars = lite_arg.item.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('('), Some(')')) => {
+            match chars.as_str().trim().parse::<BigInt>() {
+                Ok(parsed_integer) => (
+                    SpannedExpression::new(Expression::integer(parsed_integer), lite_arg.span),
+                    None,
+                ),
+                // we don't care if it does not manage to parse it, because then likely it is not a number
+                Err(_) => {
+                    match chars.as_str().trim().parse::<BigDecimal>() {
+                        Ok(parsed_decimal) => (
+                            SpannedExpression::new(
+                                Expression::decimal(parsed_decimal),
+                                lite_arg.span,
+                            ),
+                            None,
+                        ),
+                        // we don't care if it does not manage to parse it, because then likely it is not a number
+                        Err(_) => (
+                            garbage(lite_arg.span),
+                            Some(ParseError::mismatch(
+                                "cannot parse number",
+                                lite_arg.clone(),
+                            )),
+                        ),
+                    }
+                }
+            }
+        }
+        (Some('('), _) => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch(
+                "missing closing bracket",
+                lite_arg.clone(),
+            )),
+        ),
+        (_, Some(')')) => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch(
+                "missing starting bracket",
+                lite_arg.clone(),
+            )),
+        ),
+        (_, _) => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch(
+                "number in paranthesis",
+                lite_arg.clone(),
+            )),
+        ),
+    }
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -780,6 +839,14 @@ fn parse_arg(
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
         return parse_dollar_expr(&lite_arg, scope);
+    }
+
+    // before anything else, try to see if this is a number in paranthesis
+    if lite_arg.item.starts_with('(') {
+        let (expr, err) = try_parse_number_in_paranthesis(lite_arg);
+        if err.is_none() {
+            return (expr, None);
+        }
     }
 
     match expected_type {

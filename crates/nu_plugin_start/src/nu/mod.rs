@@ -19,6 +19,6 @@ impl Plugin for Start {
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.parse(call_info)?;
-        self.exec().map(|_| vec![])
+        self.exec().map(|_| Vec::new())
     }
 }

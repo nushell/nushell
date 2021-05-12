@@ -114,10 +114,7 @@ impl Host for FakeHost {
     fn env_get(&mut self, key: OsString) -> Option<OsString> {
         let key = key.into_string().expect("Couldn't convert to string.");
 
-        match self.env_vars.get(&key) {
-            Some(env) => Some(OsString::from(env)),
-            None => None,
-        }
+        self.env_vars.get(&key).map(OsString::from)
     }
 
     fn env_set(&mut self, key: OsString, value: OsString) {

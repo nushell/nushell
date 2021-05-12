@@ -62,10 +62,9 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
         self.configure(|flags_configured| {
             let flags_registered = &call_stub.args.named;
 
-            let flag_passed = match flags_registered {
-                Some(names) => Some(names.keys().map(String::from).collect::<Vec<String>>()),
-                None => None,
-            };
+            let flag_passed = flags_registered
+                .as_ref()
+                .map(|names| names.keys().map(String::from).collect::<Vec<String>>());
 
             if let Some(flags) = flag_passed {
                 for flag in flags {
