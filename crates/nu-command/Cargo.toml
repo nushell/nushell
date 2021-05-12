@@ -99,6 +99,8 @@ uuid_crate = { package = "uuid", version = "0.8.2", features = ["v4"], optional 
 which = { version = "4.1.0", optional = true }
 zip = { version = "0.5.9", optional = true }
 
+polars = {version="0.13.1", git = "https://github.com/ritchie46/polars", rev = "3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0", optional = true}
+
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
 users = "0.11.0"
@@ -130,3 +132,4 @@ trash-support = ["trash"]
 directories = ["directories-next"]
 dirs = ["dirs-next"]
 table-pager = ["minus", "crossterm"]
+dataframe = ["nu-protocol/dataframe", "polars"]
