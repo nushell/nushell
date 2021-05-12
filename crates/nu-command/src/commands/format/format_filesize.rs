@@ -56,29 +56,31 @@ fn process_row(
     format: Tagged<String>,
     field: Arc<ColumnPath>,
 ) -> Result<Value, ShellError> {
-    Ok({
-        let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
-        match replace_for {
-            Ok(s) => {
-                if let Value {
-                    value: UntaggedValue::Primitive(Filesize(fs)),
-                    ..
-                } = s
-                {
-                    let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
-                    let byte_value = Value::from(byte_format.1);
-                    input.replace_data_at_column_path(&field, byte_value).expect("Given that the existence check was already done, this shouldn't trigger never")
-                } else {
-                    return Err(ShellError::labeled_error(
-                        "the data in this row is not of the type filesize",
-                        "invalid datatype in row",
-                        input.tag(),
-                    ));
-                }
+    let replace_for = get_data_by_column_path(&input, &field, move |_, _, error| error);
+    match replace_for {
+        Ok(s) => {
+            if let Value {
+                value: UntaggedValue::Primitive(Filesize(fs)),
+                ..
+            } = s
+            {
+                let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
+                let byte_value = Value::from(byte_format.1);
+                Ok(input
+                    .replace_data_at_column_path(&field, byte_value)
+                    .expect(
+                    "Given that the existence check was already done, this shouldn't trigger never",
+                ))
+            } else {
+                Err(ShellError::labeled_error(
+                    "the data in this row is not of the type filesize",
+                    "invalid datatype in row",
+                    input.tag(),
+                ))
             }
-            Err(e) => return Err(e),
         }
-    })
+        Err(e) => Err(e),
+    }
 }
 
 fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
