@@ -48,7 +48,7 @@ Some text
 The style used by `textview` can be configured in `config.toml`.
 
 ```shell
-> open --raw $(which nu | get path) | autoview
+> open --raw (which nu | get path) | autoview
 ...
 126d1c0:   64 31 66 37  62 30 31 63  36 2e 31 31  38 2e 6c 6c   d1f7b01c6.118.ll
 126d1d0:   76 6d 2e 34  34 38 37 35  37 31 32 34  39 35 33 39   vm.4487571249539

@@ -44,7 +44,7 @@ impl WholeStreamCommand for Command {
             },
             Example {
                 description: "Check if any of the values is odd",
-                example: "echo [2 4 1 6 8] | any? $(= $it mod 2) == 1",
+                example: "echo [2 4 1 6 8] | any? ($it mod 2) == 1",
                 result: Some(vec![Value::from(true)]),
             },
         ]

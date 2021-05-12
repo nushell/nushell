@@ -42,7 +42,7 @@ impl WholeStreamCommand for Each {
             },
             Example {
                 description: "Echo the square of each integer",
-                example: "echo [1 2 3] | each { echo $(= $it * $it) }",
+                example: "echo [1 2 3] | each { echo ($it * $it) }",
                 result: Some(vec![
                     UntaggedValue::int(1).into(),
                     UntaggedValue::int(4).into(),

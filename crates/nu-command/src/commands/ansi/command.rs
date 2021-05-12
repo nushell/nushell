@@ -69,7 +69,7 @@ following values:
     https://en.wikipedia.org/wiki/ANSI_escape_code
 
 OSC: '\x1b]' is not required for --osc parameter
-Example: echo [$(ansi -o '0') 'some title' $(char bel)] | str collect
+Example: echo [(ansi -o '0') 'some title' (char bel)] | str collect
 Format: #
     0 Set window title and icon name
     1 Set icon name
@@ -96,7 +96,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi rb) Hello " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi rb) Hello " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
@@ -104,7 +104,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi -e '3;93;41m') Hello $(ansi reset) " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
@@ -299,7 +299,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
         // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
         // Another good reference http://ascii-table.com/ansi-escape-sequences.php
 
-        // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
+        // For setting title like `echo [(char title) (pwd) (char bel)] | str collect`
         "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title using OSC syntax escapes
 
         // Ansi Erase Sequences

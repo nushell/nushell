@@ -136,7 +136,7 @@ mod columns {
             | get bit
             | reverse
             | each --numbered {
-                = $it.item * (2 ** $it.index)
+                $it.item * (2 ** $it.index)
             }
             | math sum
         "#,
