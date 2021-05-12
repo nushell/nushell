@@ -98,7 +98,7 @@ fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             match process_row(input, format, field) {
                 Ok(s) => Ok(s),
-                Err(e) => return Err(e),
+                Err(e) => Err(e),
             }
         })
         .flatten()
