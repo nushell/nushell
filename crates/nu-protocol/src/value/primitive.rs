@@ -270,29 +270,6 @@ impl Primitive {
         }
     }
 
-    pub fn as_f64(&self, span: Span) -> Result<f64, ShellError> {
-        match self {
-            Primitive::Int(int) => int.to_f64().ok_or_else(|| {
-                ShellError::range_error(
-                    ExpectedRange::F64,
-                    &format!("{}", int).spanned(span),
-                    "converting an integer into a signed 64-bit float",
-                )
-            }),
-            Primitive::Decimal(decimal) => decimal.to_f64().ok_or_else(|| {
-                ShellError::range_error(
-                    ExpectedRange::F64,
-                    &format!("{}", decimal).spanned(span),
-                    "converting a decimal into a signed 64-bit float",
-                )
-            }),
-            other => Err(ShellError::type_error(
-                "number",
-                other.type_name().spanned(span),
-            )),
-        }
-    }
-
     // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
