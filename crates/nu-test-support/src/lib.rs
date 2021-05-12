@@ -29,7 +29,10 @@ pub fn pipeline(commands: &str) -> String {
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
-    if let Some(paths) = std::env::var_os("PATH") {
+    if let Some(paths) = std::env::var_os("PATH")
+        .or_else(|| std::env::var_os("path"))
+        .or_else(|| std::env::var_os("Path"))
+    {
         original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
     }
 

@@ -147,7 +147,11 @@ impl NuConfig {
     pub fn path(&self) -> Result<Option<Vec<PathBuf>>, ShellError> {
         let vars = &self.vars;
 
-        if let Some(path) = vars.get("path").or_else(|| vars.get("PATH")) {
+        if let Some(path) = vars
+            .get("path")
+            .or_else(|| vars.get("PATH"))
+            .or_else(|| vars.get("Path"))
+        {
             path
                 .table_entries()
                 .map(|p| {

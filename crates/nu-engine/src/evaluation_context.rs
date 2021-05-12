@@ -208,9 +208,11 @@ impl EvaluationContext {
         let tag = config::cfg_path_to_scope_tag(cfg_path.get_path());
 
         self.scope.enter_scope_with_tag(tag);
-        self.scope.add_env(cfg.env_map());
+        // self.scope.add_env(cfg.env_map());
+        self.scope.add_missing_or_different_env(cfg.env_map());
         if let Some(path) = joined_paths {
-            self.scope.add_env_var("PATH", path);
+            // self.scope.add_env_var("PATH", path);
+            self.scope.add_or_update_env_var("PATH", path);
         }
         self.scope.set_exit_scripts(exit_scripts);
 

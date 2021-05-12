@@ -190,13 +190,52 @@ impl Scope {
 
         for frame in self.frames.lock().iter().rev() {
             for v in frame.env.iter() {
-                if !output.contains_key(v.0) {
-                    output.insert(v.0.clone(), v.1.clone());
-                }
+                // if !output.contains_key(v.0) {
+                //     output.insert(v.0.clone(), v.1.clone());
+                // }
+                self.case_insensitively_compare_keys_and_values(&mut output, v.0, v.1);
             }
         }
 
         output
+    }
+
+    pub fn case_insensitively_compare_keys_and_values(
+        &self,
+        imap: &mut IndexMap<String, String>,
+        frame_key: &String,
+        frame_value: &String,
+    ) {
+        let keys: Vec<String> = imap.iter().map(|(k, _v)| k.to_string()).collect();
+        let mut found = false;
+        if keys.is_empty() {
+            imap.insert(frame_key.to_string(), frame_value.to_string());
+        } else {
+            for k in keys.iter() {
+                if k.to_lowercase() == frame_key.to_lowercase() {
+                    found = true;
+                    let cur_val = imap.get(k).unwrap();
+                    if imap.get(k).unwrap().to_lowercase() != frame_value.to_lowercase() {
+                        // special case for path
+                        if k.to_lowercase() == "path" {
+                            let both_paths = format!("{};{}", cur_val, frame_value.to_string());
+                            let mut both_vec: Vec<&str> = both_paths.split(";").collect();
+                            both_vec.sort();
+                            both_vec.dedup();
+                            let uniq_path = both_vec.join(";").to_string();
+                            imap.entry(k.to_string()).and_modify(|v| *v = uniq_path);
+                        } else {
+                            imap.entry(k.to_string())
+                                .and_modify(|v| *v = frame_value.to_string());
+                        }
+                        break;
+                    }
+                }
+            }
+            if !found {
+                imap.insert(frame_key.to_string(), frame_value.to_string());
+            }
+        }
     }
 
     pub fn get_env(&self, name: &str) -> Option<String> {
@@ -239,9 +278,36 @@ impl Scope {
         }
     }
 
+    pub fn add_or_update_env_var(&self, name: impl Into<String>, value: String) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            let nm = name.into().clone();
+            if frame.env.contains_key(&nm) {
+                // if the key exists update it
+                frame.env.entry(nm).and_modify(|v| *v = value);
+            } else {
+                // if env doesn't exist add it
+                frame.env.insert(nm, value);
+            }
+        }
+    }
+
     pub fn add_env(&self, env_vars: IndexMap<String, String>) {
         if let Some(frame) = self.frames.lock().last_mut() {
             frame.env.extend(env_vars)
+        }
+    }
+
+    pub fn add_missing_or_different_env(&self, env_vars: IndexMap<String, String>) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            for (env_k, env_v) in env_vars {
+                // if the key exists update it
+                if frame.env.contains_key(&env_k) {
+                    frame.env.entry(env_k).and_modify(|v| *v = env_v);
+                } else {
+                    // if env doesn't exist add it
+                    frame.env.insert(env_k, env_v);
+                }
+            }
         }
     }
 

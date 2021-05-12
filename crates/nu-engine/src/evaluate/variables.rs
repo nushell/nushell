@@ -17,7 +17,7 @@ pub fn nu(
 
     let mut dict = TaggedDictBuilder::new(&tag);
     for v in env.iter() {
-        if v.0 != "PATH" && v.0 != "Path" {
+        if v.0 != "PATH" && v.0 != "Path" && v.0 != "path" {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
         }
     }
@@ -51,9 +51,11 @@ pub fn nu(
 
     let mut table = vec![];
     for v in env.iter() {
-        if v.0 == "PATH" || v.0 == "Path" {
+        if v.0 == "PATH" || v.0 == "Path" || v.0 == "path" {
             for path in std::env::split_paths(&v.1) {
+                // if !table.contains(&UntaggedValue::filepath(&path).into_value(&tag)) {
                 table.push(UntaggedValue::filepath(path).into_value(&tag));
+                // }
             }
         }
     }

@@ -121,7 +121,9 @@ fn is_executable(path: &Path) -> bool {
 
 // TODO cache these, but watch for changes to PATH
 fn find_path_executables() -> Option<IndexSet<String>> {
-    let path_var = std::env::var_os("PATH")?;
+    let path_var = std::env::var_os("PATH")
+        .or_else(|| std::env::var_os("path"))
+        .or_else(|| std::env::var_os("Path"))?;
     let paths: Vec<_> = std::env::split_paths(&path_var).collect();
 
     let mut executables: IndexSet<String> = IndexSet::new();
