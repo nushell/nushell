@@ -197,7 +197,7 @@ pub fn temp(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
 }
 
 pub async fn sysinfo(tag: Tag) -> Vec<Value> {
-    let mut sys = System::new_all();
+    let mut sys = System::new();
 
     let mut sysinfo = TaggedDictBuilder::with_capacity(&tag, 6);
 
