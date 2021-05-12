@@ -138,6 +138,18 @@ fn string_interpolation_with_it_column_path() {
 }
 
 #[test]
+fn string_interpolation_shorthand_overlap() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    $"3 + 4 = {3 + 4}"
+        "#
+    );
+
+    assert_eq!(actual.out, "3 + 4 = 7");
+}
+
+#[test]
 fn bignum_large_integer() {
     let actual = nu!(
         cwd: ".",

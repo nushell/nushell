@@ -1738,9 +1738,9 @@ fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,
 ) -> (LitePipeline, Option<SpannedKeyValue>, Option<ParseError>) {
     if !lite_pipeline.commands.is_empty() {
-        if lite_pipeline.commands[0].parts[0].item == "=" {
-            (lite_pipeline.clone(), None, None)
-        } else if lite_pipeline.commands[0].parts[0].contains('=') {
+        if lite_pipeline.commands[0].parts[0].contains('=')
+            && !lite_pipeline.commands[0].parts[0].starts_with('$')
+        {
             let assignment: Vec<_> = lite_pipeline.commands[0].parts[0].split('=').collect();
             if assignment.len() != 2 {
                 (
