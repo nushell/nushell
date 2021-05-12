@@ -2,15 +2,10 @@ use crate::prelude::*;
 use nu_data::base::select_fields;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    columns: Option<Tagged<u64>>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -29,7 +24,7 @@ impl WholeStreamCommand for SubCommand {
         "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         drop(args)
     }
 
@@ -47,8 +42,9 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { columns }, input) = args.process()?;
+fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let columns: Option<Tagged<u64>> = args.opt(0)?;
 
     let to_drop = if let Some(quantity) = columns {
         *quantity as usize
@@ -56,7 +52,8 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
         1
     };
 
-    Ok(input
+    Ok(args
+        .input
         .map(move |item| {
             let headers = item.data_descriptors();
 
@@ -66,10 +63,9 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 n => &headers[..n - to_drop],
             };
 
-            select_fields(&item, descs, item.tag())
+            Ok(select_fields(&item, descs, item.tag()))
         })
-        .map(ReturnSuccess::value)
-        .to_action_stream())
+        .to_input_stream())
 }
 
 #[cfg(test)]
