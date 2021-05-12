@@ -44,6 +44,10 @@ impl NuCompleter {
         let matcher = matcher.as_str();
         let matcher: &dyn Matcher = match matcher {
             "case-insensitive" => &matchers::case_insensitive::Matcher,
+            "case-sensitive" => &matchers::case_sensitive::Matcher,
+            #[cfg(target_os = "windows")]
+            _ => &matchers::case_insensitive::Matcher,
+            #[cfg(not(target_os = "windows"))]
             _ => &matchers::case_sensitive::Matcher,
         };
 
