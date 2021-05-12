@@ -467,7 +467,10 @@ fn parse_dollar_expr(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
-    if let (expr, None) = parse_range(lite_arg, scope) {
+    if lite_arg.item.starts_with("$\"") && lite_arg.item.len() > 1 && lite_arg.item.ends_with('"') {
+        // This is an interpolated string
+        parse_interpolated_string(&lite_arg, scope)
+    } else if let (expr, None) = parse_range(lite_arg, scope) {
         (expr, None)
     } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
         (expr, None)
@@ -493,77 +496,58 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
     loop {
         let mut before = String::new();
 
-        let mut found_start = false;
-        while let Some(c) = loop_input.next() {
+        loop {
             end += 1;
-            if c == '{' {
-                if let Some(x) = loop_input.peek() {
-                    if *x == '{' {
-                        found_start = true;
-                        end += 1;
-                        let _ = loop_input.next();
-                        break;
-                    }
+            if let Some(c) = loop_input.next() {
+                if c == '{' {
+                    break;
                 }
+                before.push(c);
+            } else {
+                break;
             }
-            before.push(c);
         }
 
         if !before.is_empty() {
-            if found_start {
-                output.push(FormatCommand::Text(
-                    before.to_string().spanned(Span::new(start, end - 2)),
-                ));
-            } else {
-                output.push(FormatCommand::Text(before.spanned(Span::new(start, end))));
-                break;
-            }
+            output.push(FormatCommand::Text(
+                before.to_string().spanned(Span::new(start, end - 1)),
+            ));
         }
         // Look for column as we're now at one
         let mut column = String::new();
         start = end;
 
-        let mut previous_c = ' ';
         let mut found_end = false;
+        let mut open_count = 1;
         while let Some(c) = loop_input.next() {
             end += 1;
-            if c == '}' && previous_c == '}' {
-                let _ = column.pop();
-                found_end = true;
-                break;
+            if c == '{' {
+                open_count += 1;
+            } else if c == '}' {
+                open_count -= 1;
+                if open_count == 0 {
+                    found_end = true;
+                    break;
+                }
             }
-            previous_c = c;
             column.push(c);
         }
 
         if !column.is_empty() {
-            if found_end {
-                output.push(FormatCommand::Column(
-                    column.to_string().spanned(Span::new(start, end - 2)),
-                ));
-            } else {
-                output.push(FormatCommand::Column(
-                    column.to_string().spanned(Span::new(start, end)),
-                ));
-
-                if error.is_none() {
-                    error = Some(ParseError::argument_error(
-                        input.spanned(Span::new(original_start, end)),
-                        ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
-                    ));
-                }
-            }
-        }
-
-        if found_start && !found_end {
-            error = Some(ParseError::argument_error(
-                input.spanned(Span::new(original_start, end)),
-                ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
+            output.push(FormatCommand::Column(
+                column.to_string().spanned(Span::new(start, end)),
             ));
         }
 
-        if before.is_empty() && column.is_empty() {
+        if column.is_empty() {
             break;
+        }
+
+        if !found_end {
+            error = Some(ParseError::argument_error(
+                input.spanned(Span::new(original_start, end)),
+                ArgumentError::MissingValueForName("unclosed { }".to_string()),
+            ));
         }
 
         start = end;
@@ -578,10 +562,16 @@ fn parse_interpolated_string(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parse_interpolated_string");
-    let inner_string = trim_quotes(&lite_arg.item);
+    let string_len = lite_arg.item.len();
+    let inner_string = lite_arg
+        .item
+        .chars()
+        .skip(2)
+        .take(string_len - 3)
+        .collect::<String>();
     let mut error = None;
 
-    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 1);
+    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 2);
 
     if error.is_none() {
         error = err;
@@ -598,11 +588,18 @@ fn parse_interpolated_string(
                 });
             }
             FormatCommand::Column(c) => {
-                let (o, err) = parse_full_column_path(&c, scope);
-                if error.is_none() {
-                    error = err;
+                let result = parse(&c, c.span.start(), scope);
+                match result {
+                    (classified_block, None) => {
+                        output.push(SpannedExpression {
+                            expr: Expression::Invocation(classified_block),
+                            span: c.span,
+                        });
+                    }
+                    (_, Some(err)) => {
+                        return (garbage(c.span), Some(err));
+                    }
                 }
-                output.push(o);
             }
         }
     }
@@ -649,12 +646,6 @@ fn parse_external_arg(
         parse_dollar_expr(&lite_arg, scope)
     } else if lite_arg.item.starts_with('(') {
         parse_invocation(&lite_arg, scope)
-    } else if lite_arg.item.starts_with('`')
-        && lite_arg.item.len() > 1
-        && lite_arg.item.ends_with('`')
-    {
-        // This is an interpolated string
-        parse_interpolated_string(&lite_arg, scope)
     } else {
         (
             SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
@@ -811,19 +802,11 @@ fn parse_arg(
             }
         }
         SyntaxShape::String => {
-            if lite_arg.item.starts_with('`')
-                && lite_arg.item.len() > 1
-                && lite_arg.item.ends_with('`')
-            {
-                // This is an interpolated string
-                parse_interpolated_string(&lite_arg, scope)
-            } else {
-                let trimmed = trim_quotes(&lite_arg.item);
-                (
-                    SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
-                    None,
-                )
-            }
+            let trimmed = trim_quotes(&lite_arg.item);
+            (
+                SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
+                None,
+            )
         }
         SyntaxShape::GlobPattern => {
             let trimmed = trim_quotes(&lite_arg.item);

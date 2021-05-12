@@ -3710,7 +3710,6 @@ dependencies = [
 name = "nu-table"
 version = "0.31.0"
 dependencies = [
-
  "nu-ansi-term 0.31.0",
  "regex 1.5.3",
  "unicode-width",

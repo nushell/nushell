@@ -118,7 +118,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | each { echo `{{$it}}` }
+                    echo "foo" | each { echo $"{$it}" }
             "#
     );
 
@@ -126,47 +126,11 @@ fn string_interpolation_with_it() {
 }
 
 #[test]
-fn string_interpolation_with_column() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [bob]] | each { echo `{{name}} is cool` }
-            "#
-    );
-
-    assert_eq!(actual.out, "bob is cool");
-}
-
-#[test]
-fn string_interpolation_with_column2() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [fred]] | each { echo `also {{name}} is cool` }
-            "#
-    );
-
-    assert_eq!(actual.out, "also fred is cool");
-}
-
-#[test]
-fn string_interpolation_with_column3() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [sally]] | each { echo `also {{name}}` }
-            "#
-    );
-
-    assert_eq!(actual.out, "also sally");
-}
-
-#[test]
 fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo [[name]; [sammie]] | each { echo `{{$it.name}}` }
+                    echo [[name]; [sammie]] | each { echo $"{$it.name}" }
         "#
     );
 
