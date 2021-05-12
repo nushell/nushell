@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rows: Option<Tagged<u64>>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "drop"
@@ -28,7 +23,7 @@ impl WholeStreamCommand for Command {
         "Remove the last number of rows or columns."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         drop(args)
     }
 
@@ -51,9 +46,10 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { rows }, input) = args.process()?;
-    let v: Vec<_> = input.into_vec();
+fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let rows: Option<Tagged<u64>> = args.opt(0)?;
+    let v: Vec<_> = args.input.into_vec();
 
     let rows_to_drop = if let Some(quantity) = rows {
         *quantity as usize
@@ -62,7 +58,7 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     Ok(if rows_to_drop == 0 {
-        v.into_iter().to_action_stream()
+        v.into_iter().map(Ok).to_input_stream()
     } else {
         let k = if v.len() < rows_to_drop {
             0
@@ -70,8 +66,8 @@ fn drop(args: CommandArgs) -> Result<ActionStream, ShellError> {
             v.len() - rows_to_drop
         };
 
-        let iter = v.into_iter().take(k);
+        let iter = v.into_iter().map(Ok).take(k);
 
-        iter.to_action_stream()
+        iter.to_input_stream()
     })
 }

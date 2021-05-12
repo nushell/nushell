@@ -2,16 +2,11 @@ use crate::prelude::*;
 use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use std::borrow::Borrow;
 
 pub struct Format;
-
-#[derive(Deserialize)]
-pub struct FormatArgs {
-    pattern: Tagged<String>,
-}
 
 impl WholeStreamCommand for Format {
     fn name(&self) -> &str {
@@ -30,7 +25,7 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         format_command(args)
     }
 
@@ -43,14 +38,16 @@ impl WholeStreamCommand for Format {
     }
 }
 
-fn format_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
-    let (FormatArgs { pattern }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let pattern: Tagged<String> = args.req(0)?;
 
     let format_pattern = format(&pattern);
     let commands = Arc::new(format_pattern);
 
-    Ok(input
+    Ok(args
+        .input
         .map(move |value| {
             let mut output = String::new();
             let commands = commands.clone();
@@ -82,9 +79,9 @@ fn format_command(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 }
             }
 
-            ReturnSuccess::value(UntaggedValue::string(output).into_untagged_value())
+            Ok(UntaggedValue::string(output).into_untagged_value())
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 #[derive(Debug)]
