@@ -21,7 +21,7 @@ impl WholeStreamCommand for Date {
         "return the current date in utc."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         utc(args)
     }
 }

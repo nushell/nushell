@@ -2,15 +2,10 @@ use crate::commands::date::parser::{datetime_in_timezone, ParseErrorKind};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Date;
-
-#[derive(Deserialize)]
-struct DateToTimeZoneArgs {
-    timezone: Tagged<String>,
-}
 
 impl WholeStreamCommand for Date {
     fn name(&self) -> &str {
@@ -33,7 +28,7 @@ impl WholeStreamCommand for Date {
         "Use 'date list-timezone' to list all supported time zones."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_timezone(args)
     }
 
@@ -58,11 +53,14 @@ impl WholeStreamCommand for Date {
     }
 }
 
-fn to_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DateToTimeZoneArgs { timezone }, input) = args.process()?;
+    let args = args.evaluate_once()?;
 
-    Ok(input
+    let timezone: Tagged<String> = args.req(0)?;
+
+    Ok(args
+        .input
         .map(move |value| match value {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
@@ -71,7 +69,7 @@ fn to_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Ok(dt) => {
                     let value = UntaggedValue::date(dt).into_value(&tag);
 
-                    ReturnSuccess::value(value)
+                    Ok(value)
                 }
                 Err(e) => Err(ShellError::labeled_error(
                     error_message(e),
@@ -85,7 +83,7 @@ fn to_timezone(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 &tag,
             )),
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 fn error_message(err: ParseErrorKind) -> &'static str {
