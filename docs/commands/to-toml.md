@@ -87,7 +87,7 @@ version = "0.4.6"
 [dependencies.cursive]
 default-features = false
 features = ["pancurses-backend"]
-version = "0.30.1"
+version = "0.31.0"
 
 [dependencies.futures-preview]
 features = ["compat", "io-compat"]

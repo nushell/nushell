@@ -293,6 +293,11 @@ pub fn compute_values(
 
                 Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
             }
+            (Primitive::String(x), Primitive::String(y)) => {
+                let mut new_string = x.clone();
+                new_string.push_str(y);
+                Ok(UntaggedValue::Primitive(Primitive::String(new_string)))
+            }
             _ => Err((left.type_name(), right.type_name())),
         },
         _ => Err((left.type_name(), right.type_name())),

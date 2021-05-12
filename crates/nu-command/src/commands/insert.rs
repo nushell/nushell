@@ -51,7 +51,7 @@ impl WholeStreamCommand for Command {
             .into()]),
         },Example {
             description: "Use in block form for more involved insertion logic",
-            example: "echo [[author, lucky_number]; ['Yehuda', 4]] | insert success { = $it.lucky_number * 10 }",
+            example: "echo [[author, lucky_number]; ['Yehuda', 4]] | insert success { $it.lucky_number * 10 }",
             result: Some(vec![UntaggedValue::row(indexmap! {
                     "author".to_string() => Value::from("Yehuda"),
                     "lucky_number".to_string() => UntaggedValue::int(4).into(),

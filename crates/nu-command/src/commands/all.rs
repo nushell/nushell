@@ -44,7 +44,7 @@ impl WholeStreamCommand for Command {
             },
             Example {
                 description: "Check that all values are even",
-                example: "echo [2 4 6 8] | all? $(= $it mod 2) == 0",
+                example: "echo [2 4 6 8] | all? ($it mod 2) == 0",
                 result: Some(vec![Value::from(true)]),
             },
         ]
@@ -89,7 +89,7 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::boolean(true).into_value(&tag),
     ));
 
-    // Variables in nu are immutable. Having the same variable accross invocations
+    // Variables in nu are immutable. Having the same variable across invocations
     // of evaluate_baseline_expr does not mutate the variables and those each
     // invocations are independent of each other!
     scope.enter_scope();

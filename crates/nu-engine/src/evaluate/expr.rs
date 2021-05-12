@@ -5,6 +5,7 @@ use log::{log_enabled, trace};
 use crate::evaluation_context::EvaluationContext;
 use nu_errors::ShellError;
 use nu_protocol::hir::SpannedExpression;
+use nu_protocol::{UntaggedValue, Value};
 use nu_stream::{InputStream, ToInputStream};
 
 pub(crate) fn run_expression_block(
@@ -18,5 +19,11 @@ pub(crate) fn run_expression_block(
 
     let output = evaluate_baseline_expr(expr, ctx)?;
 
-    Ok(std::iter::once(Ok(output)).to_input_stream())
+    match output {
+        Value {
+            value: UntaggedValue::Table(x),
+            ..
+        } => Ok(InputStream::from_stream(x.into_iter())),
+        output => Ok(std::iter::once(Ok(output)).to_input_stream()),
+    }
 }

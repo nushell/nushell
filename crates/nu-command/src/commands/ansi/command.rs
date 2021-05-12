@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_ansi_term::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Command;
@@ -69,7 +69,7 @@ following values:
     https://en.wikipedia.org/wiki/ANSI_escape_code
 
 OSC: '\x1b]' is not required for --osc parameter
-Example: echo [$(ansi -o '0') 'some title' $(char bel)] | str collect
+Example: echo [(ansi -o '0') 'some title' (char bel)] | str collect
 Format: #
     0 Set window title and icon name
     1 Set icon name
@@ -96,7 +96,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi rb) Hello " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi rb) Hello " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[1;31mHello \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
@@ -104,7 +104,7 @@ Format: #
             Example {
                 description:
                     "Use ansi to color text (rb = red bold, gb = green bold, pb = purple bold)",
-                example: r#"echo [$(ansi -e '3;93;41m') Hello $(ansi reset) " " $(ansi gb) Nu " " $(ansi pb) World] | str collect"#,
+                example: r#"echo [(ansi -e '3;93;41m') Hello (ansi reset) " " (ansi gb) Nu " " (ansi pb) World] | str collect"#,
                 result: Some(vec![Value::from(
                     "\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld",
                 )]),
@@ -112,7 +112,7 @@ Format: #
         ]
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let args = args.evaluate_once()?;
 
         let code: Option<Tagged<String>> = args.opt(0)?;
@@ -129,9 +129,9 @@ Format: #
                 ));
             }
             let output = format!("\x1b[{}", e.item);
-            return Ok(ActionStream::one(ReturnSuccess::value(
+            return Ok(OutputStream::one(
                 UntaggedValue::string(output).into_value(e.tag()),
-            )));
+            ));
         }
 
         if let Some(o) = osc {
@@ -147,18 +147,18 @@ Format: #
             //Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with a bell '\x07' char
             let output = format!("\x1b]{};", o.item);
-            return Ok(ActionStream::one(ReturnSuccess::value(
+            return Ok(OutputStream::one(
                 UntaggedValue::string(output).into_value(o.tag()),
-            )));
+            ));
         }
 
         if let Some(code) = code {
             let ansi_code = str_to_ansi(&code.item);
 
             if let Some(output) = ansi_code {
-                Ok(ActionStream::one(ReturnSuccess::value(
+                Ok(OutputStream::one(
                     UntaggedValue::string(output).into_value(code.tag()),
-                )))
+                ))
             } else {
                 Err(ShellError::labeled_error(
                     "Unknown ansi code",
@@ -299,7 +299,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
         // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
         // Another good reference http://ascii-table.com/ansi-escape-sequences.php
 
-        // For setting title like `echo [$(char title) $(pwd) $(char bel)] | str collect`
+        // For setting title like `echo [(char title) (pwd) (char bel)] | str collect`
         "title" => Some("\x1b]2;".to_string()), // ESC]2; xterm sets window title using OSC syntax escapes
 
         // Ansi Erase Sequences

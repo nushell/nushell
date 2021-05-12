@@ -1,13 +1,10 @@
 [package]
-authors = [
-    "Andrei Volnin <wolandr@gmail.com>",
-    "The Nu Project Contributors"
-    ]
+authors = ["Andrei Volnin <wolandr@gmail.com>", "The Nu Project Contributors"]
 description = "Pretty hex dump of bytes slice in the common style."
 edition = "2018"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.30.1"
+version = "0.31.0"
 
 [lib]
 doctest = false

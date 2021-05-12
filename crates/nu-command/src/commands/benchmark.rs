@@ -50,7 +50,7 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         benchmark(args)
     }
 
@@ -70,11 +70,16 @@ impl WholeStreamCommand for Benchmark {
     }
 }
 
-fn benchmark(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.args.span;
     let mut context = EvaluationContext::from_args(&args);
     let scope = args.scope().clone();
-    let (BenchmarkArgs { block, passthrough }, input) = args.process()?;
+
+    let args = args.evaluate_once()?;
+    let cmd_args = BenchmarkArgs {
+        block: args.req(0)?,
+        passthrough: args.get_flag("passthrough")?,
+    };
 
     let env = scope.get_env_vars();
     let name = generate_free_name(&env);
@@ -88,11 +93,12 @@ fn benchmark(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     context.scope.enter_scope();
     let result = run_block(
-        &block.block,
+        &cmd_args.block.block,
         &context,
-        input,
+        args.input,
         ExternalRedirection::StdoutAndStderr,
     );
+
     context.scope.exit_scope();
     let output = result?.into_vec();
 
@@ -109,7 +115,7 @@ fn benchmark(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         let real_time = into_big_int(end_time - start_time);
         indexmap.insert("real time".to_string(), real_time);
-        benchmark_output(indexmap, output, passthrough, &tag, &mut context)
+        benchmark_output(indexmap, output, cmd_args.passthrough, &tag, &mut context)
     }
     // return advanced stats
     // #[cfg(feature = "rich-benchmark")]
@@ -142,10 +148,10 @@ fn benchmark_output<T, Output>(
     passthrough: Option<CapturedBlock>,
     tag: T,
     context: &mut EvaluationContext,
-) -> Result<ActionStream, ShellError>
+) -> Result<OutputStream, ShellError>
 where
     T: Into<Tag> + Copy,
-    Output: Into<ActionStream>,
+    Output: Into<OutputStream>,
 {
     let value = UntaggedValue::Row(Dictionary::from(
         indexmap
@@ -174,7 +180,7 @@ where
 
         Ok(block_output.into())
     } else {
-        let benchmark_output = ActionStream::one(value);
+        let benchmark_output = OutputStream::one(value);
         Ok(benchmark_output)
     }
 }

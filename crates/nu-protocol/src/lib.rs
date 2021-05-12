@@ -12,6 +12,9 @@ mod type_name;
 mod type_shape;
 pub mod value;
 
+#[cfg(feature = "dataframe")]
+pub mod dataframe;
+
 pub use crate::call_info::{CallInfo, EvaluatedArgs};
 pub use crate::config_path::ConfigPath;
 pub use crate::maybe_owned::MaybeOwned;

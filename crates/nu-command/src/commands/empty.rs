@@ -63,7 +63,7 @@ impl WholeStreamCommand for Command {
                 ),
             },Example {
                 description: "use a block if setting the empty cell contents is wanted",
-                example: "echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { = [33 37] }",
+                example: "echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] }",
                 result: Some(
                     vec![
                         UntaggedValue::row(indexmap! {

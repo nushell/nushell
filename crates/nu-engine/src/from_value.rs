@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use bigdecimal::ToPrimitive;
 use chrono::{DateTime, FixedOffset};
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -108,6 +109,36 @@ impl FromValue for bigdecimal::BigDecimal {
                 ..
             } => Ok(d.clone()),
             Value { tag, .. } => Err(ShellError::labeled_error(
+                "Can't convert to decimal",
+                "can't convert to decimal",
+                tag.span,
+            )),
+        }
+    }
+}
+
+impl FromValue for Tagged<bigdecimal::BigDecimal> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        match &v.value {
+            UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone().tagged(tag)),
+            _ => Err(ShellError::labeled_error(
+                "Can't convert to decimal",
+                "can't convert to decimal",
+                tag.span,
+            )),
+        }
+    }
+}
+
+impl FromValue for Tagged<f64> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        let decimal: bigdecimal::BigDecimal = FromValue::from_value(v)?;
+
+        match decimal.to_f64() {
+            Some(d) => Ok(d.tagged(tag)),
+            None => Err(ShellError::labeled_error(
                 "Can't convert to decimal",
                 "can't convert to decimal",
                 tag.span,

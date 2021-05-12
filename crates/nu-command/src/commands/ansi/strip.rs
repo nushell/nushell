@@ -2,18 +2,11 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tag;
 use strip_ansi_escapes::strip;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-struct Arguments {
-    rest: Vec<ColumnPath>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -31,27 +24,29 @@ impl WholeStreamCommand for SubCommand {
         "strip ansi escape sequences from string"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "strip ansi escape sequences from string",
-            example: "echo [$(ansi gb) 'hello' $(ansi reset)] | str collect | ansi strip",
+            example: "echo [(ansi gb) 'hello' (ansi reset)] | str collect | ansi strip",
             result: None,
         }]
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { rest }, input) = args.process()?;
-    let column_paths: Vec<_> = rest;
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
 
-    Ok(input
+    let column_paths: Vec<_> = args.rest_args()?;
+
+    let result: Vec<Value> = args
+        .input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                action(&v, v.tag())
             } else {
                 let mut ret = v;
 
@@ -62,10 +57,12 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .collect::<Result<Vec<Value>, _>>()?;
+
+    Ok(OutputStream::from_stream(result.into_iter()))
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

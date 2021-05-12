@@ -123,6 +123,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Into),
             whole_stream_command(IntoBinary),
             whole_stream_command(IntoInt),
+            whole_stream_command(IntoString),
             whole_stream_command(SplitBy),
             // Row manipulation
             whole_stream_command(All),
@@ -250,6 +251,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(Dataframe),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
