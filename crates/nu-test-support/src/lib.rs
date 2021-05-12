@@ -9,6 +9,11 @@ pub struct Outcome {
     pub err: String,
 }
 
+#[cfg(windows)]
+pub const NATIVE_PATH_ENV_VAR: &str = "Path";
+#[cfg(not(windows))]
+pub const NATIVE_PATH_ENV_VAR: &str = "PATH";
+
 impl Outcome {
     pub fn new(out: String, err: String) -> Outcome {
         Outcome { out, err }
@@ -29,7 +34,7 @@ pub fn pipeline(commands: &str) -> String {
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
-    if let Some(paths) = std::env::var_os("PATH") {
+    if let Some(paths) = std::env::var_os(NATIVE_PATH_ENV_VAR) {
         original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
     }
 
