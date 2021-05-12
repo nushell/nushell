@@ -210,7 +210,15 @@ impl EvaluationContext {
         self.scope.enter_scope_with_tag(tag);
         self.scope.add_env(cfg.env_map());
         if let Some(path) = joined_paths {
-            self.scope.add_env_var("PATH", path);
+            #[cfg(target_os = "windows")]
+            {
+                self.scope.add_env_var("Path", path);
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                self.scope.add_env_var("PATH", path);
+            }
         }
         self.scope.set_exit_scripts(exit_scripts);
 
@@ -279,7 +287,15 @@ impl EvaluationContext {
 
         frame.env = cfg.env_map();
         if let Some(path) = joined_paths {
-            frame.env.insert("PATH".to_string(), path);
+            #[cfg(target_os = "windows")]
+            {
+                frame.env.insert("Path".to_string(), path);
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                frame.env.insert("PATH".to_string(), path);
+            }
         }
         frame.exitscripts = exit_scripts;
 

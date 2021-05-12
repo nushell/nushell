@@ -127,7 +127,6 @@ fn run_with_stdin(
         &process_args[..],
         input,
         external_redirection,
-        &context.scope,
     )
 }
 
@@ -137,7 +136,6 @@ fn spawn(
     args: &[String],
     input: InputStream,
     external_redirection: ExternalRedirection,
-    scope: &Scope,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
@@ -166,9 +164,6 @@ fn spawn(
 
     process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
-
-    process.env_clear();
-    process.envs(scope.get_env_vars());
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)
