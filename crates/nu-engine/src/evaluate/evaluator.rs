@@ -35,7 +35,7 @@ pub fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var, _) => evaluate_reference(&var, ctx, tag),
+        Expression::Variable(var, s) => evaluate_reference(&var, ctx, *s),
         Expression::Command => unimplemented!(),
         Expression::Invocation(block) => evaluate_invocation(block, ctx),
         Expression::ExternalCommand(_) => unimplemented!(),
@@ -225,25 +225,29 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
     }
 }
 
-fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<Value, ShellError> {
+fn evaluate_reference(
+    name: &str,
+    ctx: &EvaluationContext,
+    span: Span,
+) -> Result<Value, ShellError> {
     match name {
-        "$nu" => crate::evaluate::variables::nu(&ctx.scope, tag, ctx),
+        "$nu" => crate::evaluate::variables::nu(&ctx.scope, span, ctx),
 
         "$scope" => crate::evaluate::variables::scope(
             &ctx.scope.get_aliases(),
             &ctx.scope.get_commands(),
             &ctx.scope.get_vars(),
-            tag,
+            span,
         ),
 
         "$true" => Ok(Value {
             value: UntaggedValue::boolean(true),
-            tag,
+            tag: span.into(),
         }),
 
         "$false" => Ok(Value {
             value: UntaggedValue::boolean(false),
-            tag,
+            tag: span.into(),
         }),
 
         "$it" => match ctx.scope.get_var("$it") {
@@ -251,13 +255,13 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
                 "missing '$it' (note: $it is only available inside of a block)",
-                tag.span,
+                span,
             )),
         },
 
         "$nothing" => Ok(Value {
             value: UntaggedValue::nothing(),
-            tag,
+            tag: span.into(),
         }),
 
         x => match ctx.scope.get_var(x) {
@@ -265,7 +269,7 @@ fn evaluate_reference(name: &str, ctx: &EvaluationContext, tag: Tag) -> Result<V
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
                 format!("unknown variable: {}", x),
-                tag.span,
+                span,
             )),
         },
     }
