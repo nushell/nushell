@@ -159,7 +159,9 @@ dataframe = [
     "nu-protocol/dataframe",
     "nu-command/dataframe",
     "nu-value-ext/dataframe",
-    "nu-data/dataframe"
+    "nu-data/dataframe",
+    "nu_plugin_post/dataframe",
+    "nu_plugin_to_bson/dataframe",
 ]
 
 
