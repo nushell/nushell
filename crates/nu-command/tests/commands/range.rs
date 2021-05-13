@@ -43,3 +43,26 @@ fn selects_some_rows() {
         assert_eq!(actual.out, "2");
     });
 }
+
+#[test]
+fn negative_indices() {
+    Playground::setup("range_test_negative_indices", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("notes.txt"),
+            EmptyFile("tests.txt"),
+            EmptyFile("persons.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | get name
+                | range (-1)..
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "1");
+    });
+}
