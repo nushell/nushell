@@ -2,15 +2,8 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tag;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    pub rest: Vec<ColumnPath>,
-}
 
 pub struct SubCommand;
 
@@ -30,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
         "md5 encode a value"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -56,15 +49,15 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { rest }, input) = args.process()?;
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    let column_paths: Vec<_> = rest;
-
-    Ok(input
+    Ok(args
+        .input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                action(&v, v.tag())
             } else {
                 let mut ret = v;
 
@@ -75,10 +68,10 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

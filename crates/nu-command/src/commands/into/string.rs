@@ -1,9 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
@@ -13,13 +11,6 @@ use num_traits::{Pow, Signed};
 use std::iter;
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    decimals: Option<Tagged<u64>>,
-    group_digits: bool,
-    column_paths: Vec<ColumnPath>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -44,7 +35,7 @@ impl WholeStreamCommand for SubCommand {
         "Convert value to string"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         into_string(args)
     }
 
@@ -89,35 +80,33 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn into_string(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        Ok(Arguments {
-            decimals: params.get_flag("decimals")?,
-            group_digits: false,
-            column_paths: params.rest_args()?,
-        })
-    })?;
+fn into_string(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
 
-    let digits = options.decimals.as_ref().map(|tagged| tagged.item);
-    let group_digits = options.group_digits;
+    let decimals: Option<Tagged<u64>> = args.get_flag("decimals")?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    Ok(input
+    let digits = decimals.as_ref().map(|tagged| tagged.item);
+    let group_digits = false;
+
+    Ok(args
+        .input
         .map(move |v| {
-            if options.column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag(), digits, group_digits)?)
+            if column_paths.is_empty() {
+                action(&v, v.tag(), digits, group_digits)
             } else {
                 let mut ret = v;
-                for path in &options.column_paths {
+                for path in &column_paths {
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| action(old, old.tag(), digits, group_digits)),
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 pub fn action(

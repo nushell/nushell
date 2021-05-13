@@ -1,19 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use num_bigint::{BigInt, ToBigInt};
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    pub rest: Vec<ColumnPath>,
-    pub skip: Option<Value>,
-    pub bytes: Option<Value>,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -44,7 +35,7 @@ impl WholeStreamCommand for SubCommand {
         "Convert value to a binary primitive"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         into_binary(args)
     }
 
@@ -121,20 +112,17 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn into_binary(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (
-        Arguments {
-            rest: column_paths,
-            skip,
-            bytes,
-        },
-        input,
-    ) = args.process()?;
+fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let skip: Option<Value> = args.get_flag("skip")?;
+    let bytes: Option<Value> = args.get_flag("bytes")?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    Ok(input
+    Ok(args
+        .input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag(), &skip, &bytes)?)
+                action(&v, v.tag(), &skip, &bytes)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
@@ -146,10 +134,10 @@ fn into_binary(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 pub fn bigint_to_endian(n: &BigInt) -> Vec<u8> {
