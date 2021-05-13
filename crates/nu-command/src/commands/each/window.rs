@@ -5,16 +5,8 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{hir::CapturedBlock, Primitive, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
-use serde::Deserialize;
 
 pub struct EachWindow;
-
-#[derive(Deserialize)]
-pub struct EachWindowArgs {
-    window_size: Tagged<usize>,
-    block: CapturedBlock,
-    stride: Option<Tagged<usize>>,
-}
 
 impl WholeStreamCommand for EachWindow {
     fn name(&self) -> &str {
@@ -49,22 +41,29 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    fn run_with_actions(&self, raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let context = Arc::new(EvaluationContext::from_args(&raw_args));
         let external_redirection = raw_args.call_info.args.external_redirection;
-        let (each_args, mut input): (EachWindowArgs, _) = raw_args.process()?;
-        let block = Arc::new(Box::new(each_args.block));
 
-        let mut window: Vec<_> = input
+        let mut args = raw_args.evaluate_once()?;
+        let window_size: Tagged<usize> = args.req(0)?;
+        let block: CapturedBlock = args.req(1)?;
+        let stride: Option<Tagged<usize>> = args.get_flag("stride")?;
+
+        let block = Arc::new(Box::new(block));
+
+        let mut window: Vec<_> = args
+            .input
             .by_ref()
-            .take(*each_args.window_size - 1)
+            .take(*window_size - 1)
             .collect::<Vec<_>>();
 
         // `window` must start with dummy values, which will be removed on the first iteration
-        let stride = each_args.stride.map(|x| *x).unwrap_or(1);
+        let stride = stride.map(|x| *x).unwrap_or(1);
         window.insert(0, UntaggedValue::Primitive(Primitive::Nothing).into());
 
-        Ok(input
+        Ok(args
+            .input
             .enumerate()
             .map(move |(i, input)| {
                 // This would probably be more efficient if `last` was a VecDeque
@@ -89,7 +88,8 @@ impl WholeStreamCommand for EachWindow {
             })
             .flatten()
             .flatten()
-            .to_action_stream())
+            .map(Ok)
+            .to_input_stream())
     }
 }
 

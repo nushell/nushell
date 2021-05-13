@@ -11,6 +11,7 @@ use nu_errors::ShellError;
 use nu_protocol::{hir, ConfigPath};
 use nu_source::{Span, Tag};
 use nu_stream::InputStream;
+use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
@@ -112,7 +113,7 @@ impl EvaluationContext {
         let env_vars = self.scope.get_env_vars();
 
         for (var, val) in env_vars {
-            if var == "PATH" || var == "Path" || var == "path" {
+            if var == NATIVE_PATH_ENV_VAR {
                 std::env::set_var(var, val);
                 break;
             }
@@ -174,13 +175,7 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                let env_paths = if let Some(env_paths) = self.scope.get_env("PATH") {
-                    Some(env_paths)
-                } else if let Some(env_paths) = self.scope.get_env("Path") {
-                    Some(env_paths)
-                } else {
-                    self.scope.get_env("path")
-                };
+                let env_paths = self.scope.get_env(NATIVE_PATH_ENV_VAR);
 
                 if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
@@ -210,7 +205,7 @@ impl EvaluationContext {
         self.scope.enter_scope_with_tag(tag);
         self.scope.add_env(cfg.env_map());
         if let Some(path) = joined_paths {
-            self.scope.add_env_var("PATH", path);
+            self.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
         }
         self.scope.set_exit_scripts(exit_scripts);
 
@@ -243,13 +238,7 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                let env_paths = if let Some(env_paths) = self.scope.get_env("PATH") {
-                    Some(env_paths)
-                } else if let Some(env_paths) = self.scope.get_env("Path") {
-                    Some(env_paths)
-                } else {
-                    self.scope.get_env("path")
-                };
+                let env_paths = self.scope.get_env(NATIVE_PATH_ENV_VAR);
 
                 if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
@@ -279,7 +268,7 @@ impl EvaluationContext {
 
         frame.env = cfg.env_map();
         if let Some(path) = joined_paths {
-            frame.env.insert("PATH".to_string(), path);
+            frame.env.insert(NATIVE_PATH_ENV_VAR.to_string(), path);
         }
         frame.exitscripts = exit_scripts;
 

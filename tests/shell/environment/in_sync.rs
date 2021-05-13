@@ -103,7 +103,10 @@ fn inherited_environment_path_values_not_present_in_configuration_should_pick_up
                 "#,
         )])
         .with_config(&file)
-        .with_env("PATH", &PathBuf::from("/path/to/be/added").display_path());
+        .with_env(
+            nu_test_support::NATIVE_PATH_ENV_VAR,
+            &PathBuf::from("/path/to/be/added").display_path(),
+        );
 
         assert_that!(
             nu.pipeline("echo $nu.path | str collect '-'"),

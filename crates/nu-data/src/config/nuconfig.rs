@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::Value;
 use nu_source::Tag;
+use nu_test_support::NATIVE_PATH_ENV_VAR;
 use std::{fmt::Debug, path::PathBuf};
 
 use super::write;
@@ -147,7 +148,7 @@ impl NuConfig {
     pub fn path(&self) -> Result<Option<Vec<PathBuf>>, ShellError> {
         let vars = &self.vars;
 
-        if let Some(path) = vars.get("path").or_else(|| vars.get("PATH")) {
+        if let Some(path) = vars.get("path").or_else(|| vars.get(NATIVE_PATH_ENV_VAR)) {
             path
                 .table_entries()
                 .map(|p| {

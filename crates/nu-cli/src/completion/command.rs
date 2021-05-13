@@ -6,6 +6,7 @@ use indexmap::set::IndexSet;
 use super::matchers::Matcher;
 use crate::completion::{Completer, CompletionContext, Suggestion};
 use nu_engine::EvaluationContext;
+use nu_test_support::NATIVE_PATH_ENV_VAR;
 
 pub struct CommandCompleter;
 
@@ -121,7 +122,7 @@ fn is_executable(path: &Path) -> bool {
 
 // TODO cache these, but watch for changes to PATH
 fn find_path_executables() -> Option<IndexSet<String>> {
-    let path_var = std::env::var_os("PATH")?;
+    let path_var = std::env::var_os(NATIVE_PATH_ENV_VAR)?;
     let paths: Vec<_> = std::env::split_paths(&path_var).collect();
 
     let mut executables: IndexSet<String> = IndexSet::new();

@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use nu_engine::{evaluate_baseline_expr, BufCodecReader};
 use nu_engine::{MaybeTextCodec, StringOrBinary};
+use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 
 use std::io::Write;
@@ -518,7 +519,7 @@ fn remove_quotes(argument: &str) -> Option<&str> {
 fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
-    if let Some(paths) = std::env::var_os("PATH") {
+    if let Some(paths) = std::env::var_os(NATIVE_PATH_ENV_VAR) {
         original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
     }
 
