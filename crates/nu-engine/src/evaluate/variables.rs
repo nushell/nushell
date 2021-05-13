@@ -16,6 +16,7 @@ pub fn nu(
     let mut nu_dict = TaggedDictBuilder::new(&tag);
 
     let mut dict = TaggedDictBuilder::new(&tag);
+
     for v in env.iter() {
         if v.0 != "PATH" && v.0 != "Path" {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
@@ -49,6 +50,19 @@ pub fn nu(
         }
     }
 
+    // A note about environment variables:
+    //
+    // Environment variables in Unix platforms are case-sensitive. On Windows, case-sensitivity is context-dependent.
+    // In DOS, running `SET` will show you the list of environment variables, but their names will be all upper-cased.
+    // In PowerShell, running `Get-ChildItem Env:` will show you a list of environment variables, and they will match
+    // the case in the environment variable section of the user configuration
+    //
+    // Rust currently returns the DOS-style, all-uppercase environment variables on Windows (as of 1.52) when running
+    // std::env::vars(), rather than the case-sensitive Environment.GetEnvironmentVariables() of .NET that PowerShell
+    // uses.
+    //
+    // For now, we work around the discrepency as best we can by merging the two into what is shown to the user as the
+    // 'path' column of `$nu`
     let mut table = vec![];
     for v in env.iter() {
         if v.0 == "PATH" || v.0 == "Path" {
