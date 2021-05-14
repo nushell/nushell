@@ -52,6 +52,10 @@ impl ExtractType for i64 {
             &Value {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
+            } => Ok(*int),
+            &Value {
+                value: UntaggedValue::Primitive(Primitive::BigInt(int)),
+                ..
             } => Ok(int.tagged(&value.tag).coerce_into("converting to i64")?),
             other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
         }
@@ -64,10 +68,13 @@ impl ExtractType for u64 {
 
         match &value {
             &Value {
-                value: UntaggedValue::Primitive(Primitive::Int(int)),
+                value: UntaggedValue::Primitive(Primitive::BigInt(int)),
                 ..
             } => Ok(int.tagged(&value.tag).coerce_into("converting to u64")?),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
+            other => Err(ShellError::type_error(
+                "Big Integer",
+                other.spanned_type_name(),
+            )),
         }
     }
 }

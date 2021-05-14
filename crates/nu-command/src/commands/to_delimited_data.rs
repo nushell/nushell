@@ -109,14 +109,12 @@ pub fn clone_tagged_value(v: &Value) -> Value {
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {
             UntaggedValue::Primitive(Primitive::Decimal(f.clone()))
         }
-        UntaggedValue::Primitive(Primitive::Int(i)) => {
-            UntaggedValue::Primitive(Primitive::Int(i.clone()))
-        }
+        UntaggedValue::Primitive(Primitive::Int(i)) => UntaggedValue::Primitive(Primitive::Int(*i)),
         UntaggedValue::Primitive(Primitive::FilePath(x)) => {
             UntaggedValue::Primitive(Primitive::FilePath(x.clone()))
         }
         UntaggedValue::Primitive(Primitive::Filesize(b)) => {
-            UntaggedValue::Primitive(Primitive::Filesize(b.clone()))
+            UntaggedValue::Primitive(Primitive::Filesize(*b))
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => {
             UntaggedValue::Primitive(Primitive::Date(*d))

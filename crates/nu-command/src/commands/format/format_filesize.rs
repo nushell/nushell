@@ -64,7 +64,7 @@ fn process_row(
                 ..
             } = s
             {
-                let byte_format = InlineShape::format_bytes(&fs, Some(&format.item));
+                let byte_format = InlineShape::format_bytes(fs, Some(&format.item));
                 let byte_value = Value::from(byte_format.1);
                 Ok(input
                     .replace_data_at_column_path(&field, byte_value)

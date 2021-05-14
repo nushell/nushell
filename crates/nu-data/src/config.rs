@@ -93,7 +93,8 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {
             toml::Value::Float(f.tagged(&v.tag).coerce_into("converting to TOML float")?)
         }
-        UntaggedValue::Primitive(Primitive::Int(i)) => {
+        UntaggedValue::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             toml::Value::Integer(i.tagged(&v.tag).coerce_into("converting to TOML integer")?)
         }
         UntaggedValue::Primitive(Primitive::Nothing) => {
@@ -108,10 +109,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
             path.iter()
                 .map(|x| match &x.unspanned {
                     UnspannedPathMember::String(string) => Ok(toml::Value::String(string.clone())),
-                    UnspannedPathMember::Int(int) => Ok(toml::Value::Integer(
-                        int.tagged(&v.tag)
-                            .coerce_into("converting to TOML integer")?,
-                    )),
+                    UnspannedPathMember::Int(int) => Ok(toml::Value::Integer(*int)),
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),

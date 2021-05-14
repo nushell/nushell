@@ -4,10 +4,7 @@ use crate::prelude::*;
 use bigdecimal::FromPrimitive;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::{convert_number_to_u64, Number, Operator},
-    Primitive, Signature, UntaggedValue, Value,
-};
+use nu_protocol::{hir::Operator, Primitive, Signature, UntaggedValue, Value};
 
 pub struct SubCommand;
 
@@ -124,14 +121,21 @@ fn compute_average(values: &[Value], name: impl Into<Tag>) -> Result<Value, Shel
             value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
-            let left = UntaggedValue::from(Primitive::Int(num));
+            let left = UntaggedValue::from(Primitive::Int(num as i64));
             let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
-                    let number = Number::Decimal(result);
-                    let number = convert_number_to_u64(&number);
-                    Ok(UntaggedValue::filesize(number).into_value(name))
+                    let (bi, _) = result.as_bigint_and_exponent();
+                    let number = bi.to_u64();
+                    match number {
+                        Some(number) => Ok(UntaggedValue::filesize(number).into_value(name)),
+                        None => Err(ShellError::labeled_error(
+                            "Can't convert to filesize",
+                            "can't convert to filesize",
+                            name,
+                        )),
+                    }
                 }
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate median of non-numeric or unrelated types",

@@ -273,6 +273,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
         Expression::Literal(literal) => {
             match literal {
                 nu_protocol::hir::Literal::Number(number) => match number {
+                    nu_protocol::hir::Number::BigInt(_) => Some(SyntaxShape::Int),
                     nu_protocol::hir::Number::Int(_) => Some(SyntaxShape::Int),
                     nu_protocol::hir::Number::Decimal(_) => Some(SyntaxShape::Number),
                 },

@@ -28,7 +28,7 @@ impl Labels {
     }
 
     pub fn grouping_total(&self) -> Value {
-        UntaggedValue::int(self.x.len()).into_untagged_value()
+        UntaggedValue::int(self.x.len() as i64).into_untagged_value()
     }
 
     pub fn splits(&self) -> impl Iterator<Item = &String> {
@@ -36,7 +36,7 @@ impl Labels {
     }
 
     pub fn splits_total(&self) -> Value {
-        UntaggedValue::int(self.y.len()).into_untagged_value()
+        UntaggedValue::big_int(self.y.len()).into_untagged_value()
     }
 }
 

@@ -23,7 +23,13 @@ impl WholeStreamCommand for SubCommand {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let input = args.input;
 
-        run_with_numerical_functions_on_stream(input, ceil_big_int, ceil_big_decimal, ceil_default)
+        run_with_numerical_functions_on_stream(
+            input,
+            ceil_int,
+            ceil_big_int,
+            ceil_big_decimal,
+            ceil_default,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -39,8 +45,12 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn ceil_big_int(val: BigInt) -> Value {
+fn ceil_int(val: i64) -> Value {
     UntaggedValue::int(val).into()
+}
+
+fn ceil_big_int(val: BigInt) -> Value {
+    UntaggedValue::big_int(val).into()
 }
 
 fn ceil_big_decimal(val: BigDecimal) -> Value {
@@ -48,8 +58,14 @@ fn ceil_big_decimal(val: BigDecimal) -> Value {
     if maybe_ceiled < val {
         maybe_ceiled += BigDecimal::one();
     }
-    let (ceiled, _) = maybe_ceiled.into_bigint_and_exponent();
-    UntaggedValue::int(ceiled).into()
+    let ceiling = maybe_ceiled.to_i64();
+
+    match ceiling {
+        Some(x) => UntaggedValue::int(x).into(),
+        None => UntaggedValue::Error(ShellError::untagged_runtime_error(
+            "Value too big to ceiling to an 64-bit integer",
+        )).into(),
+    }
 }
 
 fn ceil_default(_: UntaggedValue) -> Value {

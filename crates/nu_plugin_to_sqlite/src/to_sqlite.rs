@@ -41,6 +41,7 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
     match &v.value {
         UntaggedValue::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
+            Primitive::BigInt(i) => format!("{}", i),
             Primitive::Int(i) => format!("{}", i),
             Primitive::Duration(i) => format!("{}", i),
             Primitive::Decimal(f) => format!("{}", f),

@@ -81,7 +81,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::int(s.len()).into_value(tag))
+            Ok(UntaggedValue::int(s.len() as i64).into_value(tag))
         }
         other => {
             let got = format!("got {}", other.type_name());

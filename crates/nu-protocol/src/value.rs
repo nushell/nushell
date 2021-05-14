@@ -178,8 +178,13 @@ impl UntaggedValue {
     }
 
     /// Helper for creating integer values
-    pub fn int(i: impl Into<BigInt>) -> UntaggedValue {
+    pub fn int(i: impl Into<i64>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Int(i.into()))
+    }
+
+    /// Helper for creating big integer values
+    pub fn big_int(i: impl Into<BigInt>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::BigInt(i.into()))
     }
 
     /// Helper for creating glob pattern values
@@ -193,8 +198,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating filesize values
-    pub fn filesize(s: impl Into<BigInt>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Filesize(s.into()))
+    pub fn filesize(s: u64) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Filesize(s))
     }
 
     /// Helper for creating decimal values
@@ -339,19 +344,27 @@ impl Value {
         }
     }
 
-    /// View the Value as a Int (BigInt), if possible
-    pub fn as_int(&self) -> Result<BigInt, ShellError> {
+    /// View the Value as a Int, if possible
+    pub fn as_int(&self) -> Result<i64, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(n.clone()),
+            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(*n),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
         }
     }
 
-    /// View the Value as a Filesize (BigInt), if possible
-    pub fn as_filesize(&self) -> Result<BigInt, ShellError> {
+    /// View the Value as a Int, if possible
+    pub fn as_big_int(&self) -> Result<BigInt, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
+            UntaggedValue::Primitive(Primitive::BigInt(n)) => Ok(n.clone()),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Filesize (u64), if possible
+    pub fn as_filesize(&self) -> Result<u64, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(*fs),
+            _ => Err(ShellError::type_error("int", self.spanned_type_name())),
         }
     }
 
@@ -808,8 +821,6 @@ pub trait U64Ext {
     fn to_untagged_value(&self) -> UntaggedValue;
     fn to_value(&self, tag: Tag) -> Value;
     fn to_value_create_tag(&self) -> Value;
-    fn to_filesize_untagged_value(&self) -> UntaggedValue;
-    fn to_filesize_value(&self, tag: Tag) -> Value;
     fn to_duration_untagged_value(&self) -> UntaggedValue;
     fn to_duration_value(&self, tag: Tag) -> Value;
 }
@@ -817,14 +828,7 @@ pub trait U64Ext {
 impl U64Ext for u64 {
     fn to_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
-            tag: the_tag,
-        }
-    }
-
-    fn to_filesize_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Filesize(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::BigInt(BigInt::from(*self))),
             tag: the_tag,
         }
     }
@@ -839,7 +843,7 @@ impl U64Ext for u64 {
     fn to_value_create_tag(&self) -> Value {
         let end = self.to_string().len();
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::BigInt(BigInt::from(*self))),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
@@ -848,11 +852,7 @@ impl U64Ext for u64 {
     }
 
     fn to_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::int(*self)
-    }
-
-    fn to_filesize_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::filesize(*self)
+        UntaggedValue::big_int(*self)
     }
 
     fn to_duration_untagged_value(&self) -> UntaggedValue {
@@ -869,7 +869,7 @@ pub trait I64Ext {
 impl I64Ext for i64 {
     fn to_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self)),
             tag: the_tag,
         }
     }
@@ -877,7 +877,7 @@ impl I64Ext for i64 {
     fn to_value_create_tag(&self) -> Value {
         let end = self.to_string().len();
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self)),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),

@@ -30,6 +30,8 @@ pub enum Type {
     Nothing,
     /// An integer-based value
     Int,
+    /// An big integer-based value
+    BigInt,
     /// A range between two values
     Range(Box<RangeType>),
     /// A decimal (floating point) value
@@ -131,6 +133,7 @@ impl Type {
         match primitive {
             Primitive::Nothing => Type::Nothing,
             Primitive::Int(_) => Type::Int,
+            Primitive::BigInt(_) => Type::BigInt,
             Primitive::Range(range) => {
                 let (left_value, left_inclusion) = &range.from;
                 let (right_value, right_inclusion) = &range.to;
@@ -199,6 +202,7 @@ impl PrettyDebug for Type {
         match self {
             Type::Nothing => ty("nothing"),
             Type::Int => ty("integer"),
+            Type::BigInt => ty("big integer"),
             Type::Range(range) => {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;

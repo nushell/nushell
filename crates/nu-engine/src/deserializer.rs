@@ -439,6 +439,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
+            } => visit::<Tagged<i64>, _>(int.tagged(tag), name, fields, visitor),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::BigInt(int)),
+                ..
             } => {
                 let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)

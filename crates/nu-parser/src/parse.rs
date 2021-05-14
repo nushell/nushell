@@ -57,8 +57,8 @@ pub fn parse_simple_column_path(
                 lite_arg.span.start() + idx,
             );
 
-            if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(Member::Int(BigInt::from(row_number), part_span));
+            if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(Member::Int(row_number, part_span));
             } else {
                 let trimmed = trim_quotes(&current_part);
                 output.push(Member::Bare(trimmed.clone().spanned(part_span)));
@@ -77,8 +77,8 @@ pub fn parse_simple_column_path(
             lite_arg.span.start() + start_index,
             lite_arg.span.start() + last_index + 1,
         );
-        if let Ok(row_number) = current_part.parse::<u64>() {
-            output.push(Member::Int(BigInt::from(row_number), part_span));
+        if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(Member::Int(row_number, part_span));
         } else {
             let current_part = trim_quotes(&current_part);
             output.push(Member::Bare(current_part.spanned(part_span)));
@@ -131,10 +131,8 @@ pub fn parse_full_column_path(
             } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
-            } else if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(
-                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-                );
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
             } else {
                 let current_part = trim_quotes(&current_part);
                 output.push(
@@ -165,18 +163,14 @@ pub fn parse_full_column_path(
                 head = Some(invoc.expr);
             } else if current_part.starts_with('$') {
                 head = Some(Expression::variable(current_part, lite_arg.span));
-            } else if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(
-                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-                );
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
             } else {
                 let current_part = trim_quotes(&current_part);
                 output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
             }
-        } else if let Ok(row_number) = current_part.parse::<u64>() {
-            output.push(
-                UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-            );
+        } else if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
         } else {
             let current_part = trim_quotes(&current_part);
             output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
@@ -771,9 +765,14 @@ fn parse_arg(
 
     match expected_type {
         SyntaxShape::Number => {
-            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+            if let Ok(x) = lite_arg.item.parse::<i64>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
+                    None,
+                )
+            } else if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+                (
+                    SpannedExpression::new(Expression::big_integer(x), lite_arg.span),
                     None,
                 )
             } else if let Ok(x) = lite_arg.item.parse::<BigDecimal>() {
@@ -789,9 +788,14 @@ fn parse_arg(
             }
         }
         SyntaxShape::Int => {
-            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+            if let Ok(x) = lite_arg.item.parse::<i64>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
+                    None,
+                )
+            } else if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+                (
+                    SpannedExpression::new(Expression::big_integer(x), lite_arg.span),
                     None,
                 )
             } else {

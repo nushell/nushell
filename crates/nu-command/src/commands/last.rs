@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 
 pub struct Last;
 
@@ -31,7 +31,7 @@ impl WholeStreamCommand for Last {
             Example {
                 description: "Get the last row",
                 example: "echo [1 2 3] | last",
-                result: Some(vec![Value::from(UntaggedValue::from(BigInt::from(3)))]),
+                result: Some(vec![UntaggedValue::int(3).into()]),
             },
             Example {
                 description: "Get the last three rows",

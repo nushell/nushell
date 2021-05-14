@@ -80,7 +80,7 @@ pub fn cpu(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
             "brand",
             UntaggedValue::string(trim_cstyle_null(cpu.get_brand().to_string())),
         );
-        dict.insert_untagged("freq", UntaggedValue::int(cpu.get_frequency()));
+        dict.insert_untagged("freq", UntaggedValue::int(cpu.get_frequency() as i64));
 
         output.push(dict.into_value());
     }

@@ -372,6 +372,9 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             })?,
         ),
         UntaggedValue::Primitive(Primitive::Int(i)) => {
+            serde_json::Value::Number(serde_json::Number::from(*i))
+        }
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
                 i.tagged(&v.tag),
                 "converting to JSON number",
@@ -386,12 +389,9 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                     UnspannedPathMember::String(string) => {
                         Ok(serde_json::Value::String(string.clone()))
                     }
-                    UnspannedPathMember::Int(int) => Ok(serde_json::Value::Number(
-                        serde_json::Number::from(CoerceInto::<i64>::coerce_into(
-                            int.tagged(&v.tag),
-                            "converting to JSON number",
-                        )?),
-                    )),
+                    UnspannedPathMember::Int(int) => {
+                        Ok(serde_json::Value::Number(serde_json::Number::from(*int)))
+                    }
                 })
                 .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
         ),

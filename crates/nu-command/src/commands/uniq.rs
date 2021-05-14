@@ -126,7 +126,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     UntaggedValue::Row(mut row) => {
                         row.entries.insert(
                             "count".to_string(),
-                            UntaggedValue::int(item.1).into_untagged_value(),
+                            UntaggedValue::int(item.1 as i64).into_untagged_value(),
                         );
                         Value {
                             value: UntaggedValue::Row(row),
@@ -141,7 +141,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         );
                         map.insert(
                             "count".to_string(),
-                            UntaggedValue::int(item.1).into_untagged_value(),
+                            UntaggedValue::int(item.1 as i64).into_untagged_value(),
                         );
                         Value {
                             value: UntaggedValue::row(map),

@@ -120,7 +120,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                 ..
             } => {
-                UntaggedValue::from(Primitive::Int(num.clone()))
+                UntaggedValue::from(Primitive::Int(*num as i64))
             },
             Value {
                 value: UntaggedValue::Primitive(num),
