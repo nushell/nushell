@@ -213,6 +213,13 @@ pub fn view_contents(
     skip: Option<&Value>,
     length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Some 'bad actor' binaries turn off ansi support so we need to make sure
+    // that ansi support is enabled in windows
+    #[cfg(windows)]
+    {
+        let _ = nu_ansi_term::enable_ansi_support();
+    }
+
     let skip_bytes = skip.map(|s| s.as_usize().unwrap_or(0));
 
     let num_bytes = length.map(|b| b.as_usize().unwrap_or(0));
