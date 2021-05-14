@@ -64,7 +64,8 @@ fn ceil_big_decimal(val: BigDecimal) -> Value {
         Some(x) => UntaggedValue::int(x).into(),
         None => UntaggedValue::Error(ShellError::untagged_runtime_error(
             "Value too big to ceiling to an 64-bit integer",
-        )).into(),
+        ))
+        .into(),
     }
 }
 
