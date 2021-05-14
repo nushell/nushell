@@ -8,6 +8,7 @@ pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
 
     match number {
+        Number::BigInt(int) => Primitive::BigInt(int),
         Number::Int(int) => Primitive::Int(int),
         Number::Decimal(decimal) => Primitive::Decimal(decimal),
     }

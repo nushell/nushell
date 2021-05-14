@@ -81,14 +81,14 @@ impl WholeStreamCommand for SubCommand {
                 description: "convert a number to a nushell binary primitive",
                 example: "echo 1 | into binary",
                 result: Some(vec![
-                    UntaggedValue::binary(BigInt::from(1).to_bytes_le().1).into()
+                    UntaggedValue::binary(i64::from(1).to_le_bytes().to_vec()).into()
                 ]),
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
                 example: "echo $true | into binary",
                 result: Some(vec![
-                    UntaggedValue::binary(BigInt::from(1).to_bytes_le().1).into()
+                    UntaggedValue::binary(i64::from(1).to_le_bytes().to_vec()).into()
                 ]),
             },
             Example {
@@ -140,7 +140,17 @@ fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .to_input_stream())
 }
 
-pub fn bigint_to_endian(n: &BigInt) -> Vec<u8> {
+fn int_to_endian(n: i64) -> Vec<u8> {
+    if cfg!(target_endian = "little") {
+        // eprintln!("Little Endian");
+        n.to_le_bytes().to_vec()
+    } else {
+        // eprintln!("Big Endian");
+        n.to_be_bytes().to_vec()
+    }
+}
+
+fn bigint_to_endian(n: &BigInt) -> Vec<u8> {
     if cfg!(target_endian = "little") {
         // eprintln!("Little Endian");
         n.to_bytes_le().1
@@ -180,7 +190,8 @@ pub fn action(
                         .collect()
                 }
             }
-            Primitive::Int(n_ref) => bigint_to_endian(n_ref),
+            Primitive::Int(n_ref) => int_to_endian(*n_ref),
+            Primitive::BigInt(n_ref) => bigint_to_endian(n_ref),
             Primitive::Decimal(dec) => match dec.to_bigint() {
                 Some(n) => bigint_to_endian(&n),
                 None => {
@@ -217,8 +228,8 @@ pub fn action(
                 }
             }
             Primitive::Boolean(a_bool) => match a_bool {
-                false => bigint_to_endian(&BigInt::from(0)),
-                true => bigint_to_endian(&BigInt::from(1)),
+                false => int_to_endian(0),
+                true => int_to_endian(1),
             },
             Primitive::Date(a_date) => a_date.format("%c").to_string().as_bytes().to_vec(),
             Primitive::FilePath(a_filepath) => a_filepath

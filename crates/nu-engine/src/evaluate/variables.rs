@@ -53,7 +53,7 @@ pub fn nu(
     // A note about environment variables:
     //
     // Environment variables in Unix platforms are case-sensitive. On Windows, case-sensitivity is context-dependent.
-    // In DOS, running `SET` will show you the list of environment variables, but their names will be all upper-cased.
+    // In cmd.exe, running `SET` will show you the list of environment variables and their names will be mixed case.
     // In PowerShell, running `Get-ChildItem Env:` will show you a list of environment variables, and they will match
     // the case in the environment variable section of the user configuration
     //

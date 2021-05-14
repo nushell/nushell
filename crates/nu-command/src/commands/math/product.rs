@@ -36,7 +36,7 @@ impl WholeStreamCommand for SubCommand {
 fn to_byte(value: &Value) -> Option<Value> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::Int(num)) => {
-            Some(UntaggedValue::Primitive(Primitive::Filesize(num.clone())).into_untagged_value())
+            Some(UntaggedValue::Primitive(Primitive::Filesize(*num as u64)).into_untagged_value())
         }
         _ => None,
     }
@@ -59,7 +59,7 @@ pub fn product(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                         ..
-                    } => UntaggedValue::int(num.clone()).into_untagged_value(),
+                    } => UntaggedValue::int(*num as i64).into_untagged_value(),
                     other => other.clone(),
                 })
                 .collect::<Vec<_>>(),

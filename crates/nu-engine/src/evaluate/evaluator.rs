@@ -212,7 +212,10 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
                 .into_value(span)
         }
         hir::Literal::Number(int) => match int {
-            nu_protocol::hir::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(span),
+            nu_protocol::hir::Number::BigInt(i) => {
+                UntaggedValue::big_int(i.clone()).into_value(span)
+            }
+            nu_protocol::hir::Number::Int(i) => UntaggedValue::int(*i).into_value(span),
             nu_protocol::hir::Number::Decimal(d) => {
                 UntaggedValue::decimal(d.clone()).into_value(span)
             }

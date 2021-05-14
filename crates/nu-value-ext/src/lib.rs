@@ -648,7 +648,7 @@ pub fn as_column_path(value: &Value) -> Result<Tagged<ColumnPath>, ShellError> {
 pub fn as_path_member(value: &Value) -> Result<PathMember, ShellError> {
     match &value.value {
         UntaggedValue::Primitive(primitive) => match primitive {
-            Primitive::Int(int) => Ok(PathMember::int(int.clone(), value.tag.span)),
+            Primitive::Int(int) => Ok(PathMember::int(*int, value.tag.span)),
             Primitive::String(string) => Ok(PathMember::string(string, value.tag.span)),
             other => Err(ShellError::type_error(
                 "path member",

@@ -35,7 +35,7 @@ fn convert_json_value_to_nu_value(v: &nu_json::Value, tag: impl Into<Tag>) -> Va
         nu_json::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
         nu_json::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(&tag),
         nu_json::Value::F64(n) => UntaggedValue::decimal_from_float(*n, span).into_value(&tag),
-        nu_json::Value::U64(n) => UntaggedValue::int(*n).into_value(&tag),
+        nu_json::Value::U64(n) => UntaggedValue::big_int(*n).into_value(&tag),
         nu_json::Value::I64(n) => UntaggedValue::int(*n).into_value(&tag),
         nu_json::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag)

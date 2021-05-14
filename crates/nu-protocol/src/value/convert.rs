@@ -11,7 +11,8 @@ impl std::convert::TryFrom<&Value> for i64 {
     /// Convert to an i64 integer, if possible
     fn try_from(value: &Value) -> Result<i64, ShellError> {
         match &value.value {
-            UntaggedValue::Primitive(Primitive::Int(int)) => {
+            UntaggedValue::Primitive(Primitive::Int(int)) => Ok(*int),
+            UntaggedValue::Primitive(Primitive::BigInt(int)) => {
                 int.tagged(&value.tag).coerce_into("converting to i64")
             }
             _ => Err(ShellError::type_error("Integer", value.spanned_type_name())),

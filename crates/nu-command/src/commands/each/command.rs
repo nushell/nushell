@@ -102,7 +102,7 @@ pub fn process_row(
 
 pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     let mut dict = TaggedDictBuilder::new(item.tag());
-    dict.insert_untagged("index", UntaggedValue::int(index));
+    dict.insert_untagged("index", UntaggedValue::int(index as i64));
     dict.insert_value("item", item);
 
     dict.into_value()

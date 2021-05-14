@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bigdecimal::Zero;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
@@ -81,7 +80,7 @@ impl RangeIterator {
         };
 
         let end = match range.to.0.item {
-            Primitive::Nothing => Primitive::Int(u64::MAX.into()),
+            Primitive::Nothing => Primitive::Int(i64::MAX),
             x => x,
         };
 
@@ -121,11 +120,11 @@ impl Iterator for RangeIterator {
                 (
                     UntaggedValue::Primitive(Primitive::Decimal(x)),
                     UntaggedValue::Primitive(Primitive::Int(y)),
-                ) => x.cmp(&(BigDecimal::zero() + y)),
+                ) => x.cmp(&(BigDecimal::from(*y))),
                 (
                     UntaggedValue::Primitive(Primitive::Int(x)),
                     UntaggedValue::Primitive(Primitive::Decimal(y)),
-                ) => (BigDecimal::zero() + x).cmp(y),
+                ) => (BigDecimal::from(*x)).cmp(y),
                 _ => {
                     self.done = true;
                     return Some(

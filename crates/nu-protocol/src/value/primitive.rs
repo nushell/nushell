@@ -24,14 +24,16 @@ const NANOS_PER_SEC: u32 = 1_000_000_000;
 pub enum Primitive {
     /// An empty value
     Nothing,
+    /// A common integer
+    Int(i64),
     /// A "big int", an integer with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigint")]
-    Int(BigInt),
+    BigInt(BigInt),
     /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
-    Filesize(BigInt),
+    Filesize(u64),
     /// A string value
     String(String),
     /// A path to travel to reach a value in a table
@@ -351,7 +353,7 @@ impl From<BigDecimal> for Primitive {
 impl From<BigInt> for Primitive {
     /// Helper to convert from integers to a Primitive value
     fn from(int: BigInt) -> Primitive {
-        Primitive::Int(int)
+        Primitive::BigInt(int)
     }
 }
 
@@ -373,14 +375,14 @@ macro_rules! from_native_to_primitive {
     };
 }
 
-from_native_to_primitive!(i8, Primitive::Int, BigInt::from_i8);
-from_native_to_primitive!(i16, Primitive::Int, BigInt::from_i16);
-from_native_to_primitive!(i32, Primitive::Int, BigInt::from_i32);
-from_native_to_primitive!(i64, Primitive::Int, BigInt::from_i64);
-from_native_to_primitive!(u8, Primitive::Int, BigInt::from_u8);
-from_native_to_primitive!(u16, Primitive::Int, BigInt::from_u16);
-from_native_to_primitive!(u32, Primitive::Int, BigInt::from_u32);
-from_native_to_primitive!(u64, Primitive::Int, BigInt::from_u64);
+from_native_to_primitive!(i8, Primitive::Int, i64::from_i8);
+from_native_to_primitive!(i16, Primitive::Int, i64::from_i16);
+from_native_to_primitive!(i32, Primitive::Int, i64::from_i32);
+from_native_to_primitive!(i64, Primitive::Int, i64::from_i64);
+from_native_to_primitive!(u8, Primitive::Int, i64::from_u8);
+from_native_to_primitive!(u16, Primitive::Int, i64::from_u16);
+from_native_to_primitive!(u32, Primitive::Int, i64::from_u32);
+from_native_to_primitive!(u64, Primitive::BigInt, BigInt::from_u64);
 from_native_to_primitive!(f32, Primitive::Decimal, BigDecimal::from_f32);
 from_native_to_primitive!(f64, Primitive::Decimal, BigDecimal::from_f64);
 
@@ -410,6 +412,7 @@ impl ShellTypeName for Primitive {
         match self {
             Primitive::Nothing => "nothing",
             Primitive::Int(_) => "integer",
+            Primitive::BigInt(_) => "big integer",
             Primitive::Range(_) => "range",
             Primitive::Decimal(_) => "decimal",
             Primitive::Filesize(_) => "filesize(in bytes)",
@@ -454,6 +457,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
+        Primitive::BigInt(i) => i.to_string(),
         Primitive::Decimal(decimal) => {
             // TODO: We should really pass the precision in here instead of hard coding it
             let decimal_string = decimal.to_string();

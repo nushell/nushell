@@ -10,18 +10,18 @@ use crate::{hir, Dictionary, PositionalType, Primitive, SyntaxShape, UntaggedVal
 use crate::{PathMember, ShellTypeName};
 use derive_new::new;
 
-use nu_errors::ParseError;
+use nu_errors::{ParseError, ShellError};
 use nu_source::{
     DbgDocBldr, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
 use nu_source::{IntoSpanned, Span, Spanned, SpannedItem, Tag};
 
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use indexmap::IndexMap;
 use log::trace;
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::identities::Zero;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct InternalCommand {
@@ -363,7 +363,7 @@ pub enum Unit {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub enum Member {
     String(/* outer */ Span, /* inner */ Span),
-    Int(BigInt, Span),
+    Int(i64, Span),
     Bare(Spanned<String>),
 }
 
@@ -371,7 +371,7 @@ impl Member {
     pub fn to_path_member(&self) -> PathMember {
         match self {
             //Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
-            Member::Int(int, span) => PathMember::int(int.clone(), *span),
+            Member::Int(int, span) => PathMember::int(*int, *span),
             Member::Bare(spanned_string) => {
                 PathMember::string(spanned_string.item.clone(), spanned_string.span)
             }
@@ -402,13 +402,32 @@ impl HasSpan for Member {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub enum Number {
-    Int(BigInt),
+    BigInt(BigInt),
+    Int(i64),
     Decimal(BigDecimal),
+}
+
+impl Number {
+    pub fn to_i64(&self) -> Result<i64, ShellError> {
+        match self {
+            Number::BigInt(bi) => match bi.to_i64() {
+                Some(i) => Ok(i),
+                None => Err(ShellError::untagged_runtime_error(
+                    "Cannot convert bigint to i64, too large",
+                )),
+            },
+            Number::Int(i) => Ok(*i),
+            Number::Decimal(_) => Err(ShellError::untagged_runtime_error(
+                "Cannont convert decimal to i64",
+            )),
+        }
+    }
 }
 
 impl PrettyDebug for Number {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
+            Number::BigInt(int) => DbgDocBldr::primitive(int),
             Number::Int(int) => DbgDocBldr::primitive(int),
             Number::Decimal(decimal) => DbgDocBldr::primitive(decimal),
         }
@@ -420,13 +439,13 @@ macro_rules! primitive_int {
         $(
             impl From<$ty> for Number {
                 fn from(int: $ty) -> Number {
-                    Number::Int(BigInt::zero() + int)
+                    Number::BigInt(BigInt::zero() + int)
                 }
             }
 
             impl From<&$ty> for Number {
                 fn from(int: &$ty) -> Number {
-                    Number::Int(BigInt::zero() + *int)
+                    Number::BigInt(BigInt::zero() + *int)
                 }
             }
         )*
@@ -469,8 +488,13 @@ impl std::ops::Mul for Number {
     fn mul(self, other: Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a * b),
+            (Number::BigInt(a), Number::Int(b)) => Number::BigInt(a * BigInt::from(b)),
+            (Number::Int(a), Number::BigInt(b)) => Number::BigInt(BigInt::from(a) * b),
+            (Number::BigInt(a), Number::BigInt(b)) => Number::BigInt(a * b),
             (Number::Int(a), Number::Decimal(b)) => Number::Decimal(BigDecimal::from(a) * b),
             (Number::Decimal(a), Number::Int(b)) => Number::Decimal(a * BigDecimal::from(b)),
+            (Number::BigInt(a), Number::Decimal(b)) => Number::Decimal(BigDecimal::from(a) * b),
+            (Number::Decimal(a), Number::BigInt(b)) => Number::Decimal(a * BigDecimal::from(b)),
             (Number::Decimal(a), Number::Decimal(b)) => Number::Decimal(a * b),
         }
     }
@@ -482,6 +506,7 @@ impl std::ops::Mul<u32> for Number {
 
     fn mul(self, other: u32) -> Number {
         match self {
+            Number::BigInt(left) => Number::BigInt(left * (other as i64)),
             Number::Int(left) => Number::Int(left * (other as i64)),
             Number::Decimal(left) => Number::Decimal(left * BigDecimal::from(other)),
         }
@@ -491,7 +516,8 @@ impl std::ops::Mul<u32> for Number {
 impl ToBigInt for Number {
     fn to_bigint(&self) -> Option<BigInt> {
         match self {
-            Number::Int(int) => Some(int.clone()),
+            Number::Int(int) => Some(BigInt::from(*int)),
+            Number::BigInt(int) => Some(int.clone()),
             // The BigDecimal to BigInt conversion always return Some().
             // FIXME: This conversion might not be want we want, it just remove the scale.
             Number::Decimal(decimal) => decimal.to_bigint(),
@@ -502,25 +528,6 @@ impl ToBigInt for Number {
 impl PrettyDebug for Unit {
     fn pretty(&self) -> DebugDocBuilder {
         DbgDocBldr::keyword(self.as_str())
-    }
-}
-
-pub fn convert_number_to_u64(number: &Number) -> u64 {
-    match number {
-        Number::Int(big_int) => {
-            if let Some(x) = big_int.to_u64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
-        Number::Decimal(big_decimal) => {
-            if let Some(x) = big_decimal.to_u64() {
-                x
-            } else {
-                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
-            }
-        }
     }
 }
 
@@ -553,22 +560,18 @@ impl Unit {
         let size = size.clone();
 
         match self {
-            Unit::Byte => filesize(convert_number_to_u64(&size)),
-            Unit::Kilobyte => filesize(convert_number_to_u64(&size) * 1000),
-            Unit::Megabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000),
-            Unit::Gigabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000),
-            Unit::Terabyte => filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000 * 1000),
-            Unit::Petabyte => {
-                filesize(convert_number_to_u64(&size) * 1000 * 1000 * 1000 * 1000 * 1000)
-            }
+            Unit::Byte => filesize(size),
+            Unit::Kilobyte => filesize(size * 1000),
+            Unit::Megabyte => filesize(size * 1000 * 1000),
+            Unit::Gigabyte => filesize(size * 1000 * 1000 * 1000),
+            Unit::Terabyte => filesize(size * 1000 * 1000 * 1000 * 1000),
+            Unit::Petabyte => filesize(size * 1000 * 1000 * 1000 * 1000 * 1000),
 
-            Unit::Kibibyte => filesize(convert_number_to_u64(&size) * 1024),
-            Unit::Mebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024),
-            Unit::Gibibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
-            Unit::Tebibyte => filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
-            Unit::Pebibyte => {
-                filesize(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
-            }
+            Unit::Kibibyte => filesize(size * 1024),
+            Unit::Mebibyte => filesize(size * 1024 * 1024),
+            Unit::Gibibyte => filesize(size * 1024 * 1024 * 1024),
+            Unit::Tebibyte => filesize(size * 1024 * 1024 * 1024 * 1024),
+            Unit::Pebibyte => filesize(size * 1024 * 1024 * 1024 * 1024 * 1024),
 
             Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
@@ -614,8 +617,19 @@ impl Unit {
     }
 }
 
-pub fn filesize(size_in_bytes: impl Into<BigInt>) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Filesize(size_in_bytes.into()))
+pub fn filesize(size_in_bytes: Number) -> UntaggedValue {
+    match size_in_bytes {
+        Number::Int(i) => UntaggedValue::Primitive(Primitive::Filesize(i as u64)),
+        Number::BigInt(bi) => match bi.to_u64() {
+            Some(i) => UntaggedValue::Primitive(Primitive::Filesize(i)),
+            None => UntaggedValue::Error(ShellError::untagged_runtime_error(
+                "Big int too large to convert to filesize",
+            )),
+        },
+        Number::Decimal(_) => UntaggedValue::Error(ShellError::untagged_runtime_error(
+            "Decimal can't convert to filesize",
+        )),
+    }
 }
 
 pub fn duration(nanos: BigInt) -> UntaggedValue {
@@ -1069,8 +1083,12 @@ impl IntoSpanned for Expression {
 }
 
 impl Expression {
-    pub fn integer(i: BigInt) -> Expression {
+    pub fn integer(i: i64) -> Expression {
         Expression::Literal(Literal::Number(Number::Int(i)))
+    }
+
+    pub fn big_integer(i: BigInt) -> Expression {
+        Expression::Literal(Literal::Number(Number::BigInt(i)))
     }
 
     pub fn decimal(dec: BigDecimal) -> Expression {
@@ -1116,7 +1134,7 @@ impl Expression {
 
     pub fn unit(i: Spanned<i64>, unit: Spanned<Unit>) -> Expression {
         Expression::Literal(Literal::Size(
-            Number::Int(BigInt::from(i.item)).spanned(i.span),
+            Number::BigInt(BigInt::from(i.item)).spanned(i.span),
             unit,
         ))
     }

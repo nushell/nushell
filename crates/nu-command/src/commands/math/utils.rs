@@ -34,7 +34,9 @@ pub fn run_with_function(
     }
 }
 
-pub type IntFunction = fn(val: BigInt) -> Value;
+pub type BigIntFunction = fn(val: BigInt) -> Value;
+
+pub type IntFunction = fn(val: i64) -> Value;
 
 pub type DecimalFunction = fn(val: BigDecimal) -> Value;
 
@@ -43,11 +45,13 @@ pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
 pub fn run_with_numerical_functions_on_stream(
     input: InputStream,
     int_function: IntFunction,
+    big_int_function: BigIntFunction,
     decimal_function: DecimalFunction,
     default_function: DefaultFunction,
 ) -> Result<OutputStream, ShellError> {
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => int_function(val),
+        UntaggedValue::Primitive(Primitive::BigInt(val)) => big_int_function(val),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
         other => default_function(other),
     });
