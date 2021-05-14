@@ -1,9 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use num_bigint::ToBigInt;
 
 pub struct SubCommand;
