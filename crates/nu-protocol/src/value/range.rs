@@ -72,7 +72,7 @@ impl Range {
         let (from, range_incl) = &self.from;
 
         let minval = if let Primitive::Nothing = from.item {
-            i64::MIN
+            0
         } else {
             from.item.as_i64(from.span)?
         };
