@@ -7,6 +7,7 @@ use nu_protocol::{
     hir::CapturedBlock, ColumnPath, Dictionary, Primitive, Range, UntaggedValue, Value,
 };
 use nu_source::{Tagged, TaggedItem};
+use num_bigint::BigInt;
 
 pub trait FromValue: Sized {
     fn from_value(v: &Value) -> Result<Self, ShellError>;
@@ -24,12 +25,12 @@ impl FromValue for num_bigint::BigInt {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Int(i)),
                 ..
-            }
-            | Value {
+            } => Ok(BigInt::from(*i)),
+            Value {
                 value: UntaggedValue::Primitive(Primitive::Filesize(i)),
                 ..
-            }
-            | Value {
+            } => Ok(BigInt::from(*i)),
+            Value {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
             } => Ok(i.clone()),

@@ -107,6 +107,12 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         out!("{}", n);
                     }
                     Value {
+                        value: UntaggedValue::Primitive(Primitive::BigInt(n)),
+                        ..
+                    } => {
+                        out!("{}", n);
+                    }
+                    Value {
                         value: UntaggedValue::Primitive(Primitive::Decimal(n)),
                         ..
                     } => {

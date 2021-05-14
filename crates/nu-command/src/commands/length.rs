@@ -94,7 +94,7 @@ impl Iterator for CountIterator {
             input.count()
         };
 
-        Some(UntaggedValue::int(length).into_value(self.tag.clone()))
+        Some(UntaggedValue::int(length as i64).into_value(self.tag.clone()))
     }
 }
 

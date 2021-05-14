@@ -23,7 +23,7 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
     for pid in result.into_iter() {
         if let Some(result) = sys.get_process(pid) {
             let mut dict = TaggedDictBuilder::new(&tag);
-            dict.insert_untagged("pid", UntaggedValue::int(pid));
+            dict.insert_untagged("pid", UntaggedValue::int(pid as i64));
             dict.insert_untagged("name", UntaggedValue::string(result.name()));
             dict.insert_untagged(
                 "status",
@@ -41,7 +41,7 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
 
             if long {
                 if let Some(parent) = result.parent() {
-                    dict.insert_untagged("parent", UntaggedValue::int(parent));
+                    dict.insert_untagged("parent", UntaggedValue::int(parent as i64));
                 } else {
                     dict.insert_untagged("parent", UntaggedValue::nothing());
                 }

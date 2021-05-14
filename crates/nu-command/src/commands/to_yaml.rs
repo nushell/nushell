@@ -51,6 +51,9 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             })?))
         }
         UntaggedValue::Primitive(Primitive::Int(i)) => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(*i))
+        }
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
                 i.tagged(&v.tag),
                 "converting to YAML number",
@@ -67,12 +70,9 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                     UnspannedPathMember::String(string) => {
                         out.push(serde_yaml::Value::String(string.clone()))
                     }
-                    UnspannedPathMember::Int(int) => out.push(serde_yaml::Value::Number(
-                        serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
-                            int.tagged(&member.span),
-                            "converting to YAML number",
-                        )?),
-                    )),
+                    UnspannedPathMember::Int(int) => {
+                        out.push(serde_yaml::Value::Number(serde_yaml::Number::from(*int)))
+                    }
                 }
             }
 

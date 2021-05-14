@@ -9,9 +9,6 @@ use nu_protocol::{
 use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 
-use num_bigint::BigInt;
-use num_traits::Num;
-
 struct Arguments {
     radix: Option<Tagged<u32>>,
     column_paths: Vec<ColumnPath>,
@@ -106,7 +103,7 @@ fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, Shell
 
             let out = match trimmed {
                 b if b.starts_with("0b") => {
-                    let num = match BigInt::from_str_radix(b.trim_start_matches("0b"), 2) {
+                    let num = match i64::from_str_radix(b.trim_start_matches("0b"), 2) {
                         Ok(n) => n,
                         Err(reason) => {
                             return Err(ShellError::labeled_error(
@@ -119,7 +116,7 @@ fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, Shell
                     UntaggedValue::int(num)
                 }
                 h if h.starts_with("0x") => {
-                    let num = match BigInt::from_str_radix(h.trim_start_matches("0x"), 16) {
+                    let num = match i64::from_str_radix(h.trim_start_matches("0x"), 16) {
                         Ok(n) => n,
                         Err(reason) => {
                             return Err(ShellError::labeled_error(
@@ -132,7 +129,7 @@ fn action(input: &Value, tag: impl Into<Tag>, radix: u32) -> Result<Value, Shell
                     UntaggedValue::int(num)
                 }
                 _ => {
-                    let num = match BigInt::from_str_radix(trimmed, radix) {
+                    let num = match i64::from_str_radix(trimmed, radix) {
                         Ok(n) => n,
                         Err(reason) => {
                             return Err(ShellError::labeled_error(

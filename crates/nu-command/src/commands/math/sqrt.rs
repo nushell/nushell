@@ -46,10 +46,18 @@ fn operate(args: CommandArgs) -> OutputStream {
 fn sqrt_big_decimal(val: BigDecimal) -> Value {
     let squared = val.sqrt();
     match squared {
-        None => UntaggedValue::Error(ShellError::unexpected("Cant square root a negative number"))
-            .into(),
+        None => UntaggedValue::Error(ShellError::untagged_runtime_error(
+            "Can't square root a negative number",
+        ))
+        .into(),
         Some(val) if !val.is_integer() => UntaggedValue::decimal(val.normalized()).into(),
-        Some(val) => UntaggedValue::int(val.with_scale(0).as_bigint_and_exponent().0).into(),
+        Some(val) => match val.to_i64() {
+            Some(x) => UntaggedValue::int(x).into(),
+            None => UntaggedValue::Error(ShellError::untagged_runtime_error(
+                "Value too large to convert to 64-bit integer",
+            ))
+            .into(),
+        },
     }
 }
 

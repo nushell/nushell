@@ -147,12 +147,12 @@ fn action(
 
             if *end {
                 if let Some(result) = s[start_index..end_index].rfind(&**pattern) {
-                    Ok(UntaggedValue::int(result + start_index).into_value(tag))
+                    Ok(UntaggedValue::int(result as i64 + start_index as i64).into_value(tag))
                 } else {
                     Ok(UntaggedValue::int(-1).into_value(tag))
                 }
             } else if let Some(result) = s[start_index..end_index].find(&**pattern) {
-                Ok(UntaggedValue::int(result + start_index).into_value(tag))
+                Ok(UntaggedValue::int(result as i64 + start_index as i64).into_value(tag))
             } else {
                 Ok(UntaggedValue::int(-1).into_value(tag))
             }

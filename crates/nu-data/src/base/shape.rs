@@ -21,10 +21,11 @@ pub struct InlineRange {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub enum InlineShape {
     Nothing,
-    Int(BigInt),
+    Int(i64),
+    BigInt(BigInt),
     Decimal(BigDecimal),
     Range(Box<InlineRange>),
-    Bytesize(BigInt),
+    Bytesize(u64),
     String(String),
     Line(String),
     ColumnPath(ColumnPath),
@@ -74,7 +75,8 @@ impl InlineShape {
     pub fn from_primitive(primitive: &Primitive) -> InlineShape {
         match primitive {
             Primitive::Nothing => InlineShape::Nothing,
-            Primitive::Int(int) => InlineShape::Int(int.clone()),
+            Primitive::Int(int) => InlineShape::Int(*int),
+            Primitive::BigInt(int) => InlineShape::BigInt(int.clone()),
             Primitive::Range(range) => {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;
@@ -85,7 +87,7 @@ impl InlineShape {
                 }))
             }
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
-            Primitive::Filesize(bytesize) => InlineShape::Bytesize(bytesize.clone()),
+            Primitive::Filesize(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::GlobPattern(pattern) => InlineShape::GlobPattern(pattern.clone()),
@@ -147,7 +149,7 @@ impl InlineShape {
         }
     }
 
-    pub fn format_bytes(bytesize: &BigInt, forced_format: Option<&str>) -> (DbgDocBldr, String) {
+    pub fn format_bytes(bytesize: u64, forced_format: Option<&str>) -> (DbgDocBldr, String) {
         use bigdecimal::ToPrimitive;
 
         // get the config value, if it doesn't exist make it 'auto' so it works how it originally did
@@ -236,6 +238,7 @@ impl PrettyDebug for FormatInlineShape {
         match &self.shape {
             InlineShape::Nothing => DbgDocBldr::blank(),
             InlineShape::Int(int) => DbgDocBldr::primitive(format!("{}", int)),
+            InlineShape::BigInt(int) => DbgDocBldr::primitive(format!("{}", int)),
             InlineShape::Decimal(decimal) => DbgDocBldr::description(format_primitive(
                 &Primitive::Decimal(decimal.clone()),
                 None,
@@ -258,7 +261,7 @@ impl PrettyDebug for FormatInlineShape {
                     + right.clone().format().pretty()
             }
             InlineShape::Bytesize(bytesize) => {
-                let bytes = InlineShape::format_bytes(bytesize, None);
+                let bytes = InlineShape::format_bytes(*bytesize, None);
                 bytes.0
             }
             InlineShape::String(string) => DbgDocBldr::primitive(string),

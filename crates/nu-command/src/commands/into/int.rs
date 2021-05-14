@@ -4,7 +4,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use num_bigint::{BigInt, ToBigInt};
+use num_bigint::ToBigInt;
 
 pub struct SubCommand;
 
@@ -118,20 +118,34 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
                 }
             },
             Primitive::Decimal(dec) => match dec.to_bigint() {
-                Some(n) => n,
+                Some(n) => match n.to_i64() {
+                    Some(i) => i,
+                    None => {
+                        return Err(ShellError::unimplemented(
+                            "failed to convert decimal to int",
+                        ));
+                    }
+                },
                 None => {
                     return Err(ShellError::unimplemented(
                         "failed to convert decimal to int",
                     ));
                 }
             },
-            Primitive::Int(n_ref) => n_ref.to_owned(),
+            Primitive::Int(n_ref) => *n_ref,
             Primitive::Boolean(a_bool) => match a_bool {
-                false => BigInt::from(0),
-                true => BigInt::from(1),
+                false => 0,
+                true => 1,
             },
             Primitive::Filesize(a_filesize) => match a_filesize.to_bigint() {
-                Some(n) => n,
+                Some(n) => match n.to_i64() {
+                    Some(i) => i,
+                    None => {
+                        return Err(ShellError::unimplemented(
+                            "failed to convert filesize to bigint",
+                        ));
+                    }
+                },
                 None => {
                     return Err(ShellError::unimplemented(
                         "failed to convert filesize to bigint",
@@ -154,13 +168,17 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     }
 }
 
-fn int_from_string(a_string: &str, tag: &Tag) -> Result<BigInt, ShellError> {
-    match a_string.parse::<BigInt>() {
+fn int_from_string(a_string: &str, tag: &Tag) -> Result<i64, ShellError> {
+    match a_string.parse::<i64>() {
         Ok(n) => Ok(n),
         Err(_) => match a_string.parse::<f64>() {
-            Ok(res_float) => match res_float.to_bigint() {
-                Some(n) => Ok(n),
-                None => Err(ShellError::unimplemented("failed to convert f64 to int")),
+            Ok(f) => match f.to_i64() {
+                Some(i) => Ok(i),
+                None => Err(ShellError::labeled_error(
+                    "Could not convert string value to int",
+                    "original value",
+                    tag.clone(),
+                )),
             },
             Err(_) => Err(ShellError::labeled_error(
                 "Could not convert string value to int",

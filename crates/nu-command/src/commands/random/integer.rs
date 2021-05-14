@@ -62,9 +62,9 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let (min, max) = if let Some(range) = &cmd_args.range {
-        (range.min_u64()?, range.max_u64()?)
+        (range.min_i64()?, range.max_i64()?)
     } else {
-        (0, u64::MAX)
+        (0, i64::MAX)
     };
 
     match min.cmp(&max) {
@@ -83,7 +83,7 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut thread_rng = thread_rng();
             // add 1 to max, because gen_range is right-exclusive
             let max = max.saturating_add(1);
-            let result: u64 = thread_rng.gen_range(min, max);
+            let result: i64 = thread_rng.gen_range(min, max);
 
             Ok(OutputStream::one(
                 UntaggedValue::int(result).into_value(Tag::unknown()),

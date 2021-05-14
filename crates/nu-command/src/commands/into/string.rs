@@ -130,6 +130,13 @@ pub fn action(
         UntaggedValue::Primitive(prim) => Ok(UntaggedValue::string(match prim {
             Primitive::Int(int) => {
                 if group_digits {
+                    format_int(*int) // int.to_formatted_string(*locale)
+                } else {
+                    int.to_string()
+                }
+            }
+            Primitive::BigInt(int) => {
+                if group_digits {
                     format_bigint(int) // int.to_formatted_string(*locale)
                 } else {
                     int.to_string()
@@ -141,7 +148,7 @@ pub fn action(
             Primitive::Date(a_date) => a_date.format("%c").to_string(),
             Primitive::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
             Primitive::Filesize(a_filesize) => {
-                let byte_string = InlineShape::format_bytes(a_filesize, None);
+                let byte_string = InlineShape::format_bytes(*a_filesize, None);
                 byte_string.1
             }
             _ => {
@@ -160,6 +167,23 @@ pub fn action(
             "str from for non-primitive, non-table types",
         )),
     }
+}
+
+fn format_int(int: i64) -> String {
+    format!("{}", int)
+
+    // TODO once platform-specific dependencies are stable (see Cargo.toml)
+    // #[cfg(windows)]
+    // {
+    //     int.to_formatted_string(&Locale::en)
+    // }
+    // #[cfg(not(windows))]
+    // {
+    //     match SystemLocale::default() {
+    //         Ok(locale) => int.to_formatted_string(&locale),
+    //         Err(_) => int.to_formatted_string(&Locale::en),
+    //     }
+    // }
 }
 
 fn format_bigint(int: &BigInt) -> String {
