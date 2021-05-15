@@ -2,20 +2,10 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 
 use base64::{decode_config, encode_config};
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    pub rest: Vec<ColumnPath>,
-    pub character_set: Option<Tagged<String>>,
-    pub encode: Tagged<bool>,
-    pub decode: Tagged<bool>,
-}
 
 #[derive(Clone)]
 pub struct Base64Config {
@@ -46,13 +36,13 @@ impl WholeStreamCommand for SubCommand {
                 Some('c'),
             )
             .switch(
-                "encode", 
-                "encode the input as base64. This is the default behavior if not specified.", 
+                "encode",
+                "encode the input as base64. This is the default behavior if not specified.",
                 Some('e')
             )
             .switch(
-                "decode", 
-                "decode the input from base64", 
+                "decode",
+                "decode the input from base64",
                 Some('d'))
             .rest(
                 SyntaxShape::ColumnPath,
@@ -64,7 +54,7 @@ impl WholeStreamCommand for SubCommand {
         "base64 encode or decode a value"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -95,29 +85,25 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
+    let args = args.evaluate_once()?;
 
-    let (
-        Arguments {
-            encode,
-            decode,
-            character_set,
-            rest,
-        },
-        input,
-    ) = args.process()?;
+    let encode = args.has_flag("encode");
+    let decode = args.has_flag("decode");
+    let character_set: Option<Tagged<String>> = args.get_flag("character_set")?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    if encode.item && decode.item {
-        return Ok(ActionStream::one(Err(ShellError::labeled_error(
+    if encode && decode {
+        return Err(ShellError::labeled_error(
             "only one of --decode and --encode flags can be used",
             "conflicting flags",
             name_tag,
-        ))));
+        ));
     }
 
     // Default the action to be encoding if no flags are specified.
-    let action_type = if *decode.item() {
+    let action_type = if decode {
         ActionType::Decode
     } else {
         ActionType::Encode
@@ -134,12 +120,11 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         action_type,
     };
 
-    let column_paths: Vec<_> = rest;
-
-    Ok(input
+    Ok(args
+        .input
         .map(move |v| {
             if column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, &encoding_config, v.tag())?)
+                action(&v, &encoding_config, v.tag())
             } else {
                 let mut ret = v;
 
@@ -151,10 +136,10 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .to_action_stream())
+        .to_input_stream())
 }
 
 fn action(
@@ -182,7 +167,7 @@ fn action(
                 return Err(ShellError::labeled_error(
                     "value is not an accepted character set",
                     format!(
-                        "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.", 
+                        "{} is not a valid character-set.\nPlease use `help hash base64` to see a list of valid character sets.",
                         &base64_config.character_set
                     ),
                     tag.into().span,

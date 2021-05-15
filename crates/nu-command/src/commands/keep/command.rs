@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rows: Option<Tagged<usize>>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "keep"
@@ -28,7 +23,7 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         keep(args)
     }
 
@@ -53,15 +48,17 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn keep(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { rows }, input) = args.process()?;
+fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+    let rows: Option<Tagged<usize>> = args.opt(0)?;
+
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
         1
     };
 
-    Ok(input.take(rows_desired).to_action_stream())
+    Ok(args.input.take(rows_desired).to_output_stream())
 }
 
 #[cfg(test)]
