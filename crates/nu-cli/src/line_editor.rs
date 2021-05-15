@@ -19,7 +19,8 @@ use rustyline::{
     config::Configurer,
     config::{ColorMode, CompletionType, Config},
     error::ReadlineError,
-    At, Cmd, Editor, Movement, Word,
+    line_buffer::LineBuffer,
+    At, Cmd, ConditionalEventHandler, Editor, EventHandler, Movement, Word,
 };
 
 #[cfg(feature = "rustyline-support")]
@@ -33,6 +34,34 @@ pub fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) 
             outln!("Error: {:?}", err);
             LineResult::Break
         }
+    }
+}
+
+#[derive(Clone)]
+#[cfg(feature = "rustyline-support")]
+struct PartialCompleteHintHandler;
+
+#[cfg(feature = "rustyline-support")]
+impl ConditionalEventHandler for PartialCompleteHintHandler {
+    fn handle(
+        &self,
+        _evt: &rustyline::Event,
+        _n: rustyline::RepeatCount,
+        _positive: bool,
+        ctx: &rustyline::EventContext,
+    ) -> Option<Cmd> {
+        Some(match ctx.hint_text() {
+            Some(hint_text) if ctx.pos() == ctx.line().len() => {
+                let mut line_buffer = LineBuffer::with_capacity(hint_text.len());
+                line_buffer.update(hint_text, 0);
+                line_buffer.move_to_next_word(At::AfterEnd, Word::Vi, 1);
+
+                let text = hint_text[0..line_buffer.pos()].to_string();
+
+                Cmd::Insert(1, text)
+            }
+            _ => Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+        })
     }
 }
 
@@ -56,7 +85,7 @@ pub fn default_rustyline_editor_configuration() -> Editor<Helper> {
     );
     rl.bind_sequence(
         convert_keyevent(KeyEvent::ControlRight),
-        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+        EventHandler::Conditional(Box::new(PartialCompleteHintHandler)),
     );
 
     // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
