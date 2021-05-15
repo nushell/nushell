@@ -253,6 +253,10 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(TermSize),
             #[cfg(feature = "dataframe")]
             whole_stream_command(Dataframe),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataframeLoad),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataframeList),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
