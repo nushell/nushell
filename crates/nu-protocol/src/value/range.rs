@@ -38,36 +38,6 @@ pub struct Range {
 }
 
 impl Range {
-    pub fn min_i64(&self) -> Result<i64, ShellError> {
-        let (from, range_incl) = &self.from;
-
-        let minval = if let Primitive::Nothing = from.item {
-            i64::MIN
-        } else {
-            from.item.as_i64(from.span)?
-        };
-
-        match range_incl {
-            RangeInclusion::Inclusive => Ok(minval),
-            RangeInclusion::Exclusive => Ok(minval.saturating_add(1)),
-        }
-    }
-
-    pub fn max_i64(&self) -> Result<i64, ShellError> {
-        let (to, range_incl) = &self.to;
-
-        let maxval = if let Primitive::Nothing = to.item {
-            i64::MAX
-        } else {
-            to.item.as_i64(to.span)?
-        };
-
-        match range_incl {
-            RangeInclusion::Inclusive => Ok(maxval),
-            RangeInclusion::Exclusive => Ok(maxval.saturating_sub(1)),
-        }
-    }
-
     pub fn min_u64(&self) -> Result<u64, ShellError> {
         let (from, range_incl) = &self.from;
 
