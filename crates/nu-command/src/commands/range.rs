@@ -38,7 +38,7 @@ impl WholeStreamCommand for Range {
             },
             Example {
                 description: "Return the third row from the end, through to the end",
-                example: "echo [1 2 3 4 5] | range (-3)..",
+                example: "echo [1 2 3 4 5] | range (-3..)",
                 result: Some(vec![
                     UntaggedValue::int(3).into(),
                     UntaggedValue::int(4).into(),

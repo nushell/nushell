@@ -58,7 +58,7 @@ fn negative_indices() {
             r#"
                 ls
                 | get name
-                | range (-1)..
+                | range (-1..)
                 | length
             "#
         ));
