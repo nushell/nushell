@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 struct RangeArgs {
     range: nu_protocol::Range,
@@ -34,7 +34,8 @@ impl WholeStreamCommand for Range {
                 result: Some(vec![
                     UntaggedValue::int(2).into(),
                     UntaggedValue::int(3).into(),
-                    UntaggedValue::int(4).into()])
+                    UntaggedValue::int(4).into(),
+                ]),
             },
             Example {
                 description: "Return the third row from the end, through to the end",
@@ -42,8 +43,9 @@ impl WholeStreamCommand for Range {
                 result: Some(vec![
                     UntaggedValue::int(3).into(),
                     UntaggedValue::int(4).into(),
-                    UntaggedValue::int(5).into()])
-            }
+                    UntaggedValue::int(5).into(),
+                ]),
+            },
         ]
     }
 
