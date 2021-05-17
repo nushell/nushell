@@ -114,6 +114,12 @@ impl WholeStreamCommand for RunExternalCommand {
             external_redirection,
         );
 
+        // When externals return, don't let them mess up the ansi escapes
+        #[cfg(windows)]
+        {
+            let _ = nu_ansi_term::enable_ansi_support();
+        }
+
         Ok(result?.to_action_stream())
     }
 }
