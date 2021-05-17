@@ -151,16 +151,9 @@ fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, Sh
     let skip_rows: Option<Tagged<usize>> = args.get_flag("skip_rows")?;
     let columns: Option<Vec<Value>> = args.get_flag("columns")?;
 
-    let csv_reader = match CsvReader::from_path(&file.item) {
-        Ok(csv_reader) => csv_reader,
-        Err(e) => {
-            return Err(ShellError::labeled_error(
-                "Unable to parse file",
-                format!("{}", e),
-                &file.tag,
-            ))
-        }
-    };
+    let csv_reader = CsvReader::from_path(&file.item).map_err(|e| {
+        ShellError::labeled_error("Unable to parse file", format!("{}", e), &file.tag)
+    })?;
 
     let csv_reader = match delimiter {
         None => csv_reader,
