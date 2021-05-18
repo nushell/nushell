@@ -5348,8 +5348,9 @@ checksum = "cb5d2a036dc6d2d8fd16fde3498b04306e29bd193bf306a57427019b823d5acd"
 
 [[package]]
 name = "rustyline"
-version = "8.0.0"
-source = "git+https://github.com/kkawakam/rustyline.git#795867591dc72c2be172af45aabd1c6ecd579225"
+version = "8.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53e628a0a8e3e278dc96badc1f54492e5c5201037c7df14935c8b9571e9d2923"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
