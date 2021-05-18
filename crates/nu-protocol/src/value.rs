@@ -828,7 +828,7 @@ pub trait U64Ext {
 impl U64Ext for u64 {
     fn to_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::BigInt(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self as i64)),
             tag: the_tag,
         }
     }
@@ -843,7 +843,7 @@ impl U64Ext for u64 {
     fn to_value_create_tag(&self) -> Value {
         let end = self.to_string().len();
         Value {
-            value: UntaggedValue::Primitive(Primitive::BigInt(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self as i64)),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),
@@ -852,7 +852,7 @@ impl U64Ext for u64 {
     }
 
     fn to_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::big_int(*self)
+        UntaggedValue::int(*self as i64)
     }
 
     fn to_duration_untagged_value(&self) -> UntaggedValue {
