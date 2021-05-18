@@ -4,13 +4,13 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct PathJoin;
 
 struct PathJoinArguments {
     rest: Vec<ColumnPath>,
-    append: Option<Tagged<String>>,
+    append: Option<Tagged<PathBuf>>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
@@ -29,7 +29,7 @@ impl WholeStreamCommand for PathJoin {
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "append",
-                SyntaxShape::String,
+                SyntaxShape::FilePath,
                 "Path to append to the input",
                 Some('a'),
             )
@@ -41,7 +41,7 @@ impl WholeStreamCommand for PathJoin {
 
     fn extra_usage(&self) -> &str {
         r#"Optionally, append an additional path to the result. It is designed to accept
-the output of 'path parse' and 'path split' subdommands."#
+the output of 'path parse' and 'path split' subcommands."#
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
