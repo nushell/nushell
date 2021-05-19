@@ -57,10 +57,13 @@ impl WholeStreamCommand for Each {
             },
             Example {
                 description: "Name the block variable that each uses",
-                example:
-                    "[1, 2, 3] | each {|x| $x + 100}",
-                result: Some(vec![UntaggedValue::int(101).into(), UntaggedValue::int(102).into(), UntaggedValue::int(103).into()]),
-            }
+                example: "[1, 2, 3] | each {|x| $x + 100}",
+                result: Some(vec![
+                    UntaggedValue::int(101).into(),
+                    UntaggedValue::int(102).into(),
+                    UntaggedValue::int(103).into(),
+                ]),
+            },
         ]
     }
 }
