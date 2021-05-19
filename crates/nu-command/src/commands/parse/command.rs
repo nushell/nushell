@@ -51,14 +51,14 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let regex: bool = args.has_flag("regex");
 
     let regex_pattern = if regex {
-        Regex::new(&pattern.item).map_err(|e| {
-            ShellError::labeled_error("Invalid regex", format!("{}", e), pattern.tag.span)
+        Regex::new(&pattern.item).map_err(|_| {
+            ShellError::labeled_error("Invalid regex", "invalid regex", pattern.tag.span)
         })?
     } else {
         let parse_regex = build_regex(&pattern.item, name_tag.clone())?;
 
-        Regex::new(&parse_regex).map_err(|e| {
-            ShellError::labeled_error("Invalid pattern", format!("{}", e), name_tag.span)
+        Regex::new(&parse_regex).map_err(|_| {
+            ShellError::labeled_error("Invalid pattern", "invalid pattern", pattern.tag.span)
         })?
     };
 
