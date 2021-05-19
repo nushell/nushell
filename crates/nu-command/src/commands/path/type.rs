@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathType {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathTypeArguments {
-            rest: args.rest_args()?,
+            rest: args.rest(0)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

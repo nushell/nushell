@@ -43,7 +43,7 @@ impl WholeStreamCommand for PathBasename {
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathBasenameArguments {
-            rest: args.rest_args()?,
+            rest: args.rest(0)?,
             replace: args.get_flag("replace")?,
         });
 

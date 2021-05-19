@@ -73,7 +73,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(Arguments {
             decimals: params.get_flag("decimals")?,
             group_digits: false,
-            column_paths: params.rest_args()?,
+            column_paths: params.rest(0)?,
         })
     })?;
 
