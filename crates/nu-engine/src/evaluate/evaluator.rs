@@ -159,7 +159,7 @@ pub fn evaluate_baseline_expr(
                     .into_value(&tag),
             )
         }
-        Expression::Path(path) => {
+        Expression::FullColumnPath(path) => {
             let value = evaluate_baseline_expr(&path.head, ctx)?;
             let mut item = value;
 

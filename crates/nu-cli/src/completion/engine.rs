@@ -37,7 +37,7 @@ impl<'s> Flatten<'s> {
                 )
                 .collect(),
             Expression::Command => vec![LocationType::Command.spanned(e.span)],
-            Expression::Path(path) => self.expression(&path.head),
+            Expression::FullColumnPath(path) => self.expression(&path.head),
             Expression::Variable(_, _) => vec![LocationType::Variable.spanned(e.span)],
 
             Expression::Boolean(_)

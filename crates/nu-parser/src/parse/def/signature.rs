@@ -87,7 +87,7 @@ pub fn parse_signature(
             i += advanced_by;
             rest = rest_;
         } else {
-            let (parameter, advanced_by, error) = parse_parameter(&tokens[i..], signature_vec);
+            let (parameter, advanced_by, error) = parse_parameter(&tokens[i..], signature_vec.span);
             err = err.or(error);
             i += advanced_by;
             parameters.push(parameter);
@@ -100,16 +100,13 @@ pub fn parse_signature(
     (signature, err)
 }
 
-fn parse_parameter(
-    tokens: &[Token],
-    tokens_as_str: &Spanned<String>,
-) -> (Parameter, usize, Option<ParseError>) {
+pub fn parse_parameter(tokens: &[Token], span: Span) -> (Parameter, usize, Option<ParseError>) {
     if tokens.is_empty() {
         //TODO fix span
         return (
             Parameter::error(),
             0,
-            Some(ParseError::unexpected_eof("parameter", tokens_as_str.span)),
+            Some(ParseError::unexpected_eof("parameter", span)),
         );
     }
 
@@ -145,9 +142,15 @@ fn parse_parameter(
     }
 
     let pos_type = if optional {
-        PositionalType::optional(&name.item, type_)
-    } else {
+        if name.item.starts_with('$') {
+            PositionalType::optional(&name.item, type_)
+        } else {
+            PositionalType::optional(&format!("${}", name.item), type_)
+        }
+    } else if name.item.starts_with('$') {
         PositionalType::mandatory(&name.item, type_)
+    } else {
+        PositionalType::mandatory(&format!("${}", name.item), type_)
     };
 
     let parameter = Parameter::new(pos_type, comment, name.span);
@@ -402,7 +405,7 @@ fn lex_split_shortflag_from_longflag(tokens: Vec<Token>) -> Vec<Token> {
 }
 //Currently the lexer does not split baselines on ',' ':' '?'
 //The parameter list requires this. Therefore here is a hacky method doing this.
-fn lex_split_baseline_tokens_on(
+pub fn lex_split_baseline_tokens_on(
     tokens: Vec<Token>,
     extra_baseline_terminal_tokens: &[char],
 ) -> Vec<Token> {
