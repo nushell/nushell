@@ -296,7 +296,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
         Expression::List(_) => Some(SyntaxShape::Table),
         Expression::Boolean(_) => Some(SyntaxShape::String),
 
-        Expression::Path(_) => Some(SyntaxShape::ColumnPath),
+        Expression::FullColumnPath(_) => Some(SyntaxShape::ColumnPath),
         Expression::FilePath(_) => Some(SyntaxShape::FilePath),
         Expression::Block(_) => Some(SyntaxShape::Block),
         Expression::ExternalCommand(_) => Some(SyntaxShape::String),
@@ -539,7 +539,7 @@ impl VarSyntaxShapeDeductor {
                 trace!("Inferring vars in block");
                 self.infer_shape(&b, scope)?;
             }
-            Expression::Path(path) => {
+            Expression::FullColumnPath(path) => {
                 trace!("Inferring vars in path");
                 match &path.head.expr {
                     //PathMember can't be var yet (?)
@@ -790,7 +790,7 @@ impl VarSyntaxShapeDeductor {
                         | Expression::Binary(_)
                         | Expression::Range(_)
                         | Expression::Block(_)
-                        | Expression::Path(_)
+                        | Expression::FullColumnPath(_)
                         | Expression::FilePath(_)
                         | Expression::ExternalCommand(_)
                         | Expression::Command

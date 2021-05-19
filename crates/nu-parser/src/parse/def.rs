@@ -16,6 +16,7 @@ use crate::lex::lexer::{lex, parse_block};
 use crate::ParserScope;
 
 use self::signature::parse_signature;
+pub use self::signature::{lex_split_baseline_tokens_on, parse_parameter};
 
 mod data_structs;
 mod primitives;

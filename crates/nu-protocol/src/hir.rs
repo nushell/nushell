@@ -315,10 +315,10 @@ impl ExternalCommand {
     pub fn has_it_usage(&self) -> bool {
         self.args.iter().any(|arg| match arg {
             SpannedExpression {
-                expr: Expression::Path(path),
+                expr: Expression::FullColumnPath(path),
                 ..
             } => {
-                let Path { head, .. } = &**path;
+                let FullColumnPath { head, .. } = &**path;
                 matches!(head, SpannedExpression{expr: Expression::Variable(x, ..), ..} if x == "$it")
             }
             _ => false,
@@ -753,7 +753,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                     ),
                     "]",
                 ),
-                Expression::Path(path) => path.pretty_debug(source),
+                Expression::FullColumnPath(path) => path.pretty_debug(source),
                 Expression::FilePath(path) => {
                     DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
                 }
@@ -808,7 +808,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 ),
                 "]",
             ),
-            Expression::Path(path) => path.pretty_debug(source),
+            Expression::FullColumnPath(path) => path.pretty_debug(source),
             Expression::FilePath(path) => {
                 DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
             }
@@ -1006,12 +1006,12 @@ impl PrettyDebugWithSource for SpannedLiteral {
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, new, Deserialize, Serialize)]
-pub struct Path {
+pub struct FullColumnPath {
     pub head: SpannedExpression,
     pub tail: Vec<PathMember>,
 }
 
-impl PrettyDebugWithSource for Path {
+impl PrettyDebugWithSource for FullColumnPath {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         self.head.pretty_debug(source)
             + DbgDocBldr::operator(".")
@@ -1033,7 +1033,7 @@ pub enum Expression {
     Block(Arc<hir::Block>),
     List(Vec<SpannedExpression>),
     Table(Vec<SpannedExpression>, Vec<Vec<SpannedExpression>>),
-    Path(Box<Path>),
+    FullColumnPath(Box<FullColumnPath>),
 
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
@@ -1063,7 +1063,7 @@ impl ShellTypeName for Expression {
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",
             Expression::Invocation(..) => "command invocation",
-            Expression::Path(..) => "variable path",
+            Expression::FullColumnPath(..) => "variable path",
             Expression::Boolean(..) => "boolean",
             Expression::ExternalCommand(..) => "external",
             Expression::Garbage => "garbage",
@@ -1129,7 +1129,7 @@ impl Expression {
 
     pub fn path(head: SpannedExpression, tail: Vec<impl Into<PathMember>>) -> Expression {
         let tail = tail.into_iter().map(|t| t.into()).collect();
-        Expression::Path(Box::new(Path::new(head, tail)))
+        Expression::FullColumnPath(Box::new(FullColumnPath::new(head, tail)))
     }
 
     pub fn unit(i: Spanned<i64>, unit: Spanned<Unit>) -> Expression {
@@ -1157,7 +1157,7 @@ impl Expression {
             Expression::List(list) => list.iter().any(|se| se.has_it_usage()),
             Expression::Invocation(block) => block.has_it_usage(),
             Expression::Binary(binary) => binary.left.has_it_usage() || binary.right.has_it_usage(),
-            Expression::Path(path) => path.head.has_it_usage(),
+            Expression::FullColumnPath(path) => path.head.has_it_usage(),
             Expression::Range(range) => {
                 (if let Some(left) = &range.left {
                     left.has_it_usage()
@@ -1203,7 +1203,7 @@ impl Expression {
                 output.extend(binary.left.get_free_variables(known_variables));
                 output.extend(binary.right.get_free_variables(known_variables));
             }
-            Expression::Path(path) => {
+            Expression::FullColumnPath(path) => {
                 output.extend(path.head.get_free_variables(known_variables));
             }
             Expression::Range(range) => {

@@ -55,6 +55,15 @@ impl WholeStreamCommand for Each {
                     "echo ['bob' 'fred'] | each --numbered { echo $\"{$it.index} is {$it.item}\" }",
                 result: Some(vec![Value::from("0 is bob"), Value::from("1 is fred")]),
             },
+            Example {
+                description: "Name the block variable that each uses",
+                example: "[1, 2, 3] | each {|x| $x + 100}",
+                result: Some(vec![
+                    UntaggedValue::int(101).into(),
+                    UntaggedValue::int(102).into(),
+                    UntaggedValue::int(103).into(),
+                ]),
+            },
         ]
     }
 }

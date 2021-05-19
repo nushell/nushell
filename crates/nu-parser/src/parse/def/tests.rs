@@ -19,11 +19,11 @@ fn simple_def_with_params() {
         sign.positional,
         vec![
             (
-                PositionalType::Optional("param1".into(), SyntaxShape::Int),
+                PositionalType::Optional("$param1".into(), SyntaxShape::Int),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::String),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::String),
                 "".into()
             ),
         ]
@@ -40,11 +40,11 @@ fn simple_def_with_optional_param_without_type() {
         sign.positional,
         vec![
             (
-                PositionalType::Optional("param1".into(), SyntaxShape::Any),
+                PositionalType::Optional("$param1".into(), SyntaxShape::Any),
                 "".into()
             ),
             (
-                PositionalType::Optional("param2".into(), SyntaxShape::Any),
+                PositionalType::Optional("$param2".into(), SyntaxShape::Any),
                 "".into()
             ),
         ]
@@ -64,11 +64,11 @@ fn simple_def_with_params_with_comment() {
         sign.positional,
         vec![
             (
-                PositionalType::Mandatory("param1".into(), SyntaxShape::FilePath),
+                PositionalType::Mandatory("$param1".into(), SyntaxShape::FilePath),
                 "My first param".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::Number),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::Number),
                 "My second param".into()
             ),
         ]
@@ -88,11 +88,11 @@ fn simple_def_with_params_without_type() {
         sign.positional,
         vec![
             (
-                PositionalType::Mandatory("param1".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param1".into(), SyntaxShape::Any),
                 "My first param".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::Number),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::Number),
                 "My second param".into()
             ),
         ]
@@ -116,23 +116,23 @@ fn oddly_but_correct_written_params() {
         sign.positional,
         vec![
             (
-                PositionalType::Mandatory("param1".into(), SyntaxShape::Int),
+                PositionalType::Mandatory("$param1".into(), SyntaxShape::Int),
                 "param1".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::Number),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::Number),
                 "My second param".into()
             ),
             (
-                PositionalType::Mandatory("param4".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param4".into(), SyntaxShape::Any),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param5".into(), SyntaxShape::FilePath),
+                PositionalType::Mandatory("$param5".into(), SyntaxShape::FilePath),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param6".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param6".into(), SyntaxShape::Any),
                 "param6".into()
             ),
         ]
@@ -225,19 +225,19 @@ fn simple_def_with_params_and_flags() {
         sign.positional,
         vec![
             (
-                PositionalType::Mandatory("param1".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param1".into(), SyntaxShape::Any),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::Table),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::Table),
                 "Param2 Doc".into()
             ),
             (
-                PositionalType::Mandatory("param3".into(), SyntaxShape::Number),
+                PositionalType::Mandatory("$param3".into(), SyntaxShape::Number),
                 "".into()
             ),
             (
-                PositionalType::Optional("param4".into(), SyntaxShape::Table),
+                PositionalType::Optional("$param4".into(), SyntaxShape::Table),
                 "Optional Param".into()
             ),
         ]
@@ -262,15 +262,15 @@ fn simple_def_with_parameters_and_flags_no_delimiter() {
         // --flag3 # Third flag
         vec![
             (
-                PositionalType::Mandatory("param1".into(), SyntaxShape::Int),
+                PositionalType::Mandatory("$param1".into(), SyntaxShape::Int),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param2".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param2".into(), SyntaxShape::Any),
                 "".into()
             ),
             (
-                PositionalType::Mandatory("param3".into(), SyntaxShape::Any),
+                PositionalType::Mandatory("$param3".into(), SyntaxShape::Any),
                 "Param3".into()
             ),
         ]
@@ -302,7 +302,7 @@ fn simple_example_signature() {
     assert_eq!(
         sign.positional,
         vec![(
-            PositionalType::Mandatory("d".into(), SyntaxShape::Int),
+            PositionalType::Mandatory("$d".into(), SyntaxShape::Int),
             "The required d parameter".into()
         )]
     );
@@ -374,7 +374,7 @@ fn simple_def_with_param_flag_and_rest() {
     assert_eq!(
         sign.positional,
         vec![(
-            PositionalType::Mandatory("d".into(), SyntaxShape::String),
+            PositionalType::Mandatory("$d".into(), SyntaxShape::String),
             "The required d parameter".into()
         )]
     );

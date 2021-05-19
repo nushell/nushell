@@ -13,12 +13,18 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::lex::tokens::{LiteBlock, LiteCommand, LitePipeline};
-use crate::path::expand_path;
 use crate::{
     lex::lexer::{lex, parse_block},
     ParserScope,
 };
+use crate::{
+    lex::{
+        lexer::Token,
+        tokens::{LiteBlock, LiteCommand, LitePipeline, TokenContents},
+    },
+    parse::def::lex_split_baseline_tokens_on,
+};
+use crate::{parse::def::parse_parameter, path::expand_path};
 
 use self::{
     def::{parse_definition, parse_definition_prototype},
@@ -919,10 +925,57 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    let (mut tokens, err) = lex(&string, lite_arg.span.start() + 1);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
+
+                    // Check to see if we have parameters
+                    let params = if matches!(
+                        tokens.first(),
+                        Some(Token {
+                            contents: TokenContents::Pipe,
+                            ..
+                        })
+                    ) {
+                        // We've found a parameter list
+                        let mut param_tokens = vec![];
+                        let mut token_iter = tokens.into_iter().skip(1);
+                        while let Some(token) = token_iter.next() {
+                            if matches!(
+                                token,
+                                Token {
+                                    contents: TokenContents::Pipe,
+                                    ..
+                                }
+                            ) {
+                                break;
+                            } else {
+                                param_tokens.push(token);
+                            }
+                        }
+                        let split_tokens =
+                            lex_split_baseline_tokens_on(param_tokens, &[',', ':', '?']);
+
+                        let mut i = 0;
+                        let mut params = vec![];
+
+                        while i < split_tokens.len() {
+                            let (parameter, advance_by, error) =
+                                parse_parameter(&split_tokens[i..], split_tokens[i].span);
+
+                            if error.is_some() {
+                                return (garbage(lite_arg.span), error);
+                            }
+                            i += advance_by;
+                            params.push(parameter);
+                        }
+
+                        tokens = token_iter.collect();
+                        params
+                    } else {
+                        vec![]
+                    };
 
                     let (lite_block, err) = parse_block(tokens);
                     if err.is_some() {
@@ -930,8 +983,19 @@ fn parse_arg(
                     }
 
                     scope.enter_scope();
-                    let (classified_block, err) = classify_block(&lite_block, scope);
+                    let (mut classified_block, err) = classify_block(&lite_block, scope);
                     scope.exit_scope();
+
+                    if !params.is_empty() && classified_block.params.positional.is_empty() {
+                        if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                            for param in params {
+                                classified_block
+                                    .params
+                                    .positional
+                                    .push((param.pos_type, param.desc.unwrap_or_default()));
+                            }
+                        }
+                    }
 
                     (
                         SpannedExpression::new(Expression::Block(classified_block), lite_arg.span),
@@ -1600,16 +1664,11 @@ fn parse_call(
             })),
             error,
         );
-    // } else if lite_cmd.parts[0].item.starts_with('(') {
-    //     let (expr, err) = parse_simple_invocation(&lite_cmd.parts[0], scope);
-    //     error = error.or(err);
-    //     return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts[0].item.starts_with('{') {
         return parse_value_call(lite_cmd, scope);
     } else if lite_cmd.parts[0].item.starts_with('$')
         || lite_cmd.parts[0].item.starts_with('\"')
         || lite_cmd.parts[0].item.starts_with('\'')
-        || lite_cmd.parts[0].item.starts_with('`')
         || lite_cmd.parts[0].item.starts_with('-')
         || lite_cmd.parts[0].item.starts_with('0')
         || lite_cmd.parts[0].item.starts_with('1')
