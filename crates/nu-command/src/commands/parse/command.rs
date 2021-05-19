@@ -6,12 +6,6 @@ use nu_source::Tagged;
 
 use regex::Regex;
 
-#[derive(Deserialize)]
-struct Arguments {
-    pattern: Tagged<String>,
-    regex: Tagged<bool>,
-}
-
 pub struct Command;
 
 impl WholeStreamCommand for Command {
@@ -33,7 +27,7 @@ impl WholeStreamCommand for Command {
         "Parse columns from string data using a simple pattern."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -49,25 +43,29 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let (Arguments { regex, pattern }, input) = args.process()?;
+    let args = args.evaluate_once()?;
 
-    let regex_pattern = if let Tagged { item: true, tag } = regex {
-        Regex::new(&pattern.item)
-            .map_err(|_| ShellError::labeled_error("Invalid regex", "invalid regex", tag.span))?
+    let pattern: Tagged<String> = args.req(0)?;
+    let regex: bool = args.has_flag("regex");
+
+    let regex_pattern = if regex {
+        Regex::new(&pattern.item).map_err(|e| {
+            ShellError::labeled_error("Invalid regex", format!("{}", e), pattern.tag.span)
+        })?
     } else {
         let parse_regex = build_regex(&pattern.item, name_tag.clone())?;
 
-        Regex::new(&parse_regex).map_err(|_| {
-            ShellError::labeled_error("Invalid pattern", "invalid pattern", name_tag.span)
+        Regex::new(&parse_regex).map_err(|e| {
+            ShellError::labeled_error("Invalid pattern", format!("{}", e), name_tag.span)
         })?
     };
 
     let columns = column_names(&regex_pattern);
     let mut parsed: VecDeque<Value> = VecDeque::new();
 
-    for v in input {
+    for v in args.input {
         match v.as_string() {
             Ok(s) => {
                 let results = regex_pattern.captures_iter(&s);
@@ -95,7 +93,7 @@ pub fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    Ok(parsed.into_iter().to_action_stream())
+    Ok(parsed.into_iter().to_output_stream())
 }
 
 fn build_regex(input: &str, tag: Tag) -> Result<String, ShellError> {
