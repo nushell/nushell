@@ -5,6 +5,7 @@ mod exists;
 mod expand;
 mod join;
 mod parse;
+mod relative_to;
 mod split;
 mod r#type;
 
@@ -25,6 +26,7 @@ pub use expand::PathExpand;
 pub use join::PathJoin;
 pub use parse::PathParse;
 pub use r#type::PathType;
+pub use relative_to::PathRelativeTo;
 pub use split::PathSplit;
 
 #[cfg(windows)]
