@@ -50,7 +50,7 @@ On Windows, an extra 'prefix' column is added."#
         let tag = args.call_info.name_tag.clone();
         let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathParseArguments {
-            rest: args.rest_args()?,
+            rest: args.rest(0)?,
             extension: args.get_flag("extension")?,
         });
 
