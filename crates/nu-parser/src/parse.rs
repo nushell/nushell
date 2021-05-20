@@ -518,14 +518,29 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         start = end;
 
         let mut found_end = false;
-        let mut open_count = 1;
+        let mut delimiter_stack = vec![')'];
+
         while let Some(c) = loop_input.next() {
             end += 1;
-            if c == '(' {
-                open_count += 1;
+            if let Some('\'') = delimiter_stack.last() {
+                if c == '\'' {
+                    delimiter_stack.pop();
+                }
+            } else if let Some('"') = delimiter_stack.last() {
+                if c == '"' {
+                    delimiter_stack.pop();
+                }
+            } else if c == '\'' {
+                delimiter_stack.push('\'');
+            } else if c == '"' {
+                delimiter_stack.push('"');
+            } else if c == '(' {
+                delimiter_stack.push(')');
             } else if c == ')' {
-                open_count -= 1;
-                if open_count == 0 {
+                if let Some(')') = delimiter_stack.last() {
+                    delimiter_stack.pop();
+                }
+                if delimiter_stack.is_empty() {
                     found_end = true;
                     break;
                 }

@@ -150,6 +150,18 @@ fn string_interpolation_shorthand_overlap() {
 }
 
 #[test]
+fn string_interpolation_and_paren() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    $"a paren is ('(')"
+        "#
+    );
+
+    assert_eq!(actual.out, "a paren is (");
+}
+
+#[test]
 fn bignum_large_integer() {
     let actual = nu!(
         cwd: ".",
