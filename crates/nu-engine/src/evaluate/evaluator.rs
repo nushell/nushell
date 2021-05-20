@@ -253,15 +253,6 @@ fn evaluate_reference(
             tag: span.into(),
         }),
 
-        "$it" => match ctx.scope.get_var("$it") {
-            Some(v) => Ok(v),
-            None => Err(ShellError::labeled_error(
-                "Variable not in scope",
-                "missing '$it' (note: $it is only available inside of a block)",
-                span,
-            )),
-        },
-
         "$nothing" => Ok(Value {
             value: UntaggedValue::nothing(),
             tag: span.into(),

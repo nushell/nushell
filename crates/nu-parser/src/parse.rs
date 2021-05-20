@@ -972,6 +972,15 @@ fn parse_arg(
                         }
 
                         tokens = token_iter.collect();
+                        if tokens.is_empty() {
+                            return (
+                                garbage(lite_arg.span),
+                                Some(ParseError::mismatch(
+                                    "block with parameters",
+                                    lite_arg.clone(),
+                                )),
+                            );
+                        }
                         params
                     } else {
                         vec![]
@@ -986,8 +995,10 @@ fn parse_arg(
                     let (mut classified_block, err) = classify_block(&lite_block, scope);
                     scope.exit_scope();
 
-                    if !params.is_empty() && classified_block.params.positional.is_empty() {
-                        if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                    if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                        classified_block.span = lite_arg.span;
+                        if !params.is_empty() {
+                            classified_block.params.positional.clear();
                             for param in params {
                                 classified_block
                                     .params

@@ -295,7 +295,7 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
-fn set_variable() {
+fn let_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -309,7 +309,7 @@ fn set_variable() {
 }
 
 #[test]
-fn set_doesnt_leak() {
+fn let_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -321,7 +321,7 @@ fn set_doesnt_leak() {
 }
 
 #[test]
-fn set_env_variable() {
+fn let_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -334,7 +334,7 @@ fn set_env_variable() {
 }
 
 #[test]
-fn set_env_doesnt_leak() {
+fn let_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -346,7 +346,7 @@ fn set_env_doesnt_leak() {
 }
 
 #[test]
-fn proper_shadow_set_env_aliases() {
+fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -357,7 +357,7 @@ fn proper_shadow_set_env_aliases() {
 }
 
 #[test]
-fn proper_shadow_set_aliases() {
+fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -365,6 +365,28 @@ fn proper_shadow_set_aliases() {
         "#
     );
     assert_eq!(actual.out, "falsetruefalse");
+}
+
+#[test]
+fn block_param_too_many() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        [1, 2, 3] | each { |a, b| echo $a }
+        "#
+    );
+    assert!(actual.err.contains("too many"));
+}
+
+#[test]
+fn block_params_override() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        [1, 2, 3] | each { |a| echo $it }
+        "#
+    );
+    assert!(actual.err.contains("unknown variable"));
 }
 
 #[test]
