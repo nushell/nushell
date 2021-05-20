@@ -66,6 +66,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(val)) => {
             round_big_decimal(val, precision.into())
         }
+        UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val).into(),
         other => round_default(other),
     });
     Ok(mapped.to_output_stream())
