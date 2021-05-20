@@ -118,7 +118,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | each { echo $"{$it}" }
+                    echo "foo" | each { echo $"($it)" }
             "#
     );
 
@@ -130,7 +130,7 @@ fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo [[name]; [sammie]] | each { echo $"{$it.name}" }
+                    echo [[name]; [sammie]] | each { echo $"($it.name)" }
         "#
     );
 
@@ -142,7 +142,7 @@ fn string_interpolation_shorthand_overlap() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    $"3 + 4 = {3 + 4}"
+                    $"3 + 4 = (3 + 4)"
         "#
     );
 

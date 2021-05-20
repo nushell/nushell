@@ -499,7 +499,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         loop {
             end += 1;
             if let Some(c) = loop_input.next() {
-                if c == '{' {
+                if c == '(' {
                     break;
                 }
                 before.push(c);
@@ -521,9 +521,9 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         let mut open_count = 1;
         while let Some(c) = loop_input.next() {
             end += 1;
-            if c == '{' {
+            if c == '(' {
                 open_count += 1;
-            } else if c == '}' {
+            } else if c == ')' {
                 open_count -= 1;
                 if open_count == 0 {
                     found_end = true;

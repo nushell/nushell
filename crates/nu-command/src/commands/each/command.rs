@@ -52,7 +52,7 @@ impl WholeStreamCommand for Each {
             Example {
                 description: "Number each item and echo a message",
                 example:
-                    "echo ['bob' 'fred'] | each --numbered { echo $\"{$it.index} is {$it.item}\" }",
+                    "echo ['bob' 'fred'] | each --numbered { echo $\"($it.index) is ($it.item)\" }",
                 result: Some(vec![Value::from("0 is bob"), Value::from("1 is fred")]),
             },
             Example {
