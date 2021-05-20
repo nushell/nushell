@@ -181,7 +181,7 @@ mod regex {
                 "#
             ));
 
-            assert!(actual.err.contains("invalid regex"));
+            assert!(actual.err.contains("regex parse error"));
         })
     }
 }

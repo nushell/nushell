@@ -4,7 +4,7 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
-use regex::Regex;
+use regex::{self, Regex};
 
 pub struct Command;
 
@@ -51,8 +51,14 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let regex: bool = args.has_flag("regex");
 
     let regex_pattern = if regex {
-        Regex::new(&pattern.item).map_err(|_| {
-            ShellError::labeled_error("Invalid regex", "invalid regex", pattern.tag.span)
+        Regex::new(&pattern.item).map_err(|e| {
+            let msg = if let regex::Error::Syntax(msg) = e {
+                msg
+            } else {
+                "invalid regex".to_string()
+            };
+
+            ShellError::labeled_error("Invalid regex", msg, pattern.tag.span)
         })?
     } else {
         let parse_regex = build_regex(&pattern.item, name_tag.clone())?;
