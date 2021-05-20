@@ -89,7 +89,13 @@ pub fn process_row(
     context.scope.add_vars(&captured_block.captured.entries);
 
     if !captured_block.block.params.positional.is_empty() {
-        // FIXME: add check for more than parameter, once that's supported
+        if captured_block.block.params.positional.len() > 1 {
+            return Err(ShellError::labeled_error(
+                "Expected block with less than two parameters",
+                "too many parameters",
+                captured_block.block.span,
+            ));
+        }
         context
             .scope
             .add_var(captured_block.block.params.positional[0].0.name(), input);
