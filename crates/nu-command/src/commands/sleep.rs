@@ -26,8 +26,8 @@ impl WholeStreamCommand for Sleep {
 
     fn signature(&self) -> Signature {
         Signature::build("sleep")
-            .required("duration", SyntaxShape::Unit, "time to sleep")
-            .rest(SyntaxShape::Unit, "additional time")
+            .required("duration", SyntaxShape::Duration, "time to sleep")
+            .rest(SyntaxShape::Duration, "additional time")
     }
 
     fn usage(&self) -> &str {
