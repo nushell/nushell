@@ -135,9 +135,19 @@ fn string_to_unicode_char(s: &str, t: &Tag) -> Result<char, ShellError> {
 
 fn str_to_character(s: &str) -> Option<String> {
     match s {
+        // These are some regular characters that either can't used or
+        // it's just easier to use them like this.
         "newline" | "enter" | "nl" => Some("\n".into()),
         "tab" => Some("\t".into()),
         "sp" | "space" => Some(" ".into()),
+        "pipe" => Some('|'.to_string()),
+        "left_brace" | "lbrace" => Some('{'.to_string()),
+        "right_brace" | "rbrace" => Some('}'.to_string()),
+        "left_paren" | "lparen" => Some('('.to_string()),
+        "right_paren" | "rparen" => Some(')'.to_string()),
+        "left_bracket" | "lbracket" => Some('['.to_string()),
+        "right_bracket" | "rbracket" => Some(']'.to_string()),
+
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
         // Unicode can't be mixed with Ansi or it will break width calculation
