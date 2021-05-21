@@ -66,7 +66,7 @@ impl WholeStreamCommand for SubCommand {
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (options, input) = args.extract(|params| {
-        let (column_paths, _) = arguments(&mut params.rest_args()?)?;
+        let (column_paths, _) = arguments(&mut params.rest(0)?)?;
 
         Ok(Arguments {
             radix: params.get_flag("radix")?,

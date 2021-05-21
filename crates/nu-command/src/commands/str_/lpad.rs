@@ -81,7 +81,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(Arc::new(Arguments {
             length: params.req_named("length")?,
             character: params.req_named("character")?,
-            column_paths: params.rest_args()?,
+            column_paths: params.rest(0)?,
         }))
     })?;
 

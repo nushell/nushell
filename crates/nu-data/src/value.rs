@@ -438,6 +438,15 @@ pub fn compute_values(
                             Err(_) => Err(("Date", "Duration overflow")),
                         }
                     }
+                    Operator::Minus => {
+                        match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
+                            Ok(y) => match x.checked_sub_signed(y) {
+                                Some(value) => Ok(value),
+                                None => Err(("Date", "Duration and date addition overflow")),
+                            },
+                            Err(_) => Err(("Date", "Duration overflow")),
+                        }
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Date(result)))

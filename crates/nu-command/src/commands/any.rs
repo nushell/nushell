@@ -98,7 +98,9 @@ fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let result = args.input.fold(init, move |acc, row| {
         let condition = condition.clone();
         let ctx = ctx.clone();
-        ctx.scope.add_var("$it", row);
+        if let Some((arg, _)) = any_args.predicate.block.params.positional.first() {
+            ctx.scope.add_var(arg.name(), row);
+        }
 
         let condition = evaluate_baseline_expr(&condition, &ctx);
 

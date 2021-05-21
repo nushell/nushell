@@ -201,10 +201,6 @@ impl EvaluatedCommandArgsWithoutInput {
         }
     }
 
-    pub fn rest_args<T: FromValue>(&self) -> Result<Vec<T>, ShellError> {
-        self.rest(0)
-    }
-
     pub fn rest<T: FromValue>(&self, starting_pos: usize) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 

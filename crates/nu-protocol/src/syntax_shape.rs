@@ -26,8 +26,10 @@ pub enum SyntaxShape {
     Block,
     /// A table is allowed, eg `[first second]`
     Table,
-    /// A unit value is allowed, eg `10kb`
-    Unit,
+    /// A filesize value is allowed, eg `10kb`
+    Filesize,
+    /// A duration value is allowed, eg `19day`
+    Duration,
     /// An operator
     Operator,
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
@@ -52,7 +54,8 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::GlobPattern => "pattern",
             SyntaxShape::Block => "block",
             SyntaxShape::Table => "table",
-            SyntaxShape::Unit => "unit",
+            SyntaxShape::Duration => "duration",
+            SyntaxShape::Filesize => "filesize",
             SyntaxShape::Operator => "operator",
             SyntaxShape::RowCondition => "condition",
             SyntaxShape::MathExpression => "math expression",

@@ -89,7 +89,13 @@ fn process_row(
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
-    context.scope.add_var("$it", row);
+
+    if let Some((arg, _)) = block.block.params.positional.first() {
+        context.scope.add_var(arg.name(), row);
+    } else {
+        context.scope.add_var("$it", row);
+    }
+
     let result = run_block(
         &block.block,
         context,

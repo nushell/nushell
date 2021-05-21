@@ -81,29 +81,29 @@ lazy_static! {
     static ref MULT_DIV_LOOKUP_TABLE: HashMap<(Operator, BinarySide, SyntaxShape), Vec<SyntaxShape>> = {
         vec![
             ((Operator::Divide, BinarySide::Left, SyntaxShape::Number),       // expr => possible var shapes
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var / number => Unit, Int, Number
+             vec![SyntaxShape::Filesize, SyntaxShape::Duration, SyntaxShape::Number, SyntaxShape::Int]), //$var / number => Unit, Int, Number
             ((Operator::Divide, BinarySide::Left, SyntaxShape::Int),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var / int => Unit, Int, Number
-            ((Operator::Divide, BinarySide::Left, SyntaxShape::Unit),
-             vec![SyntaxShape::Unit]), //$var / unit => Unit
+             vec![SyntaxShape::Filesize, SyntaxShape::Duration, SyntaxShape::Number, SyntaxShape::Int]), //$var / int => Unit, Int, Number
+            ((Operator::Divide, BinarySide::Left, SyntaxShape::Filesize),
+             vec![SyntaxShape::Filesize, SyntaxShape::Duration, SyntaxShape::Filesize]), //$var / unit => Unit
             ((Operator::Divide, BinarySide::Right, SyntaxShape::Number),
              vec![SyntaxShape::Number, SyntaxShape::Int]), //number / $var => Int, Number
             ((Operator::Divide, BinarySide::Right, SyntaxShape::Int),
              vec![SyntaxShape::Number, SyntaxShape::Int]), //int / $var => Int, Number
-            ((Operator::Divide, BinarySide::Right, SyntaxShape::Unit),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //unit / $var => unit, int, number
+            ((Operator::Divide, BinarySide::Right, SyntaxShape::Filesize),
+             vec![SyntaxShape::Filesize, SyntaxShape::Number, SyntaxShape::Int]), //unit / $var => unit, int, number
 
             ((Operator::Multiply, BinarySide::Left, SyntaxShape::Number),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var * number => Unit, Int, Number
+             vec![SyntaxShape::Filesize, SyntaxShape::Number, SyntaxShape::Int]), //$var * number => Unit, Int, Number
             ((Operator::Multiply, BinarySide::Left, SyntaxShape::Int),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //$var * int => Unit, Int, Number
-            ((Operator::Multiply, BinarySide::Left, SyntaxShape::Unit),
+             vec![SyntaxShape::Filesize, SyntaxShape::Number, SyntaxShape::Int]), //$var * int => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Left, SyntaxShape::Filesize),
              vec![SyntaxShape::Int, SyntaxShape::Number]), //$var * unit => int, number //TODO this changes as soon as more complex units arrive
             ((Operator::Multiply, BinarySide::Right, SyntaxShape::Number),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //number * $var => Unit, Int, Number
+             vec![SyntaxShape::Filesize, SyntaxShape::Number, SyntaxShape::Int]), //number * $var => Unit, Int, Number
             ((Operator::Multiply, BinarySide::Right, SyntaxShape::Int),
-             vec![SyntaxShape::Unit, SyntaxShape::Number, SyntaxShape::Int]), //int * $var => Unit, Int, Number
-            ((Operator::Multiply, BinarySide::Right, SyntaxShape::Unit),
+             vec![SyntaxShape::Filesize, SyntaxShape::Number, SyntaxShape::Int]), //int * $var => Unit, Int, Number
+            ((Operator::Multiply, BinarySide::Right, SyntaxShape::Filesize),
              vec![SyntaxShape::Int, SyntaxShape::Number]), //unit * $var => int, number //TODO this changes as soon as more complex units arrive
             ].into_iter().collect()
     };
@@ -241,8 +241,8 @@ fn get_result_shape_of(
             l_shape
         }
         Operator::Multiply => {
-            if l_shape == SyntaxShape::Unit || r_shape == SyntaxShape::Unit {
-                SyntaxShape::Unit
+            if l_shape == SyntaxShape::Duration || r_shape == SyntaxShape::Duration {
+                SyntaxShape::Duration
             } else {
                 SyntaxShape::Number
             }
@@ -250,7 +250,7 @@ fn get_result_shape_of(
         Operator::Divide => {
             if l_shape == r_shape {
                 SyntaxShape::Number
-            } else if l_shape == SyntaxShape::Unit {
+            } else if l_shape == SyntaxShape::Duration {
                 l_shape
             } else {
                 SyntaxShape::Number
@@ -277,7 +277,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
                     nu_protocol::hir::Number::Int(_) => Some(SyntaxShape::Int),
                     nu_protocol::hir::Number::Decimal(_) => Some(SyntaxShape::Number),
                 },
-                nu_protocol::hir::Literal::Size(_, _) => Some(SyntaxShape::Unit),
+                nu_protocol::hir::Literal::Size(_, _) => Some(SyntaxShape::Duration),
                 nu_protocol::hir::Literal::String(_) => Some(SyntaxShape::String),
                 //Rest should have failed at parsing stage?
                 nu_protocol::hir::Literal::GlobPattern(_) => Some(SyntaxShape::String),
@@ -843,12 +843,21 @@ impl VarSyntaxShapeDeductor {
                                     ),
                                 )?;
                             }
-                            SyntaxShape::Unit => {
+                            SyntaxShape::Duration => {
                                 self.checked_insert(
                                     var,
                                     VarShapeDeduction::from_usage_with_alternatives(
                                         &var.span,
-                                        &[SyntaxShape::Unit],
+                                        &[SyntaxShape::Duration],
+                                    ),
+                                )?;
+                            }
+                            SyntaxShape::Filesize => {
+                                self.checked_insert(
+                                    var,
+                                    VarShapeDeduction::from_usage_with_alternatives(
+                                        &var.span,
+                                        &[SyntaxShape::Filesize],
                                     ),
                                 )?;
                             }

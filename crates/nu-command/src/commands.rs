@@ -360,6 +360,7 @@ mod tests {
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         for cmd in only_examples() {
+            println!("cmd: {}", cmd.name());
             test_examples(cmd)?;
         }
 

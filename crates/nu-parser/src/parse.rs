@@ -331,8 +331,76 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
     )
 }
 
+/// Parse a duration type, eg '10day'
+fn parse_duration(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
+        let string_to_parse = format!("0.{}", decimal);
+        if let Ok(x) = string_to_parse.parse::<f64>() {
+            return Some((1_f64 / x) as i64);
+        }
+        None
+    }
+    let unit_groups = [
+        (Unit::Nanosecond, "NS", None),
+        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
+        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
+        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
+        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
+        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
+        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
+        (Unit::Week, "WK", Some((Unit::Day, 7))),
+    ];
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| lite_arg.to_uppercase().ends_with(x.1))
+    {
+        let mut lhs = lite_arg.item.clone();
+        for _ in 0..unit.1.len() {
+            lhs.pop();
+        }
+
+        let input: Vec<&str> = lhs.split('.').collect();
+        let (value, unit_to_use) = match &input[..] {
+            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
+            [number_str, decimal_part_str] => match unit.2 {
+                Some(unit_to_convert_to) => match (
+                    number_str.parse::<i64>(),
+                    parse_decimal_str_to_number(decimal_part_str),
+                ) {
+                    (Ok(number), Some(decimal_part)) => (
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
+                        unit_to_convert_to.0,
+                    ),
+                    _ => (None, unit.0),
+                },
+                None => (None, unit.0),
+            },
+            _ => (None, unit.0),
+        };
+
+        if let Some(x) = value {
+            let lhs_span = Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+            let unit_span = Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+            return (
+                SpannedExpression::new(
+                    Expression::unit(x.spanned(lhs_span), unit_to_use.spanned(unit_span)),
+                    lite_arg.span,
+                ),
+                None,
+            );
+        }
+    }
+
+    (
+        garbage(lite_arg.span),
+        Some(ParseError::mismatch("duration", lite_arg.clone())),
+    )
+}
+
 /// Parse a unit type, eg '10kb'
-fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+fn parse_filesize(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
@@ -352,14 +420,6 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
         (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
         (Unit::Byte, "B", None),
-        (Unit::Nanosecond, "NS", None),
-        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
-        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
-        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
-        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
-        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
-        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
-        (Unit::Week, "WK", Some((Unit::Day, 7))),
     ];
     if let Some(unit) = unit_groups
         .iter()
@@ -467,7 +527,11 @@ fn parse_dollar_expr(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
-    if lite_arg.item.starts_with("$\"") && lite_arg.item.len() > 1 && lite_arg.item.ends_with('"') {
+    if (lite_arg.item.starts_with("$\"") && lite_arg.item.len() > 1 && lite_arg.item.ends_with('"'))
+        || (lite_arg.item.starts_with("$'")
+            && lite_arg.item.len() > 1
+            && lite_arg.item.ends_with('\''))
+    {
         // This is an interpolated string
         parse_interpolated_string(&lite_arg, scope)
     } else if let (expr, None) = parse_range(lite_arg, scope) {
@@ -499,7 +563,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         loop {
             end += 1;
             if let Some(c) = loop_input.next() {
-                if c == '{' {
+                if c == '(' {
                     break;
                 }
                 before.push(c);
@@ -518,14 +582,29 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         start = end;
 
         let mut found_end = false;
-        let mut open_count = 1;
+        let mut delimiter_stack = vec![')'];
+
         while let Some(c) = loop_input.next() {
             end += 1;
-            if c == '{' {
-                open_count += 1;
-            } else if c == '}' {
-                open_count -= 1;
-                if open_count == 0 {
+            if let Some('\'') = delimiter_stack.last() {
+                if c == '\'' {
+                    delimiter_stack.pop();
+                }
+            } else if let Some('"') = delimiter_stack.last() {
+                if c == '"' {
+                    delimiter_stack.pop();
+                }
+            } else if c == '\'' {
+                delimiter_stack.push('\'');
+            } else if c == '"' {
+                delimiter_stack.push('"');
+            } else if c == '(' {
+                delimiter_stack.push(')');
+            } else if c == ')' {
+                if let Some(')') = delimiter_stack.last() {
+                    delimiter_stack.pop();
+                }
+                if delimiter_stack.is_empty() {
                     found_end = true;
                     break;
                 }
@@ -829,7 +908,8 @@ fn parse_arg(
 
         SyntaxShape::Range => parse_range(&lite_arg, scope),
         SyntaxShape::Operator => parse_operator(&lite_arg),
-        SyntaxShape::Unit => parse_unit(&lite_arg),
+        SyntaxShape::Filesize => parse_filesize(&lite_arg),
+        SyntaxShape::Duration => parse_duration(&lite_arg),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
@@ -846,7 +926,8 @@ fn parse_arg(
                 SyntaxShape::Int,
                 SyntaxShape::Number,
                 SyntaxShape::Range,
-                SyntaxShape::Unit,
+                SyntaxShape::Filesize,
+                SyntaxShape::Duration,
                 SyntaxShape::Block,
                 SyntaxShape::Table,
                 SyntaxShape::String,
@@ -972,6 +1053,15 @@ fn parse_arg(
                         }
 
                         tokens = token_iter.collect();
+                        if tokens.is_empty() {
+                            return (
+                                garbage(lite_arg.span),
+                                Some(ParseError::mismatch(
+                                    "block with parameters",
+                                    lite_arg.clone(),
+                                )),
+                            );
+                        }
                         params
                     } else {
                         vec![]
@@ -986,8 +1076,10 @@ fn parse_arg(
                     let (mut classified_block, err) = classify_block(&lite_block, scope);
                     scope.exit_scope();
 
-                    if !params.is_empty() && classified_block.params.positional.is_empty() {
-                        if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                    if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                        classified_block.span = lite_arg.span;
+                        if !params.is_empty() {
+                            classified_block.params.positional.clear();
                             for param in params {
                                 classified_block
                                     .params
@@ -1318,12 +1410,14 @@ fn parse_positional_argument(
                     let mut commands = hir::Pipeline::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
-                    let block = hir::Block::new(
+                    let mut block = hir::Block::new(
                         Signature::new("<cond>"),
                         vec![Group::new(vec![commands], lite_cmd.span())],
                         IndexMap::new(),
                         span,
                     );
+
+                    block.infer_params();
 
                     let arg = SpannedExpression::new(Expression::Block(Arc::new(block)), span);
 
@@ -2138,7 +2232,7 @@ fn unit_parse_byte_units() {
         let input_len = case.string.len();
         let value_len = case.value.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
-        let result = parse_unit(&input);
+        let result = parse_filesize(&input);
         assert_eq!(result.1, None);
         assert_eq!(
             result.0.expr,
@@ -2226,7 +2320,7 @@ fn unit_parse_byte_units_decimal() {
         let input_len = case.string.len();
         let value_len = case.value_str.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
-        let result = parse_unit(&input);
+        let result = parse_filesize(&input);
         assert_eq!(result.1, None);
         assert_eq!(
             result.0.expr,

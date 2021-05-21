@@ -52,7 +52,7 @@ impl WholeStreamCommand for Each {
             Example {
                 description: "Number each item and echo a message",
                 example:
-                    "echo ['bob' 'fred'] | each --numbered { echo $\"{$it.index} is {$it.item}\" }",
+                    "echo ['bob' 'fred'] | each --numbered { echo $\"($it.index) is ($it.item)\" }",
                 result: Some(vec![Value::from("0 is bob"), Value::from("1 is fred")]),
             },
             Example {
@@ -88,11 +88,8 @@ pub fn process_row(
     context.scope.enter_scope();
     context.scope.add_vars(&captured_block.captured.entries);
 
-    if !captured_block.block.params.positional.is_empty() {
-        // FIXME: add check for more than parameter, once that's supported
-        context
-            .scope
-            .add_var(captured_block.block.params.positional[0].0.name(), input);
+    if let Some((arg, _)) = captured_block.block.params.positional.first() {
+        context.scope.add_var(arg.name(), input);
     } else {
         context.scope.add_var("$it", input);
     }

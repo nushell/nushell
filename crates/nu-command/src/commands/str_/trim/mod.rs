@@ -26,7 +26,7 @@ where
     let (options, input) = args.extract(|params| {
         Ok(Arc::new(Arguments {
             character: params.get_flag("char")?,
-            column_paths: params.rest_args()?,
+            column_paths: params.rest(0)?,
         }))
     })?;
 

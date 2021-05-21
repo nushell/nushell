@@ -130,7 +130,10 @@ impl Iterator for WhereIterator {
         while let Some(x) = self.input.next() {
             self.context.scope.enter_scope();
             self.context.scope.add_vars(&self.block.captured.entries);
-            self.context.scope.add_var("$it", x.clone());
+
+            if let Some((arg, _)) = self.block.block.params.positional.first() {
+                self.context.scope.add_var(arg.name(), x.clone());
+            }
 
             //FIXME: should we use the scope that's brought in as well?
             let condition = evaluate_baseline_expr(&self.condition, &self.context);

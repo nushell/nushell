@@ -26,7 +26,7 @@ where
 {
     let (options, input) = args.extract(|params| {
         Ok(Arguments {
-            column_paths: params.rest_args()?,
+            column_paths: params.rest(0)?,
         })
     })?;
 
