@@ -39,12 +39,12 @@ impl WholeStreamCommand for Command {
             Example {
                 description: "Parse a string into two named columns",
                 example: "echo \"hi there\" | parse \"{foo} {bar}\"",
-                result: Some(vec![UntaggedValue::row(row).into()]),
+                result: Some(vec![UntaggedValue::row(row.clone()).into()]),
             },
             Example {
                 description: "Parse a string using regex pattern",
-                example: "echo \"one + two\" | parse -r \"(?P<a>\\w+) \\+ (?P<b>\\w+)\"",
-                result: None,
+                example: "echo \"hi there\" | parse -r \"(?P<foo>\\w+) (?P<bar>\\w+)\"",
+                result: Some(vec![UntaggedValue::row(row).into()]),
             },
         ]
     }
