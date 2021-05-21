@@ -391,6 +391,17 @@ fn block_params_override() {
 }
 
 #[test]
+fn block_params_override_correct() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        [1, 2, 3] | each { |a| echo $a } | to json
+        "#
+    );
+    assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
 fn run_dynamic_blocks() {
     let actual = nu!(
         cwd: ".",
