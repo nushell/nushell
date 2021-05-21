@@ -62,7 +62,7 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let (msg, tag) = if let regex::Error::Syntax(msg) = e {
                 let mut lines = msg.lines();
 
-                let tag = lines.nth(2).map(|l| l.find("^")).flatten().map(|space| {
+                let tag = lines.nth(2).map(|l| l.find('^')).flatten().map(|space| {
                     let start = pattern.tag.span.start() + space - 3;
 
                     Tag {
@@ -73,7 +73,7 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 let msg = lines
                     .next()
-                    .map(|l| l.split(":").nth(1))
+                    .map(|l| l.split(':').nth(1))
                     .flatten()
                     .map(|s| s.trim().to_string());
 
