@@ -140,6 +140,7 @@ pub fn action(
                 let byte_string = InlineShape::format_bytes(*a_filesize, None);
                 byte_string.1
             }
+            Primitive::Nothing => "nothing".to_string(),
             _ => {
                 return Err(ShellError::unimplemented(
                     "str from for non-numeric primitives",
