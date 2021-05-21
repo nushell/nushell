@@ -88,17 +88,8 @@ pub fn process_row(
     context.scope.enter_scope();
     context.scope.add_vars(&captured_block.captured.entries);
 
-    if !captured_block.block.params.positional.is_empty() {
-        if captured_block.block.params.positional.len() > 1 {
-            return Err(ShellError::labeled_error(
-                "Expected block with less than two parameters",
-                "too many parameters",
-                captured_block.block.span,
-            ));
-        }
-        context
-            .scope
-            .add_var(captured_block.block.params.positional[0].0.name(), input);
+    if let Some((arg, _)) = captured_block.block.params.positional.first() {
+        context.scope.add_var(arg.name(), input);
     } else {
         context.scope.add_var("$it", input);
     }

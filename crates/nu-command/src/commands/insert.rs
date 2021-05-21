@@ -80,7 +80,9 @@ fn process_row(
 
             context.scope.enter_scope();
             context.scope.add_vars(&block.captured.entries);
-            context.scope.add_var("$it", input.clone());
+            if let Some((arg, _)) = block.block.params.positional.first() {
+                context.scope.add_var(arg.name(), input.clone());
+            }
 
             let result = run_block(
                 &block.block,

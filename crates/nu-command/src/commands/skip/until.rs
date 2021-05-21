@@ -3,7 +3,10 @@ use log::trace;
 use nu_engine::evaluate_baseline_expr;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{hir::ClassifiedCommand, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::{CapturedBlock, ClassifiedCommand},
+    Signature, SyntaxShape,
+};
 
 pub struct SubCommand;
 
@@ -28,50 +31,36 @@ impl WholeStreamCommand for SubCommand {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let ctx = Arc::new(EvaluationContext::from_args(&args));
+        let tag = args.call_info.name_tag.clone();
         let call_info = args.evaluate_once()?;
 
-        let block = call_info.args.expect_nth(0)?.clone();
-
-        let (condition, captured) = match block {
-            Value {
-                value: UntaggedValue::Block(captured_block),
-                tag,
-            } => {
-                if captured_block.block.block.len() != 1 {
-                    return Err(ShellError::labeled_error(
-                        "Expected a condition",
-                        "expected a condition",
-                        tag,
-                    ));
-                }
-                match captured_block.block.block[0].pipelines.get(0) {
-                    Some(item) => match item.list.get(0) {
-                        Some(ClassifiedCommand::Expr(expr)) => {
-                            (Arc::new(expr.clone()), captured_block.captured.clone())
-                        }
-                        _ => {
-                            return Err(ShellError::labeled_error(
-                                "Expected a condition",
-                                "expected a condition",
-                                tag,
-                            ));
-                        }
-                    },
-                    None => {
+        let block: CapturedBlock = call_info.req(0)?;
+        let condition = {
+            if block.block.block.len() != 1 {
+                return Err(ShellError::labeled_error(
+                    "Expected a condition",
+                    "expected a condition",
+                    tag,
+                ));
+            }
+            match block.block.block[0].pipelines.get(0) {
+                Some(item) => match item.list.get(0) {
+                    Some(ClassifiedCommand::Expr(expr)) => expr.clone(),
+                    _ => {
                         return Err(ShellError::labeled_error(
                             "Expected a condition",
                             "expected a condition",
                             tag,
                         ));
                     }
+                },
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Expected a condition",
+                        "expected a condition",
+                        tag,
+                    ));
                 }
-            }
-            Value { tag, .. } => {
-                return Err(ShellError::labeled_error(
-                    "Expected a condition",
-                    "expected a condition",
-                    tag,
-                ));
             }
         };
 
@@ -82,8 +71,10 @@ impl WholeStreamCommand for SubCommand {
                 let ctx = ctx.clone();
 
                 ctx.scope.enter_scope();
-                ctx.scope.add_var("$it", item.clone());
-                ctx.scope.add_vars(&captured.entries);
+                ctx.scope.add_vars(&block.captured.entries);
+                if let Some((arg, _)) = block.block.params.positional.first() {
+                    ctx.scope.add_var(arg.name(), item.clone());
+                }
                 trace!("ITEM = {:?}", item);
 
                 let result = evaluate_baseline_expr(&*condition, &*ctx);

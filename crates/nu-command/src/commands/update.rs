@@ -84,7 +84,10 @@ fn process_row(
             let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
 
             context.scope.enter_scope();
-            context.scope.add_var("$it", input.clone());
+            if let Some((arg, _)) = captured_block.block.params.positional.first() {
+                context.scope.add_var(arg.name(), input.clone());
+            }
+
             context.scope.add_vars(&captured_block.captured.entries);
 
             let result = run_block(
