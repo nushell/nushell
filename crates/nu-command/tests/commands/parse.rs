@@ -181,7 +181,7 @@ mod regex {
                 "#
             ));
 
-            assert!(actual.err.contains("regex parse error"));
+            assert!(actual.err.contains("unclosed group"));
         })
     }
 }
