@@ -1410,12 +1410,14 @@ fn parse_positional_argument(
                     let mut commands = hir::Pipeline::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
-                    let block = hir::Block::new(
+                    let mut block = hir::Block::new(
                         Signature::new("<cond>"),
                         vec![Group::new(vec![commands], lite_cmd.span())],
                         IndexMap::new(),
                         span,
                     );
+
+                    block.infer_params();
 
                     let arg = SpannedExpression::new(Expression::Block(Arc::new(block)), span);
 

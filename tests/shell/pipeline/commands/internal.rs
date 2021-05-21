@@ -380,17 +380,6 @@ fn proper_shadow_let_aliases() {
 }
 
 #[test]
-fn block_param_too_many() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        [1, 2, 3] | each { |a, b| echo $a }
-        "#
-    );
-    assert!(actual.err.contains("too many"));
-}
-
-#[test]
 fn block_params_override() {
     let actual = nu!(
         cwd: ".",

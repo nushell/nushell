@@ -140,7 +140,9 @@ fn process_row(
 
         context.scope.enter_scope();
         context.scope.add_vars(&default_block.captured.entries);
-        context.scope.add_var("$it", input.clone());
+        if let Some((arg, _)) = default_block.block.params.positional.first() {
+            context.scope.add_var(arg.name(), input.clone());
+        }
 
         let stream = run_block(
             &default_block.block,
