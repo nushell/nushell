@@ -6,6 +6,12 @@ use nu_source::Tagged;
 
 pub struct Char;
 
+struct CharArgs {
+    name: Tagged<String>,
+    rest: Vec<Value>,
+    unicode: bool,
+}
+
 impl WholeStreamCommand for Char {
     fn name(&self) -> &str {
         "char"
@@ -59,23 +65,24 @@ impl WholeStreamCommand for Char {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let args = args.evaluate_once()?;
+        let args = CharArgs {
+            name: args.req(0)?,
+            rest: args.rest(1)?,
+            unicode: args.has_flag("unicode"),
+        };
 
-        let name: Tagged<String> = args.req(0)?;
-        let rest: Vec<Value> = args.rest(1)?;
-        let unicode = args.has_flag("unicode");
-
-        if unicode {
-            if !rest.is_empty() {
+        if args.unicode {
+            if !args.rest.is_empty() {
                 // Setup a new buffer to put all the Unicode bytes in
                 let mut multi_byte = String::new();
                 // Get the first byte
-                let decoded_char = string_to_unicode_char(&name.item, &name.tag);
+                let decoded_char = string_to_unicode_char(&args.name.item, &args.name.tag);
                 match decoded_char {
                     Ok(ch) => multi_byte.push(ch),
                     Err(e) => return Err(e),
                 }
                 // Get the rest of the bytes
-                for byte_part in rest {
+                for byte_part in args.rest {
                     let byte_part: Tagged<String> = FromValue::from_value(&byte_part)?;
                     let decoded_char = string_to_unicode_char(&byte_part, &byte_part.tag);
                     match decoded_char {
@@ -84,33 +91,33 @@ impl WholeStreamCommand for Char {
                     }
                 }
                 Ok(OutputStream::one(
-                    UntaggedValue::string(multi_byte).into_value(name.tag),
+                    UntaggedValue::string(multi_byte).into_value(args.name.tag),
                 ))
             } else {
-                let decoded_char = string_to_unicode_char(&name.item, &name.tag);
+                let decoded_char = string_to_unicode_char(&args.name.item, &args.name.tag);
                 if let Ok(ch) = decoded_char {
                     Ok(OutputStream::one(
-                        UntaggedValue::string(ch).into_value(name.tag()),
+                        UntaggedValue::string(ch).into_value(args.name.tag()),
                     ))
                 } else {
                     Err(ShellError::labeled_error(
                         "error decoding Unicode character",
                         "error decoding Unicode character",
-                        name.tag(),
+                        args.name.tag(),
                     ))
                 }
             }
         } else {
-            let special_character = str_to_character(&name.item);
+            let special_character = str_to_character(&args.name.item);
             if let Some(output) = special_character {
                 Ok(OutputStream::one(
-                    UntaggedValue::string(output).into_value(name.tag()),
+                    UntaggedValue::string(output).into_value(args.name.tag()),
                 ))
             } else {
                 Err(ShellError::labeled_error(
                     "error finding named character",
                     "error finding named character",
-                    name.tag(),
+                    args.name.tag(),
                 ))
             }
         }
