@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Char;
@@ -57,7 +57,7 @@ impl WholeStreamCommand for Char {
         ]
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let args = args.evaluate_once()?;
 
         let name: Tagged<String> = args.req(0)?;
@@ -83,15 +83,15 @@ impl WholeStreamCommand for Char {
                         Err(e) => return Err(e),
                     }
                 }
-                Ok(ActionStream::one(ReturnSuccess::value(
+                Ok(OutputStream::one(
                     UntaggedValue::string(multi_byte).into_value(name.tag),
-                )))
+                ))
             } else {
                 let decoded_char = string_to_unicode_char(&name.item, &name.tag);
                 if let Ok(ch) = decoded_char {
-                    Ok(ActionStream::one(ReturnSuccess::value(
+                    Ok(OutputStream::one(
                         UntaggedValue::string(ch).into_value(name.tag()),
-                    )))
+                    ))
                 } else {
                     Err(ShellError::labeled_error(
                         "error decoding Unicode character",
@@ -103,9 +103,9 @@ impl WholeStreamCommand for Char {
         } else {
             let special_character = str_to_character(&name.item);
             if let Some(output) = special_character {
-                Ok(ActionStream::one(ReturnSuccess::value(
+                Ok(OutputStream::one(
                     UntaggedValue::string(output).into_value(name.tag()),
-                )))
+                ))
             } else {
                 Err(ShellError::labeled_error(
                     "error finding named character",
