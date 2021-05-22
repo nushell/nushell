@@ -147,6 +147,7 @@ fn str_to_character(s: &str) -> Option<String> {
         "right_paren" | "rparen" => Some(')'.to_string()),
         "left_bracket" | "lbracket" => Some('['.to_string()),
         "right_bracket" | "rbracket" => Some(']'.to_string()),
+        "sep" | "separator" => Some(std::path::MAIN_SEPARATOR.to_string()),
 
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
