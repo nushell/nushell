@@ -3,9 +3,9 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{dataframe::PolarsStruct, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct Dataframe;
+pub struct DataFrame;
 
-impl WholeStreamCommand for Dataframe {
+impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
         "dataframe list"
     }

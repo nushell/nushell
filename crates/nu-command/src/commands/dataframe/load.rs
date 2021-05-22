@@ -12,9 +12,9 @@ use nu_source::Tagged;
 use polars::prelude::{CsvReader, JsonReader, ParquetReader, SerReader};
 use std::fs::File;
 
-pub struct Dataframe;
+pub struct DataFrame;
 
-impl WholeStreamCommand for Dataframe {
+impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
         "dataframe load"
     }

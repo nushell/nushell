@@ -211,8 +211,9 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
 name = "arrow"
-version = "4.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow-rs?rev=d008f31b107c1030a1f5144c164e8ca8bf543576#d008f31b107c1030a1f5144c164e8ca8bf543576"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20cdf087304d5cdd743abd621b4b1b388848d29491932dae6f676ec89ebda0ae"
 dependencies = [
  "cfg_aliases",
  "chrono",
@@ -223,7 +224,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "lexical-core",
  "multiversion",
- "num 0.3.1",
+ "num 0.4.0",
  "rand 0.7.3",
  "regex 1.5.3",
  "serde 1.0.125",
@@ -441,12 +442,6 @@ dependencies = [
  "byteorder",
  "safemem 0.3.3",
 ]
-
-[[package]]
-name = "base64"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "base64"
@@ -4093,20 +4088,6 @@ dependencies = [
 
 [[package]]
 name = "num"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b7a8e9be5e039e2ff869df49155f1c06bd01ade2117ec783e56ab0932b67a8f"
-dependencies = [
- "num-bigint 0.3.2",
- "num-complex 0.3.1",
- "num-integer",
- "num-iter",
- "num-rational 0.3.2",
- "num-traits 0.2.14",
-]
-
-[[package]]
-name = "num"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
@@ -4160,15 +4141,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
 dependencies = [
  "autocfg",
- "num-traits 0.2.14",
-]
-
-[[package]]
-name = "num-complex"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747d632c0c558b87dbabbe6a82f3b4ae03720d0646ac5b7b4dae89394be5f2c5"
-dependencies = [
  "num-traits 0.2.14",
 ]
 
@@ -4232,7 +4204,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
 dependencies = [
  "autocfg",
- "num-bigint 0.3.2",
  "num-integer",
  "num-traits 0.2.14",
 ]
@@ -4457,17 +4428,18 @@ dependencies = [
 
 [[package]]
 name = "parquet"
-version = "4.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow-rs?rev=d008f31b107c1030a1f5144c164e8ca8bf543576#d008f31b107c1030a1f5144c164e8ca8bf543576"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "193b8db290021fa28a6447df8f433e39b3caab20ee08b874d0a5c1c34aef68de"
 dependencies = [
  "arrow",
- "base64 0.12.3",
+ "base64 0.13.0",
  "brotli",
  "byteorder",
  "chrono",
  "flate2",
  "lz4",
- "num-bigint 0.3.2",
+ "num-bigint 0.4.0",
  "parquet-format",
  "snap",
  "thrift",
@@ -4696,8 +4668,9 @@ dependencies = [
 
 [[package]]
 name = "polars"
-version = "0.13.1"
-source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc4e2e025126632e8e19d53cd9b655da344bd4942ba603ad246c7776b6401844"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4706,8 +4679,9 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3534c76a7bafaca9c783506a1f331ad746621d3808ab2407c02ffadd9e99326"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4716,8 +4690,9 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.13.2"
-source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad76c4d55017da2d0f8930b0caa327d12286c1e4407469f361e84fad176f9601"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4739,8 +4714,9 @@ dependencies = [
 
 [[package]]
 name = "polars-io"
-version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07f20f27363d85f847a2b7e9d1bfd426bff18680691dd42ff17ca91893f12f89"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4762,8 +4738,9 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.13.0"
-source = "git+https://github.com/ritchie46/polars?rev=3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0#3efad9a5c380c64a5eb78b4b7ad257e1e606b9f0"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "595906f951bacf223625ed6b0e4e73153eb9e251850bb2f9c36d78828334f32b"
 dependencies = [
  "ahash 0.7.2",
  "itertools",
@@ -7427,18 +7404,18 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.7.0+zstd.1.4.9"
+version = "0.8.1+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9428752481d8372e15b1bf779ea518a179ad6c771cca2d2c60e4fbff3cc2cd52"
+checksum = "357d6bb1bd9c6f6a55a5a15c74d01260b272f724dc60cc829b86ebd2172ac5ef"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "3.1.0+zstd.1.4.9"
+version = "4.1.0+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aa1926623ad7fe406e090555387daf73db555b948134b4d73eac5eb08fb666d"
+checksum = "d30375f78e185ca4c91930f42ea2c0162f9aa29737032501f93b79266d985ae7"
 dependencies = [
  "libc",
  "zstd-sys",
@@ -7446,9 +7423,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "1.5.0+zstd.1.4.9"
+version = "1.6.0+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e6c094340240369025fc6b731b054ee2a834328fa584310ac96aa4baebdc465"
+checksum = "2141bed8922b427761470e6bbfeff255da94fa20b0bbeab0d9297fcaf71e3aa7"
 dependencies = [
  "cc",
  "libc",
