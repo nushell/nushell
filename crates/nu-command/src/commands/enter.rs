@@ -11,12 +11,6 @@ use std::path::PathBuf;
 
 pub struct Enter;
 
-#[derive(Deserialize)]
-pub struct EnterArgs {
-    location: Tagged<PathBuf>,
-    encoding: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Enter {
     fn name(&self) -> &str {
         "enter"
@@ -80,7 +74,10 @@ fn enter(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = args.context.clone();
     let scope = args.scope().clone();
     let path = args.context.shell_manager.path();
-    let (EnterArgs { location, encoding }, _) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let location: Tagged<PathBuf> = args.req(0)?;
+    let encoding: Option<Tagged<String>> = args.get_flag("encoding")?;
     let location_string = location.display().to_string();
 
     if location.is_dir() {

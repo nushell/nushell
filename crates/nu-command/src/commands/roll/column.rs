@@ -2,18 +2,16 @@ use crate::prelude::*;
 use nu_data::base::select_fields;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
 use super::support::{rotate, Direction};
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct Arguments {
     by: Option<Tagged<u64>>,
     opposite: bool,
-    #[serde(rename(deserialize = "cells-only"))]
     cells_only: bool,
 }
 
@@ -47,25 +45,31 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table columns"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         roll(args)
     }
 }
 
-pub fn roll(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (args, input) = args.process()?;
+pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
 
-    Ok(input
+    let options = Arguments {
+        by: args.opt(0)?,
+        opposite: args.has_flag("opposite"),
+        cells_only: args.has_flag("cells-only"),
+    };
+
+    Ok(args
+        .input
         .map(move |value| {
             let tag = value.tag();
 
-            roll_by(value, &args)
+            roll_by(value, &options)
                 .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
                 .into_iter()
-                .map(ReturnSuccess::value)
         })
         .flatten()
-        .to_action_stream())
+        .to_output_stream())
 }
 
 fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {
