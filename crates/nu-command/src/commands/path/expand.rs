@@ -3,7 +3,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub struct PathExpand;
 
@@ -67,8 +67,15 @@ fn action(path: &Path, tag: Tag, _args: &PathExpandArguments) -> Value {
     let expanded = shellexpand::tilde(&ps);
     let path: &Path = expanded.as_ref().as_ref();
 
-    UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
-        .into_value(tag)
+    if let Ok(p) = dunce::canonicalize(path) {
+        UntaggedValue::filepath(p).into_value(tag)
+    } else {
+        Value::error(ShellError::labeled_error(
+            "Could not expand path",
+            "could not be expanded",
+            tag.span,
+        ))
+    }
 }
 
 #[cfg(test)]
