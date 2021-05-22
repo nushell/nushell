@@ -725,7 +725,9 @@ pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, 
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::Data(_) => MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value()),
+        UntaggedValue::DataFrame(_) => {
+            MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
+        }
     }
 }
 

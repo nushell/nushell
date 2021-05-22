@@ -4,10 +4,7 @@ use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
 use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::PolarsStruct,
-    hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression},
-};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 
@@ -239,7 +236,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::Data(PolarsStruct::DataFrame(df)),
+                        value: UntaggedValue::DataFrame(df),
                         ..
                     } => {
                         if let Some(table) = table {

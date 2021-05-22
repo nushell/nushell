@@ -74,7 +74,7 @@ pub enum Type {
 
     /// Dataframe
     #[cfg(feature = "dataframe")]
-    Data,
+    DataFrame,
 }
 
 /// A shape representation of the type of a row
@@ -191,7 +191,7 @@ impl Type {
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,
             #[cfg(feature = "dataframe")]
-            UntaggedValue::Data(_) => Type::Data,
+            UntaggedValue::DataFrame(_) => Type::DataFrame,
         }
     }
 }
@@ -298,7 +298,7 @@ impl PrettyDebug for Type {
             }
             Type::Block => ty("block"),
             #[cfg(feature = "dataframe")]
-            Type::Data => ty("data_type_formatter"),
+            Type::DataFrame => ty("data_type_formatter"),
         }
     }
 }

@@ -4,8 +4,7 @@ use crate::prelude::*;
 use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsStruct},
-    Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 use nu_source::Tagged;
@@ -113,9 +112,7 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
         name: file_name,
     };
 
-    let init = InputStream::one(
-        UntaggedValue::Data(PolarsStruct::DataFrame(nu_dataframe)).into_value(&tag),
-    );
+    let init = InputStream::one(UntaggedValue::DataFrame(nu_dataframe).into_value(&tag));
 
     Ok(init.to_output_stream())
 }

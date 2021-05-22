@@ -257,6 +257,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameLoad),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameList),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameGroupBy),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
