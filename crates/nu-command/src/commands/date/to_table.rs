@@ -36,7 +36,11 @@ impl WholeStreamCommand for Date {
 fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once()?;
     let tag = args.call_info.name_tag.clone();
-    let input = args.input;
+    let input = if args.input.is_empty() {
+        InputStream::one(crate::commands::date::now::date_now(&tag))
+    } else {
+        args.input
+    };
 
     Ok(input
         .map(move |value| match value {

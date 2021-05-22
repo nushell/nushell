@@ -2,7 +2,7 @@ use crate::prelude::*;
 use chrono::{DateTime, Local};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Date;
 
@@ -24,13 +24,16 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
-    let tag = args.call_info.name_tag.clone();
-
+pub fn date_now(tag: &Tag) -> Value {
     let now: DateTime<Local> = Local::now();
 
-    let value = UntaggedValue::date(now.with_timezone(now.offset())).into_value(&tag);
+    UntaggedValue::date(now.with_timezone(now.offset())).into_value(tag)
+}
+
+pub fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once()?;
+
+    let value = date_now(&args.call_info.name_tag);
 
     Ok(OutputStream::one(value))
 }
