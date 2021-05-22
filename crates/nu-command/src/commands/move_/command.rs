@@ -2,17 +2,10 @@ use crate::prelude::*;
 use nu_data::base::select_fields;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, Value};
 use nu_source::HasFallibleSpan;
 
 pub struct Command;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<ColumnPath>,
-    after: Option<ColumnPath>,
-    before: Option<ColumnPath>,
-}
 
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
@@ -40,7 +33,7 @@ impl WholeStreamCommand for Command {
         "Move columns."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -82,16 +75,13 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = raw_args.call_info.name_tag.clone();
-    let (
-        Arguments {
-            rest: mut columns,
-            before,
-            after,
-        },
-        input,
-    ) = raw_args.process()?;
+    let args = raw_args.evaluate_once()?;
+
+    let mut columns: Vec<ColumnPath> = args.rest(0)?;
+    let before: Option<ColumnPath> = args.get_flag("before")?;
+    let after: Option<ColumnPath> = args.get_flag("after")?;
 
     if columns.is_empty() {
         return Err(ShellError::labeled_error(
@@ -125,7 +115,8 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     if let Some(after) = after {
         let member = columns.remove(0);
 
-        Ok(input
+        Ok(args
+            .input
             .map(move |item| {
                 let member = vec![member.clone()];
                 let column_paths = vec![&member, &columns]
@@ -144,7 +135,7 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                     if let Some(column) = after.last() {
                         if !keys.contains(&column.as_string()) {
-                            ReturnSuccess::value(move_after(&item, &keys, &after)?)
+                            move_after(&item, &keys, &after)
                         } else {
                             let msg =
                                 format!("can't move column {} after itself", column.as_string());
@@ -169,11 +160,12 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                     ))
                 }
             })
-            .to_action_stream())
+            .to_input_stream())
     } else if let Some(before) = before {
         let member = columns.remove(0);
 
-        Ok(input
+        Ok(args
+            .input
             .map(move |item| {
                 let member = vec![member.clone()];
                 let column_paths = vec![&member, &columns]
@@ -192,7 +184,7 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                     if let Some(column) = before.last() {
                         if !keys.contains(&column.as_string()) {
-                            ReturnSuccess::value(move_before(&item, &keys, &before)?)
+                            move_before(&item, &keys, &before)
                         } else {
                             let msg =
                                 format!("can't move column {} before itself", column.as_string());
@@ -217,7 +209,7 @@ fn operate(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
                     ))
                 }
             })
-            .to_action_stream())
+            .to_input_stream())
     } else {
         Err(ShellError::labeled_error(
             "no columns given",
