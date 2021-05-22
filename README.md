@@ -47,7 +47,7 @@ Try it in Gitpod.
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
-To build Nu, you will need to use the **latest stable (1.47 or later)** version of the compiler.
+To build Nu, you will need to use the **latest stable (1.51 or later)** version of the compiler.
 
 Required dependencies:
 
