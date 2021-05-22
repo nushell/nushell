@@ -57,43 +57,13 @@ pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let pattern: Tagged<String> = args.req(0)?;
     let regex: bool = args.has_flag("regex");
 
-    let regex_pattern = if regex {
-        Regex::new(&pattern.item).map_err(|e| {
-            let (msg, tag) = if let regex::Error::Syntax(msg) = e {
-                let mut lines = msg.lines();
-
-                let tag = lines.nth(2).map(|l| l.find('^')).flatten().map(|space| {
-                    let start = pattern.tag.span.start() + space - 3;
-
-                    Tag {
-                        anchor: pattern.tag.anchor(),
-                        span: Span::for_char(start),
-                    }
-                });
-
-                let msg = lines
-                    .next()
-                    .map(|l| l.split(':').nth(1))
-                    .flatten()
-                    .map(|s| s.trim().to_string());
-
-                match (msg, tag) {
-                    (Some(msg), Some(tag)) => (msg, tag),
-                    _ => ("invalid regex".to_string(), pattern.tag),
-                }
-            } else {
-                ("invalid regex".to_string(), pattern.tag)
-            };
-
-            ShellError::labeled_error("Invalid regex", msg, tag.span)
-        })?
+    let item_to_parse = if regex {
+        pattern.item.clone()
     } else {
-        let parse_regex = build_regex(&pattern.item, name_tag.clone())?;
-
-        Regex::new(&parse_regex).map_err(|_| {
-            ShellError::labeled_error("Invalid pattern", "invalid pattern", pattern.tag.span)
-        })?
+        build_regex(&pattern.item, pattern.tag.clone())?
     };
+
+    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| parse_regex_error(e, pattern))?;
 
     let columns = column_names(&regex_pattern);
     let mut parsed: VecDeque<Value> = VecDeque::new();
@@ -194,6 +164,41 @@ fn column_names(regex: &Regex) -> Vec<String> {
                 .unwrap_or_else(|| format!("Capture{}", i))
         })
         .collect()
+}
+
+fn parse_regex_error(e: regex::Error, pattern: Tagged<String>) -> ShellError {
+    match e {
+        regex::Error::Syntax(msg) => {
+            let mut lines = msg.lines();
+
+            let tag = lines.nth(2).map(|l| l.find('^')).flatten().map(|space| {
+                let start = pattern.tag.span.start() + space - 3;
+
+                Tag {
+                    anchor: pattern.tag.anchor(),
+                    span: Span::for_char(start),
+                }
+            });
+
+            let msg = lines
+                .next()
+                .map(|l| l.split(':').nth(1))
+                .flatten()
+                .map(|s| s.trim().to_string());
+
+            match (msg, tag) {
+                (Some(msg), Some(tag)) => ShellError::labeled_error_with_secondary(
+                    msg.clone(),
+                    msg,
+                    tag.span,
+                    "invalid regex pattern",
+                    pattern.tag.span,
+                ),
+                _ => ShellError::labeled_error("Invalid regex", "invalid regex", pattern.tag.span),
+            }
+        }
+        _ => ShellError::labeled_error("Invalid regex", "invalid regex", pattern.tag.span),
+    }
 }
 
 #[cfg(test)]
