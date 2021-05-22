@@ -46,7 +46,7 @@ pub enum InlineShape {
 
     // TODO: Dataframe type
     #[cfg(feature = "dataframe")]
-    Dataframe,
+    Data,
 
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
@@ -130,7 +130,7 @@ impl InlineShape {
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
             #[cfg(feature = "dataframe")]
-            UntaggedValue::Dataframe(_) => InlineShape::Dataframe,
+            UntaggedValue::Data(_) => InlineShape::Data,
         }
     }
 
@@ -322,7 +322,7 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Block => DbgDocBldr::opaque("block"),
             InlineShape::Error => DbgDocBldr::error("error"),
             #[cfg(feature = "dataframe")]
-            InlineShape::Dataframe => DbgDocBldr::error("dataframe_pretty_FormatInlineShape"),
+            InlineShape::Data => DbgDocBldr::error("data_pretty_formatter"),
             InlineShape::BeginningOfStream => DbgDocBldr::blank(),
             InlineShape::EndOfStream => DbgDocBldr::blank(),
         }

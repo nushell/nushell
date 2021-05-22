@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, UntaggedValue};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsStruct},
+    Signature, UntaggedValue,
+};
 
 pub struct Command;
 
@@ -23,7 +26,8 @@ impl WholeStreamCommand for Command {
         let args = args.evaluate_once()?;
 
         let df = NuDataFrame::try_from_iter(args.input, &tag)?;
-        let init = InputStream::one(UntaggedValue::Dataframe(df).into_value(&tag));
+        let init =
+            InputStream::one(UntaggedValue::Data(PolarsStruct::DataFrame(df)).into_value(&tag));
 
         Ok(init.to_output_stream())
     }

@@ -115,7 +115,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             serde_json::Value::Null
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::Dataframe(_) => serde_json::Value::Null,
+        UntaggedValue::Data(_) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
                 .map(|x| {

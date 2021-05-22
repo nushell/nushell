@@ -156,9 +156,9 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         ))
                     }
                     #[cfg(feature = "dataframe")]
-                    UntaggedValue::Dataframe(_) => {
+                    UntaggedValue::Data(_) => {
                         return Err(ShellError::labeled_error(
-                            "uniq -c cannot operate on dataframes.",
+                            "uniq -c cannot operate on data structs",
                             "source",
                             item.0.tag.span,
                         ))
