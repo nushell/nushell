@@ -49,8 +49,13 @@ pub fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let format: Tagged<String> = args.req(0)?;
     let table: Option<bool> = args.get_flag("table")?;
 
-    Ok(args
-        .input
+    let input = if args.input.is_empty() {
+        InputStream::one(crate::commands::date::now::date_now(&tag))
+    } else {
+        args.input
+    };
+
+    Ok(input
         .map(move |value| match value {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Date(dt)),
