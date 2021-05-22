@@ -188,8 +188,8 @@ fn parse_regex_error(e: regex::Error, pattern: Tagged<String>) -> ShellError {
 
             match (msg, tag) {
                 (Some(msg), Some(tag)) => ShellError::labeled_error_with_secondary(
-                    msg.clone(),
-                    msg,
+                    &msg,
+                    &msg,
                     tag.span,
                     "invalid regex pattern",
                     pattern.tag.span,
