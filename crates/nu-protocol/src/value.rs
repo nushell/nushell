@@ -51,9 +51,10 @@ pub enum UntaggedValue {
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
 
-    /// NuDataframe
+    /// Data option that holds the polars structs required to to data
+    /// manipulation and operations using polars dataframes
     #[cfg(feature = "dataframe")]
-    Dataframe(NuDataFrame),
+    DataFrame(NuDataFrame),
 }
 
 impl UntaggedValue {
@@ -671,7 +672,7 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::Dataframe(_) => "dataframe",
+            UntaggedValue::DataFrame(_) => "dataframe",
         }
     }
 }

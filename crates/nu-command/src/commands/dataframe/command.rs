@@ -23,7 +23,7 @@ impl WholeStreamCommand for Command {
         let args = args.evaluate_once()?;
 
         let df = NuDataFrame::try_from_iter(args.input, &tag)?;
-        let init = InputStream::one(UntaggedValue::Dataframe(df).into_value(&tag));
+        let init = InputStream::one(UntaggedValue::DataFrame(df).into_value(&tag));
 
         Ok(init.to_output_stream())
     }

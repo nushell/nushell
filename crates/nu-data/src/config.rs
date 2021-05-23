@@ -117,7 +117,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
         #[cfg(feature = "dataframe")]
-        UntaggedValue::Dataframe(_) => toml::Value::String("<Dataframe>".to_string()),
+        UntaggedValue::DataFrame(_) => toml::Value::String("<Data>".to_string()),
         UntaggedValue::Primitive(Primitive::Range(_)) => toml::Value::String("<Range>".to_string()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())

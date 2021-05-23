@@ -3,9 +3,9 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue, Value};
 
-pub struct Dataframe;
+pub struct DataFrame;
 
-impl WholeStreamCommand for Dataframe {
+impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
         "dataframe list"
     }
@@ -23,7 +23,7 @@ impl WholeStreamCommand for Dataframe {
 
         let mut dataframes: Vec<Value> = Vec::new();
         for (name, value) in args.context.scope.get_vars() {
-            if let UntaggedValue::Dataframe(df) = value.value {
+            if let UntaggedValue::DataFrame(df) = value.value {
                 let mut data = TaggedDictBuilder::new(value.tag);
 
                 let polars_df = df.dataframe.unwrap();

@@ -401,10 +401,10 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
 
         UntaggedValue::Table(l) => serde_json::Value::Array(json_list(l)?),
         #[cfg(feature = "dataframe")]
-        UntaggedValue::Dataframe(_) => {
+        UntaggedValue::DataFrame(_) => {
             return Err(ShellError::labeled_error(
-                "Cannot convert dataframe",
-                "Cannot convert dataframe",
+                "Cannot convert data struct",
+                "Cannot convert data struct",
                 &v.tag,
             ))
         }
