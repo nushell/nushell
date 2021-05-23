@@ -1111,7 +1111,7 @@ fn parse_arg(
 /// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
     signature: &nu_protocol::Signature,
-    cmd: &Spanned<String>,
+    cmd: &InternalCommand,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
     if arg.item.starts_with('-') {
@@ -1128,7 +1128,7 @@ fn get_flags_from_flag(
                 output.push((remainder.clone(), named_type.clone()));
             } else {
                 error = Some(ParseError::argument_error(
-                    cmd.clone(),
+                    cmd.name.to_string().spanned(cmd.name_span),
                     ArgumentError::UnexpectedFlag(arg.clone()),
                 ));
             }
@@ -1147,7 +1147,7 @@ fn get_flags_from_flag(
 
                 if !found {
                     error = Some(ParseError::argument_error(
-                        cmd.clone(),
+                        cmd.name.to_string().spanned(cmd.name_span),
                         ArgumentError::UnexpectedFlag(
                             arg.item
                                 .clone()
@@ -1484,7 +1484,7 @@ fn parse_internal_command(
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
-                get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
+                get_flags_from_flag(&signature, &internal_command, &lite_cmd.parts[idx]);
 
             if err.is_none() {
                 for (full_name, named_type) in &named_types {
