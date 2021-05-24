@@ -59,7 +59,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::Binary(binary) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&binary.left));
-            output.push(FlatShape::Operator.spanned(binary.op.span));
+            output.append(&mut expression_to_flat_shape(&binary.op));
             output.append(&mut expression_to_flat_shape(&binary.right));
             output
         }

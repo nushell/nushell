@@ -907,7 +907,10 @@ fn parse_arg(
         }
 
         SyntaxShape::Range => parse_range(&lite_arg, scope),
-        SyntaxShape::Operator => parse_operator(&lite_arg),
+        SyntaxShape::Operator => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("operator", lite_arg.clone())),
+        ),
         SyntaxShape::Filesize => parse_filesize(&lite_arg),
         SyntaxShape::Duration => parse_duration(&lite_arg),
         SyntaxShape::FilePath => {
@@ -1230,7 +1233,7 @@ pub fn parse_math_expression(
     prec.push(0);
 
     while idx < lite_args.len() {
-        let (op, err) = parse_arg(SyntaxShape::Operator, scope, &lite_args[idx]);
+        let (op, err) = parse_operator(&lite_args[idx]);
         if error.is_none() {
             error = err;
         }

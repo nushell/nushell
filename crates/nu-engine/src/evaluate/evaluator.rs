@@ -59,7 +59,11 @@ pub fn evaluate_baseline_expr(
                         )),
                     }
                 }
-                _ => unreachable!(),
+                _ => Err(ShellError::labeled_error(
+                    "Unknown operator",
+                    "unknown operator",
+                    binary.op.span,
+                )),
             }
         }
         Expression::Range(range) => {
