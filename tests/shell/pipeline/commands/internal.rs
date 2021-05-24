@@ -434,6 +434,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
+fn bad_operator() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            2 $ 2
+        "#
+    );
+
+    assert!(actual.err.contains("operator"));
+}
+
+#[test]
 fn index_out_of_bounds() {
     let actual = nu!(
         cwd: ".",
