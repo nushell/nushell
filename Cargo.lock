@@ -2828,6 +2828,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
+
+[[package]]
 name = "libnghttp2-sys"
 version = "0.1.6+1.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3743,9 +3749,6 @@ dependencies = [
  "polars",
  "serde 1.0.125",
  "serde_bytes",
- "serde_json",
- "serde_yaml",
- "toml",
 ]
 
 [[package]]
@@ -4236,6 +4239,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -4668,9 +4672,9 @@ dependencies = [
 
 [[package]]
 name = "polars"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc4e2e025126632e8e19d53cd9b655da344bd4942ba603ad246c7776b6401844"
+checksum = "c406ce46726b7d33b05a343d9c1317c0803a419d50bb45275de3f366410e9a80"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4679,9 +4683,9 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3534c76a7bafaca9c783506a1f331ad746621d3808ab2407c02ffadd9e99326"
+checksum = "53b2d5fb400345c7977e4e728a10be382476f2f9d2caf6b57cd60e97ea17d364"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4690,9 +4694,9 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad76c4d55017da2d0f8930b0caa327d12286c1e4407469f361e84fad176f9601"
+checksum = "88561e850748c507f0fc7835b35e795e770597ceecb14e0a8f7d8abf8346645d"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4706,6 +4710,8 @@ dependencies = [
  "parquet",
  "polars-arrow",
  "prettytable-rs",
+ "rand 0.7.3",
+ "rand_distr",
  "rayon",
  "regex 1.5.3",
  "thiserror",
@@ -4714,9 +4720,9 @@ dependencies = [
 
 [[package]]
 name = "polars-io"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07f20f27363d85f847a2b7e9d1bfd426bff18680691dd42ff17ca91893f12f89"
+checksum = "27388810ec5f3346838725aa0aa49343802c1344b96fe82229ae781c62c98bc7"
 dependencies = [
  "ahash 0.7.2",
  "anyhow",
@@ -4738,9 +4744,9 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "595906f951bacf223625ed6b0e4e73153eb9e251850bb2f9c36d78828334f32b"
+checksum = "0e7f83284970a9db7d0b6a56d6f944c3988587429c124c1d087188e9d2c7ad7c"
 dependencies = [
  "ahash 0.7.2",
  "itertools",
@@ -5070,6 +5076,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34cf66eb183df1c5876e2dcf6b13d57340741e8dc255b48e40a26de954d06ae7"
 dependencies = [
  "getrandom 0.2.2",
+]
+
+[[package]]
+name = "rand_distr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
+dependencies = [
+ "num-traits 0.2.14",
+ "rand 0.7.3",
 ]
 
 [[package]]

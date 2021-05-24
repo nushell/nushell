@@ -1,0 +1,108 @@
+use crate::prelude::*;
+use nu_engine::WholeStreamCommand;
+use nu_errors::ShellError;
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+
+use nu_source::Tagged;
+
+pub struct DataFrame;
+
+impl WholeStreamCommand for DataFrame {
+    fn name(&self) -> &str {
+        "dataframe sample"
+    }
+
+    fn usage(&self) -> &str {
+        "Sample dataframe"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("dataframe load")
+            .named(
+                "rows",
+                SyntaxShape::Number,
+                "number of rows to be taken from dataframe",
+                Some('r'),
+            )
+            .named(
+                "fraction",
+                SyntaxShape::Number,
+                "fraction of dataframe to be taken",
+                Some('f'),
+            )
+            .switch("replace", "sample with replace", Some('e'))
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        sample(args)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Sample rows from dataframe",
+                example: "echo [[a b]; [1 2] [3 4]] | dataframe | dataframe sample -r 1",
+                result: None,
+            },
+            Example {
+                description: "Shows sample row using fraction and replace",
+                example: "echo [[a b]; [1 2] [3 4] [5 6]] | dataframe | dataframe sample -f 0.5 -e",
+                result: None,
+            },
+        ]
+    }
+}
+
+fn sample(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let mut args = args.evaluate_once()?;
+
+    let rows: Option<Tagged<usize>> = args.get_flag("rows")?;
+    let fraction: Option<Tagged<f64>> = args.get_flag("fraction")?;
+    let replace: bool = args.has_flag("replace");
+
+    match args.input.next() {
+        None => Err(ShellError::labeled_error(
+            "No input received",
+            "missing dataframe input from stream",
+            &tag,
+        )),
+        Some(value) => {
+            if let UntaggedValue::DataFrame(NuDataFrame {
+                dataframe: Some(ref df),
+                ..
+            }) = value.value
+            {
+                let res = match (rows, fraction) {
+                    (Some(rows), None) => df.sample_n(rows.item, replace).map_err(|e| {
+                        ShellError::labeled_error("Polars error", format!("{}", e), &rows.tag)
+                    }),
+                    (None, Some(frac)) => df.sample_frac(frac.item, replace).map_err(|e| {
+                        ShellError::labeled_error("Polars error", format!("{}", e), &frac.tag)
+                    }),
+                    (Some(_), Some(_)) | (None, None) => Err(ShellError::labeled_error(
+                        "Incompatible flags",
+                        "Only one selection criterion allowed",
+                        &tag,
+                    )),
+                };
+
+                let value = Value {
+                    value: UntaggedValue::DataFrame(NuDataFrame {
+                        dataframe: Some(res?),
+                        name: "sample".to_string(),
+                    }),
+                    tag: tag.clone(),
+                };
+
+                Ok(OutputStream::one(value))
+            } else {
+                Err(ShellError::labeled_error(
+                    "No dataframe in stream",
+                    "no dataframe found in input stream",
+                    &tag,
+                ))
+            }
+        }
+    }
+}

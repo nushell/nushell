@@ -17,8 +17,8 @@ enum Operation {
     Nunique,
     Quantile(f64),
     Median,
-    //Var,
-    //Std,
+    Var,
+    Std,
     Count,
 }
 
@@ -56,8 +56,8 @@ impl Operation {
                 }
             }
             "median" => Ok(Operation::Median),
-            //"var" => Ok(Operation::Var),
-            //"std" => Ok(Operation::Std),
+            "var" => Ok(Operation::Var),
+            "std" => Ok(Operation::Std),
             "count" => Ok(Operation::Count),
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Operation not fount",
@@ -246,8 +246,8 @@ fn perform_aggregation(
         Operation::Nunique => groupby.n_unique(),
         Operation::Quantile(quantile) => groupby.quantile(quantile),
         Operation::Median => groupby.median(),
-        //Operation::Var => groupby.var(),
-        //Operation::Std => groupby.std(),
+        Operation::Var => groupby.var(),
+        Operation::Std => groupby.std(),
         Operation::Count => groupby.count(),
     }
     .map_err(|e| {

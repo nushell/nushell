@@ -252,6 +252,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
+            //Dataframe commands
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrame),
             #[cfg(feature = "dataframe")]
@@ -260,6 +261,10 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameList),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameGroupBy),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameShow),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameSample),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
