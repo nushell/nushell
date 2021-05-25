@@ -369,6 +369,68 @@ fn proper_shadow_let_env_aliases() {
 }
 
 #[test]
+fn load_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTENVVAR, "hello world"]] | load-env
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            load-env [[name, value]; [TESTENVVAR, "hello world"]]
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg_and_stream() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTVARSTREAM, "true"]] | load-env [[name, value]; [TESTVARARG, "false"]]
+            echo $nu.env | format "{TESTVARSTREAM} {TESTVARARG}"
+        "#
+    );
+
+    assert_eq!(actual.out, "true false");
+}
+
+#[test]
+fn load_env_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { echo [[name, value]; [xyz, "my message"]] | load-env }; echo $nu.env.xyz
+        "#
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn proper_shadow_load_env_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { echo [[name, value]; [DEBUG, false]] | load-env; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
 fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",

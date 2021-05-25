@@ -79,6 +79,7 @@ pub(crate) mod length;
 pub(crate) mod let_;
 pub(crate) mod let_env;
 pub(crate) mod lines;
+pub(crate) mod load_env;
 pub(crate) mod ls;
 pub(crate) mod math;
 pub(crate) mod merge;
@@ -226,6 +227,7 @@ pub(crate) use length::Length;
 pub(crate) use let_::Let;
 pub(crate) use let_env::LetEnv;
 pub(crate) use lines::Lines;
+pub(crate) use load_env::LoadEnv;
 pub(crate) use ls::Ls;
 pub(crate) use math::{
     Math, MathAbs, MathAverage, MathCeil, MathEval, MathFloor, MathMaximum, MathMedian,
