@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+const EXPAND_STR: &str = if cfg!(windows) { r"..\" } else { "../" };
+
 fn handle_dots_push(string: &mut String, count: u8) {
     if count < 1 {
         return;
@@ -11,7 +13,7 @@ fn handle_dots_push(string: &mut String, count: u8) {
     }
 
     for _ in 0..(count - 1) {
-        string.push_str("../");
+        string.push_str(EXPAND_STR);
     }
 
     string.pop(); // remove last '/'
@@ -93,14 +95,10 @@ pub fn expand_path<'a>(path: &'a str) -> Cow<'a, str> {
 mod tests {
     use super::*;
 
+    // common tests
     #[test]
     fn string_without_ndots() {
         assert_eq!("../hola", &expand_ndots("../hola").to_string());
-    }
-
-    #[test]
-    fn string_with_three_ndots() {
-        assert_eq!("../..", &expand_ndots("...").to_string());
     }
 
     #[test]
@@ -118,6 +116,45 @@ mod tests {
         assert_eq!("a.b", &expand_ndots("a.b").to_string());
     }
 
+    // Windows tests
+    #[cfg(windows)]
+    #[test]
+    fn string_with_three_ndots() {
+        assert_eq!(r"..\..", &expand_ndots("...").to_string());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn string_with_mixed_ndots_and_chars() {
+        assert_eq!(
+            r"a...b/./c..d/../e.f/..\..\..//.",
+            &expand_ndots("a...b/./c..d/../e.f/....//.").to_string()
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn string_with_three_ndots_and_final_slash() {
+        assert_eq!(r"..\../", &expand_ndots(".../").to_string());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn string_with_three_ndots_and_garbage() {
+        assert_eq!(
+            r"ls ..\../ garbage.*[",
+            &expand_ndots("ls .../ garbage.*[").to_string(),
+        );
+    }
+
+    // non-Windows tests
+    #[cfg(not(windows))]
+    #[test]
+    fn string_with_three_ndots() {
+        assert_eq!(r"../..", &expand_ndots("...").to_string());
+    }
+
+    #[cfg(not(windows))]
     #[test]
     fn string_with_mixed_ndots_and_chars() {
         assert_eq!(
@@ -126,11 +163,13 @@ mod tests {
         );
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn string_with_three_ndots_and_final_slash() {
         assert_eq!("../../", &expand_ndots(".../").to_string());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn string_with_three_ndots_and_garbage() {
         assert_eq!(
