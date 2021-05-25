@@ -2,12 +2,9 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
-use nu_protocol::{Signature, Value};
+use nu_protocol::{Signature, SyntaxShape, Value};
 
 pub struct LoadEnv;
-
-#[derive(Deserialize)]
-struct LoadEnvArgs {}
 
 impl WholeStreamCommand for LoadEnv {
     fn name(&self) -> &str {
@@ -15,7 +12,11 @@ impl WholeStreamCommand for LoadEnv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("load-env")
+        Signature::build("load-env").optional(
+            "environ",
+            SyntaxShape::Any,
+            "Optional environment table to load in. If not provided, will use the table provided on the input stream",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -27,20 +28,31 @@ impl WholeStreamCommand for LoadEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Load a few variables",
-            example: r#"echo [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]] | load-env; echo $nu.env.NAME"#,
-            result: Some(vec![Value::from("JT")]),
-        }]
+        vec![
+            Example {
+                description: "Load variables from an input stream",
+                example: r#"echo [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]] | load-env; echo $nu.env.NAME"#,
+                result: Some(vec![Value::from("JT")]),
+            },
+            Example {
+                description: "Load variables from an argument",
+                example: r#"load-env [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]]; echo $nu.env.NAME"#,
+                result: Some(vec![Value::from("JT")]),
+            },
+            Example {
+                description: "Load variables from an argument and an input stream",
+                example: r#"echo [[name, value]; ["NAME", "JT"]] | load-env [[name, value]; ["VALUE", "FOO"]]; echo $nu.env.NAME $nu.env.VALUE"#,
+                result: Some(vec![Value::from("JT"), Value::from("UNKNOWN")]),
+            },
+        ]
     }
 }
 
-pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let ctx = EvaluationContext::from_args(&args);
-
-    let (LoadEnvArgs {}, stream) = args.process()?;
-
-    for value in stream {
+fn load_env_from_table(
+    values: impl IntoIterator<Item = Value>,
+    ctx: &EvaluationContext,
+) -> Result<(), ShellError> {
+    for value in values {
         let mut var_name = None;
         let mut var_value = None;
 
@@ -66,19 +78,18 @@ pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
         }
     }
 
-    /*
-    ctx.scope.add_vars(&captured.entries);
+    Ok(())
+}
 
-    let value = evaluate_baseline_expr(&expr, &ctx);
+pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let ctx = EvaluationContext::from_args(&args);
+    let args = args.evaluate_once()?;
 
-    ctx.scope.exit_scope();
+    if let Some(values) = args.opt::<Vec<Value>>(0)? {
+        load_env_from_table(values, &ctx)?;
+    }
 
-    let value = value?;
-    let value = value.as_string()?;
-
-    let name = name.item;
-
-    */
+    load_env_from_table(args.input, &ctx)?;
 
     Ok(ActionStream::empty())
 }

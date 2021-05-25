@@ -382,6 +382,32 @@ fn load_env_variable() {
 }
 
 #[test]
+fn load_env_variable_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            load-env [[name, value]; [TESTENVVAR, "hello world"]]
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg_and_stream() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTVARSTREAM, "true"]] | load-env [[name, value]; [TESTVARARG, "false"]]
+            echo $nu.env | format "{TESTVARSTREAM} {TESTVARARG}"
+        "#
+    );
+
+    assert_eq!(actual.out, "true false");
+}
+
+#[test]
 fn load_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
