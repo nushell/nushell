@@ -142,20 +142,20 @@ pub fn action(
             }
             Primitive::Nothing => "nothing".to_string(),
             _ => {
-                return Err(ShellError::unimplemented(
-                    "str from for non-numeric primitives",
-                ))
+                return Err(ShellError::unimplemented(&format!(
+                    "into string for primitive: {:?}",
+                    prim
+                )))
             }
         })
         .into_value(tag)),
         UntaggedValue::Row(_) => Err(ShellError::labeled_error(
-            "specify column to use 'str from'",
+            "specify column to use 'into string'",
             "found table",
             input.tag.clone(),
         )),
-        _ => Err(ShellError::unimplemented(
-            "str from for non-primitive, non-table types",
-        )),
+        UntaggedValue::Table(_) => Err(ShellError::unimplemented("into string for table")),
+        _ => Err(ShellError::unimplemented("into string for non-primitive")),
     }
 }
 
