@@ -149,8 +149,9 @@ fn spawn(
             process.arg("/c");
             process.arg(&command.name);
             for arg in args {
+                eprintln!("args {}", &arg);
                 // Clean the args before we use them:
-                let arg = arg.replace("|", "\\|");
+                let arg = arg.replace("|", "^|");
                 process.arg(&arg);
             }
             process
@@ -165,8 +166,8 @@ fn spawn(
         }
     };
 
-    process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
+    process.current_dir(path);
 
     process.env_clear();
     process.envs(scope.get_env_vars());
