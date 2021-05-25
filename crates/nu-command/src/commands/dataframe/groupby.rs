@@ -1,11 +1,11 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use polars::frame::groupby::GroupBy;
+
+use super::utils::convert_columns;
 
 enum Operation {
     Mean,
@@ -121,71 +121,11 @@ fn groupby(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     // Extracting the names of the columns to perform the groupby
     let columns: Vec<Value> = args.req(0)?;
-
-    // Extracting the first tag from the groupby column names
-    let mut col_span = match columns
-        .iter()
-        .nth(0)
-        .map(|v| Span::new(v.tag.span.start(), v.tag.span.end()))
-    {
-        Some(span) => span,
-        None => {
-            return Err(ShellError::labeled_error(
-                "Empty groupby names list",
-                "Empty list for groupby column names",
-                &tag,
-            ))
-        }
-    };
-
-    let columns_string = columns
-        .into_iter()
-        .map(|value| match value.value {
-            UntaggedValue::Primitive(Primitive::String(s)) => {
-                col_span = col_span.until(value.tag.span);
-                Ok(s)
-            }
-            _ => Err(ShellError::labeled_error(
-                "Incorrect column format",
-                "Only string as column name",
-                &value.tag,
-            )),
-        })
-        .collect::<Result<Vec<String>, _>>()?;
+    let (columns_string, col_span) = convert_columns(&columns, &tag)?;
 
     // Extracting the names of the columns to perform the aggregation
     let agg_cols: Vec<Value> = args.req(1)?;
-
-    // Extracting the first tag from the aggregation column names
-    let mut agg_span = match agg_cols
-        .iter()
-        .nth(0)
-        .map(|v| Span::new(v.tag.span.start(), v.tag.span.end()))
-    {
-        Some(span) => span,
-        None => {
-            return Err(ShellError::labeled_error(
-                "Empty aggregation names list",
-                "Empty list for aggregation column names",
-                &tag,
-            ))
-        }
-    };
-
-    let aggregation_string = agg_cols
-        .into_iter()
-        .map(|value| match value.value {
-            UntaggedValue::Primitive(Primitive::String(s)) => {
-                agg_span = agg_span.until(value.tag.span);
-                Ok(s)
-            }
-            _ => Err(ShellError::labeled_error(
-                "Incorrect column format",
-                "Only string as column name",
-                value.tag,
-            )),
-        })
-        .collect::<Result<Vec<String>, _>>()?;
+    let (aggregation_string, agg_span) = convert_columns(&agg_cols, &tag)?;
 
     // The operation is only done in one dataframe. Only one input is
     // expected from the InputStream
@@ -202,11 +142,11 @@ fn groupby(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }) = value.value
             {
                 let groupby = df
-                    .groupby(&columns_string)
+                    .groupby(columns_string)
                     .map_err(|e| {
                         ShellError::labeled_error("Groupby error", format!("{}", e), col_span)
                     })?
-                    .select(&aggregation_string);
+                    .select(aggregation_string);
 
                 let res = perform_aggregation(groupby, op, &operation.tag, &agg_span)?;
 

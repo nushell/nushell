@@ -13,16 +13,16 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Sample dataframe"
+        "Create sample dataframe"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe load")
             .named(
-                "rows",
+                "n_rows",
                 SyntaxShape::Number,
                 "number of rows to be taken from dataframe",
-                Some('r'),
+                Some('n'),
             )
             .named(
                 "fraction",
@@ -57,7 +57,7 @@ fn sample(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    let rows: Option<Tagged<usize>> = args.get_flag("rows")?;
+    let rows: Option<Tagged<usize>> = args.get_flag("n_rows")?;
     let fraction: Option<Tagged<f64>> = args.get_flag("fraction")?;
     let replace: bool = args.has_flag("replace");
 
