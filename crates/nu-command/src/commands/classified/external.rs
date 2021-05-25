@@ -149,8 +149,9 @@ fn spawn(
             process.arg("/c");
             process.arg(&command.name);
             for arg in args {
-                eprintln!("args {}", &arg);
                 // Clean the args before we use them:
+                // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
+                // cmd.exe needs to have a caret to escape a pipe
                 let arg = arg.replace("|", "^|");
                 process.arg(&arg);
             }
@@ -166,8 +167,8 @@ fn spawn(
         }
     };
 
-    trace!(target: "nu::run::external", "cwd = {:?}", &path);
     process.current_dir(path);
+    trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     process.env_clear();
     process.envs(scope.get_env_vars());
