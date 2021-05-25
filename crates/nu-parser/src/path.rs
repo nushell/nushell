@@ -18,13 +18,27 @@ fn handle_dots_push(string: &mut String, count: u8) {
 }
 
 pub fn expand_ndots(path: &str) -> Cow<'_, str> {
+    // helpers
+    #[cfg(windows)]
+    fn is_separator(c: char) -> bool {
+        // AFAIK, Windows can have both \ and / as path components separators
+        (c == '/') || (c == '\\')
+    }
+
+    #[cfg(not(windows))]
+    fn is_separator(c: char) -> bool {
+        c == '/'
+    }
+
+    // find if we need to expand any >2 dot paths and early exit if not
     let mut dots_count = 0u8;
     let ndots_present = {
         for chr in path.chars() {
             if chr == '.' {
                 dots_count += 1;
             } else {
-                if dots_count > 2 {
+                if is_separator(chr) && (dots_count > 2) {
+                    // this path component had >2 dots
                     break;
                 }
 
@@ -42,12 +56,21 @@ pub fn expand_ndots(path: &str) -> Cow<'_, str> {
     let mut dots_count = 0u8;
     let mut expanded = String::new();
     for chr in path.chars() {
-        if chr != '.' {
-            handle_dots_push(&mut expanded, dots_count);
-            dots_count = 0;
-            expanded.push(chr);
-        } else {
+        if chr == '.' {
             dots_count += 1;
+        } else {
+            if is_separator(chr) {
+                // check for dots expansion only at path component boundaries
+                handle_dots_push(&mut expanded, dots_count);
+                dots_count = 0;
+            } else {
+                // got non-dot within path component => do not expand any dots
+                while dots_count > 0 {
+                    expanded.push('.');
+                    dots_count -= 1;
+                }
+            }
+            expanded.push(chr);
         }
     }
 
@@ -78,6 +101,29 @@ mod tests {
     #[test]
     fn string_with_three_ndots() {
         assert_eq!("../..", &expand_ndots("...").to_string());
+    }
+
+    #[test]
+    fn string_with_three_ndots_and_chars() {
+        assert_eq!("a...b", &expand_ndots("a...b").to_string());
+    }
+
+    #[test]
+    fn string_with_two_ndots_and_chars() {
+        assert_eq!("a..b", &expand_ndots("a..b").to_string());
+    }
+
+    #[test]
+    fn string_with_one_dot_and_chars() {
+        assert_eq!("a.b", &expand_ndots("a.b").to_string());
+    }
+
+    #[test]
+    fn string_with_mixed_ndots_and_chars() {
+        assert_eq!(
+            "a...b/./c..d/../e.f/../../..//.",
+            &expand_ndots("a...b/./c..d/../e.f/....//.").to_string()
+        );
     }
 
     #[test]
