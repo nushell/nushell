@@ -152,10 +152,7 @@ fn groupby(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 let final_df = Value {
                     tag,
-                    value: UntaggedValue::DataFrame(NuDataFrame {
-                        dataframe: Some(res),
-                        name: "agg result".to_string(),
-                    }),
+                    value: UntaggedValue::DataFrame(NuDataFrame::new(res)),
                 };
 
                 Ok(OutputStream::one(final_df))

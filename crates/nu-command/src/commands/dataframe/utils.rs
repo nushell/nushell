@@ -17,7 +17,7 @@ pub(crate) fn convert_columns<'columns>(
         None => {
             return Err(ShellError::labeled_error(
                 "Empty column list",
-                "Empty list for join operation",
+                "Empty list found for command",
                 tag,
             ))
         }

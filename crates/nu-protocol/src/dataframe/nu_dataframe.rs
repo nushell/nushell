@@ -59,8 +59,18 @@ impl Default for NuDataFrame {
 }
 
 impl NuDataFrame {
-    fn new() -> Self {
-        Self::default()
+    pub fn new(df: polars::prelude::DataFrame) -> Self {
+        NuDataFrame {
+            dataframe: Some(df),
+            name: String::from("dataframe"),
+        }
+    }
+
+    pub fn new_with_name(df: polars::prelude::DataFrame, name: String) -> Self {
+        NuDataFrame {
+            dataframe: Some(df),
+            name,
+        }
     }
 }
 
@@ -103,7 +113,7 @@ impl<'de> Deserialize<'de> for NuDataFrame {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_i32(NuDataFrame::new())
+        deserializer.deserialize_i32(NuDataFrame::default())
     }
 }
 

@@ -80,18 +80,22 @@ fn sample(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     (None, Some(frac)) => df.sample_frac(frac.item, replace).map_err(|e| {
                         ShellError::labeled_error("Polars error", format!("{}", e), &frac.tag)
                     }),
-                    (Some(_), Some(_)) | (None, None) => Err(ShellError::labeled_error(
+                    (Some(_), Some(_)) => Err(ShellError::labeled_error(
                         "Incompatible flags",
                         "Only one selection criterion allowed",
                         &tag,
                     )),
-                };
+                    (None, None) => Err(ShellError::labeled_error_with_secondary(
+                        "No selection",
+                        "No selection criterion was found",
+                        &tag,
+                        "Perhaps you want to use the flag -n or -f",
+                        &tag,
+                    )),
+                }?;
 
                 let value = Value {
-                    value: UntaggedValue::DataFrame(NuDataFrame {
-                        dataframe: Some(res?),
-                        name: "sample".to_string(),
-                    }),
+                    value: UntaggedValue::DataFrame(NuDataFrame::new(res)),
                     tag: tag.clone(),
                 };
 

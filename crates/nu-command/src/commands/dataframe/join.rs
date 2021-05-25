@@ -132,13 +132,10 @@ fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         "not a dataframe type value",
                         &r_df.tag,
                     )),
-                };
+                }?;
 
                 let value = Value {
-                    value: UntaggedValue::DataFrame(NuDataFrame {
-                        dataframe: Some(res?),
-                        name: "joined dataframe".to_string(),
-                    }),
+                    value: UntaggedValue::DataFrame(NuDataFrame::new(res)),
                     tag: tag.clone(),
                 };
 

@@ -85,7 +85,7 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Some("json") => from_json(args),
             _ => Err(ShellError::labeled_error(
                 "Error with file",
-                "Not a csv or parquet file",
+                "Not a csv, parquet or json file",
                 &file.tag,
             )),
         },
@@ -107,12 +107,9 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let nu_dataframe = NuDataFrame {
-        dataframe: Some(df),
-        name: file_name,
-    };
-
-    let init = InputStream::one(UntaggedValue::DataFrame(nu_dataframe).into_value(&tag));
+    let init = InputStream::one(
+        UntaggedValue::DataFrame(NuDataFrame::new_with_name(df, file_name)).into_value(&tag),
+    );
 
     Ok(init.to_output_stream())
 }

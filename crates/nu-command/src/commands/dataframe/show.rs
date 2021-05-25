@@ -19,10 +19,10 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe load")
             .named(
-                "rows",
+                "n_rows",
                 SyntaxShape::Number,
                 "number of rows to be shown",
-                Some('r'),
+                Some('n'),
             )
             .switch("tail", "shows tail rows", Some('t'))
     }
@@ -40,7 +40,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "echo [[a b]; [1 2] [3 4] [5 6]] | dataframe | dataframe show -t -r 1",
+                example: "echo [[a b]; [1 2] [3 4] [5 6]] | dataframe | dataframe show -t -n 1",
                 result: None,
             },
         ]
