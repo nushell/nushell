@@ -7,7 +7,7 @@ use nu_protocol::{Primitive, UntaggedValue, Value};
 pub(crate) fn convert_columns<'columns>(
     columns: &'columns [Value],
     tag: &Tag,
-) -> Result<(Vec<&'columns str>, Span), ShellError> {
+) -> Result<(Vec<String>, Span), ShellError> {
     let mut col_span = match columns
         .iter()
         .nth(0)
@@ -28,7 +28,7 @@ pub(crate) fn convert_columns<'columns>(
         .map(|value| match &value.value {
             UntaggedValue::Primitive(Primitive::String(s)) => {
                 col_span = col_span.until(value.tag.span);
-                Ok(s.as_ref())
+                Ok(s.clone())
             }
             _ => Err(ShellError::labeled_error(
                 "Incorrect column format",
@@ -36,7 +36,7 @@ pub(crate) fn convert_columns<'columns>(
                 &value.tag,
             )),
         })
-        .collect::<Result<Vec<&'columns str>, _>>()?;
+        .collect::<Result<Vec<String>, _>>()?;
 
     Ok((res, col_span))
 }

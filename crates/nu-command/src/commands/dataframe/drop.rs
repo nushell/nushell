@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsData},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::convert_columns;
 
@@ -9,7 +12,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe drop"
+        "pls drop"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe drop").required(
+        Signature::build("pls drop").required(
             "columns",
             SyntaxShape::Table,
             "column names to be dropped",
@@ -31,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "echo [[a b]; [1 2] [3 4]] | dataframe | dataframe drop [a]",
+            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls drop [a]",
             result: None,
         }]
     }
@@ -52,10 +55,10 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(NuDataFrame {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
                 dataframe: Some(ref df),
                 ..
-            }) = value.value
+            })) = value.value
             {
                 let new_df = match col_string.iter().next() {
                     Some(col) => df.drop(col).map_err(|e| {
@@ -75,7 +78,9 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 })?;
 
                 let value = Value {
-                    value: UntaggedValue::DataFrame(NuDataFrame::new(res)),
+                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
+                        res,
+                    ))),
                     tag: tag.clone(),
                 };
 

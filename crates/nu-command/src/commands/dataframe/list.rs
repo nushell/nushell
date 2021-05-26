@@ -1,13 +1,16 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsData},
+    Signature, TaggedDictBuilder, UntaggedValue,
+};
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe list"
+        "pls list"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +18,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe list")
+        Signature::build("pls list")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -27,10 +30,10 @@ impl WholeStreamCommand for DataFrame {
             .get_vars()
             .into_iter()
             .filter_map(|(name, value)| {
-                if let UntaggedValue::DataFrame(NuDataFrame {
+                if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
                     dataframe: Some(df),
                     name: file_name,
-                }) = &value.value
+                })) = &value.value
                 {
                     let mut data = TaggedDictBuilder::new(value.tag.clone());
 
@@ -54,7 +57,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Lists loaded dataframes in current scope",
-            example: "dataframe list",
+            example: "pls list",
             result: None,
         }]
     }

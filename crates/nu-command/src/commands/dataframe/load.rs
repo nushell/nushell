@@ -4,7 +4,8 @@ use crate::prelude::*;
 use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+    dataframe::{NuDataFrame, PolarsData},
+    Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 use nu_source::Tagged;
@@ -15,7 +16,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe load"
+        "pls load"
     }
 
     fn usage(&self) -> &str {
@@ -23,7 +24,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe load")
+        Signature::build("pls load")
             .required(
                 "file",
                 SyntaxShape::FilePath,
@@ -67,7 +68,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a file name and creates a dataframe",
-            example: "dataframe load test.csv",
+            example: "pls load test.csv",
             result: None,
         }]
     }
@@ -108,7 +109,10 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let init = InputStream::one(
-        UntaggedValue::DataFrame(NuDataFrame::new_with_name(df, file_name)).into_value(&tag),
+        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new_with_name(
+            df, file_name,
+        )))
+        .into_value(&tag),
     );
 
     Ok(init.to_output_stream())

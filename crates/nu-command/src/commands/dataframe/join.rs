@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsData},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::convert_columns;
 
@@ -13,7 +16,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe join"
+        "pls join"
     }
 
     fn usage(&self) -> &str {
@@ -21,7 +24,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe join")
+        Signature::build("pls join")
             .required("dataframe", SyntaxShape::Any, "right dataframe to join")
             .required(
                 "l_columns",
@@ -49,13 +52,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "inner join dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | dataframe | dataframe join $right [a] [a]",
+                example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls join $right [a] [a]",
                 result: None,
             },
             Example {
                 description: "right join dataframe",
                 example:
-                    "echo [[a b]; [1 2] [3 4] [5 6]] | dataframe | dataframe join $right [b] [b] -t right",
+                    "echo [[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
                 result: None,
             },
         ]
@@ -99,16 +102,16 @@ fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(NuDataFrame {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
                 dataframe: Some(ref df),
                 ..
-            }) = value.value
+            })) = value.value
             {
                 let res = match r_df.value {
-                    UntaggedValue::DataFrame(NuDataFrame {
+                    UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
                         dataframe: Some(r_df),
                         ..
-                    }) => {
+                    })) => {
                         // Checking the column types before performing the join
                         check_column_datatypes(
                             df,
@@ -118,7 +121,7 @@ fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             &r_col_span,
                         )?;
 
-                        df.join(&r_df, l_col_string, r_col_string, join_type)
+                        df.join(&r_df, &l_col_string, &r_col_string, join_type)
                             .map_err(|e| {
                                 ShellError::labeled_error(
                                     "Join error",
@@ -135,7 +138,9 @@ fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }?;
 
                 let value = Value {
-                    value: UntaggedValue::DataFrame(NuDataFrame::new(res)),
+                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
+                        res,
+                    ))),
                     tag: tag.clone(),
                 };
 

@@ -256,11 +256,15 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrame),
             #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameConvert),
+            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameLoad),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameList),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameGroupBy),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameAggregate),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameShow),
             #[cfg(feature = "dataframe")]

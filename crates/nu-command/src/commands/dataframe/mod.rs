@@ -1,4 +1,6 @@
+pub mod aggregate;
 pub mod command;
+pub mod convert;
 pub mod drop;
 pub mod dtypes;
 pub mod groupby;
@@ -10,7 +12,9 @@ pub mod select;
 pub mod show;
 pub(crate) mod utils;
 
+pub use aggregate::DataFrame as DataFrameAggregate;
 pub use command::Command as DataFrame;
+pub use convert::DataFrame as DataFrameConvert;
 pub use drop::DataFrame as DataFrameDrop;
 pub use dtypes::DataFrame as DataFrameDTypes;
 pub use groupby::DataFrame as DataFrameGroupBy;

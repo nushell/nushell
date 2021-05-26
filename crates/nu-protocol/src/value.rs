@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 #[cfg(feature = "dataframe")]
-use crate::dataframe::NuDataFrame;
+use crate::dataframe::PolarsData;
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ pub enum UntaggedValue {
     /// Data option that holds the polars structs required to to data
     /// manipulation and operations using polars dataframes
     #[cfg(feature = "dataframe")]
-    DataFrame(NuDataFrame),
+    DataFrame(PolarsData),
 }
 
 impl UntaggedValue {

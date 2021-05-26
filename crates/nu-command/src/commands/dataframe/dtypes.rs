@@ -1,13 +1,16 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsData},
+    Signature, TaggedDictBuilder, UntaggedValue,
+};
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe dtypes"
+        "pls dtypes"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +18,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe dtypes")
+        Signature::build("pls dtypes")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -25,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "echo [[a b]; [1 2] [3 4]] | dataframe | dataframe dtypes",
+            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls dtypes",
             result: None,
         }]
     }
@@ -42,10 +45,10 @@ fn dtypes(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(NuDataFrame {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
                 dataframe: Some(df),
                 ..
-            }) = value.value
+            })) = value.value
             {
                 let col_names = df
                     .get_column_names()
