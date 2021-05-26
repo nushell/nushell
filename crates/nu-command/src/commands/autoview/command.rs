@@ -4,12 +4,12 @@ use crate::primitive::get_color_config;
 use nu_data::value::format_leaf;
 use nu_engine::{UnevaluatedCallInfo, WholeStreamCommand};
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::PolarsData,
-    hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression},
-};
+use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedExpression};
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
+
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::PolarsData;
 
 pub struct Command;
 
