@@ -374,6 +374,10 @@ impl FromValue for Vec<Value> {
                 value: UntaggedValue::Table(t),
                 ..
             } => Ok(t.clone()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => Ok(vec![v.clone()]),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to table",
                 "can't convert to table",

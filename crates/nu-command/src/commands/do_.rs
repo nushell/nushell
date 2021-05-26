@@ -2,13 +2,16 @@ use crate::prelude::*;
 use nu_engine::run_block;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{hir::CapturedBlock, hir::ExternalRedirection, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    hir::CapturedBlock, hir::ExternalRedirection, Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 pub struct Do;
 
 #[derive(Deserialize, Debug)]
 struct DoArgs {
     block: CapturedBlock,
+    rest: Vec<Value>,
     ignore_errors: bool,
 }
 
@@ -25,6 +28,7 @@ impl WholeStreamCommand for Do {
                 "ignore errors as the block runs",
                 Some('i'),
             )
+            .rest(SyntaxShape::Any, "the parameter(s) for the block")
     }
 
     fn usage(&self) -> &str {
@@ -47,6 +51,11 @@ impl WholeStreamCommand for Do {
                 example: r#"do -i { thisisnotarealcommand }"#,
                 result: Some(vec![]),
             },
+            Example {
+                description: "Run the block with a parameter",
+                example: r#"do { |x| $x + 100 } 55"#,
+                result: Some(vec![UntaggedValue::int(155).into()]),
+            },
         ]
     }
 }
@@ -58,6 +67,7 @@ fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     let (
         DoArgs {
             ignore_errors,
+            rest,
             block,
         },
         input,
@@ -82,6 +92,13 @@ fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     context.scope.enter_scope();
+
+    context.scope.add_vars(&block.captured.entries);
+
+    for (param, value) in block.block.params.positional.iter().zip(rest) {
+        context.scope.add_var(param.0.name(), value.clone());
+    }
+
     let result = run_block(&block.block, &context, input, block_redirection);
     context.scope.exit_scope();
 

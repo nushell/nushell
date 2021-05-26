@@ -150,7 +150,9 @@ fn spawn(
             process.arg(&command.name);
             for arg in args {
                 // Clean the args before we use them:
-                let arg = arg.replace("|", "\\|");
+                // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
+                // cmd.exe needs to have a caret to escape a pipe
+                let arg = arg.replace("|", "^|");
                 process.arg(&arg);
             }
             process

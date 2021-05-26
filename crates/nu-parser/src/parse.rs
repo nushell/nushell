@@ -907,7 +907,10 @@ fn parse_arg(
         }
 
         SyntaxShape::Range => parse_range(&lite_arg, scope),
-        SyntaxShape::Operator => parse_operator(&lite_arg),
+        SyntaxShape::Operator => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("operator", lite_arg.clone())),
+        ),
         SyntaxShape::Filesize => parse_filesize(&lite_arg),
         SyntaxShape::Duration => parse_duration(&lite_arg),
         SyntaxShape::FilePath => {
@@ -1111,7 +1114,7 @@ fn parse_arg(
 /// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
     signature: &nu_protocol::Signature,
-    cmd: &Spanned<String>,
+    cmd: &InternalCommand,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
     if arg.item.starts_with('-') {
@@ -1128,7 +1131,7 @@ fn get_flags_from_flag(
                 output.push((remainder.clone(), named_type.clone()));
             } else {
                 error = Some(ParseError::argument_error(
-                    cmd.clone(),
+                    cmd.name.to_string().spanned(cmd.name_span),
                     ArgumentError::UnexpectedFlag(arg.clone()),
                 ));
             }
@@ -1147,7 +1150,7 @@ fn get_flags_from_flag(
 
                 if !found {
                     error = Some(ParseError::argument_error(
-                        cmd.clone(),
+                        cmd.name.to_string().spanned(cmd.name_span),
                         ArgumentError::UnexpectedFlag(
                             arg.item
                                 .clone()
@@ -1230,7 +1233,7 @@ pub fn parse_math_expression(
     prec.push(0);
 
     while idx < lite_args.len() {
-        let (op, err) = parse_arg(SyntaxShape::Operator, scope, &lite_args[idx]);
+        let (op, err) = parse_operator(&lite_args[idx]);
         if error.is_none() {
             error = err;
         }
@@ -1484,7 +1487,7 @@ fn parse_internal_command(
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) =
-                get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
+                get_flags_from_flag(&signature, &internal_command, &lite_cmd.parts[idx]);
 
             if err.is_none() {
                 for (full_name, named_type) in &named_types {

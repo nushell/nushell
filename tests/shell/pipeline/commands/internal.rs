@@ -307,6 +307,18 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
+fn alias_a_load_env() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def activate-helper [] { [[name, value]; [BOB, SAM]] }; alias activate = load-env (activate-helper); activate; $nu.env.BOB
+        "#
+    );
+
+    assert_eq!(actual.out, r#"SAM"#);
+}
+
+#[test]
 fn let_variable() {
     let actual = nu!(
         cwd: ".",
@@ -363,6 +375,68 @@ fn proper_shadow_let_env_aliases() {
         cwd: ".",
         r#"
         let-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { let-env DEBUG = false; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn load_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTENVVAR, "hello world"]] | load-env
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            load-env [[name, value]; [TESTENVVAR, "hello world"]]
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg_and_stream() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTVARSTREAM, "true"]] | load-env [[name, value]; [TESTVARARG, "false"]]
+            echo $nu.env | format "{TESTVARSTREAM} {TESTVARARG}"
+        "#
+    );
+
+    assert_eq!(actual.out, "true false");
+}
+
+#[test]
+fn load_env_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { echo [[name, value]; [xyz, "my message"]] | load-env }; echo $nu.env.xyz
+        "#
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn proper_shadow_load_env_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { echo [[name, value]; [DEBUG, false]] | load-env; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -431,6 +505,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     );
 
     assert_eq!(actual.out, "nushell");
+}
+
+#[test]
+fn bad_operator() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            2 $ 2
+        "#
+    );
+
+    assert!(actual.err.contains("operator"));
 }
 
 #[test]
