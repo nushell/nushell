@@ -307,6 +307,18 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
+fn alias_a_load_env() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def activate-helper [] { [[name, value]; [BOB, SAM]] }; alias activate = load-env (activate-helper); activate; $nu.env.BOB
+        "#
+    );
+
+    assert_eq!(actual.out, r#"SAM"#);
+}
+
+#[test]
 fn let_variable() {
     let actual = nu!(
         cwd: ".",
