@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use sys_locale::get_locale;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct InlineRange {
@@ -195,8 +196,10 @@ impl InlineShape {
 
             match adj_byte.get_unit() {
                 byte_unit::ByteUnit::B => {
+                    let locale_string = get_locale().unwrap_or_else(|| String::from("en-US"));
+                    let locale = num_format::Locale::from_name(locale_string).unwrap_or(Locale::en);
                     let locale_byte = adj_byte.get_value() as u64;
-                    let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
+                    let locale_byte_string = locale_byte.to_formatted_string(&locale);
                     if filesize_format.1 == "auto" {
                         let doc = (DbgDocBldr::primitive(locale_byte_string)
                             + DbgDocBldr::space()
