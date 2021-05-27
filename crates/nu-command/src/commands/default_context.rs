@@ -158,6 +158,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(EachGroup),
             whole_stream_command(EachWindow),
             whole_stream_command(Empty),
+            whole_stream_command(ForIn),
             // Table manipulation
             whole_stream_command(Flatten),
             whole_stream_command(Move),
