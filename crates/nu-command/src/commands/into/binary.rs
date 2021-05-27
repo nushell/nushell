@@ -240,17 +240,19 @@ pub fn action(
                 .to_vec(),
             _ => {
                 return Err(ShellError::unimplemented(
-                    "'into int' for non-numeric primitives",
+                    "'into binary' for non-numeric primitives",
                 ))
             }
         })
         .into_value(&tag)),
         UntaggedValue::Row(_) => Err(ShellError::labeled_error(
-            "specify column name to use, with 'into int COLUMN'",
+            "specify column name to use, with 'into binary COLUMN'",
             "found table",
             tag,
         )),
-        _ => Err(ShellError::unimplemented("'into int' for unsupported type")),
+        _ => Err(ShellError::unimplemented(
+            "'into binary' for unsupported type",
+        )),
     }
 }
 
