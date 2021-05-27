@@ -49,7 +49,7 @@ impl WholeStreamCommand for ForIn {
             },
             Example {
                 description: "Work with elements of a range",
-                example: "for x in 1..3 { $x }",
+                example: "for $x in 1..3 { $x }",
                 result: Some(vec![
                     UntaggedValue::int(1).into(),
                     UntaggedValue::int(2).into(),
