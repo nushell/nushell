@@ -3,28 +3,22 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, UntaggedValue, Value,
+    Signature, UntaggedValue, Value,
 };
-
-use super::utils::convert_columns;
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls select"
+        "pls to_dummies"
     }
 
     fn usage(&self) -> &str {
-        "Creates a new dataframe with the selected columns"
+        "Creates a new dataframe with dummy variables"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select").required(
-            "columns",
-            SyntaxShape::Table,
-            "selected column names",
-        )
+        Signature::build("pls select")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -33,8 +27,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Create new dataframe with column a",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
+            description: "Create new dataframe with dummy variables",
+            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls to_dummies",
             result: None,
         }]
     }
@@ -43,10 +37,6 @@ impl WholeStreamCommand for DataFrame {
 fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
-
-    let columns: Vec<Value> = args.req(0)?;
-
-    let (col_string, col_span) = convert_columns(&columns, &tag)?;
 
     match args.input.next() {
         None => Err(ShellError::labeled_error(
@@ -60,8 +50,14 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 ..
             })) = value.value
             {
-                let res = df.select(&col_string).map_err(|e| {
-                    ShellError::labeled_error("Drop error", format!("{}", e), &col_span)
+                let res = df.to_dummies().map_err(|e| {
+                    ShellError::labeled_error_with_secondary(
+                        "To dummies error",
+                        format!("{}", e),
+                        &tag,
+                        "The only allowed column types for dummies are String or Int",
+                        &tag,
+                    )
                 })?;
 
                 let value = Value {

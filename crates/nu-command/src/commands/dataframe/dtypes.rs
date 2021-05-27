@@ -22,7 +22,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        dtypes(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -34,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn dtypes(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 

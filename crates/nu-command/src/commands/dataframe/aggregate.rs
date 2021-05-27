@@ -101,7 +101,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        aggregate(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -114,7 +114,7 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn aggregate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -132,12 +132,12 @@ fn aggregate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => (None, Span::unknown()),
     };
 
-    // The operation is only done in one dataframe. Only one input is
+    // The operation is only done in one groupby. Only one input is
     // expected from the InputStream
     match args.input.next() {
         None => Err(ShellError::labeled_error(
             "No input received",
-            "missing dataframe input from stream",
+            "missing groupby input from stream",
             &tag,
         )),
         Some(value) => {

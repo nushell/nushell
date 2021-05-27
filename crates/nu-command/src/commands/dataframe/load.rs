@@ -62,7 +62,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        create_from_file(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,7 +74,7 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
     let file: Tagged<PathBuf> = args.req(0)?;

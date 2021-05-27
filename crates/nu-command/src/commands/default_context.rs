@@ -278,6 +278,18 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameSelect),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameDTypes),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameDummies),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameHead),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameTail),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameSlice),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameMelt),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFramePivot),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

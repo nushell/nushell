@@ -51,4 +51,11 @@ impl NuGroupBy {
 
         Ok(values)
     }
+
+    pub fn dataframe_ref(&self) -> &polars::prelude::DataFrame {
+        match &self.dataframe.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing reference to dataframe from groupby"),
+        }
+    }
 }

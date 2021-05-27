@@ -223,6 +223,13 @@ impl NuDataFrame {
             unreachable!()
         }
     }
+
+    pub fn dataframe_ref(&self) -> &polars::prelude::DataFrame {
+        match &self.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing reference to dataframe from nu_dataframe"),
+        }
+    }
 }
 
 // Adds a separator to the vector of values using the column names from the
