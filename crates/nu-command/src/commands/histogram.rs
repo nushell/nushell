@@ -160,7 +160,7 @@ pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 "{}%",
                 // Some(2) < the number of digits
                 // true < group the digits
-                crate::commands::str_::from::action(&percentage, &name, Some(2), true)?
+                crate::commands::into::string::action(&percentage, &name, Some(2), true)?
                     .as_string()?
             );
             fact.insert_untagged("percentage", UntaggedValue::string(fmt_percentage));

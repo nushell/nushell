@@ -282,7 +282,7 @@ pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCamelCase, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith,
-    StrFindReplace, StrFrom, StrIndexOf, StrKebabCase, StrLPad, StrLength, StrPascalCase, StrRPad,
+    StrFindReplace, StrIndexOf, StrKebabCase, StrLPad, StrLength, StrPascalCase, StrRPad,
     StrReverse, StrScreamingSnakeCase, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
@@ -333,7 +333,6 @@ mod tests {
             whole_stream_command(StrUpcase),
             whole_stream_command(StrCapitalize),
             whole_stream_command(StrFindReplace),
-            whole_stream_command(StrFrom),
             whole_stream_command(StrSubstring),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrContains),
