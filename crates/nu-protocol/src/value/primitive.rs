@@ -364,8 +364,8 @@ macro_rules! from_native_to_primitive {
     ($native_type:ty, $primitive_type:expr, $converter: expr) => {
         // e.g. from u32 -> Primitive
         impl From<$native_type> for Primitive {
-            fn from(int: $native_type) -> Primitive {
-                if let Some(i) = $converter(int) {
+            fn from(value: $native_type) -> Primitive {
+                if let Some(i) = $converter(value) {
                     $primitive_type(i)
                 } else {
                     unreachable!("Internal error: protocol did not use compatible decimal")

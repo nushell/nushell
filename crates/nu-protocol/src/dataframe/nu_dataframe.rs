@@ -59,8 +59,18 @@ impl Default for NuDataFrame {
 }
 
 impl NuDataFrame {
-    fn new() -> Self {
-        Self::default()
+    pub fn new(df: polars::prelude::DataFrame) -> Self {
+        NuDataFrame {
+            dataframe: Some(df),
+            name: String::from("dataframe"),
+        }
+    }
+
+    pub fn new_with_name(df: polars::prelude::DataFrame, name: String) -> Self {
+        NuDataFrame {
+            dataframe: Some(df),
+            name,
+        }
     }
 }
 
@@ -103,7 +113,7 @@ impl<'de> Deserialize<'de> for NuDataFrame {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_i32(NuDataFrame::new())
+        deserializer.deserialize_i32(NuDataFrame::default())
     }
 }
 
@@ -137,22 +147,23 @@ impl NuDataFrame {
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self) -> Result<Vec<Value>, ShellError> {
         if let Some(df) = &self.dataframe {
-            let size: usize = 5;
-            let mut values = self.head(Some(size))?;
+            let size: usize = 20;
 
             if df.height() > size {
+                let sample_size = size / 2;
+                let mut values = self.head(Some(sample_size))?;
                 add_separator(&mut values, df);
-
-                let remaining = df.height() - size;
-                let tail_size = remaining.min(size);
+                let remaining = df.height() - sample_size;
+                let tail_size = remaining.min(sample_size);
                 let mut tail_values = self.tail(Some(tail_size))?;
-
                 values.append(&mut tail_values);
-            }
 
-            Ok(values)
+                Ok(values)
+            } else {
+                Ok(self.head(Some(size))?)
+            }
         } else {
-            unreachable!()
+            unreachable!("No dataframe found in print command")
         }
     }
 

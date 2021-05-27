@@ -188,7 +188,11 @@ pub(crate) mod touch;
 pub(crate) use all::Command as All;
 pub(crate) use any::Command as Any;
 #[cfg(feature = "dataframe")]
-pub(crate) use dataframe::{DataFrame, DataFrameGroupBy, DataFrameList, DataFrameLoad};
+pub(crate) use dataframe::{
+    DataFrame, DataFrameAggregate, DataFrameConvert, DataFrameDTypes, DataFrameDrop,
+    DataFrameGroupBy, DataFrameJoin, DataFrameList, DataFrameLoad, DataFrameSample,
+    DataFrameSelect, DataFrameShow,
+};
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
 pub(crate) use exec::Exec;

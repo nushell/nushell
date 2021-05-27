@@ -99,7 +99,10 @@ uuid_crate = { package = "uuid", version = "0.8.2", features = ["v4"], optional 
 which = { version = "4.1.0", optional = true }
 zip = { version = "0.5.9", optional = true }
 
-polars = { version = "0.13.3",optional = true, features = ["parquet", "json"] }
+[dependencies.polars]
+version = "0.13.4"
+optional = true
+features = ["parquet", "json", "random"]
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

@@ -8,6 +8,9 @@ use nu_protocol::hir::{self, Expression, ExternalRedirection, Literal, SpannedEx
 use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::PolarsData;
+
 pub struct Command;
 
 impl WholeStreamCommand for Command {
@@ -236,14 +239,28 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(df),
-                        ..
+                        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)),
+                        tag,
                     } => {
                         if let Some(table) = table {
                             // TODO. Configure the parameter rows from file. It can be
                             // adjusted to see a certain amount of values in the head
                             let command_args =
                                 create_default_command_args(&context, df.print()?.into(), tag);
+                            let result = table.run(command_args)?;
+                            let _ = result.collect::<Vec<_>>();
+                        }
+                    }
+                    #[cfg(feature = "dataframe")]
+                    Value {
+                        value: UntaggedValue::DataFrame(PolarsData::GroupBy(groupby)),
+                        tag,
+                    } => {
+                        if let Some(table) = table {
+                            // TODO. Configure the parameter rows from file. It can be
+                            // adjusted to see a certain amount of values in the head
+                            let command_args =
+                                create_default_command_args(&context, groupby.print()?.into(), tag);
                             let result = table.run(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         }
