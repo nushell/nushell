@@ -8,11 +8,10 @@ use nu_protocol::{
 
 pub struct Do;
 
-#[derive(Deserialize, Debug)]
 struct DoArgs {
     block: CapturedBlock,
-    rest: Vec<Value>,
     ignore_errors: bool,
+    rest: Vec<Value>,
 }
 
 impl WholeStreamCommand for Do {
@@ -24,7 +23,7 @@ impl WholeStreamCommand for Do {
         Signature::build("do")
             .required("block", SyntaxShape::Block, "the block to run ")
             .switch(
-                "ignore_errors",
+                "ignore-errors",
                 "ignore errors as the block runs",
                 Some('i'),
             )
@@ -35,7 +34,7 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         do_(args)
     }
 
@@ -60,29 +59,27 @@ impl WholeStreamCommand for Do {
     }
 }
 
-fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let external_redirection = raw_args.call_info.args.external_redirection;
 
     let context = EvaluationContext::from_args(&raw_args);
-    let (
-        DoArgs {
-            ignore_errors,
-            rest,
-            block,
-        },
-        input,
-    ) = raw_args.process()?;
+    let args = raw_args.evaluate_once()?;
+    let do_args = DoArgs {
+        block: args.req(0)?,
+        ignore_errors: args.has_flag("ignore-errors"),
+        rest: args.rest(1)?,
+    };
 
     let block_redirection = match external_redirection {
         ExternalRedirection::None => {
-            if ignore_errors {
+            if do_args.ignore_errors {
                 ExternalRedirection::Stderr
             } else {
                 ExternalRedirection::None
             }
         }
         ExternalRedirection::Stdout => {
-            if ignore_errors {
+            if do_args.ignore_errors {
                 ExternalRedirection::StdoutAndStderr
             } else {
                 ExternalRedirection::Stdout
@@ -93,16 +90,28 @@ fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     context.scope.enter_scope();
 
-    context.scope.add_vars(&block.captured.entries);
+    context.scope.add_vars(&do_args.block.captured.entries);
 
-    for (param, value) in block.block.params.positional.iter().zip(rest) {
+    for (param, value) in do_args
+        .block
+        .block
+        .params
+        .positional
+        .iter()
+        .zip(do_args.rest)
+    {
         context.scope.add_var(param.0.name(), value.clone());
     }
 
-    let result = run_block(&block.block, &context, input, block_redirection);
+    let result = run_block(
+        &do_args.block.block,
+        &context,
+        args.input,
+        block_redirection,
+    );
     context.scope.exit_scope();
 
-    if ignore_errors {
+    if do_args.ignore_errors {
         // To properly ignore errors we need to redirect stderr, consume it, and remove
         // any errors we see in the process.
 
@@ -110,12 +119,12 @@ fn do_(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
             Ok(mut stream) => {
                 let output = stream.drain_vec();
                 context.clear_errors();
-                Ok(output.into_iter().to_action_stream())
+                Ok(output.into_iter().to_output_stream())
             }
-            Err(_) => Ok(ActionStream::empty()),
+            Err(_) => Ok(OutputStream::empty()),
         }
     } else {
-        result.map(|x| x.to_action_stream())
+        result.map(|x| x.to_output_stream())
     }
 }
 
