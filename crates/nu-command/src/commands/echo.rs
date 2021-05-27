@@ -39,23 +39,27 @@ impl WholeStreamCommand for Echo {
     }
 }
 
+pub fn expand_value_to_stream(v: Value) -> InputStream {
+    match v {
+        Value {
+            value: UntaggedValue::Table(table),
+            ..
+        } => InputStream::from_stream(table.into_iter()),
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Range(range)),
+            tag,
+        } => InputStream::from_stream(RangeIterator::new(*range, tag)),
+        x => InputStream::one(x),
+    }
+}
+
 fn echo(args: CommandArgs) -> Result<InputStream, ShellError> {
     let args = args.evaluate_once()?;
     let rest: Vec<Value> = args.rest(0)?;
 
     let stream = rest.into_iter().map(|i| match i.as_string() {
-        Ok(s) => InputStream::one(UntaggedValue::string(s).into_value(i.tag.clone())),
-        _ => match i {
-            Value {
-                value: UntaggedValue::Table(table),
-                ..
-            } => InputStream::from_stream(table.into_iter()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Range(range)),
-                tag,
-            } => InputStream::from_stream(RangeIterator::new(*range, tag)),
-            x => InputStream::one(x),
-        },
+        Ok(s) => InputStream::one(UntaggedValue::string(s).into_value(i.tag)),
+        _ => expand_value_to_stream(i),
     });
 
     Ok(InputStream::from_stream(stream.flatten()))
