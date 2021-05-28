@@ -221,19 +221,6 @@
     UnknownEscSeq:
   binding:
     Noop:
-# - key:
-#     Ctrl: '\x08'
-#   binding:
-#     Kill:
-#       BackwardWord:
-#         repeat: 1
-#         word: Vi
-# - key:
-#     Meta: '\x08'
-#   binding:
-#     Kill:
-#       BackwardChar: 1
-
 ##########################################################
 # Possible options for key:
 ##########################################################
