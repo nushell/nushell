@@ -158,11 +158,13 @@ impl InlineShape {
         if let Some(fmt) = forced_format {
             filesize_format_var = fmt.to_ascii_lowercase();
         } else {
-            filesize_format_var = crate::config::config(Tag::unknown())
-                .expect("unable to get the config.toml file")
-                .get("filesize_format")
-                .map(|val| val.convert_to_string().to_ascii_lowercase())
-                .unwrap_or_else(|| "auto".to_string());
+            filesize_format_var = match crate::config::config(Tag::unknown()) {
+                Ok(cfg) => cfg
+                    .get("filesize_format")
+                    .map(|val| val.convert_to_string().to_ascii_lowercase())
+                    .unwrap_or_else(|| "auto".to_string()),
+                _ => "auto".to_string(),
+            }
         }
 
         // if there is a value, match it to one of the valid values for byte units
