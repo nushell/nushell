@@ -4,6 +4,7 @@ use nu_engine::filesystem::path::absolutize;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Span;
 use std::env::current_dir;
 use std::path::Path;
 
@@ -52,20 +53,38 @@ impl WholeStreamCommand for PathExpand {
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Expand relative directories",
-            example: "'C:\\Users\\joe\\foo\\..\\bar' | path expand",
-            result: Some(vec![Value::from("C:\\Users\\joe\\bar")]),
-        }]
+        vec![
+            Example {
+                description: "Expand an absolute path",
+                example: r"'C:\Users\joe\foo\..\bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath(r"C:\Users\joe\bar").into_value(Span::new(0, 25))
+                ]),
+            },
+            Example {
+                description: "Expand a relative path",
+                example: r"'foo\..\bar' | path expand",
+                result: None, // don't know where cwd is
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Expand relative directories",
-            example: "'/home/joe/foo/../bar' | path expand",
-            result: Some(vec![Value::from("/home/joe/bar")]),
-        }]
+        vec![
+            Example {
+                description: "Expand an absolute path",
+                example: "'/home/joe/foo/../bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath("/home/joe/bar").into_value(Span::new(0, 22))
+                ]),
+            },
+            Example {
+                description: "Expand a relative path",
+                example: "'foo/../bar' | path expand",
+                result: None, // don't know where cwd is
+            },
+        ]
     }
 }
 
@@ -88,7 +107,7 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
             Ok(cwd) => UntaggedValue::filepath(absolutize(cwd, path)).into_value(tag),
             Err(_) => Value::error(ShellError::untagged_runtime_error(
                 "Could not find current working directory. \
-                It might not exists or have insufficient permissions.",
+                It might not exist or has insufficient permissions.",
             )),
         }
     }
