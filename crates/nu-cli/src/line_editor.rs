@@ -1,4 +1,5 @@
 use nu_engine::EvaluationContext;
+use rustyline::{EventHandler, Modifiers};
 use std::error::Error;
 
 #[allow(unused_imports)]
@@ -8,7 +9,7 @@ use crate::prelude::*;
 use nu_engine::script::LineResult;
 
 #[cfg(feature = "rustyline-support")]
-use crate::keybinding::{convert_keyevent, KeyEvent};
+use crate::keybinding::{convert_keyevent, KeyCode};
 
 #[cfg(feature = "rustyline-support")]
 use crate::shell::Helper;
@@ -20,7 +21,7 @@ use rustyline::{
     config::{ColorMode, CompletionType, Config},
     error::ReadlineError,
     line_buffer::LineBuffer,
-    At, Cmd, ConditionalEventHandler, Editor, EventHandler, Movement, Word,
+    At, Cmd, ConditionalEventHandler, Editor, Movement, Word,
 };
 
 #[cfg(feature = "rustyline-support")]
@@ -79,18 +80,20 @@ pub fn default_rustyline_editor_configuration() -> Editor<Helper> {
     let mut rl: Editor<_> = Editor::with_config(config);
 
     // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
+    //M modifier, E KeyEvent, K KeyCode
     rl.bind_sequence(
-        convert_keyevent(KeyEvent::ControlLeft),
+        convert_keyevent(KeyCode::Left, Some(Modifiers::CTRL)),
         Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
     );
+
     rl.bind_sequence(
-        convert_keyevent(KeyEvent::ControlRight),
+        convert_keyevent(KeyCode::Right, Some(Modifiers::CTRL)),
         EventHandler::Conditional(Box::new(PartialCompleteHintHandler)),
     );
 
     // workaround for multiline-paste hang in rustyline (see https://github.com/kkawakam/rustyline/issues/202)
     rl.bind_sequence(
-        convert_keyevent(KeyEvent::BracketedPasteStart),
+        convert_keyevent(KeyCode::BracketedPasteStart, None),
         rustyline::Cmd::Noop,
     );
     // Let's set the defaults up front and then override them later if the user indicates
