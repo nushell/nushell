@@ -107,8 +107,6 @@
     CTRL:
   binding:
     AcceptLine:
-
-# - key:
 - key:
     Char: M
   modifiers:
@@ -116,10 +114,11 @@
   binding:
     AcceptLine:
 
-- key:
-    Enter:
-  binding:
-    AcceptLine:
+# This makes multiline editing stop working since Enter accepts a line
+# - key:
+#     Enter:
+#   binding:
+#     AcceptLine:
 
 # Next match from history
 - key:
