@@ -1,5 +1,4 @@
 use nu_engine::EvaluationContext;
-use rustyline::{EventHandler, Modifiers};
 use std::error::Error;
 
 #[allow(unused_imports)]
@@ -21,7 +20,7 @@ use rustyline::{
     config::{ColorMode, CompletionType, Config},
     error::ReadlineError,
     line_buffer::LineBuffer,
-    At, Cmd, ConditionalEventHandler, Editor, Movement, Word,
+    At, Cmd, ConditionalEventHandler, Editor, EventHandler, Modifiers, Movement, Word,
 };
 
 #[cfg(feature = "rustyline-support")]
