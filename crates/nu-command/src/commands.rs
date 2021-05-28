@@ -46,6 +46,7 @@ pub(crate) mod exec;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod flatten;
+pub(crate) mod for_in;
 pub(crate) mod format;
 pub(crate) mod from;
 pub(crate) mod from_csv;
@@ -173,6 +174,7 @@ pub(crate) use each::EachGroup;
 pub(crate) use each::EachWindow;
 pub(crate) use echo::Echo;
 pub(crate) use empty::Command as Empty;
+pub(crate) use for_in::ForIn;
 pub(crate) use if_::If;
 pub(crate) use into::Into;
 pub(crate) use into::IntoBinary;
@@ -283,7 +285,7 @@ pub(crate) use split::{Split, SplitChars, SplitColumn, SplitRow};
 pub(crate) use split_by::SplitBy;
 pub(crate) use str_::{
     Str, StrCamelCase, StrCapitalize, StrCollect, StrContains, StrDowncase, StrEndsWith,
-    StrFindReplace, StrFrom, StrIndexOf, StrKebabCase, StrLPad, StrLength, StrPascalCase, StrRPad,
+    StrFindReplace, StrIndexOf, StrKebabCase, StrLPad, StrLength, StrPascalCase, StrRPad,
     StrReverse, StrScreamingSnakeCase, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
@@ -334,7 +336,6 @@ mod tests {
             whole_stream_command(StrUpcase),
             whole_stream_command(StrCapitalize),
             whole_stream_command(StrFindReplace),
-            whole_stream_command(StrFrom),
             whole_stream_command(StrSubstring),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrContains),

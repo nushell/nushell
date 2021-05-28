@@ -9,7 +9,7 @@ fn reduce_table_column() {
         | from json
         | get total
         | reduce -f 20 { $it + (math eval $"($acc)^1.05")}
-        | str from -d 1
+        | into string -d 1
         "#
         )
     );
@@ -25,7 +25,7 @@ fn reduce_table_column_with_path() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | reduce -f 20 { $it.total + (math eval $"($acc)^1.05")}
-        | str from -d 1
+        | into string -d 1
         "#
         )
     );

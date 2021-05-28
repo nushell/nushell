@@ -1211,6 +1211,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cstr_core"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2807c5e92588b6bf1c8c0354af2a4f079d0586c683df322aea719d5dc9b8d5bb"
+dependencies = [
+ "cty",
+ "memchr",
+]
+
+[[package]]
 name = "csv"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1260,6 +1270,12 @@ dependencies = [
  "nix",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "cty"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7313c0d620d0cb4dbd9d019e461a4beb501071ff46ec0ab933efb4daa76d73e3"
 
 [[package]]
 name = "curl"
@@ -3597,8 +3613,9 @@ dependencies = [
  "num-format",
  "num-traits 0.2.14",
  "query_interface",
- "serde 1.0.126",
- "sha2 0.9.5",
+ "serde 1.0.125",
+ "sha2 0.9.3",
+ "sys-locale",
  "toml",
  "users",
 ]
@@ -3756,9 +3773,6 @@ dependencies = [
  "polars",
  "serde 1.0.126",
  "serde_bytes",
- "serde_json",
- "serde_yaml",
- "toml",
 ]
 
 [[package]]
@@ -5099,6 +5113,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
+dependencies = [
+ "num-traits 0.2.14",
+ "rand 0.7.3",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6258,6 +6282,19 @@ dependencies = [
  "serde_json",
  "walkdir",
  "yaml-rust",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91f89ebb59fa30d4f65fafc2d68e94f6975256fd87e812dd99cb6e020c8563df"
+dependencies = [
+ "cc",
+ "cstr_core",
+ "libc",
+ "web-sys",
+ "winapi 0.3.9",
 ]
 
 [[package]]

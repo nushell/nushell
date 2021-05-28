@@ -1,7 +1,7 @@
 mod binary;
 mod command;
 mod int;
-mod string;
+pub mod string;
 
 pub use binary::SubCommand as IntoBinary;
 pub use command::Command as Into;

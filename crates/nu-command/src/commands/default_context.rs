@@ -89,7 +89,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrUpcase),
             whole_stream_command(StrCapitalize),
             whole_stream_command(StrFindReplace),
-            whole_stream_command(StrFrom),
             whole_stream_command(StrSubstring),
             whole_stream_command(StrToDatetime),
             whole_stream_command(StrContains),
@@ -159,6 +158,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(EachGroup),
             whole_stream_command(EachWindow),
             whole_stream_command(Empty),
+            whole_stream_command(ForIn),
             // Table manipulation
             whole_stream_command(Flatten),
             whole_stream_command(Move),

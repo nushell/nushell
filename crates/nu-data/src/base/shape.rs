@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use sys_locale::get_locale;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct InlineRange {
@@ -195,8 +196,26 @@ impl InlineShape {
 
             match adj_byte.get_unit() {
                 byte_unit::ByteUnit::B => {
+                    let locale_string = get_locale().unwrap_or_else(|| String::from("en-US"));
+                    // Since get_locale() and Locale::from_name() don't always return the same items
+                    // we need to try and parse it to match. For instance, a valid locale is de_DE
+                    // however Locale::from_name() wants only de so we split and parse it out.
+                    let locale = match Locale::from_name(&locale_string) {
+                        Ok(loc) => loc,
+                        _ => {
+                            let all = num_format::Locale::available_names();
+                            let locale_prefix = &locale_string.split('_').collect::<Vec<&str>>();
+                            if all.contains(&locale_prefix[0]) {
+                                // eprintln!("Found alternate: {}", &locale_prefix[0]);
+                                Locale::from_name(locale_prefix[0]).unwrap_or(Locale::en)
+                            } else {
+                                // eprintln!("Unable to find matching locale. Defaulting to en-US");
+                                Locale::en
+                            }
+                        }
+                    };
                     let locale_byte = adj_byte.get_value() as u64;
-                    let locale_byte_string = locale_byte.to_formatted_string(&Locale::en);
+                    let locale_byte_string = locale_byte.to_formatted_string(&locale);
                     if filesize_format.1 == "auto" {
                         let doc = (DbgDocBldr::primitive(locale_byte_string)
                             + DbgDocBldr::space()

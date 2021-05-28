@@ -6,7 +6,7 @@ fn from_range() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..5 | str from | to json
+        echo 1..5 | into string | to json
         "#
         )
     );
@@ -19,7 +19,7 @@ fn from_number() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 5 | str from
+        echo 5 | into string
         "#
         )
     );
@@ -32,7 +32,7 @@ fn from_decimal() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1.5 | str from
+        echo 1.5 | into string
         "#
         )
     );
@@ -45,7 +45,7 @@ fn from_boolean() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo $true | str from
+        echo $true | into string
         "#
         )
     );
@@ -58,7 +58,7 @@ fn from_string() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "one" | str from
+        echo "one" | into string
         "#
         )
     );
@@ -79,7 +79,7 @@ fn from_filename() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get name | str from"
+            "ls sample.toml | get name | into string"
         );
 
         assert_eq!(actual.out, "sample.toml");
@@ -99,7 +99,7 @@ fn from_filesize() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ls sample.toml | get size | str from"
+            "ls sample.toml | get size | into string"
         );
 
         assert_eq!(actual.out, "25 B");
@@ -111,7 +111,7 @@ fn from_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.23000 | str from -d 3
+        = 1.23000 | into string -d 3
         "#
     ));
 
@@ -123,7 +123,7 @@ fn from_int_decimal_correct_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | str from -d 3
+        = 1.00000 | into string -d 3
         "#
     ));
 
@@ -135,7 +135,7 @@ fn from_int_decimal_trim_trailing_zeros() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        = 1.00000 | str from | format "{$it} flat"
+        = 1.00000 | into string | format "{$it} flat"
         "#
     ));
 
@@ -149,7 +149,7 @@ fn from_table() {
         r#"
         echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
         | from json
-        | str from weight -d 2
+        | into string weight -d 2
         "#
     ));
 
