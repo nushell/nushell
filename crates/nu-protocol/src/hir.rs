@@ -681,6 +681,36 @@ impl SpannedExpression {
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         self.expr.get_free_variables(known_variables)
     }
+
+    pub fn var_name(&self) -> Result<String, ShellError> {
+        let var_name = match &self.expr {
+            Expression::FullColumnPath(path) => match &path.head.expr {
+                Expression::Variable(v, _) => v,
+                x => {
+                    return Err(ShellError::labeled_error(
+                        format!("Expected a variable (got {:?})", x),
+                        "expected a variable",
+                        self.span,
+                    ))
+                }
+            },
+            Expression::Literal(Literal::String(x)) => x,
+            x => {
+                return Err(ShellError::labeled_error(
+                    format!("Expected a variable (got {:?})", x),
+                    "expected a variable",
+                    self.span,
+                ))
+            }
+        }
+        .to_string();
+
+        if !var_name.starts_with('$') {
+            Ok(format!("${}", var_name))
+        } else {
+            Ok(var_name)
+        }
+    }
 }
 
 impl std::ops::Deref for SpannedExpression {

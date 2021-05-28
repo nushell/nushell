@@ -4,7 +4,7 @@ use nu_engine::{FromValue, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::{CapturedBlock, ExternalRedirection, Literal},
+    hir::{CapturedBlock, ExternalRedirection},
     Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 
@@ -120,35 +120,11 @@ fn for_in(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         .positional
         .expect("Internal error: type checker should require args");
 
-    let mut var_name: String = match &positional[0].expr {
-        nu_protocol::hir::Expression::FullColumnPath(path) => match &path.head.expr {
-            nu_protocol::hir::Expression::Variable(v, _) => v,
-            x => {
-                return Err(ShellError::labeled_error(
-                    format!("Expected a variable (got {:?})", x),
-                    "expected a variable",
-                    positional[0].span,
-                ))
-            }
-        },
-        nu_protocol::hir::Expression::Literal(Literal::String(x)) => x,
-        x => {
-            return Err(ShellError::labeled_error(
-                format!("Expected a variable (got {:?})", x),
-                "expected a variable",
-                positional[0].span,
-            ))
-        }
-    }
-    .to_string();
-
+    let var_name = positional[0].var_name()?;
     let rhs = evaluate_baseline_expr(&positional[2], &context)?;
+
     let block: CapturedBlock =
         FromValue::from_value(&evaluate_baseline_expr(&positional[3], &context)?)?;
-
-    if !var_name.starts_with('$') {
-        var_name = format!("${}", var_name);
-    }
 
     let input = crate::commands::echo::expand_value_to_stream(rhs);
     let block = Arc::new(Box::new(block));
