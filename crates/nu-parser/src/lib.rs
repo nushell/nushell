@@ -4,6 +4,7 @@ extern crate derive_is_enum_variant;
 extern crate derive_new;
 
 mod errors;
+mod flag;
 mod lex;
 mod parse;
 mod path;

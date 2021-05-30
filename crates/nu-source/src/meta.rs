@@ -525,6 +525,14 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn new_option(start: usize, end: usize) -> Option<Span> {
+        if end >= start {
+            None
+        } else {
+            Some(Span { start, end })
+        }
+    }
+
     /// Creates a `Span` with a length of 1 from the given position.
     ///
     /// # Example
