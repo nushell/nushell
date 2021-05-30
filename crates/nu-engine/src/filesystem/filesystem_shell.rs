@@ -643,11 +643,25 @@ impl Shell for FilesystemShell {
             }
 
             let path = path.join(&target.item);
-            match glob::glob(&path.to_string_lossy()) {
+            match glob::glob_with(
+                &path.to_string_lossy(),
+                glob::MatchOptions {
+                    require_literal_leading_dot: true,
+                    ..Default::default()
+                },
+            ) {
                 Ok(files) => {
                     for file in files {
                         match file {
                             Ok(ref f) => {
+                                // It is not appropriate to try and remove the
+                                // current directory or its parent when using
+                                // glob patterns.
+                                let name = format!("{}", f.display());
+                                if name.ends_with("/.") || name.ends_with("/..") {
+                                    continue;
+                                }
+
                                 all_targets
                                     .entry(f.clone())
                                     .or_insert_with(|| target.tag.clone());
