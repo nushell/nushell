@@ -1439,38 +1439,33 @@ fn parse_internal_command(
                             if lite_cmd.parts[idx].item.contains('=') {
                                 let mut offset = 0;
 
-                                lite_cmd.parts[idx]
+                                let value = lite_cmd.parts[idx]
                                     .item
                                     .chars()
                                     .skip_while(|prop| {
                                         offset += 1;
                                         *prop != '='
                                     })
-                                    .skip(1)
-                                    .for_each(drop);
+                                    .nth(1);
 
-                                let flag_value = Span::new_option(
-                                    lite_cmd.parts[idx].span.start()
-                                        + (lite_cmd.parts[idx].span.start() - offset),
+                                offset = if value.is_none() { offset - 1 } else { offset };
+
+                                let flag_value = Span::new(
+                                    lite_cmd.parts[idx].span.start() + offset,
                                     lite_cmd.parts[idx].span.end(),
                                 );
+                                let value = lite_cmd.parts[idx].item[offset..]
+                                    .to_string()
+                                    .spanned(flag_value);
+                                let (arg, err) = parse_arg(*shape, scope, &value);
+                                named.insert_mandatory(
+                                    full_name.clone(),
+                                    lite_cmd.parts[idx].span,
+                                    arg,
+                                );
 
-                                if let Some(value_span) = flag_value {
-                                    let value = lite_cmd.parts[idx].item[offset..]
-                                        .to_string()
-                                        .spanned(value_span);
-
-                                    let (arg, err) = parse_arg(*shape, scope, &value);
-
-                                    named.insert_mandatory(
-                                        full_name.clone(),
-                                        lite_cmd.parts[idx].span,
-                                        arg,
-                                    );
-
-                                    if error.is_none() {
-                                        error = err;
-                                    }
+                                if error.is_none() {
+                                    error = err;
                                 }
                             } else if idx == lite_cmd.parts.len() {
                                 // Oops, we're missing the argument to our named argument
