@@ -10,7 +10,7 @@ version = "0.31.1"
 doctest = false
 
 [dependencies]
-nipper = "0.1.8"
+nipper = "0.1.9"
 nu-errors = { version = "0.31.1", path = "../nu-errors" }
 nu-plugin = { version = "0.31.1", path = "../nu-plugin" }
 nu-protocol = { version = "0.31.1", path = "../nu-protocol" }
