@@ -138,7 +138,7 @@ fn requote(orig_value: String) -> String {
     let mut quotes = vec!['"', '\'', '`'];
     let mut should_quote = false;
     for c in value.chars() {
-        if c.is_whitespace() {
+        if c.is_whitespace() || c == '#' {
             should_quote = true;
         } else if let Some(index) = quotes.iter().position(|q| *q == c) {
             should_quote = true;
