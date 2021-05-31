@@ -115,7 +115,7 @@ users = "0.11.0"
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
 optional = true
-version = "0.24.2"
+version = "0.25.3"
 
 [build-dependencies]
 shadow-rs = "0.5"

@@ -2,7 +2,7 @@ use bigdecimal::FromPrimitive;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
-use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
+use rusqlite::{types::ValueRef, Connection, Row};
 use std::io::Write;
 use std::path::Path;
 
@@ -29,14 +29,14 @@ pub fn convert_sqlite_file_to_nu_value(
 
     let mut meta_out = Vec::new();
     let mut meta_stmt = conn.prepare("select name from sqlite_master where type='table'")?;
-    let mut meta_rows = meta_stmt.query(NO_PARAMS)?;
+    let mut meta_rows = meta_stmt.query([])?;
 
     while let Some(meta_row) = meta_rows.next()? {
         let table_name: String = meta_row.get(0)?;
         let mut meta_dict = TaggedDictBuilder::new(tag.clone());
         let mut out = Vec::new();
         let mut table_stmt = conn.prepare(&format!("select * from [{}]", table_name))?;
-        let mut table_rows = table_stmt.query(NO_PARAMS)?;
+        let mut table_rows = table_stmt.query([])?;
         while let Some(table_row) = table_rows.next()? {
             out.push(convert_sqlite_row_to_nu_value(table_row, tag.clone()))
         }
@@ -59,7 +59,7 @@ fn convert_sqlite_row_to_nu_value(row: &Row, tag: impl Into<Tag> + Clone) -> Val
     for (i, c) in row.column_names().iter().enumerate() {
         collected.insert_value(
             c.to_string(),
-            convert_sqlite_value_to_nu_value(row.get_raw(i), tag.clone()),
+            convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), tag.clone()),
         );
     }
     collected.into_value()

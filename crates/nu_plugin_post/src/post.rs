@@ -9,7 +9,6 @@ use nu_source::{AnchorLocation, Tag, TaggedItem};
 use num_traits::cast::ToPrimitive;
 use std::path::PathBuf;
 use std::str::FromStr;
-use surf::mime;
 
 #[derive(Clone)]
 pub enum HeaderKind {
@@ -133,15 +132,15 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::String(body_str)),
                 ..
             } => {
-                let mut s = surf::post(location).body_string(body_str.to_string());
+                let mut s = surf::post(location).body(body_str.to_string());
                 if let Some(login) = login {
-                    s = s.set_header("Authorization", format!("Basic {}", login));
+                    s = s.header("Authorization", format!("Basic {}", login));
                 }
 
                 for h in headers {
                     s = match h {
-                        HeaderKind::ContentType(ct) => s.set_header("Content-Type", ct),
-                        HeaderKind::ContentLength(cl) => s.set_header("Content-Length", cl),
+                        HeaderKind::ContentType(ct) => s.header("Content-Type", ct),
+                        HeaderKind::ContentLength(cl) => s.header("Content-Length", cl),
                     };
                 }
                 s.await
@@ -150,9 +149,9 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::Binary(b)),
                 ..
             } => {
-                let mut s = surf::post(location).body_bytes(b);
+                let mut s = surf::post(location).body(&b[..]);
                 if let Some(login) = login {
-                    s = s.set_header("Authorization", format!("Basic {}", login));
+                    s = s.header("Authorization", format!("Basic {}", login));
                 }
                 s.await
             }
@@ -160,10 +159,10 @@ pub async fn post(
                 match value_to_json_value(&value.clone().into_untagged_value()) {
                     Ok(json_value) => match serde_json::to_string(&json_value) {
                         Ok(result_string) => {
-                            let mut s = surf::post(location).body_string(result_string);
+                            let mut s = surf::post(location).body(result_string);
 
                             if let Some(login) = login {
-                                s = s.set_header("Authorization", format!("Basic {}", login));
+                                s = s.header("Authorization", format!("Basic {}", login));
                             }
                             s.await
                         }
@@ -186,9 +185,9 @@ pub async fn post(
             }
         };
         match response {
-            Ok(mut r) => match r.headers().get("content-type") {
+            Ok(mut r) => match r.header("content-type") {
                 Some(content_type) => {
-                    let content_type = Mime::from_str(content_type).map_err(|_| {
+                    let content_type = Mime::from_str(content_type.as_str()).map_err(|_| {
                         ShellError::labeled_error(
                             format!("Unknown MIME type: {}", content_type),
                             "unknown MIME type",
