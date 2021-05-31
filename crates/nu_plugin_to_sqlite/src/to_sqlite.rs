@@ -2,7 +2,7 @@ use hex::encode;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value};
 use nu_source::Tag;
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::Connection;
 use std::io::Read;
 
 #[derive(Default)]
@@ -138,8 +138,8 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
                     continue;
                 }
                 match conn
-                    .execute(&create, NO_PARAMS)
-                    .and_then(|_| conn.execute(&insert, NO_PARAMS))
+                    .execute(&create, [])
+                    .and_then(|_| conn.execute(&insert, []))
                 {
                     Ok(_) => (),
                     Err(e) => {
