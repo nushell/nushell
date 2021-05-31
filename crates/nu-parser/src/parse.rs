@@ -1110,66 +1110,6 @@ fn parse_arg(
     }
 }
 
-/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--long) and shorthand flags (-l)
-/// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
-fn get_flags_from_flag(
-    signature: &nu_protocol::Signature,
-    cmd: &InternalCommand,
-    arg: &Spanned<String>,
-) -> (Vec<(String, NamedType)>, Option<ParseError>) {
-    if arg.item.starts_with('-') {
-        // It's a flag (or set of flags)
-        let mut output = vec![];
-        let mut error = None;
-
-        let remainder: String = arg.item.chars().skip(1).collect();
-
-        if remainder.starts_with('-') {
-            // Long flag expected
-            let remainder: String = remainder.chars().skip(1).collect();
-            if let Some((named_type, _)) = signature.named.get(&remainder) {
-                output.push((remainder.clone(), named_type.clone()));
-            } else {
-                error = Some(ParseError::argument_error(
-                    cmd.name.to_string().spanned(cmd.name_span),
-                    ArgumentError::UnexpectedFlag(arg.clone()),
-                ));
-            }
-        } else {
-            // Short flag(s) expected
-            let mut starting_pos = arg.span.start() + 1;
-            for c in remainder.chars() {
-                let mut found = false;
-                for (full_name, named_arg) in signature.named.iter() {
-                    if Some(c) == named_arg.0.get_short() {
-                        found = true;
-                        output.push((full_name.clone(), named_arg.0.clone()));
-                        break;
-                    }
-                }
-
-                if !found {
-                    error = Some(ParseError::argument_error(
-                        cmd.name.to_string().spanned(cmd.name_span),
-                        ArgumentError::UnexpectedFlag(
-                            arg.item
-                                .clone()
-                                .spanned(Span::new(starting_pos, starting_pos + c.len_utf8())),
-                        ),
-                    ));
-                }
-
-                starting_pos += c.len_utf8();
-            }
-        }
-
-        (output, error)
-    } else {
-        // It's not a flag, so don't bother with it
-        (vec![], None)
-    }
-}
-
 /// This is a bit of a "fix-up" of previously parsed areas. In cases where we're in shorthand mode (eg in the `where` command), we need
 /// to use the original source to parse a column path. Without it, we'll lose a little too much information to parse it correctly. As we'll
 /// only know we were on the left-hand side of an expression after we do the full math parse, we need to do this step after rather than during
@@ -1486,14 +1426,48 @@ fn parse_internal_command(
 
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
-            let (named_types, err) =
-                get_flags_from_flag(&signature, &internal_command, &lite_cmd.parts[idx]);
+            let (named_types, err) = super::flag::get_flag_signature_spec(
+                &signature,
+                &internal_command,
+                &lite_cmd.parts[idx],
+            );
 
             if err.is_none() {
                 for (full_name, named_type) in &named_types {
                     match named_type {
                         NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) => {
-                            if idx == lite_cmd.parts.len() {
+                            if lite_cmd.parts[idx].item.contains('=') {
+                                let mut offset = 0;
+
+                                let value = lite_cmd.parts[idx]
+                                    .item
+                                    .chars()
+                                    .skip_while(|prop| {
+                                        offset += 1;
+                                        *prop != '='
+                                    })
+                                    .nth(1);
+
+                                offset = if value.is_none() { offset - 1 } else { offset };
+
+                                let flag_value = Span::new(
+                                    lite_cmd.parts[idx].span.start() + offset,
+                                    lite_cmd.parts[idx].span.end(),
+                                );
+                                let value = lite_cmd.parts[idx].item[offset..]
+                                    .to_string()
+                                    .spanned(flag_value);
+                                let (arg, err) = parse_arg(*shape, scope, &value);
+                                named.insert_mandatory(
+                                    full_name.clone(),
+                                    lite_cmd.parts[idx].span,
+                                    arg,
+                                );
+
+                                if error.is_none() {
+                                    error = err;
+                                }
+                            } else if idx == lite_cmd.parts.len() {
                                 // Oops, we're missing the argument to our named argument
                                 if error.is_none() {
                                     error = Some(ParseError::argument_error(

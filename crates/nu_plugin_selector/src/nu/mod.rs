@@ -3,7 +3,6 @@ use nu_plugin::Plugin;
 use nu_protocol::{
     CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use nu_source::TaggedItem;
 
 use crate::{selector::begin_selector_query, Selector};
 
@@ -13,6 +12,12 @@ impl Plugin for Selector {
             .desc("execute selector query on html/web")
             .required("query", SyntaxShape::String, "selector query")
             .switch("as_html", "return the query output as html", Some('a'))
+            .named(
+                "attribute",
+                SyntaxShape::String,
+                "downselect based on the given attribute",
+                Some('t'),
+            )
             .filter())
     }
 
@@ -29,6 +34,9 @@ impl Plugin for Selector {
         self.query = query.as_string()?;
         self.tag = tag;
         self.as_html = call_info.args.has("as_html");
+        if call_info.args.has("attribute") {
+            self.attribute = call_info.args.expect_get("attribute")?.convert_to_string();
+        }
 
         Ok(vec![])
     }
@@ -38,12 +46,10 @@ impl Plugin for Selector {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            } => Ok(
-                begin_selector_query(s, (*self.query).tagged(&self.tag), self.as_html)
-                    .into_iter()
-                    .map(ReturnSuccess::value)
-                    .collect(),
-            ),
+            } => Ok(begin_selector_query(s, &self)
+                .into_iter()
+                .map(ReturnSuccess::value)
+                .collect()),
             Value { tag, .. } => Err(ShellError::labeled_error_with_secondary(
                 "Expected text from pipeline",
                 "requires text input",

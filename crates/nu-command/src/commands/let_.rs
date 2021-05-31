@@ -1,9 +1,11 @@
 use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
+use nu_engine::{evaluate_baseline_expr, FromValue, WholeStreamCommand};
 
 use nu_errors::ShellError;
-use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};
-use nu_source::Tagged;
+use nu_protocol::{
+    hir::{CapturedBlock, ClassifiedCommand},
+    Signature, SyntaxShape, UntaggedValue,
+};
 
 pub struct Let;
 
@@ -32,20 +34,41 @@ impl WholeStreamCommand for Let {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Assign a simple value to a variable",
+                example: "let x = 3",
+                result: Some(vec![]),
+            },
+            Example {
+                description: "Assign the result of an expression to a variable",
+                example: "let result = (3 + 7); echo $result",
+                result: Some(vec![UntaggedValue::int(1).into()]),
+            },
+            Example {
+                description: "Create a variable using the full name",
+                example: "let $three = 3",
+                result: Some(vec![]),
+            },
+        ]
     }
 }
 
 pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let args = args.evaluate_once()?;
+    let positional = args
+        .call_info
+        .args
+        .positional
+        .expect("Internal error: type checker should require args");
 
-    //let (LetArgs { name, rhs, .. }, _) = args.process()?;
-    let name: Tagged<String> = args.req(0)?;
-    let rhs: CapturedBlock = args.req(2)?;
+    let var_name = positional[0].var_name()?;
+    let rhs_raw = evaluate_baseline_expr(&positional[2], &ctx)?;
+    let tag: Tag = positional[2].span.into();
 
-    let (expr, captured) = {
+    let rhs: CapturedBlock = FromValue::from_value(&rhs_raw)?;
+
+    let (expr, _) = {
         if rhs.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
                 "Expected a value",
@@ -75,24 +98,15 @@ pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     ctx.scope.enter_scope();
-    ctx.scope.add_vars(&captured.entries);
-
     let value = evaluate_baseline_expr(&expr, &ctx);
-
     ctx.scope.exit_scope();
 
     let value = value?;
 
-    let name = if name.item.starts_with('$') {
-        name.item
-    } else {
-        format!("${}", name.item)
-    };
-
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
-    ctx.scope.add_var(name, value);
+    ctx.scope.add_var(var_name, value);
 
     Ok(ActionStream::empty())
 }

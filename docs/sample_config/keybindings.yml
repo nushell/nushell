@@ -3,12 +3,39 @@
 # "key:". If you want to change the modifier you should change or add the
 # modifier after "key:", such as:
 # key:
-#   Ctrl: A
-# Available modifiers are Ctrl, F (for function), Meta (escape-char, alt-char)
+#   Char: A
+# modifiers:
+#   CTRL:
+# binding:
+#   blah:
+# Available modifiers are CTRL, ALT, SHIFT, NONE, CTRL_SHIFT,
+# ALT_SHIFT, CTRL_ALT, CTRL_ALT_SHIFT
 
 ##########################################################
 # Common From https://github.com/kkawakam/rustyline#actions
 ##########################################################
+
+# Control Backspace, delete 1 word at a time
+- key:
+    Backspace:
+  modifiers:
+    CTRL:
+  binding:
+    Kill:
+      BackwardWord:
+        repeat: 1
+        word: Big
+
+# Alt Backspace, delete 1 word at a time
+- key:
+    Backspace:
+  modifiers:
+    ALT:
+  binding:
+    Kill:
+      BackwardWord:
+        repeat: 1
+        word: Big
 
 # Move cursor to the beginning of line
 - key:
@@ -38,19 +65,31 @@
 
 # Complete Hint
 - key:
-    ShiftRight:
+    Right:
+  modifiers:
+    SHIFT:
+  binding:
+    CompleteHint:
+- key:
+    Char: F
+  modifiers:
+    CTRL:
   binding:
     CompleteHint:
 
 # Interrupt/Cancel edition
 - key:
-    Ctrl: C
+    Char: C
+  modifiers:
+    CTRL:
   binding:
     Interrupt:
 
 # (if line is not empty) Delete character under cursor
 - key:
-    Ctrl: D
+    Char: D
+  modifiers:
+    CTRL:
   binding:
     EndOfFile:
 
@@ -63,17 +102,23 @@
 
 # Finish the line entry
 - key:
-    Ctrl: J
+    Char: J
+  modifiers:
+    CTRL:
   binding:
     AcceptLine:
 - key:
-    Ctrl: M
+    Char: M
+  modifiers:
+    CTRL:
   binding:
     AcceptLine:
-- key:
-    Enter:
-  binding:
-    AcceptLine:
+
+# This makes multiline editing stop working since Enter accepts a line
+# - key:
+#     Enter:
+#   binding:
+#     AcceptLine:
 
 # Next match from history
 - key:
@@ -89,41 +134,55 @@
 
 # Reverse Search history (Ctrl-S forward, Ctrl-G cancel)
 - key:
-    Ctrl: R
+    Char: R
+  modifiers:
+    CTRL:
   binding:
     ReverseSearchHistory:
 
 # Forward Search history (Ctrl-R backward, Ctrl-G cancel)
 - key:
-    Ctrl: S
+    Char: S
+  modifiers:
+    CTRL:
   binding:
     ForwardSearchHistory:
 
 # Transpose previous character with current character
 - key:
-    Ctrl: T
+    Char: T
+  modifiers:
+    CTRL:
   binding:
     TransposeChars:
 
 # Delete from start of line to cursor
 - key:
-    Ctrl: U
+    Char: U
+  modifiers:
+    CTRL:
   binding:
     Kill: BeginningOfLine
 
 # Insert any special character without performing its associated action (#65)
 - key:
-    Ctrl: Q
+    Char: Q
+  modifiers:
+    CTRL:
   binding:
     QuotedInsert:
 - key:
-    Ctrl: V
+    Char: V
+  modifiers:
+    CTRL:
   binding:
     QuotedInsert:
 
 # Delete word leading up to cursor (using white space as a word boundary)
 - key:
-    Ctrl: W
+    Char: W
+  modifiers:
+    CTRL:
   binding:
     Kill:
       BackwardWord:
@@ -132,7 +191,9 @@
 
 # Paste from Yank buffer
 - key:
-    Ctrl: Y
+    Char: Y
+  modifiers:
+    CTRL:
   binding:
     Yank:
       repeat: 1
@@ -140,22 +201,25 @@
 
 # Suspend (Unix only)
 - key:
-    Ctrl: Z
+    Char: Z
+  modifiers:
+    CTRL:
   binding:
     Suspend:
 
 # Undo
 - key:
-    Ctrl: '_'
+    Char: "_"
+  modifiers:
+    CTRL:
   binding:
     Undo: 1
 
-#     KeyEvent::UnknownEscSeq => Cmd::Noop,
+# KeyPress::UnknownEscSeq => Cmd::Noop,
 - key:
     UnknownEscSeq:
   binding:
     Noop:
-
 ##########################################################
 # Possible options for key:
 ##########################################################
@@ -171,16 +235,6 @@
 # BracketedPasteEnd,
 # /// Single char
 # Char(char),
-# /// Ctrl-↓
-# ControlDown,
-# /// Ctrl-←
-# ControlLeft,
-# /// Ctrl-→
-# ControlRight,
-# /// Ctrl-↑
-# ControlUp,
-# /// Ctrl-char
-# Ctrl(char),
 # /// ⌦
 # Delete,
 # /// ↓ arrow key
@@ -199,9 +253,7 @@
 # Insert,
 # /// ← arrow key
 # Left,
-# /// Escape-char or Alt-char
-# Meta(char),
-# /// `KeyEvent::Char('\0')`
+# // /// `KeyEvent::Char('\0')`
 # Null,
 # /// ⇟
 # PageDown,
@@ -209,14 +261,6 @@
 # PageUp,
 # /// → arrow key
 # Right,
-# /// Shift-↓
-# ShiftDown,
-# /// Shift-←
-# ShiftLeft,
-# /// Shift-→
-# ShiftRight,
-# /// Shift-↑
-# ShiftUp,
 # /// ⇥ or `KeyEvent::Ctrl('I')`
 # Tab,
 # /// ↑ arrow key
@@ -241,6 +285,8 @@
 # CompleteBackward,
 # /// complete-hint
 # CompleteHint,
+# /// Dedent current line
+# Dedent(Movement),
 # /// downcase-word
 # DowncaseWord,
 # /// vi-eof-maybe
@@ -253,8 +299,10 @@
 # HistorySearchBackward,
 # /// history-search-forward
 # HistorySearchForward,
+# /// Indent current line
+# Indent(Movement),
 # /// Insert text
-# Insert(RepeatCount, String),
+# Insert { repeat: RepeatCount, string: String },
 # /// Interrupt signal (Ctrl-C)
 # Interrupt,
 # /// backward-delete-char, backward-kill-line, backward-kill-word
@@ -265,24 +313,32 @@
 # /// forward-char, forward-word, vi-char-search, vi-end-word, vi-next-word,
 # /// vi-prev-word
 # Move(Movement),
+# /// Inserts a newline
+# Newline,
 # /// next-history
 # NextHistory,
 # /// No action
 # Noop,
 # /// vi-replace
 # Overwrite(char),
+# /// Paste from the clipboard
+# #[cfg(windows)]
+# PasteFromClipboard,
 # /// previous-history
 # PreviousHistory,
 # /// quoted-insert
 # QuotedInsert,
 # /// vi-change-char
-# ReplaceChar(RepeatCount, char),
+# ReplaceChar { repeat: RepeatCount, ch: char },
 # /// vi-change-to, vi-substitute
-# Replace(Movement, Option<String>),
+# Replace {
+#     movement: Movement,
+#     replacement: Option<String>,
+# },
 # /// reverse-search-history
 # ReverseSearchHistory,
 # /// self-insert
-# SelfInsert(RepeatCount, char),
+# SelfInsert { repeat: RepeatCount, ch: char },
 # /// Suspend signal (Ctrl-Z on unix platform)
 # Suspend,
 # /// transpose-chars
@@ -298,7 +354,7 @@
 # /// vi-yank-to
 # ViYankTo(Movement),
 # /// yank, vi-put
-# Yank(RepeatCount, Anchor),
+# Yank { repeat: RepeatCount, anchor: Anchor },
 # /// yank-pop
 # YankPop,
 # /// moves cursor to the line above or switches to prev history entry if
