@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -128,7 +128,7 @@ fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame
 
     reader
         .finish()
-        .map_err(|e| ShellError::labeled_error("Error with file", format!("{:?}", e), &file.tag))
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
 fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
@@ -141,7 +141,7 @@ fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, S
 
     reader
         .finish()
-        .map_err(|e| ShellError::labeled_error("Error with file", format!("{:?}", e), &file.tag))
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
 fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
@@ -152,9 +152,8 @@ fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, Sh
     let skip_rows: Option<Tagged<usize>> = args.get_flag("skip_rows")?;
     let columns: Option<Vec<Value>> = args.get_flag("columns")?;
 
-    let csv_reader = CsvReader::from_path(&file.item).map_err(|e| {
-        ShellError::labeled_error("Unable to parse file", format!("{}", e), &file.tag)
-    })?;
+    let csv_reader = CsvReader::from_path(&file.item)
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))?;
 
     let csv_reader = match delimiter {
         None => csv_reader,
@@ -212,10 +211,6 @@ fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, Sh
 
     match csv_reader.finish() {
         Ok(csv_reader) => Ok(csv_reader),
-        Err(e) => Err(ShellError::labeled_error(
-            "Error while parsing dataframe",
-            format!("{}", e),
-            &file.tag,
-        )),
+        Err(e) => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
     }
 }

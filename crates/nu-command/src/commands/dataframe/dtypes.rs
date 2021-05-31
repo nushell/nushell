@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, TaggedDictBuilder, UntaggedValue,
-};
+use nu_protocol::{dataframe::PolarsData, Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct DataFrame;
 
@@ -45,28 +42,26 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(df),
-                ..
-            })) = value.value
-            {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
                 let col_names = df
+                    .as_ref()
                     .get_column_names()
                     .iter()
                     .map(|v| v.to_string())
                     .collect::<Vec<String>>();
 
-                let values =
-                    df.dtypes()
-                        .into_iter()
-                        .zip(col_names.into_iter())
-                        .map(move |(dtype, name)| {
-                            let mut data = TaggedDictBuilder::new(tag.clone());
-                            data.insert_value("column", name.as_ref());
-                            data.insert_value("dtype", format!("{}", dtype));
+                let values = df
+                    .as_ref()
+                    .dtypes()
+                    .into_iter()
+                    .zip(col_names.into_iter())
+                    .map(move |(dtype, name)| {
+                        let mut data = TaggedDictBuilder::new(tag.clone());
+                        data.insert_value("column", name.as_ref());
+                        data.insert_value("dtype", format!("{}", dtype));
 
-                            data.into_value()
-                        });
+                        data.into_value()
+                    });
 
                 Ok(OutputStream::from_stream(values))
             } else {

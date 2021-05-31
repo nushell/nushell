@@ -224,7 +224,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn dataframe_ref(&self) -> &polars::prelude::DataFrame {
+    pub fn as_ref(&self) -> &polars::prelude::DataFrame {
         match &self.dataframe {
             Some(df) => df,
             None => unreachable!("Accessing reference to dataframe from nu_dataframe"),

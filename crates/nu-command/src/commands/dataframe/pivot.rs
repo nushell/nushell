@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -101,7 +101,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(value) => {
             if let UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) = value.value {
-                let df_ref = nu_groupby.dataframe_ref();
+                let df_ref = nu_groupby.as_ref();
 
                 check_pivot_column(df_ref, &pivot_col)?;
                 check_value_column(df_ref, &value_col)?;
@@ -118,7 +118,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Operation::First => pivot.first(),
                     Operation::Median => pivot.median(),
                 }
-                .map_err(|e| ShellError::labeled_error("Pivot error", format!("{}", e), &tag))?;
+                .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
                 let final_df = Value {
                     tag,
@@ -145,7 +145,7 @@ fn check_pivot_column(
 ) -> Result<(), ShellError> {
     let series = df
         .column(col.item.as_ref())
-        .map_err(|e| ShellError::labeled_error("Pivot error", format!("{}", e), col.tag.span))?;
+        .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {
         DataType::UInt8
@@ -171,7 +171,7 @@ fn check_value_column(
 ) -> Result<(), ShellError> {
     let series = df
         .column(col.item.as_ref())
-        .map_err(|e| ShellError::labeled_error("Pivot error", format!("{}", e), col.tag.span))?;
+        .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {
         DataType::UInt8

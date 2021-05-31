@@ -6,6 +6,8 @@ use nu_protocol::{
     Signature, UntaggedValue, Value,
 };
 
+use super::utils::parse_polars_error;
+
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
@@ -45,18 +47,12 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
-                let res = df.to_dummies().map_err(|e| {
-                    ShellError::labeled_error_with_secondary(
-                        "To dummies error",
-                        format!("{}", e),
-                        &tag,
-                        "The only allowed column types for dummies are String or Int",
-                        &tag,
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                let res = df.as_ref().to_dummies().map_err(|e| {
+                    parse_polars_error(
+                        &e,
+                        &tag.span,
+                        Some("The only allowed column types for dummies are String or Int"),
                     )
                 })?;
 

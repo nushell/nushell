@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -58,24 +58,20 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(value) => {
             if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(nu_df)) = value.value {
-                let df = match nu_df.dataframe {
-                    Some(df) => df,
-                    None => unreachable!("No dataframe in nu_dataframe"),
-                };
-
                 // This is the expensive part of the groupby; to create the
                 // groups that will be used for grouping the data in the
                 // dataframe. Once it has been done these values can be stored
-                // in the NuGroupBy
-                let groupby = df.groupby(&columns_string).map_err(|e| {
-                    ShellError::labeled_error("Groupby error", format!("{}", e), col_span)
-                })?;
+                // in a NuGroupBy
+                let groupby = nu_df
+                    .as_ref()
+                    .groupby(&columns_string)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
                 let groups = groupby.get_groups().to_vec();
                 let groupby = Value {
                     tag: value.tag,
                     value: UntaggedValue::DataFrame(PolarsData::GroupBy(NuGroupBy::new(
-                        NuDataFrame::new_with_name(df, nu_df.name),
+                        NuDataFrame::new_with_name(nu_df.as_ref().clone(), nu_df.name),
                         columns_string,
                         groups,
                     ))),

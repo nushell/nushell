@@ -3613,8 +3613,8 @@ dependencies = [
  "num-format",
  "num-traits 0.2.14",
  "query_interface",
- "serde 1.0.125",
- "sha2 0.9.3",
+ "serde 1.0.126",
+ "sha2 0.9.5",
  "sys-locale",
  "toml",
  "users",
@@ -3773,6 +3773,9 @@ dependencies = [
  "polars",
  "serde 1.0.126",
  "serde_bytes",
+ "serde_json",
+ "serde_yaml",
+ "toml",
 ]
 
 [[package]]
@@ -5100,16 +5103,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34cf66eb183df1c5876e2dcf6b13d57340741e8dc255b48e40a26de954d06ae7"
 dependencies = [
  "getrandom 0.2.3",
-]
-
-[[package]]
-name = "rand_distr"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
-dependencies = [
- "num-traits 0.2.14",
- "rand 0.7.3",
 ]
 
 [[package]]

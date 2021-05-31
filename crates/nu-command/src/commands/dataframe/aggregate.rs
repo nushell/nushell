@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
-use polars::frame::groupby::GroupBy;
+use polars::{frame::groupby::GroupBy, prelude::PolarsError};
 
 use super::utils::convert_columns;
 
@@ -191,12 +191,11 @@ fn perform_aggregation(
         Operation::Count => groupby.count(),
     }
     .map_err(|e| {
-        let span = if e.to_string().contains("Not found") {
-            agg_span
-        } else {
-            &operation_tag.span
+        let span = match &e {
+            PolarsError::NotFound(_) => agg_span,
+            _ => &operation_tag.span,
         };
 
-        ShellError::labeled_error("Aggregation error", format!("{}", e), span)
+        parse_polars_error::<&str>(&e, span, None)
     })
 }

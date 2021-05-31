@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -59,17 +59,14 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
-                check_column_datatypes(&df, &id_col_string, &id_col_span)?;
-                check_column_datatypes(&df, &val_col_string, &val_col_span)?;
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                check_column_datatypes(df.as_ref(), &id_col_string, &id_col_span)?;
+                check_column_datatypes(df.as_ref(), &val_col_string, &val_col_span)?;
 
                 let res = df
+                    .as_ref()
                     .melt(&id_col_string, &val_col_string)
-                    .map_err(|e| ShellError::labeled_error("Melt error", format!("{}", e), &tag))?;
+                    .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
                 let value = Value {
                     value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
@@ -108,11 +105,11 @@ fn check_column_datatypes<T: AsRef<str>>(
         for w in cols.windows(2) {
             let l_series = df
                 .column(w[0].as_ref())
-                .map_err(|e| ShellError::labeled_error("Melt error", format!("{}", e), col_span))?;
+                .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
             let r_series = df
                 .column(w[1].as_ref())
-                .map_err(|e| ShellError::labeled_error("Melt error", format!("{}", e), col_span))?;
+                .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
             if l_series.dtype() != r_series.dtype() {
                 return Err(ShellError::labeled_error_with_secondary(

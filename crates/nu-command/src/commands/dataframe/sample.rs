@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -71,18 +71,16 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
                 let res = match (rows, fraction) {
-                    (Some(rows), None) => df.sample_n(rows.item, replace).map_err(|e| {
-                        ShellError::labeled_error("Polars error", format!("{}", e), &rows.tag)
-                    }),
-                    (None, Some(frac)) => df.sample_frac(frac.item, replace).map_err(|e| {
-                        ShellError::labeled_error("Polars error", format!("{}", e), &frac.tag)
-                    }),
+                    (Some(rows), None) => df
+                        .as_ref()
+                        .sample_n(rows.item, replace)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &rows.tag.span, None)),
+                    (None, Some(frac)) => df
+                        .as_ref()
+                        .sample_frac(frac.item, replace)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &frac.tag.span, None)),
                     (Some(_), Some(_)) => Err(ShellError::labeled_error(
                         "Incompatible flags",
                         "Only one selection criterion allowed",

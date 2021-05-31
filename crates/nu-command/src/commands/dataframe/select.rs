@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
-use super::utils::convert_columns;
+use super::utils::{convert_columns, parse_polars_error};
 
 pub struct DataFrame;
 
@@ -55,14 +55,11 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
-                let res = df.select(&col_string).map_err(|e| {
-                    ShellError::labeled_error("Drop error", format!("{}", e), &col_span)
-                })?;
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                let res = df
+                    .as_ref()
+                    .select(&col_string)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
                 let value = Value {
                     value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(

@@ -51,12 +51,8 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
-                let res = df.slice(offset.item as i64, size.item);
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                let res = df.as_ref().slice(offset.item as i64, size.item);
 
                 let value = Value {
                     value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
