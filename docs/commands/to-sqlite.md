@@ -1,5 +1,5 @@
 # to sqlite
-Convert table into sqlite binary
+Convert table into sqlite binary. Empty tables are skipped.
 
 ## Usage
 ```shell
