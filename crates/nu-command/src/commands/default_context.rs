@@ -290,6 +290,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameMelt),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFramePivot),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameWhere),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

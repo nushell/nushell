@@ -17,6 +17,7 @@ pub mod show;
 pub mod slice;
 pub mod tail;
 pub(crate) mod utils;
+pub mod where_;
 
 pub use aggregate::DataFrame as DataFrameAggregate;
 pub use command::Command as DataFrame;
@@ -36,3 +37,4 @@ pub use select::DataFrame as DataFrameSelect;
 pub use show::DataFrame as DataFrameShow;
 pub use slice::DataFrame as DataFrameSlice;
 pub use tail::DataFrame as DataFrameTail;
+pub use where_::DataFrame as DataFrameWhere;
