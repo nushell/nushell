@@ -16,7 +16,7 @@ name = "nu_pretty_hex"
 path = "src/main.rs"
 
 [dependencies]
-nu-ansi-term = "0.29.0"
+nu-ansi-term = { path = "../nu-ansi-term", version = "0.32.0" }
 rand = "0.8.3"
 
 [dev-dependencies]
