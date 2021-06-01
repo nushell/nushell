@@ -8,4 +8,4 @@ Convert from sqlite binary into table
 
 ## Flags
 * -h, --help: Display this help message
-* -t, --tables \<table>: Only convert specified tables
+* -t, --tables \[\<table_name_1> \<table_name_2> ... \<table_name_N>]: Only convert specified tables
