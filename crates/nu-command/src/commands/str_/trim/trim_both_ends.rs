@@ -23,6 +23,11 @@ impl WholeStreamCommand for SubCommand {
                 "character to trim (default: whitespace)",
                 Some('c'),
             )
+            .switch(
+                "all",
+                "also trim multiple occurrences of 'char' to a single one",
+                Some('a'),
+            )
     }
 
     fn usage(&self) -> &str {
