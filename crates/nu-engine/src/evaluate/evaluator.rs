@@ -200,7 +200,11 @@ pub fn evaluate_baseline_expr(
                 };
             }
 
-            Ok(item.value.into_value(tag))
+            if path.tail.is_empty() {
+                Ok(item)
+            } else {
+                Ok(item.value.into_value(tag))
+            }
         }
         Expression::Boolean(_boolean) => Ok(UntaggedValue::boolean(*_boolean).into_value(tag)),
         Expression::Garbage => unimplemented!(),
@@ -289,7 +293,10 @@ fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Va
     }
 
     match output.len() {
-        x if x > 1 => Ok(UntaggedValue::Table(output).into_value(Tag::unknown())),
+        x if x > 1 => {
+            let tag = output[0].tag.clone();
+            Ok(UntaggedValue::Table(output).into_value(tag))
+        }
         1 => Ok(output[0].clone()),
         _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
     }
