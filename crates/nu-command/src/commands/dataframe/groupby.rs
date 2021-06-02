@@ -71,7 +71,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let groupby = Value {
                     tag: value.tag,
                     value: UntaggedValue::DataFrame(PolarsData::GroupBy(NuGroupBy::new(
-                        NuDataFrame::new_with_name(nu_df.as_ref().clone(), nu_df.name),
+                        NuDataFrame::new(nu_df.as_ref().clone()),
                         columns_string,
                         groups,
                     ))),

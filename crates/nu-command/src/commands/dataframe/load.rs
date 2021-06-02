@@ -101,21 +101,24 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(name) => name,
         Err(e) => {
             return Err(ShellError::labeled_error(
-                "Error with file name",
+                "File Name Error",
                 format!("{:?}", e),
                 &file.tag,
             ))
         }
     };
 
-    let init = InputStream::one(
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new_with_name(
-            df, file_name,
-        )))
-        .into_value(&tag),
-    );
+    let df_tag = Tag {
+        anchor: Some(AnchorLocation::File(file_name.to_string())),
+        span: tag.span,
+    };
 
-    Ok(init.to_output_stream())
+    let tagged_value = Value {
+        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
+        tag: df_tag,
+    };
+
+    Ok(InputStream::one(tagged_value).to_output_stream())
 }
 
 fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {

@@ -11,9 +11,9 @@ use std::ops::Range;
 /// Used to represent the value of an input file.
 #[derive(Clone)]
 pub struct Text {
-    text: String,
-    start: usize,
-    end: usize,
+    pub text: String,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Text {

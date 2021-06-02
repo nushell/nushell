@@ -71,7 +71,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag.span,
         ))?;
 
-    let left_value = match &expression.left.expr {
+    let lhs = match &expression.left.expr {
         Expression::FullColumnPath(p) => p.as_ref().tail.get(0),
         _ => None,
     }
@@ -81,22 +81,22 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         &expression.left.span,
     ))?;
 
-    let (col_name, col_name_span) = match &left_value.unspanned {
-        UnspannedPathMember::String(name) => Ok((name, &left_value.span)),
+    let (col_name, col_name_span) = match &lhs.unspanned {
+        UnspannedPathMember::String(name) => Ok((name, &lhs.span)),
         _ => Err(ShellError::labeled_error(
             "No column name",
             "Not a string as column name",
-            &left_value.span,
+            &lhs.span,
         )),
     }?;
 
-    let right_value = evaluate_baseline_expr(&expression.right, &args.args.context)?;
-    let right_condition = match &right_value.value {
+    let rhs = evaluate_baseline_expr(&expression.right, &args.args.context)?;
+    let right_condition = match &rhs.value {
         UntaggedValue::Primitive(primitive) => Ok(primitive),
         _ => Err(ShellError::labeled_error(
             "Incorrect argument",
             "Expected primitive values",
-            &right_value.tag.span,
+            &rhs.tag.span,
         )),
     }?;
 
