@@ -107,8 +107,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Aggregate sum by grouping by column a and summing on col b",
-            example:
-                "echo [[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
+            example: "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
             result: None,
         }]
     }

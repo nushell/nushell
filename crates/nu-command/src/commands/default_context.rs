@@ -292,6 +292,10 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFramePivot),
             #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameWhere),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameToParquet),
+            #[cfg(feature = "dataframe")]
+            whole_stream_command(DataFrameToCsv),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

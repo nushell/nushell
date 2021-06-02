@@ -44,12 +44,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | pls load | pls sample -r 1",
+                example: "[[a b]; [1 2] [3 4]] | pls load | pls sample -r 1",
                 result: None,
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "echo [[a b]; [1 2] [3 4] [5 6]] | pls load | pls sample -f 0.5 -e",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | pls load | pls sample -f 0.5 -e",
                 result: None,
             },
         ]

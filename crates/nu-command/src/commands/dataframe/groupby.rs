@@ -34,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Grouping by column a",
-            example: "echo [[a b]; [one 1] [one 2]] | pls convert | pls groupby [a]",
+            example: "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a]",
             result: None,
         }]
     }

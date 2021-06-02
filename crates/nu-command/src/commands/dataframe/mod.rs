@@ -16,6 +16,8 @@ pub mod select;
 pub mod show;
 pub mod slice;
 pub mod tail;
+pub mod to_csv;
+pub mod to_parquet;
 pub(crate) mod utils;
 pub mod where_;
 
@@ -37,4 +39,6 @@ pub use select::DataFrame as DataFrameSelect;
 pub use show::DataFrame as DataFrameShow;
 pub use slice::DataFrame as DataFrameSlice;
 pub use tail::DataFrame as DataFrameTail;
+pub use to_csv::DataFrame as DataFrameToCsv;
+pub use to_parquet::DataFrame as DataFrameToParquet;
 pub use where_::DataFrame as DataFrameWhere;

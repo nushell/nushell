@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
             .required(
                 "file",
                 SyntaxShape::FilePath,
-                "the file path to load values from",
+                "file path to load values from",
             )
             .named(
                 "delimiter",

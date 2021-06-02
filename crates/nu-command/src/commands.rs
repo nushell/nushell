@@ -194,7 +194,7 @@ pub(crate) use dataframe::{
     DataFrame, DataFrameAggregate, DataFrameConvert, DataFrameDTypes, DataFrameDrop,
     DataFrameDummies, DataFrameGroupBy, DataFrameHead, DataFrameJoin, DataFrameList, DataFrameLoad,
     DataFrameMelt, DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameShow, DataFrameSlice,
-    DataFrameTail, DataFrameWhere,
+    DataFrameTail, DataFrameToCsv, DataFrameToParquet, DataFrameWhere,
 };
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;

@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with dummy variables",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls to_dummies",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_dummies",
             result: None,
         }]
     }

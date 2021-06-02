@@ -217,7 +217,16 @@ impl AsRef<polars::prelude::DataFrame> for NuDataFrame {
     fn as_ref(&self) -> &polars::prelude::DataFrame {
         match &self.dataframe {
             Some(df) => df,
-            None => unreachable!("Accessing reference to dataframe from nu_dataframe"),
+            None => unreachable!("Accessing ref to dataframe from nu_dataframe"),
+        }
+    }
+}
+
+impl AsMut<polars::prelude::DataFrame> for NuDataFrame {
+    fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
+        match &mut self.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing mut ref to dataframe from nu_dataframe"),
         }
     }
 }

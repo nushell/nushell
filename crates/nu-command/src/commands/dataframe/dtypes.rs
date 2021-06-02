@@ -25,7 +25,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls dtypes",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls dtypes",
             result: None,
         }]
     }

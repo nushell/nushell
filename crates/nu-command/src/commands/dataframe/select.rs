@@ -34,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with column a",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
             result: None,
         }]
     }

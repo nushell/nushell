@@ -58,7 +58,7 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "right join dataframe",
                 example:
-                    "echo [[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
+                    "[[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
                 result: None,
             },
         ]

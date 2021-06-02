@@ -35,8 +35,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "",
-            example: "",
+            description: "Filter dataframe based on column a",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls where a == 1",
             result: None,
         }]
     }
