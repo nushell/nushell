@@ -3,6 +3,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
+use regex::Regex;
 
 pub struct SubCommand;
 
@@ -35,7 +36,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        operate(args, &trim)
+        if has_all_flag(&args) {
+            operate(args, &trim_all)
+        } else {
+            operate(args, &trim)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -53,6 +58,12 @@ impl WholeStreamCommand for SubCommand {
         ]
     }
 }
+
+fn has_all_flag(args: &CommandArgs) -> bool {
+    // TODO
+    false
+}
+
 fn trim(s: &str, char_: Option<char>) -> String {
     match char_ {
         None => String::from(s.trim()),
@@ -60,10 +71,16 @@ fn trim(s: &str, char_: Option<char>) -> String {
     }
 }
 
+/// Collapse all whitespace in the given string to a single space per group.
+fn trim_all(s: &str, _char: Option<char>) -> String {
+    let whitespace_regex = Regex::new(r"\s+").unwrap();
+    trim(&whitespace_regex.replace_all(s, " ").to_string(), None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::{trim, SubCommand};
+    use super::{trim, trim_all, SubCommand};
     use crate::commands::str_::trim::{action, ActionMode};
     use nu_protocol::row;
     use nu_source::Tag;
@@ -127,6 +144,22 @@ mod tests {
         let expected = string("#andres#");
 
         let actual = action(&word, Tag::unknown(), Some('!'), &trim, ActionMode::Local).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trim_all_multiple_spaces() {
+        let word = "abc    def";
+        let expected = String::from("abc def");
+        let actual = trim_all(word, None);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn trim_all_mixed_whitespace() {
+        let word = "abc\t \t def";
+        let expected = String::from("abc def");
+        let actual = trim_all(word, None);
         assert_eq!(actual, expected);
     }
 }
