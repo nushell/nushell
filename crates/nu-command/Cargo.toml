@@ -100,7 +100,7 @@ which = { version = "4.1.0", optional = true }
 zip = { version = "0.5.9", optional = true }
 
 [dependencies.polars]
-version = "0.13.4"
+version = "0.14.0"
 optional = true
 features = ["parquet", "json", "random", "pivot"]
 
