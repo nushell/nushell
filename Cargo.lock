@@ -827,7 +827,7 @@ checksum = "e68bbd985a63de680ab4d1ad77b6306611a8f961b282c8b5ab513e6de934e396"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
- "serde 1.0.125",
+ "serde 1.0.126",
  "winapi 0.3.9",
 ]
 
@@ -2137,7 +2137,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro2",
  "quote 1.0.9",
- "syn 1.0.71",
+ "syn 1.0.72",
 ]
 
 [[package]]

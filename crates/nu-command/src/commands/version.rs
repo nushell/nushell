@@ -140,6 +140,43 @@ pub fn version(args: CommandArgs) -> Result<ActionStream, ShellError> {
         features_enabled().join(", ").to_string_value_create_tag(),
     );
 
+    // Manually create a list of all possible plugin names
+    let all_plugins = vec![
+        "fetch",
+        "inc",
+        "match",
+        "post",
+        "ps",
+        "sys",
+        "textview",
+        "binaryview",
+        "chart bar",
+        "chart line",
+        "from bson",
+        "from sqlite",
+        "query json",
+        "s3",
+        "selector",
+        "start",
+        "to bson",
+        "to sqlite",
+        "tree",
+        "xpath",
+    ];
+
+    // Get a list of command names and check for plugins
+    let installed_plugins = args
+        .scope()
+        .get_command_names()
+        .into_iter()
+        .filter(|cmd| all_plugins.contains(&cmd.as_str()))
+        .collect::<Vec<_>>();
+
+    indexmap.insert(
+        "installed_plugins".to_string(),
+        installed_plugins.join(", ").to_string_value_create_tag(),
+    );
+
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
     Ok(ActionStream::one(value))
 }
