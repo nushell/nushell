@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
-use super::utils::convert_columns;
+use super::utils::{convert_columns, parse_polars_error};
 
 pub struct DataFrame;
 
@@ -28,19 +28,19 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        select(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with column a",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
             result: None,
         }]
     }
 }
 
-fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -55,14 +55,11 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
-                let res = df.select(&col_string).map_err(|e| {
-                    ShellError::labeled_error("Drop error", format!("{}", e), &col_span)
-                })?;
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                let res = df
+                    .as_ref()
+                    .select(&col_string)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
                 let value = Value {
                     value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(

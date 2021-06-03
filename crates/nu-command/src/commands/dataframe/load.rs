@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
             .required(
                 "file",
                 SyntaxShape::FilePath,
-                "the file path to load values from",
+                "file path to load values from",
             )
             .named(
                 "delimiter",
@@ -62,7 +62,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        create_from_file(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,7 +74,7 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
     let file: Tagged<PathBuf> = args.req(0)?;
@@ -101,21 +101,24 @@ fn create_from_file(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(name) => name,
         Err(e) => {
             return Err(ShellError::labeled_error(
-                "Error with file name",
+                "File Name Error",
                 format!("{:?}", e),
                 &file.tag,
             ))
         }
     };
 
-    let init = InputStream::one(
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new_with_name(
-            df, file_name,
-        )))
-        .into_value(&tag),
-    );
+    let df_tag = Tag {
+        anchor: Some(AnchorLocation::File(file_name.to_string())),
+        span: tag.span,
+    };
 
-    Ok(init.to_output_stream())
+    let tagged_value = Value {
+        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
+        tag: df_tag,
+    };
+
+    Ok(InputStream::one(tagged_value).to_output_stream())
 }
 
 fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
@@ -128,7 +131,7 @@ fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame
 
     reader
         .finish()
-        .map_err(|e| ShellError::labeled_error("Error with file", format!("{:?}", e), &file.tag))
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
 fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
@@ -141,7 +144,7 @@ fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, S
 
     reader
         .finish()
-        .map_err(|e| ShellError::labeled_error("Error with file", format!("{:?}", e), &file.tag))
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
 fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
@@ -152,9 +155,8 @@ fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, Sh
     let skip_rows: Option<Tagged<usize>> = args.get_flag("skip_rows")?;
     let columns: Option<Vec<Value>> = args.get_flag("columns")?;
 
-    let csv_reader = CsvReader::from_path(&file.item).map_err(|e| {
-        ShellError::labeled_error("Unable to parse file", format!("{}", e), &file.tag)
-    })?;
+    let csv_reader = CsvReader::from_path(&file.item)
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))?;
 
     let csv_reader = match delimiter {
         None => csv_reader,
@@ -212,10 +214,6 @@ fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, Sh
 
     match csv_reader.finish() {
         Ok(csv_reader) => Ok(csv_reader),
-        Err(e) => Err(ShellError::labeled_error(
-            "Error while parsing dataframe",
-            format!("{}", e),
-            &file.tag,
-        )),
+        Err(e) => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
     }
 }

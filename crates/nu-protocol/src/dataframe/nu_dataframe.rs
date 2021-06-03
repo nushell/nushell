@@ -46,15 +46,11 @@ type ColumnMap = HashMap<String, ColumnValues>;
 pub struct NuDataFrame {
     #[serde(skip_serializing)]
     pub dataframe: Option<DataFrame>,
-    pub name: String,
 }
 
 impl Default for NuDataFrame {
     fn default() -> Self {
-        NuDataFrame {
-            dataframe: None,
-            name: String::from("From Stream"),
-        }
+        NuDataFrame { dataframe: None }
     }
 }
 
@@ -62,14 +58,6 @@ impl NuDataFrame {
     pub fn new(df: polars::prelude::DataFrame) -> Self {
         NuDataFrame {
             dataframe: Some(df),
-            name: String::from("dataframe"),
-        }
-    }
-
-    pub fn new_with_name(df: polars::prelude::DataFrame, name: String) -> Self {
-        NuDataFrame {
-            dataframe: Some(df),
-            name,
         }
     }
 }
@@ -221,6 +209,24 @@ impl NuDataFrame {
             Ok(values)
         } else {
             unreachable!()
+        }
+    }
+}
+
+impl AsRef<polars::prelude::DataFrame> for NuDataFrame {
+    fn as_ref(&self) -> &polars::prelude::DataFrame {
+        match &self.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing ref to dataframe from nu_dataframe"),
+        }
+    }
+}
+
+impl AsMut<polars::prelude::DataFrame> for NuDataFrame {
+    fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
+        match &mut self.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing mut ref to dataframe from nu_dataframe"),
         }
     }
 }
@@ -430,7 +436,6 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
     match df {
         Ok(df) => Ok(NuDataFrame {
             dataframe: Some(df),
-            name: "From stream".to_string(),
         }),
         Err(e) => {
             return Err(ShellError::labeled_error(

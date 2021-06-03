@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Show dataframe"
+        "Converts a section of the dataframe to a Table or List value"
     }
 
     fn signature(&self) -> Signature {
@@ -28,30 +28,30 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        show(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls show",
+                example: "[[a b]; [1 2] [3 4]] | pls convert | pls show",
                 result: None,
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "echo [[a b]; [1 2] [3 4] [5 6]] | pls convert | pls show -t -n 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | pls convert | pls show -t -n 1",
                 result: None,
             },
         ]
     }
 }
 
-fn show(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    let rows: Option<Tagged<usize>> = args.get_flag("rows")?;
+    let rows: Option<Tagged<usize>> = args.get_flag("n_rows")?;
     let tail: bool = args.has_flag("tail");
 
     match args.input.next() {

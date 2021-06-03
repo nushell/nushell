@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
-use super::utils::convert_columns;
+use super::utils::{convert_columns, parse_polars_error};
 
 pub struct DataFrame;
 
@@ -28,19 +28,19 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        drop(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls drop [a]",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls drop [a]",
             result: None,
         }]
     }
 }
 
-fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -55,15 +55,13 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
+                // Dataframe with the first selected column
                 let new_df = match col_string.iter().next() {
-                    Some(col) => df.drop(col).map_err(|e| {
-                        ShellError::labeled_error("Join error", format!("{}", e), &col_span)
-                    }),
+                    Some(col) => df
+                        .as_ref()
+                        .drop(col)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None)),
                     None => Err(ShellError::labeled_error(
                         "Empty names list",
                         "No column names where found",
@@ -71,10 +69,12 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     )),
                 }?;
 
+                // If there are more columns in the drop selection list, these
+                // are added from the resulting dataframe
                 let res = col_string.iter().skip(1).try_fold(new_df, |new_df, col| {
-                    new_df.drop(col).map_err(|e| {
-                        ShellError::labeled_error("Drop error", format!("{}", e), &col_span)
-                    })
+                    new_df
+                        .drop(col)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))
                 })?;
 
                 let value = Value {

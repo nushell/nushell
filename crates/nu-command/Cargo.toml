@@ -102,7 +102,7 @@ zip = { version = "0.5.9", optional = true }
 [dependencies.polars]
 version = "0.13.4"
 optional = true
-features = ["parquet", "json", "random"]
+features = ["parquet", "json", "random", "pivot"]
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

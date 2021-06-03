@@ -1,21 +1,26 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::PolarsData, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{
+    dataframe::{NuDataFrame, PolarsData},
+    Signature, UntaggedValue, Value,
+};
+
+use super::utils::parse_polars_error;
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls dtypes"
+        "pls to_dummies"
     }
 
     fn usage(&self) -> &str {
-        "Show dataframe data types"
+        "Creates a new dataframe with dummy variables"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls dtypes")
+        Signature::build("pls select")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -24,8 +29,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls dtypes",
+            description: "Create new dataframe with dummy variables",
+            example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_dummies",
             result: None,
         }]
     }
@@ -43,27 +48,22 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(value) => {
             if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let col_names = df
-                    .as_ref()
-                    .get_column_names()
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<String>>();
+                let res = df.as_ref().to_dummies().map_err(|e| {
+                    parse_polars_error(
+                        &e,
+                        &tag.span,
+                        Some("The only allowed column types for dummies are String or Int"),
+                    )
+                })?;
 
-                let values = df
-                    .as_ref()
-                    .dtypes()
-                    .into_iter()
-                    .zip(col_names.into_iter())
-                    .map(move |(dtype, name)| {
-                        let mut data = TaggedDictBuilder::new(tag.clone());
-                        data.insert_value("column", name.as_ref());
-                        data.insert_value("dtype", format!("{}", dtype));
+                let value = Value {
+                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
+                        res,
+                    ))),
+                    tag: tag.clone(),
+                };
 
-                        data.into_value()
-                    });
-
-                Ok(OutputStream::from_stream(values))
+                Ok(OutputStream::one(value))
             } else {
                 Err(ShellError::labeled_error(
                     "No dataframe in stream",

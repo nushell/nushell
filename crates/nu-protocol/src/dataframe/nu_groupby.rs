@@ -40,15 +40,19 @@ impl NuGroupBy {
         let mut values: Vec<Value> = Vec::new();
 
         let mut data = TaggedDictBuilder::new(Tag::unknown());
-        data.insert_value("property", "dataframe");
-        data.insert_value("value", self.dataframe.name.as_ref());
-        values.push(data.into_value());
-
-        let mut data = TaggedDictBuilder::new(Tag::unknown());
         data.insert_value("property", "group by");
         data.insert_value("value", self.by.join(", "));
         values.push(data.into_value());
 
         Ok(values)
+    }
+}
+
+impl AsRef<polars::prelude::DataFrame> for NuGroupBy {
+    fn as_ref(&self) -> &polars::prelude::DataFrame {
+        match &self.dataframe.dataframe {
+            Some(df) => df,
+            None => unreachable!("Accessing reference to dataframe from nu_groupby"),
+        }
     }
 }

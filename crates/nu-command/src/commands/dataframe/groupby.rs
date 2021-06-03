@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -28,19 +28,19 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        groupby(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Grouping by column a",
-            example: "echo [[a b]; [one 1] [one 2]] | pls convert | pls groupby [a]",
+            example: "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a]",
             result: None,
         }]
     }
 }
 
-fn groupby(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -58,24 +58,20 @@ fn groupby(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
         Some(value) => {
             if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(nu_df)) = value.value {
-                let df = match nu_df.dataframe {
-                    Some(df) => df,
-                    None => unreachable!("No dataframe in nu_dataframe"),
-                };
-
                 // This is the expensive part of the groupby; to create the
                 // groups that will be used for grouping the data in the
                 // dataframe. Once it has been done these values can be stored
-                // in the NuGroupBy
-                let groupby = df.groupby(&columns_string).map_err(|e| {
-                    ShellError::labeled_error("Groupby error", format!("{}", e), col_span)
-                })?;
+                // in a NuGroupBy
+                let groupby = nu_df
+                    .as_ref()
+                    .groupby(&columns_string)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
                 let groups = groupby.get_groups().to_vec();
                 let groupby = Value {
                     tag: value.tag,
                     value: UntaggedValue::DataFrame(PolarsData::GroupBy(NuGroupBy::new(
-                        NuDataFrame::new_with_name(df, nu_df.name),
+                        NuDataFrame::new(nu_df.as_ref().clone()),
                         columns_string,
                         groups,
                     ))),

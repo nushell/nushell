@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
-use polars::frame::groupby::GroupBy;
+use polars::{frame::groupby::GroupBy, prelude::PolarsError};
 
 use super::utils::convert_columns;
 
@@ -101,20 +101,19 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        aggregate(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Aggregate sum by grouping by column a and summing on col b",
-            example:
-                "echo [[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
+            example: "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
             result: None,
         }]
     }
 }
 
-fn aggregate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -132,12 +131,12 @@ fn aggregate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => (None, Span::unknown()),
     };
 
-    // The operation is only done in one dataframe. Only one input is
+    // The operation is only done in one groupby. Only one input is
     // expected from the InputStream
     match args.input.next() {
         None => Err(ShellError::labeled_error(
             "No input received",
-            "missing dataframe input from stream",
+            "missing groupby input from stream",
             &tag,
         )),
         Some(value) => {
@@ -191,12 +190,11 @@ fn perform_aggregation(
         Operation::Count => groupby.count(),
     }
     .map_err(|e| {
-        let span = if e.to_string().contains("Not found") {
-            agg_span
-        } else {
-            &operation_tag.span
+        let span = match &e {
+            PolarsError::NotFound(_) => agg_span,
+            _ => &operation_tag.span,
         };
 
-        ShellError::labeled_error("Aggregation error", format!("{}", e), span)
+        parse_polars_error::<&str>(&e, span, None)
     })
 }

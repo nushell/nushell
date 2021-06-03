@@ -36,7 +36,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes an input stream and converts it to a polars dataframe",
-            example: "echo [[a b];[1 2] [3 4]] | pls convert",
+            example: "[[a b];[1 2] [3 4]] | pls convert",
             result: None,
         }]
     }

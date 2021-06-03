@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, TaggedDictBuilder, UntaggedValue,
-};
+use nu_protocol::{dataframe::PolarsData, Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct DataFrame;
 
@@ -30,20 +27,25 @@ impl WholeStreamCommand for DataFrame {
             .get_vars()
             .into_iter()
             .filter_map(|(name, value)| {
-                if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                    dataframe: Some(df),
-                    name: file_name,
-                })) = &value.value
-                {
+                if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = &value.value {
                     let mut data = TaggedDictBuilder::new(value.tag.clone());
 
-                    let rows = df.height();
-                    let cols = df.width();
+                    let rows = df.as_ref().height();
+                    let cols = df.as_ref().width();
 
                     data.insert_value("name", name.as_ref());
-                    data.insert_value("file", file_name.as_ref());
                     data.insert_value("rows", format!("{}", rows));
                     data.insert_value("columns", format!("{}", cols));
+
+                    match value.tag.anchor {
+                        Some(AnchorLocation::File(name)) => data.insert_value("location", name),
+                        Some(AnchorLocation::Url(name)) => data.insert_value("location", name),
+                        Some(AnchorLocation::Source(text)) => {
+                            let loc_name = text.slice(0..text.end);
+                            data.insert_value("location", loc_name.text)
+                        }
+                        None => data.insert_value("location", "stream"),
+                    }
 
                     Some(data.into_value())
                 } else {

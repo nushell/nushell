@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
-use super::utils::convert_columns;
+use super::utils::{convert_columns, parse_polars_error};
 
 use polars::prelude::JoinType;
 
@@ -45,7 +45,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        join(args)
+        command(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -58,14 +58,14 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "right join dataframe",
                 example:
-                    "echo [[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
+                    "[[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
                 result: None,
             },
         ]
     }
 }
 
-fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
@@ -102,33 +102,21 @@ fn join(args: CommandArgs) -> Result<OutputStream, ShellError> {
             &tag,
         )),
         Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                dataframe: Some(ref df),
-                ..
-            })) = value.value
-            {
+            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
                 let res = match r_df.value {
-                    UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame {
-                        dataframe: Some(r_df),
-                        ..
-                    })) => {
+                    UntaggedValue::DataFrame(PolarsData::EagerDataFrame(r_df)) => {
                         // Checking the column types before performing the join
                         check_column_datatypes(
-                            df,
+                            df.as_ref(),
                             &l_col_string,
                             &l_col_span,
                             &r_col_string,
                             &r_col_span,
                         )?;
 
-                        df.join(&r_df, &l_col_string, &r_col_string, join_type)
-                            .map_err(|e| {
-                                ShellError::labeled_error(
-                                    "Join error",
-                                    format!("{}", e),
-                                    &l_col_span,
-                                )
-                            })
+                        df.as_ref()
+                            .join(r_df.as_ref(), &l_col_string, &r_col_string, join_type)
+                            .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))
                     }
                     _ => Err(ShellError::labeled_error(
                         "Not a dataframe",
@@ -180,11 +168,11 @@ fn check_column_datatypes<T: AsRef<str>>(
     for (l, r) in l_cols.iter().zip(r_cols.iter()) {
         let l_series = df
             .column(l.as_ref())
-            .map_err(|e| ShellError::labeled_error("Join error", format!("{}", e), l_col_span))?;
+            .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))?;
 
         let r_series = df
             .column(r.as_ref())
-            .map_err(|e| ShellError::labeled_error("Join error", format!("{}", e), r_col_span))?;
+            .map_err(|e| parse_polars_error::<&str>(&e, &r_col_span, None))?;
 
         if l_series.dtype() != r_series.dtype() {
             return Err(ShellError::labeled_error_with_secondary(
