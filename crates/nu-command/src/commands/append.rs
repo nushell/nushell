@@ -28,11 +28,12 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let (Arguments { mut value }, mut input) = args.process()?;
+        let args = args.evaluate_once()?;
+        let mut value: Value = args.req(0)?;
 
         let mut prepend = vec![];
 
-        if let Some(first) = input.next() {
+        if let Some(first) = args.input.next() {
             value.tag = first.tag();
             prepend.push(first);
         }
@@ -50,7 +51,7 @@ impl WholeStreamCommand for Command {
 
         Ok(prepend
             .into_iter()
-            .chain(input.into_iter().chain(vec![value]))
+            .chain(args.input.into_iter().chain(vec![value]))
             .to_output_stream())
     }
 

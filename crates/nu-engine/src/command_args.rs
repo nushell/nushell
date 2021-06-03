@@ -79,14 +79,14 @@ impl CommandArgs {
         Ok((f(&evaluated_args.args)?, evaluated_args.input))
     }
 
-    pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once()?;
-        let call_info = args.call_info.clone();
+    // pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
+    //     let args = self.evaluate_once()?;
+    //     let call_info = args.call_info.clone();
 
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
+    //     let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
-        Ok((T::deserialize(&mut deserializer)?, args.input))
-    }
+    //     Ok((T::deserialize(&mut deserializer)?, args.input))
+    // }
 }
 
 pub struct EvaluatedCommandArgs {

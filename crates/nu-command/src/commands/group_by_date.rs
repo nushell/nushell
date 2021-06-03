@@ -60,14 +60,11 @@ enum GroupByColumn {
 
 pub fn group_by_date(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (
-        GroupByDateArgs {
-            column_name,
-            format,
-        },
-        input,
-    ) = args.process()?;
-    let values: Vec<Value> = input.collect();
+    let args = args.evaluate_once()?;
+    let column_name: Option<Tagged<String>> = args.opt(0)?;
+    let format: Option<Tagged<String>> = args.get_flag("format")?;
+
+    let values: Vec<Value> = args.input.collect();
 
     if values.is_empty() {
         Err(ShellError::labeled_error(

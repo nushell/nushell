@@ -11,7 +11,7 @@ pub struct CdArgs {
 pub struct CopyArgs {
     pub src: Tagged<PathBuf>,
     pub dst: Tagged<PathBuf>,
-    pub recursive: Tagged<bool>,
+    pub recursive: bool,
 }
 
 #[derive(Deserialize)]

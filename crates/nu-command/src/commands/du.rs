@@ -88,7 +88,17 @@ fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctrl_c = args.ctrl_c();
     let ctrl_c_copy = ctrl_c.clone();
 
-    let (args, _): (DuArgs, _) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let args = DuArgs {
+        path: args.opt(0)?,
+        all: args.has_flag("all"),
+        deref: args.has_flag("deref"),
+        exclude: args.get_flag("exclude")?,
+        max_depth: args.get_flag("max-depth")?,
+        min_size: args.get_flag("min_size")?,
+    };
+
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(&x.item)
             .map(Option::Some)

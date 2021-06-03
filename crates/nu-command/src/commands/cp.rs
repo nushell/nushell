@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{shell::CopyArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 
@@ -28,7 +28,13 @@ impl WholeStreamCommand for Cpy {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let shell_manager = args.shell_manager();
         let name = args.call_info.name_tag.clone();
-        let (args, _) = args.process()?;
+        let args = args.evaluate_once()?;
+
+        let args = CopyArgs {
+            src: args.req(0)?,
+            dst: args.req(1)?,
+            recursive: args.has_flag("recursive"),
+        };
         shell_manager.cp(args, name)
     }
 

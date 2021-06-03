@@ -83,7 +83,8 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let (Arguments { mut rest }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let mut rest = args.rest(0)?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
         arguments(&mut rest)?;
     let default_block = Arc::new(default_block);

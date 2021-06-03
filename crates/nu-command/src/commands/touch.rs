@@ -51,7 +51,9 @@ impl WholeStreamCommand for Touch {
 }
 
 fn touch(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (TouchArgs { target, rest }, _) = args.process()?;
+    let args = args.evaluate_once()?;
+    let target: Tagged<PathBuf> = args.req(0)?;
+    let rest: Vec<Tagged<PathBuf>> = args.rest(1)?;
 
     for item in vec![target].into_iter().chain(rest.into_iter()) {
         match OpenOptions::new().write(true).create(true).open(&item) {

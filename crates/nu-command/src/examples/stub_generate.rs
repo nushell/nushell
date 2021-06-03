@@ -29,11 +29,11 @@ impl WholeStreamCommand for Command {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
-        let (Arguments { path: mocked_path }, _input) = args.process()?;
+        let mocked_path = args.call_info.switch_present("path");
 
         let out = UntaggedValue::string("Yehuda Katz in Ecuador");
 
-        if let Some(true) = mocked_path {
+        if mocked_path {
             Ok(ActionStream::one(Ok(ReturnSuccess::Value(Value {
                 value: out,
                 tag: Tag {
