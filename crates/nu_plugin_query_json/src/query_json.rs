@@ -91,6 +91,7 @@ fn query_contains_modifiers(query: &str) -> bool {
 
 fn convert_gjson_value_to_nu_value(v: &gjValue, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
+    let span = tag.span;
 
     match v.kind() {
         gjson::Kind::Array => {
@@ -104,7 +105,14 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, tag: impl Into<Tag>) -> Value {
         }
         gjson::Kind::Null => UntaggedValue::nothing().into_value(&tag),
         gjson::Kind::False => UntaggedValue::boolean(false).into_value(&tag),
-        gjson::Kind::Number => UntaggedValue::int(v.i64()).into_value(&tag),
+        gjson::Kind::Number => {
+            let str_value = v.str();
+            if str_value.contains('.') {
+                UntaggedValue::decimal_from_float(v.f64(), span).into_value(&tag)
+            } else {
+                UntaggedValue::int(v.i64()).into_value(&tag)
+            }
+        }
         gjson::Kind::String => UntaggedValue::string(v.str()).into_value(&tag),
         gjson::Kind::True => UntaggedValue::boolean(true).into_value(&tag),
         // I'm not sure how to test this, so it may not work

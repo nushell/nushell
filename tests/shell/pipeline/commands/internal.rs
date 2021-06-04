@@ -62,6 +62,60 @@ fn treats_dot_dot_as_path_not_range() {
 }
 
 #[test]
+fn tags_dont_persist_through_column_path() {
+    Playground::setup("dot_dot_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            mkdir temp;
+            cd temp;
+            let x = (open ../nu_times.csv).name;
+            $x | tags | get anchor | autoview;
+            rmdir temp
+            "#
+        ));
+
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert!(actual.err.contains("isn't a column"));
+    })
+}
+
+#[test]
+fn tags_persist_through_vars() {
+    Playground::setup("dot_dot_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            mkdir temp;
+            cd temp;
+            let x = (open ../nu_times.csv);
+            $x | tags | get anchor | autoview;
+            rmdir temp
+            "#
+        ));
+
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert!(actual.out.contains("nu_times.csv"));
+    })
+}
+
+#[test]
 fn invocation_properly_redirects() {
     let actual = nu!(
         cwd: ".",
