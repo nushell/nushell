@@ -587,21 +587,21 @@ impl Unit {
             Unit::Tebibyte => filesize(size * 1024 * 1024 * 1024 * 1024),
             Unit::Pebibyte => filesize(size * 1024 * 1024 * 1024 * 1024 * 1024),
 
-            Unit::Nanosecond => duration(size.to_i64().expect("Conversion should never fail.")),
+            Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
             Unit::Microsecond => {
-                duration(size.to_i64().expect("Conversion should never fail.") * 1000)
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000)
             }
             Unit::Millisecond => {
-                duration(size.to_i64().expect("Conversion should never fail.") * 1000 * 1000)
+                duration(size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000)
             }
-            Unit::Second => {
-                duration(size.to_i64().expect("Conversion should never fail.") * 1000 * 1000 * 1000)
-            }
+            Unit::Second => duration(
+                size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000 * 1000,
+            ),
             Unit::Minute => duration(
-                size.to_i64().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
+                size.to_bigint().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
             ),
             Unit::Hour => duration(
-                size.to_i64().expect("Conversion should never fail.")
+                size.to_bigint().expect("Conversion should never fail.")
                     * 60
                     * 60
                     * 1000
@@ -609,7 +609,7 @@ impl Unit {
                     * 1000,
             ),
             Unit::Day => duration(
-                size.to_i64().expect("Conversion should never fail.")
+                size.to_bigint().expect("Conversion should never fail.")
                     * 24
                     * 60
                     * 60
@@ -618,7 +618,7 @@ impl Unit {
                     * 1000,
             ),
             Unit::Week => duration(
-                size.to_i64().expect("Conversion should never fail.")
+                size.to_bigint().expect("Conversion should never fail.")
                     * 7
                     * 24
                     * 60
