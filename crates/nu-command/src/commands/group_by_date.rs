@@ -2,7 +2,7 @@ use crate::prelude::*;
 use crate::utils::suggestions::suggestions;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct GroupByDate;
@@ -31,7 +31,7 @@ impl WholeStreamCommand for GroupByDate {
         "creates a table grouped by date."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         group_by_date(args)
     }
 
@@ -52,7 +52,7 @@ enum GroupByColumn {
     Name(Option<Tagged<String>>),
 }
 
-pub fn group_by_date(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
     let column_name: Option<Tagged<String>> = args.opt(0)?;
@@ -116,7 +116,7 @@ pub fn group_by_date(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         };
 
-        Ok(ActionStream::one(ReturnSuccess::value(value_result?)))
+        Ok(OutputStream::one(value_result?))
     }
 }
 
