@@ -17,7 +17,7 @@ pub struct Reduce;
 pub struct ReduceArgs {
     block: CapturedBlock,
     fold: Option<Value>,
-    numbered: Tagged<bool>,
+    numbered: bool,
 }
 
 impl WholeStreamCommand for Reduce {
@@ -107,10 +107,17 @@ fn process_row(
     result
 }
 
-fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let span = raw_args.call_info.name_tag.span;
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (reduce_args, mut input): (ReduceArgs, _) = raw_args.process()?;
+fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let span = args.call_info.name_tag.span;
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let args = args.evaluate_once()?;
+    let reduce_args = ReduceArgs {
+        block: args.req(0)?,
+        fold: args.get_flag("fold")?,
+        numbered: args.has_flag("numbered"),
+    };
+    let input = args.input;
+
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = if !input.is_empty() {
         match reduce_args.fold {
@@ -129,7 +136,7 @@ fn reduce(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
         ));
     };
 
-    if reduce_args.numbered.item {
+    if reduce_args.numbered {
         // process_row returns Result<InputStream, ShellError>, so we must fold with one
         let initial = Ok(InputStream::one(each::make_indexed_item(
             ioffset - 1,

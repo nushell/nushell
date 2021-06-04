@@ -87,6 +87,7 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let mut rest = args.rest(0)?;
     let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
         arguments(&mut rest)?;
+    let input = args.input;
     let default_block = Arc::new(default_block);
 
     if input.is_empty() {

@@ -46,11 +46,13 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-fn merge(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let context = EvaluationContext::from_args(&raw_args);
+fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let context = EvaluationContext::from_args(&args);
     let name_tag = raw_args.call_info.name_tag.clone();
-    let (merge_args, input): (MergeArgs, _) = raw_args.process()?;
-    let block = merge_args.block;
+
+    let args = args.evaluate_once()?;
+    let input = args.input;
+    let block: CapturedBlock = args.req(0)?;
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);

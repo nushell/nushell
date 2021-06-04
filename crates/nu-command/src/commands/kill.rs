@@ -7,15 +7,6 @@ use std::process::{Command, Stdio};
 
 pub struct Kill;
 
-#[derive(Deserialize)]
-pub struct KillArgs {
-    pub pid: Tagged<u64>,
-    pub rest: Vec<Tagged<u64>>,
-    pub force: Tagged<bool>,
-    pub quiet: Tagged<bool>,
-    pub signal: Option<Tagged<u32>>,
-}
-
 impl WholeStreamCommand for Kill {
     fn name(&self) -> &str {
         "kill"
@@ -74,20 +65,18 @@ impl WholeStreamCommand for Kill {
 }
 
 fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (
-        KillArgs {
-            pid,
-            rest,
-            force,
-            quiet,
-            signal,
-        },
-        ..,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let pid: Tagged<u64> = args.req(0)?;
+    let rest: Vec<Tagged<u64>> = args.rest(1)?;
+    let force: Option<Tagged<bool>> = args.get_flag("force")?;
+    let quiet: bool = args.has_flag("quiet");
+    let signal: Option<Tagged<u32>> = args.get_flag("signal")?;
+
     let mut cmd = if cfg!(windows) {
         let mut cmd = Command::new("taskkill");
 
-        if *force {
+        if matches!(force, Some(Tagged { item: true, .. })) {
             cmd.arg("/F");
         }
 
@@ -105,14 +94,14 @@ fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
     } else {
         let mut cmd = Command::new("kill");
 
-        if *force {
+        if matches!(force, Some(Tagged { item: true, .. })) {
             if let Some(signal_value) = signal {
                 return Err(ShellError::labeled_error_with_secondary(
                     "mixing force and signal options is not supported",
                     "signal option",
                     signal_value.tag(),
                     "force option",
-                    force.tag(),
+                    force.expect("internal error: expected value").tag(),
                 ));
             }
             cmd.arg("-9");
@@ -128,7 +117,7 @@ fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     // pipe everything to null
-    if *quiet {
+    if quiet {
         cmd.stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());

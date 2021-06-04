@@ -65,7 +65,15 @@ impl WholeStreamCommand for Remove {
 fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager();
-    let (args, _): (RemoveArgs, _) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let args = RemoveArgs {
+        rest: args.rest(0)?,
+        recursive: args.has_flag("recursive"),
+        trash: args.has_flag("trash"),
+        permanent: args.has_flag("permanent"),
+        force: args.has_flag("force"),
+    };
 
     if args.trash.item && args.permanent.item {
         return Ok(ActionStream::one(Err(ShellError::labeled_error(

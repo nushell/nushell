@@ -4,7 +4,7 @@ use super::{operate, DefaultArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, Value};
 
 pub struct UrlScheme;
 
@@ -22,8 +22,9 @@ impl WholeStreamCommand for UrlScheme {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process()?;
-        Ok(operate(input, rest, &Url::scheme))
+        let args = args.evaluate_once()?;
+        let rest: Vec<ColumnPath> = args.rest(0)?;
+        Ok(operate(args.input, rest, &Url::scheme))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -38,9 +38,10 @@ impl WholeStreamCommand for Command {
 
 pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { rest }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rest: Vec<Tagged<String>> = args.rest(0)?;
+    let input = args.input.into_vec();
 
-    let input = input.into_vec();
     let total_rows = input.len();
     let descs = merge_descriptors(&input);
     let total_descriptors = descs.len();

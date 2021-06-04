@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{shell::LsArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 
@@ -43,7 +43,16 @@ impl WholeStreamCommand for Ls {
         let name = args.call_info.name_tag.clone();
         let ctrl_c = args.ctrl_c();
         let shell_manager = args.shell_manager();
-        let (args, _) = args.process()?;
+        let args = args.evaluate_once()?;
+
+        let args = LsArgs {
+            path: args.opt(0)?,
+            all: args.has_flag("all"),
+            long: args.has_flag("long"),
+            short_names: args.has_flag("short-names"),
+            du: args.has_flag("du"),
+        };
+
         shell_manager.ls(args, name, ctrl_c)
     }
 

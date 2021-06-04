@@ -41,10 +41,10 @@ pub struct MkdirArgs {
 #[derive(Deserialize)]
 pub struct RemoveArgs {
     pub rest: Vec<Tagged<PathBuf>>,
-    pub recursive: Tagged<bool>,
+    pub recursive: bool,
     #[allow(unused)]
-    pub trash: Tagged<bool>,
+    pub trash: bool,
     #[allow(unused)]
-    pub permanent: Tagged<bool>,
-    pub force: Tagged<bool>,
+    pub permanent: bool,
+    pub force: bool,
 }

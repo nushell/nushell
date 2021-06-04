@@ -78,11 +78,13 @@ impl WholeStreamCommand for Wrap {
 }
 
 fn wrap(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (WrapArgs { column }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let column: Option<Tagged<String>> = args.opt(0)?;
+
     let mut result_table = vec![];
     let mut are_all_rows = true;
 
-    for value in input {
+    for value in args.input {
         match value {
             Value {
                 value: UntaggedValue::Row(_),

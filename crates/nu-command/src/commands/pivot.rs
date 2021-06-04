@@ -52,8 +52,14 @@ impl WholeStreamCommand for Pivot {
 
 pub fn pivot(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (args, input): (PivotArgs, _) = args.process()?;
-    let input = input.into_vec();
+    //let (args, input): (PivotArgs, _) = args.process()?;
+    let args = args.evaluate_once()?;
+    let input = args.input.into_vec();
+    let args = PivotArgs {
+        header_row: args.has_flag("header-row"),
+        ignore_titles: args.has_flag("ignore-titles"),
+        rest: args.rest(0)?,
+    };
 
     let descs = merge_descriptors(&input);
 

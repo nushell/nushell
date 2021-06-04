@@ -111,18 +111,14 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-fn sort_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
+    let args = args.evaluate_once()?;
 
-    let (
-        SortByArgs {
-            rest,
-            insensitive,
-            reverse,
-        },
-        mut input,
-    ) = args.process()?;
-    let mut vec = input.drain_vec();
+    let rest = args.rest(0)?;
+    let insensitive = args.has_flag("insensitive");
+    let reverse = args.has_flag("reverse");
+    let mut vec = args.input.drain_vec();
 
     sort(&mut vec, &rest, &tag, insensitive)?;
 
@@ -130,7 +126,7 @@ fn sort_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
         vec.reverse()
     }
 
-    Ok((vec.into_iter()).to_action_stream())
+    Ok((vec.into_iter()).to_output_stream())
 }
 
 pub fn sort(
