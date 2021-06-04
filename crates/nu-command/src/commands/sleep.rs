@@ -32,14 +32,17 @@ impl WholeStreamCommand for Sleep {
         let ctrl_c = args.ctrl_c();
 
         let args = args.evaluate_once()?;
-        let duration: Tagged<u64> = args.req(0)?;
-        let rest: Vec<Tagged<u64>> = args.rest(1)?;
+        let duration: Tagged<i64> = args.req(0)?;
+        let rest: Vec<Tagged<i64>> = args.rest(1)?;
 
-        let total_dur = Duration::from_nanos(duration.item)
-            + rest
-                .iter()
-                .map(|val| Duration::from_nanos(val.item))
-                .sum::<Duration>();
+        let total_dur = Duration::from_nanos(if duration.item > 0 {
+            duration.item as u64
+        } else {
+            0
+        }) + rest
+            .iter()
+            .map(|val| Duration::from_nanos(if val.item > 0 { val.item as u64 } else { 0 }))
+            .sum::<Duration>();
 
         //SleepHandler::new(total_dur, ctrl_c);
         // this is necessary because the following 2 commands gave different results:

@@ -5,11 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Debug;
 
-#[derive(Deserialize)]
-pub struct DebugArgs {
-    raw: bool,
-}
-
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
         "debug"

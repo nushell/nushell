@@ -10,11 +10,6 @@ use nu_value_ext::ValueExt;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "rotate counter-clockwise"

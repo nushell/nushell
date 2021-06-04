@@ -7,12 +7,6 @@ use nu_source::Tagged;
 
 pub struct GroupByDate;
 
-#[derive(Deserialize)]
-pub struct GroupByDateArgs {
-    column_name: Option<Tagged<String>>,
-    format: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for GroupByDate {
     fn name(&self) -> &str {
         "group-by date"

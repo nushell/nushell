@@ -8,12 +8,6 @@ use std::path::PathBuf;
 
 pub struct Touch;
 
-#[derive(Deserialize)]
-pub struct TouchArgs {
-    target: Tagged<PathBuf>,
-    rest: Vec<Tagged<PathBuf>>,
-}
-
 impl WholeStreamCommand for Touch {
     fn name(&self) -> &str {
         "touch"

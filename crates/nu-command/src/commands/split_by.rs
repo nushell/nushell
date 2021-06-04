@@ -8,11 +8,6 @@ use nu_value_ext::as_string;
 
 pub struct SplitBy;
 
-#[derive(Deserialize)]
-pub struct SplitByArgs {
-    column_name: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for SplitBy {
     fn name(&self) -> &str {
         "split-by"

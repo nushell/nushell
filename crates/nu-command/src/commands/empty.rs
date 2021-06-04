@@ -10,11 +10,6 @@ use nu_protocol::{
 use crate::utils::arguments::arguments;
 use nu_value_ext::{as_string, ValueExt};
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Value>,
-}
-
 pub struct Command;
 
 impl WholeStreamCommand for Command {

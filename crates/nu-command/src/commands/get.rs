@@ -13,11 +13,6 @@ use nu_value_ext::get_data_by_column_path;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Value>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "get"

@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct First;
 
-#[derive(Deserialize)]
-pub struct FirstArgs {
-    rows: Option<Tagged<usize>>,
-}
-
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"

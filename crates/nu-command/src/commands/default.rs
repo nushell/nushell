@@ -5,12 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::ValueExt;
 
-#[derive(Deserialize)]
-struct DefaultArgs {
-    column: Tagged<String>,
-    value: Value,
-}
-
 pub struct Default;
 
 impl WholeStreamCommand for Default {

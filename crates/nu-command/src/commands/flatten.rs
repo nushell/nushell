@@ -8,11 +8,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "flatten"

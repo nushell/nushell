@@ -6,11 +6,6 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Length;
 
-#[derive(Deserialize)]
-pub struct LengthArgs {
-    column: bool,
-}
-
 impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
         "length"

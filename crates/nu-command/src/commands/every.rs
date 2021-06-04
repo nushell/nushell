@@ -2,15 +2,8 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
-use nu_source::Tagged;
 
 pub struct Every;
-
-#[derive(Deserialize)]
-pub struct EveryArgs {
-    stride: Tagged<u64>,
-    skip: Tagged<bool>,
-}
 
 impl WholeStreamCommand for Every {
     fn name(&self) -> &str {

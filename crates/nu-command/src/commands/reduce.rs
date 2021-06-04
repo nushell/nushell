@@ -8,7 +8,6 @@ use nu_parser::ParserScope;
 use nu_protocol::{
     hir::CapturedBlock, hir::ExternalRedirection, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use nu_source::Tagged;
 use nu_stream::ActionStream;
 
 pub struct Reduce;

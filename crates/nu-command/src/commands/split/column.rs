@@ -7,14 +7,6 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct SplitColumnArgs {
-    separator: Tagged<String>,
-    rest: Vec<Tagged<String>>,
-    #[serde(rename(deserialize = "collapse-empty"))]
-    collapse_empty: bool,
-}
-
 pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {

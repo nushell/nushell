@@ -10,12 +10,6 @@ use nu_value_ext::ValueExt;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    column: ColumnPath,
-    value: Value,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "insert"

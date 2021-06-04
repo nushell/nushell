@@ -12,13 +12,6 @@ use std::path::{Path, PathBuf};
 
 pub struct Open;
 
-#[derive(Deserialize)]
-pub struct OpenArgs {
-    path: Tagged<PathBuf>,
-    raw: Tagged<bool>,
-    encoding: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"

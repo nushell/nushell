@@ -8,14 +8,6 @@ use std::cmp;
 
 pub struct Seq;
 
-#[derive(Deserialize)]
-pub struct SeqArgs {
-    rest: Vec<Tagged<f64>>,
-    separator: Option<Tagged<String>>,
-    terminator: Option<Tagged<String>>,
-    widths: Tagged<bool>,
-}
-
 impl WholeStreamCommand for Seq {
     fn name(&self) -> &str {
         "seq"

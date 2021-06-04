@@ -5,11 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct SplitRowArgs {
-    separator: Tagged<String>,
-}
-
 pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {

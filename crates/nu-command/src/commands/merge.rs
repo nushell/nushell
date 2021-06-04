@@ -11,11 +11,6 @@ use nu_protocol::{
 };
 pub struct Merge;
 
-#[derive(Deserialize)]
-pub struct MergeArgs {
-    block: CapturedBlock,
-}
-
 impl WholeStreamCommand for Merge {
     fn name(&self) -> &str {
         "merge"

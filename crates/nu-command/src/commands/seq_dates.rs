@@ -3,23 +3,11 @@ use chrono::naive::NaiveDate;
 use chrono::{Duration, Local};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt, value::U64Ext};
+use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt};
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SeqDates;
-
-#[derive(Deserialize)]
-pub struct SeqDatesArgs {
-    separator: Option<Tagged<String>>,
-    output_format: Option<Tagged<String>>,
-    input_format: Option<Tagged<String>>,
-    begin_date: Option<Tagged<String>>,
-    end_date: Option<Tagged<String>>,
-    increment: Option<Tagged<i64>>,
-    days: Option<Tagged<u64>>,
-    reverse: Tagged<bool>,
-}
 
 impl WholeStreamCommand for SeqDates {
     fn name(&self) -> &str {
@@ -35,24 +23,24 @@ impl WholeStreamCommand for SeqDates {
                 Some('s'),
             )
             .named(
-                "output_format",
+                "output-format",
                 SyntaxShape::String,
                 "prints dates in this format (defaults to %Y-%m-%d)",
                 Some('o'),
             )
             .named(
-                "input_format",
+                "input-format",
                 SyntaxShape::String,
                 "give argument dates in this format (defaults to %Y-%m-%d)",
                 Some('i'),
             )
             .named(
-                "begin_date",
+                "begin-date",
                 SyntaxShape::String,
                 "beginning date range",
                 Some('b'),
             )
-            .named("end_date", SyntaxShape::String, "ending date", Some('e'))
+            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
             .named(
                 "increment",
                 SyntaxShape::Int,
@@ -142,7 +130,7 @@ fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let begin_date: Option<Tagged<String>> = args.get_flag("begin-date")?;
     let end_date: Option<Tagged<String>> = args.get_flag("end-date")?;
     let increment: Option<Tagged<i64>> = args.get_flag("increment")?;
-    let days: Option<Tagged<u64>> = args.get_flag("days")?;
+    let days: Option<Tagged<i64>> = args.get_flag("days")?;
     let reverse = args.has_flag("reverse");
 
     let sep: String = match separator {

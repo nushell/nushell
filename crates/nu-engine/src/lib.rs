@@ -1,7 +1,6 @@
 mod call_info;
 mod command_args;
 mod config_holder;
-pub mod deserializer;
 pub mod documentation;
 mod env;
 mod evaluate;

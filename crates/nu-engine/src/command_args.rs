@@ -1,4 +1,3 @@
-use crate::deserializer::ConfigDeserializer;
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::evaluation_context::EvaluationContext;
@@ -13,7 +12,6 @@ use nu_protocol::{CallInfo, Value};
 use nu_source::Tag;
 use nu_stream::InputStream;
 use parking_lot::Mutex;
-use serde::Deserialize;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;

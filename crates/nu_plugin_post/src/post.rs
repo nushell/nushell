@@ -350,10 +350,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
         UntaggedValue::Primitive(Primitive::Duration(i)) => {
-            serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
-                i.tagged(&v.tag),
-                "converting to JSON number",
-            )?))
+            serde_json::Value::Number(serde_json::Number::from(*i))
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,

@@ -3,9 +3,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Tag};
 use nu_stream::ActionStream;
-
-use serde::Deserialize;
-
 pub struct Command;
 
 impl WholeStreamCommand for Command {

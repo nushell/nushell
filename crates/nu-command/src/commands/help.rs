@@ -13,11 +13,6 @@ use nu_value_ext::ValueExt;
 
 pub struct Help;
 
-#[derive(Deserialize)]
-pub struct HelpArgs {
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Help {
     fn name(&self) -> &str {
         "help"

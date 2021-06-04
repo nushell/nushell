@@ -3,11 +3,6 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
-#[derive(Deserialize)]
-struct PrependArgs {
-    row: Value,
-}
-
 pub struct Prepend;
 
 impl WholeStreamCommand for Prepend {

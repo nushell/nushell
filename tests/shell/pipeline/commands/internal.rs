@@ -898,31 +898,6 @@ fn table_with_commas() {
     assert_eq!(actual.out, "141");
 }
 
-#[test]
-fn duration_overflow() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        ls | get modified | each { $it + 10000000000000000day }
-        "#)
-    );
-
-    assert!(actual.err.contains("Duration overflow"));
-}
-
-#[test]
-fn date_and_duration_overflow() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        ls | get modified | each { $it + 1000000000day }
-        "#)
-    );
-
-    // assert_eq!(actual.err, "overflow");
-    assert!(actual.err.contains("Duration and date addition overflow"));
-}
-
 mod parse {
     use nu_test_support::nu;
 

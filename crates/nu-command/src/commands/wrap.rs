@@ -9,11 +9,6 @@ const DEFAULT_COLUMN_NAME: &str = "Column";
 
 pub struct Wrap;
 
-#[derive(Deserialize)]
-struct WrapArgs {
-    column: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Wrap {
     fn name(&self) -> &str {
         "wrap"

@@ -8,13 +8,6 @@ use nu_value_ext::ValueExt;
 
 pub struct SortBy;
 
-#[derive(Deserialize)]
-pub struct SortByArgs {
-    rest: Vec<Tagged<String>>,
-    insensitive: bool,
-    reverse: bool,
-}
-
 impl WholeStreamCommand for SortBy {
     fn name(&self) -> &str {
         "sort-by"

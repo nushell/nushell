@@ -4,13 +4,6 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct NthArgs {
-    row_number: Tagged<u64>,
-    rest: Vec<Tagged<u64>>,
-    skip: bool,
-}
-
 pub struct Nth;
 
 impl WholeStreamCommand for Nth {

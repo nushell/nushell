@@ -15,12 +15,11 @@ use rand::{
     distributions::Alphanumeric,
     prelude::{thread_rng, Rng},
 };
-use std::convert::TryInto;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct Benchmark;
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 struct BenchmarkArgs {
     block: CapturedBlock,
     passthrough: Option<CapturedBlock>,
@@ -113,7 +112,7 @@ fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
     {
         let mut indexmap = IndexMap::with_capacity(1);
 
-        let real_time = into_big_int(end_time - start_time);
+        let real_time = (end_time - start_time).as_nanos() as i64;
         indexmap.insert("real time".to_string(), real_time);
         benchmark_output(indexmap, output, cmd_args.passthrough, &tag, &mut context)
     }
@@ -143,7 +142,7 @@ fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 fn benchmark_output<T, Output>(
-    indexmap: IndexMap<String, BigInt>,
+    indexmap: IndexMap<String, i64>,
     block_output: Output,
     passthrough: Option<CapturedBlock>,
     tag: T,
@@ -204,13 +203,6 @@ fn add_implicit_autoview(mut block: Arc<Block>) -> Arc<Block> {
         }
     }
     block
-}
-
-fn into_big_int<T: TryInto<Duration>>(time: T) -> BigInt {
-    time.try_into()
-        .unwrap_or_else(|_| Duration::new(0, 0))
-        .as_nanos()
-        .into()
 }
 
 fn generate_random_env_value() -> String {

@@ -3,11 +3,6 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
-#[derive(Deserialize)]
-struct Arguments {
-    value: Value,
-}
-
 pub struct Command;
 
 impl WholeStreamCommand for Command {

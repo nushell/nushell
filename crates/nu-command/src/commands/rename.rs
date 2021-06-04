@@ -7,12 +7,6 @@ use nu_source::Tagged;
 
 pub struct Rename;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    column_name: Tagged<String>,
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Rename {
     fn name(&self) -> &str {
         "rename"

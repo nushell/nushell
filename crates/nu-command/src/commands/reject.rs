@@ -5,11 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-pub struct RejectArgs {
-    rest: Vec<Tagged<String>>,
-}
-
 pub struct Reject;
 
 impl WholeStreamCommand for Reject {

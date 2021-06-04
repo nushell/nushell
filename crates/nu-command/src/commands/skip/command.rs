@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rows: Option<Tagged<usize>>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "skip"

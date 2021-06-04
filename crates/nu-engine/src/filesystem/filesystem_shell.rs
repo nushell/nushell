@@ -724,7 +724,7 @@ impl Shell for FilesystemShell {
                         #[cfg(feature = "trash-support")]
                         {
                             use std::io::Error;
-                            result = if _trash.item || (rm_always_trash && !_permanent.item) {
+                            result = if _trash || (rm_always_trash && !_permanent) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
                                 })
