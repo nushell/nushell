@@ -1,10 +1,10 @@
 use url::Url;
 
-use super::{operate, DefaultArguments};
+use super::operate;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, Value};
 
 pub struct UrlQuery;
 
@@ -23,7 +23,9 @@ impl WholeStreamCommand for UrlQuery {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let (DefaultArguments { rest }, input) = args.process()?;
+        let args = args.evaluate_once()?;
+        let rest: Vec<ColumnPath> = args.rest(0)?;
+        let input = args.input;
         Ok(operate(input, rest, &query))
     }
 

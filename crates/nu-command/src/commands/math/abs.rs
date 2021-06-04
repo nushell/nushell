@@ -28,7 +28,7 @@ impl WholeStreamCommand for SubCommand {
                 UntaggedValue::decimal(val.abs()).into()
             }
             UntaggedValue::Primitive(Primitive::Duration(val)) => {
-                UntaggedValue::duration(val.magnitude().clone()).into()
+                UntaggedValue::duration(val).into()
             }
             other => abs_default(other),
         });

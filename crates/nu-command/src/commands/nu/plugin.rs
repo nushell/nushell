@@ -48,7 +48,10 @@ impl WholeStreamCommand for SubCommand {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let scope = args.scope().clone();
         let shell_manager = args.shell_manager();
-        let (Arguments { load_path }, _) = args.process()?;
+
+        let args = args.evaluate_once()?;
+
+        let load_path: Option<Tagged<PathBuf>> = args.get_flag("load")?;
 
         if let Some(Tagged {
             item: load_path,

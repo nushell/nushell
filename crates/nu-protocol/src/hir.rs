@@ -422,6 +422,20 @@ impl Number {
             )),
         }
     }
+    pub fn to_u64(&self) -> Result<u64, ShellError> {
+        match self {
+            Number::BigInt(bi) => match bi.to_u64() {
+                Some(i) => Ok(i),
+                None => Err(ShellError::untagged_runtime_error(
+                    "Cannot convert bigint to u64, too large",
+                )),
+            },
+            Number::Int(i) => Ok(*i as u64),
+            Number::Decimal(_) => Err(ShellError::untagged_runtime_error(
+                "Cannont convert decimal to u64",
+            )),
+        }
+    }
 }
 
 impl PrettyDebug for Number {
@@ -573,21 +587,21 @@ impl Unit {
             Unit::Tebibyte => filesize(size * 1024 * 1024 * 1024 * 1024),
             Unit::Pebibyte => filesize(size * 1024 * 1024 * 1024 * 1024 * 1024),
 
-            Unit::Nanosecond => duration(size.to_bigint().expect("Conversion should never fail.")),
+            Unit::Nanosecond => duration(size.to_i64().expect("Conversion should never fail.")),
             Unit::Microsecond => {
-                duration(size.to_bigint().expect("Conversion should never fail.") * 1000)
+                duration(size.to_i64().expect("Conversion should never fail.") * 1000)
             }
             Unit::Millisecond => {
-                duration(size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000)
+                duration(size.to_i64().expect("Conversion should never fail.") * 1000 * 1000)
             }
-            Unit::Second => duration(
-                size.to_bigint().expect("Conversion should never fail.") * 1000 * 1000 * 1000,
-            ),
+            Unit::Second => {
+                duration(size.to_i64().expect("Conversion should never fail.") * 1000 * 1000 * 1000)
+            }
             Unit::Minute => duration(
-                size.to_bigint().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
+                size.to_i64().expect("Conversion should never fail.") * 60 * 1000 * 1000 * 1000,
             ),
             Unit::Hour => duration(
-                size.to_bigint().expect("Conversion should never fail.")
+                size.to_i64().expect("Conversion should never fail.")
                     * 60
                     * 60
                     * 1000
@@ -595,7 +609,7 @@ impl Unit {
                     * 1000,
             ),
             Unit::Day => duration(
-                size.to_bigint().expect("Conversion should never fail.")
+                size.to_i64().expect("Conversion should never fail.")
                     * 24
                     * 60
                     * 60
@@ -604,7 +618,7 @@ impl Unit {
                     * 1000,
             ),
             Unit::Week => duration(
-                size.to_bigint().expect("Conversion should never fail.")
+                size.to_i64().expect("Conversion should never fail.")
                     * 7
                     * 24
                     * 60
@@ -632,7 +646,7 @@ pub fn filesize(size_in_bytes: Number) -> UntaggedValue {
     }
 }
 
-pub fn duration(nanos: BigInt) -> UntaggedValue {
+pub fn duration(nanos: i64) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::Duration(nanos))
 }
 

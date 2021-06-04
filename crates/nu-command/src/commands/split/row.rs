@@ -5,11 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct SplitRowArgs {
-    separator: Tagged<String>,
-}
-
 pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {
@@ -20,7 +15,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("split row").required(
             "separator",
-            SyntaxShape::Any,
+            SyntaxShape::String,
             "the character that denotes what separates rows",
         )
     }
@@ -36,7 +31,11 @@ impl WholeStreamCommand for SubCommand {
 
 fn split_row(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (SplitRowArgs { separator }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let separator: Tagged<String> = args.req(0)?;
+    let input = args.input;
+
     Ok(input
         .flat_map(move |v| {
             if let Ok(s) = v.as_string() {

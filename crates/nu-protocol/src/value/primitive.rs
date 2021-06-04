@@ -45,8 +45,7 @@ pub enum Primitive {
     /// A date value
     Date(DateTime<FixedOffset>),
     /// A count in the number of nanoseconds
-    #[serde(with = "serde_bigint")]
-    Duration(BigInt),
+    Duration(i64),
     /// A range of values
     Range(Box<Range>),
     /// A file path
@@ -172,6 +171,7 @@ impl Primitive {
                     "converting a decimal into a signed 64-bit integer",
                 )
             }),
+            Primitive::Duration(duration) => Ok(*duration),
             other => Err(ShellError::type_error(
                 "number",
                 other.type_name().spanned(span),
@@ -277,7 +277,7 @@ impl Primitive {
         match self {
             Primitive::Duration(duration) => {
                 // Divide into seconds because BigInt can be larger than i64
-                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
+                let (secs, nanos) = duration.div_rem(&(NANOS_PER_SEC as i64));
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
                     None => {
@@ -396,7 +396,7 @@ impl From<chrono::Duration> for Primitive {
             .expect("Unexpected overflow")
             .num_nanoseconds()
             .expect("Unexpected overflow") as u32;
-        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
+        Primitive::Duration(secs * NANOS_PER_SEC as i64 + nanos as i64)
     }
 }
 
@@ -513,24 +513,20 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 }
 
 /// Format a duration in nanoseconds into a string
-pub fn format_duration(duration: &BigInt) -> String {
+pub fn format_duration(duration: &i64) -> String {
     let is_zero = duration.is_zero();
-    // FIXME: This involves a lot of allocation, but it seems inevitable with BigInt.
-    let big_int_1000 = BigInt::from(1000);
-    let big_int_60 = BigInt::from(60);
-    let big_int_24 = BigInt::from(24);
     // We only want the biggest subdivision to have the negative sign.
     let (sign, duration) = if duration.is_zero() || duration.is_positive() {
-        (1, duration.clone())
+        (1, *duration)
     } else {
         (-1, -duration)
     };
-    let (micros, nanos): (BigInt, BigInt) = duration.div_rem(&big_int_1000);
-    let (millis, micros): (BigInt, BigInt) = micros.div_rem(&big_int_1000);
-    let (secs, millis): (BigInt, BigInt) = millis.div_rem(&big_int_1000);
-    let (mins, secs): (BigInt, BigInt) = secs.div_rem(&big_int_60);
-    let (hours, mins): (BigInt, BigInt) = mins.div_rem(&big_int_60);
-    let (days, hours): (BigInt, BigInt) = hours.div_rem(&big_int_24);
+    let (micros, nanos): (i64, i64) = duration.div_rem(&1000);
+    let (millis, micros): (i64, i64) = micros.div_rem(&1000);
+    let (secs, millis): (i64, i64) = millis.div_rem(&1000);
+    let (mins, secs): (i64, i64) = secs.div_rem(&60);
+    let (hours, mins): (i64, i64) = mins.div_rem(&60);
+    let (days, hours): (i64, i64) = hours.div_rem(&24);
 
     let mut output_prep = vec![];
 

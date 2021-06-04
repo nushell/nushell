@@ -6,11 +6,6 @@ use nu_source::Tagged;
 
 pub struct First;
 
-#[derive(Deserialize)]
-pub struct FirstArgs {
-    rows: Option<Tagged<usize>>,
-}
-
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"
@@ -52,7 +47,10 @@ impl WholeStreamCommand for First {
 }
 
 fn first(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (FirstArgs { rows }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rows: Option<Tagged<usize>> = args.opt(0)?;
+    let input = args.input;
+
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

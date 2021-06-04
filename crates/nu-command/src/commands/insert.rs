@@ -10,12 +10,6 @@ use nu_value_ext::ValueExt;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    column: ColumnPath,
-    value: Value,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "insert"
@@ -158,9 +152,13 @@ fn process_row(
     })
 }
 
-fn insert(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { column, value }, input) = raw_args.process()?;
+fn insert(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let args = args.evaluate_once()?;
+    let column: ColumnPath = args.req(0)?;
+    let value: Value = args.req(1)?;
+    let input = args.input;
+
     let value = Arc::new(value);
     let column = Arc::new(column);
 

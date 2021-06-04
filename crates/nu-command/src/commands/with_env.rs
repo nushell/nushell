@@ -67,10 +67,12 @@ impl WholeStreamCommand for WithEnv {
     }
 }
 
-fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let external_redirection = raw_args.call_info.args.external_redirection;
-    let context = EvaluationContext::from_args(&raw_args);
-    let (WithEnvArgs { variable, block }, input) = raw_args.process()?;
+fn with_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let external_redirection = args.call_info.args.external_redirection;
+    let context = EvaluationContext::from_args(&args);
+    let args = args.evaluate_once()?;
+    let variable: Value = args.req(0)?;
+    let block: CapturedBlock = args.req(1)?;
 
     let mut env = IndexMap::new();
 
@@ -108,7 +110,7 @@ fn with_env(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
     context.scope.add_env(env);
     context.scope.add_vars(&block.captured.entries);
 
-    let result = run_block(&block.block, &context, input, external_redirection);
+    let result = run_block(&block.block, &context, args.input, external_redirection);
     context.scope.exit_scope();
 
     result.map(|x| x.to_action_stream())

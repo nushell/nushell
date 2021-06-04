@@ -475,8 +475,13 @@ pub fn compute_values(
                         if y.is_zero() {
                             return Ok(zero_division_error());
                         }
+
                         let y = y.as_bigint_and_exponent();
-                        Ok(x / y.0)
+                        let z = y.0.to_i64();
+                        match z {
+                            Some(z) => Ok(x / z),
+                            None => Err((left.type_name(), right.type_name())),
+                        }
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;

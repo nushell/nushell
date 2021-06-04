@@ -41,7 +41,8 @@ impl WholeStreamCommand for Source {
 
 pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
-    let (SourceArgs { filename }, _) = args.process()?;
+    let args = args.evaluate_once()?;
+    let filename: Tagged<String> = args.req(0)?;
 
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this

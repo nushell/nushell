@@ -10,11 +10,6 @@ use nu_protocol::{
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    block: CapturedBlock,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "where"
@@ -61,10 +56,13 @@ impl WholeStreamCommand for Command {
         ]
     }
 }
-fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let tag = raw_args.call_info.name_tag.clone();
-    let (Arguments { block }, input) = raw_args.process()?;
+fn where_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let tag = args.call_info.name_tag.clone();
+    let args = args.evaluate_once()?;
+
+    let block: CapturedBlock = args.req(0)?;
+
     let condition = {
         if block.block.block.len() != 1 {
             return Err(ShellError::labeled_error(
@@ -97,7 +95,7 @@ fn where_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(WhereIterator {
         condition,
         context,
-        input,
+        input: args.input,
         block,
     }
     .to_output_stream())

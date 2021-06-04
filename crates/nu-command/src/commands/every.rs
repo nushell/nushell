@@ -2,15 +2,8 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
-use nu_source::Tagged;
 
 pub struct Every;
-
-#[derive(Deserialize)]
-pub struct EveryArgs {
-    stride: Tagged<u64>,
-    skip: Tagged<bool>,
-}
 
 impl WholeStreamCommand for Every {
     fn name(&self) -> &str {
@@ -63,10 +56,11 @@ impl WholeStreamCommand for Every {
 }
 
 fn every(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (EveryArgs { stride, skip }, input) = args.process()?;
+    let args = args.evaluate_once()?;
 
-    let stride = stride.item;
-    let skip = skip.item;
+    let stride: u64 = args.req(0)?;
+    let skip: bool = args.has_flag("skip");
+    let input = args.input;
 
     Ok(input
         .enumerate()

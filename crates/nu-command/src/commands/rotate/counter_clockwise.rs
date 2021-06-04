@@ -10,11 +10,6 @@ use nu_value_ext::ValueExt;
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
         "rotate counter-clockwise"
@@ -38,9 +33,10 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (Arguments { rest }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rest: Vec<Tagged<String>> = args.rest(0)?;
 
-    let input = input.into_vec();
+    let input = args.input.into_vec();
     let descs = merge_descriptors(&input);
     let total_rows = input.len();
 

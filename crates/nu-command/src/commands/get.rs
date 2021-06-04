@@ -13,11 +13,6 @@ use nu_value_ext::get_data_by_column_path;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Value>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "get"
@@ -55,7 +50,10 @@ impl WholeStreamCommand for Command {
 }
 
 pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (Arguments { mut rest }, mut input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let mut rest: Vec<Value> = args.rest(0)?;
+    let mut input = args.input;
+
     let (column_paths, _) = arguments(&mut rest)?;
 
     if column_paths.is_empty() {

@@ -135,7 +135,7 @@ pub fn host(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     }
     dict.insert_untagged(
         "uptime",
-        UntaggedValue::duration(1000000000 * sys.get_uptime()),
+        UntaggedValue::duration(1000000000 * sys.get_uptime() as i64),
     );
 
     let mut users = vec![];

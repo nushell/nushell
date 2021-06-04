@@ -11,12 +11,6 @@ use nu_value_ext::ValueExt;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    field: ColumnPath,
-    replacement: Value,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "update"
@@ -178,10 +172,15 @@ fn process_row(
     })
 }
 
-fn update(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let name_tag = Arc::new(raw_args.call_info.name_tag.clone());
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { field, replacement }, input) = raw_args.process()?;
+fn update(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let name_tag = Arc::new(args.call_info.name_tag.clone());
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let args = args.evaluate_once()?;
+
+    let field: ColumnPath = args.req(0)?;
+    let replacement: Value = args.req(1)?;
+    let input = args.input;
+
     let replacement = Arc::new(replacement);
     let field = Arc::new(field);
 

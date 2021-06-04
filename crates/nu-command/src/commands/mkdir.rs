@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{shell::MkdirArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 pub struct Mkdir;
@@ -38,7 +38,12 @@ impl WholeStreamCommand for Mkdir {
 fn mkdir(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager();
-    let (args, _) = args.process()?;
+
+    let args = args.evaluate_once()?;
+    let args = MkdirArgs {
+        rest: args.rest(0)?,
+        show_created_paths: args.has_flag("show-created-paths"),
+    };
 
     shell_manager.mkdir(args, name)
 }

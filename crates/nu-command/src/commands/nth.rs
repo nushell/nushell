@@ -4,13 +4,6 @@ use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct NthArgs {
-    row_number: Tagged<u64>,
-    rest: Vec<Tagged<u64>>,
-    skip: bool,
-}
-
 pub struct Nth;
 
 impl WholeStreamCommand for Nth {
@@ -59,14 +52,12 @@ impl WholeStreamCommand for Nth {
 }
 
 fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (
-        NthArgs {
-            row_number,
-            rest: and_rows,
-            skip,
-        },
-        input,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let row_number: Tagged<u64> = args.req(0)?;
+    let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
+    let skip = args.has_flag("skip");
+    let input = args.input;
 
     let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
     rows.push(row_number.item as usize);

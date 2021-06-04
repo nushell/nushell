@@ -8,13 +8,6 @@ use nu_value_ext::ValueExt;
 
 pub struct SortBy;
 
-#[derive(Deserialize)]
-pub struct SortByArgs {
-    rest: Vec<Tagged<String>>,
-    insensitive: bool,
-    reverse: bool,
-}
-
 impl WholeStreamCommand for SortBy {
     fn name(&self) -> &str {
         "sort-by"
@@ -35,7 +28,7 @@ impl WholeStreamCommand for SortBy {
         "Sort by the given columns, in increasing order."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         sort_by(args)
     }
 
@@ -111,18 +104,14 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-fn sort_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
+    let mut args = args.evaluate_once()?;
 
-    let (
-        SortByArgs {
-            rest,
-            insensitive,
-            reverse,
-        },
-        mut input,
-    ) = args.process()?;
-    let mut vec = input.drain_vec();
+    let rest = args.rest(0)?;
+    let insensitive = args.has_flag("insensitive");
+    let reverse = args.has_flag("reverse");
+    let mut vec = args.input.drain_vec();
 
     sort(&mut vec, &rest, &tag, insensitive)?;
 
@@ -130,7 +119,7 @@ fn sort_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
         vec.reverse()
     }
 
-    Ok((vec.into_iter()).to_action_stream())
+    Ok((vec.into_iter()).to_output_stream())
 }
 
 pub fn sort(

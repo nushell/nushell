@@ -378,7 +378,7 @@ impl Shell for FilesystemShell {
 
         let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
-        if any_source_is_dir && !recursive.item {
+        if any_source_is_dir && !recursive {
             return Err(ShellError::labeled_error(
                 "Directories must be copied using \"--recursive\"",
                 "resolves to a directory (not copied)",
@@ -607,11 +607,11 @@ impl Shell for FilesystemShell {
                     `rm_always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support`.",
                 ));
-            } else if _trash.item {
+            } else if _trash {
                 return Err(ShellError::labeled_error(
                     "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled",
                     "this option is only available if nu is built with the `trash-support` feature",
-                    _trash.tag
+                    name
                 ));
             }
         }
@@ -686,7 +686,7 @@ impl Shell for FilesystemShell {
             };
         }
 
-        if all_targets.is_empty() && !_force.item {
+        if all_targets.is_empty() && !_force {
             return Err(ShellError::labeled_error(
                 "No valid paths",
                 "no valid paths",
@@ -715,7 +715,7 @@ impl Shell for FilesystemShell {
 
                     if metadata.is_file()
                         || metadata.file_type().is_symlink()
-                        || recursive.item
+                        || recursive
                         || is_socket
                         || is_fifo
                         || is_empty()
@@ -724,7 +724,7 @@ impl Shell for FilesystemShell {
                         #[cfg(feature = "trash-support")]
                         {
                             use std::io::Error;
-                            result = if _trash.item || (rm_always_trash && !_permanent.item) {
+                            result = if _trash || (rm_always_trash && !_permanent) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
                                 })

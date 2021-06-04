@@ -5,11 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-#[derive(Deserialize)]
-struct Arguments {
-    clear: Option<bool>,
-}
-
 pub struct History;
 
 impl WholeStreamCommand for History {
@@ -33,7 +28,9 @@ impl WholeStreamCommand for History {
 fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let (Arguments { clear }, _) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let clear = args.has_flag("clear");
 
     let path = if let Some(global_cfg) = &ctx.configs.lock().global_config {
         nu_data::config::path::history_path_or_default(global_cfg)
@@ -41,31 +38,26 @@ fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
         nu_data::config::path::default_history_path()
     };
 
-    match clear {
-        Some(_) => {
-            // This is a NOOP, the logic to clear is handled in cli.rs
-            Ok(ActionStream::empty())
-        }
-        None => {
-            if let Ok(file) = File::open(path) {
-                let reader = BufReader::new(file);
-                // Skips the first line, which is a Rustyline internal
-                let output = reader.lines().skip(1).filter_map(move |line| match line {
-                    Ok(line) => Some(ReturnSuccess::value(
-                        UntaggedValue::string(line).into_value(tag.clone()),
-                    )),
-                    Err(_) => None,
-                });
+    if clear {
+        // This is a NOOP, the logic to clear is handled in cli.rs
+        Ok(ActionStream::empty())
+    } else if let Ok(file) = File::open(path) {
+        let reader = BufReader::new(file);
+        // Skips the first line, which is a Rustyline internal
+        let output = reader.lines().skip(1).filter_map(move |line| match line {
+            Ok(line) => Some(ReturnSuccess::value(
+                UntaggedValue::string(line).into_value(tag.clone()),
+            )),
+            Err(_) => None,
+        });
 
-                Ok(output.to_action_stream())
-            } else {
-                Err(ShellError::labeled_error(
-                    "Could not open history",
-                    "history file could not be opened",
-                    tag,
-                ))
-            }
-        }
+        Ok(output.to_action_stream())
+    } else {
+        Err(ShellError::labeled_error(
+            "Could not open history",
+            "history file could not be opened",
+            tag,
+        ))
     }
 }
 
