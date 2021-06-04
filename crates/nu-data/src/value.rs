@@ -477,11 +477,7 @@ pub fn compute_values(
                         }
 
                         let y = y.as_bigint_and_exponent();
-                        let z = y.0.to_i64();
-                        match z {
-                            Some(z) => Ok(x / z),
-                            None => Err((left.type_name(), right.type_name())),
-                        }
+                        Ok(x / y.0)
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
