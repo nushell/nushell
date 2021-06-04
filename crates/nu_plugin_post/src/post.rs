@@ -349,9 +349,18 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Filesize(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
-        UntaggedValue::Primitive(Primitive::Duration(i)) => {
-            serde_json::Value::Number(serde_json::Number::from(*i))
-        }
+        UntaggedValue::Primitive(Primitive::Duration(i)) => serde_json::Value::Number(
+            serde_json::Number::from_f64(
+                i.to_f64().expect("TODO: What about really big decimals?"),
+            )
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Can not convert big decimal to f64",
+                    "cannot convert big decimal to f64",
+                    &v.tag,
+                )
+            })?,
+        ),
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,

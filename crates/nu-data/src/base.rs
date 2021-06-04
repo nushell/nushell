@@ -77,7 +77,7 @@ pub enum CompareValues {
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
     Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
-    DateDuration(DateTime<FixedOffset>, i64),
+    DateDuration(DateTime<FixedOffset>, BigInt),
     Booleans(bool, bool),
 }
 
@@ -92,9 +92,11 @@ impl CompareValues {
             CompareValues::Date(left, right) => left.cmp(right),
             CompareValues::DateDuration(left, right) => {
                 // FIXME: Not sure if I could do something better with the Span.
-                let duration =
-                    Primitive::into_chrono_duration(Primitive::Duration(*right), Span::unknown())
-                        .expect("Could not convert nushell Duration into chrono Duration.");
+                let duration = Primitive::into_chrono_duration(
+                    Primitive::Duration(right.clone()),
+                    Span::unknown(),
+                )
+                .expect("Could not convert nushell Duration into chrono Duration.");
                 let right: DateTime<FixedOffset> = Utc::now()
                     .checked_sub_signed(duration)
                     .expect("Data overflow")
@@ -158,7 +160,7 @@ pub fn coerce_compare_primitive(
         (Nothing, Nothing) => CompareValues::Booleans(true, true),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
-        (Date(left), Duration(right)) => CompareValues::DateDuration(*left, *right),
+        (Date(left), Duration(right)) => CompareValues::DateDuration(*left, right.clone()),
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
         (Boolean(left), Nothing) => CompareValues::Booleans(*left, false),
         (Nothing, Boolean(right)) => CompareValues::Booleans(false, *right),

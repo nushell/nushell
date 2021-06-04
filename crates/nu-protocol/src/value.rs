@@ -250,8 +250,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating date duration values
-    pub fn duration(nanos: i64) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Duration(nanos))
+    pub fn duration(nanos: impl Into<BigInt>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Duration(nanos.into()))
     }
 
     /// Helper for creating datatime values
@@ -369,10 +369,10 @@ impl Value {
         }
     }
 
-    /// View the Value as a Duration (i64), if possible
-    pub fn as_duration(&self) -> Result<i64, ShellError> {
+    /// View the Value as a Duration (BigInt), if possible
+    pub fn as_duration(&self) -> Result<BigInt, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(*dur),
+            UntaggedValue::Primitive(Primitive::Duration(dur)) => Ok(dur.clone()),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
         }
     }
@@ -836,7 +836,10 @@ impl I64Ext for i64 {
 
     fn to_duration_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Duration(*self)),
+            value: UntaggedValue::Primitive(Primitive::Duration(
+                BigInt::from_i64(*self)
+                    .expect("Internal error: conversion to big int should not fail"),
+            )),
             tag: the_tag,
         }
     }

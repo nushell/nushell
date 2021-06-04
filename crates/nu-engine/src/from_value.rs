@@ -35,7 +35,7 @@ impl FromValue for Tagged<num_bigint::BigInt> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
-            } => Ok(BigInt::from(*i).tagged(tag)),
+            } => Ok(i.clone().tagged(tag)),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to integer",
                 "can't convert to integer",
@@ -59,7 +59,7 @@ impl FromValue for num_bigint::BigInt {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
-            } => Ok(BigInt::from(*i)),
+            } => Ok(i.clone()),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to integer",
                 "can't convert to integer",

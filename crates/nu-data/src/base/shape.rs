@@ -33,7 +33,7 @@ pub enum InlineShape {
     GlobPattern(String),
     Boolean(bool),
     Date(DateTime<FixedOffset>),
-    Duration(i64),
+    Duration(BigInt),
     FilePath(PathBuf),
     Binary(usize),
 
@@ -94,7 +94,7 @@ impl InlineShape {
             Primitive::GlobPattern(pattern) => InlineShape::GlobPattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
             Primitive::Date(date) => InlineShape::Date(*date),
-            Primitive::Duration(duration) => InlineShape::Duration(*duration),
+            Primitive::Duration(duration) => InlineShape::Duration(duration.clone()),
             Primitive::FilePath(path) => InlineShape::FilePath(path.clone()),
             Primitive::Binary(b) => InlineShape::Binary(b.len()),
             Primitive::BeginningOfStream => InlineShape::BeginningOfStream,
@@ -304,9 +304,10 @@ impl PrettyDebug for FormatInlineShape {
                 .to_owned(),
             ),
             InlineShape::Date(date) => DbgDocBldr::primitive(nu_protocol::format_date(date)),
-            InlineShape::Duration(duration) => {
-                DbgDocBldr::description(format_primitive(&Primitive::Duration(*duration), None))
-            }
+            InlineShape::Duration(duration) => DbgDocBldr::description(format_primitive(
+                &Primitive::Duration(duration.clone()),
+                None,
+            )),
             InlineShape::FilePath(path) => DbgDocBldr::primitive(path.display()),
             InlineShape::Binary(length) => {
                 DbgDocBldr::opaque(format!("<binary: {} bytes>", length))

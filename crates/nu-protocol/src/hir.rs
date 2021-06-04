@@ -646,8 +646,8 @@ pub fn filesize(size_in_bytes: Number) -> UntaggedValue {
     }
 }
 
-pub fn duration(nanos: i64) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Duration(nanos))
+pub fn duration(nanos: impl Into<BigInt>) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Duration(nanos.into()))
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Deserialize, Serialize)]
