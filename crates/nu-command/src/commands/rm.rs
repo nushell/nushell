@@ -75,7 +75,7 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
         force: args.has_flag("force"),
     };
 
-    if args.trash.item && args.permanent.item {
+    if args.trash && args.permanent {
         return Ok(ActionStream::one(Err(ShellError::labeled_error(
             "only one of --permanent and --trash can be used",
             "conflicting flags",

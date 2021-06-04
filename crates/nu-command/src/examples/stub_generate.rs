@@ -8,11 +8,6 @@ use serde::Deserialize;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-struct Arguments {
-    path: Option<bool>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "stub open"

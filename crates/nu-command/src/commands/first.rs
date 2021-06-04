@@ -52,7 +52,10 @@ impl WholeStreamCommand for First {
 }
 
 fn first(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (FirstArgs { rows }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rows: Option<Tagged<usize>> = args.opt(0)?;
+    let input = args.input;
+
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {

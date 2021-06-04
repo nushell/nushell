@@ -39,7 +39,9 @@ impl WholeStreamCommand for Help {
 fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope().clone();
-    let (HelpArgs { rest }, ..) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let rest: Vec<Tagged<String>> = args.rest(0)?;
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {

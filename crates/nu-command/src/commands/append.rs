@@ -28,7 +28,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let args = args.evaluate_once()?;
+        let mut args = args.evaluate_once()?;
         let mut value: Value = args.req(0)?;
 
         let mut prepend = vec![];

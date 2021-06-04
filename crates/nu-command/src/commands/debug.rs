@@ -29,7 +29,10 @@ impl WholeStreamCommand for Debug {
 }
 
 fn debug_value(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (DebugArgs { raw }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let raw = args.has_flag("raw");
+    let input = args.input;
+
     Ok(input
         .map(move |v| {
             if raw {

@@ -57,7 +57,7 @@ impl WholeStreamCommand for Command {
 pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
     let mut rest: Vec<Value> = args.rest(0)?;
-    let input = args.input;
+    let mut input = args.input;
 
     let (column_paths, _) = arguments(&mut rest)?;
 

@@ -54,12 +54,13 @@ pub fn pivot(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     //let (args, input): (PivotArgs, _) = args.process()?;
     let args = args.evaluate_once()?;
-    let input = args.input.into_vec();
-    let args = PivotArgs {
+    let pivot_args = PivotArgs {
         header_row: args.has_flag("header-row"),
         ignore_titles: args.has_flag("ignore-titles"),
         rest: args.rest(0)?,
     };
+    let input = args.input.into_vec();
+    let args = pivot_args;
 
     let descs = merge_descriptors(&input);
 

@@ -134,19 +134,16 @@ impl WholeStreamCommand for SeqDates {
 fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
-    let (
-        SeqDatesArgs {
-            separator,
-            output_format,
-            input_format,
-            begin_date,
-            end_date,
-            increment,
-            days,
-            reverse,
-        },
-        _,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let separator: Option<Tagged<String>> = args.get_flag("separator")?;
+    let output_format: Option<Tagged<String>> = args.get_flag("output-format")?;
+    let input_format: Option<Tagged<String>> = args.get_flag("input-format")?;
+    let begin_date: Option<Tagged<String>> = args.get_flag("begin-date")?;
+    let end_date: Option<Tagged<String>> = args.get_flag("end-date")?;
+    let increment: Option<Tagged<i64>> = args.get_flag("increment")?;
+    let days: Option<Tagged<u64>> = args.get_flag("days")?;
+    let reverse = args.has_flag("reverse");
 
     let sep: String = match separator {
         Some(s) => {
@@ -205,8 +202,8 @@ fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     let mut rev = false;
-    if *reverse {
-        rev = *reverse;
+    if reverse {
+        rev = reverse;
     }
 
     run_seq_dates(sep, outformat, informat, begin, end, inc, day_count, rev)

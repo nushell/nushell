@@ -1,6 +1,6 @@
 use url::Url;
 
-use super::{operate, DefaultArguments};
+use super::operate;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;

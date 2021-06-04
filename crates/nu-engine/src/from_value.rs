@@ -56,6 +56,18 @@ impl FromValue for u64 {
     }
 }
 
+impl FromValue for i64 {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        v.as_i64()
+    }
+}
+impl FromValue for Tagged<i64> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_i64().map(|s| s.tagged(tag))
+    }
+}
+
 impl FromValue for Tagged<u32> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let tag = v.tag.clone();
@@ -87,12 +99,6 @@ impl FromValue for Tagged<char> {
 impl FromValue for usize {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         v.as_usize()
-    }
-}
-
-impl FromValue for i64 {
-    fn from_value(v: &Value) -> Result<Self, ShellError> {
-        v.as_i64()
     }
 }
 

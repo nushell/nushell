@@ -116,7 +116,7 @@ fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
         fold: args.get_flag("fold")?,
         numbered: args.has_flag("numbered"),
     };
-    let input = args.input;
+    let mut input = args.input;
 
     let block = Arc::new(reduce_args.block);
     let (ioffset, start) = if !input.is_empty() {

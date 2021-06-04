@@ -48,11 +48,11 @@ impl WholeStreamCommand for Merge {
 
 fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = EvaluationContext::from_args(&args);
-    let name_tag = raw_args.call_info.name_tag.clone();
+    let name_tag = args.call_info.name_tag.clone();
 
     let args = args.evaluate_once()?;
-    let input = args.input;
     let block: CapturedBlock = args.req(0)?;
+    let input = args.input;
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);

@@ -46,7 +46,11 @@ impl WholeStreamCommand for Default {
 }
 
 fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (DefaultArgs { column, value }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let column: Tagged<String> = args.req(0)?;
+    let value: Value = args.req(1)?;
+
+    let input = args.input;
 
     Ok(input
         .map(move |item| {

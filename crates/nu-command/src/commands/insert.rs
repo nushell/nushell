@@ -158,9 +158,13 @@ fn process_row(
     })
 }
 
-fn insert(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let (Arguments { column, value }, input) = raw_args.process()?;
+fn insert(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let context = Arc::new(EvaluationContext::from_args(&args));
+    let args = args.evaluate_once()?;
+    let column: ColumnPath = args.req(0)?;
+    let value: Value = args.req(1)?;
+    let input = args.input;
+
     let value = Arc::new(value);
     let column = Arc::new(column);
 

@@ -46,7 +46,9 @@ impl WholeStreamCommand for Prepend {
 }
 
 fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (PrependArgs { row }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let row: Value = args.req(0)?;
+    let input = args.input;
 
     let bos = vec![row].into_iter();
 
