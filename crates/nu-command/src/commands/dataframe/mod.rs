@@ -1,4 +1,5 @@
 pub mod aggregate;
+pub mod column;
 pub mod command;
 pub mod convert;
 pub mod drop;
@@ -26,6 +27,7 @@ pub(crate) mod utils;
 pub mod where_;
 
 pub use aggregate::DataFrame as DataFrameAggregate;
+pub use column::DataFrame as DataFrameColumn;
 pub use command::Command as DataFrame;
 pub use convert::DataFrame as DataFrameConvert;
 pub use drop::DataFrame as DataFrameDrop;

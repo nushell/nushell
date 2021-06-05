@@ -191,11 +191,11 @@ pub(crate) use all::Command as All;
 pub(crate) use any::Command as Any;
 #[cfg(feature = "dataframe")]
 pub(crate) use dataframe::{
-    DataFrame, DataFrameAggregate, DataFrameConvert, DataFrameDTypes, DataFrameDrop,
-    DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameGet, DataFrameGroupBy,
-    DataFrameHead, DataFrameJoin, DataFrameList, DataFrameLoad, DataFrameMelt, DataFramePivot,
-    DataFrameSample, DataFrameSelect, DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTail,
-    DataFrameToCsv, DataFrameToParquet, DataFrameWhere,
+    DataFrame, DataFrameAggregate, DataFrameColumn, DataFrameConvert, DataFrameDTypes,
+    DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameGet,
+    DataFrameGroupBy, DataFrameHead, DataFrameJoin, DataFrameList, DataFrameLoad, DataFrameMelt,
+    DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameShow, DataFrameSlice, DataFrameSort,
+    DataFrameTail, DataFrameToCsv, DataFrameToParquet, DataFrameWhere,
 };
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
