@@ -57,7 +57,12 @@ fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
     use std::process::Command;
 
     let name = args.call_info.name_tag.clone();
-    let (args, _): (ExecArgs, _) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let args = ExecArgs {
+        command: args.req(0)?,
+        rest: args.rest(1)?,
+    };
 
     let mut command = Command::new(args.command.item);
     for tagged_arg in args.rest {

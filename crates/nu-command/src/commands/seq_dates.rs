@@ -3,23 +3,11 @@ use chrono::naive::NaiveDate;
 use chrono::{Duration, Local};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt, value::U64Ext};
+use nu_protocol::{value::I64Ext, value::StrExt, value::StringExt};
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SeqDates;
-
-#[derive(Deserialize)]
-pub struct SeqDatesArgs {
-    separator: Option<Tagged<String>>,
-    output_format: Option<Tagged<String>>,
-    input_format: Option<Tagged<String>>,
-    begin_date: Option<Tagged<String>>,
-    end_date: Option<Tagged<String>>,
-    increment: Option<Tagged<i64>>,
-    days: Option<Tagged<u64>>,
-    reverse: Tagged<bool>,
-}
 
 impl WholeStreamCommand for SeqDates {
     fn name(&self) -> &str {
@@ -35,24 +23,24 @@ impl WholeStreamCommand for SeqDates {
                 Some('s'),
             )
             .named(
-                "output_format",
+                "output-format",
                 SyntaxShape::String,
                 "prints dates in this format (defaults to %Y-%m-%d)",
                 Some('o'),
             )
             .named(
-                "input_format",
+                "input-format",
                 SyntaxShape::String,
                 "give argument dates in this format (defaults to %Y-%m-%d)",
                 Some('i'),
             )
             .named(
-                "begin_date",
+                "begin-date",
                 SyntaxShape::String,
                 "beginning date range",
                 Some('b'),
             )
-            .named("end_date", SyntaxShape::String, "ending date", Some('e'))
+            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
             .named(
                 "increment",
                 SyntaxShape::Int,
@@ -134,19 +122,16 @@ impl WholeStreamCommand for SeqDates {
 fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
-    let (
-        SeqDatesArgs {
-            separator,
-            output_format,
-            input_format,
-            begin_date,
-            end_date,
-            increment,
-            days,
-            reverse,
-        },
-        _,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+
+    let separator: Option<Tagged<String>> = args.get_flag("separator")?;
+    let output_format: Option<Tagged<String>> = args.get_flag("output-format")?;
+    let input_format: Option<Tagged<String>> = args.get_flag("input-format")?;
+    let begin_date: Option<Tagged<String>> = args.get_flag("begin-date")?;
+    let end_date: Option<Tagged<String>> = args.get_flag("end-date")?;
+    let increment: Option<Tagged<i64>> = args.get_flag("increment")?;
+    let days: Option<Tagged<i64>> = args.get_flag("days")?;
+    let reverse = args.has_flag("reverse");
 
     let sep: String = match separator {
         Some(s) => {
@@ -205,8 +190,8 @@ fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     let mut rev = false;
-    if *reverse {
-        rev = *reverse;
+    if reverse {
+        rev = reverse;
     }
 
     run_seq_dates(sep, outformat, informat, begin, end, inc, day_count, rev)

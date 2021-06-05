@@ -818,51 +818,10 @@ impl StrExt for &str {
     }
 }
 
-pub trait U64Ext {
-    fn to_untagged_value(&self) -> UntaggedValue;
-    fn to_value(&self, tag: Tag) -> Value;
-    fn to_value_create_tag(&self) -> Value;
-    fn to_duration_untagged_value(&self) -> UntaggedValue;
-    fn to_duration_value(&self, tag: Tag) -> Value;
-}
-
-impl U64Ext for u64 {
-    fn to_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Int(*self as i64)),
-            tag: the_tag,
-        }
-    }
-
-    fn to_duration_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Duration(BigInt::from(*self))),
-            tag: the_tag,
-        }
-    }
-
-    fn to_value_create_tag(&self) -> Value {
-        let end = self.to_string().len();
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Int(*self as i64)),
-            tag: Tag {
-                anchor: None,
-                span: Span::new(0, end),
-            },
-        }
-    }
-
-    fn to_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::int(*self as i64)
-    }
-
-    fn to_duration_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::duration(BigInt::from(*self))
-    }
-}
-
 pub trait I64Ext {
     fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_duration_value(&self, tag: Tag) -> Value;
+    fn to_duration_untagged_value(&self) -> UntaggedValue;
     fn to_value(&self, tag: Tag) -> Value;
     fn to_value_create_tag(&self) -> Value;
 }
@@ -873,6 +832,20 @@ impl I64Ext for i64 {
             value: UntaggedValue::Primitive(Primitive::Int(*self)),
             tag: the_tag,
         }
+    }
+
+    fn to_duration_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(
+                BigInt::from_i64(*self)
+                    .expect("Internal error: conversion to big int should not fail"),
+            )),
+            tag: the_tag,
+        }
+    }
+
+    fn to_duration_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::duration(*self)
     }
 
     fn to_value_create_tag(&self) -> Value {

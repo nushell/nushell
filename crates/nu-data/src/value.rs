@@ -475,6 +475,7 @@ pub fn compute_values(
                         if y.is_zero() {
                             return Ok(zero_division_error());
                         }
+
                         let y = y.as_bigint_and_exponent();
                         Ok(x / y.0)
                     }

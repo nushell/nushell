@@ -5,11 +5,6 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Debug;
 
-#[derive(Deserialize)]
-pub struct DebugArgs {
-    raw: bool,
-}
-
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
         "debug"
@@ -29,7 +24,10 @@ impl WholeStreamCommand for Debug {
 }
 
 fn debug_value(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (DebugArgs { raw }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let raw = args.has_flag("raw");
+    let input = args.input;
+
     Ok(input
         .map(move |v| {
             if raw {

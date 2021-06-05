@@ -7,14 +7,6 @@ use nu_protocol::{
 };
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-struct SplitColumnArgs {
-    separator: Tagged<String>,
-    rest: Vec<Tagged<String>>,
-    #[serde(rename(deserialize = "collapse-empty"))]
-    collapse_empty: bool,
-}
-
 pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {
@@ -26,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("split column")
             .required(
                 "separator",
-                SyntaxShape::Any,
+                SyntaxShape::String,
                 "the character that denotes what separates columns",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
@@ -44,14 +36,11 @@ impl WholeStreamCommand for SubCommand {
 
 fn split_column(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
-    let (
-        SplitColumnArgs {
-            separator,
-            rest,
-            collapse_empty,
-        },
-        input,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+    let separator: Tagged<String> = args.req(0)?;
+    let rest: Vec<Tagged<String>> = args.rest(1)?;
+    let collapse_empty = args.has_flag("collapse-empty");
+    let input = args.input;
 
     Ok(input
         .map(move |v| {

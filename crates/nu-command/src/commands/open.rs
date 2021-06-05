@@ -12,13 +12,6 @@ use std::path::{Path, PathBuf};
 
 pub struct Open;
 
-#[derive(Deserialize)]
-pub struct OpenArgs {
-    path: Tagged<PathBuf>,
-    raw: Tagged<bool>,
-    encoding: Option<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Open {
     fn name(&self) -> &str {
         "open"
@@ -106,14 +99,10 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c();
 
-    let (
-        OpenArgs {
-            path,
-            raw,
-            encoding,
-        },
-        _,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+    let path: Tagged<PathBuf> = args.req(0)?;
+    let raw = args.has_flag("raw");
+    let encoding: Option<Tagged<String>> = args.get_flag("encoding")?;
 
     if path.is_dir() {
         let args = nu_engine::shell::LsArgs {
@@ -132,7 +121,7 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
     // Check if the extension has a "from *" command OR "bat" supports syntax highlighting
     // AND the user doesn't want the raw output
     // In these cases, we will collect the Stream
-    let ext = if raw.item {
+    let ext = if raw {
         None
     } else {
         path.extension()

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnValue, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::{
     sync::atomic::Ordering,
@@ -12,12 +12,6 @@ use std::{
 const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Sleep;
-
-#[derive(Deserialize)]
-pub struct SleepArgs {
-    pub duration: Tagged<u64>,
-    pub rest: Vec<Tagged<u64>>,
-}
 
 impl WholeStreamCommand for Sleep {
     fn name(&self) -> &str {
@@ -34,23 +28,28 @@ impl WholeStreamCommand for Sleep {
         "Delay for a specified amount of time."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctrl_c = args.ctrl_c();
 
-        let (SleepArgs { duration, rest }, _) = args.process()?;
+        let args = args.evaluate_once()?;
+        let duration: Tagged<i64> = args.req(0)?;
+        let rest: Vec<Tagged<i64>> = args.rest(1)?;
 
-        let total_dur = Duration::from_nanos(duration.item)
-            + rest
-                .iter()
-                .map(|val| Duration::from_nanos(val.item))
-                .sum::<Duration>();
+        let total_dur = Duration::from_nanos(if duration.item > 0 {
+            duration.item as u64
+        } else {
+            0
+        }) + rest
+            .iter()
+            .map(|val| Duration::from_nanos(if val.item > 0 { val.item as u64 } else { 0 }))
+            .sum::<Duration>();
 
         //SleepHandler::new(total_dur, ctrl_c);
         // this is necessary because the following 2 commands gave different results:
         // `echo | sleep 1sec` - nothing
         // `sleep 1sec`        - table with 0 elements
 
-        Ok(SleepIterator::new(total_dur, ctrl_c).to_action_stream())
+        Ok(SleepIterator::new(total_dur, ctrl_c).to_output_stream())
 
         // if input.is_empty() {
         //     Ok(OutputStream::empty())
@@ -92,7 +91,7 @@ impl SleepIterator {
 }
 
 impl Iterator for SleepIterator {
-    type Item = ReturnValue;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         let start = Instant::now();

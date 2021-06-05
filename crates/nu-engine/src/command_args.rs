@@ -1,4 +1,3 @@
-use crate::deserializer::ConfigDeserializer;
 use crate::env::host::Host;
 use crate::evaluate::scope::Scope;
 use crate::evaluation_context::EvaluationContext;
@@ -13,7 +12,6 @@ use nu_protocol::{CallInfo, Value};
 use nu_source::Tag;
 use nu_stream::InputStream;
 use parking_lot::Mutex;
-use serde::Deserialize;
 use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -77,15 +75,6 @@ impl CommandArgs {
         let evaluated_args = self.evaluate_once()?;
 
         Ok((f(&evaluated_args.args)?, evaluated_args.input))
-    }
-
-    pub fn process<'de, T: Deserialize<'de>>(self) -> Result<(T, InputStream), ShellError> {
-        let args = self.evaluate_once()?;
-        let call_info = args.call_info.clone();
-
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
-
-        Ok((T::deserialize(&mut deserializer)?, args.input))
     }
 }
 

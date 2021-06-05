@@ -29,7 +29,10 @@ impl WholeStreamCommand for TermSize {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (TermSizeArgs { wide, tall }, _) = args.process()?;
+        let args = args.evaluate_once()?;
+
+        let wide = args.has_flag("wide");
+        let tall = args.has_flag("tall");
 
         let size = term_size::dimensions();
         match size {

@@ -8,14 +8,6 @@ use std::cmp;
 
 pub struct Seq;
 
-#[derive(Deserialize)]
-pub struct SeqArgs {
-    rest: Vec<Tagged<f64>>,
-    separator: Option<Tagged<String>>,
-    terminator: Option<Tagged<String>>,
-    widths: Tagged<bool>,
-}
-
 impl WholeStreamCommand for Seq {
     fn name(&self) -> &str {
         "seq"
@@ -108,15 +100,11 @@ impl WholeStreamCommand for Seq {
 fn seq(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
-    let (
-        SeqArgs {
-            rest: rest_nums,
-            separator,
-            terminator,
-            widths,
-        },
-        _,
-    ) = args.process()?;
+    let args = args.evaluate_once()?;
+    let rest_nums: Vec<Tagged<f64>> = args.rest(0)?;
+    let separator: Option<Tagged<String>> = args.get_flag("separator")?;
+    let terminator: Option<Tagged<String>> = args.get_flag("terminator")?;
+    let widths = args.has_flag("widths");
 
     if rest_nums.is_empty() {
         return Err(ShellError::labeled_error(
@@ -174,7 +162,7 @@ fn seq(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let rest_nums: Vec<String> = rest_nums.iter().map(|n| n.item.to_string()).collect();
 
-    run_seq(sep, Some(term), widths.item, rest_nums)
+    run_seq(sep, Some(term), widths, rest_nums)
 }
 
 #[cfg(test)]

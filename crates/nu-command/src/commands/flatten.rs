@@ -8,11 +8,6 @@ use nu_source::Tagged;
 
 pub struct Command;
 
-#[derive(Deserialize)]
-pub struct Arguments {
-    rest: Vec<Tagged<String>>,
-}
-
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
         "flatten"
@@ -53,7 +48,9 @@ impl WholeStreamCommand for Command {
 
 fn flatten(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (Arguments { rest: columns }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let columns: Vec<Tagged<String>> = args.rest(0)?;
+    let input = args.input;
 
     Ok(input
         .map(move |item| flat_value(&columns, &item, &tag).into_iter())

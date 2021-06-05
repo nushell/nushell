@@ -45,7 +45,6 @@ pub enum Primitive {
     /// A date value
     Date(DateTime<FixedOffset>),
     /// A count in the number of nanoseconds
-    #[serde(with = "serde_bigint")]
     Duration(BigInt),
     /// A range of values
     Range(Box<Range>),
@@ -172,6 +171,13 @@ impl Primitive {
                     "converting a decimal into a signed 64-bit integer",
                 )
             }),
+            Primitive::Duration(duration) => duration.to_i64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I64,
+                    &format!("{}", duration).spanned(span),
+                    "converting a duration into a signed 64-bit integer",
+                )
+            }),
             other => Err(ShellError::type_error(
                 "number",
                 other.type_name().spanned(span),
@@ -277,7 +283,10 @@ impl Primitive {
         match self {
             Primitive::Duration(duration) => {
                 // Divide into seconds because BigInt can be larger than i64
-                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
+                let (secs, nanos) = duration.div_rem(
+                    &BigInt::from_u32(NANOS_PER_SEC)
+                        .expect("Internal error: conversion from u32 failed"),
+                );
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
                     None => {
@@ -396,7 +405,10 @@ impl From<chrono::Duration> for Primitive {
             .expect("Unexpected overflow")
             .num_nanoseconds()
             .expect("Unexpected overflow") as u32;
-        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
+        Primitive::Duration(
+            BigInt::from_i64(secs * NANOS_PER_SEC as i64 + nanos as i64)
+                .expect("Internal error: can't convert from i64"),
+        )
     }
 }
 

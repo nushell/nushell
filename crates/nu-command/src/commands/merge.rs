@@ -11,11 +11,6 @@ use nu_protocol::{
 };
 pub struct Merge;
 
-#[derive(Deserialize)]
-pub struct MergeArgs {
-    block: CapturedBlock,
-}
-
 impl WholeStreamCommand for Merge {
     fn name(&self) -> &str {
         "merge"
@@ -46,11 +41,13 @@ impl WholeStreamCommand for Merge {
     }
 }
 
-fn merge(raw_args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let context = EvaluationContext::from_args(&raw_args);
-    let name_tag = raw_args.call_info.name_tag.clone();
-    let (merge_args, input): (MergeArgs, _) = raw_args.process()?;
-    let block = merge_args.block;
+fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let context = EvaluationContext::from_args(&args);
+    let name_tag = args.call_info.name_tag.clone();
+
+    let args = args.evaluate_once()?;
+    let block: CapturedBlock = args.req(0)?;
+    let input = args.input;
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);

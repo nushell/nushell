@@ -6,11 +6,6 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 pub struct Length;
 
-#[derive(Deserialize)]
-pub struct LengthArgs {
-    column: bool,
-}
-
 impl WholeStreamCommand for Length {
     fn name(&self) -> &str {
         "length"
@@ -30,7 +25,9 @@ impl WholeStreamCommand for Length {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (LengthArgs { column }, input) = args.process()?;
+        let args = args.evaluate_once()?;
+        let column = args.has_flag("column");
+        let input = args.input;
 
         Ok(CountIterator {
             column,

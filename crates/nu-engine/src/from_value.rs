@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use bigdecimal::ToPrimitive;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, FixedOffset};
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -16,6 +16,32 @@ pub trait FromValue: Sized {
 impl FromValue for Value {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         Ok(v.clone())
+    }
+}
+
+impl FromValue for Tagged<num_bigint::BigInt> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+
+        match v {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Int(i)),
+                ..
+            } => Ok(BigInt::from(*i).tagged(tag)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Filesize(i)),
+                ..
+            } => Ok(BigInt::from(*i).tagged(tag)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Duration(i)),
+                ..
+            } => Ok(i.clone().tagged(tag)),
+            Value { tag, .. } => Err(ShellError::labeled_error(
+                "Can't convert to integer",
+                "can't convert to integer",
+                tag.span,
+            )),
+        }
     }
 }
 
@@ -56,6 +82,18 @@ impl FromValue for u64 {
     }
 }
 
+impl FromValue for i64 {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        v.as_i64()
+    }
+}
+impl FromValue for Tagged<i64> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let tag = v.tag.clone();
+        v.as_i64().map(|s| s.tagged(tag))
+    }
+}
+
 impl FromValue for Tagged<u32> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let tag = v.tag.clone();
@@ -90,12 +128,6 @@ impl FromValue for usize {
     }
 }
 
-impl FromValue for i64 {
-    fn from_value(v: &Value) -> Result<Self, ShellError> {
-        v.as_i64()
-    }
-}
-
 impl FromValue for i32 {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         v.as_i32()
@@ -109,6 +141,10 @@ impl FromValue for bigdecimal::BigDecimal {
                 value: UntaggedValue::Primitive(Primitive::Decimal(d)),
                 ..
             } => Ok(d.clone()),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Int(i)),
+                ..
+            } => Ok(BigDecimal::from(*i)),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to decimal",
                 "can't convert to decimal",
@@ -123,6 +159,7 @@ impl FromValue for Tagged<bigdecimal::BigDecimal> {
         let tag = v.tag.clone();
         match &v.value {
             UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone().tagged(tag)),
+            UntaggedValue::Primitive(Primitive::Int(i)) => Ok(BigDecimal::from(*i).tagged(tag)),
             _ => Err(ShellError::labeled_error(
                 "Can't convert to decimal",
                 "can't convert to decimal",

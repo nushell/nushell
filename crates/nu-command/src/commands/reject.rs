@@ -5,11 +5,6 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
-#[derive(Deserialize)]
-pub struct RejectArgs {
-    rest: Vec<Tagged<String>>,
-}
-
 pub struct Reject;
 
 impl WholeStreamCommand for Reject {
@@ -40,7 +35,9 @@ impl WholeStreamCommand for Reject {
 
 fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (RejectArgs { rest: fields }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let fields: Vec<Tagged<String>> = args.rest(0)?;
+
     if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Reject requires fields",
@@ -51,7 +48,8 @@ fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
-    Ok(input
+    Ok(args
+        .input
         .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
         .to_action_stream())
 }

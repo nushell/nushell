@@ -15,11 +15,6 @@ pub use path::UrlPath;
 pub use query::UrlQuery;
 pub use scheme::UrlScheme;
 
-#[derive(Deserialize)]
-struct DefaultArguments {
-    rest: Vec<ColumnPath>,
-}
-
 fn handle_value<F>(action: &F, v: &Value) -> Result<Value, ShellError>
 where
     F: Fn(&Url) -> &str + Send + 'static,

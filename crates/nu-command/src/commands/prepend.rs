@@ -3,11 +3,6 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
-#[derive(Deserialize)]
-struct PrependArgs {
-    row: Value,
-}
-
 pub struct Prepend;
 
 impl WholeStreamCommand for Prepend {
@@ -46,7 +41,9 @@ impl WholeStreamCommand for Prepend {
 }
 
 fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (PrependArgs { row }, input) = args.process()?;
+    let args = args.evaluate_once()?;
+    let row: Value = args.req(0)?;
+    let input = args.input;
 
     let bos = vec![row].into_iter();
 

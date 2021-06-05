@@ -422,6 +422,20 @@ impl Number {
             )),
         }
     }
+    pub fn to_u64(&self) -> Result<u64, ShellError> {
+        match self {
+            Number::BigInt(bi) => match bi.to_u64() {
+                Some(i) => Ok(i),
+                None => Err(ShellError::untagged_runtime_error(
+                    "Cannot convert bigint to u64, too large",
+                )),
+            },
+            Number::Int(i) => Ok(*i as u64),
+            Number::Decimal(_) => Err(ShellError::untagged_runtime_error(
+                "Cannont convert decimal to u64",
+            )),
+        }
+    }
 }
 
 impl PrettyDebug for Number {
@@ -632,8 +646,8 @@ pub fn filesize(size_in_bytes: Number) -> UntaggedValue {
     }
 }
 
-pub fn duration(nanos: BigInt) -> UntaggedValue {
-    UntaggedValue::Primitive(Primitive::Duration(nanos))
+pub fn duration(nanos: impl Into<BigInt>) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Duration(nanos.into()))
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Deserialize, Serialize)]
