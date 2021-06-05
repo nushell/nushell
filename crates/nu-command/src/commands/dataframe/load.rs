@@ -4,8 +4,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 use nu_source::Tagged;
@@ -113,12 +112,9 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         span: tag.span,
     };
 
-    let tagged_value = Value {
-        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
-        tag: df_tag,
-    };
-
-    Ok(InputStream::one(tagged_value).to_output_stream())
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
+        df, df_tag,
+    )))
 }
 
 fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {

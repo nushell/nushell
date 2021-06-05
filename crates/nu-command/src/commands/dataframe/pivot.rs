@@ -2,8 +2,8 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, UntaggedValue, Value,
+    dataframe::{NuDataFrame, NuGroupBy},
+    Signature, SyntaxShape,
 };
 use nu_source::Tagged;
 
@@ -93,50 +93,27 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     // The operation is only done in one groupby. Only one input is
     // expected from the InputStream
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing groupby input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) = value.value {
-                let df_ref = nu_groupby.as_ref();
+    let nu_groupby = NuGroupBy::try_from_stream(&mut args.input, &tag.span)?;
+    let df_ref = nu_groupby.as_ref();
 
-                check_pivot_column(df_ref, &pivot_col)?;
-                check_value_column(df_ref, &value_col)?;
+    check_pivot_column(df_ref, &pivot_col)?;
+    check_value_column(df_ref, &value_col)?;
 
-                let mut groupby = nu_groupby.to_groupby()?;
+    let mut groupby = nu_groupby.to_groupby()?;
 
-                let pivot = groupby.pivot(pivot_col.item.as_ref(), value_col.item.as_ref());
+    let pivot = groupby.pivot(pivot_col.item.as_ref(), value_col.item.as_ref());
 
-                let res = match op {
-                    Operation::Mean => pivot.mean(),
-                    Operation::Sum => pivot.sum(),
-                    Operation::Min => pivot.min(),
-                    Operation::Max => pivot.max(),
-                    Operation::First => pivot.first(),
-                    Operation::Median => pivot.median(),
-                }
-                .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
-
-                let final_df = Value {
-                    tag,
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                };
-
-                Ok(OutputStream::one(final_df))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No groupby in stream",
-                    "no groupby found in input stream",
-                    &tag,
-                ))
-            }
-        }
+    let res = match op {
+        Operation::Mean => pivot.mean(),
+        Operation::Sum => pivot.sum(),
+        Operation::Min => pivot.min(),
+        Operation::Max => pivot.max(),
+        Operation::First => pivot.first(),
+        Operation::Median => pivot.median(),
     }
+    .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }
 
 fn check_pivot_column(

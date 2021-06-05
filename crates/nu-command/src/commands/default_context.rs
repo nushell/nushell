@@ -253,49 +253,36 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
-            //Dataframe commands
-            #[cfg(feature = "dataframe")]
+        ]);
+
+        //Dataframe commands
+        #[cfg(feature = "dataframe")]
+        context.add_commands(vec![
             whole_stream_command(DataFrame),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameConvert),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameLoad),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameList),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameGroupBy),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameAggregate),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameShow),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameSample),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameJoin),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameDrop),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameSelect),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameDTypes),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameDummies),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameHead),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameTail),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameSlice),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameMelt),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFramePivot),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameWhere),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameToParquet),
-            #[cfg(feature = "dataframe")]
             whole_stream_command(DataFrameToCsv),
+            whole_stream_command(DataFrameSort),
+            whole_stream_command(DataFrameGet),
+            whole_stream_command(DataFrameDropDuplicates),
+            whole_stream_command(DataFrameDropNulls),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

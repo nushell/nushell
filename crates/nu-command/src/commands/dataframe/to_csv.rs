@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_protocol::dataframe::NuDataFrame;
 use nu_protocol::Primitive;
 use nu_protocol::Value;
-use nu_protocol::{dataframe::PolarsData, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 
 use polars::prelude::{CsvWriter, SerWriter};
 
@@ -63,18 +64,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
 
-    let mut df = args
-        .input
-        .next()
-        .and_then(|value| match value.value {
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
-            _ => None,
-        })
-        .ok_or(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag.span,
-        ))?;
+    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
         ShellError::labeled_error(

@@ -1,10 +1,7 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, Value};
 
 use super::utils::convert_columns;
 
@@ -52,39 +49,17 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (id_col_string, id_col_span) = convert_columns(&id_col, &tag)?;
     let (val_col_string, val_col_span) = convert_columns(&val_col, &tag)?;
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                check_column_datatypes(df.as_ref(), &id_col_string, &id_col_span)?;
-                check_column_datatypes(df.as_ref(), &val_col_string, &val_col_span)?;
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-                let res = df
-                    .as_ref()
-                    .melt(&id_col_string, &val_col_string)
-                    .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+    check_column_datatypes(df.as_ref(), &id_col_string, &id_col_span)?;
+    check_column_datatypes(df.as_ref(), &val_col_string, &val_col_span)?;
 
-                let value = Value {
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                    tag: tag.clone(),
-                };
+    let res = df
+        .as_ref()
+        .melt(&id_col_string, &val_col_string)
+        .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-                Ok(OutputStream::one(value))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }
 
 fn check_column_datatypes<T: AsRef<str>>(

@@ -9,18 +9,18 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls select"
+        "pls drop_nulls"
     }
 
     fn usage(&self) -> &str {
-        "Creates a new dataframe with the selected columns"
+        "Drops null values in dataframe"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select").required(
-            "columns",
+        Signature::build("pls drop_nulls").optional(
+            "subset",
             SyntaxShape::Table,
-            "selected column names",
+            "subset of columns to drop duplicates",
         )
     }
 
@@ -30,8 +30,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Create new dataframe with column a",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls select [a]",
+            description: "drop null values duplicates",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | pls convert | pls drop_nulls",
             result: None,
         }]
     }
@@ -41,15 +41,23 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    let columns: Vec<Value> = args.req(0)?;
-
-    let (col_string, col_span) = convert_columns(&columns, &tag)?;
+    // Extracting the selection columns of the columns to perform the aggregation
+    let columns: Option<Vec<Value>> = args.opt(0)?;
+    let (subset, col_span) = match columns {
+        Some(cols) => {
+            let (agg_string, col_span) = convert_columns(&cols, &tag)?;
+            (Some(agg_string), col_span)
+        }
+        None => (None, Span::unknown()),
+    };
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
+    let subset_slice = subset.as_ref().map(|cols| &cols[..]);
+
     let res = df
         .as_ref()
-        .select(&col_string)
+        .drop_nulls(subset_slice)
         .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))

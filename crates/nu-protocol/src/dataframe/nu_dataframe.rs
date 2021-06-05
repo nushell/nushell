@@ -4,15 +4,14 @@ use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
-use nu_source::Tag;
+use nu_source::{Span, Tag};
 use num_bigint::BigInt;
 use polars::prelude::{AnyValue, DataFrame, NamedFrom, Series, TimeUnit};
-use serde::de::{Deserialize, Deserializer, Visitor};
-use serde::Serialize;
-
-use std::fmt;
+use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
+
+use super::PolarsData;
 
 const SECS_PER_DAY: i64 = 86_400;
 
@@ -40,26 +39,9 @@ impl Default for ColumnValues {
 
 type ColumnMap = HashMap<String, ColumnValues>;
 
-// TODO. Using Option to help with deserialization. It will be better to find
-// a way to use serde with dataframes
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuDataFrame {
-    #[serde(skip_serializing)]
-    pub dataframe: Option<DataFrame>,
-}
-
-impl Default for NuDataFrame {
-    fn default() -> Self {
-        NuDataFrame { dataframe: None }
-    }
-}
-
-impl NuDataFrame {
-    pub fn new(df: polars::prelude::DataFrame) -> Self {
-        NuDataFrame {
-            dataframe: Some(df),
-        }
-    }
+    pub dataframe: DataFrame,
 }
 
 // TODO. Better definition of equality and comparison for a dataframe.
@@ -88,24 +70,28 @@ impl Hash for NuDataFrame {
     fn hash<H: Hasher>(&self, _: &mut H) {}
 }
 
-impl<'de> Visitor<'de> for NuDataFrame {
-    type Value = Self;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an integer between -2^31 and 2^31")
-    }
-}
-
-impl<'de> Deserialize<'de> for NuDataFrame {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_i32(NuDataFrame::default())
-    }
-}
-
 impl NuDataFrame {
+    pub fn new(df: polars::prelude::DataFrame) -> Self {
+        NuDataFrame { dataframe: df }
+    }
+
+    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuDataFrame, ShellError>
+    where
+        T: Iterator<Item = Value>,
+    {
+        input
+            .next()
+            .and_then(|value| match value.value {
+                UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
+                _ => None,
+            })
+            .ok_or(ShellError::labeled_error(
+                "No dataframe in stream",
+                "no dataframe found in input stream",
+                span,
+            ))
+    }
+
     pub fn try_from_iter<T>(iter: T, tag: &Tag) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
@@ -132,26 +118,30 @@ impl NuDataFrame {
         from_parsed_columns(column_values, tag)
     }
 
+    pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
+            tag,
+        }
+    }
+
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self) -> Result<Vec<Value>, ShellError> {
-        if let Some(df) = &self.dataframe {
-            let size: usize = 20;
+        let df = &self.as_ref();
+        let size: usize = 20;
 
-            if df.height() > size {
-                let sample_size = size / 2;
-                let mut values = self.head(Some(sample_size))?;
-                add_separator(&mut values, df);
-                let remaining = df.height() - sample_size;
-                let tail_size = remaining.min(sample_size);
-                let mut tail_values = self.tail(Some(tail_size))?;
-                values.append(&mut tail_values);
+        if df.height() > size {
+            let sample_size = size / 2;
+            let mut values = self.head(Some(sample_size))?;
+            add_separator(&mut values, df);
+            let remaining = df.height() - sample_size;
+            let tail_size = remaining.min(sample_size);
+            let mut tail_values = self.tail(Some(tail_size))?;
+            values.append(&mut tail_values);
 
-                Ok(values)
-            } else {
-                Ok(self.head(Some(size))?)
-            }
+            Ok(values)
         } else {
-            unreachable!("No dataframe found in print command")
+            Ok(self.head(Some(size))?)
         }
     }
 
@@ -163,71 +153,59 @@ impl NuDataFrame {
     }
 
     pub fn tail(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
-        if let Some(df) = &self.dataframe {
-            let to_row = df.height();
-            let size = rows.unwrap_or(5);
-            let from_row = to_row.saturating_sub(size);
+        let df = &self.as_ref();
+        let to_row = df.height();
+        let size = rows.unwrap_or(5);
+        let from_row = to_row.saturating_sub(size);
 
-            let values = self.to_rows(from_row, to_row)?;
+        let values = self.to_rows(from_row, to_row)?;
 
-            Ok(values)
-        } else {
-            unreachable!()
-        }
+        Ok(values)
     }
 
     pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
-        if let Some(df) = &self.dataframe {
-            let column_names = df.get_column_names();
+        let df = &self.as_ref();
+        let column_names = df.get_column_names();
 
-            let mut values: Vec<Value> = Vec::new();
+        let mut values: Vec<Value> = Vec::new();
 
-            let upper_row = to_row.min(df.height());
-            for i in from_row..upper_row {
-                let row = df.get_row(i);
-                let mut dictionary_row = Dictionary::default();
+        let upper_row = to_row.min(df.height());
+        for i in from_row..upper_row {
+            let row = df.get_row(i);
+            let mut dictionary_row = Dictionary::default();
 
-                for (val, name) in row.0.iter().zip(column_names.iter()) {
-                    let untagged_val = anyvalue_to_untagged(val)?;
+            for (val, name) in row.0.iter().zip(column_names.iter()) {
+                let untagged_val = anyvalue_to_untagged(val)?;
 
-                    let dict_val = Value {
-                        value: untagged_val,
-                        tag: Tag::unknown(),
-                    };
-
-                    dictionary_row.insert(name.to_string(), dict_val);
-                }
-
-                let value = Value {
-                    value: UntaggedValue::Row(dictionary_row),
+                let dict_val = Value {
+                    value: untagged_val,
                     tag: Tag::unknown(),
                 };
 
-                values.push(value);
+                dictionary_row.insert(name.to_string(), dict_val);
             }
 
-            Ok(values)
-        } else {
-            unreachable!()
+            let value = Value {
+                value: UntaggedValue::Row(dictionary_row),
+                tag: Tag::unknown(),
+            };
+
+            values.push(value);
         }
+
+        Ok(values)
     }
 }
 
 impl AsRef<polars::prelude::DataFrame> for NuDataFrame {
     fn as_ref(&self) -> &polars::prelude::DataFrame {
-        match &self.dataframe {
-            Some(df) => df,
-            None => unreachable!("Accessing ref to dataframe from nu_dataframe"),
-        }
+        &self.dataframe
     }
 }
 
 impl AsMut<polars::prelude::DataFrame> for NuDataFrame {
     fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
-        match &mut self.dataframe {
-            Some(df) => df,
-            None => unreachable!("Accessing mut ref to dataframe from nu_dataframe"),
-        }
+        &mut self.dataframe
     }
 }
 
@@ -434,9 +412,7 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
     let df = DataFrame::new(df_series);
 
     match df {
-        Ok(df) => Ok(NuDataFrame {
-            dataframe: Some(df),
-        }),
+        Ok(df) => Ok(NuDataFrame::new(df)),
         Err(e) => {
             return Err(ShellError::labeled_error(
                 "Error while creating dataframe",

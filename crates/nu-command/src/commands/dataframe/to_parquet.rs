@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::PolarsData, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::dataframe::NuDataFrame;
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
 use polars::prelude::ParquetWriter;
 
@@ -48,18 +49,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut args = args.evaluate_once()?;
     let file_name: Tagged<PathBuf> = args.req(0)?;
 
-    let mut df = args
-        .input
-        .next()
-        .and_then(|value| match value.value {
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
-            _ => None,
-        })
-        .ok_or(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag.span,
-        ))?;
+    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let file = File::create(&file_name.item).map_err(|e| {
         ShellError::labeled_error(

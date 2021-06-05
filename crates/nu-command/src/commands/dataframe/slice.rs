@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
 
 use nu_source::Tagged;
 pub struct DataFrame;
@@ -44,31 +41,8 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let offset: Tagged<usize> = args.req(0)?;
     let size: Tagged<usize> = args.req(1)?;
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let res = df.as_ref().slice(offset.item as i64, size.item);
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let res = df.as_ref().slice(offset.item as i64, size.item);
 
-                let value = Value {
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                    tag: tag.clone(),
-                };
-
-                Ok(OutputStream::one(value))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature};
 
 use super::utils::parse_polars_error;
 
@@ -40,37 +37,14 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let res = df.as_ref().to_dummies().map_err(|e| {
-                    parse_polars_error(
-                        &e,
-                        &tag.span,
-                        Some("The only allowed column types for dummies are String or Int"),
-                    )
-                })?;
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let res = df.as_ref().to_dummies().map_err(|e| {
+        parse_polars_error(
+            &e,
+            &tag.span,
+            Some("The only allowed column types for dummies are String or Int"),
+        )
+    })?;
 
-                let value = Value {
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                    tag: tag.clone(),
-                };
-
-                Ok(OutputStream::one(value))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

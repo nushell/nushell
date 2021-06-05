@@ -66,7 +66,7 @@ impl Operation {
                 "Operation not fount",
                 "Operation does not exist",
                 &name.tag,
-                "Perhaps you want: mean, sum, min, max, first, last, nunique, quantile, median, count",
+                "Perhaps you want: mean, sum, min, max, first, last, nunique, quantile, median, var, std, or count",
                 &name.tag,
             )),
         }
@@ -81,7 +81,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Performs an aggregation operation on a groupby object"
+        "Performs an aggregation operation on a dataframe or groupby object"
     }
 
     fn signature(&self) -> Signature {
@@ -105,11 +105,19 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Aggregate sum by grouping by column a and summing on col b",
-            example: "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Aggregate sum by grouping by column a and summing on col b",
+                example:
+                    "[[a b]; [one 1] [one 2]] | pls convert | pls groupby [a] | pls aggregate sum",
+                result: None,
+            },
+            Example {
+                description: "Aggregate sum in dataframe columns",
+                example: "[[a b]; [4 1] [5 2]] | pls convert | pls aggregate sum",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -131,45 +139,48 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => (None, Span::unknown()),
     };
 
-    // The operation is only done in one groupby. Only one input is
-    // expected from the InputStream
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing groupby input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) = value.value {
-                let groupby = nu_groupby.to_groupby()?;
+    let value = args.input.next().ok_or(ShellError::labeled_error(
+        "Empty stream",
+        "No value found in the stream",
+        &tag,
+    ))?;
 
-                let groupby = match &selection {
-                    Some(cols) => groupby.select(cols),
-                    None => groupby,
-                };
+    let res = match value.value {
+        UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {
+            let groupby = nu_groupby.to_groupby()?;
 
-                let res = perform_aggregation(groupby, op, &operation.tag, &agg_span)?;
+            let groupby = match &selection {
+                Some(cols) => groupby.select(cols),
+                None => groupby,
+            };
 
-                let final_df = Value {
-                    tag,
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                };
+            perform_groupby_aggregation(groupby, op, &operation.tag, &agg_span)
+        }
+        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+            let df = df.as_ref();
 
-                Ok(OutputStream::one(final_df))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No groupby in stream",
-                    "no groupby found in input stream",
-                    &tag,
-                ))
+            match &selection {
+                Some(cols) => {
+                    let df = df
+                        .select(cols)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &agg_span, None))?;
+
+                    perform_dataframe_aggregation(&df, op, &operation.tag)
+                }
+                None => perform_dataframe_aggregation(&df, op, &operation.tag),
             }
         }
-    }
+        _ => Err(ShellError::labeled_error(
+            "No groupby or dataframe",
+            "no groupby or found in input stream",
+            &value.tag.span,
+        )),
+    }?;
+
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }
 
-fn perform_aggregation(
+fn perform_groupby_aggregation(
     groupby: GroupBy,
     operation: Operation,
     operation_tag: &Tag,
@@ -197,4 +208,30 @@ fn perform_aggregation(
 
         parse_polars_error::<&str>(&e, span, None)
     })
+}
+
+fn perform_dataframe_aggregation(
+    dataframe: &polars::prelude::DataFrame,
+    operation: Operation,
+    operation_tag: &Tag,
+) -> Result<polars::prelude::DataFrame, ShellError> {
+    match operation {
+        Operation::Mean => Ok(dataframe.mean()),
+        Operation::Sum => Ok(dataframe.sum()),
+        Operation::Min => Ok(dataframe.min()),
+        Operation::Max => Ok(dataframe.max()),
+        Operation::Quantile(quantile) => dataframe
+            .quantile(quantile)
+            .map_err(|e| parse_polars_error::<&str>(&e, &operation_tag.span, None)),
+        Operation::Median => Ok(dataframe.median()),
+        Operation::Var => Ok(dataframe.var()),
+        Operation::Std => Ok(dataframe.std()),
+        _ => Err(ShellError::labeled_error_with_secondary(
+            "Not valid operation",
+            "operation not valid for dataframe",
+            &operation_tag.span,
+            "Perhaps you want: mean, sum, min, max, quantile, median, var, or std",
+            &operation_tag.span,
+        )),
+    }
 }

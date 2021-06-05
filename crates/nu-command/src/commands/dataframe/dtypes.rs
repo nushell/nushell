@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::PolarsData, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder};
 
 pub struct DataFrame;
 
@@ -35,42 +35,26 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let col_names = df
-                    .as_ref()
-                    .get_column_names()
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<String>>();
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let col_names = df
+        .as_ref()
+        .get_column_names()
+        .iter()
+        .map(|v| v.to_string())
+        .collect::<Vec<String>>();
 
-                let values = df
-                    .as_ref()
-                    .dtypes()
-                    .into_iter()
-                    .zip(col_names.into_iter())
-                    .map(move |(dtype, name)| {
-                        let mut data = TaggedDictBuilder::new(tag.clone());
-                        data.insert_value("column", name.as_ref());
-                        data.insert_value("dtype", format!("{}", dtype));
+    let values = df
+        .as_ref()
+        .dtypes()
+        .into_iter()
+        .zip(col_names.into_iter())
+        .map(move |(dtype, name)| {
+            let mut data = TaggedDictBuilder::new(tag.clone());
+            data.insert_value("column", name.as_ref());
+            data.insert_value("dtype", format!("{}", dtype));
 
-                        data.into_value()
-                    });
+            data.into_value()
+        });
 
-                Ok(OutputStream::from_stream(values))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::from_stream(values))
 }

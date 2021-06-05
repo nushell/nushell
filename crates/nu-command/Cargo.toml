@@ -100,6 +100,8 @@ which = { version = "4.1.0", optional = true }
 zip = { version = "0.5.9", optional = true }
 
 [dependencies.polars]
+git = "https://github.com/pola-rs/polars"
+rev = "a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
 version = "0.14.0"
 optional = true
 features = ["parquet", "json", "random", "pivot"]
