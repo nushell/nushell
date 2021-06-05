@@ -672,7 +672,11 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(_) => "dataframe",
+            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(_)) => "dataframe",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(PolarsData::Series(_)) => "series",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(PolarsData::GroupBy(_)) => "groupby",
         }
     }
 }

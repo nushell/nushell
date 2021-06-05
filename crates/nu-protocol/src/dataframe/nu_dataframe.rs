@@ -40,7 +40,9 @@ impl Default for ColumnValues {
 type ColumnMap = HashMap<String, ColumnValues>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NuDataFrame(DataFrame);
+pub struct NuDataFrame {
+    dataframe: DataFrame,
+}
 
 // TODO. Better definition of equality and comparison for a dataframe.
 // Probably it make sense to have a name field and use it for comparisons
@@ -70,19 +72,19 @@ impl Hash for NuDataFrame {
 
 impl AsRef<DataFrame> for NuDataFrame {
     fn as_ref(&self) -> &polars::prelude::DataFrame {
-        &self.0
+        &self.dataframe
     }
 }
 
 impl AsMut<DataFrame> for NuDataFrame {
     fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
-        &mut self.0
+        &mut self.dataframe
     }
 }
 
 impl NuDataFrame {
     pub fn new(dataframe: polars::prelude::DataFrame) -> Self {
-        NuDataFrame(dataframe)
+        NuDataFrame { dataframe }
     }
 
     pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuDataFrame, ShellError>
@@ -137,7 +139,7 @@ impl NuDataFrame {
 
     // Print is made out a head and if the dataframe is too large, then a tail
     pub fn print(&self) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.as_ref();
         let size: usize = 20;
 
         if df.height() > size {
@@ -163,7 +165,7 @@ impl NuDataFrame {
     }
 
     pub fn tail(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.as_ref();
         let to_row = df.height();
         let size = rows.unwrap_or(5);
         let from_row = to_row.saturating_sub(size);
@@ -174,7 +176,7 @@ impl NuDataFrame {
     }
 
     pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
-        let df = &self.0;
+        let df = &self.as_ref();
         let column_names = df.get_column_names();
 
         let mut values: Vec<Value> = Vec::new();
