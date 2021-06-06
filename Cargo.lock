@@ -3856,7 +3856,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "num-bigint 0.3.2",
- "sysinfo",
+ "sysinfo 0.16.5",
 ]
 
 [[package]]
@@ -3920,7 +3920,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "num-bigint 0.3.2",
- "sysinfo",
+ "sysinfo 0.18.2",
 ]
 
 [[package]]
@@ -6152,6 +6152,22 @@ name = "sysinfo"
 version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567e910ef0207be81a4e1bb0491e9a8d9866cf45b20fe1a52c03d347da9ea51b"
+dependencies = [
+ "cfg-if 1.0.0",
+ "core-foundation-sys",
+ "doc-comment",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "rayon",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d404aefa651a24a7f2a1190fec9fb6380ba84ac511a6fefad79eb0e63d39a97d"
 dependencies = [
  "cfg-if 1.0.0",
  "core-foundation-sys",
