@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with head rows",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls head",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls head",
             result: None,
         }]
     }

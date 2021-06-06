@@ -33,7 +33,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example: "[[a b]; [a 2] [b 4] [a 6]] | pls convert | pls melt [a] [b]",
+            example: "[[a b]; [a 2] [b 4] [a 6]] | pls to_df | pls melt [a] [b]",
             result: None,
         }]
     }

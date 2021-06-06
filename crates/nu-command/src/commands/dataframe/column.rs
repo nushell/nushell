@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns the selected column as series",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls column a",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls column a",
             result: None,
         }]
     }

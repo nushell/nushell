@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop null values duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | pls convert | pls drop_nulls",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | pls to_df | pls drop_nulls",
             result: None,
         }]
     }

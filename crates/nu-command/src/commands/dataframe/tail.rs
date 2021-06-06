@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with tail rows",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls tail",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls tail",
             result: None,
         }]
     }

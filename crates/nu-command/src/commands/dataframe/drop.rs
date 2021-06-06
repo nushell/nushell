@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls drop [a]",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls drop [a]",
             result: None,
         }]
     }

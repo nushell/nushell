@@ -1,16 +1,13 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, UntaggedValue,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature};
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls convert"
+        "pls to_df"
     }
 
     fn usage(&self) -> &str {
@@ -18,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls convert")
+        Signature::build("pls to_df")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -26,17 +23,14 @@ impl WholeStreamCommand for DataFrame {
         let args = args.evaluate_once()?;
 
         let df = NuDataFrame::try_from_iter(args.input, &tag)?;
-        let init = InputStream::one(
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)).into_value(&tag),
-        );
 
-        Ok(init.to_output_stream())
+        Ok(InputStream::one(df.to_value(tag)))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes an input stream and converts it to a polars dataframe",
-            example: "[[a b];[1 2] [3 4]] | pls convert",
+            example: "[[a b];[1 2] [3 4]] | pls to_df",
             result: None,
         }]
     }

@@ -45,12 +45,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_csv test.csv",
                 result: None,
             },
             Example {
                 description: "Saves dataframe to csv file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_csv test.csv -d '|'",
                 result: None,
             },
         ]

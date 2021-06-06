@@ -32,7 +32,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new sorted dataframe",
-            example: "[[a b]; [3 4] [1 2]] | pls convert | pls sort [a]",
+            example: "[[a b]; [3 4] [1 2]] | pls to_df | pls sort [a]",
             result: None,
         }]
     }

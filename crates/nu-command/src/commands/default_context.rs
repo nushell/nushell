@@ -259,7 +259,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
         #[cfg(feature = "dataframe")]
         context.add_commands(vec![
             whole_stream_command(DataFrame),
-            whole_stream_command(DataFrameConvert),
             whole_stream_command(DataFrameLoad),
             whole_stream_command(DataFrameList),
             whole_stream_command(DataFrameGroupBy),
@@ -277,6 +276,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameMelt),
             whole_stream_command(DataFramePivot),
             whole_stream_command(DataFrameWhere),
+            whole_stream_command(DataFrameToDF),
+            whole_stream_command(DataFrameToSeries),
             whole_stream_command(DataFrameToParquet),
             whole_stream_command(DataFrameToCsv),
             whole_stream_command(DataFrameSort),
@@ -284,6 +285,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameDropDuplicates),
             whole_stream_command(DataFrameDropNulls),
             whole_stream_command(DataFrameColumn),
+            whole_stream_command(DataFrameWithColumn),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

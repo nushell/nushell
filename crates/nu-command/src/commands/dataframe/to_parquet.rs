@@ -38,7 +38,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to parquet file",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_parquet test.parquet",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_parquet test.parquet",
             result: None,
         }]
     }

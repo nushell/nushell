@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls slice 0 1",
             result: None,
         }]
     }

@@ -109,7 +109,7 @@ impl NuDataFrame {
         T: Iterator<Item = Value>,
     {
         // Dictionary to store the columnar data extracted from
-        // the input. During the iteration we will sort if the values
+        // the input. During the iteration we check if the values
         // have different type
         let mut column_values: ColumnMap = HashMap::new();
 
@@ -118,9 +118,11 @@ impl NuDataFrame {
                 UntaggedValue::Row(dictionary) => insert_row(&mut column_values, dictionary)?,
                 UntaggedValue::Table(table) => insert_table(&mut column_values, table)?,
                 _ => {
-                    return Err(ShellError::labeled_error(
+                    return Err(ShellError::labeled_error_with_secondary(
                         "Format not supported",
                         "Value not supported for conversion",
+                        &value.tag,
+                        "Perhaps you want to use a List of Tables or a Dictionary",
                         &value.tag,
                     ));
                 }
@@ -128,6 +130,13 @@ impl NuDataFrame {
         }
 
         from_parsed_columns(column_values, tag)
+    }
+
+    pub fn to_value(self, tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(self)),
+            tag,
+        }
     }
 
     pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
@@ -369,10 +378,12 @@ fn insert_value(
                 UntaggedValue::Primitive(Primitive::String(_)),
             ) => col_val.values.push(value),
             _ => {
-                return Err(ShellError::labeled_error(
+                return Err(ShellError::labeled_error_with_secondary(
                     "Different values in column",
                     "Value with different type",
                     &value.tag,
+                    "Perhaps you want to change it to this value type",
+                    &prev_value.tag,
                 ));
             }
         }
@@ -396,7 +407,7 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
             }
             InputValue::Integer => {
                 let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_f32()).collect();
+                    column.values.iter().map(|v| v.as_i64()).collect();
                 let series = Series::new(&name, series_values?);
                 df_series.push(series)
             }

@@ -1,9 +1,10 @@
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::vec;
 
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
-use polars::prelude::{DataType, Series};
+use polars::prelude::{DataType, NamedFrom, Series};
 use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
@@ -66,6 +67,41 @@ impl NuSeries {
             ))
     }
 
+    pub fn try_from_iter<T>(iter: T, name: Option<String>) -> Result<Self, ShellError>
+    where
+        T: Iterator<Item = Value>,
+    {
+        let mut vec_values: Vec<Value> = Vec::new();
+
+        for value in iter {
+            match value.value {
+                UntaggedValue::Primitive(Primitive::Int(_))
+                | UntaggedValue::Primitive(Primitive::Decimal(_))
+                | UntaggedValue::Primitive(Primitive::String(_)) => {
+                    insert_value(value, &mut vec_values)?
+                }
+                _ => {
+                    return Err(ShellError::labeled_error_with_secondary(
+                        "Format not supported",
+                        "Value not supported for conversion",
+                        &value.tag.span,
+                        "Perhaps you want to use a list of primitive values (int, decimal, string)",
+                        &value.tag.span,
+                    ));
+                }
+            }
+        }
+
+        from_parsed_vector(vec_values, name)
+    }
+
+    pub fn to_value(self, tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::DataFrame(PolarsData::Series(self)),
+            tag,
+        }
+    }
+
     pub fn series_to_value(series: Series, tag: Tag) -> Value {
         Value {
             value: UntaggedValue::DataFrame(PolarsData::Series(NuSeries::new(series))),
@@ -79,6 +115,10 @@ impl NuSeries {
 
     pub fn dtype(&self) -> &str {
         &self.dtype
+    }
+
+    pub fn series(self) -> Series {
+        self.series
     }
 }
 
@@ -219,4 +259,72 @@ impl NuSeries {
             _ => unimplemented!(),
         }
     }
+}
+
+fn insert_value(value: Value, vec_values: &mut Vec<Value>) -> Result<(), ShellError> {
+    // Checking that the type for the value is the same
+    // for the previous value in the column
+    if vec_values.is_empty() {
+        Ok(vec_values.push(value))
+    } else {
+        let prev_value = &vec_values[vec_values.len() - 1];
+
+        match (&prev_value.value, &value.value) {
+            (
+                UntaggedValue::Primitive(Primitive::Int(_)),
+                UntaggedValue::Primitive(Primitive::Int(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Decimal(_)),
+                UntaggedValue::Primitive(Primitive::Decimal(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::String(_)),
+                UntaggedValue::Primitive(Primitive::String(_)),
+            ) => Ok(vec_values.push(value)),
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Different values in column",
+                "Value with different type",
+                &value.tag,
+                "Perhaps you want to change it to this value type",
+                &prev_value.tag,
+            )),
+        }
+    }
+}
+
+fn from_parsed_vector(
+    vec_values: Vec<Value>,
+    name: Option<String>,
+) -> Result<NuSeries, ShellError> {
+    let series = match &vec_values[0].value {
+        UntaggedValue::Primitive(Primitive::Int(_)) => {
+            let series_values: Result<Vec<_>, _> = vec_values.iter().map(|v| v.as_i64()).collect();
+            let series_name = match &name {
+                Some(n) => n.as_ref(),
+                None => "int",
+            };
+            Series::new(series_name, series_values?)
+        }
+        UntaggedValue::Primitive(Primitive::Decimal(_)) => {
+            let series_values: Result<Vec<_>, _> = vec_values.iter().map(|v| v.as_f64()).collect();
+            let series_name = match &name {
+                Some(n) => n.as_ref(),
+                None => "decimal",
+            };
+            Series::new(series_name, series_values?)
+        }
+        UntaggedValue::Primitive(Primitive::String(_)) => {
+            let series_values: Result<Vec<_>, _> =
+                vec_values.iter().map(|v| v.as_string()).collect();
+            let series_name = match &name {
+                Some(n) => n.as_ref(),
+                None => "string",
+            };
+            Series::new(series_name, series_values?)
+        }
+        _ => unreachable!("The untagged type is checked while creating vec_values"),
+    };
+
+    Ok(NuSeries::new(series))
 }
