@@ -36,7 +36,7 @@ impl WholeStreamCommand for PathExpand {
     }
 
     fn usage(&self) -> &str {
-        "Expand a path to its absolute form"
+        "Try to expand a path to its absolute form"
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
