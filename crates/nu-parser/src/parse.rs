@@ -830,6 +830,56 @@ fn parse_table(
     )
 }
 
+fn parse_int(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    if lite_arg.item.starts_with("0x") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 16) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if lite_arg.item.starts_with("0b") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 2) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if lite_arg.item.starts_with("0o") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 8) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if let Ok(x) = lite_arg.item.parse::<i64>() {
+        (
+            SpannedExpression::new(Expression::integer(x), lite_arg.span),
+            None,
+        )
+    } else {
+        (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("int", lite_arg.clone())),
+        )
+    }
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -850,11 +900,8 @@ fn parse_arg(
 
     match expected_type {
         SyntaxShape::Number => {
-            if let Ok(x) = lite_arg.item.parse::<i64>() {
-                (
-                    SpannedExpression::new(Expression::integer(x), lite_arg.span),
-                    None,
-                )
+            if let (x, None) = parse_int(lite_arg) {
+                (x, None)
             } else if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
                     SpannedExpression::new(Expression::big_integer(x), lite_arg.span),

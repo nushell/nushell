@@ -530,6 +530,39 @@ fn block_params_override_correct() {
 }
 
 #[test]
+fn hex_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0x10
+        "#
+    );
+    assert_eq!(actual.out, "16");
+}
+
+#[test]
+fn binary_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0b10
+        "#
+    );
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn octal_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0o10
+        "#
+    );
+    assert_eq!(actual.out, "8");
+}
+
+#[test]
 fn run_dynamic_blocks() {
     let actual = nu!(
         cwd: ".",
