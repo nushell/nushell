@@ -1,6 +1,8 @@
 use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
-use nu_engine::filesystem::path::{expand_tilde, resolve_dots};
+#[cfg(feature = "dirs")]
+use nu_engine::filesystem::path::expand_tilde;
+use nu_engine::filesystem::path::resolve_dots;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
