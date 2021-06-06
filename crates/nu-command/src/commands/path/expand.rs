@@ -63,7 +63,9 @@ impl WholeStreamCommand for PathExpand {
             Example {
                 description: "Expand a relative path",
                 example: r"'foo\..\bar' | path expand",
-                result: None, // don't know where cwd is
+                result: Some(vec![
+                    UntaggedValue::filepath("bar").into_value(Span::new(0, 12))
+                ]),
             },
         ]
     }
