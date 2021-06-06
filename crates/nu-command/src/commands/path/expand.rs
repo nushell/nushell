@@ -90,10 +90,6 @@ impl WholeStreamCommand for PathExpand {
 }
 
 fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
-    let ps = path.to_string_lossy();
-    let expanded = shellexpand::tilde(&ps);
-    let path: &Path = expanded.as_ref().as_ref();
-
     if let Ok(p) = dunce::canonicalize(path) {
         UntaggedValue::filepath(p).into_value(tag)
     } else if args.strict {
