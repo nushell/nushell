@@ -1,6 +1,25 @@
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
+pub fn resolve_dots<P>(path: P) -> PathBuf
+where
+    P: AsRef<Path>,
+{
+    let mut result = PathBuf::new();
+
+    path.as_ref()
+        .components()
+        .for_each(|component| match component {
+            Component::ParentDir => {
+                result.pop();
+            }
+            Component::CurDir => {}
+            _ => result.push(component),
+        });
+
+    dunce::simplified(&result).to_path_buf()
+}
+
 pub fn absolutize<P, Q>(relative_to: P, path: Q) -> PathBuf
 where
     P: AsRef<Path>,
@@ -67,7 +86,7 @@ where
 
 // borrowed from here https://stackoverflow.com/questions/54267608/expand-tilde-in-rust-path-idiomatically
 #[cfg(feature = "dirs")]
-fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
+pub fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
     let p = path_user_input.as_ref();
     if !p.starts_with("~") {
         return Some(p.to_path_buf());

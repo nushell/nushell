@@ -1,11 +1,10 @@
 use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
-use nu_engine::filesystem::path::absolutize;
+use nu_engine::filesystem::path::{expand_tilde, resolve_dots};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Span;
-use std::env::current_dir;
 use std::path::Path;
 
 pub struct PathExpand;
@@ -30,7 +29,7 @@ impl WholeStreamCommand for PathExpand {
         Signature::build("path expand")
             .switch(
                 "strict",
-                "throw an error if the path could not be expanded",
+                "Throw an error if the path could not be expanded",
                 Some('s'),
             )
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
@@ -82,7 +81,9 @@ impl WholeStreamCommand for PathExpand {
             Example {
                 description: "Expand a relative path",
                 example: "'foo/../bar' | path expand",
-                result: None, // don't know where cwd is
+                result: Some(vec![
+                    UntaggedValue::filepath("bar").into_value(Span::new(0, 12))
+                ]),
             },
         ]
     }
@@ -99,17 +100,18 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
         Value::error(ShellError::labeled_error(
             "Could not expand path",
             "could not be expanded (path might not exist, non-final \
-                component is not a directory, or another cause)",
+                    component is not a directory, or other cause)",
             tag.span,
         ))
     } else {
-        match current_dir() {
-            Ok(cwd) => UntaggedValue::filepath(absolutize(cwd, path)).into_value(tag),
-            Err(_) => Value::error(ShellError::untagged_runtime_error(
-                "Could not find current working directory. \
-                It might not exist or has insufficient permissions.",
-            )),
-        }
+        // "best effort" mode, just expand tilde and resolve single/double dots
+        #[cfg(feature = "dirs")]
+        let path = match expand_tilde(path) {
+            Some(expanded) => expanded,
+            None => path.into(),
+        };
+
+        UntaggedValue::filepath(resolve_dots(&path)).into_value(tag)
     }
 }
 
