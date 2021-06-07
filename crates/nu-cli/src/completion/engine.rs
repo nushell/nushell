@@ -203,7 +203,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
     } else {
         let mut command = None;
         let mut prev = None;
-        for loc in locations {
+        for loc in &locations {
             // We don't use span.contains because we want to include the end. This handles the case
             // where the cursor is just after the text (i.e., no space between cursor and text)
             if loc.span.start() <= pos && pos <= loc.span.end() {
@@ -215,14 +215,22 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                             let cmd = cmd.clone();
                             let span = loc.span;
                             vec![
-                                loc,
+                                loc.clone(),
                                 LocationType::Flag(cmd.unwrap_or_default()).spanned(span),
                             ]
                         } else {
-                            vec![loc]
+                            let mut output = vec![];
+                            if locations.len() == 2 {
+                                output.push(LocationType::Command.spanned(Span::new(
+                                    locations[0].span.start(),
+                                    locations[1].span.end(),
+                                )));
+                            }
+                            output.push(loc.clone());
+                            output
                         }
                     }
-                    _ => vec![loc],
+                    _ => vec![loc.clone()],
                 };
             } else if pos < loc.span.start() {
                 break;
@@ -236,14 +244,25 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
         }
 
         if let Some(prev) = prev {
+            let mut locations = vec![];
             // Cursor is between locations (or at the end). Look at the line to see if the cursor
             // is after some character that would imply we're in the command position.
             let start = prev.span.end();
+
+            if let Spanned {
+                item: LocationType::Command,
+                span,
+            } = &prev
+            {
+                locations.push(LocationType::Command.spanned(Span::new(span.start(), pos)));
+            }
             if line[start..pos].contains(BEFORE_COMMAND_CHARS) {
-                vec![LocationType::Command.spanned(Span::new(pos, pos))]
+                locations.push(LocationType::Command.spanned(Span::new(pos, pos)));
+                locations
             } else {
                 // TODO this should be able to be mapped to a command
-                vec![LocationType::Argument(command, None).spanned(Span::new(pos, pos))]
+                locations.push(LocationType::Argument(command, None).spanned(Span::new(pos, pos)));
+                locations
             }
         } else {
             // Cursor is before any possible completion location, so must be a command
