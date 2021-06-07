@@ -216,6 +216,50 @@ fn string_interpolation_and_paren() {
 }
 
 #[test]
+fn paren_multiline() {
+    Playground::setup("invocation_handles_dot", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "multiline.nu",
+            r#"
+                   (2 +
+                    3)
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            nu multiline.nu
+            "#
+        ));
+
+        assert_eq!(actual.out, "5");
+    })
+}
+
+#[test]
+fn bracket_multiline() {
+    Playground::setup("invocation_handles_dot", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "multiline.nu",
+            r#"
+                   {2 +
+                    7}
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            nu multiline.nu
+            "#
+        ));
+
+        assert_eq!(actual.out, "9");
+    })
+}
+
+#[test]
 fn bignum_large_integer() {
     let actual = nu!(
         cwd: ".",
