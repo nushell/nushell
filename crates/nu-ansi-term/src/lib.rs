@@ -121,13 +121,13 @@
 //! `Fixed` colors instead, but there’s nothing to be gained by doing so
 //! either.
 //!
-//! You can also access full 24-bit color by using the `Color::RGB` variant,
+//! You can also access full 24-bit color by using the `Color::Rgb` variant,
 //! which takes separate `u8` arguments for red, green, and blue:
 //!
 //! ```
-//! use nu_ansi_term::Color::RGB;
+//! use nu_ansi_term::Color::Rgb;
 //!
-//! RGB(70, 130, 180).paint("Steel blue");
+//! Rgb(70, 130, 180).paint("Steel blue");
 //! ```
 //!
 //! ## Combining successive colored strings
@@ -233,7 +233,7 @@
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
 #![warn(missing_copy_implementations)]
-#![warn(missing_docs)]
+// #![warn(missing_docs)]
 #![warn(trivial_casts, trivial_numeric_casts)]
 // #![warn(unused_extern_crates, unused_qualifications)]
 
@@ -265,3 +265,9 @@ mod util;
 pub use util::*;
 
 mod debug;
+
+pub mod gradient;
+pub use gradient::*;
+
+mod rgb;
+pub use rgb::*;

@@ -18,10 +18,15 @@ doctest = false
 [features]
 derive_serde_style = ["serde"]
 
-[dependencies.serde]
-version = "1.0.90"
-features = ["derive"]
-optional = true
+[dependencies]
+overload = "0.1.1"
+serde = { version = "1.0.90", features = ["derive"], optional = true }
+itertools = "0.10.0"
+
+# [dependencies.serde]
+# version = "1.0.90"
+# features = ["derive"]
+# optional = true
 
 [target.'cfg(target_os="windows")'.dependencies.winapi]
 version = "0.3.4"
