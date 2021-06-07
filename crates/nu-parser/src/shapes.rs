@@ -6,7 +6,7 @@ use nu_source::{Spanned, SpannedItem};
 pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>> {
     match &e.expr {
         Expression::Block(exprs) => shapes(exprs),
-        Expression::Invocation(exprs) => shapes(exprs),
+        Expression::Subexpression(exprs) => shapes(exprs),
         Expression::FilePath(_) => vec![FlatShape::Path.spanned(e.span)],
         Expression::Garbage => vec![FlatShape::Garbage.spanned(e.span)],
         Expression::List(exprs) => {

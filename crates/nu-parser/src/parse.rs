@@ -129,7 +129,7 @@ pub fn parse_full_column_path(
 
             if head.is_none() && current_part.starts_with('(') && current_part.ends_with(')') {
                 let (invoc, err) =
-                    parse_invocation(&current_part.clone().spanned(part_span), scope);
+                    parse_subexpression(&current_part.clone().spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
@@ -162,7 +162,7 @@ pub fn parse_full_column_path(
 
         if head.is_none() {
             if current_part.starts_with('(') && current_part.ends_with(')') {
-                let (invoc, err) = parse_invocation(&current_part.spanned(part_span), scope);
+                let (invoc, err) = parse_subexpression(&current_part.spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
@@ -470,13 +470,12 @@ fn parse_filesize(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
     )
 }
 
-fn parse_invocation(
+fn parse_subexpression(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     let mut error = None;
 
-    // We have a command invocation
     let string: String = lite_arg
         .item
         .chars()
@@ -502,7 +501,7 @@ fn parse_invocation(
     scope.exit_scope();
 
     (
-        SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
+        SpannedExpression::new(Expression::Subexpression(classified_block), lite_arg.span),
         error,
     )
 }
@@ -526,7 +525,7 @@ fn parse_variable(
 }
 /// Parses the given lite_arg starting with dollar returning
 /// a expression starting with $
-/// Currently either Variable, Invocation, FullColumnPath
+/// Currently either Variable, String interpolation, FullColumnPath
 fn parse_dollar_expr(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
@@ -676,7 +675,7 @@ fn parse_interpolated_string(
                 match result {
                     (classified_block, None) => {
                         output.push(SpannedExpression {
-                            expr: Expression::Invocation(classified_block),
+                            expr: Expression::Subexpression(classified_block),
                             span: c.span,
                         });
                     }
@@ -709,8 +708,8 @@ fn parse_interpolated_string(
     let group = Group::new(pipelines, lite_arg.span);
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Arc::new(Block::new(
-            Signature::new("<invocation>"),
+        expr: Expression::Subexpression(Arc::new(Block::new(
+            Signature::new("<subexpression>"),
             vec![group],
             IndexMap::new(),
             lite_arg.span,
@@ -729,7 +728,7 @@ fn parse_external_arg(
     if lite_arg.item.starts_with('$') {
         parse_dollar_expr(&lite_arg, scope)
     } else if lite_arg.item.starts_with('(') {
-        parse_invocation(&lite_arg, scope)
+        parse_subexpression(&lite_arg, scope)
     } else {
         (
             SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),

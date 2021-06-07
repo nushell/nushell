@@ -25,7 +25,7 @@ impl<'s> Flatten<'s> {
     fn expression(&self, e: &SpannedExpression) -> Vec<CompletionLocation> {
         match &e.expr {
             Expression::Block(block) => self.completion_locations(block),
-            Expression::Invocation(block) => self.completion_locations(block),
+            Expression::Subexpression(block) => self.completion_locations(block),
             Expression::List(exprs) => exprs.iter().flat_map(|v| self.expression(v)).collect(),
             Expression::Table(headers, cells) => headers
                 .iter()

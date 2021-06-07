@@ -37,7 +37,7 @@ pub fn evaluate_baseline_expr(
         }
         Expression::Variable(var, s) => evaluate_reference(&var, ctx, *s),
         Expression::Command => unimplemented!(),
-        Expression::Invocation(block) => evaluate_invocation(block, ctx),
+        Expression::Subexpression(block) => evaluate_subexpression(block, ctx),
         Expression::ExternalCommand(_) => unimplemented!(),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
@@ -277,7 +277,10 @@ fn evaluate_reference(
     }
 }
 
-fn evaluate_invocation(block: &hir::Block, ctx: &EvaluationContext) -> Result<Value, ShellError> {
+fn evaluate_subexpression(
+    block: &hir::Block,
+    ctx: &EvaluationContext,
+) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let input = match ctx.scope.get_var("$it") {
         Some(it) => InputStream::one(it),

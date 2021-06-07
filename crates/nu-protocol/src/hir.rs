@@ -772,7 +772,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 Expression::Binary(binary) => binary.pretty_debug(source),
                 Expression::Range(range) => range.pretty_debug(source),
                 Expression::Block(_) => DbgDocBldr::opaque("block"),
-                Expression::Invocation(_) => DbgDocBldr::opaque("invocation"),
+                Expression::Subexpression(_) => DbgDocBldr::opaque("subexpression"),
                 Expression::Garbage => DbgDocBldr::opaque("garbage"),
                 Expression::List(list) => DbgDocBldr::delimit(
                     "[",
@@ -831,7 +831,7 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::Binary(binary) => binary.pretty_debug(source),
             Expression::Range(range) => range.pretty_debug(source),
             Expression::Block(_) => DbgDocBldr::opaque("block"),
-            Expression::Invocation(_) => DbgDocBldr::opaque("invocation"),
+            Expression::Subexpression(_) => DbgDocBldr::opaque("subexpression"),
             Expression::Garbage => DbgDocBldr::opaque("garbage"),
             Expression::List(list) => DbgDocBldr::delimit(
                 "[",
@@ -1082,7 +1082,7 @@ pub enum Expression {
     FilePath(PathBuf),
     ExternalCommand(ExternalStringCommand),
     Command,
-    Invocation(Arc<hir::Block>),
+    Subexpression(Arc<hir::Block>),
 
     Boolean(bool),
 
@@ -1106,7 +1106,7 @@ impl ShellTypeName for Expression {
             Expression::Binary(..) => "binary",
             Expression::Range(..) => "range",
             Expression::Block(..) => "block",
-            Expression::Invocation(..) => "command invocation",
+            Expression::Subexpression(..) => "subexpression",
             Expression::FullColumnPath(..) => "variable path",
             Expression::Boolean(..) => "boolean",
             Expression::ExternalCommand(..) => "external",
@@ -1199,7 +1199,7 @@ impl Expression {
                     || values.iter().any(|v| v.iter().any(|se| se.has_it_usage()))
             }
             Expression::List(list) => list.iter().any(|se| se.has_it_usage()),
-            Expression::Invocation(block) => block.has_it_usage(),
+            Expression::Subexpression(block) => block.has_it_usage(),
             Expression::Binary(binary) => binary.left.has_it_usage() || binary.right.has_it_usage(),
             Expression::FullColumnPath(path) => path.head.has_it_usage(),
             Expression::Range(range) => {
@@ -1240,7 +1240,7 @@ impl Expression {
                     output.extend(item.get_free_variables(known_variables));
                 }
             }
-            Expression::Invocation(block) | Expression::Block(block) => {
+            Expression::Subexpression(block) | Expression::Block(block) => {
                 output.extend(block.get_free_variables(known_variables));
             }
             Expression::Binary(binary) => {

@@ -1,7 +1,7 @@
 use nu_test_support::nu;
 
 #[test]
-fn test_parse_invocation_with_range() {
+fn test_parse_subexpression_with_range() {
     let actual = nu!(
         cwd: ".",
         r#"
