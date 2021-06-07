@@ -418,7 +418,10 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 3),
-                vec![LocationType::Argument(Some("cd".to_string()), None)],
+                vec![
+                    LocationType::Command,
+                    LocationType::Argument(Some("cd".to_string()), None)
+                ],
             );
         }
 
