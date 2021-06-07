@@ -203,6 +203,7 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
     } else {
         let mut command = None;
         let mut prev = None;
+
         for loc in &locations {
             // We don't use span.contains because we want to include the end. This handles the case
             // where the cursor is just after the text (i.e., no space between cursor and text)
@@ -220,12 +221,21 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                             ]
                         } else {
                             let mut output = vec![];
-                            if locations.len() == 2 {
-                                output.push(LocationType::Command.spanned(Span::new(
-                                    locations[0].span.start(),
-                                    locations[1].span.end(),
-                                )));
+
+                            for rloc in locations.iter().rev() {
+                                if let Spanned {
+                                    span,
+                                    item: LocationType::Command,
+                                } = &rloc
+                                {
+                                    output.push(LocationType::Command.spanned(Span::new(
+                                        span.start(),
+                                        locations[locations.len() - 1].span.end(),
+                                    )));
+                                    break;
+                                }
                             }
+
                             output.push(loc.clone());
                             output
                         }
