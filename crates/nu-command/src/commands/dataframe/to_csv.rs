@@ -18,7 +18,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to_csv"
+        "pls to-csv"
     }
 
     fn usage(&self) -> &str {
@@ -26,7 +26,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls to_csv")
+        Signature::build("pls to-csv")
             .required("file", SyntaxShape::FilePath, "file path to save dataframe")
             .named(
                 "delimiter",
@@ -45,12 +45,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to_csv test.csv",
                 result: None,
             },
             Example {
                 description: "Saves dataframe to csv file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to-csv test.csv -d '|'",
                 result: None,
             },
         ]

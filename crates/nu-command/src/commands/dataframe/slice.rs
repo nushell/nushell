@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select")
+        Signature::build("pls slice")
             .required("offset", SyntaxShape::Number, "start of slice")
             .required("size", SyntaxShape::Number, "size of slice")
     }
@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls slice 0 1",
             result: None,
         }]
     }

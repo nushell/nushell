@@ -35,12 +35,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | pls to_df | pls show",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls show",
                 result: None,
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to_df | pls show -t -n 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls show -t -n 1",
                 result: None,
             },
         ]

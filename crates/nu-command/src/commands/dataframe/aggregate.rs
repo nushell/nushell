@@ -109,12 +109,12 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
-                    "[[a b]; [one 1] [one 2]] | pls to_df | pls groupby [a] | pls aggregate sum",
+                    "[[a b]; [one 1] [one 2]] | pls to-df | pls groupby [a] | pls aggregate sum",
                 result: None,
             },
             Example {
                 description: "Aggregate sum in dataframe columns",
-                example: "[[a b]; [4 1] [5 2]] | pls to_df | pls aggregate sum",
+                example: "[[a b]; [4 1] [5 2]] | pls to-df | pls aggregate sum",
                 result: None,
             },
         ]

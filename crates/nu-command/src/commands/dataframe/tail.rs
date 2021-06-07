@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select").optional(
+        Signature::build("pls tail").optional(
             "n_rows",
             SyntaxShape::Number,
             "Number of rows for tail",
@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with tail rows",
-            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls tail",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls tail",
             result: None,
         }]
     }

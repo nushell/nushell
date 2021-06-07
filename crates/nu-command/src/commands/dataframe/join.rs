@@ -52,13 +52,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "inner join dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | pls to_df | pls join $right [a] [a]",
+                example: "echo [[a b]; [1 2] [3 4]] | pls to-df | pls join $right [a] [a]",
                 result: None,
             },
             Example {
                 description: "right join dataframe",
                 example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | pls to_df | pls join $right [b] [b] -t right",
+                    "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls join $right [b] [b] -t right",
                 result: None,
             },
         ]

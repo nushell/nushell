@@ -7,7 +7,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to_df"
+        "pls to-df"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls to_df")
+        Signature::build("pls to-df")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes an input stream and converts it to a polars dataframe",
-            example: "[[a b];[1 2] [3 4]] | pls to_df",
+            example: "[[a b];[1 2] [3 4]] | pls to-df",
             result: None,
         }]
     }

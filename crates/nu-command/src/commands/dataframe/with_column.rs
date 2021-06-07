@@ -11,7 +11,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls with_column"
+        "pls with-column"
     }
 
     fn usage(&self) -> &str {
@@ -19,7 +19,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls with_column").required(
+        Signature::build("pls with-column").required(
             "series",
             SyntaxShape::Any,
             "series to be added",
@@ -33,7 +33,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Adds a series to the dataframe",
-            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls with_column ([5 6] | pls to_series)",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls with-column ([5 6] | pls to-series)",
             result: None,
         }]
     }

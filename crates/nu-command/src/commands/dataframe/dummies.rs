@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to_dummies"
+        "pls to-dummies"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select")
+        Signature::build("pls to-dummies")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -27,7 +27,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with dummy variables",
-            example: "[[a b]; [1 2] [3 4]] | pls to_df | pls to_dummies",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to-dummies",
             result: None,
         }]
     }
