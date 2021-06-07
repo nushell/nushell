@@ -897,10 +897,7 @@ fn parse_arg(
 
     // before anything else, try to see if this is a number in paranthesis
     if lite_arg.item.starts_with('(') {
-        let (expr, err) = parse_full_column_path(&lite_arg, scope);
-        if err.is_none() {
-            return (expr, None);
-        }
+        return parse_full_column_path(&lite_arg, scope);
     }
 
     match expected_type {
