@@ -105,18 +105,7 @@ pub fn baseline(src: &mut Input, span_offset: usize) -> (Spanned<String>, Option
                 break;
             }
             in_comment = true;
-        } else if c == '\n' {
-            in_comment = false;
-            if is_termination(&block_level, c) {
-                break;
-            } else {
-                // Note: this allows us to parse expressions that span
-                // multiple lines inside of a block
-                let _ = src.next();
-                token_contents.push(' ');
-                continue;
-            }
-        } else if c == '\r' {
+        } else if c == '\n' || c == '\r' {
             in_comment = false;
             if is_termination(&block_level, c) {
                 break;
