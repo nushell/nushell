@@ -302,7 +302,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
         Expression::ExternalCommand(_) => Some(SyntaxShape::String),
         Expression::Table(_, _) => Some(SyntaxShape::Table),
         Expression::Command => Some(SyntaxShape::String),
-        Expression::Invocation(_) => Some(SyntaxShape::Block),
+        Expression::Subexpression(_) => Some(SyntaxShape::Block),
         Expression::Garbage => unreachable!("Should have failed at parsing stage"),
     }
 }
@@ -544,7 +544,7 @@ impl VarSyntaxShapeDeductor {
                 match &path.head.expr {
                     //PathMember can't be var yet (?)
                     //TODO Iterate over path parts and find var when implemented
-                    Expression::Invocation(b) => self.infer_shape(&b, scope)?,
+                    Expression::Subexpression(b) => self.infer_shape(&b, scope)?,
                     Expression::Variable(var_name, span) => {
                         self.checked_insert(
                             &VarUsage::new(var_name, span),
@@ -588,8 +588,8 @@ impl VarSyntaxShapeDeductor {
                     self.infer_shapes_in_expr((pipeline_idx, pipeline), expr, scope)?;
                 }
             }
-            Expression::Invocation(invoc) => {
-                trace!("Inferring vars in invocation: {:?}", invoc);
+            Expression::Subexpression(invoc) => {
+                trace!("Inferring vars in subexpression: {:?}", invoc);
                 self.infer_shape(invoc, scope)?;
             }
             Expression::Table(header, _rows) => {
@@ -794,7 +794,7 @@ impl VarSyntaxShapeDeductor {
                         | Expression::FilePath(_)
                         | Expression::ExternalCommand(_)
                         | Expression::Command
-                        | Expression::Invocation(_)
+                        | Expression::Subexpression(_)
                         | Expression::Boolean(_)
                         | Expression::Garbage => {
                             unreachable!("Parser should have rejected code. In only applicable with rhs of type List")

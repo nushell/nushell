@@ -116,7 +116,7 @@ fn tags_persist_through_vars() {
 }
 
 #[test]
-fn invocation_properly_redirects() {
+fn subexpression_properly_redirects() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -128,7 +128,7 @@ fn invocation_properly_redirects() {
 }
 
 #[test]
-fn argument_invocation() {
+fn argument_subexpression() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -140,8 +140,8 @@ fn argument_invocation() {
 }
 
 #[test]
-fn invocation_handles_dot() {
-    Playground::setup("invocation_handles_dot", |dirs, sandbox| {
+fn subexpression_handles_dot() {
+    Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nu_times.csv",
             r#"
@@ -575,7 +575,7 @@ fn run_dynamic_blocks() {
 
 #[cfg(feature = "which")]
 #[test]
-fn argument_invocation_reports_errors() {
+fn argument_subexpression_reports_errors() {
     let actual = nu!(
         cwd: ".",
         "echo (ferris_is_not_here.exe)"

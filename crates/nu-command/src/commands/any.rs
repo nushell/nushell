@@ -89,7 +89,7 @@ fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::boolean(false).into_value(&tag),
     ));
 
-    // Variables in nu are immutable. Having the same variable accross invocations
+    // Variables in nu are immutable. Having the same variable across invocations
     // of evaluate_baseline_expr does not mutate the variables and thus each
     // invocations are independent of each other!
     scope.enter_scope();
