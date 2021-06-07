@@ -1,10 +1,7 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
 
 use nu_source::Tagged;
 
@@ -44,12 +41,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | pls load | pls sample -r 1",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls sample -r 1",
                 result: None,
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | pls load | pls sample -f 0.5 -e",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls sample -f 0.5 -e",
                 result: None,
             },
         ]
@@ -64,52 +61,30 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let fraction: Option<Tagged<f64>> = args.get_flag("fraction")?;
     let replace: bool = args.has_flag("replace");
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+
+    let res = match (rows, fraction) {
+        (Some(rows), None) => df
+            .as_ref()
+            .sample_n(rows.item, replace)
+            .map_err(|e| parse_polars_error::<&str>(&e, &rows.tag.span, None)),
+        (None, Some(frac)) => df
+            .as_ref()
+            .sample_frac(frac.item, replace)
+            .map_err(|e| parse_polars_error::<&str>(&e, &frac.tag.span, None)),
+        (Some(_), Some(_)) => Err(ShellError::labeled_error(
+            "Incompatible flags",
+            "Only one selection criterion allowed",
             &tag,
         )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let res = match (rows, fraction) {
-                    (Some(rows), None) => df
-                        .as_ref()
-                        .sample_n(rows.item, replace)
-                        .map_err(|e| parse_polars_error::<&str>(&e, &rows.tag.span, None)),
-                    (None, Some(frac)) => df
-                        .as_ref()
-                        .sample_frac(frac.item, replace)
-                        .map_err(|e| parse_polars_error::<&str>(&e, &frac.tag.span, None)),
-                    (Some(_), Some(_)) => Err(ShellError::labeled_error(
-                        "Incompatible flags",
-                        "Only one selection criterion allowed",
-                        &tag,
-                    )),
-                    (None, None) => Err(ShellError::labeled_error_with_secondary(
-                        "No selection",
-                        "No selection criterion was found",
-                        &tag,
-                        "Perhaps you want to use the flag -n or -f",
-                        &tag,
-                    )),
-                }?;
+        (None, None) => Err(ShellError::labeled_error_with_secondary(
+            "No selection",
+            "No selection criterion was found",
+            &tag,
+            "Perhaps you want to use the flag -n or -f",
+            &tag,
+        )),
+    }?;
 
-                let value = Value {
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                    tag: tag.clone(),
-                };
-
-                Ok(OutputStream::one(value))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

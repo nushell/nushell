@@ -52,13 +52,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "inner join dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | pls convert | pls join $right [a] [a]",
+                example: "echo [[a b]; [1 2] [3 4]] | pls to-df | pls join $right [a] [a]",
                 result: None,
             },
             Example {
                 description: "right join dataframe",
                 example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | pls convert | pls join $right [b] [b] -t right",
+                    "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls join $right [b] [b] -t right",
                 result: None,
             },
         ]
@@ -95,53 +95,31 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (l_col_string, l_col_span) = convert_columns(&l_col, &tag)?;
     let (r_col_string, r_col_span) = convert_columns(&r_col, &tag)?;
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let res = match r_df.value {
-                    UntaggedValue::DataFrame(PolarsData::EagerDataFrame(r_df)) => {
-                        // Checking the column types before performing the join
-                        check_column_datatypes(
-                            df.as_ref(),
-                            &l_col_string,
-                            &l_col_span,
-                            &r_col_string,
-                            &r_col_span,
-                        )?;
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-                        df.as_ref()
-                            .join(r_df.as_ref(), &l_col_string, &r_col_string, join_type)
-                            .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))
-                    }
-                    _ => Err(ShellError::labeled_error(
-                        "Not a dataframe",
-                        "not a dataframe type value",
-                        &r_df.tag,
-                    )),
-                }?;
+    let res = match r_df.value {
+        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(r_df)) => {
+            // Checking the column types before performing the join
+            check_column_datatypes(
+                df.as_ref(),
+                &l_col_string,
+                &l_col_span,
+                &r_col_string,
+                &r_col_span,
+            )?;
 
-                let value = Value {
-                    value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(
-                        res,
-                    ))),
-                    tag: tag.clone(),
-                };
-
-                Ok(OutputStream::one(value))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
+            df.as_ref()
+                .join(r_df.as_ref(), &l_col_string, &r_col_string, join_type)
+                .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))
         }
-    }
+        _ => Err(ShellError::labeled_error(
+            "Not a dataframe",
+            "not a dataframe type value",
+            &r_df.tag,
+        )),
+    }?;
+
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }
 
 fn check_column_datatypes<T: AsRef<str>>(

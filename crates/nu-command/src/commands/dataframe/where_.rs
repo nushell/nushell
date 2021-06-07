@@ -2,9 +2,9 @@ use crate::prelude::*;
 use nu_engine::{evaluate_baseline_expr, EvaluatedCommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::NuDataFrame,
     hir::{CapturedBlock, ClassifiedCommand, Expression, Literal, Operator, SpannedExpression},
-    Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
+    Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue,
 };
 
 use super::utils::parse_polars_error;
@@ -36,7 +36,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe based on column a",
-            example: "[[a b]; [1 2] [3 4]] | pls convert | pls where a == 1",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls where a == 1",
             result: None,
         }]
     }
@@ -148,18 +148,8 @@ fn filter_dataframe(
     right_condition: &Primitive,
     operator: &SpannedExpression,
 ) -> Result<OutputStream, ShellError> {
-    let df = args
-        .input
-        .next()
-        .and_then(|value| match value.value {
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(nu)) => Some(nu),
-            _ => None,
-        })
-        .ok_or(ShellError::labeled_error(
-            "Incorrect stream input",
-            "Expected dataframe in stream",
-            &args.call_info.name_tag.span,
-        ))?;
+    let span = args.call_info.name_tag.span;
+    let df = NuDataFrame::try_from_stream(&mut args.input, &span)?;
 
     let col = df
         .as_ref()
@@ -198,10 +188,8 @@ fn filter_dataframe(
         .filter(&mask)
         .map_err(|e| parse_polars_error::<&str>(&e, &args.call_info.name_tag.span, None))?;
 
-    let value = Value {
-        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(res))),
-        tag: args.call_info.name_tag.clone(),
-    };
-
-    Ok(OutputStream::one(value))
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
+        res,
+        args.call_info.name_tag.clone(),
+    )))
 }

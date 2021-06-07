@@ -1,27 +1,27 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
+use nu_protocol::{
+    dataframe::{NuDataFrame, NuSeries},
+    Signature, SyntaxShape,
+};
 
 use nu_source::Tagged;
 
+use super::utils::parse_polars_error;
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls head"
+        "pls column"
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe with head rows"
+        "Returns the selected column as Series"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select").optional(
-            "rows",
-            SyntaxShape::Number,
-            "Number of rows for head",
-        )
+        Signature::build("pls column").required("column", SyntaxShape::String, "column name")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -30,8 +30,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Create new dataframe with head rows",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls head",
+            description: "Returns the selected column as series",
+            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls column a",
             result: None,
         }]
     }
@@ -40,15 +40,17 @@ impl WholeStreamCommand for DataFrame {
 fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
-    let rows: Option<Tagged<usize>> = args.opt(0)?;
-
-    let rows = match rows {
-        Some(val) => val.item,
-        None => 5,
-    };
+    let column: Tagged<String> = args.req(0)?;
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
-    let res = df.as_ref().head(Some(rows));
 
-    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
+    let res = df
+        .as_ref()
+        .column(column.item.as_ref())
+        .map_err(|e| parse_polars_error::<&str>(&e, &column.tag.span, None))?;
+
+    Ok(OutputStream::one(NuSeries::series_to_value(
+        res.clone(),
+        tag,
+    )))
 }

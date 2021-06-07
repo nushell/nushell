@@ -31,8 +31,11 @@ serde_yaml = "0.8.16"
 toml = "0.5.8"
 
 [dependencies.polars]
-version = "0.13.4"
+git = "https://github.com/pola-rs/polars"
+rev = "a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.0"
 optional = true
+features = ["serde"]
 
 [features]
 dataframe = ["polars"]

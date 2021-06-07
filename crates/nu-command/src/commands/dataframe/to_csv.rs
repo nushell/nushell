@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_protocol::dataframe::NuDataFrame;
 use nu_protocol::Primitive;
 use nu_protocol::Value;
-use nu_protocol::{dataframe::PolarsData, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 
 use polars::prelude::{CsvWriter, SerWriter};
 
@@ -17,7 +18,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to_csv"
+        "pls to-csv"
     }
 
     fn usage(&self) -> &str {
@@ -25,7 +26,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls to_csv")
+        Signature::build("pls to-csv")
             .required("file", SyntaxShape::FilePath, "file path to save dataframe")
             .named(
                 "delimiter",
@@ -44,12 +45,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to_csv test.csv",
                 result: None,
             },
             Example {
                 description: "Saves dataframe to csv file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | pls convert | pls to_csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to-csv test.csv -d '|'",
                 result: None,
             },
         ]
@@ -63,18 +64,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
 
-    let mut df = args
-        .input
-        .next()
-        .and_then(|value| match value.value {
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
-            _ => None,
-        })
-        .ok_or(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag.span,
-        ))?;
+    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
         ShellError::labeled_error(

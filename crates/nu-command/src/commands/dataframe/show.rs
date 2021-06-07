@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::PolarsData, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
 
 use nu_source::Tagged;
 
@@ -35,12 +35,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | pls convert | pls show",
+                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls show",
                 result: None,
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | pls convert | pls show -t -n 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls show -t -n 1",
                 result: None,
             },
         ]
@@ -54,25 +54,9 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let rows: Option<Tagged<usize>> = args.get_flag("n_rows")?;
     let tail: bool = args.has_flag("tail");
 
-    match args.input.next() {
-        None => Err(ShellError::labeled_error(
-            "No input received",
-            "missing dataframe input from stream",
-            &tag,
-        )),
-        Some(value) => {
-            if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = value.value {
-                let rows = rows.map(|v| v.item);
-                let values = if tail { df.tail(rows)? } else { df.head(rows)? };
+    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let rows = rows.map(|v| v.item);
+    let values = if tail { df.tail(rows)? } else { df.head(rows)? };
 
-                Ok(OutputStream::from_stream(values.into_iter()))
-            } else {
-                Err(ShellError::labeled_error(
-                    "No dataframe in stream",
-                    "no dataframe found in input stream",
-                    &tag,
-                ))
-            }
-        }
-    }
+    Ok(OutputStream::from_stream(values.into_iter()))
 }

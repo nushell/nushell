@@ -1,11 +1,11 @@
-use nu_source::Tag;
+use nu_source::{Span, Tag};
 use polars::frame::groupby::{GroupBy, GroupTuples};
 use serde::{Deserialize, Serialize};
 
-use super::NuDataFrame;
+use super::{NuDataFrame, PolarsData};
 use nu_errors::ShellError;
 
-use crate::{TaggedDictBuilder, Value};
+use crate::{TaggedDictBuilder, UntaggedValue, Value};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct NuGroupBy {
@@ -23,11 +23,25 @@ impl NuGroupBy {
         }
     }
 
+    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuGroupBy, ShellError>
+    where
+        T: Iterator<Item = Value>,
+    {
+        input
+            .next()
+            .and_then(|value| match value.value {
+                UntaggedValue::DataFrame(PolarsData::GroupBy(group)) => Some(group),
+                _ => None,
+            })
+            .ok_or(ShellError::labeled_error(
+                "No groupby object in stream",
+                "no groupby object found in input stream",
+                span,
+            ))
+    }
+
     pub fn to_groupby(&self) -> Result<GroupBy, ShellError> {
-        let df = match &self.dataframe.dataframe {
-            Some(df) => df,
-            None => unreachable!("No dataframe in nu_dataframe"),
-        };
+        let df = self.dataframe.as_ref();
 
         let by = df.select_series(&self.by).map_err(|e| {
             ShellError::labeled_error("Error creating groupby", format!("{}", e), Tag::unknown())
@@ -50,9 +64,6 @@ impl NuGroupBy {
 
 impl AsRef<polars::prelude::DataFrame> for NuGroupBy {
     fn as_ref(&self) -> &polars::prelude::DataFrame {
-        match &self.dataframe.dataframe {
-            Some(df) => df,
-            None => unreachable!("Accessing reference to dataframe from nu_groupby"),
-        }
+        self.dataframe.as_ref()
     }
 }
