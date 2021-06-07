@@ -54,7 +54,7 @@ pub fn parse_simple_column_path(
             if c == delimiter {
                 inside_delimiter = false;
             }
-        } else if c == '\'' || c == '"' || c == '`' {
+        } else if c == '\'' || c == '"' {
             inside_delimiter = true;
             delimiter = c;
         } else if c == '.' {
@@ -474,6 +474,8 @@ fn parse_invocation(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
+    let mut error = None;
+
     // We have a command invocation
     let string: String = lite_arg
         .item
@@ -484,21 +486,24 @@ fn parse_invocation(
 
     // We haven't done much with the inner string, so let's go ahead and work with it
     let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
+    if error.is_none() {
+        error = err;
     };
     let (lite_block, err) = parse_block(tokens);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
+    if error.is_none() {
+        error = err;
     };
 
     scope.enter_scope();
     let (classified_block, err) = classify_block(&lite_block, scope);
+    if error.is_none() {
+        error = err;
+    };
     scope.exit_scope();
 
     (
         SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
-        err,
+        error,
     )
 }
 
@@ -625,7 +630,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         if !found_end {
             error = Some(ParseError::argument_error(
                 input.spanned(Span::new(original_start, end)),
-                ArgumentError::MissingValueForName("unclosed { }".to_string()),
+                ArgumentError::MissingValueForName("unclosed ()".to_string()),
             ));
         }
 
@@ -1048,17 +1053,28 @@ fn parse_arg(
         SyntaxShape::Block | SyntaxShape::RowCondition => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
-            let mut chars = lite_arg.item.chars();
+            let mut chars: Vec<_> = lite_arg.item.chars().collect();
 
-            match (chars.next(), chars.next_back()) {
-                (Some('{'), Some('}')) => {
+            match chars.first() {
+                Some('{') => {
+                    let mut error = None;
+
+                    if let Some('}') = chars.last() {
+                        chars = chars[1..(chars.len() - 1)].to_vec();
+                    } else {
+                        chars = chars[1..].to_vec();
+                        error = Some(ParseError::unclosed(
+                            "}".into(),
+                            Span::new(lite_arg.span.end(), lite_arg.span.end()),
+                        ));
+                    }
                     // We have a literal block
-                    let string: String = chars.collect();
+                    let string: String = chars.into_iter().collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let (mut tokens, err) = lex(&string, lite_arg.span.start() + 1);
-                    if err.is_some() {
-                        return (garbage(lite_arg.span), err);
+                    if error.is_none() {
+                        error = err;
                     }
 
                     // Check to see if we have parameters
@@ -1118,12 +1134,15 @@ fn parse_arg(
                     };
 
                     let (lite_block, err) = parse_block(tokens);
-                    if err.is_some() {
-                        return (garbage(lite_arg.span), err);
+                    if error.is_none() {
+                        error = err;
                     }
 
                     scope.enter_scope();
                     let (mut classified_block, err) = classify_block(&lite_block, scope);
+                    if error.is_none() {
+                        error = err;
+                    }
                     scope.exit_scope();
 
                     if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
@@ -1141,7 +1160,7 @@ fn parse_arg(
 
                     (
                         SpannedExpression::new(Expression::Block(classified_block), lite_arg.span),
-                        err,
+                        error,
                     )
                 }
                 _ => {
@@ -2104,16 +2123,22 @@ pub fn parse(
     span_offset: usize,
     scope: &dyn ParserScope,
 ) -> (Arc<Block>, Option<ParseError>) {
-    let (output, error) = lex(input, span_offset);
-    if error.is_some() {
-        return (Arc::new(Block::basic()), error);
+    let mut error = None;
+    let (output, err) = lex(input, span_offset);
+    if error.is_none() {
+        error = err;
     }
-    let (lite_block, error) = parse_block(output);
-    if error.is_some() {
-        return (Arc::new(Block::basic()), error);
+    let (lite_block, err) = parse_block(output);
+    if error.is_none() {
+        error = err;
     }
 
-    classify_block(&lite_block, scope)
+    let (block, err) = classify_block(&lite_block, scope);
+    if error.is_none() {
+        error = err;
+    }
+
+    (block, error)
 }
 
 #[test]

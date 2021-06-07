@@ -28,6 +28,9 @@ pub enum ParseErrorReason {
         actual: Spanned<String>,
     },
 
+    /// Unclosed delimiter
+    Unclosed { delimiter: String, span: Span },
+
     /// An unexpected internal error has occurred
     InternalError { message: Spanned<String> },
 
@@ -98,6 +101,13 @@ impl ParseError {
             },
         }
     }
+
+    /// Unclosed delimiter
+    pub fn unclosed(delimiter: String, span: Span) -> ParseError {
+        ParseError {
+            reason: ParseErrorReason::Unclosed { delimiter, span },
+        }
+    }
 }
 
 /// Convert a [ParseError](ParseError) into a [ShellError](ShellError)
@@ -117,6 +127,11 @@ impl From<ParseError> for ShellError {
             ParseErrorReason::ArgumentError { command, error } => {
                 ShellError::argument_error(command, error)
             }
+            ParseErrorReason::Unclosed { delimiter, span } => ShellError::labeled_error(
+                "Unclosed delimiter",
+                format!("expected '{}'", delimiter),
+                span,
+            ),
         }
     }
 }
