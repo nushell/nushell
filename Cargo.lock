@@ -3280,6 +3280,8 @@ name = "nu-ansi-term"
 version = "0.32.0"
 dependencies = [
  "doc-comment",
+ "itertools",
+ "overload",
  "regex 1.5.4",
  "serde 1.0.126",
  "serde_json",
@@ -4298,6 +4300,12 @@ checksum = "3305af35278dd29f46fcdd139e0b1fbfae2153f0e5928b39b035542dd31e37b7"
 dependencies = [
  "num-traits 0.2.14",
 ]
+
+[[package]]
+name = "overload"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "parking"

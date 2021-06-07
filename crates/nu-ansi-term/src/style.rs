@@ -364,7 +364,7 @@ pub enum Color {
     /// [cc]: https://upload.wikimedia.org/wikipedia/commons/1/15/Xterm_256color_chart.svg
     Fixed(u8),
 
-    /// A 24-bit RGB color, as specified by ISO-8613-3.
+    /// A 24-bit Rgb color, as specified by ISO-8613-3.
     Rgb(u8, u8, u8),
 }
 
@@ -546,7 +546,7 @@ impl Color {
     /// ```
     /// use nu_ansi_term::Color;
     ///
-    /// let style = Color::RGB(31, 31, 31).on(Color::White);
+    /// let style = Color::Rgb(31, 31, 31).on(Color::White);
     /// println!("{}", style.paint("eyyyy"));
     /// ```
     pub fn on(self, background: Color) -> Style {
@@ -584,13 +584,13 @@ mod serde_json_tests {
         let colors = &[
             Color::Red,
             Color::Blue,
-            Color::RGB(123, 123, 123),
+            Color::Rgb(123, 123, 123),
             Color::Fixed(255),
         ];
 
         assert_eq!(
             serde_json::to_string(&colors).unwrap(),
-            String::from("[\"Red\",\"Blue\",{\"RGB\":[123,123,123]},{\"Fixed\":255}]")
+            String::from("[\"Red\",\"Blue\",{\"Rgb\":[123,123,123]},{\"Fixed\":255}]")
         );
     }
 
@@ -599,7 +599,7 @@ mod serde_json_tests {
         let colors = &[
             Color::Red,
             Color::Blue,
-            Color::RGB(123, 123, 123),
+            Color::Rgb(123, 123, 123),
             Color::Fixed(255),
         ];
 
