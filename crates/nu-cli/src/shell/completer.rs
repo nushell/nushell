@@ -65,23 +65,23 @@ impl NuCompleter {
             let suggestions = locations
                 .into_iter()
                 .flat_map(|location| {
-                    let partial = location.span.slice(line);
+                    let partial = location.span.slice(line).to_string();
                     match location.item {
                         LocationType::Command => {
                             let command_completer = CommandCompleter;
-                            command_completer.complete(context, partial, matcher.to_owned())
+                            command_completer.complete(context, &partial, matcher.to_owned())
                         }
 
                         LocationType::Flag(cmd) => {
                             let flag_completer = FlagCompleter { cmd };
-                            flag_completer.complete(context, partial, matcher.to_owned())
+                            flag_completer.complete(context, &partial, matcher.to_owned())
                         }
 
                         LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = PathCompleter;
                             let prepend = Span::new(pos, location.span.start()).slice(line);
 
-                            const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
+                            const QUOTE_CHARS: &[char] = &['\'', '"'];
 
                             // TODO Find a better way to deal with quote chars. Can the completion
                             //      engine relay this back to us? Maybe have two spans: inner and
@@ -89,22 +89,24 @@ impl NuCompleter {
                             //      we'd need to replace.
                             let (quote_char, partial) = if partial.starts_with(QUOTE_CHARS) {
                                 let (head, tail) = partial.split_at(1);
-                                (Some(head), tail)
+                                (Some(head), tail.to_string())
                             } else {
                                 (None, partial)
                             };
 
-                            let partial = if let Some(quote_char) = quote_char {
+                            let (mut partial, quoted) = if let Some(quote_char) = quote_char {
                                 if partial.ends_with(quote_char) {
-                                    &partial[..partial.len() - 1]
+                                    (partial[..partial.len() - 1].to_string(), true)
                                 } else {
-                                    partial
+                                    (partial, false)
                                 }
                             } else {
-                                partial
+                                (partial, false)
                             };
 
-                            let completed_paths = path_completer.path_suggestions(partial, matcher);
+                            partial = partial.split('"').collect::<Vec<_>>().join("");
+                            let completed_paths =
+                                path_completer.path_suggestions(&partial, matcher);
                             match cmd.as_deref().unwrap_or("") {
                                 "cd" => select_directory_suggestions(completed_paths),
                                 _ => completed_paths,
@@ -114,7 +116,7 @@ impl NuCompleter {
                                 replacement: format!(
                                     "{}{}",
                                     prepend,
-                                    requote(s.suggestion.replacement)
+                                    requote(s.suggestion.replacement, quoted)
                                 ),
                                 display: s.suggestion.display,
                             })
@@ -144,10 +146,10 @@ fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<Pat
         .collect()
 }
 
-fn requote(orig_value: String) -> String {
+fn requote(orig_value: String, previously_quoted: bool) -> String {
     let value: Cow<str> = rustyline::completion::unescape(&orig_value, Some('\\'));
 
-    let mut quotes = vec!['"', '\'', '`'];
+    let mut quotes = vec!['"', '\''];
     let mut should_quote = false;
     for c in value.chars() {
         if c.is_whitespace() || c == '#' {
@@ -165,7 +167,11 @@ fn requote(orig_value: String) -> String {
             value.to_string()
         } else {
             let quote = quotes[0];
-            format!("{}{}{}", quote, value, quote)
+            if previously_quoted {
+                format!("{}{}", quote, value)
+            } else {
+                format!("{}{}{}", quote, value, quote)
+            }
         }
     } else {
         value.to_string()
