@@ -38,6 +38,21 @@ pub(crate) fn run_external_command(
     run_with_stdin(command, context, input, external_redirection)
 }
 
+#[allow(unused)]
+fn trim_double_quotes(input: &str) -> String {
+    let mut chars = input.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('"'), Some('"')) => chars.collect(),
+        _ => input.to_string(),
+    }
+}
+
+#[allow(unused)]
+fn escape_where_needed(input: &str) -> String {
+    input.split(' ').join("\\ ").split('\'').join("\\'")
+}
+
 fn run_with_stdin(
     command: ExternalCommand,
     context: &mut EvaluationContext,
@@ -81,6 +96,7 @@ fn run_with_stdin(
             }
             _ => {
                 let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
+                //let trimmed_value_string = trim_quotes(&trimmed_value_string);
                 command_args.push((trimmed_value_string, is_literal));
             }
         }
@@ -108,7 +124,12 @@ fn run_with_stdin(
                     let escaped = escape_double_quotes(&arg);
                     add_double_quotes(&escaped)
                 } else {
-                    arg.as_ref().to_string()
+                    let trimmed = trim_double_quotes(&arg);
+                    if trimmed != arg {
+                        escape_where_needed(&trimmed)
+                    } else {
+                        trimmed
+                    }
                 }
             }
             #[cfg(windows)]
