@@ -199,7 +199,8 @@ mod stdin_evaluation {
 
 mod external_words {
     use super::nu;
-
+    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::fs::Stub::{FileWithContent};
     #[test]
     fn relaxed_external_words() {
         let actual = nu!(cwd: ".", r#"
@@ -216,6 +217,27 @@ mod external_words {
         "#);
 
         assert_eq!(actual.out, "test \"things\"");
+    }
+
+    #[test]
+    fn external_arg_with_quotes() {
+        Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "sample.toml",
+                r#"
+                    nu_party_venue = "zion"
+                "#,
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    nu --testbin meow "sample.toml" | from toml | get nu_party_venue
+                "#
+            ));
+
+            assert_eq!(actual.out, "zion");
+        })
     }
 }
 
