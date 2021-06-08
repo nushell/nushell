@@ -6,7 +6,7 @@ use crate::completion::path::{PathCompleter, PathSuggestion};
 use crate::completion::{self, Completer, Suggestion};
 use nu_engine::EvaluationContext;
 use nu_parser::ParserScope;
-use nu_source::Tag;
+use nu_source::{Span, Tag};
 
 use std::borrow::Cow;
 
@@ -72,6 +72,7 @@ impl NuCompleter {
 
                         LocationType::Argument(cmd, _arg_name) => {
                             let path_completer = PathCompleter;
+                            let prepend = Span::new(pos, location.span.start()).slice(line);
 
                             const QUOTE_CHARS: &[char] = &['\'', '"', '`'];
 
@@ -103,7 +104,11 @@ impl NuCompleter {
                             }
                             .into_iter()
                             .map(|s| Suggestion {
-                                replacement: requote(s.suggestion.replacement),
+                                replacement: format!(
+                                    "{}{}",
+                                    prepend,
+                                    requote(s.suggestion.replacement)
+                                ),
                                 display: s.suggestion.display,
                             })
                             .collect()
