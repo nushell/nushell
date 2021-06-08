@@ -77,7 +77,7 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
         }
     } else {
         Some(ParseError::internal_error(
-            "need a block".to_string().spanned(call.span()),
+            "Wrong shape. Expected def name [signature] {body}.".to_string().spanned(call.span()),
         ))
     }
 }
