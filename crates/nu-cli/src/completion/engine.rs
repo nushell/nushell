@@ -228,11 +228,13 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                                     item: LocationType::Command,
                                 } = &rloc
                                 {
-                                    output.push(LocationType::Command.spanned(Span::new(
-                                        span.start(),
-                                        locations[locations.len() - 1].span.end(),
-                                    )));
-                                    break;
+                                    if span.start() <= pos {
+                                        output.push(
+                                            LocationType::Command
+                                                .spanned(Span::new(span.start(), pos)),
+                                        );
+                                        break;
+                                    }
                                 }
                             }
 
