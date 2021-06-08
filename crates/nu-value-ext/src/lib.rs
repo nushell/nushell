@@ -11,6 +11,9 @@ use nu_source::{
 };
 use num_traits::cast::ToPrimitive;
 
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::{NuSeries, PolarsData};
+
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
     fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value>;
@@ -199,6 +202,24 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
                 }
             }
         }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => match &name.unspanned {
+            UnspannedPathMember::String(string) => {
+                let column = df.as_ref().column(string.as_ref()).map_err(|e| {
+                    ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
+                })?;
+
+                Ok(NuSeries::series_to_value(
+                    column.clone(),
+                    Tag::new(value.anchor(), name.span),
+                ))
+            }
+            _ => Err(ShellError::labeled_error(
+                "Integer as column",
+                "Only string as column name",
+                &name.span,
+            )),
+        },
         other => Err(ShellError::type_error(
             "row or table",
             other.type_name().spanned(value.tag.span),
