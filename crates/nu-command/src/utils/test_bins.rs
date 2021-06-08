@@ -29,7 +29,7 @@ pub fn meow() {
     let args: Vec<String> = args();
 
     for arg in args.iter().skip(1) {
-        let contents = std::fs::read_to_string(arg).unwrap();
+        let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
         println!("{}", contents);
     }
 }
