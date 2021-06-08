@@ -199,8 +199,8 @@ mod stdin_evaluation {
 
 mod external_words {
     use super::nu;
+    use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::{pipeline, playground::Playground};
-    use nu_test_support::fs::Stub::{FileWithContent};
     #[test]
     fn relaxed_external_words() {
         let actual = nu!(cwd: ".", r#"

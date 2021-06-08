@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .long("testbin")
                 .value_name("TESTBIN")
                 .possible_values(&[
-                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater", "meow"
+                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater", "meow",
                 ])
                 .takes_value(true),
         )
