@@ -54,7 +54,14 @@ impl NuCompleter {
         if locations.is_empty() {
             (pos, Vec::new())
         } else {
-            let pos = locations[0].span.start();
+            let mut pos = locations[0].span.start();
+
+            for location in &locations {
+                if location.span.start() < pos {
+                    pos = location.span.start();
+                }
+            }
+
             let suggestions = locations
                 .into_iter()
                 .flat_map(|location| {
