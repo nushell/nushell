@@ -38,6 +38,7 @@ pub(crate) fn run_external_command(
     run_with_stdin(command, context, input, external_redirection)
 }
 
+#[allow(unused)]
 fn trim_double_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
@@ -47,6 +48,7 @@ fn trim_double_quotes(input: &str) -> String {
     }
 }
 
+#[allow(unused)]
 fn escape_where_needed(input: &str) -> String {
     input.split(' ').join("\\ ").split('\'').join("\\'")
 }
