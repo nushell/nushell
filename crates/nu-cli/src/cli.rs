@@ -157,8 +157,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
     // Store cmd duration in an env var
     context.scope.add_env_var(
-        "CMD_DURATION",
-        format!("{:?}", startup_commands_start_time.elapsed()),
+        "CMD_DURATION_MS",
+        format!("{}", startup_commands_start_time.elapsed().as_millis()),
     );
     trace!(
         "startup commands took {:?}",
@@ -332,9 +332,10 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         };
 
         // Store cmd duration in an env var
-        context
-            .scope
-            .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
+        context.scope.add_env_var(
+            "CMD_DURATION_MS",
+            format!("{}", cmd_start_time.elapsed().as_millis()),
+        );
 
         match line {
             LineResult::Success(line) => {
