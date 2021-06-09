@@ -416,7 +416,7 @@ fn run_sink(path: String, args: CommandArgs) -> Result<ActionStream, ShellError>
                         "Bypass",
                         "-File",
                         &real_path.to_string_lossy(),
-                        &tmpfile
+                        tmpfile
                             .path()
                             .to_str()
                             .expect("Failed getting tmpfile path"),

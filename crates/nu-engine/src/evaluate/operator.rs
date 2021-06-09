@@ -84,7 +84,7 @@ fn table_contains(
         UntaggedValue::Table(values) => {
             Ok(values
                 .iter()
-                .any(|x| match compare_values(Operator::Equal, &left, &x.value) {
+                .any(|x| match compare_values(Operator::Equal, left, &x.value) {
                     Ok(coerced) => coerced,
                     _ => false,
                 }))

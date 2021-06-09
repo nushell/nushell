@@ -78,7 +78,7 @@ impl ColumnPath {
                 span: _,
             },
             _,
-        ) = parse(&text)
+        ) = parse(text)
         {
             ColumnPath {
                 members: path.iter().map(|member| member.to_path_member()).collect(),

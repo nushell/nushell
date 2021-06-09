@@ -60,7 +60,7 @@ fn from_node_to_value(n: &roxmltree::Node, tag: impl Into<Tag>) -> Value {
 
         let mut collected = TaggedDictBuilder::new(&tag);
 
-        let attribute_value: Value = from_attributes_to_value(&n.attributes(), &tag);
+        let attribute_value: Value = from_attributes_to_value(n.attributes(), &tag);
 
         let mut row = TaggedDictBuilder::new(&tag);
         row.insert_untagged(

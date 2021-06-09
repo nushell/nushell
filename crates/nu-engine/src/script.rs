@@ -65,7 +65,7 @@ pub fn process_script(
     } else {
         let line = chomp_newline(script_text);
 
-        let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
+        let (block, err) = nu_parser::parse(line, span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -111,7 +111,7 @@ pub fn process_script(
                     && args
                         .positional
                         .as_ref()
-                        .map(|ref v| v.len() == 1)
+                        .map(|v| v.len() == 1)
                         .unwrap_or(true)
                     && args
                         .named
@@ -120,7 +120,7 @@ pub fn process_script(
                         .unwrap_or(true)
                     && canonicalize(ctx.shell_manager.path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !ctx.host.lock().is_external_cmd(&name)
+                    && !ctx.host.lock().is_external_cmd(name)
                 {
                     let tag = Tag {
                         anchor: Some(AnchorLocation::Source(line.into())),
@@ -285,7 +285,7 @@ pub fn run_script_standalone(
                 }
             };
 
-            maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(context, Text::from(line));
             if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
@@ -297,7 +297,7 @@ pub fn run_script_standalone(
                 .lock()
                 .print_err(err, &Text::from(line.clone()));
 
-            maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(context, Text::from(line));
             if exit_on_error {
                 std::process::exit(1);
             }

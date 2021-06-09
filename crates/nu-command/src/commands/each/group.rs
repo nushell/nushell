@@ -73,7 +73,7 @@ impl Iterator for EachGroupIterator {
         let mut group = vec![];
         let mut current_count = 0;
 
-        while let Some(next) = self.input.next() {
+        for next in &mut self.input {
             group.push(next);
 
             current_count += 1;

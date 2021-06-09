@@ -185,7 +185,7 @@ mod tests {
 
             let mut res = FileStructure::new();
 
-            res.walk_decorate(&dirs.test())
+            res.walk_decorate(dirs.test())
                 .expect("Can not decorate files traversal.");
 
             assert_eq!(

@@ -537,7 +537,7 @@ fn parse_dollar_expr(
             && lite_arg.item.ends_with('\''))
     {
         // This is an interpolated string
-        parse_interpolated_string(&lite_arg, scope)
+        parse_interpolated_string(lite_arg, scope)
     } else if let (expr, None) = parse_range(lite_arg, scope) {
         (expr, None)
     } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
@@ -588,7 +588,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         let mut found_end = false;
         let mut delimiter_stack = vec![')'];
 
-        while let Some(c) = loop_input.next() {
+        for c in &mut loop_input {
             end += 1;
             if let Some('\'') = delimiter_stack.last() {
                 if c == '\'' {
@@ -726,9 +726,9 @@ fn parse_external_arg(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        parse_dollar_expr(&lite_arg, scope)
+        parse_dollar_expr(lite_arg, scope)
     } else if lite_arg.item.starts_with('(') {
-        parse_subexpression(&lite_arg, scope)
+        parse_subexpression(lite_arg, scope)
     } else {
         (
             SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
@@ -809,7 +809,7 @@ fn parse_table(
     let lite_cells = &lite_rows.commands[0];
 
     for arg in &lite_cells.parts {
-        let (string, err) = verify_and_strip(&arg, '[', ']');
+        let (string, err) = verify_and_strip(arg, '[', ']');
         if error.is_none() {
             error = err;
         }
@@ -891,12 +891,12 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_dollar_expr(&lite_arg, scope);
+        return parse_dollar_expr(lite_arg, scope);
     }
 
     // before anything else, try to see if this is a number in paranthesis
     if lite_arg.item.starts_with('(') {
-        return parse_full_column_path(&lite_arg, scope);
+        return parse_full_column_path(lite_arg, scope);
     }
 
     match expected_type {
@@ -954,13 +954,13 @@ fn parse_arg(
             )
         }
 
-        SyntaxShape::Range => parse_range(&lite_arg, scope),
+        SyntaxShape::Range => parse_range(lite_arg, scope),
         SyntaxShape::Operator => (
             garbage(lite_arg.span),
             Some(ParseError::mismatch("operator", lite_arg.clone())),
         ),
-        SyntaxShape::Filesize => parse_filesize(&lite_arg),
-        SyntaxShape::Duration => parse_duration(&lite_arg),
+        SyntaxShape::Filesize => parse_filesize(lite_arg),
+        SyntaxShape::Duration => parse_duration(lite_arg),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
@@ -1084,7 +1084,7 @@ fn parse_arg(
                         // We've found a parameter list
                         let mut param_tokens = vec![];
                         let mut token_iter = tokens.into_iter().skip(1);
-                        while let Some(token) = token_iter.next() {
+                        for token in &mut token_iter {
                             if matches!(
                                 token,
                                 Token {
@@ -1478,7 +1478,7 @@ fn parse_internal_command(
     );
 
     let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
-    internal_command.args.set_initial_flags(&signature);
+    internal_command.args.set_initial_flags(signature);
 
     let mut current_positional = 0;
     let mut named = NamedArguments::new();
@@ -1489,7 +1489,7 @@ fn parse_internal_command(
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) = super::flag::get_flag_signature_spec(
-                &signature,
+                signature,
                 &internal_command,
                 &lite_cmd.parts[idx],
             );

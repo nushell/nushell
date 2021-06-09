@@ -320,7 +320,7 @@ impl fmt::Display for Infix {
                 let f: &mut dyn fmt::Write = f;
                 write!(f, "{}{}", RESET, self.1.prefix())
             }
-            Difference::NoDifference => {
+            Difference::Empty => {
                 Ok(()) // nothing to write
             }
         }

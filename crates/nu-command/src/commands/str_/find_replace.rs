@@ -101,7 +101,7 @@ fn action(
 ) -> Result<Value, ShellError> {
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            let FindReplace(find, replacement) = FindReplace(&find, &replace);
+            let FindReplace(find, replacement) = FindReplace(find, replace);
             let regex = Regex::new(find);
 
             Ok(match regex {

@@ -266,7 +266,7 @@ where
             match Difference::between(&window[0].style, &window[1].style) {
                 ExtraStyles(style) => write!(w, "{}", style.prefix())?,
                 Reset => write!(w, "{}{}", RESET, window[1].style.prefix())?,
-                NoDifference => { /* Do nothing! */ }
+                Empty => { /* Do nothing! */ }
             }
 
             w.write_str(&window[1].string)?;

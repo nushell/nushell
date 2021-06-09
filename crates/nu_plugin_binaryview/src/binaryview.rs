@@ -328,7 +328,7 @@ pub fn view_contents_interactive(
 
     let mut nes = neso::Nes::new(0.0);
     let rawkey = RawKey::new();
-    nes.load_rom(&buffer);
+    nes.load_rom(buffer);
 
     if let Some(ref sav_path) = sav_path {
         if let Ok(contents) = std::fs::read(sav_path) {

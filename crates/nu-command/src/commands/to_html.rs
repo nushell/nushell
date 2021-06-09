@@ -285,18 +285,13 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         output_string.push_str("\nScreenshots of themes can be found here:\n");
         output_string.push_str("https://github.com/mbadolato/iTerm2-Color-Schemes\n");
-
-        // Short circuit and return the output_string
-        Ok(OutputStream::one(
-            UntaggedValue::string(output_string).into_value(name_tag),
-        ))
     } else {
         let theme_tag = match &theme {
             Some(v) => &v.tag,
             None => &name_tag,
         };
 
-        let color_hm = get_theme_from_asset_file(dark, &theme, &theme_tag);
+        let color_hm = get_theme_from_asset_file(dark, &theme, theme_tag);
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
@@ -362,11 +357,10 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
             setup_no_color_regexes(&mut regex_hm);
             output_string = run_regexes(&regex_hm, &output_string);
         }
-
-        Ok(OutputStream::one(
-            UntaggedValue::string(output_string).into_value(name_tag),
-        ))
     }
+    Ok(OutputStream::one(
+        UntaggedValue::string(output_string).into_value(name_tag),
+    ))
 }
 
 fn html_list(list: Vec<Value>) -> String {
@@ -393,7 +387,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>) -> String {
     output_string.push_str("<tr>");
     for header in &headers {
         output_string.push_str("<th>");
-        output_string.push_str(&htmlescape::encode_minimal(&header));
+        output_string.push_str(&htmlescape::encode_minimal(header));
         output_string.push_str("</th>");
     }
     output_string.push_str("</tr>");

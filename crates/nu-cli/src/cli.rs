@@ -307,7 +307,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
-            readline = rl.readline_with_initial(&prompt, (&cmd, ""));
+            readline = rl.readline_with_initial(&prompt, (cmd, ""));
             initial_command = None;
         }
 
@@ -479,7 +479,7 @@ pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, She
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     ctx.scope.enter_scope();
-    let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
+    let (classified_block, err) = nu_parser::parse(line, 0, &ctx.scope);
     if let Some(err) = err {
         ctx.scope.exit_scope();
         return Err(err.into());

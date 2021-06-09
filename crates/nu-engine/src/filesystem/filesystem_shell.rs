@@ -931,7 +931,7 @@ fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
         to.push(from_file_name);
     }
 
-    move_item(&from, from_tag, &to)
+    move_item(from, from_tag, &to)
 }
 
 fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {

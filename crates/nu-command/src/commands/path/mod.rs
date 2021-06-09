@@ -181,7 +181,7 @@ where
                 let cloned_args = Arc::clone(&args);
                 ret = match ret.swap_data_by_column_path(
                     path,
-                    Box::new(move |old| handle_value(&action, &old, span, cloned_args)),
+                    Box::new(move |old| handle_value(&action, old, span, cloned_args)),
                 ) {
                     Ok(v) => v,
                     Err(e) => Value::error(e),

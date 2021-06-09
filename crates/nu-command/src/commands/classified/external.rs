@@ -625,26 +625,26 @@ mod tests {
 
     #[test]
     fn checks_quotes_from_argument_to_be_passed_in() {
-        assert_eq!(argument_is_quoted(""), false);
+        assert!(!argument_is_quoted(""));
 
-        assert_eq!(argument_is_quoted("'"), false);
-        assert_eq!(argument_is_quoted("'a"), false);
-        assert_eq!(argument_is_quoted("a"), false);
-        assert_eq!(argument_is_quoted("a'"), false);
-        assert_eq!(argument_is_quoted("''"), true);
+        assert!(!argument_is_quoted("'"));
+        assert!(!argument_is_quoted("'a"));
+        assert!(!argument_is_quoted("a"));
+        assert!(!argument_is_quoted("a'"));
+        assert!(argument_is_quoted("''"));
 
-        assert_eq!(argument_is_quoted(r#"""#), false);
-        assert_eq!(argument_is_quoted(r#""a"#), false);
-        assert_eq!(argument_is_quoted(r#"a"#), false);
-        assert_eq!(argument_is_quoted(r#"a""#), false);
-        assert_eq!(argument_is_quoted(r#""""#), true);
+        assert!(!argument_is_quoted(r#"""#));
+        assert!(!argument_is_quoted(r#""a"#));
+        assert!(!argument_is_quoted(r#"a"#));
+        assert!(!argument_is_quoted(r#"a""#));
+        assert!(argument_is_quoted(r#""""#));
 
-        assert_eq!(argument_is_quoted("'andrés"), false);
-        assert_eq!(argument_is_quoted("andrés'"), false);
-        assert_eq!(argument_is_quoted(r#""andrés"#), false);
-        assert_eq!(argument_is_quoted(r#"andrés""#), false);
-        assert_eq!(argument_is_quoted("'andrés'"), true);
-        assert_eq!(argument_is_quoted(r#""andrés""#), true);
+        assert!(!argument_is_quoted("'andrés"));
+        assert!(!argument_is_quoted("andrés'"));
+        assert!(!argument_is_quoted(r#""andrés"#));
+        assert!(!argument_is_quoted(r#"andrés""#));
+        assert!(argument_is_quoted("'andrés'"));
+        assert!(argument_is_quoted(r#""andrés""#));
     }
 
     #[test]

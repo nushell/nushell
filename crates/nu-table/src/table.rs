@@ -886,7 +886,7 @@ impl WrappedTable {
 
         if self.theme.print_top_border {
             output.push_str(
-                self.print_separator(SeparatorPosition::Top, &color_hm)
+                self.print_separator(SeparatorPosition::Top, color_hm)
                     .as_str(),
             );
         }
@@ -895,7 +895,7 @@ impl WrappedTable {
             || (self.headers.len() == 1 && self.headers[0].max_width == 0);
 
         if !self.headers.is_empty() && !skip_headers {
-            output.push_str(self.print_cell_contents(&self.headers, &color_hm).as_str());
+            output.push_str(self.print_cell_contents(&self.headers, color_hm).as_str());
         }
 
         let mut first_row = true;
@@ -904,7 +904,7 @@ impl WrappedTable {
             if !first_row {
                 if self.theme.separate_rows {
                     output.push_str(
-                        self.print_separator(SeparatorPosition::Middle, &color_hm)
+                        self.print_separator(SeparatorPosition::Middle, color_hm)
                             .as_str(),
                     )
                 }
@@ -913,18 +913,18 @@ impl WrappedTable {
 
                 if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
                     output.push_str(
-                        self.print_separator(SeparatorPosition::Middle, &color_hm)
+                        self.print_separator(SeparatorPosition::Middle, color_hm)
                             .as_str(),
                     );
                 }
             }
 
-            output.push_str(self.print_cell_contents(row, &color_hm).as_str());
+            output.push_str(self.print_cell_contents(row, color_hm).as_str());
         }
 
         if self.theme.print_bottom_border {
             output.push_str(
-                self.print_separator(SeparatorPosition::Bottom, &color_hm)
+                self.print_separator(SeparatorPosition::Bottom, color_hm)
                     .as_str(),
             );
         }
@@ -1073,12 +1073,12 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
     let wrapped_table = wrap_cells(
         processed_table,
         max_column_width,
-        &color_hm,
+        color_hm,
         &re_leading,
         &re_trailing,
     );
 
-    wrapped_table.print_table(&color_hm)
+    wrapped_table.print_table(color_hm)
 }
 
 fn wrap_cells(
@@ -1111,9 +1111,9 @@ fn wrap_cells(
             let (mut lines, inner_max_width) = wrap(
                 max_column_width,
                 contents.into_iter(),
-                &color_hm,
-                &re_leading,
-                &re_trailing,
+                color_hm,
+                re_leading,
+                re_trailing,
             );
             wrapped.lines.append(&mut lines);
             if inner_max_width > wrapped.max_width {
@@ -1139,9 +1139,9 @@ fn wrap_cells(
                 let (mut lines, inner_max_width) = wrap(
                     max_column_width,
                     contents.into_iter(),
-                    &color_hm,
-                    &re_leading,
-                    &re_trailing,
+                    color_hm,
+                    re_leading,
+                    re_trailing,
                 );
                 wrapped.lines.append(&mut lines);
                 if inner_max_width > wrapped.max_width {

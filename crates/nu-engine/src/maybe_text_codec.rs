@@ -40,7 +40,7 @@ impl<R: Read> Iterator for BufCodecReader<R> {
         let buffer = self.input.fill_buf();
         match buffer {
             Ok(s) => {
-                let result = self.maybe_text_codec.decode(&s).transpose();
+                let result = self.maybe_text_codec.decode(s).transpose();
 
                 let buffer_len = s.len();
                 self.input.consume(buffer_len);

@@ -99,7 +99,7 @@ fn convert_yaml_value_to_nu_value(
                             .first()
                             .and_then(|e| match e {
                                 (serde_yaml::Value::String(s), serde_yaml::Value::Null) => Some(
-                                    UntaggedValue::string("{{ ".to_owned() + &s + " }}")
+                                    UntaggedValue::string("{{ ".to_owned() + s + " }}")
                                         .into_value(tag),
                                 ),
                                 _ => None,

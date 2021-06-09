@@ -16,6 +16,7 @@ pub struct Config {
     pub pager: String,
     pub line_ranges: bat::line_range::LineRanges,
     // TODO: Not configurable
+    #[allow(unused)]
     highlight_range: String,
     // TODO: Not configurable
     pub highlight_range_from: u64,

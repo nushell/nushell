@@ -135,7 +135,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !ctx.host.lock().is_external_cmd(&name))
+            && !ctx.host.lock().is_external_cmd(name))
     {
         Some(name)
     } else {

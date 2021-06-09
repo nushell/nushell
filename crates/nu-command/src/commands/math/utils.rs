@@ -60,7 +60,7 @@ pub fn run_with_numerical_functions_on_stream(
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {
     if values.iter().all(|v| v.is_primitive()) {
-        mf(&values, &name)
+        mf(values, name)
     } else {
         // If we are not dealing with Primitives, then perhaps we are dealing with a table
         // Create a key for each column name
@@ -78,7 +78,7 @@ pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value
         // The mathematical function operates over the columns of the table
         let mut column_totals = IndexMap::new();
         for (col_name, col_vals) in column_values {
-            if let Ok(out) = mf(&col_vals, &name) {
+            if let Ok(out) = mf(&col_vals, name) {
                 column_totals.insert(col_name, out);
             }
         }
