@@ -65,7 +65,7 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,
-                &path,
+                path,
                 move |obj_source, path_member_tried, error| {
                     if let PathMember {
                         unspanned: UnspannedPathMember::String(column),

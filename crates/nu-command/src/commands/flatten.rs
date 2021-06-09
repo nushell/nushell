@@ -85,7 +85,7 @@ fn flat_value(
                 } = value
                 {
                     if column_requested.is_none() && !columns.is_empty() {
-                        if out.contains_key(&column) {
+                        if out.contains_key(column) {
                             out.insert_value(format!("{}_{}", column, column), value.clone());
                         } else {
                             out.insert_value(column, value.clone());
@@ -141,7 +141,7 @@ fn flat_value(
                         }
                     } else if a_table.is_none() {
                         a_table = Some(TableInside::Entries(
-                            &column,
+                            column,
                             &value.tag,
                             value.table_entries().collect(),
                         ))

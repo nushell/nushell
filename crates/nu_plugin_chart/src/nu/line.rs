@@ -60,7 +60,7 @@ impl SubCommand {
 }
 
 fn display(model: &Model) -> Result<(), Box<dyn Error>> {
-    let mut app = Line::from_model(&model)?;
+    let mut app = Line::from_model(model)?;
 
     enable_raw_mode()?;
 

@@ -98,7 +98,7 @@ pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     ctx.scope.enter_scope();
-    let value = evaluate_baseline_expr(&expr, &ctx);
+    let value = evaluate_baseline_expr(expr, &ctx);
     ctx.scope.exit_scope();
 
     let value = value?;

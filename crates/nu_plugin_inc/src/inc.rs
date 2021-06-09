@@ -31,7 +31,7 @@ impl Inc {
     fn apply(&self, input: &str) -> UntaggedValue {
         match &self.action {
             Some(Action::SemVerAction(act_on)) => {
-                let mut ver = match semver::Version::parse(&input) {
+                let mut ver = match semver::Version::parse(input) {
                     Ok(parsed_ver) => parsed_ver,
                     Err(_) => return UntaggedValue::string(input.to_string()),
                 };
@@ -80,7 +80,7 @@ impl Inc {
                 Ok(UntaggedValue::filesize(b + 1_u64).into_value(value.tag()))
             }
             UntaggedValue::Primitive(Primitive::String(ref s)) => {
-                Ok(self.apply(&s).into_value(value.tag()))
+                Ok(self.apply(s).into_value(value.tag()))
             }
             UntaggedValue::Table(values) => {
                 if values.len() == 1 {
@@ -100,9 +100,9 @@ impl Inc {
 
                     let replace_for = get_data_by_column_path(
                         &value,
-                        &f,
+                        f,
                         move |obj_source, column_path_tried, _| match did_you_mean(
-                            &obj_source,
+                            obj_source,
                             column_path_tried.as_string(),
                         ) {
                             Some(suggestions) => ShellError::labeled_error(
@@ -122,7 +122,7 @@ impl Inc {
                     let replacement = self.inc(got)?;
 
                     value
-                        .replace_data_at_column_path(&f, replacement.value.into_untagged_value())
+                        .replace_data_at_column_path(f, replacement.value.into_untagged_value())
                         .ok_or_else(|| {
                             ShellError::labeled_error(
                                 "inc could not find field to replace",

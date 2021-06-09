@@ -90,7 +90,7 @@ where
                         .map(|(k, v)| -> Result<_, ShellError> {
                             Ok((
                                 k.clone(),
-                                action(&v, tag.clone(), char_, trim_operation, mode)?,
+                                action(v, tag.clone(), char_, trim_operation, mode)?,
                             ))
                         })
                         .collect();

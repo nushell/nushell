@@ -62,7 +62,7 @@ pub fn collect(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     match strings {
         Ok(strings) => {
-            let output = strings.join(&separator);
+            let output = strings.join(separator);
 
             Ok(ActionStream::one(ReturnSuccess::value(
                 UntaggedValue::string(output).into_value(tag),

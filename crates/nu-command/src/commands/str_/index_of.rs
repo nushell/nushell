@@ -138,7 +138,7 @@ fn action(
         None => UntaggedValue::string("").into_value(&tag),
     };
 
-    let r = process_range(&input, &range)?;
+    let r = process_range(input, &range)?;
 
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {

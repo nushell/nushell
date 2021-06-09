@@ -56,7 +56,7 @@ fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
             for command in &*commands {
                 match command {
                     FormatCommand::Text(s) => {
-                        output.push_str(&s);
+                        output.push_str(s);
                     }
                     FormatCommand::Column(c) => {
                         // FIXME: use the correct spans
@@ -97,7 +97,7 @@ fn format(input: &str) -> Vec<FormatCommand> {
     loop {
         let mut before = String::new();
 
-        while let Some(c) = loop_input.next() {
+        for c in &mut loop_input {
             if c == '{' {
                 break;
             }
@@ -110,7 +110,7 @@ fn format(input: &str) -> Vec<FormatCommand> {
         // Look for column as we're now at one
         let mut column = String::new();
 
-        while let Some(c) = loop_input.next() {
+        for c in &mut loop_input {
             if c == '}' {
                 break;
             }

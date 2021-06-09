@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn parses_longform_flag_containing_equal_sign() {
         let input = "bundle add rails --group=development";
-        let (tokens, _) = lex(&input, 0);
+        let (tokens, _) = lex(input, 0);
         let (root_node, _) = parse_block(tokens);
 
         assert_eq!(root_node.block.len(), 1);

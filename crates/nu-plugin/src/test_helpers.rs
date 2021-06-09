@@ -112,7 +112,7 @@ impl CallStub {
     }
 
     pub fn with_parameter(&mut self, name: &str) -> Result<&mut Self, ShellError> {
-        let cp = column_path(&name)
+        let cp = column_path(name)
             .as_column_path()
             .expect("Failed! Expected valid column path.");
         let cp = UntaggedValue::Primitive(Primitive::ColumnPath(cp.item)).into_value(cp.tag);

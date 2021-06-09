@@ -117,7 +117,7 @@ fn process(
             })
             .collect::<String>()
     } else {
-        table(&input, pretty)
+        table(input, pretty)
     }
 }
 
@@ -158,7 +158,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string = htmlescape::encode_minimal(&header);
+            let escaped_header_string = htmlescape::encode_minimal(header);
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
@@ -170,7 +170,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 }
 
 fn table(input: &[Value], pretty: bool) -> String {
-    let headers = nu_protocol::merge_descriptors(&input);
+    let headers = nu_protocol::merge_descriptors(input);
 
     let (escaped_headers, mut column_widths) = collect_headers(&headers);
 

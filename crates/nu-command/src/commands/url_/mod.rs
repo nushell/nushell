@@ -51,7 +51,7 @@ where
                 for path in &paths {
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| handle_value(&action, &old)),
+                        Box::new(move |old| handle_value(&action, old)),
                     )?;
                 }
 

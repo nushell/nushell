@@ -101,7 +101,7 @@ fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     context.scope.add_vars(&condition.captured.entries);
 
     //FIXME: should we use the scope that's brought in as well?
-    let condition = evaluate_baseline_expr(&cond, &*context);
+    let condition = evaluate_baseline_expr(cond, &*context);
     match condition {
         Ok(condition) => match condition.as_bool() {
             Ok(b) => {

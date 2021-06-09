@@ -40,7 +40,7 @@ pub fn report(
 ) -> Result<Model, ShellError> {
     let tag = tag.into();
 
-    let grouped = group(&values, &options.grouper, &tag)?;
+    let grouped = group(values, &options.grouper, &tag)?;
     let splitted = split(&grouped, &options.splitter, &tag)?;
 
     let x = grouped
@@ -48,7 +48,7 @@ pub fn report(
         .map(|(key, _)| key.clone())
         .collect::<Vec<_>>();
 
-    let x = sort_columns(&x, &options.format)?;
+    let x = sort_columns(&x, options.format)?;
 
     let mut y = splitted
         .row_entries()

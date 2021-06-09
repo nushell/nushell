@@ -57,13 +57,7 @@ pub fn from_list(
         .into_iter()
         .map(|x| StyledString::new(x, header_style))
         .collect();
-    let entries = values_to_entries(
-        values,
-        &mut headers,
-        &configuration,
-        starting_idx,
-        &color_hm,
-    );
+    let entries = values_to_entries(values, &mut headers, configuration, starting_idx, color_hm);
     nu_table::Table {
         headers,
         data: entries,
@@ -96,11 +90,11 @@ fn values_to_entries(
                             ..
                         } => StyledString::new(
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing(), &color_hm),
+                            style_leaf(&UntaggedValue::nothing(), color_hm),
                         ),
                         _ => StyledString::new(
                             format_leaf(value).plain_string(100_000),
-                            style_leaf(value, &color_hm),
+                            style_leaf(value, color_hm),
                         ),
                     }
                 } else {
@@ -113,12 +107,12 @@ fn values_to_entries(
 
                             StyledString::new(
                                 format_leaf(data.borrow()).plain_string(100_000),
-                                style_leaf(data.borrow(), &color_hm),
+                                style_leaf(data.borrow(), color_hm),
                             )
                         }
                         _ => StyledString::new(
                             format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
-                            style_leaf(&UntaggedValue::nothing(), &color_hm),
+                            style_leaf(&UntaggedValue::nothing(), color_hm),
                         ),
                     }
                 }

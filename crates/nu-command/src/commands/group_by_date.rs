@@ -91,7 +91,7 @@ pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Box::new(move |_, row: &Value| {
                     let group_key = row
                         .get_data_by_key(column_name.borrow_spanned())
-                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), row));
 
                     group_key?.format("%Y-%m-%d")
                 });
@@ -107,7 +107,7 @@ pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let block = Box::new(move |_, row: &Value| {
                     let group_key = row
                         .get_data_by_key(column_name.borrow_spanned())
-                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), &row));
+                        .ok_or_else(|| suggestions(column_name.borrow_tagged(), row));
 
                     group_key?.format(&fmt)
                 });

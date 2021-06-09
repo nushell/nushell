@@ -326,7 +326,7 @@ fn get_result_shape_of_math_expr(
     for expr in &[&bin.left, &bin.right] {
         let shape = match &expr.expr {
             Expression::Binary(deep_binary) => {
-                get_result_shape_of_math_expr(&deep_binary, (pipeline_idx, pipeline), scope)?
+                get_result_shape_of_math_expr(deep_binary, (pipeline_idx, pipeline), scope)?
             }
             _ => get_shape_of_expr(expr),
         };
@@ -537,19 +537,19 @@ impl VarSyntaxShapeDeductor {
             }
             Expression::Block(b) => {
                 trace!("Inferring vars in block");
-                self.infer_shape(&b, scope)?;
+                self.infer_shape(b, scope)?;
             }
             Expression::FullColumnPath(path) => {
                 trace!("Inferring vars in path");
                 match &path.head.expr {
                     //PathMember can't be var yet (?)
                     //TODO Iterate over path parts and find var when implemented
-                    Expression::Subexpression(b) => self.infer_shape(&b, scope)?,
+                    Expression::Subexpression(b) => self.infer_shape(b, scope)?,
                     Expression::Variable(var_name, span) => {
                         self.checked_insert(
                             &VarUsage::new(var_name, span),
                             VarShapeDeduction::from_usage_with_alternatives(
-                                &span,
+                                span,
                                 &get_shapes_allowed_in_path(),
                             ),
                         )?;
@@ -573,9 +573,9 @@ impl VarSyntaxShapeDeductor {
                 if let Some(range_right) = &range.right {
                     if let Expression::Variable(var_name, span) = &range_right.expr {
                         self.checked_insert(
-                            &VarUsage::new(&var_name, &spanned_expr.span),
+                            &VarUsage::new(var_name, &spanned_expr.span),
                             VarShapeDeduction::from_usage_with_alternatives(
-                                &span,
+                                span,
                                 &get_shapes_allowed_in_range(),
                             ),
                         )?;
@@ -745,7 +745,7 @@ impl VarSyntaxShapeDeductor {
                     let shapes = get_shapes_decay_able_to_bool();
                     // shapes.push(SyntaxShape::Math);
                     self.checked_insert(
-                        &var,
+                        var,
                         VarShapeDeduction::from_usage_with_alternatives(&var.span, &shapes),
                     )?;
                 }
@@ -765,7 +765,7 @@ impl VarSyntaxShapeDeductor {
                                 let shapes_in_list = self.get_shapes_in_list_or_insert_dependency(
                                     var,
                                     bin_spanned,
-                                    &list,
+                                    list,
                                     (pipeline_idx, pipeline),
                                 );
                                 match shapes_in_list {
@@ -879,7 +879,7 @@ impl VarSyntaxShapeDeductor {
                             var,
                             VarShapeDeduction::from_usage_with_alternatives(
                                 &var.span,
-                                &MULT_DIV_LOOKUP_TABLE
+                                MULT_DIV_LOOKUP_TABLE
                                     .get(&(op, var_side, shape))
                                     .expect("shape is unit, number or int. Would have failed in parsing stage otherwise")
                             ),
@@ -971,7 +971,7 @@ impl VarSyntaxShapeDeductor {
         let mut new_deductions = new_deductions;
         new_deductions.sort_unstable_by(|a, b| (a.deduction as i32).cmp(&(b.deduction as i32)));
 
-        let (insert_k, insert_v) = match self.inferences.get_key_value(&var_usage) {
+        let (insert_k, insert_v) = match self.inferences.get_key_value(var_usage) {
             Some((k, existing_deductions)) => {
                 let Deduction::VarShapeDeduction(existing_deductions) = existing_deductions;
 

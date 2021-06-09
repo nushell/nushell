@@ -102,7 +102,7 @@ fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     for HeaderField { name, value } in eml.headers.iter() {
-        dict.insert_untagged(name, headerfieldvalue_to_value(&tag, &value));
+        dict.insert_untagged(name, headerfieldvalue_to_value(&tag, value));
     }
 
     if let Some(body) = eml.body {
