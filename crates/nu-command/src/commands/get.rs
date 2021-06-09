@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::utils::arguments::arguments;
 use indexmap::set::IndexSet;
 use log::trace;
 use nu_engine::WholeStreamCommand;
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("get").rest(
-            SyntaxShape::Any,
+            SyntaxShape::ColumnPath,
             "optionally return additional data by path",
         )
     }
@@ -51,10 +50,8 @@ impl WholeStreamCommand for Command {
 
 pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
-    let mut rest: Vec<Value> = args.rest(0)?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
     let mut input = args.input;
-
-    let (column_paths, _) = arguments(&mut rest)?;
 
     if column_paths.is_empty() {
         let vec = input.drain_vec();

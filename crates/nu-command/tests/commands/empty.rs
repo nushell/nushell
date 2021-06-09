@@ -32,7 +32,7 @@ fn sets_block_run_value_for_an_empty_column() {
                      [       Jason,     Gedge, 10/11/2013,   1    ]
                      [      Yehuda,      Katz, 10/11/2013,  ''    ]
             ]
-            | empty? likes { 1 }
+            | empty? likes -b { 1 }
             | get likes
             | math sum
         "#
@@ -52,7 +52,7 @@ fn sets_block_run_value_for_many_empty_columns() {
                      [     1,    ""     ]
                      [     1,  (wrap)  ]
             ]
-            | empty? boost check { 1 }
+            | empty? boost check -b { 1 }
             | get boost check
             | math sum
         "#
@@ -73,8 +73,8 @@ fn passing_a_block_will_set_contents_on_empty_cells_and_leave_non_empty_ones_unt
                      [    Arepas,  "",   "" ]
                      [     Jorge,  30, 3000 ]
             ]
-            | empty? LVL { 9 }
-            | empty? HP {
+            | empty? LVL -b { 9 }
+            | empty? HP -b {
                 $it.LVL * 1000
               }
             | math sum

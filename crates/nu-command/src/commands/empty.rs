@@ -7,7 +7,6 @@ use nu_protocol::{
     SyntaxShape, UntaggedValue, Value,
 };
 
-use crate::utils::arguments::arguments;
 use nu_value_ext::{as_string, ValueExt};
 
 pub struct Command;
@@ -18,10 +17,17 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("empty?").rest(
-            SyntaxShape::Any,
-            "the names of the columns to check emptiness. Pass an optional block to replace if empty",
-        )
+        Signature::build("empty?")
+            .rest(
+                SyntaxShape::ColumnPath,
+                "the names of the columns to check emptiness",
+            )
+            .named(
+                "block",
+                SyntaxShape::Block,
+                "an optional block to replace if empty",
+                Some('b'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -58,7 +64,7 @@ impl WholeStreamCommand for Command {
                 ),
             },Example {
                 description: "use a block if setting the empty cell contents is wanted",
-                example: "echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] }",
+                example: "echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 -b { [33 37] }",
                 result: Some(
                     vec![
                         UntaggedValue::row(indexmap! {
@@ -79,11 +85,10 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
     let args = args.evaluate_once()?;
-    let mut rest = args.rest(0)?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
-        arguments(&mut rest)?;
+    let block: Option<CapturedBlock> = args.get_flag("block")?;
+    let columns: Vec<ColumnPath> = args.rest(0)?;
+
     let input = args.input;
-    let default_block = Arc::new(default_block);
 
     if input.is_empty() {
         let stream = vec![UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)].into_iter();
@@ -92,10 +97,9 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
             .map(move |input| {
                 let tag = name_tag.clone();
                 let context = context.clone();
-                let block = default_block.clone();
                 let columns = vec![];
 
-                match process_row(context, input, block, columns, tag) {
+                match process_row(context, input, &block, columns, tag) {
                     Ok(s) => s,
                     Err(e) => ActionStream::one(Err(e)),
                 }
@@ -108,10 +112,9 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
         .map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
-            let block = default_block.clone();
             let columns = columns.clone();
 
-            match process_row(context, input, block, columns, tag) {
+            match process_row(context, input, &block, columns, tag) {
                 Ok(s) => s,
                 Err(e) => ActionStream::one(Err(e)),
             }
@@ -123,7 +126,7 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
 fn process_row(
     context: Arc<EvaluationContext>,
     input: Value,
-    default_block: Arc<Option<Box<CapturedBlock>>>,
+    default_block: &Option<CapturedBlock>,
     column_paths: Vec<ColumnPath>,
     tag: Arc<Tag>,
 ) -> Result<ActionStream, ShellError> {
