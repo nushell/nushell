@@ -21,7 +21,7 @@ impl WholeStreamCommand for Source {
     fn signature(&self) -> Signature {
         Signature::build("source").required(
             "filename",
-            SyntaxShape::String,
+            SyntaxShape::FilePath,
             "the filepath to the script file to source",
         )
     }

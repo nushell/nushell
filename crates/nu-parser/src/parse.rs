@@ -1836,38 +1836,6 @@ fn parse_call(
                 error,
             );
         }
-    } else if lite_cmd.parts[0].item == "source" {
-        if lite_cmd.parts.len() != 2 {
-            return (
-                None,
-                Some(ParseError::argument_error(
-                    lite_cmd.parts[0].clone(),
-                    ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
-                )),
-            );
-        }
-        if lite_cmd.parts[1].item.starts_with('$') {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath constant",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
-        if let Ok(contents) =
-            std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
-        {
-            let _ = parse(&contents, 0, scope);
-        } else {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath to a source file",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -1898,6 +1866,40 @@ fn parse_call(
             }
         }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
+
+        if internal_command.name == "source" {
+            if lite_cmd.parts.len() != 2 {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[0].clone(),
+                        ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
+                    )),
+                );
+            }
+            if lite_cmd.parts[1].item.starts_with('$') {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::mismatch(
+                        "a filepath constant",
+                        lite_cmd.parts[1].clone(),
+                    )),
+                );
+            }
+            if let Ok(contents) =
+                std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
+            {
+                let _ = parse(&contents, 0, scope);
+            } else {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[1].clone(),
+                        ArgumentError::BadValue("can't load source file".into()),
+                    )),
+                );
+            }
+        }
 
         error = error.or(err);
         internal_command.args.external_redirection = if end_of_pipeline {
