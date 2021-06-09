@@ -23,12 +23,16 @@ impl WholeStreamCommand for Exec {
             .required("command", SyntaxShape::FilePath, "the command to execute")
             .rest(
                 SyntaxShape::GlobPattern,
-                "any additional arguments for command",
+                "any additional arguments for the command",
             )
     }
 
     fn usage(&self) -> &str {
-        "Execute command."
+        "Execute a command, replacing the current process."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Currently supported only on Unix-based systems."
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
@@ -38,7 +42,7 @@ impl WholeStreamCommand for Exec {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Execute 'ps aux'",
+                description: "Execute external 'ps aux' tool",
                 example: "exec ps aux",
                 result: None,
             },
