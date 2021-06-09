@@ -155,6 +155,8 @@ pub enum ArgumentError {
     /// A sequence of characters was found that was not syntactically valid (but would have
     /// been valid if the command was an external command)
     InvalidExternalWord,
+    /// A bad value in this location
+    BadValue(String),
 }
 
 impl PrettyDebug for ArgumentError {
@@ -186,6 +188,11 @@ impl PrettyDebug for ArgumentError {
                     + DbgDocBldr::description("`")
             }
             ArgumentError::InvalidExternalWord => DbgDocBldr::description("invalid word"),
+            ArgumentError::BadValue(msg) => {
+                DbgDocBldr::description("bad value `")
+                    + DbgDocBldr::description(msg)
+                    + DbgDocBldr::description("`")
+            }
         }
     }
 }
@@ -522,6 +529,7 @@ impl ShellError {
                     ),
                 )
                 .with_labels(vec![Label::primary(0, command.span)]),
+                ArgumentError::BadValue(msg) => Diagnostic::error().with_message(msg.clone()).with_labels(vec![Label::primary(0, command.span).with_message(msg)])
             }),
             ProximateShellError::TypeError {
                 expected,
