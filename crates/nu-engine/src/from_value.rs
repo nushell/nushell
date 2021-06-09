@@ -263,10 +263,6 @@ impl FromValue for ColumnPath {
                 value: UntaggedValue::Primitive(Primitive::ColumnPath(c)),
                 ..
             } => Ok(c.clone()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-                tag,
-            } => Ok(ColumnPath::build(&s.to_string().spanned(tag))),
             Value { tag, .. } => Err(ShellError::labeled_error(
                 "Can't convert to column path",
                 "can't convert to column path",
