@@ -2,11 +2,15 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
+
+#[cfg(unix)]
 use nu_source::Tagged;
+#[cfg(unix)]
 use std::path::PathBuf;
 
 pub struct Exec;
 
+#[cfg(unix)]
 pub struct ExecArgs {
     pub command: Tagged<PathBuf>,
     pub rest: Vec<Tagged<String>>,
