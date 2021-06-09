@@ -6,7 +6,7 @@ use nu_errors::ShellError;
 use nu_protocol::{
     hir::CapturedBlock, ColumnPath, Dictionary, Primitive, Range, UntaggedValue, Value,
 };
-use nu_source::{SpannedItem, Tagged, TaggedItem};
+use nu_source::{Tagged, TaggedItem};
 use num_bigint::BigInt;
 
 pub trait FromValue: Sized {

@@ -108,7 +108,7 @@ fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let mut args = args.evaluate_once()?;
 
-    let rest = args.rest(0)?;
+    let rest: Vec<Tagged<String>> = args.rest(0)?;
     let insensitive = args.has_flag("insensitive");
     let reverse = args.has_flag("reverse");
     let mut vec = args.input.drain_vec();
