@@ -170,6 +170,14 @@ impl EvaluatedCommandArgsWithoutInput {
         self.call_info.args.has(name)
     }
 
+    pub fn last(&self) -> Option<&Value> {
+        if let Some(pos) = &self.call_info.args.positional {
+            pos.last()
+        } else {
+            None
+        }
+    }
+
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(v) = self.nth(pos) {
             FromValue::from_value(v)

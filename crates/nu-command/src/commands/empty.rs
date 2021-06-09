@@ -7,7 +7,6 @@ use nu_protocol::{
     SyntaxShape, UntaggedValue, Value,
 };
 
-use crate::utils::arguments::arguments;
 use nu_value_ext::{as_string, ValueExt};
 
 pub struct Command;
@@ -79,9 +78,29 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
     let args = args.evaluate_once()?;
-    let mut rest = args.rest(0)?;
-    let (columns, default_block): (Vec<ColumnPath>, Option<Box<CapturedBlock>>) =
-        arguments(&mut rest)?;
+    let default_block = if let Some(Value {
+        value: UntaggedValue::Block(b),
+        ..
+    }) = args.last()
+    {
+        Some(b.clone())
+    } else {
+        None
+    };
+
+    let mut columns: Vec<ColumnPath> = vec![];
+    if let Some(pos) = &args.call_info.args.positional {
+        let end_point = if default_block.is_some() {
+            pos.len() - 1
+        } else {
+            pos.len()
+        };
+
+        for x in 0..end_point {
+            columns.push(args.req(x)?);
+        }
+    }
+
     let input = args.input;
     let default_block = Arc::new(default_block);
 
