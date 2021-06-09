@@ -79,7 +79,6 @@ fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {
     if value.is_row() {
         let columns = value.data_descriptors();
         if options.move_headers() {
-
             if let Some(fields) = rotate(columns, &options.by, direction) {
                 return Some(vec![select_fields(&value, &fields, &tag)]);
             }
