@@ -631,6 +631,17 @@ fn dash_def() {
 }
 
 #[test]
+fn negative_decimal_start() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            -1.3 + 4
+        "#
+    );
+
+    assert_eq!(actual.out, "2.7");
+}
+#[test]
 fn index_row() {
     let actual = nu!(
         cwd: ".",
