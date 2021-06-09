@@ -176,6 +176,9 @@ fn filter_dataframe(
         Operator::GreaterThanOrEqual => {
             comparison_arm!(Series::gt_eq, col, right_condition, operator.span)
         }
+        Operator::Contains => {
+            unimplemented!()
+        }
         _ => Err(ShellError::labeled_error(
             "Incorrect operator",
             "Not implemented operator for dataframes filter",
