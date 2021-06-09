@@ -7,7 +7,6 @@ use std::path::PathBuf;
 
 pub struct Exec;
 
-#[derive(Deserialize)]
 pub struct ExecArgs {
     pub command: Tagged<PathBuf>,
     pub rest: Vec<Tagged<String>>,
@@ -35,7 +34,7 @@ impl WholeStreamCommand for Exec {
         "Currently supported only on Unix-based systems."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         exec(args)
     }
 
@@ -56,7 +55,7 @@ impl WholeStreamCommand for Exec {
 }
 
 #[cfg(unix)]
-fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
 
@@ -83,7 +82,7 @@ fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",
