@@ -1577,7 +1577,7 @@ fn parse_internal_command(
             let arg = {
                 let (new_idx, expr, err) = parse_positional_argument(
                     idx,
-                    &lite_cmd,
+                    lite_cmd,
                     &signature.positional[current_positional].0,
                     signature.positional.len() - current_positional - 1,
                     scope,
@@ -1802,7 +1802,14 @@ fn parse_call(
     } else if lite_cmd.parts[0].item.starts_with('$')
         || lite_cmd.parts[0].item.starts_with('\"')
         || lite_cmd.parts[0].item.starts_with('\'')
-        || lite_cmd.parts[0].item.starts_with('-')
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Number, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Range, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
         || lite_cmd.parts[0].item.starts_with('0')
         || lite_cmd.parts[0].item.starts_with('1')
         || lite_cmd.parts[0].item.starts_with('2')
