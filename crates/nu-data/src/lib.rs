@@ -6,4 +6,7 @@ pub mod primitive;
 pub mod utils;
 pub mod value;
 
+#[cfg(feature = "dataframe")]
+pub mod dataframe;
+
 pub use dict::TaggedListBuilder;

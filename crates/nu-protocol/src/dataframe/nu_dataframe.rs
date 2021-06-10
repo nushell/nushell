@@ -185,7 +185,7 @@ impl NuDataFrame {
     }
 
     pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
-        let df = &self.as_ref();
+        let df = self.as_ref();
         let column_names = df.get_column_names();
 
         let mut values: Vec<Value> = Vec::new();

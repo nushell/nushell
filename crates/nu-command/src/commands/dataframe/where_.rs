@@ -4,11 +4,11 @@ use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::NuDataFrame,
     hir::{CapturedBlock, ClassifiedCommand, Expression, Literal, Operator, SpannedExpression},
-    Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue,
+    Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
 };
 
 use super::utils::parse_polars_error;
-use polars::prelude::{ChunkCompare, Series};
+use polars::prelude::{ChunkCompare, DataType, Series};
 
 pub struct DataFrame;
 
@@ -89,7 +89,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let rhs = evaluate_baseline_expr(&expression.right, &args.context)?;
+    let rhs = evaluate_baseline_expr(&expression.right, &args.args.context)?;
     let right_condition = match &rhs.value {
         UntaggedValue::Primitive(primitive) => Ok(primitive),
         _ => Err(ShellError::labeled_error(
@@ -99,13 +99,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    filter_dataframe(
-        args,
-        &col_name,
-        &col_name_span,
-        &right_condition,
-        &expression.op,
-    )
+    filter_dataframe(args, &col_name, &col_name_span, &rhs, &expression.op)
 }
 
 macro_rules! comparison_arm {
@@ -144,16 +138,25 @@ fn filter_dataframe(
     mut args: CommandArgs,
     col_name: &str,
     col_name_span: &Span,
-    right_condition: &Primitive,
+    rhs: &Value,
     operator: &SpannedExpression,
 ) -> Result<OutputStream, ShellError> {
+    let right_condition = match &rhs.value {
+        UntaggedValue::Primitive(primitive) => Ok(primitive),
+        _ => Err(ShellError::labeled_error(
+            "Incorrect argument",
+            "Expected primitive values",
+            &rhs.tag.span,
+        )),
+    }?;
+
     let span = args.call_info.name_tag.span;
     let df = NuDataFrame::try_from_stream(&mut args.input, &span)?;
 
     let col = df
         .as_ref()
         .column(col_name)
-        .map_err(|e| parse_polars_error::<&str>(&e, &col_name_span, None))?;
+        .map_err(|e| parse_polars_error::<&str>(&e, col_name_span, None))?;
 
     let op = match &operator.expr {
         Expression::Literal(Literal::Operator(op)) => Ok(op),
@@ -175,6 +178,33 @@ fn filter_dataframe(
         Operator::GreaterThanOrEqual => {
             comparison_arm!(Series::gt_eq, col, right_condition, operator.span)
         }
+        Operator::Contains => match col.dtype() {
+            DataType::Utf8 => match right_condition {
+                Primitive::String(pat) => {
+                    let casted = col.utf8().map_err(|e| {
+                        parse_polars_error::<&str>(&e, &args.call_info.name_tag.span, None)
+                    })?;
+
+                    casted.contains(pat).map_err(|e| {
+                        parse_polars_error::<&str>(&e, &args.call_info.name_tag.span, None)
+                    })
+                }
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Incorrect argument",
+                    "Can't perform contains with this value",
+                    &rhs.tag.span,
+                    "Contains only works with strings",
+                    &rhs.tag.span,
+                )),
+            },
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Incorrect datatype",
+                format!("The selected column is of type '{}'", col.dtype()),
+                col_name_span,
+                "Perhaps you want to select a column of 'str' type",
+                col_name_span,
+            )),
+        },
         _ => Err(ShellError::labeled_error(
             "Incorrect operator",
             "Not implemented operator for dataframes filter",
