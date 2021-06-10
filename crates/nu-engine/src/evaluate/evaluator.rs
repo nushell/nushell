@@ -267,7 +267,10 @@ fn evaluate_reference(
         }),
 
         x => match ctx.scope.get_var(x) {
-            Some(v) => Ok(v),
+            Some(mut v) => {
+                v.tag.span = span;
+                Ok(v)
+            }
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
                 format!("unknown variable: {}", x),
