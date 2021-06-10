@@ -46,7 +46,7 @@ the output of 'path parse' and 'path split' subcommands."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathJoinArguments {
+        let cmd_args = Arc::new(PathJoinArguments {
             rest: args.rest(0)?,
             append: args.get_flag("append")?,
         });

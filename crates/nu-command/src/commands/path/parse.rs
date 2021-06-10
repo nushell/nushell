@@ -48,7 +48,7 @@ On Windows, an extra 'prefix' column is added."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathParseArguments {
+        let cmd_args = Arc::new(PathParseArguments {
             rest: args.rest(0)?,
             extension: args.get_flag("extension")?,
         });

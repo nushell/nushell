@@ -23,7 +23,7 @@ impl WholeStreamCommand for UrlHost {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-            let rest: Vec<ColumnPath> = args.rest(0)?;
+        let rest: Vec<ColumnPath> = args.rest(0)?;
         let input = args.input;
 
         Ok(operate(input, rest, &host))

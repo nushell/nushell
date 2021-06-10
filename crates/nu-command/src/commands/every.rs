@@ -56,7 +56,6 @@ impl WholeStreamCommand for Every {
 }
 
 fn every(args: CommandArgs) -> Result<ActionStream, ShellError> {
-
     let stride: u64 = args.req(0)?;
     let skip: bool = args.has_flag("skip");
     let input = args.input;

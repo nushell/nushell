@@ -28,7 +28,7 @@ impl WholeStreamCommand for Command {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-            let rest: Vec<Value> = args.rest(0)?;
+        let rest: Vec<Value> = args.rest(0)?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
         let input: Vec<Value> = args.input.collect();

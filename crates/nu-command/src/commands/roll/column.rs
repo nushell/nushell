@@ -51,7 +51,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
-
     let options = Arguments {
         by: args.opt(0)?,
         opposite: args.has_flag("opposite"),

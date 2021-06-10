@@ -34,7 +34,7 @@ impl WholeStreamCommand for PathType {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathTypeArguments {
+        let cmd_args = Arc::new(PathTypeArguments {
             rest: args.rest(0)?,
         });
 

@@ -48,7 +48,7 @@ impl WholeStreamCommand for PathDirname {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathDirnameArguments {
+        let cmd_args = Arc::new(PathDirnameArguments {
             rest: args.rest(0)?,
             replace: args.get_flag("replace")?,
             num_levels: args.get_flag("num-levels")?,

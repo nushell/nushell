@@ -38,7 +38,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-
     let column_paths: Vec<_> = args.rest(0)?;
 
     let result: Vec<Value> = args

@@ -81,7 +81,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn into_string(args: CommandArgs) -> Result<OutputStream, ShellError> {
-
     let decimals: Option<Tagged<u64>> = args.get_flag("decimals")?;
     let column_paths: Vec<ColumnPath> = args.rest(0)?;
 

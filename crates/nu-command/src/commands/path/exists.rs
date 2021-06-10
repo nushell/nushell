@@ -33,7 +33,7 @@ impl WholeStreamCommand for PathExists {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathExistsArguments {
+        let cmd_args = Arc::new(PathExistsArguments {
             rest: args.rest(0)?,
         });
 

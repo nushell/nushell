@@ -43,7 +43,7 @@ impl WholeStreamCommand for PathExpand {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-            let cmd_args = Arc::new(PathExpandArguments {
+        let cmd_args = Arc::new(PathExpandArguments {
             strict: args.has_flag("strict"),
             rest: args.rest(0)?,
         });

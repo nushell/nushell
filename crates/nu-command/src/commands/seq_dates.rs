@@ -122,7 +122,6 @@ impl WholeStreamCommand for SeqDates {
 fn seq_dates(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let _name = args.call_info.name_tag.clone();
 
-
     let separator: Option<Tagged<String>> = args.get_flag("separator")?;
     let output_format: Option<Tagged<String>> = args.get_flag("output-format")?;
     let input_format: Option<Tagged<String>> = args.get_flag("input-format")?;

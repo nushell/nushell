@@ -44,7 +44,6 @@ impl WholeStreamCommand for Exit {
 }
 
 pub fn exit(args: CommandArgs) -> Result<ActionStream, ShellError> {
-
     let code = if let Some(value) = args.opt::<i64>(0)? {
         value as i32
     } else {
