@@ -1,9 +1,8 @@
 use crate::prelude::*;
-use nu_engine::{script, WholeStreamCommand};
+use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
-use nu_source::Tagged;
 
 pub struct Alias;
 
@@ -28,10 +27,14 @@ impl WholeStreamCommand for Alias {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            description: "Alias ll to ls -l",
+            example: "alias ll = ls -l",
+            result: None,
+        }]
     }
 }
 
-pub fn alias(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn alias(_: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::empty())
 }
