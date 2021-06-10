@@ -14,3 +14,17 @@ fn from_ods_file_to_table() {
 
     assert_eq!(actual.out, "Gill");
 }
+
+#[test]
+fn from_ods_file_to_table_select_sheet() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample_data.ods --raw
+            | from ods -s ["SalesOrders"]
+            | get
+        "#
+    ));
+
+    assert_eq!(actual.out, "SalesOrders");
+}
