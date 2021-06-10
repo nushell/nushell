@@ -1826,16 +1826,6 @@ fn parse_call(
         let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[..], scope, false);
         error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
-    } else if lite_cmd.parts[0].item == "alias" {
-        let error = parse_alias(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
-        } else {
-            return (
-                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                error,
-            );
-        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -1898,6 +1888,13 @@ fn parse_call(
                         ArgumentError::BadValue("can't load source file".into()),
                     )),
                 );
+            }
+        } else if lite_cmd.parts[0].item == "alias" {
+            let error = parse_alias(&lite_cmd, scope);
+            if error.is_none() {
+                return (Some(ClassifiedCommand::Internal(internal_command)), None);
+            } else {
+                return (Some(ClassifiedCommand::Internal(internal_command)), error);
             }
         }
 
