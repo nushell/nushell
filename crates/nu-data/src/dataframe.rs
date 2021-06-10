@@ -51,68 +51,68 @@ pub fn compute_between_series(
             Operator::Plus => {
                 let mut res = lhs.as_ref() + rhs.as_ref();
                 let name = format!("sum_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Minus => {
                 let mut res = lhs.as_ref() - rhs.as_ref();
                 let name = format!("sub_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Multiply => {
                 let mut res = lhs.as_ref() * rhs.as_ref();
                 let name = format!("mul_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Divide => {
                 let mut res = lhs.as_ref() / rhs.as_ref();
                 let name = format!("div_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Modulo => {
                 let mut res = lhs.as_ref() % rhs.as_ref();
                 let name = format!("mod_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Equal => {
                 let mut res = Series::eq(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("eq_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::NotEqual => {
                 let mut res = Series::neq(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("neq_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::LessThan => {
                 let mut res = Series::lt(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("lt_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::LessThanOrEqual => {
                 let mut res = Series::lt_eq(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("lte_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::GreaterThan => {
                 let mut res = Series::gt(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("gt_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             Operator::GreaterThanOrEqual => {
                 let mut res = Series::gt_eq(lhs.as_ref(), rhs.as_ref()).into_series();
                 let name = format!("gte_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                let res = res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res.clone()))
+                res.rename(name.as_ref());
+                Ok(NuSeries::series_to_untagged(res))
             }
             _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
                 "Incorrect datatype",
@@ -138,19 +138,19 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::add,
+                    <&ChunkedArray<Int64Type>>::add,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::add,
+                    <&ChunkedArray<Int64Type>>::add,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::add,
+                    <&ChunkedArray<Float64Type>>::add,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -167,19 +167,19 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::sub,
+                    <&ChunkedArray<Int64Type>>::sub,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::sub,
+                    <&ChunkedArray<Int64Type>>::sub,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::sub,
+                    <&ChunkedArray<Float64Type>>::sub,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -196,19 +196,19 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::mul,
+                    <&ChunkedArray<Int64Type>>::mul,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::mul,
+                    <&ChunkedArray<Int64Type>>::mul,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::mul,
+                    <&ChunkedArray<Float64Type>>::mul,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -225,19 +225,19 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::div,
+                    <&ChunkedArray<Int64Type>>::div,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::div,
+                    <&ChunkedArray<Int64Type>>::div,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    ChunkedArray::div,
+                    <&ChunkedArray<Float64Type>>::div,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -446,39 +446,39 @@ pub fn compute_series_single_value(
     }
 }
 
-fn compute_series_i64<F>(series: &Series, val: &i64, f: F, span: &Span) -> UntaggedValue
+fn compute_series_i64<'r, F>(series: &'r Series, val: &i64, f: F, span: &Span) -> UntaggedValue
 where
-    F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
+    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
     let casted = series.i64();
     match casted {
         Ok(casted) => {
-            let res = f(casted.clone(), *val);
+            let res = f(casted, *val);
             let res = res.into_series();
             NuSeries::series_to_untagged(res)
         }
-        Err(_) => UntaggedValue::Error(ShellError::labeled_error_with_secondary(
-            "Incorrect datatype",
-            format!(
-                "the series type '{}' cannot be converted to string",
-                series.dtype()
-            ),
-            span,
-            "Contains operation only works with strings",
+        Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+            "Casting error",
+            format!("{}", e),
             span,
         )),
     }
 }
 
-fn compute_series_bigint<F>(series: &Series, val: &BigInt, f: F, span: &Span) -> UntaggedValue
+fn compute_series_bigint<'r, F>(
+    series: &'r Series,
+    val: &BigInt,
+    f: F,
+    span: &Span,
+) -> UntaggedValue
 where
-    F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
+    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
     let casted = series.i64();
     match casted {
         Ok(casted) => {
             let res = f(
-                casted.clone(),
+                casted,
                 val.to_i64()
                     .expect("Internal error: protocol did not use compatible decimal"),
             );
@@ -486,7 +486,7 @@ where
             NuSeries::series_to_untagged(res)
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
@@ -494,19 +494,19 @@ where
 }
 
 fn compute_series_decimal<'r, F>(
-    series: &Series,
+    series: &'r Series,
     val: &BigDecimal,
     f: F,
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
+    F: Fn(&'r ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
     let casted = series.f64();
     match casted {
         Ok(casted) => {
             let res = f(
-                casted.clone(),
+                casted,
                 val.to_f64()
                     .expect("Internal error: protocol did not use compatible decimal"),
             );
@@ -514,7 +514,7 @@ where
             NuSeries::series_to_untagged(res)
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
@@ -533,7 +533,7 @@ where
             NuSeries::series_to_untagged(res)
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
@@ -561,7 +561,7 @@ where
             NuSeries::series_to_untagged(res)
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
@@ -589,7 +589,7 @@ where
             NuSeries::series_to_untagged(res)
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
@@ -608,14 +608,14 @@ fn contains_series_pat(series: &Series, pat: &str, span: &Span) -> UntaggedValue
                     NuSeries::series_to_untagged(res)
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-                    "Polars error",
+                    "Search error",
                     format!("{}", e),
                     span,
                 )),
             }
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Polars error",
+            "Casting error",
             format!("{}", e),
             span,
         )),
