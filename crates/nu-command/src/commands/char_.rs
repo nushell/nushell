@@ -19,8 +19,10 @@ struct CharArgs {
 
 lazy_static! {
     static ref CHAR_MAP: IndexMap<&'static str, String> = indexmap! {
-        // These are some regular characters that either can't used or
+        // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
+
+        // This are the "normal" characters section
         "newline" => '\n'.to_string(),
         "enter" => '\n'.to_string(),
         "nl" => '\n'.to_string(),
@@ -40,9 +42,25 @@ lazy_static! {
         "lbracket" => '['.to_string(),
         "right_bracket" => ']'.to_string(),
         "rbracket" => ']'.to_string(),
+        "single_quote" => '\''.to_string(),
+        "squote" => '\''.to_string(),
+        "sq" => '\''.to_string(),
+        "double_quote" => '\"'.to_string(),
+        "dquote" => '\"'.to_string(),
+        "dq" => '\"'.to_string(),
         "sep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
+        "tilde" => '~'.to_string(),                                // ~
+        "twiddle" => '~'.to_string(),                              // ~
+        "squiggly" => '~'.to_string(),                             // ~
+        "home" => '~'.to_string(),                                 // ~
+        "hash" => '#'.to_string(),                                 // #
+        "hashtag" => '#'.to_string(),                              // #
+        "pound_sign" => '#'.to_string(),                           // #
+        "sharp" => '#'.to_string(),                                // #
+        "root" => '#'.to_string(),                                 // #
 
+        // This is the unicode section
         // Unicode names came from https://www.compart.com/en/unicode
         // Private Use Area (U+E000-U+F8FF)
         // Unicode can't be mixed with Ansi or it will break width calculation
@@ -69,16 +87,8 @@ lazy_static! {
         "failed" => '\u{2a2f}'.to_string(),                        // ⨯
         "high_voltage_sign" => '\u{26a1}'.to_string(),             // ⚡
         "elevated" => '\u{26a1}'.to_string(),                      // ⚡
-        "tilde" => '~'.to_string(),                                // ~
-        "twiddle" => '~'.to_string(),                              // ~
-        "squiggly" => '~'.to_string(),                             // ~
-        "home" => '~'.to_string(),                                 // ~
-        "hash" => '#'.to_string(),                                 // #
-        "hashtag" => '#'.to_string(),                              // #
-        "pound_sign" => '#'.to_string(),                           // #
-        "sharp" => '#'.to_string(),                                // #
-        "root" => '#'.to_string(),                                 // #
 
+        // This is the emoji section
         // Weather symbols
         "sun" => "☀️".to_string(),
         "sunny" => "☀️".to_string(),
@@ -98,6 +108,7 @@ lazy_static! {
         "thunderstorm" => "🌩️".to_string(),
         "thunder" => "🌩️".to_string(),
 
+        // This is the "other" section
         "bel" => '\x07'.to_string(),       // Terminal Bell
         "backspace" => '\x08'.to_string(), // Backspace
     };

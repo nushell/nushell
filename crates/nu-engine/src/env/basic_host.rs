@@ -23,18 +23,17 @@ impl Host for BasicHost {
     }
 
     fn print_err(&mut self, err: ShellError, source: &Text) {
-        if let Some(diag) = err.into_diagnostic() {
-            let source = source.to_string();
-            let mut files = codespan_reporting::files::SimpleFiles::new();
-            files.add("shell", source);
+        let diag = err.into_diagnostic();
+        let source = source.to_string();
+        let mut files = codespan_reporting::files::SimpleFiles::new();
+        files.add("shell", source);
 
-            let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
-            let config = codespan_reporting::term::Config::default();
+        let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
+        let config = codespan_reporting::term::Config::default();
 
-            let _ = std::panic::catch_unwind(move || {
-                let _ = codespan_reporting::term::emit(&mut writer.lock(), &config, &files, &diag);
-            });
-        }
+        let _ = std::panic::catch_unwind(move || {
+            let _ = codespan_reporting::term::emit(&mut writer.lock(), &config, &files, &diag);
+        });
     }
 
     #[allow(unused_variables)]

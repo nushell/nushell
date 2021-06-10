@@ -451,7 +451,7 @@ fn spawn(
                         }
                     }
                     let _ = stdout_read_tx.send(Ok(Value {
-                        value: UntaggedValue::Error(ShellError::external_non_zero()),
+                        value: UntaggedValue::nothing(),
                         tag: stdout_name_tag,
                     }));
                 }
