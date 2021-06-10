@@ -1994,6 +1994,10 @@ fn expand_shorthand_forms(
 }
 
 fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
+    if call.parts.len() == 2 && (call.parts[1].item == "--help" || (call.parts[1].item == "-h")) {
+        return None;
+    }
+
     if call.parts.len() < 4 {
         return Some(ParseError::mismatch("alias", call.parts[0].clone()));
     }
