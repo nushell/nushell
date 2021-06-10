@@ -54,7 +54,6 @@ enum GroupByColumn {
 
 pub fn group_by_date(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let column_name: Option<Tagged<String>> = args.opt(0)?;
     let format: Option<Tagged<String>> = args.get_flag("format")?;
 

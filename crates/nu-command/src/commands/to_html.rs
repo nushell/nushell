@@ -259,7 +259,6 @@ fn get_list_of_theme_names() -> Vec<String> {
 
 fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let html_color = args.has_flag("html_color");
     let no_color = args.has_flag("no_color");
     let dark = args.has_flag("dark");

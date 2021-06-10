@@ -61,14 +61,15 @@ impl WholeStreamCommand for SubCommand {
 struct FindReplace<'a>(&'a str, &'a str);
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        Ok(Arc::new(Arguments {
-            all: params.has_flag("all"),
-            find: params.req(0)?,
-            replace: params.req(1)?,
-            column_paths: params.rest(2)?,
-        }))
-    })?;
+    let (options, input) = (
+        Arc::new(Arguments {
+            all: args.has_flag("all"),
+            find: args.req(0)?,
+            replace: args.req(1)?,
+            column_paths: args.rest(2)?,
+        }),
+        args.input,
+    );
 
     Ok(input
         .map(move |v| {

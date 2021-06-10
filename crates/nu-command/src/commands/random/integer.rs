@@ -56,7 +56,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let cmd_args = IntegerArgs {
         range: args.opt(0)?,
     };

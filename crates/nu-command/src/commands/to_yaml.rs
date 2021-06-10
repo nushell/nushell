@@ -116,7 +116,6 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
 }
 
 fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
 

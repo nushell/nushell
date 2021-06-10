@@ -53,7 +53,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let precision: Option<Tagged<i16>> = args.get_flag("precision")?;
     let input = args.input;
     let precision = if let Some(precision) = precision {

@@ -42,11 +42,12 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        Ok(Arguments {
-            column_paths: params.rest(0)?,
-        })
-    })?;
+    let (options, input) = (
+        Arguments {
+            column_paths: args.rest(0)?,
+        },
+        args.input,
+    );
 
     Ok(input
         .map(move |v| {

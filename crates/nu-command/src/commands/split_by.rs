@@ -32,7 +32,6 @@ impl WholeStreamCommand for SplitBy {
 
 pub fn split_by(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let column_name: Option<Tagged<String>> = args.opt(0)?;
 
     let values: Vec<Value> = args.input.collect();

@@ -52,7 +52,6 @@ impl WholeStreamCommand for Nth {
 }
 
 fn nth(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
 
     let row_number: Tagged<u64> = args.req(0)?;
     let and_rows: Vec<Tagged<u64>> = args.rest(1)?;

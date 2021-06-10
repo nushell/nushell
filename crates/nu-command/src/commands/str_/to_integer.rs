@@ -64,7 +64,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let options = Arguments {
         radix: args.get_flag("radix")?,
         column_paths: args.rest(0)?,

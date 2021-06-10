@@ -30,7 +30,6 @@ impl WholeStreamCommand for ToTsv {
 
 fn to_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let noheaders = args.has_flag("noheaders");
 
     to_delimited_data(noheaders, '\t', "TSV", args.input, name)

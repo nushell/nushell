@@ -20,8 +20,7 @@ impl WholeStreamCommand for DataFrame {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let args = args.evaluate_once()?;
-
+    
         let df = NuDataFrame::try_from_iter(args.input, &tag)?;
 
         Ok(InputStream::one(df.to_value(tag)))

@@ -99,7 +99,6 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctrl_c = args.ctrl_c();
 
-    let args = args.evaluate_once()?;
     let path: Tagged<PathBuf> = args.req(0)?;
     let raw = args.has_flag("raw");
     let encoding: Option<Tagged<String>> = args.get_flag("encoding")?;

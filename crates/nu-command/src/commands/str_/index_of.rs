@@ -90,14 +90,15 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        Ok(Arc::new(Arguments {
-            pattern: params.req(0)?,
-            range: params.get_flag("range")?,
-            end: params.has_flag("end"),
-            column_paths: params.rest(1)?,
-        }))
-    })?;
+    let (options, input) = (
+        Arc::new(Arguments {
+            pattern: args.req(0)?,
+            range: args.get_flag("range")?,
+            end: args.has_flag("end"),
+            column_paths: args.rest(1)?,
+        }),
+        args.input,
+    );
 
     Ok(input
         .map(move |v| {

@@ -62,7 +62,6 @@ impl WholeStreamCommand for FromCsv {
 
 fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let noheaders = args.has_flag("noheaders");
     let separator: Option<Value> = args.get_flag("separator")?;

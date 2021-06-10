@@ -162,7 +162,6 @@ fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let scope = args.scope().clone();
 
     let head = args.call_info.args.head.clone();
-    let args = args.evaluate_once()?;
 
     let path: Option<Tagged<PathBuf>> = args.opt(0)?;
     let save_raw = args.has_flag("raw");

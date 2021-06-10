@@ -44,7 +44,6 @@ impl WholeStreamCommand for Date {
 
 pub fn format(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let format: Tagged<String> = args.req(0)?;
     let table: Option<bool> = args.get_flag("table")?;

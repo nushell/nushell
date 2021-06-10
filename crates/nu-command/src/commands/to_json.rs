@@ -154,7 +154,6 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 
 fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let pretty: Option<Value> = args.get_flag("pretty")?;
 
     let name_span = name_tag.span;

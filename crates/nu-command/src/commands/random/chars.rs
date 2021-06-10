@@ -53,7 +53,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let cmd_args = CharsArgs {
         length: args.get_flag("length")?,
     };

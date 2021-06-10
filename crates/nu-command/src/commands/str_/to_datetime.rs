@@ -126,7 +126,6 @@ impl WholeStreamCommand for SubCommand {
 struct DatetimeFormat(String);
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let options = Arguments {
         timezone: args.get_flag("timezone")?,
         offset: args.get_flag("offset")?,

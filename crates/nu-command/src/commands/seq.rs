@@ -100,7 +100,6 @@ impl WholeStreamCommand for Seq {
 fn seq(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
-    let args = args.evaluate_once()?;
     let rest_nums: Vec<Tagged<f64>> = args.rest(0)?;
     let separator: Option<Tagged<String>> = args.get_flag("separator")?;
     let terminator: Option<Tagged<String>> = args.get_flag("terminator")?;

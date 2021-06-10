@@ -1287,6 +1287,12 @@ impl NamedValue {
             vec![]
         }
     }
+    pub fn get_contents(&self) -> Option<&SpannedExpression> {
+        match self {
+            NamedValue::Value(_, expr) => Some(expr),
+            _ => None,
+        }
+    }
 }
 
 impl PrettyDebugWithSource for NamedValue {
@@ -1339,6 +1345,13 @@ impl Call {
             .as_ref()
             .map(|n| n.switch_present(switch))
             .unwrap_or(false)
+    }
+
+    pub fn get_flag(&self, switch: &str) -> Option<&SpannedExpression> {
+        self.named
+            .as_ref()
+            .and_then(|n| n.get(switch))
+            .and_then(|x| x.get_contents())
     }
 
     pub fn set_initial_flags(&mut self, signature: &crate::Signature) {

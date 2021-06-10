@@ -57,7 +57,6 @@ fn mv(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager();
 
-    let args = args.evaluate_once()?;
     let args = MvArgs {
         src: args.req(0)?,
         dst: args.req(1)?,

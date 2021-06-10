@@ -36,7 +36,6 @@ impl WholeStreamCommand for SubCommand {
 
 fn split_column(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_span = args.call_info.name_tag.span;
-    let args = args.evaluate_once()?;
     let separator: Tagged<String> = args.req(0)?;
     let rest: Vec<Tagged<String>> = args.rest(1)?;
     let collapse_empty = args.has_flag("collapse-empty");

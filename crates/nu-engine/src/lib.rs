@@ -16,9 +16,7 @@ pub mod shell;
 mod whole_stream_command;
 
 pub use crate::call_info::UnevaluatedCallInfo;
-pub use crate::command_args::{
-    CommandArgs, EvaluatedCommandArgs, EvaluatedCommandArgsWithoutInput, RunnableContext,
-};
+pub use crate::command_args::{CommandArgs, RunnableContext};
 pub use crate::config_holder::ConfigHolder;
 pub use crate::documentation::{generate_docs, get_brief_help, get_documentation, get_full_help};
 pub use crate::env::host::FakeHost;

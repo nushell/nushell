@@ -49,11 +49,12 @@ impl WholeStreamCommand for SubCommand {
 pub fn collect(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let (options, input) = args.extract(|params| {
-        Ok(Arguments {
-            separator: params.opt(0)?,
-        })
-    })?;
+    let (options, input) = (
+        Arguments {
+            separator: args.opt(0)?,
+        },
+        args.input,
+    );
 
     let separator = options.separator();
 

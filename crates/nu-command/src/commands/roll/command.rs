@@ -30,9 +30,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn roll(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let options = Arguments { by: args.opt(0)? };
 

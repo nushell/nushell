@@ -31,8 +31,7 @@ impl WholeStreamCommand for Sleep {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctrl_c = args.ctrl_c();
 
-        let args = args.evaluate_once()?;
-        let duration: Tagged<i64> = args.req(0)?;
+            let duration: Tagged<i64> = args.req(0)?;
         let rest: Vec<Tagged<i64>> = args.rest(1)?;
 
         let total_dur = Duration::from_nanos(if duration.item > 0 {

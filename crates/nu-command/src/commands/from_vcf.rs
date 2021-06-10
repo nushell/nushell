@@ -26,7 +26,6 @@ impl WholeStreamCommand for FromVcf {
 }
 
 fn from_vcf(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 

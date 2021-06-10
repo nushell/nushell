@@ -23,12 +23,13 @@ pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<Actio
 where
     F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
 {
-    let (options, input) = args.extract(|params| {
-        Ok(Arc::new(Arguments {
-            character: params.get_flag("char")?,
-            column_paths: params.rest(0)?,
-        }))
-    })?;
+    let (options, input) = (
+        Arc::new(Arguments {
+            character: args.get_flag("char")?,
+            column_paths: args.rest(0)?,
+        }),
+        args.input,
+    );
 
     let to_trim = options.character.as_ref().map(|tagged| tagged.item);
 

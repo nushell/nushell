@@ -47,7 +47,6 @@ impl WholeStreamCommand for Command {
 }
 
 fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let rows: Option<Tagged<u64>> = args.opt(0)?;
     let v: Vec<_> = args.input.into_vec();
 

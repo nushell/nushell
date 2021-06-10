@@ -54,7 +54,6 @@ impl WholeStreamCommand for Command {
 fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = EvaluationContext::from_args(&args);
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let all_args = AllArgs {
         predicate: args.req(0)?,
     };
@@ -83,7 +82,7 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let scope = args.scope();
+    let scope = args.scope().clone();
 
     let init = Ok(InputStream::one(
         UntaggedValue::boolean(true).into_value(&tag),

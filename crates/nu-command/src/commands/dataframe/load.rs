@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
-use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
@@ -75,7 +75,6 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let file: Tagged<PathBuf> = args.req(0)?;
 
     let df = match file.item().extension() {
@@ -117,7 +116,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     )))
 }
 
-fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
+fn from_parquet(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Tagged<PathBuf> = args.req(0)?;
 
     let r = File::open(&file.item)
@@ -130,7 +129,7 @@ fn from_parquet(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame
         .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
-fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
+fn from_json(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Tagged<PathBuf> = args.req(0)?;
 
     let r = File::open(&file.item)
@@ -143,7 +142,7 @@ fn from_json(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, S
         .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))
 }
 
-fn from_csv(args: EvaluatedCommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
+fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Tagged<PathBuf> = args.req(0)?;
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");

@@ -132,7 +132,6 @@ pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value
 }
 
 fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 

@@ -48,7 +48,6 @@ impl WholeStreamCommand for Command {
 
 fn flatten(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let columns: Vec<Tagged<String>> = args.rest(0)?;
     let input = args.input;
 

@@ -54,7 +54,6 @@ pub fn expand_value_to_stream(v: Value) -> InputStream {
 }
 
 fn echo(args: CommandArgs) -> Result<InputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let rest: Vec<Value> = args.rest(0)?;
 
     let stream = rest.into_iter().map(|i| match i.as_string() {

@@ -25,8 +25,7 @@ impl WholeStreamCommand for Length {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let args = args.evaluate_once()?;
-        let column = args.has_flag("column");
+            let column = args.has_flag("column");
         let input = args.input;
 
         Ok(CountIterator {

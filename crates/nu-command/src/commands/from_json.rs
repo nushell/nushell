@@ -65,7 +65,6 @@ pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> nu_json::Res
 fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
 
-    let args = args.evaluate_once()?;
     let objects = args.has_flag("objects");
 
     let concat_string = args.input.collect_string(name_tag.clone())?;

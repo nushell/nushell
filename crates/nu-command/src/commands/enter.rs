@@ -74,7 +74,6 @@ fn enter(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = args.context.clone();
     let scope = args.scope().clone();
     let path = args.context.shell_manager.path();
-    let args = args.evaluate_once()?;
 
     let location: Tagged<PathBuf> = args.req(0)?;
     let encoding: Option<Tagged<String>> = args.get_flag("encoding")?;

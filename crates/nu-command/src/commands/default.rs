@@ -40,7 +40,6 @@ impl WholeStreamCommand for Default {
 }
 
 fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let column: Tagged<String> = args.req(0)?;
     let value: Value = args.req(1)?;
 

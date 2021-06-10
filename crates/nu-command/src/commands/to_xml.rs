@@ -129,7 +129,6 @@ pub fn write_xml_events<W: Write>(
 fn to_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
     let name_span = name_tag.span;
-    let args = args.evaluate_once()?;
     let pretty: Option<Value> = args.get_flag("pretty")?;
     let input: Vec<Value> = args.input.collect();
 

@@ -31,7 +31,6 @@ pub fn date_now(tag: &Tag) -> Value {
 }
 
 pub fn now(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
 
     let value = date_now(&args.call_info.name_tag);
 

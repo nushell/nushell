@@ -37,9 +37,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     // Extracting the selection columns of the columns to perform the aggregation
     let columns: Option<Vec<Value>> = args.opt(0)?;

@@ -22,8 +22,7 @@ impl WholeStreamCommand for UrlScheme {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let args = args.evaluate_once()?;
-        let rest: Vec<ColumnPath> = args.rest(0)?;
+            let rest: Vec<ColumnPath> = args.rest(0)?;
         Ok(operate(args.input, rest, &Url::scheme))
     }
 

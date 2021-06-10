@@ -104,9 +104,8 @@ impl WholeStreamCommand for SortBy {
     }
 }
 
-fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn sort_by(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let rest: Vec<Tagged<String>> = args.rest(0)?;
     let insensitive = args.has_flag("insensitive");

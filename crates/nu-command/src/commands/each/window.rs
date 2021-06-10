@@ -41,11 +41,10 @@ impl WholeStreamCommand for EachWindow {
         }]
     }
 
-    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let context = Arc::new(EvaluationContext::from_args(&raw_args));
-        let external_redirection = raw_args.call_info.args.external_redirection;
+    fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let context = Arc::new(EvaluationContext::from_args(&args));
+        let external_redirection = args.call_info.args.external_redirection;
 
-        let mut args = raw_args.evaluate_once()?;
         let window_size: Tagged<usize> = args.req(0)?;
         let block: CapturedBlock = args.req(1)?;
         let stride: Option<Tagged<usize>> = args.get_flag("stride")?;

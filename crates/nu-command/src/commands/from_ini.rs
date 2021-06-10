@@ -60,7 +60,6 @@ pub fn from_ini_string_to_value(
 }
 
 fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
     let concat_string = input.collect_string(tag.clone())?;

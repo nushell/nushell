@@ -37,10 +37,9 @@ impl WholeStreamCommand for EachGroup {
         }]
     }
 
-    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let context = Arc::new(EvaluationContext::from_args(&raw_args));
-        let external_redirection = raw_args.call_info.args.external_redirection;
-        let args = raw_args.evaluate_once()?;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        let context = Arc::new(args.context.clone());
+        let external_redirection = args.call_info.args.external_redirection;
 
         let group_size: Tagged<usize> = args.req(0)?;
         let block: CapturedBlock = args.req(1)?;

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, EvaluatedCommandArgs, WholeStreamCommand};
+use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::NuDataFrame,
@@ -44,7 +44,6 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let block: CapturedBlock = args.req(0)?;
 
@@ -90,7 +89,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let rhs = evaluate_baseline_expr(&expression.right, &args.args.context)?;
+    let rhs = evaluate_baseline_expr(&expression.right, &args.context)?;
     let right_condition = match &rhs.value {
         UntaggedValue::Primitive(primitive) => Ok(primitive),
         _ => Err(ShellError::labeled_error(
@@ -142,7 +141,7 @@ macro_rules! comparison_arm {
 // With the information extracted from the block we can filter the dataframe using
 // polars operations
 fn filter_dataframe(
-    mut args: EvaluatedCommandArgs,
+    mut args: CommandArgs,
     col_name: &str,
     col_name_span: &Span,
     right_condition: &Primitive,

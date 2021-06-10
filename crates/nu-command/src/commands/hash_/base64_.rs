@@ -87,7 +87,6 @@ impl WholeStreamCommand for SubCommand {
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let encode = args.has_flag("encode");
     let decode = args.has_flag("decode");

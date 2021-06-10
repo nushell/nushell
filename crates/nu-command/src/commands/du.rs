@@ -88,7 +88,6 @@ fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctrl_c = args.ctrl_c();
     let ctrl_c_copy = ctrl_c.clone();
 
-    let args = args.evaluate_once()?;
 
     let args = DuArgs {
         path: args.opt(0)?,

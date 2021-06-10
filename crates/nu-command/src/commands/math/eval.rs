@@ -41,7 +41,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn eval(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let expression: Option<Tagged<String>> = args.opt(0)?;
     let name = args.call_info.name_tag.clone();
     let input = args.input;

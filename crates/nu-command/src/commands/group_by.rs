@@ -126,7 +126,6 @@ enum Grouper {
 pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let args = args.evaluate_once()?;
 
     let grouper = args.opt(0)?;
     let values: Vec<Value> = args.input.collect();

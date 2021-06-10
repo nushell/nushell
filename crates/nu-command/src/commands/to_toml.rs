@@ -129,7 +129,6 @@ fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
 }
 
 fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let name_tag = args.name_tag();
     let name_span = name_tag.span;
     let input: Vec<Value> = args.input.collect();

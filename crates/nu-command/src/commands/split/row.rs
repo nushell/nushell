@@ -31,7 +31,6 @@ impl WholeStreamCommand for SubCommand {
 
 fn split_row(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let separator: Tagged<String> = args.req(0)?;
     let input = args.input;

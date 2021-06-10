@@ -53,7 +53,6 @@ impl WholeStreamCommand for SubCommand {
 pub fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = EvaluationContext::from_args(&args);
-    let args = args.evaluate_once()?;
 
     let column_path = args.req(0)?;
     let mut value: Value = args.req(1)?;

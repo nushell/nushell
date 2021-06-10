@@ -55,7 +55,6 @@ impl WholeStreamCommand for Date {
 
 fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let timezone: Tagged<String> = args.req(0)?;
 

@@ -84,7 +84,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let fgstart: Option<Value> = args.get_flag("fgstart")?;
     let fgend: Option<Value> = args.get_flag("fgend")?;
     let bgstart: Option<Value> = args.get_flag("bgstart")?;

@@ -1,6 +1,6 @@
 use crate::shell::Shell;
-use crate::{command_args::EvaluatedCommandArgs, FilesystemShell};
 use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
+use crate::{CommandArgs, FilesystemShell};
 use nu_stream::{ActionStream, OutputStream};
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
@@ -78,7 +78,7 @@ impl ShellManager {
         self.shells.lock()[self.current_shell()].path()
     }
 
-    pub fn pwd(&self, args: EvaluatedCommandArgs) -> Result<ActionStream, ShellError> {
+    pub fn pwd(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let env = self.shells.lock();
 
         env[self.current_shell()].pwd(args)

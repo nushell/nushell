@@ -165,8 +165,7 @@ fn values_to_entries(
     entries
 }
 
-fn table(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut args = args.evaluate_once()?;
+fn table(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let configuration = args.configs().lock().global_config();
 
     // Ideally, get_color_config would get all the colors configured in the config.toml

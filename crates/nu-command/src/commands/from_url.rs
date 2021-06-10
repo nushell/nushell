@@ -24,7 +24,6 @@ impl WholeStreamCommand for FromUrl {
 }
 
 fn from_url(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let input = args.input;
 

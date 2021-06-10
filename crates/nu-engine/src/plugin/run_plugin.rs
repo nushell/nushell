@@ -1,12 +1,17 @@
-use crate::command_args::CommandArgs;
-use crate::whole_stream_command::{whole_stream_command, WholeStreamCommand};
+use crate::{command_args::CommandArgs, evaluate_baseline_expr, UnevaluatedCallInfo};
+use crate::{
+    whole_stream_command::{whole_stream_command, WholeStreamCommand},
+    EvaluationContext,
+};
 use derive_new::new;
 
+use indexmap::IndexMap;
 use log::trace;
 use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
-use nu_protocol::{Primitive, ReturnValue, Signature, UntaggedValue, Value};
-use nu_stream::{ActionStream, ToActionStream};
+use nu_protocol::{hir, Primitive, ReturnValue, Signature, UntaggedValue, Value};
+use nu_source::Tag;
+use nu_stream::{ActionStream, InputStream, ToActionStream};
 use serde::{self, Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::io::prelude::*;
@@ -119,7 +124,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
     let eos =
         vec![UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()].into_iter();
 
-    let args = args.evaluate_once()?;
+    let (call_info, input) = evaluate_once(args)?;
 
     let real_path = Path::new(&path);
     let ext = real_path.extension();
@@ -150,12 +155,10 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
             .expect("Failed to spawn child process")
     };
 
-    let call_info = args.call_info.clone();
-
     trace!("filtering :: {:?}", call_info);
 
     Ok(bos
-        .chain(args.input)
+        .chain(input)
         .chain(eos)
         .map(move |item| {
             match item {
@@ -386,10 +389,9 @@ impl WholeStreamCommand for PluginSink {
 }
 
 fn run_sink(path: String, args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
-    let call_info = args.call_info.clone();
+    let (call_info, input) = evaluate_once(args)?;
 
-    let input: Vec<Value> = args.input.into_vec();
+    let input: Vec<Value> = input.into_vec();
 
     let request = JsonRpc::new("sink", (call_info, input));
     let request_raw = serde_json::to_string(&request);
@@ -445,4 +447,81 @@ fn run_sink(path: String, args: CommandArgs) -> Result<ActionStream, ShellError>
             "Could not create message to sink command",
         ))
     }
+}
+
+/// Associated information for the call of a command, including the args passed to the command and a tag that spans the name of the command being called
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct CallInfo {
+    /// The arguments associated with this call
+    pub args: EvaluatedArgs,
+    /// The tag (underline-able position) of the name of the call itself
+    pub name_tag: Tag,
+}
+
+/// The set of positional and named arguments, after their values have been evaluated.
+///
+/// * Positional arguments are those who are given as values, without any associated flag. For example, in `foo arg1 arg2`, both `arg1` and `arg2` are positional arguments.
+/// * Named arguments are those associated with a flag. For example, `foo --given bar` the named argument would be name `given` and the value `bar`.
+#[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
+pub struct EvaluatedArgs {
+    pub positional: Option<Vec<Value>>,
+    pub named: Option<IndexMap<String, Value>>,
+}
+
+fn evaluate_once(args: CommandArgs) -> Result<(CallInfo, InputStream), ShellError> {
+    let input = args.input;
+    let call_info = evaluate_command(args.call_info, args.context)?;
+
+    Ok((call_info, input))
+}
+
+fn evaluate_command(
+    args: UnevaluatedCallInfo,
+    ctx: EvaluationContext,
+) -> Result<CallInfo, ShellError> {
+    let name_tag = args.name_tag.clone();
+    let args = evaluate_args(&args.args, &ctx)?;
+
+    Ok(CallInfo { args, name_tag })
+}
+
+fn evaluate_args(call: &hir::Call, ctx: &EvaluationContext) -> Result<EvaluatedArgs, ShellError> {
+    let mut positional_args: Vec<Value> = vec![];
+
+    if let Some(positional) = &call.positional {
+        for pos in positional {
+            let result = evaluate_baseline_expr(pos, ctx)?;
+            positional_args.push(result);
+        }
+    }
+
+    let positional = if !positional_args.is_empty() {
+        Some(positional_args)
+    } else {
+        None
+    };
+
+    let mut named_args = IndexMap::new();
+
+    if let Some(named) = &call.named {
+        for (name, value) in named.iter() {
+            match value {
+                hir::NamedValue::PresentSwitch(tag) => {
+                    named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
+                }
+                hir::NamedValue::Value(_, expr) => {
+                    named_args.insert(name.clone(), evaluate_baseline_expr(expr, ctx)?);
+                }
+                _ => {}
+            };
+        }
+    }
+
+    let named = if !named_args.is_empty() {
+        Some(named_args)
+    } else {
+        None
+    };
+
+    Ok(EvaluatedArgs::new(positional, named))
 }
