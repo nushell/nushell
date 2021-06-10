@@ -619,6 +619,29 @@ fn index_out_of_bounds() {
 }
 
 #[test]
+fn dash_def() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def - [x, y] { $x - $y }; - 4 1
+        "#
+    );
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn negative_decimal_start() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            -1.3 + 4
+        "#
+    );
+
+    assert_eq!(actual.out, "2.7");
+}
+#[test]
 fn index_row() {
     let actual = nu!(
         cwd: ".",

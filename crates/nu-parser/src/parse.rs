@@ -537,7 +537,7 @@ fn parse_dollar_expr(
             && lite_arg.item.ends_with('\''))
     {
         // This is an interpolated string
-        parse_interpolated_string(&lite_arg, scope)
+        parse_interpolated_string(lite_arg, scope)
     } else if let (expr, None) = parse_range(lite_arg, scope) {
         (expr, None)
     } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
@@ -588,7 +588,7 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
         let mut found_end = false;
         let mut delimiter_stack = vec![')'];
 
-        while let Some(c) = loop_input.next() {
+        for c in &mut loop_input {
             end += 1;
             if let Some('\'') = delimiter_stack.last() {
                 if c == '\'' {
@@ -726,9 +726,9 @@ fn parse_external_arg(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        parse_dollar_expr(&lite_arg, scope)
+        parse_dollar_expr(lite_arg, scope)
     } else if lite_arg.item.starts_with('(') {
-        parse_subexpression(&lite_arg, scope)
+        parse_subexpression(lite_arg, scope)
     } else {
         (
             SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
@@ -809,7 +809,7 @@ fn parse_table(
     let lite_cells = &lite_rows.commands[0];
 
     for arg in &lite_cells.parts {
-        let (string, err) = verify_and_strip(&arg, '[', ']');
+        let (string, err) = verify_and_strip(arg, '[', ']');
         if error.is_none() {
             error = err;
         }
@@ -891,12 +891,12 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_dollar_expr(&lite_arg, scope);
+        return parse_dollar_expr(lite_arg, scope);
     }
 
     // before anything else, try to see if this is a number in paranthesis
     if lite_arg.item.starts_with('(') {
-        return parse_full_column_path(&lite_arg, scope);
+        return parse_full_column_path(lite_arg, scope);
     }
 
     match expected_type {
@@ -954,13 +954,13 @@ fn parse_arg(
             )
         }
 
-        SyntaxShape::Range => parse_range(&lite_arg, scope),
+        SyntaxShape::Range => parse_range(lite_arg, scope),
         SyntaxShape::Operator => (
             garbage(lite_arg.span),
             Some(ParseError::mismatch("operator", lite_arg.clone())),
         ),
-        SyntaxShape::Filesize => parse_filesize(&lite_arg),
-        SyntaxShape::Duration => parse_duration(&lite_arg),
+        SyntaxShape::Filesize => parse_filesize(lite_arg),
+        SyntaxShape::Duration => parse_duration(lite_arg),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let expanded = expand_path(&trimmed).to_string();
@@ -1084,7 +1084,7 @@ fn parse_arg(
                         // We've found a parameter list
                         let mut param_tokens = vec![];
                         let mut token_iter = tokens.into_iter().skip(1);
-                        while let Some(token) = token_iter.next() {
+                        for token in &mut token_iter {
                             if matches!(
                                 token,
                                 Token {
@@ -1478,7 +1478,7 @@ fn parse_internal_command(
     );
 
     let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
-    internal_command.args.set_initial_flags(&signature);
+    internal_command.args.set_initial_flags(signature);
 
     let mut current_positional = 0;
     let mut named = NamedArguments::new();
@@ -1489,7 +1489,7 @@ fn parse_internal_command(
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) = super::flag::get_flag_signature_spec(
-                &signature,
+                signature,
                 &internal_command,
                 &lite_cmd.parts[idx],
             );
@@ -1577,7 +1577,7 @@ fn parse_internal_command(
             let arg = {
                 let (new_idx, expr, err) = parse_positional_argument(
                     idx,
-                    &lite_cmd,
+                    lite_cmd,
                     &signature.positional[current_positional].0,
                     signature.positional.len() - current_positional - 1,
                     scope,
@@ -1802,7 +1802,14 @@ fn parse_call(
     } else if lite_cmd.parts[0].item.starts_with('$')
         || lite_cmd.parts[0].item.starts_with('\"')
         || lite_cmd.parts[0].item.starts_with('\'')
-        || lite_cmd.parts[0].item.starts_with('-')
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Number, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Range, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
         || lite_cmd.parts[0].item.starts_with('0')
         || lite_cmd.parts[0].item.starts_with('1')
         || lite_cmd.parts[0].item.starts_with('2')
@@ -1819,48 +1826,6 @@ fn parse_call(
         let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[..], scope, false);
         error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
-    } else if lite_cmd.parts[0].item == "alias" {
-        let error = parse_alias(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
-        } else {
-            return (
-                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                error,
-            );
-        }
-    } else if lite_cmd.parts[0].item == "source" {
-        if lite_cmd.parts.len() != 2 {
-            return (
-                None,
-                Some(ParseError::argument_error(
-                    lite_cmd.parts[0].clone(),
-                    ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
-                )),
-            );
-        }
-        if lite_cmd.parts[1].item.starts_with('$') {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath constant",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
-        if let Ok(contents) =
-            std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
-        {
-            let _ = parse(&contents, 0, scope);
-        } else {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath to a source file",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -1891,6 +1856,47 @@ fn parse_call(
             }
         }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
+
+        if internal_command.name == "source" {
+            if lite_cmd.parts.len() != 2 {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[0].clone(),
+                        ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
+                    )),
+                );
+            }
+            if lite_cmd.parts[1].item.starts_with('$') {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::mismatch(
+                        "a filepath constant",
+                        lite_cmd.parts[1].clone(),
+                    )),
+                );
+            }
+            if let Ok(contents) =
+                std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
+            {
+                let _ = parse(&contents, 0, scope);
+            } else {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[1].clone(),
+                        ArgumentError::BadValue("can't load source file".into()),
+                    )),
+                );
+            }
+        } else if lite_cmd.parts[0].item == "alias" {
+            let error = parse_alias(&lite_cmd, scope);
+            if error.is_none() {
+                return (Some(ClassifiedCommand::Internal(internal_command)), None);
+            } else {
+                return (Some(ClassifiedCommand::Internal(internal_command)), error);
+            }
+        }
 
         error = error.or(err);
         internal_command.args.external_redirection = if end_of_pipeline {
@@ -1988,6 +1994,10 @@ fn expand_shorthand_forms(
 }
 
 fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
+    if call.parts.len() == 2 && (call.parts[1].item == "--help" || (call.parts[1].item == "-h")) {
+        return None;
+    }
+
     if call.parts.len() < 4 {
         return Some(ParseError::mismatch("alias", call.parts[0].clone()));
     }

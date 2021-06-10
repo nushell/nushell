@@ -23,7 +23,7 @@ fn from_value_to_delimited_string(
             for (k, v) in o.entries.iter() {
                 fields.push_back(k.clone());
 
-                values.push_back(to_string_tagged_value(&v)?);
+                values.push_back(to_string_tagged_value(v)?);
             }
 
             wtr.write_record(fields).expect("can not write.");
@@ -50,7 +50,7 @@ fn from_value_to_delimited_string(
                 .delimiter(separator as u8)
                 .from_writer(vec![]);
 
-            let merged_descriptors = merge_descriptors(&list);
+            let merged_descriptors = merge_descriptors(list);
 
             if merged_descriptors.is_empty() {
                 wtr.write_record(

@@ -189,9 +189,7 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                         serde_json_string.as_str(),
                                     )
                                 {
-                                    let indentation_string = std::iter::repeat(" ")
-                                        .take(pretty_u64 as usize)
-                                        .collect::<String>();
+                                    let indentation_string = " ".repeat(pretty_u64 as usize);
                                     let serde_formatter =
                                         serde_json::ser::PrettyFormatter::with_indent(
                                             indentation_string.as_bytes(),

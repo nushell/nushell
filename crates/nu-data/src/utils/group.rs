@@ -16,9 +16,9 @@ pub fn group(
 
     for (idx, value) in values.table_entries().enumerate() {
         let group_key = if let Some(ref grouper) = grouper {
-            grouper(idx, &value)
+            grouper(idx, value)
         } else {
-            as_string(&value)
+            as_string(value)
         };
 
         let group = groups.entry(group_key?).or_insert(vec![]);

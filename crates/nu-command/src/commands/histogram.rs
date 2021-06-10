@@ -165,11 +165,9 @@ pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
             );
             fact.insert_untagged("percentage", UntaggedValue::string(fmt_percentage));
 
-            let string = std::iter::repeat("*")
-                .take(percentage.as_u64().map_err(|_| {
-                    ShellError::labeled_error("expected a number", "expected a number", &name)
-                })? as usize)
-                .collect::<String>();
+            let string = "*".repeat(percentage.as_u64().map_err(|_| {
+                ShellError::labeled_error("expected a number", "expected a number", &name)
+            })? as usize);
 
             fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
 
@@ -209,7 +207,7 @@ fn splitter(
                 )),
             }
         }),
-        None => Box::new(move |_, row: &Value| nu_value_ext::as_string(&row)),
+        None => Box::new(move |_, row: &Value| nu_value_ext::as_string(row)),
     }
 }
 

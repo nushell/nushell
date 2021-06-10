@@ -72,10 +72,8 @@ impl Painter {
 
                     current_style = self.styles[idx_end];
                     idx_start = idx_end;
-                    idx_end += 1;
-                } else {
-                    idx_end += 1;
                 }
+                idx_end += 1;
             }
 
             let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);

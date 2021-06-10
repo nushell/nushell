@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::utils::arguments::arguments;
 use indexmap::set::IndexSet;
 use log::trace;
 use nu_engine::WholeStreamCommand;
@@ -20,7 +19,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("get").rest(
-            SyntaxShape::Any,
+            SyntaxShape::ColumnPath,
             "optionally return additional data by path",
         )
     }
@@ -51,10 +50,8 @@ impl WholeStreamCommand for Command {
 
 pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let args = args.evaluate_once()?;
-    let mut rest: Vec<Value> = args.rest(0)?;
+    let column_paths: Vec<ColumnPath> = args.rest(0)?;
     let mut input = args.input;
-
-    let (column_paths, _) = arguments(&mut rest)?;
 
     if column_paths.is_empty() {
         let vec = input.drain_vec();
@@ -123,7 +120,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
             _ => {}
         }
 
-        if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried.as_string()) {
+        if let Some(suggestions) = did_you_mean(obj_source, column_path_tried.as_string()) {
             ShellError::labeled_error(
                 "Unknown column",
                 format!("did you mean '{}'?", suggestions[0]),
@@ -149,7 +146,7 @@ pub fn get_column_path_from_table_error(
 
             let suggestions: IndexSet<_> = rows
                 .iter()
-                .filter_map(|r| did_you_mean(&r, column_path_tried.as_string()))
+                .filter_map(|r| did_you_mean(r, column_path_tried.as_string()))
                 .map(|s| s[0].to_owned())
                 .collect();
             let mut existing_columns: IndexSet<_> = IndexSet::default();
@@ -226,7 +223,7 @@ pub fn get_column_from_row_error(
         } => {
             let primary_label = format!("There isn't a column named '{}'", &column);
 
-            did_you_mean(&obj_source, column_path_tried.as_string()).map(|suggestions| {
+            did_you_mean(obj_source, column_path_tried.as_string()).map(|suggestions| {
                 ShellError::labeled_error_with_secondary(
                     "Unknown column",
                     primary_label,

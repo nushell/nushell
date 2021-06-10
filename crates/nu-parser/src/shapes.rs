@@ -23,7 +23,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             }
             for row in cells {
                 for cell in row {
-                    output.append(&mut expression_to_flat_shape(&cell));
+                    output.append(&mut expression_to_flat_shape(cell));
                 }
             }
             output

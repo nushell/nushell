@@ -26,7 +26,7 @@ pub fn evaluate_baseline_expr(
     };
     let span = expr.span;
     match &expr.expr {
-        Expression::Literal(literal) => Ok(evaluate_literal(&literal, span)),
+        Expression::Literal(literal) => Ok(evaluate_literal(literal, span)),
         Expression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
@@ -35,7 +35,7 @@ pub fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var, s) => evaluate_reference(&var, ctx, *s),
+        Expression::Variable(var, s) => evaluate_reference(var, ctx, *s),
         Expression::Command => unimplemented!(),
         Expression::Subexpression(block) => evaluate_subexpression(block, ctx),
         Expression::ExternalCommand(_) => unimplemented!(),
@@ -68,13 +68,13 @@ pub fn evaluate_baseline_expr(
         }
         Expression::Range(range) => {
             let left = if let Some(left) = &range.left {
-                evaluate_baseline_expr(&left, ctx)?
+                evaluate_baseline_expr(left, ctx)?
             } else {
                 Value::nothing()
             };
 
             let right = if let Some(right) = &range.right {
-                evaluate_baseline_expr(&right, ctx)?
+                evaluate_baseline_expr(right, ctx)?
             } else {
                 Value::nothing()
             };
@@ -100,7 +100,7 @@ pub fn evaluate_baseline_expr(
             let mut output_headers = vec![];
 
             for expr in headers {
-                let val = evaluate_baseline_expr(&expr, ctx)?;
+                let val = evaluate_baseline_expr(expr, ctx)?;
 
                 let header = val.as_string()?;
                 output_headers.push(header);
@@ -128,7 +128,7 @@ pub fn evaluate_baseline_expr(
 
                 let mut row_output = IndexMap::new();
                 for cell in output_headers.iter().zip(row.iter()) {
-                    let val = evaluate_baseline_expr(&cell.1, ctx)?;
+                    let val = evaluate_baseline_expr(cell.1, ctx)?;
                     row_output.insert(cell.0.clone(), val);
                 }
                 output_table.push(UntaggedValue::row(row_output).into_value(tag.clone()));
@@ -140,7 +140,7 @@ pub fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(&expr, ctx)?;
+                let expr = evaluate_baseline_expr(expr, ctx)?;
                 exprs.push(expr);
             }
 
@@ -228,7 +228,7 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
                 UntaggedValue::decimal(d.clone()).into_value(span)
             }
         },
-        hir::Literal::Size(int, unit) => unit.compute(&int).into_value(span),
+        hir::Literal::Size(int, unit) => unit.compute(int).into_value(span),
         hir::Literal::String(string) => UntaggedValue::string(string).into_value(span),
         hir::Literal::GlobPattern(pattern) => UntaggedValue::glob_pattern(pattern).into_value(span),
         hir::Literal::Bare(bare) => UntaggedValue::string(bare.clone()).into_value(span),
@@ -287,7 +287,7 @@ fn evaluate_subexpression(
         None => InputStream::empty(),
     };
 
-    let result = run_block(&block, ctx, input, hir::ExternalRedirection::Stdout)?;
+    let result = run_block(block, ctx, input, hir::ExternalRedirection::Stdout)?;
 
     let output = result.into_vec();
 

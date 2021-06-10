@@ -183,9 +183,9 @@ fn add_months_of_year_to_table(
         }
 
         let add_month_to_table_result = add_month_to_table(
-            &args,
+            args,
             &mut calendar_vec_deque,
-            &tag,
+            tag,
             selected_year,
             month_number,
             new_current_day_option,

@@ -106,11 +106,11 @@ fn is_existent_local_cfg(cfg_file_path: &Path) -> Result<bool, ShellError> {
 
 fn is_trusted_local_cfg_content(cfg_file_path: &Path, content: &[u8]) -> Result<bool, ShellError> {
     //This checks whether user used `autoenv trust` to mark this cfg as secure
-    if !super::is_file_trusted(&cfg_file_path, &content)? {
+    if !super::is_file_trusted(cfg_file_path, content)? {
         //Notify user about present config, but not trusted
         Err(ShellError::untagged_runtime_error(
                 format!("{:?} is untrusted. Run 'autoenv trust {:?}' to trust it.\nThis needs to be done after each change to the file.",
-                    cfg_file_path, cfg_file_path.parent().unwrap_or_else(|| &Path::new("")))))
+                    cfg_file_path, cfg_file_path.parent().unwrap_or_else(|| Path::new("")))))
     } else {
         Ok(true)
     }

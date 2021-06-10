@@ -2,12 +2,15 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
+
+#[cfg(unix)]
 use nu_source::Tagged;
+#[cfg(unix)]
 use std::path::PathBuf;
 
 pub struct Exec;
 
-#[derive(Deserialize)]
+#[cfg(unix)]
 pub struct ExecArgs {
     pub command: Tagged<PathBuf>,
     pub rest: Vec<Tagged<String>>,
@@ -23,22 +26,26 @@ impl WholeStreamCommand for Exec {
             .required("command", SyntaxShape::FilePath, "the command to execute")
             .rest(
                 SyntaxShape::GlobPattern,
-                "any additional arguments for command",
+                "any additional arguments for the command",
             )
     }
 
     fn usage(&self) -> &str {
-        "Execute command."
+        "Execute a command, replacing the current process."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn extra_usage(&self) -> &str {
+        "Currently supported only on Unix-based systems."
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         exec(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Execute 'ps aux'",
+                description: "Execute external 'ps aux' tool",
                 example: "exec ps aux",
                 result: None,
             },
@@ -52,7 +59,7 @@ impl WholeStreamCommand for Exec {
 }
 
 #[cfg(unix)]
-fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
 
@@ -79,7 +86,7 @@ fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
 }
 
 #[cfg(not(unix))]
-fn exec(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Err(ShellError::labeled_error(
         "Error on exec",
         "exec is not supported on your platform",

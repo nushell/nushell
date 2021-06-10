@@ -125,7 +125,7 @@ impl Iterator for WhereIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(x) = self.input.next() {
+        for x in &mut self.input {
             self.context.scope.enter_scope();
             self.context.scope.add_vars(&self.block.captured.entries);
 

@@ -91,7 +91,7 @@ pub async fn post_helper(
     let path_str = path.as_string()?;
 
     let (file_extension, contents, contents_tag) =
-        post(&path_str, &body, user, password, &headers, path_tag.clone()).await?;
+        post(&path_str, body, user, password, headers, path_tag.clone()).await?;
 
     let file_extension = if has_raw {
         None
@@ -456,7 +456,7 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
     let mut headers = vec![];
 
-    match extract_header_value(&call_info, "content-type") {
+    match extract_header_value(call_info, "content-type") {
         Ok(h) => {
             if let Some(ct) = h {
                 headers.push(HeaderKind::ContentType(ct))
@@ -467,7 +467,7 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
         }
     };
 
-    match extract_header_value(&call_info, "content-length") {
+    match extract_header_value(call_info, "content-length") {
         Ok(h) => {
             if let Some(cl) = h {
                 headers.push(HeaderKind::ContentLength(cl))

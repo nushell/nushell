@@ -241,16 +241,16 @@ pub fn group(
             let block = Box::new(move |_, row: &Value| {
                 match row.get_data_by_key(column_name.borrow_spanned()) {
                     Some(group_key) => Ok(as_string(&group_key)?),
-                    None => Err(suggestions(column_name.borrow_tagged(), &row)),
+                    None => Err(suggestions(column_name.borrow_tagged(), row)),
                 }
             });
 
-            nu_data::utils::group(&values, &Some(block), &name)
+            nu_data::utils::group(values, &Some(block), &name)
         }
         Grouper::ByColumn(None) => {
             let block = Box::new(move |_, row: &Value| as_string(row));
 
-            nu_data::utils::group(&values, &Some(block), &name)
+            nu_data::utils::group(values, &Some(block), &name)
         }
         Grouper::ByBlock => Err(ShellError::unimplemented(
             "Block not implemented: This should never happen.",

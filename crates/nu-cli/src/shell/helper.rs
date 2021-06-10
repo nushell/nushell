@@ -60,7 +60,7 @@ impl rustyline::completion::Completer for Helper {
 impl rustyline::hint::Hinter for Helper {
     type Hint = String;
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.as_ref().and_then(|h| h.hint(line, pos, &ctx))
+        self.hinter.as_ref().and_then(|h| h.hint(line, pos, ctx))
     }
 }
 
@@ -166,7 +166,7 @@ mod tests {
 
         let helper = Helper::new(EvaluationContext::basic(), None);
 
-        helper.update(&mut buffer, "cd ".len(), &replacement);
+        helper.update(&mut buffer, "cd ".len(), replacement);
 
         assert_eq!(
             buffer.as_str(),
@@ -186,7 +186,7 @@ mod tests {
 
         let helper = Helper::new(EvaluationContext::basic(), None);
 
-        helper.update(&mut buffer, "cd ".len(), &replacement);
+        helper.update(&mut buffer, "cd ".len(), replacement);
 
         assert_eq!(
             buffer.as_str(),

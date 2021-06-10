@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -127,16 +126,14 @@ impl WholeStreamCommand for SubCommand {
 struct DatetimeFormat(String);
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        let (column_paths, _) = arguments(&mut params.rest(0)?)?;
-
-        Ok(Arguments {
-            timezone: params.get_flag("timezone")?,
-            offset: params.get_flag("offset")?,
-            format: params.get_flag("format")?,
-            column_paths,
-        })
-    })?;
+    let args = args.evaluate_once()?;
+    let options = Arguments {
+        timezone: args.get_flag("timezone")?,
+        offset: args.get_flag("offset")?,
+        format: args.get_flag("format")?,
+        column_paths: args.rest(0)?,
+    };
+    let input = args.input;
 
     // if zone-offset is specified, then zone will be neglected
     let zone_options = if let Some(Tagged {

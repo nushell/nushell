@@ -51,7 +51,7 @@ fn formula(
     calculator: Box<dyn Fn(Vec<&Value>) -> Result<Value, ShellError> + Send + Sync + 'static>,
 ) -> Box<dyn Fn(&Value, Vec<&Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     Box::new(move |acc, datax| -> Result<Value, ShellError> {
-        let result = match unsafe_compute_values(Operator::Multiply, &acc, &acc_begin) {
+        let result = match unsafe_compute_values(Operator::Multiply, acc, &acc_begin) {
             Ok(v) => v.into_untagged_value(),
             Err((left_type, right_type)) => {
                 return Err(ShellError::coerce_error(
@@ -164,7 +164,7 @@ pub fn sum(data: Vec<&Value>) -> Result<Value, ShellError> {
     for value in data {
         match value.value {
             UntaggedValue::Primitive(_) => {
-                acc = match unsafe_compute_values(Operator::Plus, &acc, &value) {
+                acc = match unsafe_compute_values(Operator::Plus, &acc, value) {
                     Ok(v) => v,
                     Err((left_type, right_type)) => {
                         return Err(ShellError::coerce_error(
@@ -314,8 +314,8 @@ pub fn percentages(
                     .filter_map(|s| {
                         let hundred = UntaggedValue::decimal_from_float(100.0, tag.span);
 
-                        match unsafe_compute_values(Operator::Divide, &hundred, &maxima) {
-                            Ok(v) => match unsafe_compute_values(Operator::Multiply, &s, &v) {
+                        match unsafe_compute_values(Operator::Divide, &hundred, maxima) {
+                            Ok(v) => match unsafe_compute_values(Operator::Multiply, s, &v) {
                                 Ok(v) => Some(v.into_untagged_value()),
                                 Err(_) => None,
                             },

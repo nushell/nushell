@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
@@ -25,7 +24,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str to-int")
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .rest(
-                SyntaxShape::Any,
+                SyntaxShape::ColumnPath,
                 "optionally convert text into integer by column paths",
             )
     }
@@ -65,14 +64,12 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (options, input) = args.extract(|params| {
-        let (column_paths, _) = arguments(&mut params.rest(0)?)?;
-
-        Ok(Arguments {
-            radix: params.get_flag("radix")?,
-            column_paths,
-        })
-    })?;
+    let args = args.evaluate_once()?;
+    let options = Arguments {
+        radix: args.get_flag("radix")?,
+        column_paths: args.rest(0)?,
+    };
+    let input = args.input;
 
     let radix = options.radix.as_ref().map(|r| r.item).unwrap_or(10);
 

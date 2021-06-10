@@ -105,9 +105,9 @@ impl DirInfo {
                     match f {
                         Ok(i) => match i.file_type() {
                             Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, &params, ctrl_c.clone())
+                                s = s.add_dir(i.path(), depth, params, ctrl_c.clone())
                             }
-                            Ok(_t) => s = s.add_file(i.path(), &params),
+                            Ok(_t) => s = s.add_file(i.path(), params),
                             Err(e) => s = s.add_error(e.into()),
                         },
                         Err(e) => s = s.add_error(e.into()),
@@ -134,7 +134,7 @@ impl DirInfo {
             }
         }
 
-        let d = DirInfo::new(path, &params, depth, ctrl_c);
+        let d = DirInfo::new(path, params, depth, ctrl_c);
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);

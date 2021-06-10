@@ -114,7 +114,7 @@ mod tests {
         let pattern = "Car";
         let expected = UntaggedValue::boolean(true).into_untagged_value();
 
-        let actual = action(&word, &pattern, Tag::unknown()).unwrap();
+        let actual = action(&word, pattern, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -124,7 +124,7 @@ mod tests {
         let pattern = ".toml";
         let expected = UntaggedValue::boolean(false).into_untagged_value();
 
-        let actual = action(&word, &pattern, Tag::unknown()).unwrap();
+        let actual = action(&word, pattern, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 }

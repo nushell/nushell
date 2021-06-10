@@ -28,7 +28,7 @@ pub fn split(
             ));
         }
 
-        match group(&value, splitter, &tag) {
+        match group(value, splitter, &tag) {
             Ok(grouped) => {
                 for (split_label, subset) in grouped.row_entries() {
                     let s = splits

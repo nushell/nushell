@@ -43,7 +43,7 @@ pub fn unstyle(strs: &AnsiStrings) -> String {
     let mut s = String::new();
 
     for i in strs.0.iter() {
-        s += &i.deref();
+        s += i.deref();
     }
 
     s

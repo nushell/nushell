@@ -542,7 +542,7 @@ pub fn style_leaf<'a>(
             let str_len = str.len();
             let paren_index = str.find('(').unwrap_or(str_len - 1);
             let prim_type = str[0..paren_index].to_string();
-            style_primitive(&prim_type, &color_hash_map)
+            style_primitive(&prim_type, color_hash_map)
         }
         _ => TextStyle::basic_left(),
     }

@@ -536,12 +536,12 @@ impl Value {
 
     /// Returns an iterator of the values rows
     pub fn table_entries(&self) -> TableValueIter<'_> {
-        crate::value::iter::table_entries(&self)
+        crate::value::iter::table_entries(self)
     }
 
     /// Returns an iterator of the value's cells
     pub fn row_entries(&self) -> RowValueIter<'_> {
-        crate::value::iter::row_entries(&self)
+        crate::value::iter::row_entries(self)
     }
 
     /// Returns true if the value is empty

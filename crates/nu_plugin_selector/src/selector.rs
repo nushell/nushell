@@ -48,7 +48,7 @@ fn execute_selector_query_with_attribute(
 ) -> Vec<Value> {
     let doc = Document::from(input_string);
 
-    doc.select(&query_string)
+    doc.select(query_string)
         .iter()
         .map(|selection| {
             selection
@@ -64,12 +64,12 @@ fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool)
 
     match as_html {
         true => doc
-            .select(&query_string)
+            .select(query_string)
             .iter()
             .map(|selection| selection.html().to_string().to_string_value_create_tag())
             .collect(),
         false => doc
-            .select(&query_string)
+            .select(query_string)
             .iter()
             .map(|selection| selection.text().to_string().to_string_value_create_tag())
             .collect(),

@@ -20,7 +20,7 @@ impl Trusted {
 }
 
 pub fn is_file_trusted(nu_env_file: &Path, content: &[u8]) -> Result<bool, ShellError> {
-    let contentdigest = Sha256::digest(&content).as_slice().to_vec();
+    let contentdigest = Sha256::digest(content).as_slice().to_vec();
     let nufile = std::fs::canonicalize(nu_env_file)?;
 
     let trusted = read_trusted()?;

@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .long("testbin")
                 .value_name("TESTBIN")
                 .possible_values(&[
-                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater",
+                    "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater", "meow",
                 ])
                 .takes_value(true),
         )
@@ -90,6 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         match bin {
             "echo_env" => binaries::echo_env(),
             "cococo" => binaries::cococo(),
+            "meow" => binaries::meow(),
             "iecho" => binaries::iecho(),
             "fail" => binaries::fail(),
             "nonu" => binaries::nonu(),

@@ -158,7 +158,7 @@ pub fn scan(
 
                 if is_valid_name && is_executable {
                     trace!(target: "nu::load", "plugin infrastructure -> Trying {:?}", path.display());
-                    build_plugin_command(&path).unwrap_or(None)
+                    build_plugin_command(path).unwrap_or(None)
                 } else {
                     None
                 }

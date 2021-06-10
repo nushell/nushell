@@ -137,7 +137,7 @@ mod tests {
     fn validate_string() {
         let json = r#"{ "name": { "first": "Tom", "last": "Anderson" }, "age": 37, "children": ["Sara", "Alex", "Jack"], "friends": [ { "first": "James", "last": "Murphy" }, { "first": "Roger", "last": "Craig" } ] }"#;
         let val = valid(json);
-        assert_eq!(val, true);
+        assert!(val);
     }
 
     #[test]

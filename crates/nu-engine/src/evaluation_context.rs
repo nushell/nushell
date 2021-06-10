@@ -292,7 +292,7 @@ impl EvaluationContext {
         }
 
         //Unload config
-        self.configs.lock().remove_cfg(&cfg_path);
+        self.configs.lock().remove_cfg(cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
 
@@ -301,7 +301,7 @@ impl EvaluationContext {
     pub fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
         if let Some(dir) = dir {
             for script in scripts {
-                match script::run_script_in_dir(script.clone(), dir, &self) {
+                match script::run_script_in_dir(script.clone(), dir, self) {
                     Ok(_) => {}
                     Err(e) => {
                         let err = ShellError::untagged_runtime_error(format!(

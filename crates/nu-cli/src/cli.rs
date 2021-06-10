@@ -157,8 +157,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
     // Store cmd duration in an env var
     context.scope.add_env_var(
-        "CMD_DURATION",
-        format!("{:?}", startup_commands_start_time.elapsed()),
+        "CMD_DURATION_MS",
+        format!("{}", startup_commands_start_time.elapsed().as_millis()),
     );
     trace!(
         "startup commands took {:?}",
@@ -307,7 +307,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
-            readline = rl.readline_with_initial(&prompt, (&cmd, ""));
+            readline = rl.readline_with_initial(&prompt, (cmd, ""));
             initial_command = None;
         }
 
@@ -332,9 +332,10 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         };
 
         // Store cmd duration in an env var
-        context
-            .scope
-            .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
+        context.scope.add_env_var(
+            "CMD_DURATION_MS",
+            format!("{}", cmd_start_time.elapsed().as_millis()),
+        );
 
         match line {
             LineResult::Success(line) => {
@@ -478,7 +479,7 @@ pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, She
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     ctx.scope.enter_scope();
-    let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
+    let (classified_block, err) = nu_parser::parse(line, 0, &ctx.scope);
     if let Some(err) = err {
         ctx.scope.exit_scope();
         return Err(err.into());

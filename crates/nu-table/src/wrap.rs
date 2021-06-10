@@ -165,7 +165,7 @@ pub fn wrap<'a>(
                     // If this is a really long single word, we need to split the word
                     if current_line.len() == 1 && current_width > cell_width {
                         max_width = cell_width;
-                        let sublines = split_word(cell_width, &current_line[0].subline);
+                        let sublines = split_word(cell_width, current_line[0].subline);
                         for subline in sublines {
                             let width = subline.width;
                             lines.push(Line {
@@ -200,7 +200,7 @@ pub fn wrap<'a>(
             None => {
                 if current_width > cell_width {
                     // We need to break up the last word
-                    let sublines = split_word(cell_width, &current_line[0].subline);
+                    let sublines = split_word(cell_width, current_line[0].subline);
                     for subline in sublines {
                         let width = subline.width;
                         lines.push(Line {
@@ -231,12 +231,11 @@ pub fn wrap<'a>(
             if !first {
                 current_line_width += 1 + subline.width;
                 current_line.push(' ');
-                current_line.push_str(subline.subline);
             } else {
                 first = false;
                 current_line_width = subline.width;
-                current_line.push_str(subline.subline);
             }
+            current_line.push_str(subline.subline);
         }
 
         if current_line_width > current_max {

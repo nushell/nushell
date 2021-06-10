@@ -228,11 +228,13 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                                     item: LocationType::Command,
                                 } = &rloc
                                 {
-                                    output.push(LocationType::Command.spanned(Span::new(
-                                        span.start(),
-                                        locations[locations.len() - 1].span.end(),
-                                    )));
-                                    break;
+                                    if span.start() <= pos {
+                                        output.push(
+                                            LocationType::Command
+                                                .spanned(Span::new(span.start(), pos)),
+                                        );
+                                        break;
+                                    }
                                 }
                             }
 
@@ -268,12 +270,11 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
             }
             if line[start..pos].contains(BEFORE_COMMAND_CHARS) {
                 locations.push(LocationType::Command.spanned(Span::new(pos, pos)));
-                locations
             } else {
                 // TODO this should be able to be mapped to a command
                 locations.push(LocationType::Argument(command, None).spanned(Span::new(pos, pos)));
-                locations
             }
+            locations
         } else {
             // Cursor is before any possible completion location, so must be a command
             vec![LocationType::Command.spanned(Span::unknown())]

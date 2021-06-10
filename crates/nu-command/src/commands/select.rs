@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use crate::utils::arguments::arguments;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    PathMember, Primitive, Signature, SyntaxShape, TaggedDictBuilder, UnspannedPathMember,
-    UntaggedValue, Value,
+    ColumnPath, PathMember, Primitive, Signature, SyntaxShape, TaggedDictBuilder,
+    UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_value_ext::{as_string, get_data_by_column_path};
 
@@ -16,7 +15,10 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("select").rest(SyntaxShape::Any, "the columns to select from the table")
+        Signature::build("select").rest(
+            SyntaxShape::ColumnPath,
+            "the columns to select from the table",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -46,9 +48,8 @@ impl WholeStreamCommand for Command {
 fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let args = args.evaluate_once()?;
-    let mut rest = args.rest(0)?;
+    let columns: Vec<ColumnPath> = args.rest(0)?;
     let input = args.input;
-    let (columns, _) = arguments(&mut rest)?;
 
     if columns.is_empty() {
         return Err(ShellError::labeled_error(
@@ -64,7 +65,7 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         for path in &columns {
             let fetcher = get_data_by_column_path(
                 &value,
-                &path,
+                path,
                 move |obj_source, path_member_tried, error| {
                     if let PathMember {
                         unspanned: UnspannedPathMember::String(column),

@@ -29,10 +29,6 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
     // prototypes of adjacent commands are also available
 
     if call.parts.len() == 4 {
-        if call.parts.len() != 4 {
-            return Some(ParseError::mismatch("definition", call.parts[0].clone()));
-        }
-
         if call.parts[0].item != "def" {
             return Some(ParseError::mismatch("definition", call.parts[0].clone()));
         }
@@ -81,7 +77,9 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
         }
     } else {
         Some(ParseError::internal_error(
-            "need a block".to_string().spanned(call.span()),
+            "Wrong shape. Expected def name [signature] {body}."
+                .to_string()
+                .spanned(call.span()),
         ))
     }
 }

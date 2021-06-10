@@ -48,7 +48,7 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 // Internal only commands shouldn't be displayed
                 .filter(|cmd_name| {
                     scope
-                        .get_command(&cmd_name)
+                        .get_command(cmd_name)
                         .filter(|command| !command.is_internal())
                         .is_some()
                 })
@@ -63,7 +63,7 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
             ) -> Result<(), ShellError> {
                 let document_tag = rest[0].tag.clone();
                 let value = command_dict(
-                    scope.get_command(&cmd_name).ok_or_else(|| {
+                    scope.get_command(cmd_name).ok_or_else(|| {
                         ShellError::labeled_error(
                             format!("Could not load {}", cmd_name),
                             "could not load command",
