@@ -44,7 +44,7 @@ impl FromValue for Tagged<num_bigint::BigInt> {
                 let mut shell_error = ShellError::type_error("integer", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("integer", v.spanned_type_name())),
@@ -74,7 +74,7 @@ impl FromValue for num_bigint::BigInt {
                 let mut shell_error = ShellError::type_error("integer", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("integer", v.spanned_type_name())),
@@ -165,7 +165,7 @@ impl FromValue for bigdecimal::BigDecimal {
                 let mut shell_error = ShellError::type_error("decimal", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("decimal", v.spanned_type_name())),
@@ -218,7 +218,7 @@ impl FromValue for String {
                 let mut shell_error = ShellError::type_error("string", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("string", v.spanned_type_name())),
@@ -251,7 +251,7 @@ impl FromValue for PathBuf {
                 let mut shell_error = ShellError::type_error("filepath", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
@@ -277,7 +277,7 @@ impl FromValue for Tagged<PathBuf> {
                 let mut shell_error = ShellError::type_error("filepath", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
@@ -311,7 +311,7 @@ impl FromValue for bool {
                 let mut shell_error = ShellError::type_error("boolean", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
@@ -333,7 +333,7 @@ impl FromValue for Tagged<bool> {
                 let mut shell_error = ShellError::type_error("boolean", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
@@ -355,7 +355,7 @@ impl FromValue for DateTime<FixedOffset> {
                 let mut shell_error = ShellError::type_error("date", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("date", v.spanned_type_name())),
@@ -377,7 +377,7 @@ impl FromValue for Range {
                 let mut shell_error = ShellError::type_error("range", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("range", v.spanned_type_name())),
@@ -400,7 +400,7 @@ impl FromValue for Tagged<Range> {
                 let mut shell_error = ShellError::type_error("range", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("range", v.spanned_type_name())),
@@ -426,7 +426,7 @@ impl FromValue for Vec<u8> {
                 let mut shell_error = ShellError::type_error("binary data", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("binary data", v.spanned_type_name())),
@@ -460,7 +460,7 @@ impl FromValue for CapturedBlock {
                 let mut shell_error = ShellError::type_error("block", v.spanned_type_name());
                 shell_error
                     .notes
-                    .push("Note: you can access columns using dot. eg) $it.row or (ls).row".into());
+                    .push("Note: you can access columns using dot. eg) $it.column or (ls).column".into());
                 Err(shell_error)
             }
             v => Err(ShellError::type_error("block", v.spanned_type_name())),
