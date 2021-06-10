@@ -3,7 +3,7 @@ use calamine::*;
 use nu_data::TaggedListBuilder;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Primitive, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use std::io::Cursor;
 
 pub struct FromXlsx;
@@ -14,11 +14,18 @@ impl WholeStreamCommand for FromXlsx {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from xlsx").switch(
-            "noheaders",
-            "don't treat the first row as column names",
-            Some('n'),
-        )
+        Signature::build("from xlsx")
+            .switch(
+                "noheaders",
+                "don't treat the first row as column names",
+                Some('n'),
+            )
+            .named(
+                "sheets",
+                SyntaxShape::Table,
+                "Only convert specified sheets",
+                Some('s'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -30,9 +37,36 @@ impl WholeStreamCommand for FromXlsx {
     }
 }
 
+// Adapted from crates/nu-command/src/commands/dataframe/utils.rs
+fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
+    let res = columns
+        .iter()
+        .map(|value| match &value.value {
+            UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            _ => Err(ShellError::labeled_error(
+                "Incorrect column format",
+                "Only string as column name",
+                &value.tag,
+            )),
+        })
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(res)
+}
+
 fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
+
+    let args = args.evaluate_once()?;
+
+    let mut sel_sheets = vec![];
+
+    if let Some(s) = args.call_info.args.get("sheets") {
+        if let UntaggedValue::Table(columns) = s.value.clone() {
+            sel_sheets = convert_columns(columns.as_slice())?;
+        }
+    }
 
     let value = args.input.collect_binary(tag.clone())?;
 
@@ -43,7 +77,10 @@ fn from_xlsx(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut dict = TaggedDictBuilder::new(&tag);
 
-    let sheet_names = xls.sheet_names().to_owned();
+    let mut sheet_names = xls.sheet_names().to_owned();
+    if !sel_sheets.is_empty() {
+        sheet_names.retain(|e| sel_sheets.contains(e));
+    }
 
     for sheet_name in &sheet_names {
         let mut sheet_output = TaggedListBuilder::new(&tag);
