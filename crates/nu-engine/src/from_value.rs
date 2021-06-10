@@ -37,6 +37,16 @@ impl FromValue for Tagged<num_bigint::BigInt> {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
             } => Ok(i.clone().tagged(tag)),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("integer", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("integer", v.spanned_type_name())),
         }
     }
@@ -57,6 +67,16 @@ impl FromValue for num_bigint::BigInt {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
             } => Ok(i.clone()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("integer", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("integer", v.spanned_type_name())),
         }
     }
@@ -138,6 +158,16 @@ impl FromValue for bigdecimal::BigDecimal {
                 value: UntaggedValue::Primitive(Primitive::Int(i)),
                 ..
             } => Ok(BigDecimal::from(*i)),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("decimal", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("decimal", v.spanned_type_name())),
         }
     }
@@ -181,6 +211,16 @@ impl FromValue for String {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.to_string_lossy().to_string()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("string", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("string", v.spanned_type_name())),
         }
     }
@@ -204,6 +244,16 @@ impl FromValue for PathBuf {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.clone()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("filepath", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
         }
     }
@@ -220,6 +270,16 @@ impl FromValue for Tagged<PathBuf> {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 tag,
             } => Ok(p.clone().tagged(tag)),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("filepath", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
         }
     }
@@ -244,6 +304,16 @@ impl FromValue for bool {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => Ok(*b),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("boolean", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
         }
     }
@@ -256,6 +326,16 @@ impl FromValue for Tagged<bool> {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 tag,
             } => Ok((*b).tagged(tag)),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("boolean", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
         }
     }
@@ -268,6 +348,16 @@ impl FromValue for DateTime<FixedOffset> {
                 value: UntaggedValue::Primitive(Primitive::Date(d)),
                 ..
             } => Ok(*d),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("date", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("date", v.spanned_type_name())),
         }
     }
@@ -280,6 +370,16 @@ impl FromValue for Range {
                 value: UntaggedValue::Primitive(Primitive::Range(r)),
                 ..
             } => Ok((**r).clone()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("range", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("range", v.spanned_type_name())),
         }
     }
@@ -293,6 +393,16 @@ impl FromValue for Tagged<Range> {
                 value: UntaggedValue::Primitive(Primitive::Range(ref range)),
                 ..
             } => Ok((*range.clone()).tagged(tag)),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("range", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("range", v.spanned_type_name())),
         }
     }
@@ -309,6 +419,16 @@ impl FromValue for Vec<u8> {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             } => Ok(s.bytes().collect()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("binary data", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("binary data", v.spanned_type_name())),
         }
     }
@@ -333,6 +453,16 @@ impl FromValue for CapturedBlock {
                 value: UntaggedValue::Block(b),
                 ..
             } => Ok((**b).clone()),
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut shell_error = ShellError::type_error("block", v.spanned_type_name());
+                shell_error.notes.push(
+                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
+                );
+                Err(shell_error)
+            }
             v => Err(ShellError::type_error("block", v.spanned_type_name())),
         }
     }
