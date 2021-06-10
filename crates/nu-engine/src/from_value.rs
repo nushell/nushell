@@ -4,7 +4,8 @@ use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, FixedOffset};
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::CapturedBlock, ColumnPath, Dictionary, Primitive, Range, UntaggedValue, Value,
+    hir::CapturedBlock, ColumnPath, Dictionary, Primitive, Range, SpannedTypeName, UntaggedValue,
+    Value,
 };
 use nu_source::{Tagged, TaggedItem};
 use num_bigint::BigInt;
@@ -36,11 +37,7 @@ impl FromValue for Tagged<num_bigint::BigInt> {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
             } => Ok(i.clone().tagged(tag)),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to integer",
-                "can't convert to integer",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("integer", v.spanned_type_name())),
         }
     }
 }
@@ -60,11 +57,7 @@ impl FromValue for num_bigint::BigInt {
                 value: UntaggedValue::Primitive(Primitive::Duration(i)),
                 ..
             } => Ok(i.clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to integer",
-                "can't convert to integer",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("integer", v.spanned_type_name())),
         }
     }
 }
@@ -145,11 +138,7 @@ impl FromValue for bigdecimal::BigDecimal {
                 value: UntaggedValue::Primitive(Primitive::Int(i)),
                 ..
             } => Ok(BigDecimal::from(*i)),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to decimal",
-                "can't convert to decimal",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("decimal", v.spanned_type_name())),
         }
     }
 }
@@ -160,11 +149,7 @@ impl FromValue for Tagged<bigdecimal::BigDecimal> {
         match &v.value {
             UntaggedValue::Primitive(Primitive::Decimal(d)) => Ok(d.clone().tagged(tag)),
             UntaggedValue::Primitive(Primitive::Int(i)) => Ok(BigDecimal::from(*i).tagged(tag)),
-            _ => Err(ShellError::labeled_error(
-                "Can't convert to decimal",
-                "can't convert to decimal",
-                tag.span,
-            )),
+            _ => Err(ShellError::type_error("decimal", v.spanned_type_name())),
         }
     }
 }
@@ -176,11 +161,7 @@ impl FromValue for Tagged<f64> {
 
         match decimal.to_f64() {
             Some(d) => Ok(d.tagged(tag)),
-            None => Err(ShellError::labeled_error(
-                "Can't convert to decimal",
-                "can't convert to decimal",
-                tag.span,
-            )),
+            _ => Err(ShellError::type_error("decimal", v.spanned_type_name())),
         }
     }
 }
@@ -200,11 +181,7 @@ impl FromValue for String {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.to_string_lossy().to_string()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to string",
-                "can't convert to string",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("string", v.spanned_type_name())),
         }
     }
 }
@@ -227,11 +204,7 @@ impl FromValue for PathBuf {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
             } => Ok(p.clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to filepath",
-                "can't convert to filepath",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
         }
     }
 }
@@ -247,11 +220,7 @@ impl FromValue for Tagged<PathBuf> {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 tag,
             } => Ok(p.clone().tagged(tag)),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to filepath",
-                "can't convert to filepath",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("filepath", v.spanned_type_name())),
         }
     }
 }
@@ -263,11 +232,7 @@ impl FromValue for ColumnPath {
                 value: UntaggedValue::Primitive(Primitive::ColumnPath(c)),
                 ..
             } => Ok(c.clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to column path",
-                "can't convert to column path",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("column path", v.spanned_type_name())),
         }
     }
 }
@@ -279,11 +244,7 @@ impl FromValue for bool {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => Ok(*b),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to boolean",
-                "can't convert to boolean",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
         }
     }
 }
@@ -295,11 +256,7 @@ impl FromValue for Tagged<bool> {
                 value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 tag,
             } => Ok((*b).tagged(tag)),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to boolean",
-                "can't convert to boolean",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
         }
     }
 }
@@ -311,11 +268,7 @@ impl FromValue for DateTime<FixedOffset> {
                 value: UntaggedValue::Primitive(Primitive::Date(d)),
                 ..
             } => Ok(*d),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to date",
-                "can't convert to date",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("date", v.spanned_type_name())),
         }
     }
 }
@@ -327,11 +280,7 @@ impl FromValue for Range {
                 value: UntaggedValue::Primitive(Primitive::Range(r)),
                 ..
             } => Ok((**r).clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to range",
-                "can't convert to range",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("range", v.spanned_type_name())),
         }
     }
 }
@@ -339,15 +288,12 @@ impl FromValue for Range {
 impl FromValue for Tagged<Range> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let tag = v.tag.clone();
-        match v.value {
-            UntaggedValue::Primitive(Primitive::Range(ref range)) => {
-                Ok((*range.clone()).tagged(tag))
-            }
-            _ => Err(ShellError::labeled_error(
-                "Can't convert to range",
-                "can't convert to range",
-                tag.span,
-            )),
+        match v {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Range(ref range)),
+                ..
+            } => Ok((*range.clone()).tagged(tag)),
+            v => Err(ShellError::type_error("range", v.spanned_type_name())),
         }
     }
 }
@@ -363,11 +309,7 @@ impl FromValue for Vec<u8> {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             } => Ok(s.bytes().collect()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to binary data",
-                "can't convert to binary data",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("binary data", v.spanned_type_name())),
         }
     }
 }
@@ -379,11 +321,7 @@ impl FromValue for Dictionary {
                 value: UntaggedValue::Row(r),
                 ..
             } => Ok(r.clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to row",
-                "can't convert to row",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("row", v.spanned_type_name())),
         }
     }
 }
@@ -395,11 +333,7 @@ impl FromValue for CapturedBlock {
                 value: UntaggedValue::Block(b),
                 ..
             } => Ok((**b).clone()),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to block",
-                "can't convert to block",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("block", v.spanned_type_name())),
         }
     }
 }
@@ -415,11 +349,7 @@ impl FromValue for Vec<Value> {
                 value: UntaggedValue::Row(_),
                 ..
             } => Ok(vec![v.clone()]),
-            Value { tag, .. } => Err(ShellError::labeled_error(
-                "Can't convert to table",
-                "can't convert to table",
-                tag.span,
-            )),
+            v => Err(ShellError::type_error("table", v.spanned_type_name())),
         }
     }
 }
