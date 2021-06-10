@@ -65,3 +65,4 @@ hamcrest2 = "0.3.0"
 rustyline-support = []
 dirs = ["dirs-next"]
 trash-support = ["trash"]
+dataframe = ["nu-protocol/dataframe"]

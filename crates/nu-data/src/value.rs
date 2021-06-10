@@ -12,9 +12,6 @@ use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 use std::collections::HashMap;
 
-#[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::{NuSeries, PolarsData};
-
 pub struct Date;
 
 impl Date {
@@ -494,51 +491,6 @@ pub fn compute_values(
             }
             _ => Err((left.type_name(), right.type_name())),
         },
-        #[cfg(feature = "dataframe")]
-        (
-            UntaggedValue::DataFrame(PolarsData::Series(lhs)),
-            UntaggedValue::DataFrame(PolarsData::Series(rhs)),
-        ) => {
-            if lhs.as_ref().dtype() == rhs.as_ref().dtype() {
-                let result = match operator {
-                    Operator::Plus => {
-                        let mut res = lhs.as_ref() + rhs.as_ref();
-                        let name = format!("sum_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                        let res = res.rename(name.as_ref());
-                        Ok(res.clone())
-                    }
-                    Operator::Minus => {
-                        let mut res = lhs.as_ref() - rhs.as_ref();
-                        let name = format!("sub_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                        let res = res.rename(name.as_ref());
-                        Ok(res.clone())
-                    }
-                    Operator::Multiply => {
-                        let mut res = lhs.as_ref() * rhs.as_ref();
-                        let name = format!("mul_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                        let res = res.rename(name.as_ref());
-                        Ok(res.clone())
-                    }
-                    Operator::Divide => {
-                        let mut res = lhs.as_ref() / rhs.as_ref();
-                        let name = format!("div_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                        let res = res.rename(name.as_ref());
-                        Ok(res.clone())
-                    }
-                    Operator::Modulo => {
-                        let mut res = lhs.as_ref() % rhs.as_ref();
-                        let name = format!("mod_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                        let res = res.rename(name.as_ref());
-                        Ok(res.clone())
-                    }
-                    _ => Err((left.type_name(), right.type_name())),
-                }?;
-
-                Ok(NuSeries::series_to_untagged(result))
-            } else {
-                Err((left.type_name(), right.type_name()))
-            }
-        }
         _ => Err((left.type_name(), right.type_name())),
     }
 }

@@ -37,10 +37,17 @@ nu-test-support = { version = "0.32.1", path = "../nu-test-support" }
 nu-value-ext = { version = "0.32.1", path = "../nu-value-ext" }
 nu-ansi-term = { version = "0.32.1", path = "../nu-ansi-term" }
 
+[dependencies.polars]
+git = "https://github.com/pola-rs/polars"
+rev = "9e1506cca9fb646fc55f949ab6345290c3d198a7"
+version = "0.14.1"
+optional = true
+features = ["strings", "checked_arithmetic"]
+
 [target.'cfg(unix)'.dependencies]
 users = "0.11.0"
 
 [features]
 directories = ["directories-next"]
 dirs = ["dirs-next"]
-dataframe = ["nu-protocol/dataframe"]
+dataframe = ["nu-protocol/dataframe", "polars"]
