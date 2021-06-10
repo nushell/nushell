@@ -89,15 +89,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let rhs = evaluate_baseline_expr(&expression.right, &args.args.context)?;
-    let right_condition = match &rhs.value {
-        UntaggedValue::Primitive(primitive) => Ok(primitive),
-        _ => Err(ShellError::labeled_error(
-            "Incorrect argument",
-            "Expected primitive values",
-            &rhs.tag.span,
-        )),
-    }?;
+    let rhs = evaluate_baseline_expr(&expression.right, &args.context)?;
 
     filter_dataframe(args, &col_name, &col_name_span, &rhs, &expression.op)
 }
