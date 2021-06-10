@@ -16,6 +16,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(LoadEnv),
             whole_stream_command(Def),
             whole_stream_command(Source),
+            whole_stream_command(Alias),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
