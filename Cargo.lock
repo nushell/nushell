@@ -207,7 +207,7 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 [[package]]
 name = "arrow"
 version = "5.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow-rs?rev=f26ffb3091ae355d246edc4a6fcc2c8e5b9bc570#f26ffb3091ae355d246edc4a6fcc2c8e5b9bc570"
+source = "git+https://github.com/apache/arrow-rs?rev=0f55b828883b3b3afda43ae404b130d374e6f1a1#0f55b828883b3b3afda43ae404b130d374e6f1a1"
 dependencies = [
  "chrono",
  "csv",
@@ -4363,7 +4363,7 @@ dependencies = [
 [[package]]
 name = "parquet"
 version = "5.0.0-SNAPSHOT"
-source = "git+https://github.com/apache/arrow-rs?rev=f26ffb3091ae355d246edc4a6fcc2c8e5b9bc570#f26ffb3091ae355d246edc4a6fcc2c8e5b9bc570"
+source = "git+https://github.com/apache/arrow-rs?rev=0f55b828883b3b3afda43ae404b130d374e6f1a1#0f55b828883b3b3afda43ae404b130d374e6f1a1"
 dependencies = [
  "arrow",
  "base64 0.13.0",
@@ -4601,8 +4601,8 @@ dependencies = [
 
 [[package]]
 name = "polars"
-version = "0.14.0"
-source = "git+https://github.com/pola-rs/polars?rev=a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd#a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.1"
+source = "git+https://github.com/pola-rs/polars?rev=9e1506cca9fb646fc55f949ab6345290c3d198a7#9e1506cca9fb646fc55f949ab6345290c3d198a7"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4611,8 +4611,8 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.14.0"
-source = "git+https://github.com/pola-rs/polars?rev=a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd#a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.1"
+source = "git+https://github.com/pola-rs/polars?rev=9e1506cca9fb646fc55f949ab6345290c3d198a7#9e1506cca9fb646fc55f949ab6345290c3d198a7"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4621,8 +4621,8 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.14.0"
-source = "git+https://github.com/pola-rs/polars?rev=a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd#a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.1"
+source = "git+https://github.com/pola-rs/polars?rev=9e1506cca9fb646fc55f949ab6345290c3d198a7#9e1506cca9fb646fc55f949ab6345290c3d198a7"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4647,8 +4647,8 @@ dependencies = [
 
 [[package]]
 name = "polars-io"
-version = "0.14.0"
-source = "git+https://github.com/pola-rs/polars?rev=a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd#a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.1"
+source = "git+https://github.com/pola-rs/polars?rev=9e1506cca9fb646fc55f949ab6345290c3d198a7#9e1506cca9fb646fc55f949ab6345290c3d198a7"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4670,8 +4670,8 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.14.0"
-source = "git+https://github.com/pola-rs/polars?rev=a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd#a5f17b0a6e3e05ff6be789aa24a7cae54fd400dd"
+version = "0.14.1"
+source = "git+https://github.com/pola-rs/polars?rev=9e1506cca9fb646fc55f949ab6345290c3d198a7#9e1506cca9fb646fc55f949ab6345290c3d198a7"
 dependencies = [
  "ahash",
  "itertools",

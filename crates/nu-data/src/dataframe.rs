@@ -10,9 +10,10 @@ use num_traits::ToPrimitive;
 
 use num_bigint::BigInt;
 use polars::prelude::{
-    BooleanType, ChunkCompare, ChunkedArray, Float64Type, Int64Type, IntoSeries, Series,
+    BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
+    NumOpsDispatchChecked, Series,
 };
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
 pub fn compute_between_series(
     operator: Operator,
@@ -67,16 +68,19 @@ pub fn compute_between_series(
                 Ok(NuSeries::series_to_untagged(res))
             }
             Operator::Divide => {
-                let mut res = lhs.as_ref() / rhs.as_ref();
-                let name = format!("div_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res))
-            }
-            Operator::Modulo => {
-                let mut res = lhs.as_ref() % rhs.as_ref();
-                let name = format!("mod_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
-                res.rename(name.as_ref());
-                Ok(NuSeries::series_to_untagged(res))
+                let res = lhs.as_ref().checked_div(rhs.as_ref());
+                match res {
+                    Ok(mut res) => {
+                        let name = format!("div_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
+                        res.rename(name.as_ref());
+                        Ok(NuSeries::series_to_untagged(res))
+                    }
+                    Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                        "Division error",
+                        format!("{}", e),
+                        &left.tag.span,
+                    ))),
+                }
             }
             Operator::Equal => {
                 let mut res = Series::eq(lhs.as_ref(), rhs.as_ref()).into_series();
@@ -114,6 +118,66 @@ pub fn compute_between_series(
                 res.rename(name.as_ref());
                 Ok(NuSeries::series_to_untagged(res))
             }
+            Operator::And => match lhs.as_ref().dtype() {
+                DataType::Boolean => {
+                    let lhs_cast = lhs.as_ref().bool();
+                    let rhs_cast = rhs.as_ref().bool();
+
+                    match (lhs_cast, rhs_cast) {
+                        (Ok(l), Ok(r)) => {
+                            let mut res = l.bitand(r).into_series();
+                            let name =
+                                format!("and_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
+                            res.rename(name.as_ref());
+                            Ok(NuSeries::series_to_untagged(res))
+                        }
+                        _ => Ok(UntaggedValue::Error(
+                            ShellError::labeled_error_with_secondary(
+                                "Casting error",
+                                "unable to cast to boolean",
+                                &left.tag.span,
+                                "unable to cast to boolean",
+                                &right.tag.span,
+                            ),
+                        )),
+                    }
+                }
+                _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                    "Incorrect datatype",
+                    "And operation can only be done with boolean values",
+                    &left.tag.span,
+                ))),
+            },
+            Operator::Or => match lhs.as_ref().dtype() {
+                DataType::Boolean => {
+                    let lhs_cast = lhs.as_ref().bool();
+                    let rhs_cast = rhs.as_ref().bool();
+
+                    match (lhs_cast, rhs_cast) {
+                        (Ok(l), Ok(r)) => {
+                            let mut res = l.bitor(r).into_series();
+                            let name =
+                                format!("or_{}_{}", lhs.as_ref().name(), rhs.as_ref().name());
+                            res.rename(name.as_ref());
+                            Ok(NuSeries::series_to_untagged(res))
+                        }
+                        _ => Ok(UntaggedValue::Error(
+                            ShellError::labeled_error_with_secondary(
+                                "Casting error",
+                                "unable to cast to boolean",
+                                &left.tag.span,
+                                "unable to cast to boolean",
+                                &right.tag.span,
+                            ),
+                        )),
+                    }
+                }
+                _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                    "Incorrect datatype",
+                    "And operation can only be done with boolean values",
+                    &left.tag.span,
+                ))),
+            },
             _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
                 "Incorrect datatype",
                 "unable to use this datatype for this operation",
@@ -222,24 +286,54 @@ pub fn compute_series_single_value(
                 )),
             },
             Operator::Divide => match &right.value {
-                UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
-                    lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Int64Type>>::div,
-                    &left.tag.span,
-                )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
-                    lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Int64Type>>::div,
-                    &left.tag.span,
-                )),
-                UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
-                    lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Float64Type>>::div,
-                    &left.tag.span,
-                )),
+                UntaggedValue::Primitive(Primitive::Int(val)) => {
+                    if *val == 0 {
+                        Ok(UntaggedValue::Error(ShellError::labeled_error(
+                            "Division by zero",
+                            "Zero value found",
+                            &right.tag.span,
+                        )))
+                    } else {
+                        Ok(compute_series_i64(
+                            lhs.as_ref(),
+                            val,
+                            <&ChunkedArray<Int64Type>>::div,
+                            &left.tag.span,
+                        ))
+                    }
+                }
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => {
+                    if val.eq(&0.into()) {
+                        Ok(UntaggedValue::Error(ShellError::labeled_error(
+                            "Division by zero",
+                            "Zero value found",
+                            &right.tag.span,
+                        )))
+                    } else {
+                        Ok(compute_series_bigint(
+                            lhs.as_ref(),
+                            val,
+                            <&ChunkedArray<Int64Type>>::div,
+                            &left.tag.span,
+                        ))
+                    }
+                }
+                UntaggedValue::Primitive(Primitive::Decimal(val)) => {
+                    if val.eq(&0.into()) {
+                        Ok(UntaggedValue::Error(ShellError::labeled_error(
+                            "Division by zero",
+                            "Zero value found",
+                            &right.tag.span,
+                        )))
+                    } else {
+                        Ok(compute_series_decimal(
+                            lhs.as_ref(),
+                            val,
+                            <&ChunkedArray<Float64Type>>::div,
+                            &left.tag.span,
+                        ))
+                    }
+                }
                 _ => Ok(UntaggedValue::Error(
                     ShellError::labeled_error_with_secondary(
                         "Operation unavailable",
