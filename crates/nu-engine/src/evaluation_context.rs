@@ -1,4 +1,5 @@
 use crate::evaluate::scope::{Scope, ScopeFrame};
+use crate::shell::palette::ThemedPalette;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
@@ -13,6 +14,8 @@ use nu_source::{Span, Tag};
 use nu_stream::InputStream;
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
 
@@ -211,6 +214,51 @@ impl EvaluationContext {
                 self.configs.lock().add_local_cfg(cfg);
             }
         }
+
+        // The syntax_theme is really the file stem of a json file i.e.
+        // grape.json is the theme file and grape is the file stem and
+        // the syntax_theme and grape.json would be located in the same
+        // folder as the config.toml
+
+        // Let's open the config
+        let global_config = self.configs.lock().global_config();
+        // Get the root syntax_theme value
+        let syntax_theme = global_config.var("syntax_theme");
+        // If we have a syntax_theme let's process it
+        if let Some(theme_value) = syntax_theme {
+            // Append the .json to the syntax_theme to form the file name
+            let syntax_theme_filename = format!("{}.json", theme_value.convert_to_string());
+            // Load the syntax config json
+            let config_file_path = cfg_path.get_path();
+            // The syntax file should be in the same location as the config.toml
+            let syntax_file_path = if config_file_path.ends_with("config.toml") {
+                config_file_path
+                    .display()
+                    .to_string()
+                    .replace("config.toml", &syntax_theme_filename)
+            } else {
+                "".to_string()
+            };
+            // if we have a syntax_file_path use it otherwise default
+            if Path::new(&syntax_file_path).exists() {
+                // eprintln!("Loading syntax file: [{:?}]", syntax_file_path);
+                let syntax_theme_file = File::open(syntax_file_path)?;
+                let mut reader = BufReader::new(syntax_theme_file);
+                let theme = ThemedPalette::new(&mut reader).unwrap_or_default();
+                // eprintln!("Theme: [{:?}]", theme);
+                self.configs.lock().set_syntax_colors(theme);
+            } else {
+                // If the file was missing, use the default
+                self.configs
+                    .lock()
+                    .set_syntax_colors(ThemedPalette::default())
+            }
+        } else {
+            // if there's no syntax_theme, use the default
+            self.configs
+                .lock()
+                .set_syntax_colors(ThemedPalette::default())
+        };
 
         if !startup_scripts.is_empty() {
             self.run_scripts(startup_scripts, cfg_path.get_path().parent());
