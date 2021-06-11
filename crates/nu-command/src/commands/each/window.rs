@@ -42,7 +42,7 @@ impl WholeStreamCommand for EachWindow {
     }
 
     fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let context = Arc::new(EvaluationContext::from_args(&args));
+        let context = Arc::new(args.context.clone());
         let external_redirection = args.call_info.args.external_redirection;
 
         let window_size: Tagged<usize> = args.req(0)?;

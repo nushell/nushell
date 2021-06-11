@@ -27,7 +27,7 @@ impl WholeStreamCommand for History {
 
 fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
 
     let clear = args.has_flag("clear");
 

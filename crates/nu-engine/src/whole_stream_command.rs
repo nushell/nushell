@@ -1,7 +1,6 @@
 use crate::command_args::CommandArgs;
 use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
-use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
@@ -32,7 +31,7 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 
     fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
-        let context = EvaluationContext::from_args(&args);
+        let context = args.context.clone();
         let stream = self.run_with_actions(args)?;
 
         Ok(Box::new(crate::evaluate::internal::InternalIterator {
@@ -81,7 +80,7 @@ impl WholeStreamCommand for Arc<Block> {
 
         let external_redirection = args.call_info.args.external_redirection;
 
-        let ctx = EvaluationContext::from_args(&args);
+        let ctx = &args.context;
         let evaluated = call_info.evaluate(&ctx)?;
 
         let input = args.input;

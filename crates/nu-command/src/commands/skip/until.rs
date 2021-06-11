@@ -30,7 +30,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        let ctx = Arc::new(EvaluationContext::from_args(&args));
+        let ctx = Arc::new(args.context.clone());
         let tag = args.call_info.name_tag.clone();
 
         let block: CapturedBlock = args.req(0)?;

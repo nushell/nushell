@@ -42,7 +42,7 @@ impl WholeStreamCommand for Merge {
 }
 
 fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let context = EvaluationContext::from_args(&args);
+    let context = &args.context;
     let name_tag = args.call_info.name_tag.clone();
 
     let block: CapturedBlock = args.req(0)?;

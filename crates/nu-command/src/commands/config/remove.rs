@@ -38,7 +38,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
     let remove: Tagged<String> = args.req(0)?;
 
     let key = remove.to_string();

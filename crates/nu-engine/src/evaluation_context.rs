@@ -67,10 +67,6 @@ impl EvaluationContext {
         }
     }
 
-    pub fn from_args(args: &CommandArgs) -> EvaluationContext {
-        args.context.clone()
-    }
-
     pub fn error(&self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
     }

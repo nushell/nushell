@@ -66,8 +66,8 @@ impl WholeStreamCommand for ForIn {
 }
 
 pub fn process_row(
-    captured_block: Arc<Box<CapturedBlock>>,
-    context: Arc<EvaluationContext>,
+    captured_block: &CapturedBlock,
+    context: &EvaluationContext,
     input: Value,
     var_name: &str,
     external_redirection: ExternalRedirection,
@@ -108,12 +108,12 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     dict.into_value()
 }
 
-fn for_in(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let external_redirection = raw_args.call_info.args.external_redirection;
+fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = args.context.clone();
+    let external_redirection = args.call_info.args.external_redirection;
     //
-    let numbered: bool = raw_args.call_info.switch_present("numbered");
-    let positional = raw_args
+    let numbered: bool = args.call_info.switch_present("numbered");
+    let positional = args
         .call_info
         .args
         .positional
@@ -126,17 +126,14 @@ fn for_in(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         FromValue::from_value(&evaluate_baseline_expr(&positional[3], &context)?)?;
 
     let input = crate::commands::echo::expand_value_to_stream(rhs);
-    let block = Arc::new(Box::new(block));
 
     if numbered {
         Ok(input
             .enumerate()
             .map(move |input| {
-                let block = block.clone();
-                let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
 
-                match process_row(block, context, row, &var_name, external_redirection) {
+                match process_row(&block, &context, row, &var_name, external_redirection) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
@@ -147,9 +144,8 @@ fn for_in(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(input
             .map(move |input| {
                 let block = block.clone();
-                let context = context.clone();
 
-                match process_row(block, context, input, &var_name, external_redirection) {
+                match process_row(&block, &context, input, &var_name, external_redirection) {
                     Ok(s) => s,
                     Err(e) => OutputStream::one(Value::error(e)),
                 }

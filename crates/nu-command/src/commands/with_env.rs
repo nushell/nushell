@@ -69,7 +69,7 @@ impl WholeStreamCommand for WithEnv {
 
 fn with_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let external_redirection = args.call_info.args.external_redirection;
-    let context = EvaluationContext::from_args(&args);
+    let context = &args.context;
     let variable: Value = args.req(0)?;
     let block: CapturedBlock = args.req(1)?;
 

@@ -57,7 +57,7 @@ impl WholeStreamCommand for Command {
     }
 }
 fn where_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&args));
+    let context = Arc::new(args.context.clone());
     let tag = args.call_info.name_tag.clone();
 
     let block: CapturedBlock = args.req(0)?;
