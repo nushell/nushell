@@ -34,9 +34,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let offset: Tagged<usize> = args.req(0)?;
     let size: Tagged<usize> = args.req(1)?;

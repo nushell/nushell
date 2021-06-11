@@ -175,7 +175,6 @@ fn process_row(
 fn update(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name_tag = Arc::new(args.call_info.name_tag.clone());
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let args = args.evaluate_once()?;
 
     let field: ColumnPath = args.req(0)?;
     let replacement: Value = args.req(1)?;

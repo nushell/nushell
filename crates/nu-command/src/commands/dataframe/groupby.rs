@@ -40,9 +40,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     // Extracting the names of the columns to perform the groupby
     let by_columns: Vec<Value> = args.req(0)?;

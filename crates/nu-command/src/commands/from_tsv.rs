@@ -30,7 +30,6 @@ impl WholeStreamCommand for FromTsv {
 
 fn from_tsv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let noheaders = args.has_flag("noheaders");
     let input = args.input;
 

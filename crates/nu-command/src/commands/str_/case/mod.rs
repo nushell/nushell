@@ -24,11 +24,12 @@ pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<Actio
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
-    let (options, input) = args.extract(|params| {
-        Ok(Arguments {
-            column_paths: params.rest(0)?,
-        })
-    })?;
+    let (options, input) = (
+        Arguments {
+            column_paths: args.rest(0)?,
+        },
+        args.input,
+    );
 
     Ok(input
         .map(move |v| {

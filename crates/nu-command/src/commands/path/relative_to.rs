@@ -46,7 +46,6 @@ path."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let args = args.evaluate_once()?;
         let cmd_args = Arc::new(PathRelativeToArguments {
             path: args.req(0)?,
             rest: args.rest(1)?,

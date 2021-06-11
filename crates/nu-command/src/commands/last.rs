@@ -47,12 +47,11 @@ impl WholeStreamCommand for Last {
 }
 
 fn last(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
-    let rows = args.nth(0).cloned();
+    let rows: Option<usize> = args.opt(0)?;
     let v: Vec<_> = args.input.into_vec();
 
     let end_rows_desired = if let Some(quantity) = rows {
-        quantity.as_usize()?
+        quantity
     } else {
         1
     };

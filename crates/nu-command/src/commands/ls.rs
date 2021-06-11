@@ -43,7 +43,6 @@ impl WholeStreamCommand for Ls {
         let name = args.call_info.name_tag.clone();
         let ctrl_c = args.ctrl_c();
         let shell_manager = args.shell_manager();
-        let args = args.evaluate_once()?;
 
         let args = LsArgs {
             path: args.opt(0)?,

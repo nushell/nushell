@@ -109,7 +109,6 @@ fn process_row(
 fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let span = args.call_info.name_tag.span;
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let args = args.evaluate_once()?;
     let reduce_args = ReduceArgs {
         block: args.req(0)?,
         fold: args.get_flag("fold")?,

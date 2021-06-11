@@ -97,11 +97,13 @@ impl NuDataFrame {
                 UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
                 _ => None,
             })
-            .ok_or(ShellError::labeled_error(
-                "No dataframe in stream",
-                "no dataframe found in input stream",
-                span,
-            ))
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "No dataframe in stream",
+                    "no dataframe found in input stream",
+                    span,
+                )
+            })
     }
 
     pub fn try_from_iter<T>(iter: T, tag: &Tag) -> Result<Self, ShellError>

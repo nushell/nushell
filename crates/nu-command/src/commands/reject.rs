@@ -35,7 +35,6 @@ impl WholeStreamCommand for Reject {
 
 fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let fields: Vec<Tagged<String>> = args.rest(0)?;
 
     if fields.is_empty() {

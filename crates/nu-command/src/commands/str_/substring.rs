@@ -89,12 +89,13 @@ struct SubstringText(String, String);
 fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
-    let (options, input) = args.extract(|params| {
-        Ok(Arguments {
-            range: params.req(0)?,
-            column_paths: params.rest(1)?,
-        })
-    })?;
+    let (options, input) = (
+        Arguments {
+            range: args.req(0)?,
+            column_paths: args.rest(1)?,
+        },
+        args.input,
+    );
 
     let indexes = Arc::new(process_arguments(&options, name)?.into());
 

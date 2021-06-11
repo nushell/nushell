@@ -121,9 +121,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let quantile: Option<Tagged<f64>> = args.get_flag("quantile")?;
     let operation: Tagged<String> = args.req(0)?;
@@ -139,11 +138,9 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => (None, Span::unknown()),
     };
 
-    let value = args.input.next().ok_or(ShellError::labeled_error(
-        "Empty stream",
-        "No value found in the stream",
-        &tag,
-    ))?;
+    let value = args.input.next().ok_or_else(|| {
+        ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
+    })?;
 
     let res = match value.value {
         UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {

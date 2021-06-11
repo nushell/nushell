@@ -65,7 +65,6 @@ impl WholeStreamCommand for Remove {
 fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager();
-    let args = args.evaluate_once()?;
 
     let args = RemoveArgs {
         rest: args.rest(0)?,

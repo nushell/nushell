@@ -33,11 +33,13 @@ impl NuGroupBy {
                 UntaggedValue::DataFrame(PolarsData::GroupBy(group)) => Some(group),
                 _ => None,
             })
-            .ok_or(ShellError::labeled_error(
-                "No groupby object in stream",
-                "no groupby object found in input stream",
-                span,
-            ))
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "No groupby object in stream",
+                    "no groupby object found in input stream",
+                    span,
+                )
+            })
     }
 
     pub fn to_groupby(&self) -> Result<GroupBy, ShellError> {

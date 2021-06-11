@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, EvaluatedCommandArgs, WholeStreamCommand};
+use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::NuDataFrame,
@@ -44,7 +44,6 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let block: CapturedBlock = args.req(0)?;
 
@@ -65,21 +64,21 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     _ => None,
                 })
         })
-        .ok_or(ShellError::labeled_error(
-            "Expected a condition",
-            "expected a condition",
-            &tag.span,
-        ))?;
+        .ok_or_else(|| {
+            ShellError::labeled_error("Expected a condition", "expected a condition", &tag.span)
+        })?;
 
     let lhs = match &expression.left.expr {
         Expression::FullColumnPath(p) => p.as_ref().tail.get(0),
         _ => None,
     }
-    .ok_or(ShellError::labeled_error(
-        "No column name",
-        "Not a column name found in left hand side of comparison",
-        &expression.left.span,
-    ))?;
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            "No column name",
+            "Not a column name found in left hand side of comparison",
+            &expression.left.span,
+        )
+    })?;
 
     let (col_name, col_name_span) = match &lhs.unspanned {
         UnspannedPathMember::String(name) => Ok((name, &lhs.span)),
@@ -90,7 +89,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let rhs = evaluate_baseline_expr(&expression.right, &args.args.context)?;
+    let rhs = evaluate_baseline_expr(&expression.right, &args.context)?;
 
     filter_dataframe(args, &col_name, &col_name_span, &rhs, &expression.op)
 }
@@ -128,7 +127,7 @@ macro_rules! comparison_arm {
 // With the information extracted from the block we can filter the dataframe using
 // polars operations
 fn filter_dataframe(
-    mut args: EvaluatedCommandArgs,
+    mut args: CommandArgs,
     col_name: &str,
     col_name_span: &Span,
     rhs: &Value,
@@ -212,6 +211,6 @@ fn filter_dataframe(
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
         res,
-        args.call_info.name_tag.clone(),
+        args.call_info.name_tag,
     )))
 }

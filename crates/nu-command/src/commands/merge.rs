@@ -45,7 +45,6 @@ fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = EvaluationContext::from_args(&args);
     let name_tag = args.call_info.name_tag.clone();
 
-    let args = args.evaluate_once()?;
     let block: CapturedBlock = args.req(0)?;
     let input = args.input;
 

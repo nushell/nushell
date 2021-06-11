@@ -73,7 +73,6 @@ impl WholeStreamCommand for Wrap {
 }
 
 fn wrap(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let column: Option<Tagged<String>> = args.opt(0)?;
 
     let mut result_table = vec![];

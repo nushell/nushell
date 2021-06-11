@@ -237,7 +237,6 @@ fn from_ssv_string_to_value(
 
 fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let noheaders = args.has_flag("noheaders");
     let aligned_columns = args.has_flag("aligned-columns");

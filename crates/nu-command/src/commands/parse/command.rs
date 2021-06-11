@@ -52,7 +52,6 @@ impl WholeStreamCommand for Command {
 
 pub fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let pattern: Tagged<String> = args.req(0)?;
     let regex: bool = args.has_flag("regex");

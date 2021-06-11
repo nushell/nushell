@@ -59,21 +59,10 @@ impl WholeStreamCommand for Histogram {
 
 pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let (input, args) = args.evaluate_once()?.parts();
 
-    let values: Vec<Value> = input.collect();
-
-    let mut columns = args
-        .positional_iter()
-        .map(|c| c.as_column_path())
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
-
-    let evaluate_with = if let Some(path) = args.get("use") {
-        Some(evaluator(path.as_column_path()?.item))
-    } else {
-        None
-    };
+    let mut columns = args.rest::<ColumnPath>(0)?;
+    let evaluate_with = args.get_flag::<ColumnPath>("use")?.map(evaluator);
+    let values: Vec<Value> = args.input.collect();
 
     let column_grouper = if !columns.is_empty() {
         columns

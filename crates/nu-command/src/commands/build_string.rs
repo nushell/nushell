@@ -23,7 +23,6 @@ impl WholeStreamCommand for BuildString {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let args = args.evaluate_once()?;
         let rest: Vec<Value> = args.rest(0)?;
 
         let mut output_string = String::new();

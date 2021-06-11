@@ -44,7 +44,6 @@ fn ends_with_line_ending(st: &str) -> bool {
 
 fn lines(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let leftover_string = Arc::new(Mutex::new(String::new()));
-    let args = args.evaluate_once()?;
     let tag = args.name_tag();
     let name_span = tag.span;
 

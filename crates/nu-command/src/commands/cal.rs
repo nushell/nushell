@@ -1,9 +1,10 @@
 use crate::prelude::*;
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
-use nu_engine::{EvaluatedCommandArgs, WholeStreamCommand};
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 
 pub struct Cal;
 
@@ -66,7 +67,6 @@ impl WholeStreamCommand for Cal {
 }
 
 pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let mut calendar_vec_deque = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
 
@@ -75,15 +75,12 @@ pub fn cal(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let mut selected_year: i32 = current_year;
     let mut current_day_option: Option<u32> = Some(current_day);
 
-    let month_range = if let Some(full_year_value) = args.call_info.args.get("full-year") {
-        if let Ok(year_u64) = full_year_value.as_u64() {
-            selected_year = year_u64 as i32;
+    let full_year_value: Option<u64> = args.get_flag("full-year")?;
+    let month_range = if let Some(full_year_value) = full_year_value {
+        selected_year = full_year_value as i32;
 
-            if selected_year != current_year {
-                current_day_option = None
-            }
-        } else {
-            return Err(get_invalid_year_shell_error(&full_year_value.tag()));
+        if selected_year != current_year {
+            current_day_option = None
         }
 
         (1, 12)
@@ -165,7 +162,7 @@ fn get_current_date() -> (i32, u32, u32) {
 }
 
 fn add_months_of_year_to_table(
-    args: &EvaluatedCommandArgs,
+    args: &CommandArgs,
     mut calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
     selected_year: i32,
@@ -198,7 +195,7 @@ fn add_months_of_year_to_table(
 }
 
 fn add_month_to_table(
-    args: &EvaluatedCommandArgs,
+    args: &CommandArgs,
     calendar_vec_deque: &mut VecDeque<Value>,
     tag: &Tag,
     selected_year: i32,
@@ -207,9 +204,11 @@ fn add_month_to_table(
 ) -> Result<(), ShellError> {
     let month_helper_result = MonthHelper::new(selected_year, current_month);
 
+    let full_year_value: Option<Tagged<u64>> = args.get_flag("full-year")?;
+
     let month_helper = match month_helper_result {
         Ok(month_helper) => month_helper,
-        Err(()) => match args.call_info.args.get("full-year") {
+        Err(()) => match full_year_value {
             Some(full_year_value) => {
                 return Err(get_invalid_year_shell_error(&full_year_value.tag()))
             }
@@ -235,17 +234,15 @@ fn add_month_to_table(
 
     let mut week_start_day = days_of_the_week[0].to_string();
 
-    if let Some(week_start_value) = args.call_info.args.get("week-start") {
-        if let Ok(day) = week_start_value.as_string() {
-            if days_of_the_week.contains(&day.as_str()) {
-                week_start_day = day;
-            } else {
-                return Err(ShellError::labeled_error(
-                    "The specified week start day is invalid",
-                    "invalid week start day",
-                    week_start_value.tag(),
-                ));
-            }
+    if let Some(day) = args.get_flag::<Tagged<String>>("week-start")? {
+        if days_of_the_week.contains(&day.item.as_str()) {
+            week_start_day = day.item;
+        } else {
+            return Err(ShellError::labeled_error(
+                "The specified week start day is invalid",
+                "invalid week start day",
+                day.tag(),
+            ));
         }
     }
 

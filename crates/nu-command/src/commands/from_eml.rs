@@ -68,7 +68,6 @@ fn headerfieldvalue_to_value(tag: &Tag, value: &HeaderFieldValue) -> UntaggedVal
 
 fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let preview_body: Option<Tagged<usize>> = args.get_flag("preview-body")?;
 

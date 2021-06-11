@@ -43,7 +43,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let columns: Option<Tagged<u64>> = args.opt(0)?;
 
     let to_drop = if let Some(quantity) = columns {

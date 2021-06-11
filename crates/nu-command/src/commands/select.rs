@@ -47,7 +47,6 @@ impl WholeStreamCommand for Command {
 
 fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let columns: Vec<ColumnPath> = args.rest(0)?;
     let input = args.input;
 

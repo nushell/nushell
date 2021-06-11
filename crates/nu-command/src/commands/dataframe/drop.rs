@@ -37,16 +37,15 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let columns: Vec<Value> = args.req(0)?;
     let (col_string, col_span) = convert_columns(&columns, &tag)?;
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let new_df = match col_string.iter().next() {
+    let new_df = match col_string.get(0) {
         Some(col) => df
             .as_ref()
             .drop(col)

@@ -154,7 +154,6 @@ fn process_row(
 
 fn insert(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&args));
-    let args = args.evaluate_once()?;
     let column: ColumnPath = args.req(0)?;
     let value: Value = args.req(1)?;
     let input = args.input;

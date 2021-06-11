@@ -57,12 +57,11 @@ impl WholeStreamCommand for If {
         ]
     }
 }
-fn if_command(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let tag = raw_args.call_info.name_tag.clone();
-    let external_redirection = raw_args.call_info.args.external_redirection;
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
+fn if_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let tag = args.call_info.name_tag.clone();
+    let external_redirection = args.call_info.args.external_redirection;
+    let context = Arc::new(args.context.clone());
 
-    let args = raw_args.evaluate_once()?;
     let condition: CapturedBlock = args.req(0)?;
     let then_case: CapturedBlock = args.req(1)?;
     let else_case: CapturedBlock = args.req(2)?;

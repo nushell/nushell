@@ -40,7 +40,6 @@ impl WholeStreamCommand for Format {
 
 fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = Arc::new(EvaluationContext::from_args(&args));
-    let args = args.evaluate_once()?;
     let pattern: Tagged<String> = args.req(0)?;
 
     let format_pattern = format(&pattern);

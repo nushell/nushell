@@ -1,6 +1,3 @@
-#[macro_use]
-pub(crate) mod macros;
-
 mod from_delimited_data;
 mod to_delimited_data;
 

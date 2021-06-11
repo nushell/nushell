@@ -113,8 +113,6 @@ Format: #
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let args = args.evaluate_once()?;
-
         let code: Option<Tagged<String>> = args.opt(0)?;
         let escape: Option<Tagged<String>> = args.get_flag("escape")?;
         let osc: Option<Tagged<String>> = args.get_flag("osc")?;
@@ -170,7 +168,7 @@ Format: #
             Err(ShellError::labeled_error(
                 "Expected ansi code",
                 "expect ansi code",
-                args.call_info.name_tag.clone(),
+                &args.call_info.name_tag,
             ))
         }
     }

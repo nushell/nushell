@@ -114,10 +114,9 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
     dict.into_value()
 }
 
-fn each(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let context = Arc::new(EvaluationContext::from_args(&raw_args));
-    let external_redirection = raw_args.call_info.args.external_redirection;
-    let args = raw_args.evaluate_once()?;
+fn each(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let context = Arc::new(args.context.clone());
+    let external_redirection = args.call_info.args.external_redirection;
 
     let block: CapturedBlock = args.req(0)?;
     let numbered: bool = args.has_flag("numbered");

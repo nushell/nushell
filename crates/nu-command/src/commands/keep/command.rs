@@ -49,7 +49,6 @@ impl WholeStreamCommand for Command {
 }
 
 fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let rows: Option<Tagged<usize>> = args.opt(0)?;
 
     let rows_desired = if let Some(quantity) = rows {

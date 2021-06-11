@@ -60,11 +60,13 @@ impl NuSeries {
                 UntaggedValue::DataFrame(PolarsData::Series(series)) => Some(series),
                 _ => None,
             })
-            .ok_or(ShellError::labeled_error(
-                "No series in stream",
-                "no series found in input stream",
-                span,
-            ))
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "No series in stream",
+                    "no series found in input stream",
+                    span,
+                )
+            })
     }
 
     pub fn try_from_iter<T>(iter: T, name: Option<String>) -> Result<Self, ShellError>
@@ -265,7 +267,8 @@ fn insert_value(value: Value, vec_values: &mut Vec<Value>) -> Result<(), ShellEr
     // Checking that the type for the value is the same
     // for the previous value in the column
     if vec_values.is_empty() {
-        Ok(vec_values.push(value))
+        vec_values.push(value);
+        Ok(())
     } else {
         let prev_value = &vec_values[vec_values.len() - 1];
 
@@ -281,7 +284,10 @@ fn insert_value(value: Value, vec_values: &mut Vec<Value>) -> Result<(), ShellEr
             | (
                 UntaggedValue::Primitive(Primitive::String(_)),
                 UntaggedValue::Primitive(Primitive::String(_)),
-            ) => Ok(vec_values.push(value)),
+            ) => {
+                vec_values.push(value);
+                Ok(())
+            }
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Different values in column",
                 "Value with different type",

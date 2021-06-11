@@ -79,7 +79,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
     Ok(args

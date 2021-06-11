@@ -168,7 +168,6 @@ impl WholeStreamCommand for Char {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let args_tag = args.call_info.name_tag.clone();
-        let args = args.evaluate_once()?;
         let args = CharArgs {
             name: args.opt(0)?,
             rest: args.rest(1)?,

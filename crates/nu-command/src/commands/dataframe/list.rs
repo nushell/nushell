@@ -19,8 +19,6 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let args = args.evaluate_once()?;
-
         let values = args
             .context
             .scope

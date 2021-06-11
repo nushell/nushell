@@ -84,7 +84,6 @@ impl WholeStreamCommand for Command {
 
 fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_tag = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let arguments = Arguments {
         per_element: args.has_flag("per-element"),
         pretty: args.has_flag("pretty"),

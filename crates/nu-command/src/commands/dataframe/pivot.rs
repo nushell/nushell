@@ -78,9 +78,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     // Extracting the pivot col from arguments
     let pivot_col: Tagged<String> = args.req(0)?;

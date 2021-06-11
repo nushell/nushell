@@ -33,9 +33,7 @@ impl WholeStreamCommand for SubCommand {
         let ctx = Arc::new(EvaluationContext::from_args(&args));
         let tag = args.call_info.name_tag.clone();
 
-        let call_info = args.evaluate_once()?;
-
-        let block: CapturedBlock = call_info.req(0)?;
+        let block: CapturedBlock = args.req(0)?;
         let condition = {
             if block.block.block.len() != 1 {
                 return Err(ShellError::labeled_error(
@@ -65,7 +63,7 @@ impl WholeStreamCommand for SubCommand {
             }
         };
 
-        Ok(call_info
+        Ok(args
             .input
             .take_while(move |item| {
                 let condition = condition.clone();

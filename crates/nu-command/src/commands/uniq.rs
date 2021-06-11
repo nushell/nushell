@@ -92,7 +92,6 @@ fn to_lowercase(value: nu_protocol::Value) -> nu_protocol::Value {
 }
 
 fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let should_show_count = args.has_flag("count");
     let show_repeated = args.has_flag("repeated");
     let ignore_case = args.has_flag("ignore-case");

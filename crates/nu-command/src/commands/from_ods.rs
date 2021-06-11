@@ -52,14 +52,10 @@ fn from_ods(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let span = tag.span;
 
-    let args = args.evaluate_once()?;
-
     let mut sel_sheets = vec![];
 
-    if let Some(s) = args.call_info.args.get("sheets") {
-        if let UntaggedValue::Table(columns) = s.value.clone() {
-            sel_sheets = convert_columns(columns.as_slice())?;
-        }
+    if let Some(columns) = args.get_flag::<Vec<Value>>("sheets")? {
+        sel_sheets = convert_columns(columns.as_slice())?;
     }
 
     let bytes = args.input.collect_binary(tag.clone())?;

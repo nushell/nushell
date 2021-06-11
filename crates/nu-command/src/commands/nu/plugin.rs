@@ -49,8 +49,6 @@ impl WholeStreamCommand for SubCommand {
         let scope = args.scope().clone();
         let shell_manager = args.shell_manager();
 
-        let args = args.evaluate_once()?;
-
         let load_path: Option<Tagged<PathBuf>> = args.get_flag("load")?;
 
         if let Some(Tagged {

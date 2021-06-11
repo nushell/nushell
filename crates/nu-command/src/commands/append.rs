@@ -22,8 +22,7 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let mut args = args.evaluate_once()?;
+    fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mut value: Value = args.req(0)?;
 
         let mut prepend = vec![];

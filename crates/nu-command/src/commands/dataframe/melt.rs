@@ -39,9 +39,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
 
     let id_col: Vec<Value> = args.req(0)?;
     let val_col: Vec<Value> = args.req(1)?;
@@ -67,7 +66,7 @@ fn check_column_datatypes<T: AsRef<str>>(
     cols: &[T],
     col_span: &Span,
 ) -> Result<(), ShellError> {
-    if cols.len() == 0 {
+    if cols.is_empty() {
         return Err(ShellError::labeled_error(
             "Merge error",
             "empty column list",

@@ -47,7 +47,6 @@ impl WholeStreamCommand for First {
 }
 
 fn first(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let rows: Option<Tagged<usize>> = args.opt(0)?;
     let input = args.input;
 

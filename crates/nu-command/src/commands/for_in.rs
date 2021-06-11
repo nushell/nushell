@@ -111,8 +111,7 @@ pub(crate) fn make_indexed_item(index: usize, item: Value) -> Value {
 fn for_in(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let context = Arc::new(EvaluationContext::from_args(&raw_args));
     let external_redirection = raw_args.call_info.args.external_redirection;
-    //let args = raw_args.evaluate_once()?;
-
+    //
     let numbered: bool = raw_args.call_info.switch_present("numbered");
     let positional = raw_args
         .call_info

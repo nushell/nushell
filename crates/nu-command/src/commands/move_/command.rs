@@ -75,9 +75,8 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn operate(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name = raw_args.call_info.name_tag.clone();
-    let args = raw_args.evaluate_once()?;
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let name = args.call_info.name_tag.clone();
 
     let mut columns: Vec<ColumnPath> = args.rest(0)?;
     let before: Option<ColumnPath> = args.get_flag("before")?;

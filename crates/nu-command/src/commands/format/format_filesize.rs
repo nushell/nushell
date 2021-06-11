@@ -83,9 +83,7 @@ fn process_row(
     }
 }
 
-fn filesize(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = raw_args.evaluate_once()?;
-
+fn filesize(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let field: ColumnPath = args.req(0)?;
     let format: Tagged<String> = args.req(1)?;
     let field = Arc::new(field);

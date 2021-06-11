@@ -45,7 +45,6 @@ impl WholeStreamCommand for Touch {
 }
 
 fn touch(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
     let target: Tagged<PathBuf> = args.req(0)?;
     let rest: Vec<Tagged<PathBuf>> = args.rest(1)?;
 

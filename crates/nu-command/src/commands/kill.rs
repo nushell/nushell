@@ -65,8 +65,6 @@ impl WholeStreamCommand for Kill {
 }
 
 fn kill(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
-
     let pid: Tagged<u64> = args.req(0)?;
     let rest: Vec<Tagged<u64>> = args.rest(1)?;
     let force: Option<Tagged<bool>> = args.get_flag("force")?;

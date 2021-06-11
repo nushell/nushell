@@ -57,7 +57,6 @@ impl WholeStreamCommand for Rename {
 
 pub fn rename(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let column_name: Tagged<String> = args.req(0)?;
     let rest: Vec<Tagged<String>> = args.rest(1)?;
     let input = args.input;

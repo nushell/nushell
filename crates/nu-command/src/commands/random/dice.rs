@@ -60,7 +60,6 @@ impl WholeStreamCommand for SubCommand {
 pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let args = args.evaluate_once()?;
     let cmd_args = DiceArgs {
         dice: args.get_flag("dice")?,
         sides: args.get_flag("sides")?,

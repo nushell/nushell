@@ -59,11 +59,10 @@ impl WholeStreamCommand for Do {
     }
 }
 
-fn do_(raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let external_redirection = raw_args.call_info.args.external_redirection;
+fn do_(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let external_redirection = args.call_info.args.external_redirection;
 
-    let context = EvaluationContext::from_args(&raw_args);
-    let args = raw_args.evaluate_once()?;
+    let context = args.context().clone();
     let do_args = DoArgs {
         block: args.req(0)?,
         ignore_errors: args.has_flag("ignore-errors"),

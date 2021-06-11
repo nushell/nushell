@@ -74,7 +74,6 @@ fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut context = EvaluationContext::from_args(&args);
     let scope = args.scope().clone();
 
-    let args = args.evaluate_once()?;
     let cmd_args = BenchmarkArgs {
         block: args.req(0)?,
         passthrough: args.get_flag("passthrough")?,

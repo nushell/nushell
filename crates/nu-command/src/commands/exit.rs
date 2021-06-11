@@ -44,15 +44,13 @@ impl WholeStreamCommand for Exit {
 }
 
 pub fn exit(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let args = args.evaluate_once()?;
-
-    let code = if let Some(value) = args.call_info.args.nth(0) {
-        value.as_i32()?
+    let code = if let Some(value) = args.opt::<i64>(0)? {
+        value as i32
     } else {
         0
     };
 
-    let command_action = if args.call_info.args.has("now") {
+    let command_action = if args.has_flag("now") {
         CommandAction::Exit(code)
     } else {
         CommandAction::LeaveShell(code)

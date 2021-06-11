@@ -50,7 +50,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 pub fn bool_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let cmd_args = BoolArgs {
         bias: args.get_flag("bias")?,
     };

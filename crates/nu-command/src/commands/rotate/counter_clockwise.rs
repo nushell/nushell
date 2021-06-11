@@ -33,7 +33,6 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn rotate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
     let rest: Vec<Tagged<String>> = args.rest(0)?;
 
     let input = args.input.into_vec();

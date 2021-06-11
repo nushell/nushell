@@ -64,7 +64,6 @@ fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
     use std::process::Command;
 
     let name = args.call_info.name_tag.clone();
-    let args = args.evaluate_once()?;
 
     let args = ExecArgs {
         command: args.req(0)?,

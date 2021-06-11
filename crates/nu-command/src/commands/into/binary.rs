@@ -113,7 +113,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let skip: Option<Value> = args.get_flag("skip")?;
     let bytes: Option<Value> = args.get_flag("bytes")?;
     let column_paths: Vec<ColumnPath> = args.rest(0)?;

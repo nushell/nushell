@@ -38,11 +38,12 @@ impl WholeStreamCommand for Compact {
 }
 
 pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let (args, input) = args.extract(|params| {
-        Ok(CompactArgs {
-            columns: params.rest(0)?,
-        })
-    })?;
+    let (args, input) = (
+        CompactArgs {
+            columns: args.rest(0)?,
+        },
+        args.input,
+    );
 
     Ok(input
         .filter(move |item| {

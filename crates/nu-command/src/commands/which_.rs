@@ -210,8 +210,6 @@ fn which_single(application: Tagged<String>, all: bool, scope: &Scope) -> Vec<Va
 }
 
 fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
-
     let which_args = WhichArgs {
         applications: args.rest_with_minimum(0, 1)?,
         all: args.has_flag("all"),

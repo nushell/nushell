@@ -57,9 +57,8 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
-fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
+fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let mut args = args.evaluate_once()?;
     let file_name: Tagged<PathBuf> = args.req(0)?;
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
@@ -92,7 +91,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     &d.tag,
                 ));
             } else {
-                let delimiter = match d.item.chars().nth(0) {
+                let delimiter = match d.item.chars().next() {
                     Some(d) => d as u8,
                     None => unreachable!(),
                 };

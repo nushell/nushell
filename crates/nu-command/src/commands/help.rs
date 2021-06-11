@@ -34,7 +34,6 @@ impl WholeStreamCommand for Help {
 fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope().clone();
-    let args = args.evaluate_once()?;
 
     let rest: Vec<Tagged<String>> = args.rest(0)?;
 

@@ -55,7 +55,6 @@ impl WholeStreamCommand for Range {
 }
 
 fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let cmd_args = RangeArgs {
         range: args.req(0)?,
     };
