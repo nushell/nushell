@@ -479,7 +479,7 @@ impl Shell for FilesystemShell {
         }: MkdirArgs,
         name: Tag,
         path: &str,
-    ) -> Result<ActionStream, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let path = Path::new(path);
         let mut stream = VecDeque::new();
 
@@ -504,11 +504,11 @@ impl Shell for FilesystemShell {
             }
             if show_created_paths {
                 let val = format!("{:}", create_at.to_string_lossy()).into();
-                stream.push_back(Ok(ReturnSuccess::Value(val)));
+                stream.push_back(Ok(val));
             }
         }
 
-        Ok(stream.into())
+        Ok(stream.into_value())
     }
 
     fn mv(
