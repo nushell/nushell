@@ -82,23 +82,21 @@ impl WholeStreamCommand for Command {
 
 fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let name_tag = Arc::new(args.call_info.name_tag.clone());
-    let context = Arc::new(EvaluationContext::from_args(&args));
+    let context = args.context.clone();
     let block: Option<CapturedBlock> = args.get_flag("block")?;
     let columns: Vec<ColumnPath> = args.rest(0)?;
 
     let input = args.input;
 
     if input.is_empty() {
-        let stream = vec![UntaggedValue::Primitive(Primitive::Nothing).into_value(tag)].into_iter();
+        let stream =
+            vec![UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag)].into_iter();
 
         return Ok(InputStream::from_stream(stream)
             .map(move |input| {
-                let tag = name_tag.clone();
-                let context = context.clone();
                 let columns = vec![];
 
-                match process_row(context, input, &block, columns, tag) {
+                match process_row(&context, input, &block, columns) {
                     Ok(s) => s,
                     Err(e) => ActionStream::one(Err(e)),
                 }
@@ -109,11 +107,9 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     Ok(input
         .map(move |input| {
-            let tag = name_tag.clone();
-            let context = context.clone();
             let columns = columns.clone();
 
-            match process_row(context, input, &block, columns, tag) {
+            match process_row(&context, input, &block, columns) {
                 Ok(s) => s,
                 Err(e) => ActionStream::one(Err(e)),
             }
@@ -123,13 +119,11 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
 }
 
 fn process_row(
-    context: Arc<EvaluationContext>,
+    context: &EvaluationContext,
     input: Value,
     default_block: &Option<CapturedBlock>,
     column_paths: Vec<ColumnPath>,
-    tag: Arc<Tag>,
 ) -> Result<ActionStream, ShellError> {
-    let _tag = &*tag;
     let mut out = Arc::new(None);
     let results = Arc::make_mut(&mut out);
 

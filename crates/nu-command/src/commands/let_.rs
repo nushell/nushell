@@ -55,7 +55,7 @@ impl WholeStreamCommand for Let {
 }
 
 pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
     let positional = args
         .call_info
         .args

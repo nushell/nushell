@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn clear(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
 
     let result = if let Some(global_cfg) = &mut args.configs().lock().global_config {
         global_cfg.vars.clear();

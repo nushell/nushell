@@ -52,7 +52,7 @@ impl WholeStreamCommand for Command {
 }
 
 fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
     let tag = args.call_info.name_tag.clone();
     let all_args = AllArgs {
         predicate: args.req(0)?,

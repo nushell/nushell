@@ -49,7 +49,7 @@ impl WholeStreamCommand for LetEnv {
 
 pub fn set_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
 
     let name: Tagged<String> = args.req(0)?;
     let rhs: CapturedBlock = args.req(2)?;

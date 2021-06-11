@@ -71,7 +71,7 @@ impl WholeStreamCommand for Benchmark {
 
 fn benchmark(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.args.span;
-    let mut context = EvaluationContext::from_args(&args);
+    let mut context = args.context.clone();
     let scope = args.scope().clone();
 
     let cmd_args = BenchmarkArgs {

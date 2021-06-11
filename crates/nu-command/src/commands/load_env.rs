@@ -82,7 +82,7 @@ fn load_env_from_table(
 }
 
 pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let ctx = EvaluationContext::from_args(&args);
+    let ctx = &args.context;
 
     if let Some(values) = args.opt::<Vec<Value>>(0)? {
         load_env_from_table(values, &ctx)?;
