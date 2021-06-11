@@ -64,21 +64,21 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     _ => None,
                 })
         })
-        .ok_or(ShellError::labeled_error(
-            "Expected a condition",
-            "expected a condition",
-            &tag.span,
-        ))?;
+        .ok_or_else(|| {
+            ShellError::labeled_error("Expected a condition", "expected a condition", &tag.span)
+        })?;
 
     let lhs = match &expression.left.expr {
         Expression::FullColumnPath(p) => p.as_ref().tail.get(0),
         _ => None,
     }
-    .ok_or(ShellError::labeled_error(
-        "No column name",
-        "Not a column name found in left hand side of comparison",
-        &expression.left.span,
-    ))?;
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            "No column name",
+            "Not a column name found in left hand side of comparison",
+            &expression.left.span,
+        )
+    })?;
 
     let (col_name, col_name_span) = match &lhs.unspanned {
         UnspannedPathMember::String(name) => Ok((name, &lhs.span)),
@@ -211,6 +211,6 @@ fn filter_dataframe(
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
         res,
-        args.call_info.name_tag.clone(),
+        args.call_info.name_tag,
     )))
 }

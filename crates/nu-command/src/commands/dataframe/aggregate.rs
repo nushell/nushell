@@ -138,11 +138,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => (None, Span::unknown()),
     };
 
-    let value = args.input.next().ok_or(ShellError::labeled_error(
-        "Empty stream",
-        "No value found in the stream",
-        &tag,
-    ))?;
+    let value = args.input.next().ok_or_else(|| {
+        ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
+    })?;
 
     let res = match value.value {
         UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {

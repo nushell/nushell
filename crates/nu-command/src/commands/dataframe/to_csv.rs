@@ -91,7 +91,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                     &d.tag,
                 ));
             } else {
-                let delimiter = match d.item.chars().nth(0) {
+                let delimiter = match d.item.chars().next() {
                     Some(d) => d as u8,
                     None => unreachable!(),
                 };

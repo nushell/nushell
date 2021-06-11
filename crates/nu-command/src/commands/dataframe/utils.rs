@@ -5,13 +5,12 @@ use polars::prelude::PolarsError;
 
 // Converts a Vec<Value> to a Vec<String> with a Span marking the whole
 // location of the columns for error referencing
-pub(crate) fn convert_columns<'columns>(
-    columns: &'columns [Value],
+pub(crate) fn convert_columns(
+    columns: &[Value],
     tag: &Tag,
 ) -> Result<(Vec<String>, Span), ShellError> {
     let mut col_span = match columns
-        .iter()
-        .nth(0)
+        .get(0)
         .map(|v| Span::new(v.tag.span.start(), v.tag.span.end()))
     {
         Some(span) => span,

@@ -107,7 +107,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let df_tag = Tag {
-        anchor: Some(AnchorLocation::File(file_name.to_string())),
+        anchor: Some(AnchorLocation::File(file_name)),
         span: tag.span,
     };
 
@@ -163,7 +163,7 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
                     &d.tag,
                 ));
             } else {
-                let delimiter = match d.item.chars().nth(0) {
+                let delimiter = match d.item.chars().next() {
                     Some(d) => d as u8,
                     None => unreachable!(),
                 };

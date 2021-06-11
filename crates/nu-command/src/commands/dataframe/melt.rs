@@ -66,7 +66,7 @@ fn check_column_datatypes<T: AsRef<str>>(
     cols: &[T],
     col_span: &Span,
 ) -> Result<(), ShellError> {
-    if cols.len() == 0 {
+    if cols.is_empty() {
         return Err(ShellError::labeled_error(
             "Merge error",
             "empty column list",
