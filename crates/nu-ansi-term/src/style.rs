@@ -603,7 +603,7 @@ mod serde_json_tests {
             Color::Fixed(255),
         ];
 
-        for color in colors.into_iter() {
+        for color in colors.iter() {
             let serialized = serde_json::to_string(&color).unwrap();
             let deserialized: Color = serde_json::from_str(&serialized).unwrap();
 

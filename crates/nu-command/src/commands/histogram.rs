@@ -61,11 +61,7 @@ pub fn histogram(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
 
     let mut columns = args.rest::<ColumnPath>(0)?;
-    let evaluate_with = if let Some(path) = args.get_flag::<ColumnPath>("use")? {
-        Some(evaluator(path))
-    } else {
-        None
-    };
+    let evaluate_with = args.get_flag::<ColumnPath>("use")?.map(evaluator);
     let values: Vec<Value> = args.input.collect();
 
     let column_grouper = if !columns.is_empty() {

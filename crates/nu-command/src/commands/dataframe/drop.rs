@@ -45,7 +45,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let new_df = match col_string.iter().next() {
+    let new_df = match col_string.get(0) {
         Some(col) => df
             .as_ref()
             .drop(col)

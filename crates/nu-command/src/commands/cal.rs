@@ -236,7 +236,7 @@ fn add_month_to_table(
 
     if let Some(day) = args.get_flag::<Tagged<String>>("week-start")? {
         if days_of_the_week.contains(&day.item.as_str()) {
-            week_start_day = day.item.clone();
+            week_start_day = day.item;
         } else {
             return Err(ShellError::labeled_error(
                 "The specified week start day is invalid",

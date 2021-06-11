@@ -23,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
     fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         let sample: bool = args.has_flag("sample");
         let values: Vec<Value> = args.input.drain_vec();
-        let name = args.call_info.name_tag.clone();
+        let name = args.call_info.name_tag;
 
         let n = if sample {
             values.len() - 1

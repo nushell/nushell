@@ -41,7 +41,7 @@ impl WholeStreamCommand for Date {
 }
 
 fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let tag = args.call_info.name_tag.clone();
+    let tag = args.call_info.name_tag;
 
     let list = TZ_VARIANTS.iter().map(move |tz| {
         let mut entries = IndexMap::new();
