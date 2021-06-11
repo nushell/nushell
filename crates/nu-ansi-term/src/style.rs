@@ -368,6 +368,12 @@ pub enum Color {
     Rgb(u8, u8, u8),
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Color::White
+    }
+}
+
 impl Color {
     /// Returns a `Style` with the foreground color set to this color.
     ///

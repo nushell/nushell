@@ -7,11 +7,11 @@ use std::ops::Deref;
 use std::str::Bytes;
 use std::{fmt, io};
 
-// FIXME: find a good home, as nu-engine may be too core for styling
 pub trait Palette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>>;
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct DefaultPalette {}
 
 impl Palette for DefaultPalette {
@@ -67,16 +67,20 @@ impl Palette for DefaultPalette {
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct ThemedPalette {
     theme: Theme,
 }
 
 impl ThemedPalette {
-    // remove this once we start actually loading themes.
-    #[allow(dead_code)]
     pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPalette, ThemeError> {
         let theme = serde_json::from_reader(reader)?;
         Ok(ThemedPalette { theme })
+    }
+
+    pub fn default() -> ThemedPalette {
+        let theme = Theme::default();
+        ThemedPalette { theme }
     }
 }
 
@@ -168,7 +172,7 @@ impl From<serde_json::error::Error> for ThemeError {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct Theme {
     open_delimiter: ThemeColor,
     close_delimiter: ThemeColor,
@@ -202,7 +206,79 @@ struct Theme {
     size_unit: ThemeColor,
 }
 
-#[derive(Debug)]
+impl Default for Theme {
+    fn default() -> Self {
+        Theme {
+            open_delimiter: ThemeColor(Color::White),
+            close_delimiter: ThemeColor(Color::White),
+            it_variable: ThemeColor(Color::Purple),
+            variable: ThemeColor(Color::Purple),
+            r#type: ThemeColor(Color::Blue),
+            identifier: ThemeColor(Color::Purple),
+            operator: ThemeColor(Color::Yellow),
+            dot: ThemeColor(Color::White),
+            dot_dot: ThemeColor(Color::Yellow),
+            //missing DotDotLeftAngleBracket
+            internal_command: ThemeColor(Color::Cyan),
+            external_command: ThemeColor(Color::Cyan),
+            external_word: ThemeColor(Color::Green),
+            bare_member: ThemeColor(Color::Yellow),
+            string: ThemeColor(Color::Green),
+            string_member: ThemeColor(Color::Yellow),
+            path: ThemeColor(Color::Cyan),
+            glob_pattern: ThemeColor(Color::Cyan),
+            word: ThemeColor(Color::Green),
+            keyword: ThemeColor(Color::Purple),
+            pipe: ThemeColor(Color::Purple),
+            flag: ThemeColor(Color::Blue),
+            shorthand_flag: ThemeColor(Color::Blue),
+            int: ThemeColor(Color::Purple),
+            decimal: ThemeColor(Color::Purple),
+            garbage: ThemeColor(Color::Red),
+            whitespace: ThemeColor(Color::White),
+            separator: ThemeColor(Color::Red),
+            comment: ThemeColor(Color::Green),
+            size_number: ThemeColor(Color::Purple),
+            size_unit: ThemeColor(Color::Cyan),
+            // These should really be Syles and not colors
+            // leave this here for the next change to make
+            // ThemeColor, ThemeStyle.
+            // open_delimiter: ThemeColor(Color::White.normal()),
+            // close_delimiter: ThemeColor(Color::White.normal()),
+            // it_variable: ThemeColor(Color::Purple.bold()),
+            // variable: ThemeColor(Color::Purple.normal()),
+            // r#type: ThemeColor(Color::Blue.bold()),
+            // identifier: ThemeColor(Color::Purple.normal()),
+            // operator: ThemeColor(Color::Yellow.normal()),
+            // dot: ThemeColor(Color::White),
+            // dot_dot: ThemeColor(Color::Yellow.bold()),
+            // //missing DotDotLeftAngleBracket
+            // internal_command: ThemeColor(Color::Cyan.bold()),
+            // external_command: ThemeColor(Color::Cyan.normal()),
+            // external_word: ThemeColor(Color::Green.bold()),
+            // bare_member: ThemeColor(Color::Yellow.bold()),
+            // string: ThemeColor(Color::Green.normal()),
+            // string_member: ThemeColor(Color::Yellow.bold()),
+            // path: ThemeColor(Color::Cyan.normal()),
+            // glob_pattern: ThemeColor(Color::Cyan.bold()),
+            // word: ThemeColor(Color::Green.normal()),
+            // keyword: ThemeColor(Color::Purple.bold()),
+            // pipe: ThemeColor(Color::Purple.bold()),
+            // flag: ThemeColor(Color::Blue.bold()),
+            // shorthand_flag: ThemeColor(Color::Blue.bold()),
+            // int: ThemeColor(Color::Purple.bold()),
+            // decimal: ThemeColor(Color::Purple.bold()),
+            // garbage: ThemeColor(Style::new().fg(Color::White).on(Color::Red)),
+            // whitespace: ThemeColor(Color::White.normal()),
+            // separator: ThemeColor(Color::Red),
+            // comment: ThemeColor(Color::Green.bold()),
+            // size_number: ThemeColor(Color::Purple.bold()),
+            // size_unit: ThemeColor(Color::Cyan.bold()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 struct ThemeColor(Color);
 
 impl Deref for ThemeColor {
