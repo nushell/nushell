@@ -5,7 +5,6 @@ use nu_protocol::{
     dataframe::{NuDataFrame, PolarsData},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
-use polars::prelude::DataType;
 
 use super::utils::parse_polars_error;
 pub struct DataFrame;
@@ -44,6 +43,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let value: Value = args.req(0)?;
 
+    let series_span = value.tag.span.clone();
     let series = match value.value {
         UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
@@ -53,10 +53,13 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let casted = series
-        .as_ref()
-        .bool()
-        .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+    let casted = series.as_ref().bool().map_err(|e| {
+        parse_polars_error(
+            &e,
+            &&series_span,
+            Some("Perhaps you want to use a series with booleans as mask"),
+        )
+    })?;
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
@@ -65,8 +68,5 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .filter(&casted)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
-        res.clone(),
-        tag,
-    )))
+    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

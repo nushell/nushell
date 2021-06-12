@@ -58,13 +58,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let res = df
-        .as_mut()
+    df.as_mut()
         .with_column(series)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
-        res.clone(),
-        tag,
-    )))
+    Ok(OutputStream::one(df.to_value(tag)))
 }

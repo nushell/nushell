@@ -152,31 +152,27 @@ macro_rules! series_to_chunked {
             (size, 0, 0)
         };
 
-        let head = chunked_array
-            .into_iter()
-            .take(head_size)
-            .map(|value| match value {
-                Some(v) => {
-                    let mut dictionary_row = Dictionary::default();
-
-                    let value = Value {
-                        value: UntaggedValue::Primitive(v.into()),
-                        tag: Tag::unknown(),
-                    };
-
-                    let header = format!("{} ({})", $self.as_ref().name(), $self.as_ref().dtype());
-                    dictionary_row.insert(header, value);
-
-                    Value {
-                        value: UntaggedValue::Row(dictionary_row),
-                        tag: Tag::unknown(),
-                    }
-                }
+        let head = chunked_array.into_iter().take(head_size).map(|value| {
+            let value = match value {
+                Some(v) => Value {
+                    value: UntaggedValue::Primitive(v.into()),
+                    tag: Tag::unknown(),
+                },
                 None => Value {
                     value: UntaggedValue::Primitive(Primitive::Nothing),
                     tag: Tag::unknown(),
                 },
-            });
+            };
+
+            let mut dictionary_row = Dictionary::default();
+            let header = format!("{} ({})", $self.as_ref().name(), $self.as_ref().dtype());
+            dictionary_row.insert(header, value);
+
+            Value {
+                value: UntaggedValue::Row(dictionary_row),
+                tag: Tag::unknown(),
+            }
+        });
 
         let res = if $self.as_ref().len() < size {
             head.collect::<Vec<Value>>()
