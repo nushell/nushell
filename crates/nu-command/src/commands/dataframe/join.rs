@@ -16,7 +16,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls join"
+        "dataframe join"
     }
 
     fn usage(&self) -> &str {
@@ -24,7 +24,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls join")
+        Signature::build("dataframe join")
             .required("dataframe", SyntaxShape::Any, "right dataframe to join")
             .required(
                 "l_columns",
@@ -52,13 +52,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "inner join dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | pls to-df | pls join $right [a] [a]",
+                example: "echo [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe join $right [a] [a]",
                 result: None,
             },
             Example {
                 description: "right join dataframe",
                 example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls join $right [b] [b] -t right",
+                    "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe join $right [b] [b] -t right",
                 result: None,
             },
         ]

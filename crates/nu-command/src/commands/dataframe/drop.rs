@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls drop"
+        "dataframe drop"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls drop").required(
+        Signature::build("dataframe drop").required(
             "columns",
             SyntaxShape::Table,
             "column names to be dropped",
@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls drop [a]",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe drop [a]",
             result: None,
         }]
     }

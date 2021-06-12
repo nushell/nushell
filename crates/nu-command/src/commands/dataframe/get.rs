@@ -8,7 +8,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls get"
+        "dataframe get"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls get").required(
+        Signature::build("dataframe get").required(
             "columns",
             SyntaxShape::Table,
             "column names to sort dataframe",
@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates dataframe with selected columns",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls get [a]",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe get [a]",
             result: None,
         }]
     }

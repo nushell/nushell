@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls drop-nulls"
+        "dataframe drop-nulls"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls drop-nulls").optional(
+        Signature::build("dataframe drop-nulls").optional(
             "subset",
             SyntaxShape::Table,
             "subset of columns to drop duplicates",
@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop null values duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | pls to-df | pls drop-nulls",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | dataframe to-df | dataframe drop-nulls",
             result: None,
         }]
     }

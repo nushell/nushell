@@ -12,7 +12,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls group-by"
+        "dataframe group-by"
     }
 
     fn usage(&self) -> &str {
@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls group-by").required(
+        Signature::build("dataframe group-by").required(
             "by columns",
             SyntaxShape::Table,
             "groupby columns",
@@ -34,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Grouping by column a",
-            example: "[[a b]; [one 1] [one 2]] | pls to-df | pls group-by [a]",
+            example: "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by [a]",
             result: None,
         }]
     }

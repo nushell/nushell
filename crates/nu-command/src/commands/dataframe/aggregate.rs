@@ -77,7 +77,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls aggregate"
+        "dataframe aggregate"
     }
 
     fn usage(&self) -> &str {
@@ -85,7 +85,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls aggregate")
+        Signature::build("dataframe aggregate")
             .required("operation", SyntaxShape::String, "aggregate operation")
             .optional(
                 "selection",
@@ -109,12 +109,12 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
-                    "[[a b]; [one 1] [one 2]] | pls to-df | pls groupby [a] | pls aggregate sum",
+                    "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe groupby [a] | dataframe aggregate sum",
                 result: None,
             },
             Example {
                 description: "Aggregate sum in dataframe columns",
-                example: "[[a b]; [4 1] [5 2]] | pls to-df | pls aggregate sum",
+                example: "[[a b]; [4 1] [5 2]] | dataframe to-df | dataframe aggregate sum",
                 result: None,
             },
         ]

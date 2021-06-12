@@ -288,6 +288,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameDropNulls),
             whole_stream_command(DataFrameColumn),
             whole_stream_command(DataFrameWithColumn),
+            whole_stream_command(DataFrameFilter),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

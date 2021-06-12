@@ -8,7 +8,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls sort"
+        "dataframe sort"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls sort")
+        Signature::build("dataframe sort")
             .required(
                 "columns",
                 SyntaxShape::Table,
@@ -32,7 +32,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new sorted dataframe",
-            example: "[[a b]; [3 4] [1 2]] | pls to-df | pls sort [a]",
+            example: "[[a b]; [3 4] [1 2]] | dataframe to-df | dataframe sort [a]",
             result: None,
         }]
     }

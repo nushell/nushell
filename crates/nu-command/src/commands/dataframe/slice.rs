@@ -8,7 +8,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls slice"
+        "dataframe slice"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls slice")
+        Signature::build("dataframe slice")
             .required("offset", SyntaxShape::Number, "start of slice")
             .required("size", SyntaxShape::Number, "size of slice")
     }
@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe slice 0 1",
             result: None,
         }]
     }

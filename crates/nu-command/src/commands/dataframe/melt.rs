@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls melt"
+        "dataframe melt"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls melt")
+        Signature::build("dataframe melt")
             .required("id_columns", SyntaxShape::Table, "Id columns for melting")
             .required(
                 "value_columns",
@@ -33,7 +33,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example: "[[a b]; [a 2] [b 4] [a 6]] | pls to-df | pls melt [a] [b]",
+            example: "[[a b]; [a 2] [b 4] [a 6]] | dataframe to-df | dataframe melt [a] [b]",
             result: None,
         }]
     }

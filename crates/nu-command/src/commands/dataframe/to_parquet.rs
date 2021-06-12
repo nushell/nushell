@@ -16,7 +16,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to-parquet"
+        "dataframe to-parquet"
     }
 
     fn usage(&self) -> &str {
@@ -24,7 +24,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls to-parquet").required(
+        Signature::build("dataframe to-parquet").required(
             "file",
             SyntaxShape::FilePath,
             "file path to save dataframe",
@@ -38,7 +38,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Saves dataframe to parquet file",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls to-parquet test.parquet",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to-parquet test.parquet",
             result: None,
         }]
     }

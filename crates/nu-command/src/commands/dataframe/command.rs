@@ -7,7 +7,7 @@ pub struct Command;
 
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
-        "pls"
+        "dataframe"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls")
+        Signature::build("dataframe")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

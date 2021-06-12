@@ -7,7 +7,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls dtypes"
+        "dataframe dtypes"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls dtypes")
+        Signature::build("dataframe dtypes")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -25,7 +25,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls dtypes",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe dtypes",
             result: None,
         }]
     }

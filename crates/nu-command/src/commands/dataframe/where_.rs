@@ -14,11 +14,11 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls where"
+        "dataframe where"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls where").required(
+        Signature::build("dataframe where").required(
             "condition",
             SyntaxShape::RowCondition,
             "the condition that must match",
@@ -36,7 +36,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe based on column a",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls where a == 1",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe where a == 1",
             result: None,
         }]
     }

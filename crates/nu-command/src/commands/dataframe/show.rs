@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls show"
+        "dataframe show"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls show")
+        Signature::build("dataframe show")
             .named(
                 "n_rows",
                 SyntaxShape::Number,
@@ -35,12 +35,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls show",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe show",
                 result: None,
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls show -t -n 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe show -t -n 1",
                 result: None,
             },
         ]
