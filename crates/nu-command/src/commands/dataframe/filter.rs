@@ -19,11 +19,9 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe filter").required(
-            "mask",
-            SyntaxShape::Any,
-            "boolean mask used to filter data",
-        )
+        Signature::build("dataframe filter")
+            .required("with", SyntaxShape::String, "the word 'with'")
+            .required("mask", SyntaxShape::Any, "boolean mask used to filter data")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -33,7 +31,8 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Filter dataframe using a mask",
-            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter (([5 6] | dataframe to-series) > 5)",
+            example: r#"let mask = ([5 6] | dataframe to-series) > 5;
+[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter with $mask"#,
             result: None,
         }]
     }
@@ -41,7 +40,7 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let value: Value = args.req(0)?;
+    let value: Value = args.req(1)?;
 
     let series_span = value.tag.span.clone();
     let series = match value.value {
