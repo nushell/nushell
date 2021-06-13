@@ -84,7 +84,7 @@ impl rustyline::highlight::Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let cfg = &self.context.configs.lock();
+        let cfg = &self.context.engine_state.configs.lock();
         if let Some(palette) = &cfg.syntax_config {
             Painter::paint_string(line, &self.context.scope, palette)
         } else {

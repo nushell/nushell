@@ -99,6 +99,7 @@ impl WholeStreamCommand for RunExternalCommand {
                 };
 
                 let result = external_context
+                    .engine_state
                     .shell_manager
                     .cd(cd_args, args.call_info.name_tag);
 
@@ -135,7 +136,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !ctx.host.lock().is_external_cmd(name))
+            && !ctx.engine_state.host.lock().is_external_cmd(name))
     {
         Some(name)
     } else {

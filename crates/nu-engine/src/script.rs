@@ -42,12 +42,13 @@ pub fn run_script_in_dir(
     ctx: &EvaluationContext,
 ) -> Result<(), Box<dyn Error>> {
     //Save path before to switch back to it after executing script
-    let path_before = ctx.shell_manager.path();
+    let path_before = ctx.engine_state.shell_manager.path();
 
-    ctx.shell_manager
+    ctx.engine_state
+        .shell_manager
         .set_path(dir.to_string_lossy().to_string());
     run_script_standalone(script, false, ctx, false)?;
-    ctx.shell_manager.set_path(path_before);
+    ctx.engine_state.shell_manager.set_path(path_before);
 
     Ok(())
 }
@@ -118,9 +119,9 @@ pub fn process_script(
                         .as_ref()
                         .map(NamedArguments::is_empty)
                         .unwrap_or(true)
-                    && canonicalize(ctx.shell_manager.path(), name).is_ok()
+                    && canonicalize(ctx.engine_state.shell_manager.path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !ctx.host.lock().is_external_cmd(name)
+                    && !ctx.engine_state.host.lock().is_external_cmd(name)
                 {
                     let tag = Tag {
                         anchor: Some(AnchorLocation::Source(line.into())),
@@ -169,7 +170,7 @@ pub fn process_script(
                         }),
                     };
 
-                    return match ctx.shell_manager.cd(cd_args, tag) {
+                    return match ctx.engine_state.shell_manager.cd(cd_args, tag) {
                         Err(e) => LineResult::Error(line.to_string(), e),
                         Ok(stream) => {
                             let iter = InternalIterator {
@@ -244,7 +245,7 @@ pub fn process_script(
                                 ..
                             }) => return LineResult::Error(line.to_string(), e),
                             Some(_item) => {
-                                if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                if ctx.engine_state.ctrl_c.load(Ordering::SeqCst) {
                                     break;
                                 }
                             }
@@ -267,6 +268,7 @@ pub fn run_script_standalone(
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
     context
+        .engine_state
         .shell_manager
         .enter_script_mode()
         .map_err(Box::new)?;
@@ -275,7 +277,7 @@ pub fn run_script_standalone(
     match line {
         LineResult::Success(line) => {
             let error_code = {
-                let errors = context.current_errors.clone();
+                let errors = context.engine_state.current_errors.clone();
                 let errors = errors.lock();
 
                 if errors.len() > 0 {
@@ -293,6 +295,7 @@ pub fn run_script_standalone(
 
         LineResult::Error(line, err) => {
             context
+                .engine_state
                 .host
                 .lock()
                 .print_err(err, &Text::from(line.clone()));
@@ -307,7 +310,7 @@ pub fn run_script_standalone(
     }
 
     //exit script mode shell
-    context.shell_manager.remove_at_current();
+    context.engine_state.shell_manager.remove_at_current();
 
     Ok(())
 }

@@ -20,8 +20,7 @@ use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
 
 #[derive(Clone, Default)]
-pub struct EvaluationContext {
-    pub scope: Scope,
+pub struct EngineState {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
@@ -30,6 +29,11 @@ pub struct EvaluationContext {
 
     /// Windows-specific: keep track of previous cwd on each drive
     pub windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
+}
+#[derive(Clone, Default)]
+pub struct EvaluationContext {
+    pub scope: Scope,
+    pub engine_state: Arc<EngineState>,
 }
 
 impl EvaluationContext {
@@ -44,12 +48,14 @@ impl EvaluationContext {
     ) -> Self {
         Self {
             scope,
-            host,
-            current_errors,
-            ctrl_c,
-            configs,
-            shell_manager,
-            windows_drives_previous_cwd,
+            engine_state: Arc::new(EngineState {
+                host,
+                current_errors,
+                ctrl_c,
+                configs,
+                shell_manager,
+                windows_drives_previous_cwd,
+            }),
         }
     }
 
@@ -61,12 +67,14 @@ impl EvaluationContext {
 
         EvaluationContext {
             scope,
-            host: Arc::new(parking_lot::Mutex::new(Box::new(host))),
-            current_errors: Arc::new(Mutex::new(vec![])),
-            ctrl_c: Arc::new(AtomicBool::new(false)),
-            configs: Arc::new(Mutex::new(ConfigHolder::new())),
-            shell_manager: ShellManager::basic(),
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            engine_state: Arc::new(EngineState {
+                host: Arc::new(parking_lot::Mutex::new(Box::new(host))),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: Arc::new(AtomicBool::new(false)),
+                configs: Arc::new(Mutex::new(ConfigHolder::new())),
+                shell_manager: ShellManager::basic(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            }),
         }
     }
 
@@ -75,11 +83,11 @@ impl EvaluationContext {
     }
 
     pub fn clear_errors(&self) {
-        self.current_errors.lock().clear()
+        self.engine_state.current_errors.lock().clear()
     }
 
     pub fn get_errors(&self) -> Vec<ShellError> {
-        self.current_errors.lock().clone()
+        self.engine_state.current_errors.lock().clone()
     }
 
     pub fn configure<T>(
@@ -91,13 +99,13 @@ impl EvaluationContext {
     }
 
     pub fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
-        let mut host = self.host.lock();
+        let mut host = self.engine_state.host.lock();
 
         block(&mut *host)
     }
 
     pub fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
-        let mut errors = self.current_errors.lock();
+        let mut errors = self.engine_state.current_errors.lock();
 
         block(&mut *errors)
     }
@@ -209,9 +217,9 @@ impl EvaluationContext {
         self.scope.set_exit_scripts(exit_scripts);
 
         match cfg_path {
-            ConfigPath::Global(_) => self.configs.lock().set_global_cfg(cfg),
+            ConfigPath::Global(_) => self.engine_state.configs.lock().set_global_cfg(cfg),
             ConfigPath::Local(_) => {
-                self.configs.lock().add_local_cfg(cfg);
+                self.engine_state.configs.lock().add_local_cfg(cfg);
             }
         }
 
@@ -221,7 +229,7 @@ impl EvaluationContext {
         // folder as the config.toml
 
         // Let's open the config
-        let global_config = self.configs.lock().global_config();
+        let global_config = self.engine_state.configs.lock().global_config();
         // Get the root syntax_theme value
         let syntax_theme = global_config.var("syntax_theme");
         // If we have a syntax_theme let's process it
@@ -246,16 +254,18 @@ impl EvaluationContext {
                 let mut reader = BufReader::new(syntax_theme_file);
                 let theme = ThemedPalette::new(&mut reader).unwrap_or_default();
                 // eprintln!("Theme: [{:?}]", theme);
-                self.configs.lock().set_syntax_colors(theme);
+                self.engine_state.configs.lock().set_syntax_colors(theme);
             } else {
                 // If the file was missing, use the default
-                self.configs
+                self.engine_state
+                    .configs
                     .lock()
                     .set_syntax_colors(ThemedPalette::default())
             }
         } else {
             // if there's no syntax_theme, use the default
-            self.configs
+            self.engine_state
+                .configs
                 .lock()
                 .set_syntax_colors(ThemedPalette::default())
         };
@@ -336,7 +346,7 @@ impl EvaluationContext {
         }
 
         //Unload config
-        self.configs.lock().remove_cfg(cfg_path);
+        self.engine_state.configs.lock().remove_cfg(cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
 
@@ -353,7 +363,7 @@ impl EvaluationContext {
                             e
                         ));
                         let text = script.into();
-                        self.host.lock().print_err(err, &text);
+                        self.engine_state.host.lock().print_err(err, &text);
                     }
                 }
             }

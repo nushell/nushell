@@ -41,7 +41,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let column_path = args.req(0)?;
 
-    let result = if let Some(global_cfg) = &ctx.configs.lock().global_config {
+    let result = if let Some(global_cfg) = &ctx.engine_state.configs.lock().global_config {
         let result = UntaggedValue::row(global_cfg.vars.clone()).into_value(&name);
         let value = crate::commands::get::get_column_path(&column_path, &result)?;
         Ok(match value {

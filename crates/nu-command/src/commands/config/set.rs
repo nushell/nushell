@@ -57,7 +57,7 @@ pub fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let column_path = args.req(0)?;
     let mut value: Value = args.req(1)?;
 
-    let result = if let Some(global_cfg) = &mut ctx.configs.lock().global_config {
+    let result = if let Some(global_cfg) = &mut ctx.engine_state.configs.lock().global_config {
         let configuration = UntaggedValue::row(global_cfg.vars.clone()).into_value(&name);
 
         if let UntaggedValue::Table(rows) = &value.value {

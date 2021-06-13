@@ -30,7 +30,7 @@ pub fn nu(
         UntaggedValue::filepath(default_history_path()).into_value(&tag),
     );
 
-    if let Some(global_cfg) = &ctx.configs.lock().global_config {
+    if let Some(global_cfg) = &ctx.engine_state.configs.lock().global_config {
         nu_dict.insert_value(
             "config",
             UntaggedValue::row(global_cfg.vars.clone()).into_value(&tag),
