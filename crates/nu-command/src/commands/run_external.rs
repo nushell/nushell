@@ -4,10 +4,13 @@ use crate::prelude::*;
 use derive_new::new;
 use std::path::PathBuf;
 
-use nu_engine::shell::CdArgs;
 use nu_engine::WholeStreamCommand;
+use nu_engine::{evaluate_baseline_expr, shell::CdArgs};
 use nu_errors::ShellError;
-use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
+use nu_protocol::{
+    hir::{ExternalArgs, ExternalCommand, SpannedExpression},
+    Primitive, UntaggedValue,
+};
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
@@ -17,12 +20,13 @@ pub struct RunExternalCommand {
     pub(crate) interactive: bool,
 }
 
-fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, ShellError> {
-    if let SpannedExpression {
-        expr: Expression::Literal(Literal::String(s)),
-        ..
-    } = expr
-    {
+fn spanned_expression_to_string(
+    expr: SpannedExpression,
+    ctx: &EvaluationContext,
+) -> Result<String, ShellError> {
+    let value = evaluate_baseline_expr(&expr, ctx)?;
+
+    if let UntaggedValue::Primitive(Primitive::String(s)) = value.value {
         Ok(s)
     } else {
         Err(ShellError::labeled_error(
@@ -67,12 +71,11 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let external_redirection = args.call_info.args.external_redirection;
 
-        let name = positionals
-            .next()
-            .ok_or_else(|| {
-                ShellError::untagged_runtime_error("run_external called with no arguments")
-            })
-            .and_then(spanned_expression_to_string)?;
+        let expr = positionals.next().ok_or_else(|| {
+            ShellError::untagged_runtime_error("run_external called with no arguments")
+        })?;
+
+        let name = spanned_expression_to_string(expr, &args.context)?;
 
         let mut external_context = args.context.clone();
 
