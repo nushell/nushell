@@ -69,6 +69,18 @@ fn correctly_escape_external_arguments() {
 }
 
 #[test]
+fn execute_binary_in_string() {
+    let actual = nu!(
+    cwd: ".",
+    r#"
+        let cmd = echo
+        ^$"($cmd)" '$0'
+    "#);
+
+    assert_eq!(actual.out, "$0");
+}
+
+#[test]
 fn redirects_custom_command_external() {
     let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length "#);
 
