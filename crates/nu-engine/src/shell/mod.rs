@@ -29,7 +29,7 @@ pub trait Shell: std::fmt::Debug {
     ) -> Result<ActionStream, ShellError>;
     fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
-    fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
+    fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
     fn mv(&self, args: MvArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn rm(&self, args: RemoveArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn path(&self) -> String;

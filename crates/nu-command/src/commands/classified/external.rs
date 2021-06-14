@@ -27,7 +27,7 @@ pub(crate) fn run_external_command(
     trace!(target: "nu::run::external", "-> {}", command.name);
 
     context.sync_path_to_env();
-    if !context.host.lock().is_external_cmd(&command.name) {
+    if !context.host().lock().is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             format!("command {} not found", &command.name),
@@ -59,7 +59,7 @@ fn run_with_stdin(
     input: InputStream,
     external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
-    let path = context.shell_manager.path();
+    let path = context.shell_manager().path();
 
     let mut command_args = vec![];
     for arg in command.args.iter() {

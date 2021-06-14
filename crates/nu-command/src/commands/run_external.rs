@@ -4,10 +4,13 @@ use crate::prelude::*;
 use derive_new::new;
 use std::path::PathBuf;
 
-use nu_engine::shell::CdArgs;
 use nu_engine::WholeStreamCommand;
+use nu_engine::{evaluate_baseline_expr, shell::CdArgs};
 use nu_errors::ShellError;
-use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, Literal, SpannedExpression};
+use nu_protocol::{
+    hir::{ExternalArgs, ExternalCommand, SpannedExpression},
+    Primitive, UntaggedValue,
+};
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
@@ -17,12 +20,13 @@ pub struct RunExternalCommand {
     pub(crate) interactive: bool,
 }
 
-fn spanned_expression_to_string(expr: SpannedExpression) -> Result<String, ShellError> {
-    if let SpannedExpression {
-        expr: Expression::Literal(Literal::String(s)),
-        ..
-    } = expr
-    {
+fn spanned_expression_to_string(
+    expr: SpannedExpression,
+    ctx: &EvaluationContext,
+) -> Result<String, ShellError> {
+    let value = evaluate_baseline_expr(&expr, ctx)?;
+
+    if let UntaggedValue::Primitive(Primitive::String(s)) = value.value {
         Ok(s)
     } else {
         Err(ShellError::labeled_error(
@@ -67,12 +71,11 @@ impl WholeStreamCommand for RunExternalCommand {
 
         let external_redirection = args.call_info.args.external_redirection;
 
-        let name = positionals
-            .next()
-            .ok_or_else(|| {
-                ShellError::untagged_runtime_error("run_external called with no arguments")
-            })
-            .and_then(spanned_expression_to_string)?;
+        let expr = positionals.next().ok_or_else(|| {
+            ShellError::untagged_runtime_error("run_external called with no arguments")
+        })?;
+
+        let name = spanned_expression_to_string(expr, &args.context)?;
 
         let mut external_context = args.context.clone();
 
@@ -99,7 +102,7 @@ impl WholeStreamCommand for RunExternalCommand {
                 };
 
                 let result = external_context
-                    .shell_manager
+                    .shell_manager()
                     .cd(cd_args, args.call_info.name_tag);
 
                 return Ok(result?.to_action_stream());
@@ -135,7 +138,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !ctx.host.lock().is_external_cmd(name))
+            && !ctx.host().lock().is_external_cmd(name))
     {
         Some(name)
     } else {
@@ -148,11 +151,11 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
             if name.ends_with(':') {
                 // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
                 // But first, we need to save where we are now
-                let current_path = ctx.shell_manager.path();
+                let current_path = ctx.shell_manager().path();
 
                 let split_path: Vec<_> = current_path.split(':').collect();
                 if split_path.len() > 1 {
-                    ctx.windows_drives_previous_cwd
+                    ctx.windows_drives_previous_cwd()
                         .lock()
                         .insert(split_path[0].to_string(), current_path);
                 }
@@ -160,7 +163,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
                 let name = name.to_uppercase();
                 let new_drive: Vec<_> = name.split(':').collect();
 
-                if let Some(val) = ctx.windows_drives_previous_cwd.lock().get(new_drive[0]) {
+                if let Some(val) = ctx.windows_drives_previous_cwd().lock().get(new_drive[0]) {
                     val.to_string()
                 } else {
                     name

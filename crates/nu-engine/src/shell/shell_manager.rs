@@ -172,7 +172,7 @@ impl ShellManager {
         shells[self.current_shell()].rm(args, name, &path)
     }
 
-    pub fn mkdir(&self, args: MkdirArgs, name: Tag) -> Result<ActionStream, ShellError> {
+    pub fn mkdir(&self, args: MkdirArgs, name: Tag) -> Result<OutputStream, ShellError> {
         let shells = self.shells.lock();
 
         let path = shells[self.current_shell()].path();

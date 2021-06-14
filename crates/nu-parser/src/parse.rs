@@ -1754,9 +1754,12 @@ fn parse_call(
     if lite_cmd.parts.is_empty() {
         return (None, None);
     } else if lite_cmd.parts[0].item.starts_with('^') {
-        let name = lite_cmd.parts[0]
+        let mut name = lite_cmd.parts[0]
             .clone()
             .map(|v| v.chars().skip(1).collect::<String>());
+
+        name.span = Span::new(name.span.start() + 1, name.span.end());
+
         // TODO this is the same as the `else` branch below, only the name differs. Find a way
         //      to share this functionality.
         let mut args = vec![];

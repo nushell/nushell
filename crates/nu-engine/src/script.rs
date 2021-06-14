@@ -42,12 +42,12 @@ pub fn run_script_in_dir(
     ctx: &EvaluationContext,
 ) -> Result<(), Box<dyn Error>> {
     //Save path before to switch back to it after executing script
-    let path_before = ctx.shell_manager.path();
+    let path_before = ctx.shell_manager().path();
 
-    ctx.shell_manager
+    ctx.shell_manager()
         .set_path(dir.to_string_lossy().to_string());
     run_script_standalone(script, false, ctx, false)?;
-    ctx.shell_manager.set_path(path_before);
+    ctx.shell_manager().set_path(path_before);
 
     Ok(())
 }
@@ -118,9 +118,9 @@ pub fn process_script(
                         .as_ref()
                         .map(NamedArguments::is_empty)
                         .unwrap_or(true)
-                    && canonicalize(ctx.shell_manager.path(), name).is_ok()
+                    && canonicalize(ctx.shell_manager().path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !ctx.host.lock().is_external_cmd(name)
+                    && !ctx.host().lock().is_external_cmd(name)
                 {
                     let tag = Tag {
                         anchor: Some(AnchorLocation::Source(line.into())),
@@ -133,11 +133,11 @@ pub fn process_script(
                             if name.ends_with(':') {
                                 // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
                                 // But first, we need to save where we are now
-                                let current_path = ctx.shell_manager.path();
+                                let current_path = ctx.shell_manager().path();
 
                                 let split_path: Vec<_> = current_path.split(':').collect();
                                 if split_path.len() > 1 {
-                                    ctx.windows_drives_previous_cwd
+                                    ctx.windows_drives_previous_cwd()
                                         .lock()
                                         .insert(split_path[0].to_string(), current_path);
                                 }
@@ -146,7 +146,7 @@ pub fn process_script(
                                 let new_drive: Vec<_> = name.split(':').collect();
 
                                 if let Some(val) =
-                                    ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
+                                    ctx.windows_drives_previous_cwd().lock().get(new_drive[0])
                                 {
                                     val.to_string()
                                 } else {
@@ -169,7 +169,7 @@ pub fn process_script(
                         }),
                     };
 
-                    return match ctx.shell_manager.cd(cd_args, tag) {
+                    return match ctx.shell_manager().cd(cd_args, tag) {
                         Err(e) => LineResult::Error(line.to_string(), e),
                         Ok(stream) => {
                             let iter = InternalIterator {
@@ -244,7 +244,7 @@ pub fn process_script(
                                 ..
                             }) => return LineResult::Error(line.to_string(), e),
                             Some(_item) => {
-                                if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                if ctx.ctrl_c().load(Ordering::SeqCst) {
                                     break;
                                 }
                             }
@@ -267,7 +267,7 @@ pub fn run_script_standalone(
     exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
     context
-        .shell_manager
+        .shell_manager()
         .enter_script_mode()
         .map_err(Box::new)?;
     let line = process_script(&script_text, context, redirect_stdin, 0, false);
@@ -275,7 +275,7 @@ pub fn run_script_standalone(
     match line {
         LineResult::Success(line) => {
             let error_code = {
-                let errors = context.current_errors.clone();
+                let errors = context.current_errors().clone();
                 let errors = errors.lock();
 
                 if errors.len() > 0 {
@@ -293,7 +293,7 @@ pub fn run_script_standalone(
 
         LineResult::Error(line, err) => {
             context
-                .host
+                .host()
                 .lock()
                 .print_err(err, &Text::from(line.clone()));
 
@@ -307,7 +307,7 @@ pub fn run_script_standalone(
     }
 
     //exit script mode shell
-    context.shell_manager.remove_at_current();
+    context.shell_manager().remove_at_current();
 
     Ok(())
 }

@@ -31,6 +31,7 @@ impl WholeStreamCommand for DataFrame {
     }
 }
 
+#[allow(clippy::needless_collect)]
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
