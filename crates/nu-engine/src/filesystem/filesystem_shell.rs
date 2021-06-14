@@ -504,11 +504,11 @@ impl Shell for FilesystemShell {
             }
             if show_created_paths {
                 let val = format!("{:}", create_at.to_string_lossy()).into();
-                stream.push_back(Ok(val));
+                stream.push_back(val);
             }
         }
 
-        Ok(stream.into_value())
+        Ok(stream.into())
     }
 
     fn mv(
