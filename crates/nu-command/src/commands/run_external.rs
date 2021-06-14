@@ -102,7 +102,7 @@ impl WholeStreamCommand for RunExternalCommand {
                 };
 
                 let result = external_context
-                    .shell_manager
+                    .shell_manager()
                     .cd(cd_args, args.call_info.name_tag);
 
                 return Ok(result?.to_action_stream());
@@ -138,7 +138,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
             && dunce::canonicalize(name).is_ok()
-            && !ctx.host.lock().is_external_cmd(name))
+            && !ctx.host().lock().is_external_cmd(name))
     {
         Some(name)
     } else {
@@ -151,11 +151,11 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
             if name.ends_with(':') {
                 // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
                 // But first, we need to save where we are now
-                let current_path = ctx.shell_manager.path();
+                let current_path = ctx.shell_manager().path();
 
                 let split_path: Vec<_> = current_path.split(':').collect();
                 if split_path.len() > 1 {
-                    ctx.windows_drives_previous_cwd
+                    ctx.windows_drives_previous_cwd()
                         .lock()
                         .insert(split_path[0].to_string(), current_path);
                 }
@@ -163,7 +163,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
                 let name = name.to_uppercase();
                 let new_drive: Vec<_> = name.split(':').collect();
 
-                if let Some(val) = ctx.windows_drives_previous_cwd.lock().get(new_drive[0]) {
+                if let Some(val) = ctx.windows_drives_previous_cwd().lock().get(new_drive[0]) {
                     val.to_string()
                 } else {
                     name

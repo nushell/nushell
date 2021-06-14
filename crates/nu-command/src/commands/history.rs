@@ -31,7 +31,7 @@ fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let clear = args.has_flag("clear");
 
-    let path = if let Some(global_cfg) = &ctx.configs.lock().global_config {
+    let path = if let Some(global_cfg) = &ctx.configs().lock().global_config {
         nu_data::config::path::history_path_or_default(global_cfg)
     } else {
         nu_data::config::path::default_history_path()

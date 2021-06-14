@@ -258,14 +258,14 @@ pub fn rustyline_hinter(
 pub fn configure_ctrl_c(_context: &EvaluationContext) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "ctrlc")]
     {
-        let cc = _context.ctrl_c.clone();
+        let cc = _context.ctrl_c().clone();
 
         ctrlc::set_handler(move || {
             cc.store(true, Ordering::SeqCst);
         })?;
 
-        if _context.ctrl_c.load(Ordering::SeqCst) {
-            _context.ctrl_c.store(false, Ordering::SeqCst);
+        if _context.ctrl_c().load(Ordering::SeqCst) {
+            _context.ctrl_c().store(false, Ordering::SeqCst);
         }
     }
 

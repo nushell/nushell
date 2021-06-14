@@ -167,7 +167,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
-    let history_path = if let Some(cfg) = &context.configs.lock().global_config {
+    let history_path = if let Some(cfg) = &context.configs().lock().global_config {
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
@@ -182,7 +182,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
 
     //set vars from cfg if present
-    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs.lock().global_config {
+    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs().lock().global_config
+    {
         (
             cfg.var("skip_welcome_message")
                 .map(|x| x.is_true())
@@ -217,12 +218,12 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     let mut ctrlcbreak = false;
 
     loop {
-        if context.ctrl_c.load(Ordering::SeqCst) {
-            context.ctrl_c.store(false, Ordering::SeqCst);
+        if context.ctrl_c().load(Ordering::SeqCst) {
+            context.ctrl_c().store(false, Ordering::SeqCst);
             continue;
         }
 
-        let cwd = context.shell_manager.path();
+        let cwd = context.shell_manager().path();
 
         let colored_prompt = {
             if let Some(prompt) = &prompt {
@@ -266,14 +267,14 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                                 }
                             }
                             Err(e) => {
-                                context.host.lock().print_err(e, &Text::from(prompt_line));
+                                context.host().lock().print_err(e, &Text::from(prompt_line));
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
                         },
                         Err(e) => {
-                            context.host.lock().print_err(e, &Text::from(prompt_line));
+                            context.host().lock().print_err(e, &Text::from(prompt_line));
                             context.clear_errors();
 
                             "> ".to_string()
@@ -360,7 +361,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 }
 
                 context
-                    .host
+                    .host()
                     .lock()
                     .print_err(err, &Text::from(session_text.clone()));
 
@@ -374,7 +375,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
             LineResult::CtrlC => {
                 let config_ctrlc_exit = context
-                    .configs
+                    .configs()
                     .lock()
                     .global_config
                     .as_ref()
@@ -400,8 +401,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
 
             LineResult::CtrlD => {
-                context.shell_manager.remove_at_current();
-                if context.shell_manager.is_empty() {
+                context.shell_manager().remove_at_current();
+                if context.shell_manager().is_empty() {
                     break;
                 }
             }
@@ -423,15 +424,15 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
 pub fn load_local_cfg_if_present(context: &EvaluationContext) {
     trace!("Loading local cfg if present");
-    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
+    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager().path())) {
         Ok(Some(cfg_path)) => {
             if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)) {
-                context.host.lock().print_err(err, &Text::from(""))
+                context.host().lock().print_err(err, &Text::from(""))
             }
         }
         Err(e) => {
             //Report error while checking for local cfg file
-            context.host.lock().print_err(e, &Text::from(""))
+            context.host().lock().print_err(e, &Text::from(""))
         }
         Ok(None) => {
             //No local cfg file present in start dir
@@ -441,7 +442,7 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
 
 fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
     if let Err(err) = context.load_config(&ConfigPath::Global(path)) {
-        context.host.lock().print_err(err, &Text::from(""));
+        context.host().lock().print_err(err, &Text::from(""));
     }
 }
 
@@ -451,7 +452,7 @@ pub fn load_global_cfg(context: &EvaluationContext) {
             load_cfg_as_global_cfg(context, path);
         }
         Err(e) => {
-            context.host.lock().print_err(e, &Text::from(""));
+            context.host().lock().print_err(e, &Text::from(""));
         }
     }
 }
