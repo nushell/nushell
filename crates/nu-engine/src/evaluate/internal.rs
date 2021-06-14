@@ -79,7 +79,7 @@ impl Iterator for InternalIterator {
             match item {
                 Ok(ReturnSuccess::Action(action)) => match action {
                     CommandAction::ChangePath(path) => {
-                        self.context.engine_state.shell_manager.set_path(path);
+                        self.context.shell_manager().set_path(path);
                     }
                     CommandAction::Exit(code) => std::process::exit(code), // TODO: save history.txt
                     CommandAction::Error(err) => {
@@ -135,28 +135,24 @@ impl Iterator for InternalIterator {
                     }
                     CommandAction::EnterValueShell(value) => {
                         self.context
-                            .engine_state
-                            .shell_manager
+                            .shell_manager()
                             .insert_at_current(Box::new(ValueShell::new(value)));
                     }
                     CommandAction::EnterShell(location) => {
-                        let mode = if self.context.engine_state.shell_manager.is_interactive() {
+                        let mode = if self.context.shell_manager().is_interactive() {
                             FilesystemShellMode::Cli
                         } else {
                             FilesystemShellMode::Script
                         };
-                        self.context
-                            .engine_state
-                            .shell_manager
-                            .insert_at_current(Box::new(
-                                match FilesystemShell::with_location(location, mode) {
-                                    Ok(v) => v,
-                                    Err(err) => {
-                                        self.context.error(err.into());
-                                        break;
-                                    }
-                                },
-                            ));
+                        self.context.shell_manager().insert_at_current(Box::new(
+                            match FilesystemShell::with_location(location, mode) {
+                                Ok(v) => v,
+                                Err(err) => {
+                                    self.context.error(err.into());
+                                    break;
+                                }
+                            },
+                        ));
                     }
                     CommandAction::AddPlugins(path) => {
                         match crate::plugin::build_plugin::scan(vec![std::path::PathBuf::from(
@@ -176,14 +172,14 @@ impl Iterator for InternalIterator {
                         }
                     }
                     CommandAction::PreviousShell => {
-                        self.context.engine_state.shell_manager.prev();
+                        self.context.shell_manager().prev();
                     }
                     CommandAction::NextShell => {
-                        self.context.engine_state.shell_manager.next();
+                        self.context.shell_manager().next();
                     }
                     CommandAction::LeaveShell(code) => {
-                        self.context.engine_state.shell_manager.remove_at_current();
-                        if self.context.engine_state.shell_manager.is_empty() {
+                        self.context.shell_manager().remove_at_current();
+                        if self.context.shell_manager().is_empty() {
                             std::process::exit(code); // TODO: save history.txt
                         }
                     }

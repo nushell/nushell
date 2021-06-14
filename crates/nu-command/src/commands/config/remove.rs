@@ -43,7 +43,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let key = remove.to_string();
 
-    let result = if let Some(global_cfg) = &mut ctx.engine_state.configs.lock().global_config {
+    let result = if let Some(global_cfg) = &mut ctx.configs().lock().global_config {
         if global_cfg.vars.contains_key(&key) {
             global_cfg.vars.swap_remove(&key);
             global_cfg.write()?;

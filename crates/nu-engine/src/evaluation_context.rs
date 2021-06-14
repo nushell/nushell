@@ -33,7 +33,7 @@ pub struct EngineState {
 #[derive(Clone, Default)]
 pub struct EvaluationContext {
     pub scope: Scope,
-    pub engine_state: Arc<EngineState>,
+    engine_state: Arc<EngineState>,
 }
 
 impl EvaluationContext {
@@ -80,6 +80,32 @@ impl EvaluationContext {
 
     pub fn error(&self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
+    }
+
+    pub fn host(&self) -> &Arc<parking_lot::Mutex<Box<dyn Host>>> {
+        &self.engine_state.host
+    }
+
+    pub fn current_errors(&self) -> &Arc<Mutex<Vec<ShellError>>> {
+        &self.engine_state.current_errors
+    }
+
+    pub fn ctrl_c(&self) -> &Arc<AtomicBool> {
+        &self.engine_state.ctrl_c
+    }
+
+    pub fn configs(&self) -> &Arc<Mutex<ConfigHolder>> {
+        &self.engine_state.configs
+    }
+
+    pub fn shell_manager(&self) -> &ShellManager {
+        &self.engine_state.shell_manager
+    }
+
+    pub fn windows_drives_previous_cwd(
+        &self,
+    ) -> &Arc<Mutex<std::collections::HashMap<String, String>>> {
+        &self.engine_state.windows_drives_previous_cwd
     }
 
     pub fn clear_errors(&self) {

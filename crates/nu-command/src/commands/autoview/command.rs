@@ -59,7 +59,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if let Some(x) = input_stream.next() {
         match input_stream.next() {
             Some(y) => {
-                let ctrl_c = context.engine_state.ctrl_c.clone();
+                let ctrl_c = context.ctrl_c().clone();
                 let xy = vec![x, y];
                 let xy_stream = xy.into_iter().chain(input_stream).interruptible(ctrl_c);
 
@@ -192,7 +192,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     } => {
                         let pivot_mode = configuration.pivot_mode();
 
-                        let term_width = context.engine_state.host.lock().width();
+                        let term_width = context.host().lock().width();
                         if pivot_mode.is_always()
                             || (pivot_mode.is_auto()
                                 && (row

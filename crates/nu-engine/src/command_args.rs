@@ -27,23 +27,23 @@ impl CommandArgs {
     }
 
     pub fn host(&self) -> Arc<parking_lot::Mutex<Box<dyn Host>>> {
-        self.context.engine_state.host.clone()
+        self.context.host().clone()
     }
 
     pub fn current_errors(&self) -> Arc<Mutex<Vec<ShellError>>> {
-        self.context.engine_state.current_errors.clone()
+        self.context.current_errors().clone()
     }
 
     pub fn ctrl_c(&self) -> Arc<AtomicBool> {
-        self.context.engine_state.ctrl_c.clone()
+        self.context.ctrl_c().clone()
     }
 
     pub fn configs(&self) -> Arc<Mutex<ConfigHolder>> {
-        self.context.engine_state.configs.clone()
+        self.context.configs().clone()
     }
 
     pub fn shell_manager(&self) -> ShellManager {
-        self.context.engine_state.shell_manager.clone()
+        self.context.shell_manager().clone()
     }
 
     pub fn nth(&self, pos: usize) -> Option<&SpannedExpression> {

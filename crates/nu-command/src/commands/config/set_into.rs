@@ -45,7 +45,7 @@ pub fn set_into(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let rows: Vec<Value> = args.input.collect();
     let key = set_into.to_string();
 
-    let result = if let Some(global_cfg) = &mut ctx.engine_state.configs.lock().global_config {
+    let result = if let Some(global_cfg) = &mut ctx.configs().lock().global_config {
         if rows.is_empty() {
             return Err(ShellError::labeled_error(
                 "No values given for set_into",

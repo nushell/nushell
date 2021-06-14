@@ -60,7 +60,7 @@ pub fn run_block(
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
-                            if ctx.engine_state.ctrl_c.load(Ordering::SeqCst) {
+                            if ctx.ctrl_c().load(Ordering::SeqCst) {
                                 return Ok(InputStream::empty());
                             }
                         }
@@ -96,7 +96,7 @@ pub fn run_block(
                                 ctx.clear_errors();
                                 return Err(err.clone());
                             }
-                            if ctx.engine_state.ctrl_c.load(Ordering::SeqCst) {
+                            if ctx.ctrl_c().load(Ordering::SeqCst) {
                                 // This early return doesn't return the result
                                 // we have so far, but breaking out of this loop
                                 // causes lifetime issues. A future contribution
