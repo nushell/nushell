@@ -29,12 +29,20 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Filter dataframe using a mask",
-            example: r#"let mask = ([5 6] | dataframe to-series) > 5;
+        vec![
+            Example {
+                description: "Filter dataframe using a bool mask",
+                example: r#"let mask = ([$true $false] | dataframe to-series);
 [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter with $mask"#,
-            result: None,
-        }]
+                result: None,
+            },
+            Example {
+                description: "Filter dataframe by creating a mask from operation",
+                example: r#"let mask = (([5 6] | dataframe to-series) > 5);
+[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter with $mask"#,
+                result: None,
+            },
+        ]
     }
 }
 
