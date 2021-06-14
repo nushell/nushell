@@ -152,7 +152,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
 
                 let split_path: Vec<_> = current_path.split(':').collect();
                 if split_path.len() > 1 {
-                    ctx.windows_drives_previous_cwd
+                    ctx.windows_drives_previous_cwd()
                         .lock()
                         .insert(split_path[0].to_string(), current_path);
                 }
@@ -160,7 +160,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
                 let name = name.to_uppercase();
                 let new_drive: Vec<_> = name.split(':').collect();
 
-                if let Some(val) = ctx.windows_drives_previous_cwd.lock().get(new_drive[0]) {
+                if let Some(val) = ctx.windows_drives_previous_cwd().lock().get(new_drive[0]) {
                     val.to_string()
                 } else {
                     name
