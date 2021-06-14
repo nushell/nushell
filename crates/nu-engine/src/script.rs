@@ -133,7 +133,7 @@ pub fn process_script(
                             if name.ends_with(':') {
                                 // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
                                 // But first, we need to save where we are now
-                                let current_path = ctx.shell_manager.path();
+                                let current_path = ctx.shell_manager().path();
 
                                 let split_path: Vec<_> = current_path.split(':').collect();
                                 if split_path.len() > 1 {
