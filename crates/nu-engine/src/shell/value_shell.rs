@@ -197,7 +197,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn mkdir(&self, _args: MkdirArgs, name: Tag, _path: &str) -> Result<ActionStream, ShellError> {
+    fn mkdir(&self, _args: MkdirArgs, name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Err(ShellError::labeled_error(
             "mkdir not currently supported on values",
             "not currently supported",
