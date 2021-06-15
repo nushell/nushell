@@ -15,7 +15,6 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -30,69 +29,6 @@ use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
-
-pub struct Options {
-    pub config: Option<OsString>,
-    pub stdin: bool,
-    pub scripts: Vec<NuScript>,
-    pub save_history: bool,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Self {
-            config: None,
-            stdin: false,
-            scripts: vec![],
-            save_history: true,
-        }
-    }
-}
-
-pub struct NuScript {
-    pub filepath: Option<OsString>,
-    pub contents: String,
-}
-
-impl NuScript {
-    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
-        let text = content
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        Ok(Self {
-            filepath: None,
-            contents: text,
-        })
-    }
-
-    pub fn get_code(&self) -> &str {
-        &self.contents
-    }
-
-    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
-        use std::fs::File;
-        use std::io::Read;
-
-        let path = path.to_os_string();
-        let mut file = File::open(&path)?;
-        let mut buffer = String::new();
-
-        file.read_to_string(&mut buffer)?;
-
-        Ok(Self {
-            filepath: Some(path),
-            contents: buffer,
-        })
-    }
-}
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -123,7 +59,10 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn run_script_file(
+    context: EvaluationContext,
+    options: super::app::CliOptions,
+) -> Result<(), ShellError> {
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
@@ -144,7 +83,10 @@ pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(
 }
 
 #[cfg(feature = "rustyline-support")]
-pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn cli(
+    context: EvaluationContext,
+    options: super::app::CliOptions,
+) -> Result<(), Box<dyn Error>> {
     let _ = configure_ctrl_c(&context);
 
     // start time for running startup scripts (this metric includes loading of the cfg, but w/e)

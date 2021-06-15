@@ -265,11 +265,11 @@ pub fn run_script_standalone(
     redirect_stdin: bool,
     context: &EvaluationContext,
     exit_on_error: bool,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), ShellError> {
     context
         .shell_manager()
         .enter_script_mode()
-        .map_err(Box::new)?;
+        .map_err(ShellError::from)?;
     let line = process_script(&script_text, context, redirect_stdin, 0, false);
 
     match line {
