@@ -42,7 +42,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls pivot"
+        "dataframe pivot"
     }
 
     fn usage(&self) -> &str {
@@ -50,7 +50,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls pivot")
+        Signature::build("dataframe pivot")
             .required(
                 "pivot column",
                 SyntaxShape::String,
@@ -72,7 +72,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Pivot a dataframe on b and aggregation on col c",
             example:
-                "[[a b c]; [one x 1] [two y 2]] | pls to-df | pls group-by [a] | pls pivot b c sum",
+                "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by [a] | dataframe pivot b c sum",
             result: None,
         }]
     }

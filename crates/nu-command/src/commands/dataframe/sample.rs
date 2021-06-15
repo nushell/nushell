@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls sample"
+        "dataframe sample"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls load")
+        Signature::build("dataframe load")
             .named(
                 "n_rows",
                 SyntaxShape::Number,
@@ -41,12 +41,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | pls to-df | pls sample -r 1",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -r 1",
                 result: None,
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example: "[[a b]; [1 2] [3 4] [5 6]] | pls to-df | pls sample -f 0.5 -e",
+                example:
+                    "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe sample -f 0.5 -e",
                 result: None,
             },
         ]

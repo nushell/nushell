@@ -8,7 +8,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls to-series"
+        "dataframe to-series"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls to-series").optional(
+        Signature::build("dataframe to-series").optional(
             "name",
             SyntaxShape::String,
             "Optional series name",
@@ -37,7 +37,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes an input stream and converts it to a polars series",
-            example: "[1 2 3 4] | pls to-series my-col",
+            example: "[1 2 3 4] | dataframe to-series my-col",
             result: None,
         }]
     }

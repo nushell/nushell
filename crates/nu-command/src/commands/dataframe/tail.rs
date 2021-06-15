@@ -8,7 +8,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls tail"
+        "dataframe tail"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls tail").optional(
+        Signature::build("dataframe tail").optional(
             "n_rows",
             SyntaxShape::Number,
             "Number of rows for tail",
@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with tail rows",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls tail",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe tail",
             result: None,
         }]
     }

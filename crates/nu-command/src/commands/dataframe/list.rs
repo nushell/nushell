@@ -7,7 +7,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls list"
+        "dataframe list"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls list")
+        Signature::build("dataframe list")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -57,7 +57,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Lists loaded dataframes in current scope",
-            example: "pls list",
+            example: "dataframe list",
             result: None,
         }]
     }

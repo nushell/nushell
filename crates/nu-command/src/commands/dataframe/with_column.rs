@@ -12,7 +12,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls with-column"
+        "dataframe with-column"
     }
 
     fn usage(&self) -> &str {
@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls with-column")
+        Signature::build("dataframe with-column")
             .required("series", SyntaxShape::Any, "series to be added")
             .required("as", SyntaxShape::String, "the word 'as'")
             .required("name", SyntaxShape::String, "column name")
@@ -34,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Adds a series to the dataframe",
             example:
-                "[[a b]; [1 2] [3 4]] | pls to-df | pls with-column ([5 6] | pls to-series) as c",
+                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-series) as c",
             result: None,
         }]
     }
@@ -58,13 +58,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let res = df
-        .as_mut()
+    df.as_mut()
         .with_column(series)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(
-        res.clone(),
-        tag,
-    )))
+    Ok(OutputStream::one(df.to_value(tag)))
 }

@@ -13,7 +13,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls column"
+        "dataframe column"
     }
 
     fn usage(&self) -> &str {
@@ -21,7 +21,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls column").required("column", SyntaxShape::String, "column name")
+        Signature::build("dataframe column").required("column", SyntaxShape::String, "column name")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns the selected column as series",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls column a",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe column a",
             result: None,
         }]
     }

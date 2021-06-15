@@ -79,7 +79,8 @@ impl NuSeries {
             match value.value {
                 UntaggedValue::Primitive(Primitive::Int(_))
                 | UntaggedValue::Primitive(Primitive::Decimal(_))
-                | UntaggedValue::Primitive(Primitive::String(_)) => {
+                | UntaggedValue::Primitive(Primitive::String(_))
+                | UntaggedValue::Primitive(Primitive::Boolean(_)) => {
                     insert_value(value, &mut vec_values)?
                 }
                 _ => {
@@ -87,7 +88,7 @@ impl NuSeries {
                         "Format not supported",
                         "Value not supported for conversion",
                         &value.tag.span,
-                        "Perhaps you want to use a list of primitive values (int, decimal, string)",
+                        "Perhaps you want to use a list of primitive values (int, decimal, string, or bool)",
                         &value.tag.span,
                     ));
                 }
@@ -153,31 +154,27 @@ macro_rules! series_to_chunked {
             (size, 0, 0)
         };
 
-        let head = chunked_array
-            .into_iter()
-            .take(head_size)
-            .map(|value| match value {
-                Some(v) => {
-                    let mut dictionary_row = Dictionary::default();
-
-                    let value = Value {
-                        value: UntaggedValue::Primitive(v.into()),
-                        tag: Tag::unknown(),
-                    };
-
-                    let header = format!("{} ({})", $self.as_ref().name(), $self.as_ref().dtype());
-                    dictionary_row.insert(header, value);
-
-                    Value {
-                        value: UntaggedValue::Row(dictionary_row),
-                        tag: Tag::unknown(),
-                    }
-                }
+        let head = chunked_array.into_iter().take(head_size).map(|value| {
+            let value = match value {
+                Some(v) => Value {
+                    value: UntaggedValue::Primitive(v.into()),
+                    tag: Tag::unknown(),
+                },
                 None => Value {
                     value: UntaggedValue::Primitive(Primitive::Nothing),
                     tag: Tag::unknown(),
                 },
-            });
+            };
+
+            let mut dictionary_row = Dictionary::default();
+            let header = format!("{} ({})", $self.as_ref().name(), $self.as_ref().dtype());
+            dictionary_row.insert(header, value);
+
+            Value {
+                value: UntaggedValue::Row(dictionary_row),
+                tag: Tag::unknown(),
+            }
+        });
 
         let res = if $self.as_ref().len() < size {
             head.collect::<Vec<Value>>()
@@ -285,6 +282,10 @@ fn insert_value(value: Value, vec_values: &mut Vec<Value>) -> Result<(), ShellEr
             | (
                 UntaggedValue::Primitive(Primitive::String(_)),
                 UntaggedValue::Primitive(Primitive::String(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
             ) => {
                 vec_values.push(value);
                 Ok(())
@@ -324,6 +325,14 @@ fn from_parsed_vector(
         UntaggedValue::Primitive(Primitive::String(_)) => {
             let series_values: Result<Vec<_>, _> =
                 vec_values.iter().map(|v| v.as_string()).collect();
+            let series_name = match &name {
+                Some(n) => n.as_ref(),
+                None => "string",
+            };
+            Series::new(series_name, series_values?)
+        }
+        UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+            let series_values: Result<Vec<_>, _> = vec_values.iter().map(|v| v.as_bool()).collect();
             let series_name = match &name {
                 Some(n) => n.as_ref(),
                 None => "string",

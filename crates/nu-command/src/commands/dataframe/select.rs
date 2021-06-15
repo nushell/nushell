@@ -9,7 +9,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "pls select"
+        "dataframe select"
     }
 
     fn usage(&self) -> &str {
@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pls select").required(
+        Signature::build("dataframe select").required(
             "columns",
             SyntaxShape::Table,
             "selected column names",
@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with column a",
-            example: "[[a b]; [1 2] [3 4]] | pls to-df | pls select [a]",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe select [a]",
             result: None,
         }]
     }
