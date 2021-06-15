@@ -13,11 +13,11 @@ impl WholeStreamCommand for Command {
             .switch("stdin", "stdin", None)
             .switch("skip-plugins", "do not load plugins", None)
             .switch("no-history", "don't save history", None)
-            .named("commands", SyntaxShape::String, "Nu commands", Some('c'))
+            .named("commands", SyntaxShape::String, "commands", Some('c'))
             .named(
                 "testbin",
                 SyntaxShape::String,
-                "BIN: echo_env, cococo, iecho, fail, nonu, chop, repeater, meow",
+                "test bin: echo_env, cococo, iecho, fail, nonu, chop, repeater, meow",
                 None,
             )
             .named("develop", SyntaxShape::String, "trace mode", None)
@@ -34,12 +34,12 @@ impl WholeStreamCommand for Command {
                 "custom configuration source file",
                 None,
             )
-            .optional("script", SyntaxShape::FilePath, "The Nu script to run")
-            .rest(SyntaxShape::String, "Left overs...")
+            .optional("script", SyntaxShape::FilePath, "script to run")
+            .rest(SyntaxShape::String, "...")
     }
 
     fn usage(&self) -> &str {
-        "Nu"
+        "Nu - A new type of shell."
     }
 }
 

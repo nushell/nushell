@@ -153,27 +153,10 @@ impl App {
     }
 
     pub fn help(&self) -> bool {
-        let help_asked = self
-            .options
-            .get("args")
-            .map(|v| {
-                v.table_entries().next().map(|v| {
-                    if let Ok(value) = v.as_string() {
-                        value == "help"
-                    } else {
-                        false
-                    }
-                })
-            })
-            .flatten()
-            .unwrap_or(false);
-
-        if help_asked {
-            self.options.shift();
-            return true;
-        }
-
-        false
+        self.options
+            .get("help")
+            .map(|v| matches!(v.as_bool(), Ok(true)))
+            .unwrap_or(false)
     }
 
     pub fn scripts(&self) -> Option<Vec<Result<String, ShellError>>> {
@@ -408,7 +391,7 @@ mod tests {
     fn has_help() -> Result<(), ShellError> {
         let ui = cli_app();
 
-        ui.parse("nu help")?;
+        ui.parse("nu --help")?;
         assert_eq!(ui.help(), true);
         Ok(())
     }
