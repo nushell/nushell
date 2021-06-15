@@ -50,7 +50,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let value: Value = args.req(1)?;
 
-    let series_span = value.tag.span.clone();
+    let series_span = value.tag.span;
     let series = match value.value {
         UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
