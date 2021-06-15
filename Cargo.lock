@@ -3088,6 +3088,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mp4"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "369762a9ab26451c57e0860102029db0f5c6b142baf6f373e759f311a828b50e"
+dependencies = [
+ "byteorder",
+ "bytes 0.5.6",
+ "num-rational 0.3.2",
+ "serde 1.0.126",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "multiversion"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3793,6 +3807,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu_plugin_from_mp4"
+version = "0.1.0"
+dependencies = [
+ "mp4",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "tempfile",
+]
+
+[[package]]
 name = "nu_plugin_from_sqlite"
 version = "0.32.1"
 dependencies = [
@@ -4128,8 +4154,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
 dependencies = [
  "autocfg",
+ "num-bigint 0.3.2",
  "num-integer",
  "num-traits 0.2.14",
+ "serde 1.0.126",
 ]
 
 [[package]]
