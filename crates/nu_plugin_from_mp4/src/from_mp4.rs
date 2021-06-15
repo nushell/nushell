@@ -37,13 +37,13 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
     for track in mp4.tracks() {
         let mut curr_track_dict = TaggedDictBuilder::new(tag.clone());
 
-        curr_track_dict.insert_untagged("id", UntaggedValue::int(track.track_id()));
+        curr_track_dict.insert_untagged("track id", UntaggedValue::int(track.track_id()));
 
         curr_track_dict.insert_untagged(
             "track type",
             match track.track_type() {
                 Ok(t) => UntaggedValue::string(t.to_string()),
-                Err(_) => UntaggedValue::string("Unknown".to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
             },
         );
 
@@ -51,7 +51,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
             "media type",
             match track.media_type() {
                 Ok(t) => UntaggedValue::string(t.to_string()),
-                Err(_) => UntaggedValue::string("Unknown".to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
             },
         );
 
@@ -59,7 +59,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
             "box type",
             match track.box_type() {
                 Ok(t) => UntaggedValue::string(t.to_string()),
-                Err(_) => UntaggedValue::string("Unknown".to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
             },
         );
 
@@ -67,10 +67,68 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
         curr_track_dict.insert_untagged("height", UntaggedValue::int(track.height()));
         curr_track_dict.insert_untagged("frame_rate", UntaggedValue::from(track.frame_rate()));
 
+        curr_track_dict.insert_untagged(
+            "sample freq index",
+            match track.sample_freq_index() {
+                Ok(sfi) => UntaggedValue::string(format!("{}", sfi.freq())), // this is a string for formatting reasons
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        curr_track_dict.insert_untagged(
+            "channel config",
+            match track.channel_config() {
+                Ok(cc) => UntaggedValue::string(cc.to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        curr_track_dict.insert_untagged("language", UntaggedValue::string(track.language()));
+        curr_track_dict.insert_untagged("timescale", UntaggedValue::int(track.timescale()));
+        //curr_track_dict.insert_untagged(
+        //    "duration",
+        //    UntaggedValue::duration(track.duration().as_nanos()),
+        //);
+        curr_track_dict.insert_untagged("bitrate", UntaggedValue::int(track.bitrate()));
+        curr_track_dict.insert_untagged("sample_count", UntaggedValue::int(track.sample_count()));
+
+        curr_track_dict.insert_untagged(
+            "video profile",
+            match track.video_profile() {
+                Ok(vp) => UntaggedValue::string(vp.to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        curr_track_dict.insert_untagged(
+            "audio profile",
+            match track.audio_profile() {
+                Ok(ap) => UntaggedValue::string(ap.to_string()),
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        curr_track_dict.insert_untagged(
+            "sequence parameter set",
+            match track.sequence_parameter_set() {
+                Ok(sps) => UntaggedValue::string(format!("{:X?}", sps)),
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        curr_track_dict.insert_untagged(
+            "picture parameter set",
+            match track.picture_parameter_set() {
+                Ok(pps) => UntaggedValue::string(format!("{:X?}", pps)),
+                Err(_) => UntaggedValue::from("Unknown"),
+            },
+        );
+
+        // push curr track to tracks vec
         tracks.push(curr_track_dict.into_value());
     }
-    dict.insert_untagged("tracks", UntaggedValue::Table(tracks).into_value(&tag));
 
+    dict.insert_untagged("tracks", UntaggedValue::Table(tracks).into_value(&tag));
     dict.insert_untagged("timescale", UntaggedValue::int(mp4.timescale()));
     dict.insert_untagged("size", UntaggedValue::big_int(mp4.size()));
     dict.insert_untagged(
