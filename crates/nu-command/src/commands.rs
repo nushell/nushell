@@ -86,7 +86,7 @@ pub(crate) mod mkdir;
 pub(crate) mod move_;
 pub(crate) mod next;
 pub(crate) mod nth;
-pub(crate) mod nu;
+pub mod nu;
 pub(crate) mod open;
 pub(crate) mod parse;
 pub(crate) mod path;
@@ -140,7 +140,7 @@ pub(crate) mod which_;
 pub(crate) mod with_env;
 pub(crate) mod wrap;
 
-pub(crate) use autoview::Autoview;
+pub use autoview::Autoview;
 pub(crate) use cd::Cd;
 
 pub(crate) use alias::Alias;

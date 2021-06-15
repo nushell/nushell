@@ -62,6 +62,7 @@ indexmap = { version = "1.6.1", features = ["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.14"
+pretty_env_logger = "0.4.0"
 meval = "0.2.0"
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-format = { version = "0.4.0", features = ["with-num-bigint"] }

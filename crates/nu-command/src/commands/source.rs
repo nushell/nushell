@@ -52,7 +52,7 @@ pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
             let result = script::run_script_standalone(contents, true, &ctx, false);
 
             if let Err(err) = result {
-                ctx.error(err.into());
+                ctx.error(err);
             }
             Ok(ActionStream::empty())
         }

@@ -50,12 +50,9 @@ nu_plugin_tree = { version = "0.32.1", path = "./crates/nu_plugin_tree", optiona
 nu_plugin_xpath = { version = "0.32.1", path = "./crates/nu_plugin_xpath", optional = true }
 
 # Required to bootstrap the main binary
-clap = "2.33.3"
 ctrlc = { version = "3.1.7", optional = true }
 futures = { version = "0.3.12", features = ["compat", "io-compat"] }
 itertools = "0.10.0"
-log = "0.4.14"
-pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
 nu-test-support = { version = "0.32.1", path = "./crates/nu-test-support" }

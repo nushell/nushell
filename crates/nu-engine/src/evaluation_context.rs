@@ -153,8 +153,7 @@ impl EvaluationContext {
         }
     }
 
-    #[allow(unused)]
-    pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
+    pub fn get_command(&self, name: &str) -> Option<Command> {
         self.scope.get_command(name)
     }
 
@@ -162,7 +161,7 @@ impl EvaluationContext {
         self.scope.has_command(name)
     }
 
-    pub(crate) fn run_command(
+    pub fn run_command(
         &self,
         command: Command,
         name_tag: Tag,
