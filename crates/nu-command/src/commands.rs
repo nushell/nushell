@@ -134,7 +134,7 @@ pub(crate) mod to_yaml;
 pub(crate) mod uniq;
 pub(crate) mod update;
 pub(crate) mod url_;
-pub(crate) mod version;
+pub mod version;
 pub(crate) mod where_;
 pub(crate) mod which_;
 pub(crate) mod with_env;
@@ -254,7 +254,7 @@ pub(crate) use path::{
     PathBasename, PathCommand, PathDirname, PathExists, PathExpand, PathJoin, PathParse,
     PathRelativeTo, PathSplit, PathType,
 };
-pub(crate) use pivot::Pivot;
+pub use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;

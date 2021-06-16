@@ -8,7 +8,7 @@ use options_parser::{NuParser, OptionsParser};
 use nu_command::{commands::nu::Nu, utils::test_bins as binaries};
 use nu_engine::{get_full_help, EvaluationContext};
 use nu_errors::ShellError;
-use nu_protocol::hir::{Call, Expression, SpannedExpression};
+use nu_protocol::hir::{Call, Expression, SpannedExpression, Synthetic};
 use nu_protocol::{Primitive, UntaggedValue};
 use nu_source::{Span, Tag};
 use nu_stream::InputStream;
@@ -58,9 +58,24 @@ impl App {
         if self.version() {
             let context = self.parser.context();
 
+            let stream = nu_command::commands::version::version(nu_engine::CommandArgs {
+                context: context.clone(),
+                call_info: nu_engine::UnevaluatedCallInfo {
+                    args: Call::new(
+                        Box::new(SpannedExpression::new(
+                            Expression::Synthetic(Synthetic::String("version".to_string())),
+                            Span::unknown(),
+                        )),
+                        Span::unknown(),
+                    ),
+                    name_tag: Tag::unknown(),
+                },
+                input: InputStream::empty(),
+            })?;
+
             let stream = {
                 let command = context
-                    .get_command("version")
+                    .get_command("pivot")
                     .expect("could not find version command");
 
                 context.run_command(
@@ -68,12 +83,12 @@ impl App {
                     Tag::unknown(),
                     Call::new(
                         Box::new(SpannedExpression::new(
-                            Expression::string("version".to_string()),
+                            Expression::Synthetic(Synthetic::String("pivot".to_string())),
                             Span::unknown(),
                         )),
                         Span::unknown(),
                     ),
-                    nu_stream::InputStream::empty(),
+                    stream,
                 )?
             };
 
@@ -313,7 +328,7 @@ fn consume(context: &EvaluationContext, stream: InputStream) -> Result<(), Shell
         Tag::unknown(),
         Call::new(
             Box::new(SpannedExpression::new(
-                Expression::string("autoview".to_string()),
+                Expression::Synthetic(Synthetic::String("autoview".to_string())),
                 Span::unknown(),
             )),
             Span::unknown(),
