@@ -4,7 +4,7 @@ use nu_protocol::{UntaggedValue, Value};
 use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CliOptions {
     pub config: Option<OsString>,
     pub stdin: bool,
@@ -64,7 +64,7 @@ impl Options {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NuScript {
     pub filepath: Option<OsString>,
     pub contents: String,
