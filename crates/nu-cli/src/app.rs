@@ -110,16 +110,19 @@ impl App {
         }
 
         if let Some(scripts) = self.scripts() {
-            let source_files = scripts
-                .into_iter()
-                .filter_map(Result::ok)
-                .map(|path| {
-                    let path = std::ffi::OsString::from(path);
+            let mut source_files = vec![];
+            for script in scripts {
+                let script_name = script?;
+                let path = std::ffi::OsString::from(&script_name);
 
-                    NuScript::source_file(path.as_os_str())
-                })
-                .filter_map(Result::ok)
-                .collect::<Vec<_>>();
+                match NuScript::source_file(path.as_os_str()) {
+                    Ok(file) => source_files.push(file),
+                    Err(_) => {
+                        eprintln!("File not found: {}", script_name);
+                        return Ok(());
+                    }
+                }
+            }
 
             for file in source_files {
                 let mut opts = opts.clone();
