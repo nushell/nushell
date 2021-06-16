@@ -239,6 +239,15 @@ impl Scope {
         }
     }
 
+    pub fn remove_env_var(&self, name: impl Into<String>) -> Option<String> {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            if let Some(val) = frame.env.remove_entry(&name.into()) {
+                return Some(val.1);
+            }
+        }
+        None
+    }
+
     pub fn add_env(&self, env_vars: IndexMap<String, String>) {
         if let Some(frame) = self.frames.lock().last_mut() {
             frame.env.extend(env_vars)
