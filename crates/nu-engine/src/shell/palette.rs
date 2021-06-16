@@ -217,7 +217,7 @@ impl Default for Theme {
             external_command: ThemeColor(Color::Cyan),
             external_word: ThemeColor(Color::Green),
             flag: ThemeColor(Color::Blue),
-            garbage: ThemeColor(Color::Red),
+            garbage: ThemeColor(Color::White),
             glob_pattern: ThemeColor(Color::Cyan),
             identifier: ThemeColor(Color::Purple),
             int: ThemeColor(Color::Purple),
