@@ -21,7 +21,7 @@ impl WholeStreamCommand for UnletEnv {
         Signature::build("unlet-env").required(
             "name",
             SyntaxShape::String,
-            "the name of the environment variable to delete",
+            "the name of the environment variable",
         )
     }
 
