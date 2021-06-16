@@ -110,7 +110,7 @@ impl App {
         }
 
         if let Some(scripts) = self.scripts() {
-            opts.scripts = scripts
+            let source_files = scripts
                 .into_iter()
                 .filter_map(Result::ok)
                 .map(|path| {
@@ -119,10 +119,17 @@ impl App {
                     NuScript::source_file(path.as_os_str())
                 })
                 .filter_map(Result::ok)
-                .collect();
+                .collect::<Vec<_>>();
 
-            let context = crate::create_default_context(false)?;
-            return crate::run_script_file(context, opts);
+            for file in source_files {
+                let mut opts = opts.clone();
+                opts.scripts = vec![file];
+
+                let context = crate::create_default_context(false)?;
+                crate::run_script_file(context, opts)?;
+            }
+
+            return Ok(());
         }
 
         let context = crate::create_default_context(true)?;

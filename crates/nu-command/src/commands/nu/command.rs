@@ -10,10 +10,15 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("nu")
-            .switch("stdin", "stdin", None)
+            .switch("stdin", "redirect stdin", None)
             .switch("skip-plugins", "do not load plugins", None)
             .switch("no-history", "don't save history", None)
-            .named("commands", SyntaxShape::String, "commands", Some('c'))
+            .named(
+                "commands",
+                SyntaxShape::String,
+                "commands to run",
+                Some('c'),
+            )
             .named(
                 "testbin",
                 SyntaxShape::String,
@@ -34,8 +39,7 @@ impl WholeStreamCommand for Command {
                 "custom configuration source file",
                 None,
             )
-            .optional("script", SyntaxShape::FilePath, "script to run")
-            .rest(SyntaxShape::String, "...")
+            .rest(SyntaxShape::String, "source file(s) to run")
     }
 
     fn usage(&self) -> &str {
