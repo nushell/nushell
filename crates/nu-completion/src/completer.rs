@@ -1,35 +1,34 @@
-use crate::completion::command::CommandCompleter;
-use crate::completion::flag::FlagCompleter;
-use crate::completion::matchers;
-use crate::completion::matchers::Matcher;
-use crate::completion::path::{PathCompleter, PathSuggestion};
-use crate::completion::{self, Completer, Suggestion};
-use nu_engine::EvaluationContext;
-use nu_parser::ParserScope;
-use nu_source::{Span, Tag};
-
 use std::borrow::Cow;
 
-pub(crate) struct NuCompleter {}
+use nu_source::{Span, Tag};
+
+use crate::command::CommandCompleter;
+use crate::engine;
+use crate::flag::FlagCompleter;
+use crate::matchers;
+use crate::matchers::Matcher;
+use crate::path::{PathCompleter, PathSuggestion};
+use crate::{Completer, CompletionContext, Suggestion};
+
+pub struct NuCompleter {}
 
 impl NuCompleter {}
 
 impl NuCompleter {
-    pub fn complete(
+    pub fn complete<Context: CompletionContext>(
         &self,
         line: &str,
         pos: usize,
-        context: &completion::CompletionContext,
+        context: &Context,
     ) -> (usize, Vec<Suggestion>) {
-        use completion::engine::LocationType;
+        use engine::LocationType;
 
-        let nu_context: &EvaluationContext = context.as_ref();
+        let tokens = nu_parser::lex(line, 0).0;
 
-        nu_context.scope.enter_scope();
-        let (block, _) = nu_parser::parse(line, 0, &nu_context.scope);
-        nu_context.scope.exit_scope();
-
-        let locations = completion::engine::completion_location(line, &block, pos);
+        let locations = Some(nu_parser::parse_block(tokens).0)
+            .map(|block| nu_parser::classify_block(&block, context.signature_registry()))
+            .map(|(block, _)| engine::completion_location(line, &block, pos))
+            .unwrap_or_default();
 
         let matcher = nu_data::config::config(Tag::unknown())
             .ok()
@@ -61,7 +60,6 @@ impl NuCompleter {
                     pos = location.span.start();
                 }
             }
-
             let suggestions = locations
                 .into_iter()
                 .flat_map(|location| {
@@ -147,7 +145,16 @@ fn select_directory_suggestions(completed_paths: Vec<PathSuggestion>) -> Vec<Pat
 }
 
 fn requote(orig_value: String, previously_quoted: bool) -> String {
-    let value: Cow<str> = rustyline::completion::unescape(&orig_value, Some('\\'));
+    let value: Cow<str> = {
+        #[cfg(feature = "rustyline-support")]
+        {
+            rustyline::completion::unescape(&orig_value, Some('\\'))
+        }
+        #[cfg(not(feature = "rustyline-support"))]
+        {
+            orig_value.into()
+        }
+    };
 
     let mut quotes = vec!['"', '\''];
     let mut should_quote = false;

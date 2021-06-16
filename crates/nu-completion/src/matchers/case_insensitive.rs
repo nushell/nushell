@@ -1,4 +1,5 @@
-use crate::completion::matchers;
+use crate::matchers;
+
 pub struct Matcher;
 
 impl matchers::Matcher for Matcher {
@@ -12,7 +13,7 @@ impl matchers::Matcher for Matcher {
 mod tests {
     use super::*;
 
-    // TODO: check some Unicode matches if this becomes relevant
+    // TODO: check some unicode matches if this becomes relevant
 
     // FIXME: could work exhaustively through ['-', '--'. ''] in a loop for each test
     #[test]

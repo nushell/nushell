@@ -1,22 +1,16 @@
 use super::matchers::Matcher;
-use crate::completion::{Completer, CompletionContext, Suggestion};
-use nu_engine::EvaluationContext;
+use crate::{Completer, CompletionContext, Suggestion};
 
 pub struct FlagCompleter {
     pub(crate) cmd: String,
 }
 
-impl Completer for FlagCompleter {
-    fn complete(
-        &self,
-        ctx: &CompletionContext<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion> {
-        let context: &EvaluationContext = ctx.as_ref();
-
-        if let Some(cmd) = context.scope.get_command(&self.cmd) {
-            let sig = cmd.signature();
+impl<Context> Completer<Context> for FlagCompleter
+where
+    Context: CompletionContext,
+{
+    fn complete(&self, ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
+        if let Some(sig) = ctx.signature_registry().get_signature(&self.cmd) {
             let mut suggestions = Vec::new();
             for (name, (named_type, _desc)) in sig.named.iter() {
                 suggestions.push(format!("--{}", name));
