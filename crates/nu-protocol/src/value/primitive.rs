@@ -45,6 +45,7 @@ pub enum Primitive {
     /// A date value
     Date(DateTime<FixedOffset>),
     /// A count in the number of nanoseconds
+    #[serde(with = "serde_bigint")]
     Duration(BigInt),
     /// A range of values
     Range(Box<Range>),
