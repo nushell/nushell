@@ -1,7 +1,6 @@
-use mp4::Mp4Reader;
-use nu_errors::{ExpectedRange, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
-use nu_source::{SpannedItem, Tag};
+use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, ReturnValue, TaggedDictBuilder, UntaggedValue, Value};
+use nu_source::Tag;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -25,12 +24,6 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
     let mp4 = mp4::read_mp4(File::open(path).unwrap())?;
 
     let mut dict = TaggedDictBuilder::new(tag.clone());
-
-    // TODO duration breaks it sometimes
-    //dict.insert_untagged(
-    //    "duration",
-    //    UntaggedValue::duration(mp4.duration().as_secs()),
-    //);
 
     // Build tracks table
     let mut tracks = Vec::new();
@@ -90,7 +83,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
         //    UntaggedValue::duration(track.duration().as_nanos()),
         //);
         curr_track_dict.insert_untagged("bitrate", UntaggedValue::int(track.bitrate()));
-        curr_track_dict.insert_untagged("sample_count", UntaggedValue::int(track.sample_count()));
+        curr_track_dict.insert_untagged("sample count", UntaggedValue::int(track.sample_count()));
 
         curr_track_dict.insert_untagged(
             "video profile",
@@ -128,14 +121,29 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
         tracks.push(curr_track_dict.into_value());
     }
 
-    dict.insert_untagged("tracks", UntaggedValue::Table(tracks).into_value(&tag));
-    dict.insert_untagged("timescale", UntaggedValue::int(mp4.timescale()));
     dict.insert_untagged("size", UntaggedValue::big_int(mp4.size()));
+
     dict.insert_untagged(
-        "major_brand",
+        "major brand",
         UntaggedValue::string(mp4.major_brand().to_string()),
     );
-    dict.insert_untagged("minor_version", UntaggedValue::int(mp4.minor_version()));
+
+    dict.insert_untagged("minor version", UntaggedValue::int(mp4.minor_version()));
+
+    dict.insert_untagged(
+        "compatible brands",
+        UntaggedValue::string(format!("{:?}", mp4.compatible_brands())),
+    );
+
+    // TODO duration breaks it sometimes
+    //dict.insert_untagged(
+    //    "duration",
+    //    UntaggedValue::duration(mp4.duration().as_secs()),
+    //);
+
+    dict.insert_untagged("timescale", UntaggedValue::int(mp4.timescale()));
+    dict.insert_untagged("is fragmented", UntaggedValue::boolean(mp4.is_fragmented()));
+    dict.insert_untagged("tracks", UntaggedValue::Table(tracks).into_value(&tag));
 
     Ok(dict.into_value())
 }
