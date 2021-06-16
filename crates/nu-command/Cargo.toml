@@ -35,7 +35,6 @@ bytes = "1.0.1"
 calamine = "0.17.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-tz = "0.5.3"
-clap = "2.33.3"
 codespan-reporting = "0.11.0"
 crossterm = { version = "0.19.0", optional = true }
 csv = "1.1.3"

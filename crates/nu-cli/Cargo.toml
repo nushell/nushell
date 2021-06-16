@@ -38,7 +38,6 @@ bytes = "1.0.1"
 calamine = "0.17.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-tz = "0.5.3"
-clap = "2.33.3"
 codespan-reporting = "0.11.0"
 csv = "1.1.5"
 ctrlc = { version = "3.1.7", optional = true }

@@ -10,6 +10,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("nu")
+            .switch("version", "Display Nu version", Some('v'))
             .switch("stdin", "redirect stdin", None)
             .switch("skip-plugins", "do not load plugins", None)
             .switch("no-history", "don't save history", None)
@@ -45,20 +46,4 @@ impl WholeStreamCommand for Command {
     fn usage(&self) -> &str {
         "Nu - A new type of shell."
     }
-}
-
-pub fn testbins() -> Vec<String> {
-    vec![
-        "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater", "meow",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect()
-}
-
-pub fn loglevels() -> Vec<String> {
-    vec!["error", "warn", "info", "debug", "trace"]
-        .into_iter()
-        .map(String::from)
-        .collect()
 }

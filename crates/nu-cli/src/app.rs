@@ -6,11 +6,12 @@ pub use options::{CliOptions, NuScript, Options};
 use options_parser::{NuParser, OptionsParser};
 
 use nu_command::{commands::nu::Nu, utils::test_bins as binaries};
-use nu_engine::get_full_help;
+use nu_engine::{get_full_help, EvaluationContext};
 use nu_errors::ShellError;
-use nu_protocol::hir::{Call, Expression, SpannedExpression};
+use nu_protocol::hir::{Call, Expression, SpannedExpression, Synthetic};
 use nu_protocol::{Primitive, UntaggedValue};
 use nu_source::{Span, Tag};
+use nu_stream::InputStream;
 
 pub struct App {
     parser: Box<dyn OptionsParser>,
@@ -43,29 +44,55 @@ impl App {
         }
 
         if self.help() {
-            let ctx = self.parser.context();
-            let autoview_cmd = ctx
-                .get_command("autoview")
-                .expect("could not find autoview command");
+            let context = self.parser.context();
+            let stream = nu_stream::OutputStream::one(
+                UntaggedValue::string(get_full_help(&Nu, &context.scope))
+                    .into_value(nu_source::Tag::unknown()),
+            );
 
-            if let Ok(output_stream) = ctx.run_command(
-                autoview_cmd,
-                Tag::unknown(),
-                Call::new(
-                    Box::new(SpannedExpression::new(
-                        Expression::string("autoview".to_string()),
+            consume(context, stream)?;
+
+            std::process::exit(0);
+        }
+
+        if self.version() {
+            let context = self.parser.context();
+
+            let stream = nu_command::commands::version::version(nu_engine::CommandArgs {
+                context: context.clone(),
+                call_info: nu_engine::UnevaluatedCallInfo {
+                    args: Call::new(
+                        Box::new(SpannedExpression::new(
+                            Expression::Synthetic(Synthetic::String("version".to_string())),
+                            Span::unknown(),
+                        )),
                         Span::unknown(),
-                    )),
-                    Span::unknown(),
-                ),
-                nu_stream::OutputStream::one(
-                    UntaggedValue::string(get_full_help(&Nu, &ctx.scope))
-                        .into_value(nu_source::Tag::unknown()),
-                ),
-            ) {
-                for _ in output_stream {}
-            }
+                    ),
+                    name_tag: Tag::unknown(),
+                },
+                input: InputStream::empty(),
+            })?;
 
+            let stream = {
+                let command = context
+                    .get_command("pivot")
+                    .expect("could not find version command");
+
+                context.run_command(
+                    command,
+                    Tag::unknown(),
+                    Call::new(
+                        Box::new(SpannedExpression::new(
+                            Expression::Synthetic(Synthetic::String("pivot".to_string())),
+                            Span::unknown(),
+                        )),
+                        Span::unknown(),
+                    ),
+                    stream,
+                )?
+            };
+
+            consume(context, stream)?;
             std::process::exit(0);
         }
 
@@ -165,6 +192,13 @@ impl App {
     pub fn help(&self) -> bool {
         self.options
             .get("help")
+            .map(|v| matches!(v.as_bool(), Ok(true)))
+            .unwrap_or(false)
+    }
+
+    pub fn version(&self) -> bool {
+        self.options
+            .get("version")
             .map(|v| matches!(v.as_bool(), Ok(true)))
             .unwrap_or(false)
     }
@@ -284,6 +318,29 @@ fn quote_positionals(parameters: &[String]) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
+fn consume(context: &EvaluationContext, stream: InputStream) -> Result<(), ShellError> {
+    let autoview_cmd = context
+        .get_command("autoview")
+        .expect("could not find autoview command");
+
+    let stream = context.run_command(
+        autoview_cmd,
+        Tag::unknown(),
+        Call::new(
+            Box::new(SpannedExpression::new(
+                Expression::Synthetic(Synthetic::String("autoview".to_string())),
+                Span::unknown(),
+            )),
+            Span::unknown(),
+        ),
+        stream,
+    )?;
+
+    for _ in stream {}
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +357,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu")?;
+        assert_eq!(ui.version(), false);
         assert_eq!(ui.help(), false);
         assert_eq!(ui.takes_stdin(), false);
         assert_eq!(ui.save_history(), true);
@@ -394,6 +452,15 @@ mod tests {
             ))
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn has_version() -> Result<(), ShellError> {
+        let ui = cli_app();
+
+        ui.parse("nu --version")?;
+        assert_eq!(ui.version(), true);
         Ok(())
     }
 
