@@ -21,7 +21,7 @@ impl FromMp4 {
 }
 
 pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4::Error> {
-    let mp4 = mp4::read_mp4(File::open(path).unwrap())?;
+    let mp4 = mp4::read_mp4(File::open(path).expect("Could not open mp4 file to read metadata"))?;
 
     let mut dict = TaggedDictBuilder::new(tag.clone());
 
