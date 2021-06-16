@@ -13,6 +13,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(NuPlugin),
             whole_stream_command(Let),
             whole_stream_command(LetEnv),
+            whole_stream_command(UnletEnv),
             whole_stream_command(LoadEnv),
             whole_stream_command(Def),
             whole_stream_command(Source),
