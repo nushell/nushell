@@ -11,6 +11,7 @@ version = "0.32.1"
 doctest = false
 
 [dependencies]
+nu-completion = { version = "0.32.1", path = "../nu-completion" }
 nu-command = { version = "0.32.1", path = "../nu-command" }
 nu-data = { version = "0.32.1", path = "../nu-data" }
 nu-engine = { version = "0.32.1", path = "../nu-engine" }

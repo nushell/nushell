@@ -11,8 +11,6 @@ extern crate quickcheck_macros;
 
 mod app;
 mod cli;
-#[cfg(feature = "rustyline-support")]
-mod completion;
 mod format;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;

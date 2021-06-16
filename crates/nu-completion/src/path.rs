@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::matchers::Matcher;
-use crate::completion::{Completer, CompletionContext, Suggestion};
+use crate::{Completer, CompletionContext, Suggestion};
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -74,13 +74,11 @@ impl PathCompleter {
     }
 }
 
-impl Completer for PathCompleter {
-    fn complete(
-        &self,
-        _ctx: &CompletionContext<'_>,
-        partial: &str,
-        matcher: &dyn Matcher,
-    ) -> Vec<Suggestion> {
+impl<Context> Completer<Context> for PathCompleter
+where
+    Context: CompletionContext,
+{
+    fn complete(&self, _ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         self.path_suggestions(partial, matcher)
             .into_iter()
             .map(|ps| ps.suggestion)

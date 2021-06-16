@@ -301,6 +301,10 @@ mod tests {
     }
 
     impl ParserScope for VecRegistry {
+        fn get_names(&self) -> Vec<String> {
+            self.0.iter().cloned().map(|s| s.name).collect()
+        }
+
         fn has_signature(&self, name: &str) -> bool {
             self.0.iter().any(|v| v.name == name)
         }
@@ -330,8 +334,6 @@ mod tests {
 
     mod completion_location {
         use super::*;
-
-        use nu_parser::ParserScope;
 
         fn completion_location(
             line: &str,
