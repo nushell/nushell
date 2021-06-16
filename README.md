@@ -297,20 +297,20 @@ Nu is in heavy development, and will naturally change as it matures and people u
 
 | Features      | Not started | Prototype | MVP | Preview | Mature | Notes                                                                |
 | ------------- | :---------: | :-------: | :-: | :-----: | :----: | -------------------------------------------------------------------- |
-| Aliases       |             |     X     |     |         |        | Initial implementation but lacks necessary features                  |
+| Aliases       |             |           |  X  |         |        | Aliases allow for shortening large commands, while passing flags     |
 | Notebook      |             |     X     |     |         |        | Initial jupyter support, but it loses state and lacks features       |
 | File ops      |             |           |  X  |         |        | cp, mv, rm, mkdir have some support, but lacking others              |
-| Environment   |             |     X     |     |         |        | Temporary environment, but no session-wide env variables             |
+| Environment   |             |           |  X  |         |        | Temporary environment and scoped environment variables               |
 | Shells        |             |     X     |     |         |        | Basic value and file shells, but no opt-in/opt-out for commands      |
 | Protocol      |             |           |  X  |         |        | Streaming protocol is serviceable                                    |
 | Plugins       |             |     X     |     |         |        | Plugins work on one row at a time, lack batching and expression eval |
 | Errors        |             |           |  X  |         |        | Error reporting works, but could use usability polish                |
-| Documentation |             |     X     |     |         |        | Book and related are barebones and lack task-based lessons           |
+| Documentation |             |           |  X  |         |        | Book updated to latest release, including usage examples             |
 | Paging        |             |     X     |     |         |        | Textview has paging, but we'd like paging for tables                 |
-| Functions     |             |     X     |     |         |        | No functions, yet, only aliases                                      |
-| Variables     |             |     X     |     |         |        | Nu doesn't yet support variables                                     |
-| Completions   |             |     X     |     |         |        | Completions are currently barebones, at best                         |
-| Type-checking |             |     X     |     |         |        | Commands check basic types, but input/output isn't checked           |
+| Functions     |             |           |  X  |         |        | Functinos and aliases are supported                                  |
+| Variables     |             |           |  X  |         |        | Nu doesn't yet support variables                                     |
+| Completions   |             |           |  X  |         |        | Completions for filepaths                                            |
+| Type-checking |             |           |  X  |         |        | Commands check basic types, but input/output isn't checked           |
 
 ## Current Roadmap
 
