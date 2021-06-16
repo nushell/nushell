@@ -78,10 +78,10 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
 
         curr_track_dict.insert_untagged("language", UntaggedValue::string(track.language()));
         curr_track_dict.insert_untagged("timescale", UntaggedValue::int(track.timescale()));
-        //curr_track_dict.insert_untagged(
-        //    "duration",
-        //    UntaggedValue::duration(track.duration().as_nanos()),
-        //);
+        curr_track_dict.insert_untagged(
+            "duration",
+            UntaggedValue::duration(track.duration().as_nanos()),
+        );
         curr_track_dict.insert_untagged("bitrate", UntaggedValue::int(track.bitrate()));
         curr_track_dict.insert_untagged("sample count", UntaggedValue::int(track.sample_count()));
 
@@ -135,11 +135,10 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
         UntaggedValue::string(format!("{:?}", mp4.compatible_brands())),
     );
 
-    // TODO duration breaks it sometimes
-    //dict.insert_untagged(
-    //    "duration",
-    //    UntaggedValue::duration(mp4.duration().as_secs()),
-    //);
+    dict.insert_untagged(
+        "duration",
+        UntaggedValue::duration(mp4.duration().as_nanos()),
+    );
 
     dict.insert_untagged("timescale", UntaggedValue::int(mp4.timescale()));
     dict.insert_untagged("is fragmented", UntaggedValue::boolean(mp4.is_fragmented()));
