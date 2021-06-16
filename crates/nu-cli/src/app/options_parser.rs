@@ -1,7 +1,7 @@
 use super::Options;
 
 use nu_command::commands::nu::{self, Nu};
-use nu_command::commands::Autoview;
+use nu_command::commands::{Autoview, Table, Version as NuVersion};
 use nu_engine::{whole_stream_command, EvaluationContext};
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, InternalCommand, NamedValue};
@@ -22,7 +22,9 @@ impl NuParser {
         let context = EvaluationContext::basic();
         context.add_commands(vec![
             whole_stream_command(Nu {}),
+            whole_stream_command(NuVersion {}),
             whole_stream_command(Autoview {}),
+            whole_stream_command(Table {}),
         ]);
 
         Self { context }

@@ -291,7 +291,7 @@ pub(crate) use str_::{
     StrReverse, StrScreamingSnakeCase, StrSnakeCase, StrStartsWith, StrSubstring, StrToDatetime,
     StrToDecimal, StrToInteger, StrTrim, StrTrimLeft, StrTrimRight, StrUpcase,
 };
-pub(crate) use table::Table;
+pub use table::Table;
 pub(crate) use tags::Tags;
 pub(crate) use termsize::TermSize;
 pub(crate) use to::To;
@@ -307,7 +307,7 @@ pub(crate) use to_yaml::ToYaml;
 pub(crate) use touch::Touch;
 pub(crate) use uniq::Uniq;
 pub(crate) use url_::{UrlCommand, UrlHost, UrlPath, UrlQuery, UrlScheme};
-pub(crate) use version::Version;
+pub use version::Version;
 pub(crate) use where_::Command as Where;
 pub(crate) use which_::Which;
 pub(crate) use with_env::WithEnv;
