@@ -345,13 +345,13 @@ fn print_seq(
                 }
             })
             .collect();
-        (rows.into_iter()).to_output_stream()
+        (rows.into_iter()).into_output_stream()
     } else {
         let rows: Vec<Value> = ret_str
             .lines()
             .map(|v| v.to_str_value_create_tag())
             .collect();
-        (rows.into_iter()).to_output_stream()
+        (rows.into_iter()).into_output_stream()
     }
 }
 

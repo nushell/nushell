@@ -84,7 +84,7 @@ fn process_row(
     row: Value,
 ) -> Result<InputStream, ShellError> {
     let row_clone = row.clone();
-    let input_stream = vec![Ok(row_clone)].into_iter().to_input_stream();
+    let input_stream = vec![Ok(row_clone)].into_iter().into_input_stream();
 
     context.scope.enter_scope();
     context.scope.add_vars(&block.captured.entries);
@@ -178,7 +178,7 @@ fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     }))
                 })
             })?
-            .to_action_stream())
+            .into_action_stream())
     } else {
         let initial = Ok(InputStream::one(start));
         Ok(input
@@ -205,7 +205,7 @@ fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 context.scope.exit_scope();
                 result
             })?
-            .to_action_stream())
+            .into_action_stream())
     }
 }
 

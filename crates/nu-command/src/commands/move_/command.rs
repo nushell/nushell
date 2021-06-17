@@ -159,7 +159,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_input_stream())
+            .into_input_stream())
     } else if let Some(before) = before {
         let member = columns.remove(0);
 
@@ -208,7 +208,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ))
                 }
             })
-            .to_input_stream())
+            .into_input_stream())
     } else {
         Err(ShellError::labeled_error(
             "no columns given",

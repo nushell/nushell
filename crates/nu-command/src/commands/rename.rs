@@ -99,7 +99,7 @@ pub fn rename(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 )
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

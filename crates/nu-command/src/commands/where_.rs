@@ -97,7 +97,7 @@ fn where_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         input: args.input,
         block,
     }
-    .to_output_stream())
+    .into_output_stream())
 }
 
 #[cfg(test)]

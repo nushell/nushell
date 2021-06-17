@@ -44,5 +44,5 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     series.as_mut().rename(name.item.as_ref());
 
-    Ok(OutputStream::one(series.to_value(tag)))
+    Ok(OutputStream::one(series.into_value(tag)))
 }

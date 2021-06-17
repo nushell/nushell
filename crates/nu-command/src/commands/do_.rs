@@ -118,12 +118,12 @@ fn do_(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Ok(mut stream) => {
                 let output = stream.drain_vec();
                 context.clear_errors();
-                Ok(output.into_iter().to_output_stream())
+                Ok(output.into_iter().into_output_stream())
             }
             Err(_) => Ok(OutputStream::empty()),
         }
     } else {
-        result.map(|x| x.to_output_stream())
+        result.map(|x| x.into_output_stream())
     }
 }
 

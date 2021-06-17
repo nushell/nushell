@@ -12,7 +12,7 @@ use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
-use nu_stream::{ActionStream, Interruptible, OutputStream, ToActionStream};
+use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
 use std::collections::VecDeque;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -225,7 +225,7 @@ impl Shell for FilesystemShell {
                 Some(entry)
             })
             .interruptible(ctrl_c_copy)
-            .to_action_stream())
+            .into_action_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
@@ -772,7 +772,7 @@ impl Shell for FilesystemShell {
                     ))
                 }
             })
-            .to_action_stream())
+            .into_action_stream())
     }
 
     fn path(&self) -> String {

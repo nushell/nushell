@@ -46,7 +46,7 @@ fn prepend(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let bos = vec![row].into_iter();
 
-    Ok(bos.chain(input).to_output_stream())
+    Ok(bos.chain(input).into_output_stream())
 }
 
 #[cfg(test)]

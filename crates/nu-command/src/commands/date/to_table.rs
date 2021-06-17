@@ -90,7 +90,7 @@ fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 #[cfg(test)]

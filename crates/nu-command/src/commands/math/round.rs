@@ -68,7 +68,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val).into(),
         other => round_default(other),
     });
-    Ok(mapped.to_output_stream())
+    Ok(mapped.into_output_stream())
 }
 
 fn round_big_int(val: BigInt) -> Value {

@@ -150,7 +150,7 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         ReturnSuccess::value(short_desc.into_value())
                     });
 
-            Ok(iterator.to_action_stream())
+            Ok(iterator.into_action_stream())
         } else if rest[0].item == "generate_docs" {
             Ok(ActionStream::one(ReturnSuccess::value(generate_docs(
                 &scope,

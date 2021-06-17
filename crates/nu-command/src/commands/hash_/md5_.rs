@@ -70,7 +70,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(ret)
             }
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

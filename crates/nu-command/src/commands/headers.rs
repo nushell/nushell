@@ -102,7 +102,7 @@ pub fn headers(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 )),
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

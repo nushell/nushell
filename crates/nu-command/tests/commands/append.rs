@@ -15,7 +15,7 @@ fn adds_a_row_to_the_end() {
                 | nth 3
                 "#
             )),
-            says().to_stdout("pollo loco")
+            says().stdout("pollo loco")
         );
     })
 }

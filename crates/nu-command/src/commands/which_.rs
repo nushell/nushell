@@ -222,7 +222,7 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
         output.extend(values);
     }
 
-    Ok(output.into_iter().to_output_stream())
+    Ok(output.into_iter().into_output_stream())
 }
 
 #[cfg(test)]

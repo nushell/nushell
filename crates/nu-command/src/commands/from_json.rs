@@ -96,14 +96,14 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             })
-            .to_output_stream())
+            .into_output_stream())
     } else {
         match from_json_string_to_value(concat_string.item, name_tag.clone()) {
             Ok(x) => match x {
                 Value {
                     value: UntaggedValue::Table(list),
                     ..
-                } => Ok(list.into_iter().to_output_stream()),
+                } => Ok(list.into_iter().into_output_stream()),
 
                 x => Ok(OutputStream::one(x)),
             },

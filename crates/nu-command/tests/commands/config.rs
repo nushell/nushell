@@ -20,7 +20,7 @@ fn clearing_config_clears_config() {
 
         assert_that!(
             nu.pipeline("config clear; config get skip_welcome_message"),
-            says().to_stdout("")
+            says().stdout("")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
         assert!(config_contents.is_empty());
@@ -43,7 +43,7 @@ fn config_get_returns_value() {
         assert_that!(
             //Clears config
             nu.pipeline("config get skip_welcome_message"),
-            says().to_stdout("true")
+            says().stdout("true")
         );
     });
 }
@@ -64,7 +64,7 @@ fn config_set_sets_value() {
         assert_that!(
             //Clears config
             nu.pipeline("config set key value; config get key"),
-            says().to_stdout("value")
+            says().stdout("value")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
         assert!(config_contents.contains("key = \"value\""));
@@ -87,7 +87,7 @@ fn config_set_into_sets_value() {
         assert_that!(
             //Clears config
             nu.pipeline("echo value | config set_into key; config get key"),
-            says().to_stdout("value")
+            says().stdout("value")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
         assert!(config_contents.contains("key = \"value\""));
@@ -110,7 +110,7 @@ fn config_rm_removes_value() {
 
         assert_that!(
             nu.pipeline("config remove key; config get key"),
-            says().to_stdout("")
+            says().stdout("")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
         assert!(!config_contents.contains("key = \"value\""));
@@ -132,7 +132,7 @@ fn config_path_returns_correct_path() {
 
         assert_that!(
             nu.pipeline("config path"),
-            says().to_stdout(&file.inner.to_string_lossy().to_string())
+            says().stdout(&file.inner.to_string_lossy().to_string())
         );
     });
 }

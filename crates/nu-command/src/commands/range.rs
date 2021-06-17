@@ -91,7 +91,11 @@ fn range(args: CommandArgs) -> Result<OutputStream, ShellError> {
         if from > to {
             Ok(OutputStream::one(Value::nothing()))
         } else {
-            Ok(args.input.skip(from).take(to - from + 1).to_output_stream())
+            Ok(args
+                .input
+                .skip(from)
+                .take(to - from + 1)
+                .into_output_stream())
         }
     }
 }

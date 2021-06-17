@@ -117,7 +117,7 @@ fn wrap(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         Ok(ActionStream::one(ReturnSuccess::value(row)))
     } else {
-        Ok((result_table.into_iter().map(ReturnSuccess::value)).to_action_stream())
+        Ok((result_table.into_iter().map(ReturnSuccess::value)).into_action_stream())
     }
 }
 

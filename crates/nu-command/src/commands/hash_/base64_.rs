@@ -138,7 +138,7 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(ret)
             }
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 fn action(

@@ -50,7 +50,7 @@ fn history(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Err(_) => None,
         });
 
-        Ok(output.to_action_stream())
+        Ok(output.into_action_stream())
     } else {
         Err(ShellError::labeled_error(
             "Could not open history",

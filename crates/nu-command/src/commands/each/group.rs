@@ -53,7 +53,7 @@ impl WholeStreamCommand for EachGroup {
             external_redirection,
         };
 
-        Ok(each_group_iterator.flatten().map(Ok).to_input_stream())
+        Ok(each_group_iterator.flatten().map(Ok).into_input_stream())
     }
 }
 

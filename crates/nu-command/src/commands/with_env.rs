@@ -112,7 +112,7 @@ fn with_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let result = run_block(&block.block, &context, args.input, external_redirection);
     context.scope.exit_scope();
 
-    result.map(|x| x.to_action_stream())
+    result.map(|x| x.into_action_stream())
 }
 
 #[cfg(test)]

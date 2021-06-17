@@ -412,7 +412,6 @@ pub enum CharSearch {
 /// The set of modifier keys that were triggered along with a key press.
 #[derive(Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
-#[allow(clippy::clippy::upper_case_acronyms)]
 pub enum NuModifiers {
     /// Control modifier
     CTRL = 8,

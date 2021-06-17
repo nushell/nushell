@@ -357,11 +357,11 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu")?;
-        assert_eq!(ui.version(), false);
-        assert_eq!(ui.help(), false);
-        assert_eq!(ui.takes_stdin(), false);
-        assert_eq!(ui.save_history(), true);
-        assert_eq!(ui.skip_plugins(), false);
+        assert!(!ui.version());
+        assert!(!ui.help());
+        assert!(!ui.takes_stdin());
+        assert!(ui.save_history());
+        assert!(!ui.skip_plugins());
         assert_eq!(ui.config(), None);
         assert_eq!(ui.loglevel(), None);
         assert_eq!(ui.debug(), None);
@@ -460,7 +460,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu --version")?;
-        assert_eq!(ui.version(), true);
+        assert!(ui.version());
         Ok(())
     }
 
@@ -469,7 +469,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu --help")?;
-        assert_eq!(ui.help(), true);
+        assert!(ui.help());
         Ok(())
     }
 
@@ -478,7 +478,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu --stdin")?;
-        assert_eq!(ui.takes_stdin(), true);
+        assert!(ui.takes_stdin());
         Ok(())
     }
 
@@ -487,7 +487,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu --no-history")?;
-        assert_eq!(ui.save_history(), false);
+        assert!(!ui.save_history());
         Ok(())
     }
 
@@ -496,7 +496,7 @@ mod tests {
         let ui = cli_app();
 
         ui.parse("nu --skip-plugins")?;
-        assert_eq!(ui.skip_plugins(), true);
+        assert!(ui.skip_plugins());
         Ok(())
     }
 

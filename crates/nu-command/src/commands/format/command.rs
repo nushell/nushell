@@ -80,7 +80,7 @@ fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(UntaggedValue::string(output).into_untagged_value())
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 #[derive(Debug)]

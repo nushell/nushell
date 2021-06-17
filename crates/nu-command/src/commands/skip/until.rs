@@ -82,7 +82,7 @@ impl WholeStreamCommand for SubCommand {
 
                 !matches!(result, Ok(ref v) if v.is_true())
             })
-            .to_action_stream())
+            .into_action_stream())
     }
 }
 

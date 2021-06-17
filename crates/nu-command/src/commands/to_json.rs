@@ -241,7 +241,7 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &name_tag,
             )),
         }))
-    .to_output_stream())
+    .into_output_stream())
 }
 
 #[cfg(test)]

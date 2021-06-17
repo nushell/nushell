@@ -58,7 +58,7 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[derive(Debug, Copy, Clone)]

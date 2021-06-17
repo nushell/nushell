@@ -82,7 +82,7 @@ fn to_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 &tag,
             )),
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 fn error_message(err: ParseErrorKind) -> &'static str {

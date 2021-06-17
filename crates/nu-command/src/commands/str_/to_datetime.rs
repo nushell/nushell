@@ -179,7 +179,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 ReturnSuccess::value(ret)
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 fn action(

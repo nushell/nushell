@@ -64,7 +64,7 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(select_fields(&item, descs, item.tag()))
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 #[cfg(test)]

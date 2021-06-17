@@ -152,5 +152,5 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         out.into_value()
     }))
-    .to_output_stream())
+    .into_output_stream())
 }

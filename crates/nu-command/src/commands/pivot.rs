@@ -146,7 +146,7 @@ pub fn pivot(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         ReturnSuccess::value(dict.into_value())
     }))
-    .to_action_stream())
+    .into_action_stream())
 }
 
 #[cfg(test)]

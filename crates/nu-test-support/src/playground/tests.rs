@@ -13,14 +13,14 @@ fn path(p: &Path) -> PathBuf {
 #[test]
 fn asserts_standard_out_expectation_from_nu_executable() {
     Playground::setup("topic", |_, nu| {
-        assert_that!(nu.cococo("andres"), says().to_stdout("andres"));
+        assert_that!(nu.cococo("andres"), says().stdout("andres"));
     })
 }
 
 #[test]
 fn asserts_standard_out_expectation_from_nu_executable_pipeline_fed() {
     Playground::setup("topic", |_, nu| {
-        assert_that!(nu.pipeline("echo 'andres'"), says().to_stdout("andres"));
+        assert_that!(nu.pipeline("echo 'andres'"), says().stdout("andres"));
     })
 }
 

@@ -336,7 +336,7 @@ pub fn run_seq_dates(
         .lines()
         .map(|v| v.to_str_value_create_tag())
         .collect();
-    Ok((rows.into_iter().map(ReturnSuccess::value)).to_action_stream())
+    Ok((rows.into_iter().map(ReturnSuccess::value)).into_action_stream())
 }
 
 #[cfg(test)]

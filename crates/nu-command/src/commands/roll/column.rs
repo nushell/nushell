@@ -67,7 +67,7 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .into_iter()
         })
         .flatten()
-        .to_output_stream())
+        .into_output_stream())
 }
 
 fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {

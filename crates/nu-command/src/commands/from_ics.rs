@@ -51,7 +51,7 @@ fn from_ics(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    Ok(output.into_iter().to_output_stream())
+    Ok(output.into_iter().into_output_stream())
 }
 
 fn calendar_to_value(calendar: IcalCalendar, tag: Tag) -> Value {

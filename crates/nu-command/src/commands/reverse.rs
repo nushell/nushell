@@ -40,7 +40,7 @@ impl WholeStreamCommand for Reverse {
 #[allow(clippy::needless_collect)]
 fn reverse(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let input = args.input.collect::<Vec<_>>();
-    Ok((input.into_iter().rev().map(ReturnSuccess::value)).to_action_stream())
+    Ok((input.into_iter().rev().map(ReturnSuccess::value)).into_action_stream())
 }
 
 #[cfg(test)]
