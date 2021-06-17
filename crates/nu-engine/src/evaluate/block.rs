@@ -25,62 +25,62 @@ pub fn run_block(
 
     let num_groups = block.block.len();
     for (group_num, group) in block.block.iter().enumerate() {
-        match output {
-            Ok(inp) if inp.is_empty() => {}
-            Ok(inp) => {
-                // Run autoview on the values we've seen so far
-                // We may want to make this configurable for other kinds of hosting
-                if let Some(autoview) = ctx.get_command("autoview") {
-                    let mut output_stream = match ctx.run_command(
-                        autoview,
-                        Tag::unknown(),
-                        Call::new(
-                            Box::new(SpannedExpression::new(
-                                Expression::Synthetic(Synthetic::String("autoview".into())),
+        let num_pipelines = group.pipelines.len();
+        for (pipeline_num, pipeline) in group.pipelines.iter().enumerate() {
+            match output {
+                Ok(inp) if inp.is_empty() => {}
+                Ok(inp) => {
+                    // Run autoview on the values we've seen so far
+                    // We may want to make this configurable for other kinds of hosting
+                    if let Some(autoview) = ctx.get_command("autoview") {
+                        let mut output_stream = match ctx.run_command(
+                            autoview,
+                            Tag::unknown(),
+                            Call::new(
+                                Box::new(SpannedExpression::new(
+                                    Expression::Synthetic(Synthetic::String("autoview".into())),
+                                    Span::unknown(),
+                                )),
                                 Span::unknown(),
-                            )),
-                            Span::unknown(),
-                        ),
-                        inp,
-                    ) {
-                        Ok(x) => x,
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    };
-                    match output_stream.next() {
-                        Some(Value {
-                            value: UntaggedValue::Error(e),
-                            ..
-                        }) => {
-                            return Err(e);
-                        }
-                        Some(_item) => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
+                            ),
+                            inp,
+                        ) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                return Err(e);
                             }
-                            if ctx.ctrl_c().load(Ordering::SeqCst) {
-                                return Ok(InputStream::empty());
+                        };
+                        match output_stream.next() {
+                            Some(Value {
+                                value: UntaggedValue::Error(e),
+                                ..
+                            }) => {
+                                return Err(e);
                             }
-                        }
-                        None => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
+                            Some(_item) => {
+                                if let Some(err) = ctx.get_errors().get(0) {
+                                    ctx.clear_errors();
+                                    return Err(err.clone());
+                                }
+                                if ctx.ctrl_c().load(Ordering::SeqCst) {
+                                    return Ok(InputStream::empty());
+                                }
+                            }
+                            None => {
+                                if let Some(err) = ctx.get_errors().get(0) {
+                                    ctx.clear_errors();
+                                    return Err(err.clone());
+                                }
                             }
                         }
                     }
                 }
+                Err(e) => {
+                    return Err(e);
+                }
             }
-            Err(e) => {
-                return Err(e);
-            }
-        }
-        output = Ok(OutputStream::empty());
+            output = Ok(OutputStream::empty());
 
-        let num_pipelines = group.pipelines.len();
-        for (pipeline_num, pipeline) in group.pipelines.iter().enumerate() {
             match output {
                 Ok(inp) if inp.is_empty() => {}
                 Ok(mut output_stream) => {
@@ -122,7 +122,7 @@ pub fn run_block(
                 run_pipeline(pipeline, ctx, input, external_redirection)
             } else {
                 // otherwise, we're in the middle of the block, so use a default redirection
-                run_pipeline(pipeline, ctx, input, ExternalRedirection::Stdout)
+                run_pipeline(pipeline, ctx, input, ExternalRedirection::None)
             };
 
             input = OutputStream::empty();

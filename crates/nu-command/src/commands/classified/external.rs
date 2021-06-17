@@ -263,7 +263,10 @@ fn spawn(
                                             "Received unexpected type from pipeline ({})",
                                             unsupported.type_name()
                                         ),
-                                        "expected a string",
+                                        format!(
+                                            "expected a string, got {} as input",
+                                            unsupported.type_name()
+                                        ),
                                         stdin_name_tag.clone(),
                                     )),
                                     tag: stdin_name_tag,
