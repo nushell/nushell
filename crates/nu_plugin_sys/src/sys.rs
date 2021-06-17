@@ -13,6 +13,7 @@ impl Sys {
 
 pub fn disks(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     sys.refresh_disks();
+    sys.refresh_disks_list();
 
     let mut output = vec![];
     for disk in sys.get_disks() {
@@ -43,6 +44,7 @@ pub fn disks(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
 
 pub fn net(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     sys.refresh_networks();
+    sys.refresh_networks_list();
 
     let mut output = vec![];
     for (iface, data) in sys.get_networks() {
