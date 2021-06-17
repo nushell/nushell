@@ -132,6 +132,35 @@ def e [] {echo hi}
     }
 
     #[test]
+    fn lex_multi_comments() {
+        let input = r#"
+#A comment
+def e [] {echo hi}
+
+#Another comment
+def e2 [] {echo hello}
+            "#;
+
+        let (result, err) = lex(input, 0);
+        assert!(err.is_none());
+
+        let span1 = span(2, 11);
+        assert_eq!(result[1].span, span1);
+        assert_eq!(
+            result[1].contents,
+            TokenContents::Comment(LiteComment::new("A comment".to_string().spanned(span1)))
+        );
+        let span2 = span(33, 48);
+        assert_eq!(result[9].span, span2);
+        assert_eq!(
+            result[9].contents,
+            TokenContents::Comment(LiteComment::new(
+                "Another comment".to_string().spanned(span2)
+            ))
+        );
+    }
+
+    #[test]
     fn def_comment_with_single_quote() {
         let input = r#"def f [] {
             # shouldn't return error
@@ -311,10 +340,88 @@ def my_echo [arg] { echo $arg }
             ])
         );
     }
+
+    #[test]
+    fn two_commands_with_comments() {
+        let code = r#"
+# My echo
+# * It's much better :)
+def my_echo [arg] { echo $arg }
+
+# My echo2
+# * It's even better!
+def my_echo2 [arg] { echo $arg }
+        "#;
+        let (result, err) = lex(code, 0);
+        assert!(err.is_none());
+        let (result, err) = parse_block(result);
+        assert!(err.is_none());
+
+        assert_eq!(result.block.len(), 2);
+        assert_eq!(result.block[0].pipelines.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 4);
+        assert_eq!(
+            result.block[0].pipelines[0].commands[0].comments,
+            Some(vec![
+                LiteComment::new_with_ws(
+                    " ".to_string().spanned(Span::new(2, 3)),
+                    "My echo".to_string().spanned(Span::new(3, 10))
+                ),
+                LiteComment::new_with_ws(
+                    " ".to_string().spanned(Span::new(12, 13)),
+                    "* It's much better :)"
+                        .to_string()
+                        .spanned(Span::new(13, 34))
+                )
+            ])
+        );
+
+        assert_eq!(result.block[1].pipelines.len(), 1);
+        assert_eq!(result.block[1].pipelines[0].commands.len(), 1);
+        assert_eq!(result.block[1].pipelines[0].commands[0].parts.len(), 4);
+        assert_eq!(
+            result.block[1].pipelines[0].commands[0].comments,
+            Some(vec![
+                LiteComment::new_with_ws(
+                    " ".to_string().spanned(Span::new(69, 70)),
+                    "My echo2".to_string().spanned(Span::new(70, 78))
+                ),
+                LiteComment::new_with_ws(
+                    " ".to_string().spanned(Span::new(80, 81)),
+                    "* It's even better!"
+                        .to_string()
+                        .spanned(Span::new(81, 100))
+                )
+            ])
+        );
+    }
+
     #[test]
     fn discarded_comment() {
         let code = r#"
 # This comment gets discarded, because of the following empty line
+
+echo 42
+        "#;
+        let (result, err) = lex(code, 0);
+        assert!(err.is_none());
+        // assert_eq!(format!("{:?}", result), "");
+        let (result, err) = parse_block(result);
+        assert!(err.is_none());
+        assert_eq!(result.block.len(), 1);
+        assert_eq!(result.block[0].pipelines.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands.len(), 1);
+        assert_eq!(result.block[0].pipelines[0].commands[0].parts.len(), 2);
+        assert_eq!(result.block[0].pipelines[0].commands[0].comments, None);
+    }
+
+    #[test]
+    fn discarded_comment_multi_newline() {
+        let code = r#"
+# This comment gets discarded, because of the following empty line
+
+
 
 echo 42
         "#;

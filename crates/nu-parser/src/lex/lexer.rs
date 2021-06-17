@@ -364,11 +364,21 @@ pub fn parse_block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
                 // If we encounter two newline characters in a row, use a special eoleol event,
                 // which allows the parser to discard comments that shouldn't be treated as
                 // documentation for the following item.
-                if let Some(Token {
-                    contents: TokenContents::Eol,
-                    ..
-                }) = tokens.peek()
-                {
+                let last_was_comment = std::matches!(
+                    parser.prev_token,
+                    Some(Token {
+                        contents: TokenContents::Comment(..),
+                        ..
+                    })
+                );
+                let next_is_eol = std::matches!(
+                    tokens.peek(),
+                    Some(Token {
+                        contents: TokenContents::Eol,
+                        ..
+                    })
+                );
+                if last_was_comment && next_is_eol {
                     tokens.next();
                     parser.eoleol();
                 } else {
