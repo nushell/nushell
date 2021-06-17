@@ -62,7 +62,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust foo ; = $nothing }
+            do {autoenv trust -q foo ; = $nothing }
             foo
             echo $nu.env.testkey"#
         );
@@ -71,7 +71,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust foo; = $nothing } ;
+            do {autoenv trust -q foo; = $nothing } ;
             foo
             ..
             echo $nu.env.testkey
@@ -82,8 +82,8 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-            do {autoenv trust foo; = $nothing } ;
-            do {autoenv trust foo/bar; = $nothing } ;
+            do {autoenv trust -q foo; = $nothing } ;
+            do {autoenv trust -q foo/bar; = $nothing } ;
             foo/bar
             echo $nu.env.testkey
             echo $nu.env.bar
@@ -93,7 +93,7 @@ fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd
         //Assert bar removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo;
+            r#"autoenv trust -q foo;
                foo/bar
                ../..
                echo $nu.env.bar"#
@@ -231,7 +231,7 @@ fn entry_scripts_are_called_when_revisiting_a_trusted_directory() {
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test(), r#"
-                do { rm hello.txt ; = $nothing } ; # Silence file deletion message from output
+                do { rm hello.txt | ignore } ; # Silence file deletion message from output
                 cd ..
                 cd autoenv_test_6
                 ls | where name == "hello.txt" | get name
@@ -325,7 +325,7 @@ fn given_a_hierachy_of_trusted_directories_when_entering_in_any_nested_ones_shou
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().parent().unwrap(), r#"
-                do { autoenv trust autoenv_test_9/nu_plugin_rb ; = $nothing } # Silence autoenv trust message from output
+                do { autoenv trust -q autoenv_test_9/nu_plugin_rb ; = $nothing } # Silence autoenv trust -q message from output
                 cd autoenv_test_9/nu_plugin_rb
                 echo $nu.env.organization
             "#)
@@ -356,7 +356,7 @@ fn given_a_hierachy_of_trusted_directories_nested_ones_should_overwrite_variable
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().parent().unwrap(), r#"
-                do { autoenv trust autoenv_test_10/nu_plugin_rb ; = $nothing } # Silence autoenv trust message from output
+                do { autoenv trust -q autoenv_test_10/nu_plugin_rb ; = $nothing } # Silence autoenv trust -q message from output
                 cd autoenv_test_10/nu_plugin_rb
                 echo $nu.env.organization
             "#)
@@ -392,7 +392,7 @@ fn local_config_should_not_be_added_when_running_scripts() {
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test(), r#"
-                do { autoenv trust foo ; = $nothing } # Silence autoenv trust message from output
+                do { autoenv trust -q foo } # Silence autoenv trust message from output
                 nu script.nu
             "#)
         });
@@ -420,10 +420,10 @@ fn given_a_hierachy_of_trusted_directories_going_back_restores_overwritten_varia
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test().parent().unwrap(), r#"
-                do { autoenv trust autoenv_test_11/nu_plugin_rb ; = $nothing } # Silence autoenv trust message from output
+                do { autoenv trust -q autoenv_test_11/nu_plugin_rb } # Silence autoenv trust message from output
                 cd autoenv_test_11
                 cd nu_plugin_rb
-                do { rm ../.nu-env ; = $nothing } # By deleting the root nu-env we have guarantees that the variable gets restored (not by autoenv when re-entering)
+                do { rm ../.nu-env | ignore } # By deleting the root nu-env we have guarantees that the variable gets restored (not by autoenv when re-entering)
                 cd ..
                 echo $nu.env.organization
             "#)
@@ -451,21 +451,21 @@ fn local_config_env_var_present_and_removed_correctly() {
         //Assert testkey is not present before entering directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo;
+            r#"autoenv trust -q foo;
                echo $nu.env.testkey"#
         );
         assert!(actual.err.contains("Unknown"));
         //Assert testkey is present in foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; cd foo
+            r#"autoenv trust -q foo; cd foo
                echo $nu.env.testkey"#
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey is present also in subdirectories
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; cd foo
+            r#"autoenv trust -q foo; cd foo
                cd bar
                echo $nu.env.testkey"#
         );
@@ -473,14 +473,14 @@ fn local_config_env_var_present_and_removed_correctly() {
         //Assert testkey is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; cd foo/bar
+            r#"autoenv trust -q foo; cd foo/bar
                echo $nu.env.testkey"#
         );
         assert_eq!(actual.out, "testvalue");
         //Assert testkey removed after leaving foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; cd foo
+            r#"autoenv trust -q foo; cd foo
                cd ..
                echo $nu.env.testkey"#
         );
@@ -514,22 +514,22 @@ fn local_config_env_var_gets_overwritten() {
         //Assert overwrite_me is not present before entering directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo;
+            r#"autoenv trust -q foo;
                echo $nu.env.overwrite_me"#
         );
         assert!(actual.err.contains("Unknown"));
         //Assert overwrite_me is foo in foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; cd foo
+            r#"autoenv trust -q foo; cd foo
                echo $nu.env.overwrite_me"#
         );
         assert_eq!(actual.out, "foo");
         //Assert overwrite_me is bar in bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo | = $nothing
-               autoenv trust foo/bar | = $nothing
+            r#"autoenv trust -q foo
+               autoenv trust -q foo/bar
                cd foo
                cd bar
                echo $nu.env.overwrite_me"#
@@ -538,7 +538,7 @@ fn local_config_env_var_gets_overwritten() {
         //Assert overwrite_me is present also when jumping over foo
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; autoenv trust foo/bar; cd foo/bar
+            r#"autoenv trust -q foo; autoenv trust -q foo/bar; cd foo/bar
                echo $nu.env.overwrite_me
             "#
         );
@@ -546,7 +546,7 @@ fn local_config_env_var_gets_overwritten() {
         //Assert overwrite_me removed after leaving bar
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo; autoenv trust foo/bar; cd foo
+            r#"autoenv trust -q foo; autoenv trust -q foo/bar; cd foo
                cd bar
                cd ..
                echo $nu.env.overwrite_me"#
@@ -576,7 +576,7 @@ fn autoenv_test_entry_scripts() {
         // Make sure entryscript is run when entering directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo
+            r#"autoenv trust -q foo
                cd foo
                ls | where name == "hello.txt" | get name"#
         );
@@ -585,7 +585,7 @@ fn autoenv_test_entry_scripts() {
         // Make sure entry scripts are also run when jumping over directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo
+            r#"autoenv trust -q foo
                cd foo/bar
                ls .. | where name == "../hello.txt" | get name"#
         );
@@ -594,7 +594,7 @@ fn autoenv_test_entry_scripts() {
         // Entryscripts should not run after changing to a subdirectory.
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo | = $nothing
+            r#"autoenv trust -q foo
                cd foo
                rm hello.txt
                cd bar
@@ -621,11 +621,11 @@ fn autoenv_test_exit_scripts() {
         // Make sure exitscript is run
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo | = $nothing
+            r#"autoenv trust -q foo
                cd foo
                cd ..
                ls foo | where name =~ "bye.txt" | length
-               rm foo/bye.txt; cd .
+               rm foo/bye.txt | ignore; cd .
                "#
         );
         assert_eq!(actual.out, "1");
@@ -633,7 +633,7 @@ fn autoenv_test_exit_scripts() {
         // Entering a subdir should not trigger exitscripts
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo | = $nothing
+            r#"autoenv trust -q foo
                cd foo
                cd bar
                ls .. | where name =~ "bye.txt" | length"#
@@ -643,11 +643,11 @@ fn autoenv_test_exit_scripts() {
         // Also run exitscripts when jumping over directory
         let actual = nu!(
             cwd: dirs.test(),
-            r#"autoenv trust foo | = $nothing
+            r#"autoenv trust -q foo
                cd foo/bar
                cd ../..
                ls foo | where name =~ "bye.txt" | length
-               rm foo/bye.txt; cd ."#
+               rm foo/bye.txt | ignore; cd ."#
         );
         assert_eq!(actual.out, "1");
     });

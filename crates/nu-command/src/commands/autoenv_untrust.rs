@@ -14,11 +14,9 @@ impl WholeStreamCommand for AutoenvUnTrust {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("autoenv untrust").optional(
-            "dir",
-            SyntaxShape::String,
-            "Directory to disallow",
-        )
+        Signature::build("autoenv untrust")
+            .optional("dir", SyntaxShape::String, "Directory to disallow")
+            .switch("quiet", "Don't output success message", Some('q'))
     }
 
     fn usage(&self) -> &str {
@@ -27,8 +25,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let ctx = &args.context;
-        let file_to_untrust = match args.call_info.evaluate(&ctx)?.args.nth(0) {
+        let file_to_untrust = match args.opt(0)? {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
@@ -43,6 +40,7 @@ impl WholeStreamCommand for AutoenvUnTrust {
                 dir
             }
         };
+        let quiet = args.has_flag("quiet");
 
         let config_path = config::default_path_for(&Some(PathBuf::from("nu-env.toml")))?;
 
@@ -79,9 +77,13 @@ impl WholeStreamCommand for AutoenvUnTrust {
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 
-        Ok(ActionStream::one(ReturnSuccess::value(
-            UntaggedValue::string(".nu-env untrusted!").into_value(tag),
-        )))
+        if quiet {
+            Ok(ActionStream::empty())
+        } else {
+            Ok(ActionStream::one(ReturnSuccess::value(
+                UntaggedValue::string(".nu-env untrusted!").into_value(tag),
+            )))
+        }
     }
     fn is_binary(&self) -> bool {
         false

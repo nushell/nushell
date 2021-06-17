@@ -14,7 +14,9 @@ impl WholeStreamCommand for AutoenvTrust {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("autoenv trust").optional("dir", SyntaxShape::String, "Directory to allow")
+        Signature::build("autoenv trust")
+            .optional("dir", SyntaxShape::String, "Directory to allow")
+            .switch("quiet", "Don't output success message", Some('q'))
     }
 
     fn usage(&self) -> &str {
@@ -23,9 +25,8 @@ impl WholeStreamCommand for AutoenvTrust {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let ctx = &args.context;
 
-        let file_to_trust = match args.call_info.evaluate(&ctx)?.args.nth(0) {
+        let file_to_trust = match args.opt(0)? {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
@@ -40,6 +41,7 @@ impl WholeStreamCommand for AutoenvTrust {
                 dir
             }
         };
+        let quiet = args.has_flag("quiet");
 
         let content = std::fs::read(&file_to_trust)?;
 
@@ -55,9 +57,13 @@ impl WholeStreamCommand for AutoenvTrust {
         })?;
         fs::write(config_path, tomlstr).expect("Couldn't write to toml file");
 
-        Ok(ActionStream::one(ReturnSuccess::value(
-            UntaggedValue::string(".nu-env trusted!").into_value(tag),
-        )))
+        if quiet {
+            Ok(ActionStream::empty())
+        } else {
+            Ok(ActionStream::one(ReturnSuccess::value(
+                UntaggedValue::string(".nu-env trusted!").into_value(tag),
+            )))
+        }
     }
     fn is_binary(&self) -> bool {
         false

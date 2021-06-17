@@ -73,6 +73,8 @@ pub fn run_block(
                                 }
                             }
                         }
+                    } else {
+                        let _: Vec<_> = inp.collect();
                     }
                 }
                 Err(e) => {
