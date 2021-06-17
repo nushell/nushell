@@ -166,7 +166,7 @@ fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )),
         }
     }))
-    .to_output_stream())
+    .into_output_stream())
 }
 
 #[cfg(test)]

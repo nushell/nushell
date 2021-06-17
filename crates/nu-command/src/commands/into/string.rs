@@ -104,7 +104,7 @@ fn into_string(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(ret)
             }
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 pub fn action(

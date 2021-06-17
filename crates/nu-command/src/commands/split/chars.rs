@@ -47,7 +47,7 @@ fn split_chars(args: CommandArgs) -> ActionStream {
                     .collect::<Vec<_>>()
                     .into_iter()
                     .map(move |x| ReturnSuccess::value(Value::from(x.to_string())))
-                    .to_action_stream()
+                    .into_action_stream()
             } else {
                 ActionStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
@@ -58,7 +58,7 @@ fn split_chars(args: CommandArgs) -> ActionStream {
                 )))
             }
         })
-        .to_action_stream()
+        .into_action_stream()
 }
 
 #[cfg(test)]

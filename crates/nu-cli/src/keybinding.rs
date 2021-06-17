@@ -155,14 +155,14 @@ fn convert_cmd(cmd: Cmd) -> rustyline::Cmd {
 fn convert_keybinding(keybinding: Keybinding) -> (rustyline::KeyEvent, rustyline::Cmd) {
     let rusty_modifiers = match keybinding.modifiers {
         Some(mods) => match mods {
-            NuModifiers::CTRL => Some(Modifiers::CTRL),
-            NuModifiers::ALT => Some(Modifiers::ALT),
-            NuModifiers::SHIFT => Some(Modifiers::SHIFT),
-            NuModifiers::NONE => Some(Modifiers::NONE),
-            NuModifiers::CTRL_SHIFT => Some(Modifiers::CTRL_SHIFT),
-            NuModifiers::ALT_SHIFT => Some(Modifiers::ALT_SHIFT),
-            NuModifiers::CTRL_ALT => Some(Modifiers::CTRL_ALT),
-            NuModifiers::CTRL_ALT_SHIFT => Some(Modifiers::CTRL_ALT_SHIFT),
+            NuModifiers::Ctrl => Some(Modifiers::CTRL),
+            NuModifiers::Alt => Some(Modifiers::ALT),
+            NuModifiers::Shift => Some(Modifiers::SHIFT),
+            NuModifiers::None => Some(Modifiers::NONE),
+            NuModifiers::CtrlShift => Some(Modifiers::CTRL_SHIFT),
+            NuModifiers::AltShift => Some(Modifiers::ALT_SHIFT),
+            NuModifiers::CtrlAlt => Some(Modifiers::CTRL_ALT),
+            NuModifiers::CtrlAltShift => Some(Modifiers::CTRL_ALT_SHIFT),
             // _ => None,
         },
         None => None,
@@ -412,24 +412,31 @@ pub enum CharSearch {
 /// The set of modifier keys that were triggered along with a key press.
 #[derive(Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
-#[allow(clippy::clippy::upper_case_acronyms)]
 pub enum NuModifiers {
     /// Control modifier
-    CTRL = 8,
+    #[serde(alias = "CTRL")]
+    Ctrl = 8,
     /// Escape or Alt modifier
-    ALT = 4,
+    #[serde(alias = "ALT")]
+    Alt = 4,
     /// Shift modifier
-    SHIFT = 2,
+    #[serde(alias = "SHIFT")]
+    Shift = 2,
     /// No modifier
-    NONE = 0,
+    #[serde(alias = "NONE")]
+    None = 0,
     /// Ctrl + Shift
-    CTRL_SHIFT = 10,
+    #[serde(alias = "CTRL_SHIFT")]
+    CtrlShift = 10,
     /// Alt + Shift
-    ALT_SHIFT = 6,
+    #[serde(alias = "ALT_SHIFT")]
+    AltShift = 6,
     /// Ctrl + Alt
-    CTRL_ALT = 12,
+    #[serde(alias = "CTRL_ALT")]
+    CtrlAlt = 12,
     /// Ctrl + Alt + Shift
-    CTRL_ALT_SHIFT = 14,
+    #[serde(alias = "CTRL_ALT_SHIFT")]
+    CtrlAltShift = 14,
 }
 
 /// The number of times one command should be repeated.

@@ -6,7 +6,7 @@ use crate::evaluation_context::EvaluationContext;
 use nu_errors::ShellError;
 use nu_protocol::hir::SpannedExpression;
 use nu_protocol::{UntaggedValue, Value};
-use nu_stream::{InputStream, ToInputStream};
+use nu_stream::{InputStream, IntoInputStream};
 
 pub(crate) fn run_expression_block(
     expr: &SpannedExpression,
@@ -24,6 +24,6 @@ pub(crate) fn run_expression_block(
             value: UntaggedValue::Table(x),
             ..
         } => Ok(InputStream::from_stream(x.into_iter())),
-        output => Ok(std::iter::once(Ok(output)).to_input_stream()),
+        output => Ok(std::iter::once(Ok(output)).into_input_stream()),
     }
 }

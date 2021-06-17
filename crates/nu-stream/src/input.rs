@@ -164,17 +164,16 @@ impl From<Vec<Value>> for InputStream {
     }
 }
 
-#[allow(clippy::clippy::wrong_self_convention)]
-pub trait ToInputStream {
-    fn to_input_stream(self) -> InputStream;
+pub trait IntoInputStream {
+    fn into_input_stream(self) -> InputStream;
 }
 
-impl<T, U> ToInputStream for T
+impl<T, U> IntoInputStream for T
 where
     T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<Result<nu_protocol::Value, nu_errors::ShellError>>,
 {
-    fn to_input_stream(self) -> InputStream {
+    fn into_input_stream(self) -> InputStream {
         InputStream {
             empty: false,
             values: Box::new(self.map(|item| match item.into() {

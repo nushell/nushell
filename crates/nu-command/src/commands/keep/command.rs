@@ -57,7 +57,7 @@ fn keep(args: CommandArgs) -> Result<OutputStream, ShellError> {
         1
     };
 
-    Ok(args.input.take(rows_desired).to_output_stream())
+    Ok(args.input.take(rows_desired).into_output_stream())
 }
 
 #[cfg(test)]

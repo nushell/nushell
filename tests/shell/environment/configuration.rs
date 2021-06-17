@@ -43,7 +43,7 @@ fn retrieves_config_values() {
 
         assert_that!(
             nu.pipeline("config get arepa.colors.0"),
-            says().to_stdout("yellow")
+            says().stdout("yellow")
         );
     })
 }
@@ -66,7 +66,7 @@ fn sets_a_config_value() {
 
         assert!(nu.pipeline("config set nu.meal 'arepa'").execute().is_ok());
 
-        assert_that!(nu.pipeline("config get nu.meal"), says().to_stdout("arepa"));
+        assert_that!(nu.pipeline("config get nu.meal"), says().stdout("arepa"));
     })
 }
 
@@ -95,7 +95,7 @@ fn sets_config_values_into_one_property() {
 
         assert_that!(
             nu.pipeline("config get arepa_colors.1"),
-            says().to_stdout("blanco")
+            says().stdout("blanco")
         );
     })
 }
@@ -115,7 +115,7 @@ fn config_path() {
 
         assert_that!(
             nu.pipeline("config path"),
-            says().to_stdout(&file.display_path())
+            says().stdout(&file.display_path())
         );
     })
 }

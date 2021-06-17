@@ -105,7 +105,7 @@ impl WholeStreamCommand for RunExternalCommand {
                     .shell_manager()
                     .cd(cd_args, args.call_info.name_tag);
 
-                return Ok(result?.to_action_stream());
+                return Ok(result?.into_action_stream());
             }
         }
 
@@ -123,7 +123,7 @@ impl WholeStreamCommand for RunExternalCommand {
             let _ = nu_ansi_term::enable_ansi_support();
         }
 
-        Ok(result?.to_action_stream())
+        Ok(result?.into_action_stream())
     }
 }
 

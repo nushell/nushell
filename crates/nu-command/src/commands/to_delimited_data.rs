@@ -213,5 +213,5 @@ pub fn to_delimited_data(
             }
         }
     }))
-    .to_output_stream())
+    .into_output_stream())
 }

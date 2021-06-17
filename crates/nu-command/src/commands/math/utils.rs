@@ -55,7 +55,7 @@ pub fn run_with_numerical_functions_on_stream(
         UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
         other => default_function(other),
     });
-    Ok(mapped.to_output_stream())
+    Ok(mapped.into_output_stream())
 }
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {

@@ -36,24 +36,7 @@ pub(crate) use nu_engine::Host;
 pub(crate) use nu_errors::ShellError;
 #[allow(unused_imports)]
 pub(crate) use nu_protocol::outln;
-pub(crate) use nu_stream::ActionStream;
 #[allow(unused_imports)]
 pub(crate) use nu_value_ext::ValueExt;
 #[allow(unused_imports)]
 pub(crate) use std::sync::atomic::Ordering;
-
-#[allow(clippy::clippy::wrong_self_convention)]
-pub trait FromInputStream {
-    fn from_input_stream(self) -> ActionStream;
-}
-
-impl<T> FromInputStream for T
-where
-    T: Iterator<Item = nu_protocol::Value> + Send + Sync + 'static,
-{
-    fn from_input_stream(self) -> ActionStream {
-        ActionStream {
-            values: Box::new(self.map(nu_protocol::ReturnSuccess::value)),
-        }
-    }
-}

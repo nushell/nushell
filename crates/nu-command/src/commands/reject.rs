@@ -50,7 +50,7 @@ fn reject(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Ok(args
         .input
         .map(move |item| ReturnSuccess::value(reject_fields(&item, &fields, &item.tag)))
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

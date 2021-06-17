@@ -114,5 +114,5 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         tag: Tag::unknown(),
     };
 
-    Ok(InputStream::one(tagged_value).to_output_stream())
+    Ok(InputStream::one(tagged_value).into_output_stream())
 }

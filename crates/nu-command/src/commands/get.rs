@@ -60,7 +60,7 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(descs
             .into_iter()
             .map(ReturnSuccess::value)
-            .to_action_stream())
+            .into_action_stream())
     } else {
         trace!("get {:?}", column_paths);
         let output_stream = input
@@ -72,7 +72,7 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     .collect::<Vec<_>>()
             })
             .flatten()
-            .to_action_stream();
+            .into_action_stream();
         Ok(output_stream)
     }
 }

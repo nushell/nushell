@@ -41,7 +41,7 @@ pub fn roll(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(roll_up(values, &options)
         .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(&name)])
         .into_iter()
-        .to_output_stream())
+        .into_output_stream())
 }
 
 fn roll_up(values: Vec<Value>, Arguments { by: ref n }: &Arguments) -> Option<Vec<Value>> {

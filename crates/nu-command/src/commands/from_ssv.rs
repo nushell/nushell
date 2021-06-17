@@ -259,7 +259,7 @@ fn from_ssv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value {
                 value: UntaggedValue::Table(list),
                 ..
-            } => list.into_iter().to_output_stream(),
+            } => list.into_iter().into_output_stream(),
             x => OutputStream::one(x),
         },
     )

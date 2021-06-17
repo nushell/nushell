@@ -54,7 +54,7 @@ fn list_timezone(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(UntaggedValue::Row(Dictionary { entries }).into_value(&tag))
     });
 
-    Ok(list.into_iter().to_input_stream())
+    Ok(list.into_iter().into_input_stream())
 }
 
 #[cfg(test)]

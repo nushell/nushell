@@ -61,7 +61,7 @@ pub fn compact(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 false
             }
         })
-        .to_output_stream())
+        .into_output_stream())
 }
 
 #[cfg(test)]

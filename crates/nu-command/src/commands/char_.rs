@@ -187,7 +187,7 @@ impl WholeStreamCommand for Char {
                     dict.insert_untagged("unicode", UntaggedValue::string(unicode_parts.join(" ")));
                     dict.into_value()
                 })
-                .to_output_stream())
+                .into_output_stream())
         } else if let Some(name) = args.name {
             if args.unicode {
                 if !args.rest.is_empty() {

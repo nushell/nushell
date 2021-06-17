@@ -58,7 +58,7 @@ fn split_row(args: CommandArgs) -> Result<ActionStream, ShellError> {
                         UntaggedValue::Primitive(Primitive::String(s)).into_value(&v.tag),
                     )
                 }))
-                .to_action_stream()
+                .into_action_stream()
             } else {
                 ActionStream::one(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
@@ -69,7 +69,7 @@ fn split_row(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 )))
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

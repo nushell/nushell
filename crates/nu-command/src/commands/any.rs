@@ -121,7 +121,7 @@ fn any(args: CommandArgs) -> Result<OutputStream, ShellError> {
     });
     scope.exit_scope();
 
-    Ok(result?.to_output_stream())
+    Ok(result?.into_output_stream())
 }
 
 #[cfg(test)]

@@ -460,7 +460,7 @@ fn spawn(
             });
 
             let stream = ChannelReceiver::new(rx);
-            Ok(stream.to_input_stream())
+            Ok(stream.into_input_stream())
         }
         Err(e) => Err(ShellError::labeled_error(
             format!("{}", e),

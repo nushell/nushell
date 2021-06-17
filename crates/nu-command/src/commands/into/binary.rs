@@ -136,7 +136,7 @@ fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(ret)
             }
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 fn int_to_endian(n: i64) -> Vec<u8> {

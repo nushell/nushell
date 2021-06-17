@@ -38,31 +38,29 @@ use nu_protocol::Value;
 
 pub(crate) use crate::{ActionStream, InputStream, OutputStream};
 
-#[allow(clippy::wrong_self_convention)]
-pub trait ToOutputStream {
-    fn to_output_stream(self) -> OutputStream;
+pub trait IntoOutputStream {
+    fn into_output_stream(self) -> OutputStream;
 }
 
-impl<T> ToOutputStream for T
+impl<T> IntoOutputStream for T
 where
     T: Iterator<Item = Value> + Send + Sync + 'static,
 {
-    fn to_output_stream(self) -> OutputStream {
+    fn into_output_stream(self) -> OutputStream {
         OutputStream::from_stream(self)
     }
 }
 
-#[allow(clippy::wrong_self_convention)]
-pub trait ToActionStream {
-    fn to_action_stream(self) -> ActionStream;
+pub trait IntoActionStream {
+    fn into_action_stream(self) -> ActionStream;
 }
 
-impl<T, U> ToActionStream for T
+impl<T, U> IntoActionStream for T
 where
     T: Iterator<Item = U> + Send + Sync + 'static,
     U: Into<nu_protocol::ReturnValue>,
 {
-    fn to_action_stream(self) -> ActionStream {
+    fn into_action_stream(self) -> ActionStream {
         ActionStream {
             values: Box::new(self.map(|item| item.into())),
         }

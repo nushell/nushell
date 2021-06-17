@@ -72,7 +72,7 @@ fn every(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 None
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

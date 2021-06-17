@@ -130,7 +130,7 @@ fn enter(args: CommandArgs) -> Result<ActionStream, ShellError> {
                                     },
                                 )))
                             })
-                            .to_action_stream())
+                            .into_action_stream())
                     } else {
                         Ok(ActionStream::one(ReturnSuccess::action(
                             CommandAction::EnterValueShell(tagged_contents),

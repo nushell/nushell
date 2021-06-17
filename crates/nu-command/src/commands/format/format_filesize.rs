@@ -101,7 +101,7 @@ fn filesize(args: CommandArgs) -> Result<OutputStream, ShellError> {
         })
         .flatten()
         .map(Ok)
-        .to_input_stream())
+        .into_input_stream())
 }
 
 #[cfg(test)]

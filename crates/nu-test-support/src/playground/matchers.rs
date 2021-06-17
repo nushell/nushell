@@ -98,8 +98,7 @@ impl<'a> Matcher<&'a mut Director> for Play {
 }
 
 impl Play {
-    #[allow(clippy::clippy::wrong_self_convention)]
-    pub fn to_stdout(mut self, expected: &str) -> Self {
+    pub fn stdout(mut self, expected: &str) -> Self {
         self.stdout_expectation = Some(expected.to_string());
         self
     }

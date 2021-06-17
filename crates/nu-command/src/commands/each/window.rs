@@ -88,7 +88,7 @@ impl WholeStreamCommand for EachWindow {
             .flatten()
             .flatten()
             .map(Ok)
-            .to_input_stream())
+            .into_input_stream())
     }
 }
 

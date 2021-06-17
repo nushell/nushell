@@ -75,7 +75,7 @@ fn process_row(
             tag: block_tag,
         } => {
             let for_block = input.clone();
-            let input_stream = vec![Ok(for_block)].into_iter().to_input_stream();
+            let input_stream = vec![Ok(for_block)].into_iter().into_input_stream();
 
             context.scope.enter_scope();
             if let Some((arg, _)) = captured_block.block.params.positional.first() {
@@ -196,5 +196,5 @@ fn update(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         })
         .flatten()
-        .to_action_stream())
+        .into_action_stream())
 }

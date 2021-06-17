@@ -98,7 +98,7 @@ fn into_int(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(ret)
             }
         })
-        .to_input_stream())
+        .into_input_stream())
 }
 
 pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

@@ -112,7 +112,7 @@ fn lines(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         })
         .flatten()
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[cfg(test)]

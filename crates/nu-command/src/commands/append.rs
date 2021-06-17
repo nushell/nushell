@@ -46,7 +46,7 @@ impl WholeStreamCommand for Command {
         Ok(prepend
             .into_iter()
             .chain(args.input.into_iter().chain(vec![value]))
-            .to_output_stream())
+            .into_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

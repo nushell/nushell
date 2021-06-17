@@ -141,7 +141,7 @@ where
                         Err(e) => Value::error(e),
                     },
                 )
-                .to_output_stream()
+                .into_output_stream()
         } else {
             // join the whole input stream
             match join_path(&parts.collect_vec(), &span) {

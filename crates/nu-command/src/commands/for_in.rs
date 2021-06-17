@@ -80,7 +80,7 @@ pub fn process_row(
     let input_stream = if !captured_block.block.params.positional.is_empty() {
         InputStream::empty()
     } else {
-        vec![Ok(input_clone)].into_iter().to_input_stream()
+        vec![Ok(input_clone)].into_iter().into_input_stream()
     };
 
     context.scope.enter_scope();
@@ -139,7 +139,7 @@ fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
             })
             .flatten()
-            .to_output_stream())
+            .into_output_stream())
     } else {
         Ok(input
             .map(move |input| {
@@ -151,7 +151,7 @@ fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
             })
             .flatten()
-            .to_output_stream())
+            .into_output_stream())
     }
 }
 

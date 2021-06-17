@@ -10,7 +10,7 @@ fn config_path_variable_present() {
     Playground::setup("nu_variable_test_1", |_, nu| {
         assert_that!(
             nu.pipeline("echo $nu.config-path"),
-            says().to_stdout(nu.get_config())
+            says().stdout(nu.get_config())
         );
     })
 }
@@ -28,7 +28,7 @@ fn custom_config_path_variable_present() {
 
         assert_that!(
             nu.pipeline("echo $nu.config-path"),
-            says().to_stdout(&file.display_path())
+            says().stdout(&file.display_path())
         );
     })
 }
@@ -46,7 +46,7 @@ fn scope_variable_with_alias_present() {
 
         assert_that!(
             nu.pipeline("alias t = time; echo $scope.aliases | get t"),
-            says().to_stdout("time")
+            says().stdout("time")
         );
     })
 }
@@ -64,7 +64,7 @@ fn scope_variable_with_correct_number_of_aliases_present() {
 
         assert_that!(
             nu.pipeline("alias v = version; alias t = time; echo $scope.aliases | length -c"),
-            says().to_stdout("2")
+            says().stdout("2")
         );
     })
 }
@@ -82,7 +82,7 @@ fn scope_variable_with_command_present() {
 
         assert_that!(
             nu.pipeline("def meaning-of-life [--number: int] { echo $number }; echo $scope.commands | get meaning-of-life"),
-            says().to_stdout("--number")
+            says().stdout("--number")
         );
     })
 }

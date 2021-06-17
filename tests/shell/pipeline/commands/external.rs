@@ -345,4 +345,27 @@ mod external_command_arguments {
             },
         )
     }
+
+    #[test]
+    fn proper_subexpression_paths_in_external_args() {
+        Playground::setup(
+            "expands_table_of_primitives_to_positional_arguments",
+            |dirs, sandbox| {
+                sandbox.with_files(vec![
+                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("andres_likes_arepas.txt"),
+                    EmptyFile("ferris_not_here.txt"),
+                ]);
+
+                let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    nu --testbin cococo (ls | sort-by name | get name).1
+                "#
+                ));
+
+                assert_eq!(actual.out, "ferris_not_here.txt");
+            },
+        )
+    }
 }

@@ -48,7 +48,7 @@ where
                 ReturnSuccess::value(ret)
             }
         })
-        .to_action_stream())
+        .into_action_stream())
 }
 
 pub fn action<F>(

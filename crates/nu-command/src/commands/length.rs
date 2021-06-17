@@ -34,7 +34,7 @@ impl WholeStreamCommand for Length {
             done: false,
             tag,
         }
-        .to_output_stream())
+        .into_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {
