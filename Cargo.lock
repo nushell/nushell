@@ -3496,17 +3496,14 @@ dependencies = [
 name = "nu-completion"
 version = "0.32.1"
 dependencies = [
- "directories-next",
  "dirs-next",
  "indexmap",
  "nu-data",
- "nu-engine",
  "nu-errors",
  "nu-parser",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
- "rustyline",
 ]
 
 [[package]]

@@ -69,6 +69,7 @@ ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
 directories-support = [
     "nu-cli/directories",
     "nu-cli/dirs",
+    "nu-completion/dirs",
     "nu-command/directories",
     "nu-command/dirs",
     "nu-data/directories",
