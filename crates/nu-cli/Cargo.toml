@@ -43,8 +43,8 @@ codespan-reporting = "0.11.0"
 csv = "1.1.5"
 ctrlc = { version = "3.1.7", optional = true }
 derive-new = "0.5.8"
-directories-next = { version = "2.0.0", optional = true }
-dirs-next = { version = "2.0.0", optional = true }
+directories-next = "2.0.0"
+dirs-next = "2.0.0"
 dtparse = "1.2.0"
 dunce = "1.0.1"
 eml-parser = "0.1.0"
@@ -131,5 +131,3 @@ clipboard-cli = ["arboard"]
 rustyline-support = ["rustyline", "nu-engine/rustyline-support"]
 stable = []
 trash-support = ["trash"]
-dirs = ["dirs-next"]
-directories = ["directories-next"]

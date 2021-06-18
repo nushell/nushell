@@ -161,7 +161,6 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     }
 }
 
-#[cfg(feature = "directories")]
 pub fn config_path() -> Result<PathBuf, ShellError> {
     use directories_next::ProjectDirs;
 
@@ -173,13 +172,6 @@ pub fn config_path() -> Result<PathBuf, ShellError> {
     })?;
 
     Ok(path)
-}
-
-#[cfg(not(feature = "directories"))]
-pub fn config_path() -> Result<PathBuf, ShellError> {
-    // FIXME: unsure if this should be error or a simple default
-
-    Ok(std::path::PathBuf::from("/"))
 }
 
 pub fn default_path() -> Result<PathBuf, ShellError> {
@@ -197,7 +189,6 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     Ok(filename)
 }
 
-#[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
     use directories_next::ProjectDirs;
 
@@ -212,13 +203,6 @@ pub fn user_data() -> Result<PathBuf, ShellError> {
     })?;
 
     Ok(path)
-}
-
-#[cfg(not(feature = "directories"))]
-pub fn user_data() -> Result<PathBuf, ShellError> {
-    // FIXME: unsure if this should be error or a simple default
-
-    Ok(std::path::PathBuf::from("/"))
 }
 
 #[derive(Debug, Clone)]

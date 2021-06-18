@@ -17,8 +17,5 @@ nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
 nu-source = { version = "0.32.1", path = "../nu-source" }
 nu-test-support = { version = "0.32.1", path = "../nu-test-support" }
 
-dirs-next = { version = "2.0.0", optional = true }
+dirs-next = "2.0.0"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
-
-[features]
-dirs = ["dirs-next"]
