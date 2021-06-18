@@ -29,7 +29,7 @@ bigdecimal = "0.2.0"
 bytes = "0.5.6"
 chrono = { version = "0.4.19", features = ["serde"] }
 derive-new = "0.5.8"
-dirs-next = { version = "2.0.0", optional = true }
+dirs-next = "2.0.0"
 dunce = "1.0.1"
 encoding_rs = "0.8.28"
 filesize = "0.2.0"
@@ -63,6 +63,5 @@ hamcrest2 = "0.3.0"
 
 [features]
 rustyline-support = []
-dirs = ["dirs-next"]
 trash-support = ["trash"]
 dataframe = ["nu-protocol/dataframe"]

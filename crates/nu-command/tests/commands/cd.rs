@@ -127,7 +127,6 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
     })
 }
 
-#[cfg(feature = "dirs")]
 #[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {

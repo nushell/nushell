@@ -66,16 +66,6 @@ hamcrest2 = "0.3.0"
 
 [features]
 ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
-directories-support = [
-    "nu-cli/directories",
-    "nu-cli/dirs",
-    "nu-completion/dirs",
-    "nu-command/directories",
-    "nu-command/dirs",
-    "nu-data/directories",
-    "nu-data/dirs",
-    "nu-engine/dirs",
-]
 ptree-support = ["nu-cli/ptree", "nu-command/ptree"]
 rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-cli/term", "nu-command/term"]
@@ -86,7 +76,6 @@ default = [
     "nu-cli/shadow-rs",
     "sys",
     "ps",
-    "directories-support",
     "ctrlc-support",
     "which-support",
     "term-support",

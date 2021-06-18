@@ -105,18 +105,7 @@ fn run_with_stdin(
     let process_args = command_args
         .iter()
         .map(|(arg, _is_literal)| {
-            let home_dir;
-
-            #[cfg(feature = "dirs")]
-            {
-                home_dir = dirs_next::home_dir;
-            }
-            #[cfg(not(feature = "dirs"))]
-            {
-                home_dir = || Some(std::path::PathBuf::from("/"));
-            }
-
-            let arg = expand_tilde(arg.deref(), home_dir);
+            let arg = expand_tilde(arg.deref(), dirs_next::home_dir);
 
             #[cfg(not(windows))]
             {
