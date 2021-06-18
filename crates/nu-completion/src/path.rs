@@ -26,7 +26,7 @@ impl PathCompleter {
         let base_dir = if base_dir_name.is_empty() {
             PathBuf::from(".")
         } else {
-            #[cfg(feature = "directories")]
+            #[cfg(feature = "dirs")]
             {
                 let home_prefix = format!("~{}", SEP);
                 if base_dir_name.starts_with(&home_prefix) {
@@ -37,7 +37,7 @@ impl PathCompleter {
                     PathBuf::from(base_dir_name)
                 }
             }
-            #[cfg(not(feature = "directories"))]
+            #[cfg(not(feature = "dirs"))]
             {
                 PathBuf::from(base_dir_name)
             }
