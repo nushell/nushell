@@ -25,7 +25,7 @@ fn setting_environment_value_to_configuration_should_pick_up_into_in_memory_envi
         )]);
 
         assert_that!(
-            nu.pipeline("config set env.USER NUNO; echo $nothing")
+            nu.pipeline("config set env.USER NUNO | ignore")
                 .and_then("echo $nu.env.USER"),
             says().stdout("NUNO")
         );

@@ -19,7 +19,7 @@ fn clearing_config_clears_config() {
         )]);
 
         assert_that!(
-            nu.pipeline("config clear; config get skip_welcome_message"),
+            nu.pipeline("config clear | ignore; config get skip_welcome_message"),
             says().stdout("")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
@@ -63,7 +63,7 @@ fn config_set_sets_value() {
 
         assert_that!(
             //Clears config
-            nu.pipeline("config set key value; config get key"),
+            nu.pipeline("config set key value | ignore; config get key"),
             says().stdout("value")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
@@ -86,7 +86,7 @@ fn config_set_into_sets_value() {
 
         assert_that!(
             //Clears config
-            nu.pipeline("echo value | config set_into key; config get key"),
+            nu.pipeline("echo value | config set_into key | ignore; config get key"),
             says().stdout("value")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
@@ -109,7 +109,7 @@ fn config_rm_removes_value() {
         )]);
 
         assert_that!(
-            nu.pipeline("config remove key; config get key"),
+            nu.pipeline("config remove key | ignore; config get key"),
             says().stdout("")
         );
         let config_contents = std::fs::read_to_string(file).expect("Could not read file");
