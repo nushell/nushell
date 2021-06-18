@@ -1,6 +1,5 @@
 use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
-#[cfg(feature = "dirs")]
 use nu_engine::filesystem::path::expand_tilde;
 use nu_engine::filesystem::path::resolve_dots;
 use nu_engine::WholeStreamCommand;
@@ -104,7 +103,6 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
         ))
     } else {
         // "best effort" mode, just expand tilde and resolve single/double dots
-        #[cfg(feature = "dirs")]
         let path = match expand_tilde(path) {
             Some(expanded) => expanded,
             None => path.into(),

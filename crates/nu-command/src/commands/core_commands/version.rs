@@ -189,16 +189,6 @@ fn features_enabled() -> Vec<String> {
         names.push("ctrlc".to_string());
     }
 
-    #[cfg(feature = "dirs")]
-    {
-        names.push("dirs".to_string());
-    }
-
-    #[cfg(feature = "directories")]
-    {
-        names.push("directories".to_string());
-    }
-
     #[cfg(feature = "ptree")]
     {
         names.push("ptree".to_string());
