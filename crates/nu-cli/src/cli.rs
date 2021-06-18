@@ -1,5 +1,3 @@
-use super::Nu;
-
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
@@ -150,7 +148,7 @@ pub fn cli(
     if !skip_welcome_message {
         println!(
             "Welcome to Nushell {} (type 'help' for more info)",
-            Nu::version()
+            nu_command::commands::core_version()
         );
     }
 

@@ -1,6 +1,6 @@
 use super::Options;
 
-use nu_command::commands::nu::{self, Nu};
+use nu_command::commands::{loglevels, testbins, NuSignature as Nu};
 use nu_command::commands::{Autoview, Pivot, Table, Version as NuVersion};
 use nu_engine::{whole_stream_command, EvaluationContext};
 use nu_errors::ShellError;
@@ -72,7 +72,7 @@ impl OptionsParser for NuParser {
                                 .map(|v| match k.as_ref() {
                                     "testbin" => {
                                         if let Ok(name) = v.as_string() {
-                                            if nu::testbins().iter().any(|n| name == *n) {
+                                            if testbins().iter().any(|n| name == *n) {
                                                 Some(v)
                                             } else {
                                                 Some(
@@ -90,7 +90,7 @@ impl OptionsParser for NuParser {
                                     }
                                     "loglevel" => {
                                         if let Ok(name) = v.as_string() {
-                                            if nu::loglevels().iter().any(|n| name == *n) {
+                                            if loglevels().iter().any(|n| name == *n) {
                                                 Some(v)
                                             } else {
                                                 Some(
