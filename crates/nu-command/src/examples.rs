@@ -111,7 +111,12 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         let block = parse_line(sample_pipeline.example, &ctx)?;
 
         if let Some(expected) = &sample_pipeline.result {
+            let start = std::time::Instant::now();
             let result = evaluate_block(block, &mut ctx)?;
+
+            println!("input: {}", sample_pipeline.example);
+            println!("result: {:?}", result);
+            println!("done: {:?}", start.elapsed());
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
                 .map_or(Ok(()), Err)?;

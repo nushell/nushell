@@ -61,19 +61,19 @@ Optional dependencies:
 
 To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
-```bash
+```shell
 cargo install nu
 ```
 
 To install Nu via the [Windows Package Manager](https://aka.ms/winget-cli):
 
-```bash
+```shell
 winget install nu
 ```
 
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
-```bash
+```shell
 cargo build --workspace --features=extra
 ```
 
@@ -83,7 +83,7 @@ cargo build --workspace --features=extra
 
 Want to try Nu right away? Execute the following to get started.
 
-```bash
+```shell
 docker run -it quay.io/nushell/nu:latest
 ```
 
@@ -92,30 +92,30 @@ docker run -it quay.io/nushell/nu:latest
 If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
 on Quay.io. Pulling a container would come down to:
 
-```bash
+```shell
 docker pull quay.io/nushell/nu
 docker pull quay.io/nushell/nu-base
 ```
 
-Both "nu-base" and "nu" provide the nu binary, however nu-base also includes the source code at `/code`
+Both "nu-base" and "nu" provide the nu binary, however, nu-base also includes the source code at `/code`
 in the container and all dependencies.
 
 Optionally, you can also build the containers locally using the [dockerfiles provided](docker):
 To build the base image:
 
-```bash
+```shell
 docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
 ```
 
 And then to build the smaller container (using a Multistage build):
 
-```bash
+```shell
 docker build -f docker/Dockerfile -t nushell/nu .
 ```
 
 Either way, you can run either container as follows:
 
-```bash
+```shell
 docker run -it nushell/nu-base
 docker run -it nushell/nu
 /> exit
@@ -146,9 +146,9 @@ Just as the Unix philosophy, Nu allows commands to output to stdout and read fro
 Additionally, commands can output structured data (you can think of this as a third kind of stream).
 Commands that work in the pipeline fit into one of three categories:
 
--   Commands that produce a stream (eg, `ls`)
+-   Commands that produce a stream (e.g., `ls`)
 -   Commands that filter a stream (eg, `where type == "Dir"`)
--   Commands that consume the output of the pipeline (eg, `autoview`)
+-   Commands that consume the output of the pipeline (e.g., `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
@@ -177,7 +177,7 @@ We could have also written the above:
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu.
-For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
+For example, we could use the built-in `ps` command to get a list of the running processes, using the same `where` as above.
 
 ```shell
 > ps | where cpu > 0
@@ -194,7 +194,7 @@ For example, we could use the built-in `ps` command as well to get a list of the
 
 ### Opening files
 
-Nu can load file and URL contents as raw text or as structured data (if it recognizes the format).
+Nu can load file and URL contents as raw text or structured data (if it recognizes the format).
 For example, you can load a .toml file as structured data and explore it:
 
 ```shell
@@ -253,9 +253,9 @@ To set one of these variables, you can use `config set`. For example:
 ### Shells
 
 Nu will work inside of a single directory and allow you to navigate around your filesystem by default.
-Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
+Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories simultaneously.
 
-To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path.
+To do so, use the `enter` command, which will allow you to create a new "shell" and enter it at the specified path.
 You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells.
 Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 
@@ -269,7 +269,7 @@ This allows you to extend nu for your needs.
 There are a few examples in the `plugins` directory.
 
 Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention.
-These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use.
+These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, making it available for use.
 If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
 If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
@@ -277,7 +277,7 @@ If the plugin is a sink, it is given the full vector of final data and is given 
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
--   First and foremost, Nu is cross-platform. Commands and techniques should carry between platforms and offer first-class consistent support for Windows, macOS, and Linux.
+-   First and foremost, Nu is cross-platform. Commands and techniques should carry between platforms and offer consistent first-class support for Windows, macOS, and Linux.
 
 -   Nu ensures direct compatibility with existing platform-specific executables that make up people's workflows.
 
@@ -293,7 +293,7 @@ You can find a list of Nu commands, complete with documentation, in [quick comma
 
 ## Progress
 
-Nu is in heavy development, and will naturally change as it matures and people use it. The chart below isn't meant to be exhaustive, but rather helps give an idea for some of the areas of development and their relative completion:
+Nu is in heavy development and will naturally change as it matures and people use it. The chart below isn't meant to be exhaustive, but rather helps give an idea for some of the areas of development and their relative completion:
 
 | Features      | Not started | Prototype | MVP | Preview | Mature | Notes                                                                |
 | ------------- | :---------: | :-------: | :-: | :-----: | :----: | -------------------------------------------------------------------- |
@@ -314,7 +314,7 @@ Nu is in heavy development, and will naturally change as it matures and people u
 
 ## Current Roadmap
 
-We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release as well as capture some important issues we'd like to see in Nushell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
+We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release and capture some important issues we'd like to see in Nushell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
 
 ## Contributing
 

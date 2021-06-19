@@ -31,7 +31,7 @@ impl WholeStreamCommand for DataFrame {
 
         let series = NuSeries::try_from_iter(args.input, name)?;
 
-        Ok(InputStream::one(series.to_value(tag)))
+        Ok(InputStream::one(series.into_value(tag)))
     }
 
     fn examples(&self) -> Vec<Example> {

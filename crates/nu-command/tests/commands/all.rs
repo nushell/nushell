@@ -14,7 +14,7 @@ fn checks_all_rows_are_true() {
                 | all? $it == "Andrés"
                 "#
             )),
-            says().to_stdout("true")
+            says().stdout("true")
         );
     })
 }
@@ -35,7 +35,7 @@ fn checks_all_columns_of_a_table_is_true() {
                 | all? likes > 0
                 "#
             )),
-            says().to_stdout("true")
+            says().stdout("true")
         );
     })
 }

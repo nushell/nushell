@@ -31,16 +31,11 @@ where
         // path on all supported systems.
         relative_to.as_ref().to_owned()
     } else if path.as_ref().starts_with("~") {
-        #[cfg(feature = "dirs")]
-        {
-            let expanded_path = expand_tilde(path.as_ref());
-            match expanded_path {
-                Some(p) => p,
-                _ => path.as_ref().to_owned(),
-            }
+        let expanded_path = expand_tilde(path.as_ref());
+        match expanded_path {
+            Some(p) => p,
+            _ => path.as_ref().to_owned(),
         }
-        #[cfg(not(feature = "dirs"))]
-        relative_to.as_ref().join(path)
     } else {
         relative_to.as_ref().join(path)
     };
@@ -85,7 +80,6 @@ where
 }
 
 // borrowed from here https://stackoverflow.com/questions/54267608/expand-tilde-in-rust-path-idiomatically
-#[cfg(feature = "dirs")]
 pub fn expand_tilde<P: AsRef<Path>>(path_user_input: P) -> Option<PathBuf> {
     let p = path_user_input.as_ref();
     if !p.starts_with("~") {

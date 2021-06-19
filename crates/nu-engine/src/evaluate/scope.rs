@@ -328,6 +328,10 @@ impl Scope {
 }
 
 impl ParserScope for Scope {
+    fn get_names(&self) -> Vec<String> {
+        self.get_command_names()
+    }
+
     fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
         self.get_command(name).map(|x| x.signature())
     }

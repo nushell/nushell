@@ -14,7 +14,7 @@ fn checks_any_row_is_true() {
                 | any? $it == "New Zealand"
                 "#
             )),
-            says().to_stdout("true")
+            says().stdout("true")
         );
     })
 }
@@ -35,7 +35,7 @@ fn checks_any_column_of_a_table_is_true() {
                 | any? rusty_at == 10/12/2013
                 "#
             )),
-            says().to_stdout("true")
+            says().stdout("true")
         );
     })
 }

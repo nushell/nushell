@@ -62,5 +62,5 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .with_column(series)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-    Ok(OutputStream::one(df.to_value(tag)))
+    Ok(OutputStream::one(df.into_value(tag)))
 }

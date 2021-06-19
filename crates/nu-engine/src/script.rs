@@ -9,7 +9,7 @@ use nu_protocol::hir::{
     NamedArguments, SpannedExpression,
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use nu_stream::{InputStream, ToInputStream};
+use nu_stream::{InputStream, IntoInputStream};
 
 use crate::EvaluationContext;
 use log::{debug, trace};
@@ -206,7 +206,7 @@ pub fn process_script(
                     panic!("Internal error: could not read lines of text from stdin")
                 }
             });
-            stream.to_input_stream()
+            stream.into_input_stream()
         } else {
             InputStream::empty()
         };
