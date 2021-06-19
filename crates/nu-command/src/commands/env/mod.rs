@@ -2,8 +2,8 @@ mod autoenv;
 mod autoenv_trust;
 mod autoenv_untrust;
 mod let_env;
-mod unlet_env;
 mod load_env;
+mod unlet_env;
 mod with_env;
 
 pub use autoenv::Autoenv;
