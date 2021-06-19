@@ -296,17 +296,11 @@ fn perform_series_aggregation(
                 | DataType::UInt16
                 | DataType::UInt32
                 | DataType::UInt64 => {
-                    let res: i64 = match series.sum() {
-                        Some(val) => val,
-                        None => 0,
-                    };
+                    let res: i64 = series.sum().unwrap_or(0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = match series.sum() {
-                        Some(val) => val,
-                        None => 0.0,
-                    };
+                    let res: f64 = series.sum().unwrap_or(0.0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 _ => Err(ShellError::labeled_error(
@@ -339,17 +333,11 @@ fn perform_series_aggregation(
                 | DataType::UInt16
                 | DataType::UInt32
                 | DataType::UInt64 => {
-                    let res: i64 = match series.max() {
-                        Some(val) => val,
-                        None => 0,
-                    };
+                    let res: i64 = series.max().unwrap_or(0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = match series.max() {
-                        Some(val) => val,
-                        None => 0.0,
-                    };
+                    let res: f64 = series.max().unwrap_or(0.0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 _ => Err(ShellError::labeled_error(
@@ -382,17 +370,11 @@ fn perform_series_aggregation(
                 | DataType::UInt16
                 | DataType::UInt32
                 | DataType::UInt64 => {
-                    let res: i64 = match series.min() {
-                        Some(val) => val,
-                        None => 0,
-                    };
+                    let res: i64 = series.min().unwrap_or(0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = match series.min() {
-                        Some(val) => val,
-                        None => 0.0,
-                    };
+                    let res: f64 = series.min().unwrap_or(0.0);
                     Ok(UntaggedValue::Primitive(res.into()))
                 }
                 _ => Err(ShellError::labeled_error(

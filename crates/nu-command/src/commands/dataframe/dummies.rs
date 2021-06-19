@@ -46,11 +46,9 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let value = args.input.next().ok_or(ShellError::labeled_error(
-        "Empty stream",
-        "No value found in stream",
-        &tag.span,
-    ))?;
+    let value = args.input.next().ok_or_else(|| {
+        ShellError::labeled_error("Empty stream", "No value found in stream", &tag.span)
+    })?;
 
     match value.value {
         UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
