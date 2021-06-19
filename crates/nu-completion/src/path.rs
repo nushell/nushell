@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::borrow::Cow;
+use std::path::{is_separator, Path, PathBuf};
 
 use super::matchers::Matcher;
 use crate::{Completer, CompletionContext, Suggestion};
@@ -7,6 +8,7 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 
 pub struct PathCompleter;
 
+#[derive(Debug)]
 pub struct PathSuggestion {
     pub(crate) path: PathBuf,
     pub(crate) suggestion: Suggestion,
@@ -14,27 +16,23 @@ pub struct PathSuggestion {
 
 impl PathCompleter {
     pub fn path_suggestions(&self, partial: &str, matcher: &dyn Matcher) -> Vec<PathSuggestion> {
-        let expanded = nu_parser::expand_ndots(partial);
-        let expanded = expanded.replace(std::path::is_separator, &SEP.to_string());
-        let expanded: &str = expanded.as_ref();
+        let (base_dir_name, partial) = {
+            // If partial is only a word we want to search in the current dir
+            let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", partial));
+            // On windows, this standardizes paths to use \
+            let mut base = base.replace(is_separator, &SEP.to_string());
 
-        let (base_dir_name, partial) = match expanded.rfind(SEP) {
-            Some(pos) => expanded.split_at(pos + SEP.len_utf8()),
-            None => ("", expanded),
+            // rsplit_once removes the separator
+            base.push(SEP);
+            (base, rest)
         };
 
-        let base_dir = if base_dir_name.is_empty() {
-            PathBuf::from(".")
-        } else {
-            let home_prefix = format!("~{}", SEP);
-            if base_dir_name.starts_with(&home_prefix) {
-                let mut home_dir = dirs_next::home_dir().unwrap_or_else(|| PathBuf::from("~"));
-                home_dir.push(&base_dir_name[2..]);
-                home_dir
-            } else {
-                PathBuf::from(base_dir_name)
-            }
-        };
+        let base_dir = nu_path::expand_path(Cow::Borrowed(Path::new(&base_dir_name)));
+        // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
+        // which we don't want in this case (if we did, base_dir would already be ".")
+        if base_dir == Path::new("") {
+            return Vec::new();
+        }
 
         if let Ok(result) = base_dir.read_dir() {
             result
@@ -42,10 +40,10 @@ impl PathCompleter {
                     entry.ok().and_then(|entry| {
                         let mut file_name = entry.file_name().to_string_lossy().into_owned();
                         if matcher.matches(partial, file_name.as_str()) {
-                            let mut path = format!("{}{}", base_dir_name, file_name);
+                            let mut path = format!("{}{}", &base_dir_name, file_name);
                             if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                                path.push(std::path::MAIN_SEPARATOR);
-                                file_name.push(std::path::MAIN_SEPARATOR);
+                                path.push(SEP);
+                                file_name.push(SEP);
                             }
 
                             Some(PathSuggestion {

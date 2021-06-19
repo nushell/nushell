@@ -1,5 +1,5 @@
-use crate::filesystem::path::canonicalize;
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]

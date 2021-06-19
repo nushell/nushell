@@ -43,3 +43,36 @@ fn expands_path_with_double_dot() {
         assert_eq!(PathBuf::from(actual.out), expected);
     })
 }
+
+#[cfg(windows)]
+mod windows {
+    use super::*;
+
+    #[test]
+    fn expands_path_with_tilde_backward_slash() {
+        Playground::setup("path_expand_2", |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo "~\tmp.txt" | path expand
+                "#
+            ));
+
+            assert!(!PathBuf::from(actual.out).starts_with("~"));
+        })
+    }
+
+    #[test]
+    fn win_expands_path_with_tilde_forward_slash() {
+        Playground::setup("path_expand_2", |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo "~/tmp.txt" | path expand
+                "#
+            ));
+
+            assert!(!PathBuf::from(actual.out).starts_with("~"));
+        })
+    }
+}

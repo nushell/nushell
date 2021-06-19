@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use crate::prelude::*;
-use nu_engine::filesystem::path::canonicalize;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 

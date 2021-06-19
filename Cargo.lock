@@ -3254,6 +3254,7 @@ dependencies = [
  "nu-engine",
  "nu-errors",
  "nu-parser",
+ "nu-path",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
@@ -3373,7 +3374,6 @@ dependencies = [
  "serde_yaml",
  "sha2 0.9.5",
  "shadow-rs",
- "shellexpand",
  "strip-ansi-escapes",
  "sxd-document",
  "sxd-xpath",
@@ -3438,6 +3438,7 @@ dependencies = [
  "nu-errors",
  "nu-json",
  "nu-parser",
+ "nu-path",
  "nu-plugin",
  "nu-pretty-hex",
  "nu-protocol",
@@ -3472,7 +3473,6 @@ dependencies = [
  "serde_yaml",
  "sha2 0.9.5",
  "shadow-rs",
- "shellexpand",
  "strip-ansi-escapes",
  "sxd-document",
  "sxd-xpath",
@@ -3501,6 +3501,7 @@ dependencies = [
  "nu-data",
  "nu-errors",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
@@ -3571,6 +3572,7 @@ dependencies = [
  "nu-data",
  "nu-errors",
  "nu-parser",
+ "nu-path",
  "nu-plugin",
  "nu-protocol",
  "nu-source",
@@ -3639,14 +3641,22 @@ dependencies = [
  "itertools",
  "log 0.4.14",
  "nu-errors",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
  "num-bigint 0.3.2",
  "num-traits 0.2.14",
  "serde 1.0.126",
- "shellexpand",
  "smart-default",
+]
+
+[[package]]
+name = "nu-path"
+version = "0.32.1"
+dependencies = [
+ "dirs-next",
+ "dunce",
 ]
 
 [[package]]
@@ -5810,15 +5820,6 @@ name = "shell-words"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6fa3938c99da4914afedd13bf3d79bcb6c277d1b2c398d23257a304d9e1b074"
-
-[[package]]
-name = "shellexpand"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83bdb7831b2d85ddf4a7b148aa19d0587eddbe8671a436b7bd1182eaad0f2829"
-dependencies = [
- "dirs-next",
-]
 
 [[package]]
 name = "signal-hook"

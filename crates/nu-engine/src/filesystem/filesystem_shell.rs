@@ -1,4 +1,3 @@
-use crate::filesystem::path::canonicalize;
 use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
@@ -10,6 +9,7 @@ use crate::{
 };
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
+use nu_path::canonicalize;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
