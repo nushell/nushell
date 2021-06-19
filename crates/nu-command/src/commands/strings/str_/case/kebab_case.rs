@@ -23,7 +23,7 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to kebab-case"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args, &to_kebab_case)
     }
 
