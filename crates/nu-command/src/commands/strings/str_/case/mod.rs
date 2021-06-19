@@ -7,7 +7,7 @@ pub mod snake_case;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Primitive, UntaggedValue, Value};
 use nu_source::Tag;
 use nu_value_ext::ValueExt;
 
@@ -20,7 +20,7 @@ struct Arguments {
     column_paths: Vec<ColumnPath>,
 }
 
-pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<ActionStream, ShellError>
+pub fn operate<F>(args: CommandArgs, case_operation: &'static F) -> Result<OutputStream, ShellError>
 where
     F: Fn(&str) -> String + Send + Sync + 'static,
 {
@@ -34,7 +34,7 @@ where
     Ok(input
         .map(move |v| {
             if options.column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag(), &case_operation)?)
+                action(&v, v.tag(), &case_operation)
             } else {
                 let mut ret = v;
 
@@ -45,10 +45,10 @@ where
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .into_action_stream())
+        .into_input_stream())
 }
 
 pub fn action<F>(
