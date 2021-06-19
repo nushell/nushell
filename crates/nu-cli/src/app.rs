@@ -5,7 +5,7 @@ mod options_parser;
 pub use options::{CliOptions, NuScript, Options};
 use options_parser::{NuParser, OptionsParser};
 
-use nu_command::{commands::nu::Nu, utils::test_bins as binaries};
+use nu_command::{commands::NuSignature as Nu, utils::test_bins as binaries};
 use nu_engine::{get_full_help, EvaluationContext};
 use nu_errors::ShellError;
 use nu_protocol::hir::{Call, Expression, SpannedExpression, Synthetic};
@@ -58,7 +58,7 @@ impl App {
         if self.version() {
             let context = self.parser.context();
 
-            let stream = nu_command::commands::version::version(nu_engine::CommandArgs {
+            let stream = nu_command::commands::version(nu_engine::CommandArgs {
                 context: context.clone(),
                 call_info: nu_engine::UnevaluatedCallInfo {
                     args: Call::new(
