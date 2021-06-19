@@ -239,7 +239,7 @@ use nu_errors::ShellError;
 # ...
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(args.input.take(2).to_output_stream())
+        Ok(args.input.take(2).into_output_stream())
     }
 
 # ...

@@ -23,7 +23,7 @@ impl WholeStreamCommand for DataFrame {
 
         let df = NuDataFrame::try_from_iter(args.input, &tag)?;
 
-        Ok(InputStream::one(df.to_value(tag)))
+        Ok(InputStream::one(df.into_value(tag)))
     }
 
     fn examples(&self) -> Vec<Example> {

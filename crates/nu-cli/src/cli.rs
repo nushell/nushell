@@ -148,7 +148,7 @@ pub fn cli(
     if !skip_welcome_message {
         println!(
             "Welcome to Nushell {} (type 'help' for more info)",
-            clap::crate_version!()
+            nu_command::commands::core_version()
         );
     }
 

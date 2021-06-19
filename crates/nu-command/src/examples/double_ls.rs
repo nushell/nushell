@@ -3,7 +3,7 @@ use crate::examples::sample::ls::file_listing;
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
-use nu_stream::{ActionStream, ToActionStream};
+use nu_stream::{ActionStream, IntoActionStream};
 
 pub struct Command;
 
@@ -40,6 +40,6 @@ impl WholeStreamCommand for Command {
             .collect::<Vec<_>>()
             .into_iter()
             .map(ReturnSuccess::value))
-        .to_action_stream())
+        .into_action_stream())
     }
 }

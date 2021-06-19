@@ -18,7 +18,7 @@ fn runs_configuration_startup_commands() {
 
         nu.with_config(&file);
 
-        assert_that!(nu.pipeline("hello-world"), says().to_stdout("Nu World"));
+        assert_that!(nu.pipeline("hello-world"), says().stdout("Nu World"));
     });
 }
 

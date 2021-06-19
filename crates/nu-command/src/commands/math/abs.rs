@@ -32,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
             }
             other => abs_default(other),
         });
-        Ok(mapped.to_output_stream())
+        Ok(mapped.into_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

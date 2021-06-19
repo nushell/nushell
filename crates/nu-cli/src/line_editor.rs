@@ -1,8 +1,9 @@
 use nu_engine::EvaluationContext;
+use nu_errors::ShellError;
 use std::error::Error;
 
 #[allow(unused_imports)]
-use crate::prelude::*;
+use std::sync::atomic::Ordering;
 
 #[allow(unused_imports)]
 use nu_engine::script::LineResult;
@@ -31,7 +32,7 @@ pub fn convert_rustyline_result_to_string(input: Result<String, ReadlineError>) 
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::CtrlD,
         Err(err) => {
-            outln!("Error: {:?}", err);
+            eprintln!("Error: {:?}", err);
             LineResult::Break
         }
     }

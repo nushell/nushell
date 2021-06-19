@@ -98,8 +98,7 @@ impl NuSeries {
         from_parsed_vector(vec_values, name)
     }
 
-    #[allow(clippy::clippy::wrong_self_convention)]
-    pub fn to_value(self, tag: Tag) -> Value {
+    pub fn into_value(self, tag: Tag) -> Value {
         Value {
             value: UntaggedValue::DataFrame(PolarsData::Series(self)),
             tag,

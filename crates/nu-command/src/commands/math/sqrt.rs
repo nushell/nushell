@@ -40,7 +40,7 @@ fn operate(args: CommandArgs) -> OutputStream {
         UntaggedValue::Primitive(Primitive::Decimal(val)) => sqrt_big_decimal(val),
         other => sqrt_default(other),
     });
-    mapped.to_output_stream()
+    mapped.into_output_stream()
 }
 
 fn sqrt_big_decimal(val: BigDecimal) -> Value {

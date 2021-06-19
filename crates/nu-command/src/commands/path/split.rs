@@ -104,7 +104,7 @@ where
                     Ok(Value {
                         value: UntaggedValue::Table(parts),
                         ..
-                    }) => parts.into_iter().to_output_stream(),
+                    }) => parts.into_iter().into_output_stream(),
                     Err(e) => OutputStream::one(Value::error(e)),
                     _ => OutputStream::one(Value::error(ShellError::labeled_error(
                         "Internal Error",
@@ -113,7 +113,7 @@ where
                     ))),
                 }
             })
-            .to_output_stream()
+            .into_output_stream()
     } else {
         operate_column_paths(input, action, span, args)
     }

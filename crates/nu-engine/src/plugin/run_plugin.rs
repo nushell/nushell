@@ -11,7 +11,7 @@ use nu_errors::ShellError;
 use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{hir, Primitive, ReturnValue, Signature, UntaggedValue, Value};
 use nu_source::Tag;
-use nu_stream::{ActionStream, InputStream, ToActionStream};
+use nu_stream::{ActionStream, InputStream, IntoActionStream};
 use serde::{self, Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::io::prelude::*;
@@ -204,9 +204,9 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Ok(params) => params.into_iter().into_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().into_action_stream()
                                     }
                                 },
 
@@ -265,9 +265,9 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Ok(params) => params.into_iter().into_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().into_action_stream()
                                     }
                                 },
                                 Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
@@ -275,7 +275,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                                     e, input
                                 )))]
                                 .into_iter()
-                                .to_action_stream(),
+                                .into_action_stream(),
                             }
                         }
                         Err(e) => vec![Err(ShellError::untagged_runtime_error(format!(
@@ -283,7 +283,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                             e
                         )))]
                         .into_iter()
-                        .to_action_stream(),
+                        .into_action_stream(),
                     };
 
                     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -339,9 +339,9 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
                             match response {
                                 Ok(NuResult::response { params }) => match params {
-                                    Ok(params) => params.into_iter().to_action_stream(),
+                                    Ok(params) => params.into_iter().into_action_stream(),
                                     Err(e) => {
-                                        vec![ReturnValue::Err(e)].into_iter().to_action_stream()
+                                        vec![ReturnValue::Err(e)].into_iter().into_action_stream()
                                     }
                                 },
                                 Err(e) => ActionStream::one(Err(
@@ -360,7 +360,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
             }
         })
         .flatten()
-        .to_action_stream())
+        .into_action_stream())
 }
 
 #[derive(new)]

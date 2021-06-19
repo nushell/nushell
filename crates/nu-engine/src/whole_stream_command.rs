@@ -7,7 +7,7 @@ use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
-use nu_stream::{ActionStream, InputStream, OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, InputStream, IntoOutputStream, OutputStream};
 use std::sync::Arc;
 
 pub trait WholeStreamCommand: Send + Sync {
@@ -39,7 +39,7 @@ pub trait WholeStreamCommand: Send + Sync {
             input: stream,
             leftovers: InputStream::empty(),
         })
-        .to_output_stream())
+        .into_output_stream())
     }
 
     fn is_binary(&self) -> bool {

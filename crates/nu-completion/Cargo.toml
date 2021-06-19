@@ -1,0 +1,21 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Completions for nushell"
+edition = "2018"
+license = "MIT"
+name = "nu-completion"
+version = "0.32.1"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-data = { version = "0.32.1", path = "../nu-data" }
+nu-errors = { version = "0.32.1", path = "../nu-errors" }
+nu-parser = { version = "0.32.1", path = "../nu-parser" }
+nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
+nu-source = { version = "0.32.1", path = "../nu-source" }
+nu-test-support = { version = "0.32.1", path = "../nu-test-support" }
+
+dirs-next = "2.0.0"
+indexmap = { version = "1.6.1", features = ["serde-1"] }

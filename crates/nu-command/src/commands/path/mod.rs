@@ -190,7 +190,7 @@ where
 
             ret
         })
-        .to_output_stream()
+        .into_output_stream()
 }
 
 fn operate<F, T>(
@@ -211,7 +211,7 @@ where
                     Err(e) => Value::error(e),
                 },
             )
-            .to_output_stream()
+            .into_output_stream()
     } else {
         operate_column_paths(input, action, span, args)
     }

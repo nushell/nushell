@@ -13,6 +13,7 @@ pub mod plugin;
 mod print;
 pub mod script;
 pub mod shell;
+mod types;
 mod whole_stream_command;
 
 pub use crate::call_info::UnevaluatedCallInfo;

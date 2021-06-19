@@ -134,8 +134,7 @@ impl NuDataFrame {
         from_parsed_columns(column_values, tag)
     }
 
-    #[allow(clippy::clippy::wrong_self_convention)]
-    pub fn to_value(self, tag: Tag) -> Value {
+    pub fn into_value(self, tag: Tag) -> Value {
         Value {
             value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(self)),
             tag,
