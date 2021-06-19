@@ -25,6 +25,7 @@ nu-data = { version = "0.32.1", path = "./crates/nu-data" }
 nu-engine = { version = "0.32.1", path = "./crates/nu-engine" }
 nu-errors = { version = "0.32.1", path = "./crates/nu-errors" }
 nu-parser = { version = "0.32.1", path = "./crates/nu-parser" }
+nu-path = { version = "0.32.1", path = "./crates/nu-path" }
 nu-plugin = { version = "0.32.1", path = "./crates/nu-plugin" }
 nu-protocol = { version = "0.32.1", path = "./crates/nu-protocol" }
 nu-source = { version = "0.32.1", path = "./crates/nu-source" }

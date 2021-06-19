@@ -13,6 +13,7 @@ doctest = false
 nu-data = { version = "0.32.1", path = "../nu-data" }
 nu-errors = { version = "0.32.1", path = "../nu-errors" }
 nu-parser = { version = "0.32.1", path = "../nu-parser" }
+nu-path = { version = "0.32.1", path = "../nu-path" }
 nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
 nu-source = { version = "0.32.1", path = "../nu-source" }
 nu-test-support = { version = "0.32.1", path = "../nu-test-support" }

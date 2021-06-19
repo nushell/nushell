@@ -1,9 +1,7 @@
-use crate::{
-    evaluate::internal::InternalIterator, maybe_print_errors, path::canonicalize, run_block,
-    shell::CdArgs,
-};
+use crate::{evaluate::internal::InternalIterator, maybe_print_errors, run_block, shell::CdArgs};
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_protocol::hir::{
     Call, ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, Literal,
     NamedArguments, SpannedExpression,

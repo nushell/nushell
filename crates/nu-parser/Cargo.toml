@@ -6,8 +6,6 @@ license = "MIT"
 name = "nu-parser"
 version = "0.32.1"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 bigdecimal = { version = "0.2.0", features = ["serde"] }
 codespan-reporting = "0.11.0"
@@ -18,12 +16,12 @@ log = "0.4"
 num-bigint = { version = "0.3.1", features = ["serde"] }
 num-traits = "0.2.14"
 serde = "1.0"
-shellexpand = "2.1.0"
 itertools = "0.10.0"
 smart-default = "0.6.0"
 
 dunce = "1.0.1"
 nu-errors = { version = "0.32.1", path = "../nu-errors" }
+nu-path = { version = "0.32.1", path = "../nu-path" }
 nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
 nu-source = { version = "0.32.1", path = "../nu-source" }
 nu-test-support = { version = "0.32.1", path = "../nu-test-support" }

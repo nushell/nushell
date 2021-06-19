@@ -15,6 +15,7 @@ nu-data = { version = "0.32.1", path = "../nu-data" }
 nu-engine = { version = "0.32.1", path = "../nu-engine" }
 nu-errors = { version = "0.32.1", path = "../nu-errors" }
 nu-json = { version = "0.32.1", path = "../nu-json" }
+nu-path = { version = "0.32.1", path = "../nu-path" }
 nu-parser = { version = "0.32.1", path = "../nu-parser" }
 nu-plugin = { version = "0.32.1", path = "../nu-plugin" }
 nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
@@ -81,7 +82,6 @@ serde_json = "1.0.61"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.9.3"
-shellexpand = "2.1.0"
 strip-ansi-escapes = "0.1.0"
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
