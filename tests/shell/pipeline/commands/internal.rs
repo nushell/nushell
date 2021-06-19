@@ -412,6 +412,31 @@ fn let_env_variable() {
 }
 
 #[test]
+fn unlet_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TEST_VAR = "hello world"
+            unlet-env TEST_VAR
+            echo $nu.env.TEST_VAR
+        "#
+    );
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn unlet_nonexistent_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            unlet-env NONEXISTENT_VARIABLE
+        "
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
 fn let_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
