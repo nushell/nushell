@@ -191,12 +191,16 @@ pub(crate) use all::Command as All;
 pub(crate) use any::Command as Any;
 #[cfg(feature = "dataframe")]
 pub(crate) use dataframe::{
-    DataFrame, DataFrameAggregate, DataFrameColumn, DataFrameDTypes, DataFrameDrop,
-    DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameFilter, DataFrameGet,
-    DataFrameGroupBy, DataFrameHead, DataFrameJoin, DataFrameList, DataFrameLoad, DataFrameMelt,
-    DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameSeriesRename, DataFrameShow,
-    DataFrameSlice, DataFrameSort, DataFrameTail, DataFrameToCsv, DataFrameToDF,
-    DataFrameToParquet, DataFrameToSeries, DataFrameWhere, DataFrameWithColumn,
+    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameArgMax,
+    DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique, DataFrameColumn,
+    DataFrameDTypes, DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies,
+    DataFrameFilter, DataFrameGet, DataFrameGroupBy, DataFrameHead, DataFrameIsDuplicated,
+    DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
+    DataFrameList, DataFrameLoad, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFramePivot,
+    DataFrameSample, DataFrameSelect, DataFrameSeriesRename, DataFrameSet, DataFrameShift,
+    DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTail, DataFrameToCsv, DataFrameToDF,
+    DataFrameToParquet, DataFrameToSeries, DataFrameUnique, DataFrameValueCounts, DataFrameWhere,
+    DataFrameWithColumn,
 };
 pub(crate) use enter::Enter;
 pub(crate) use every::Every;
