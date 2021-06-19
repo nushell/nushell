@@ -1,12 +1,11 @@
 use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
-use nu_engine::filesystem::path::expand_tilde;
-use nu_engine::filesystem::path::resolve_dots;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_path::expand_path;
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Span;
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 pub struct PathExpand;
 
@@ -102,13 +101,7 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
             tag.span,
         ))
     } else {
-        // "best effort" mode, just expand tilde and resolve single/double dots
-        let path = match expand_tilde(path) {
-            Some(expanded) => expanded,
-            None => path.into(),
-        };
-
-        UntaggedValue::filepath(resolve_dots(&path)).into_value(tag)
+        UntaggedValue::filepath(expand_path(Cow::Borrowed(path))).into_value(tag)
     }
 }
 
