@@ -1,4 +1,5 @@
 use crate::evaluate::expr::run_expression_block;
+use crate::evaluate::external::run_external_command;
 use crate::evaluate::internal::run_internal_command;
 use crate::evaluation_context::EvaluationContext;
 use nu_errors::ShellError;
@@ -191,6 +192,16 @@ fn run_pipeline(
             ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx)?,
 
             ClassifiedCommand::Error(err) => return Err(err.clone().into()),
+
+            ClassifiedCommand::External(left) => {
+                if command_num == (num_commands - 1) {
+                    let mut left = left.clone();
+                    left.args.external_redirection = external_redirection;
+                    run_external_command(&left, ctx, input)?
+                } else {
+                    run_external_command(left, ctx, input)?
+                }
+            }
 
             ClassifiedCommand::Internal(left) => {
                 if command_num == (num_commands - 1) {

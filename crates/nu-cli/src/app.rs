@@ -132,7 +132,7 @@ impl App {
             let commands = commands?;
             let script = NuScript::code(&commands)?;
             opts.scripts = vec![script];
-            let context = crate::create_default_context(false)?;
+            let context = crate::default_context::create()?;
             return crate::run_script_file(context, opts);
         }
 
@@ -155,14 +155,14 @@ impl App {
                 let mut opts = opts.clone();
                 opts.scripts = vec![file];
 
-                let context = crate::create_default_context(false)?;
+                let context = crate::default_context::create()?;
                 crate::run_script_file(context, opts)?;
             }
 
             return Ok(());
         }
 
-        let context = crate::create_default_context(true)?;
+        let context = crate::default_context::create()?;
 
         if !self.skip_plugins() {
             let _ = crate::register_plugins(&context);

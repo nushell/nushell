@@ -38,7 +38,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             }
             output
         }
-        Expression::Command => vec![FlatShape::InternalCommand.spanned(e.span)],
+        Expression::Command => vec![FlatShape::CommandSpecification.spanned(e.span)],
         Expression::Literal(Literal::Bare(_)) => vec![FlatShape::BareMember.spanned(e.span)],
         Expression::Literal(Literal::ColumnPath(_)) => vec![FlatShape::Path.spanned(e.span)],
         Expression::Literal(Literal::GlobPattern(_)) => {
@@ -53,7 +53,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         .spanned(e.span)],
         Expression::Literal(Literal::String(_)) => vec![FlatShape::String.spanned(e.span)],
         Expression::ExternalWord => vec![FlatShape::ExternalWord.spanned(e.span)],
-        Expression::ExternalCommand(_) => vec![FlatShape::ExternalCommand.spanned(e.span)],
+        Expression::ExternalCommand => vec![FlatShape::ExternalCommand.spanned(e.span)],
         Expression::Synthetic(_) => vec![FlatShape::BareMember.spanned(e.span)],
         Expression::Variable(_, _) => vec![FlatShape::Variable.spanned(e.span)],
         Expression::Binary(binary) => {

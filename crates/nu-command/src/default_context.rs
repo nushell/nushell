@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::whole_stream_command;
 use std::error::Error;
 
-pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Box<dyn Error>> {
+pub fn create() -> Result<EvaluationContext, Box<dyn Error>> {
     let context = EvaluationContext::basic();
 
     {
@@ -224,8 +224,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(FromYml),
             whole_stream_command(FromIcs),
             whole_stream_command(FromVcf),
-            // "Private" commands (not intended to be accessed directly)
-            whole_stream_command(RunExternalCommand { interactive }),
             // Random value generation
             whole_stream_command(Random),
             whole_stream_command(RandomBool),

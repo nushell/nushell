@@ -8,13 +8,12 @@ extern crate indexmap;
 mod prelude;
 mod classified;
 pub mod commands;
-mod default_context;
+pub mod default_context;
 pub mod utils;
 
 #[cfg(test)]
 mod examples;
 
-pub use crate::default_context::create_default_context;
 pub use nu_data::config;
 pub use nu_data::dict::TaggedListBuilder;
 pub use nu_data::primitive;

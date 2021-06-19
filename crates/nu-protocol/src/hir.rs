@@ -14,7 +14,7 @@ use nu_errors::{ParseError, ShellError};
 use nu_source::{
     DbgDocBldr, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
-use nu_source::{IntoSpanned, Span, Spanned, SpannedItem, Tag};
+use nu_source::{IntoSpanned, Span, Spanned, SpannedItem};
 
 use bigdecimal::{BigDecimal, ToPrimitive};
 use indexmap::IndexMap;
@@ -24,15 +24,15 @@ use num_traits::identities::Zero;
 use num_traits::FromPrimitive;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct InternalCommand {
+pub struct CommandSpecification {
     pub name: String,
     pub name_span: Span,
     pub args: crate::hir::Call,
 }
 
-impl InternalCommand {
-    pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
-        InternalCommand {
+impl CommandSpecification {
+    pub fn new(name: String, name_span: Span, full_span: Span) -> CommandSpecification {
+        CommandSpecification {
             name,
             name_span,
             args: crate::hir::Call::new(
@@ -80,7 +80,8 @@ impl ClassifiedPipeline {
 pub enum ClassifiedCommand {
     Expr(Box<SpannedExpression>),
     Dynamic(crate::hir::Call),
-    Internal(InternalCommand),
+    Internal(CommandSpecification),
+    External(CommandSpecification),
     Error(ParseError),
 }
 
@@ -90,6 +91,7 @@ impl ClassifiedCommand {
             ClassifiedCommand::Expr(expr) => expr.has_it_usage(),
             ClassifiedCommand::Dynamic(call) => call.has_it_usage(),
             ClassifiedCommand::Internal(internal) => internal.has_it_usage(),
+            ClassifiedCommand::External(external) => external.has_it_usage(),
             ClassifiedCommand::Error(_) => false,
         }
     }
@@ -274,61 +276,6 @@ impl Ord for Block {
 
         // FIXME: this is incomplete
         this.cmp(&that)
-    }
-}
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
-pub struct ExternalStringCommand {
-    pub name: Spanned<String>,
-    pub args: Vec<Spanned<String>>,
-}
-
-impl ExternalArgs {
-    pub fn iter(&self) -> impl Iterator<Item = &SpannedExpression> {
-        self.list.iter()
-    }
-}
-
-impl std::ops::Deref for ExternalArgs {
-    type Target = [SpannedExpression];
-
-    fn deref(&self) -> &[SpannedExpression] {
-        &self.list
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct ExternalArgs {
-    pub list: Vec<SpannedExpression>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct ExternalCommand {
-    pub name: String,
-
-    pub name_tag: Tag,
-    pub args: ExternalArgs,
-}
-
-impl ExternalCommand {
-    pub fn has_it_usage(&self) -> bool {
-        self.args.iter().any(|arg| match arg {
-            SpannedExpression {
-                expr: Expression::FullColumnPath(path),
-                ..
-            } => {
-                let FullColumnPath { head, .. } = &**path;
-                matches!(head, SpannedExpression{expr: Expression::Variable(x, ..), ..} if x == "$it")
-            }
-            _ => false,
-        })
-    }
-}
-
-impl HasSpan for ExternalCommand {
-    fn span(&self) -> Span {
-        self.name_tag.span.until(self.args.span)
     }
 }
 
@@ -801,8 +748,8 @@ impl PrettyDebugWithSource for SpannedExpression {
                 Expression::FilePath(path) => {
                     DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
                 }
-                Expression::ExternalCommand(external) => {
-                    DbgDocBldr::keyword("^") + DbgDocBldr::keyword(external.name.span.slice(source))
+                Expression::ExternalCommand => {
+                    DbgDocBldr::keyword("^") + DbgDocBldr::keyword(self.span.slice(source))
                 }
                 Expression::Command => DbgDocBldr::keyword(self.span.slice(source)),
                 Expression::Boolean(boolean) => match boolean {
@@ -856,9 +803,9 @@ impl PrettyDebugWithSource for SpannedExpression {
             Expression::FilePath(path) => {
                 DbgDocBldr::typed("path", DbgDocBldr::primitive(path.display()))
             }
-            Expression::ExternalCommand(external) => DbgDocBldr::typed(
+            Expression::ExternalCommand => DbgDocBldr::typed(
                 "command",
-                DbgDocBldr::keyword("^") + DbgDocBldr::primitive(external.name.span.slice(source)),
+                DbgDocBldr::keyword("^") + DbgDocBldr::primitive(self.span.slice(source)),
             ),
             Expression::Command => {
                 DbgDocBldr::typed("command", DbgDocBldr::primitive(self.span.slice(source)))
@@ -1080,7 +1027,7 @@ pub enum Expression {
     FullColumnPath(Box<FullColumnPath>),
 
     FilePath(PathBuf),
-    ExternalCommand(ExternalStringCommand),
+    ExternalCommand,
     Command,
     Subexpression(Arc<hir::Block>),
 
@@ -1109,7 +1056,7 @@ impl ShellTypeName for Expression {
             Expression::Subexpression(..) => "subexpression",
             Expression::FullColumnPath(..) => "variable path",
             Expression::Boolean(..) => "boolean",
-            Expression::ExternalCommand(..) => "external",
+            Expression::ExternalCommand => "external",
             Expression::Garbage => "garbage",
         }
     }
@@ -1475,7 +1422,7 @@ pub enum FlatShape {
     GlobPattern,
     Identifier,
     Int,
-    InternalCommand,
+    CommandSpecification,
     ItVariable,
     Keyword,
     OpenDelimiter(Delimiter),

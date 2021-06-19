@@ -38,7 +38,7 @@ pub fn evaluate_baseline_expr(
         Expression::Variable(var, s) => evaluate_reference(var, ctx, *s),
         Expression::Command => unimplemented!(),
         Expression::Subexpression(block) => evaluate_subexpression(block, ctx),
-        Expression::ExternalCommand(_) => unimplemented!(),
+        Expression::ExternalCommand => unimplemented!(),
         Expression::Binary(binary) => {
             // TODO: If we want to add short-circuiting, we'll need to move these down
             let left = evaluate_baseline_expr(&binary.left, ctx)?;

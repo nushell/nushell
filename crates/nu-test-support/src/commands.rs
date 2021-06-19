@@ -1,5 +1,7 @@
-use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, SpannedExpression};
-use nu_source::{Span, SpannedItem, Tag};
+use nu_protocol::hir::{
+    Call, CommandSpecification, Expression, ExternalRedirection, SpannedExpression, Synthetic,
+};
+use nu_source::{IntoSpanned, Span, SpannedItem};
 
 pub struct ExternalBuilder {
     name: String,
@@ -19,7 +21,7 @@ impl ExternalBuilder {
         self
     }
 
-    pub fn build(&mut self) -> ExternalCommand {
+    pub fn build(&mut self) -> CommandSpecification {
         let mut path = crate::fs::binaries();
         path.push(&self.name);
 
@@ -34,12 +36,18 @@ impl ExternalBuilder {
             })
             .collect::<Vec<_>>();
 
-        ExternalCommand {
+        CommandSpecification {
             name: name.to_string(),
-            name_tag: Tag::unknown(),
-            args: ExternalArgs {
-                list: args,
-                span: name.span,
+            name_span: Span::unknown(),
+            args: Call {
+                head: Box::new(
+                    Expression::Synthetic(Synthetic::String(name.item))
+                        .into_spanned(Span::unknown()),
+                ),
+                positional: Some(args),
+                named: None,
+                external_redirection: ExternalRedirection::Stdout,
+                span: Span::unknown(),
             },
         }
     }

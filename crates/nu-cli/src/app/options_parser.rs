@@ -4,7 +4,7 @@ use nu_command::commands::{loglevels, testbins, NuSignature as Nu};
 use nu_command::commands::{Autoview, Pivot, Table, Version as NuVersion};
 use nu_engine::{whole_stream_command, EvaluationContext};
 use nu_errors::ShellError;
-use nu_protocol::hir::{ClassifiedCommand, InternalCommand, NamedValue};
+use nu_protocol::hir::{ClassifiedCommand, CommandSpecification, NamedValue};
 use nu_protocol::UntaggedValue;
 use nu_source::Tag;
 
@@ -49,7 +49,7 @@ impl OptionsParser for NuParser {
         }
 
         match parsed.block[0].pipelines[0].list[0] {
-            ClassifiedCommand::Internal(InternalCommand { ref args, .. }) => {
+            ClassifiedCommand::Internal(CommandSpecification { ref args, .. }) => {
                 if let Some(ref params) = args.named {
                     params.iter().for_each(|(k, v)| {
                         let value = match v {

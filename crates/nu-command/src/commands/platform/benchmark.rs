@@ -6,7 +6,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     hir::{
-        Block, CapturedBlock, ClassifiedCommand, ExternalRedirection, Group, InternalCommand,
+        Block, CapturedBlock, ClassifiedCommand, CommandSpecification, ExternalRedirection, Group,
         Pipeline,
     },
     Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
@@ -189,7 +189,7 @@ fn add_implicit_autoview(mut block: Arc<Block>) -> Arc<Block> {
             let group = Group::new(
                 vec![{
                     let mut commands = Pipeline::new(block.span);
-                    commands.push(ClassifiedCommand::Internal(InternalCommand::new(
+                    commands.push(ClassifiedCommand::Internal(CommandSpecification::new(
                         "autoview".to_string(),
                         block.span,
                         block.span,

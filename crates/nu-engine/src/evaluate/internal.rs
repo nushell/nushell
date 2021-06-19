@@ -6,31 +6,30 @@ use crate::CommandArgs;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
-    Expression, ExternalRedirection, InternalCommand, SpannedExpression, Synthetic,
+    CommandSpecification, Expression, ExternalRedirection, SpannedExpression, Synthetic,
 };
 use nu_protocol::{CommandAction, ReturnSuccess, UntaggedValue, Value};
 use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{ActionStream, InputStream};
 
 pub(crate) fn run_internal_command(
-    command: &InternalCommand,
+    spec: &CommandSpecification,
     context: &EvaluationContext,
     input: InputStream,
 ) -> Result<InputStream, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
-        trace!(target: "nu::run::internal", "{}", command.name);
+        trace!(target: "nu::run::internal", "{}", spec.name);
     }
 
     let objects: InputStream = input;
 
-    let internal_command = context.scope.expect_command(&command.name);
-    let internal_command = internal_command?;
+    let command = context.scope.expect_command(&spec.name)?;
 
     let result = context.run_command(
-        internal_command,
-        Tag::unknown_anchor(command.name_span),
-        command.args.clone(), // FIXME: this is inefficient
+        command,
+        Tag::unknown_anchor(spec.name_span),
+        spec.args.clone(), // FIXME: this is inefficient
         objects,
     )?;
     Ok(InputStream::from_stream(InternalIteratorSimple {

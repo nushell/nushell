@@ -5,7 +5,7 @@ use crate::{
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
-    Call, ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, Literal,
+    Call, ClassifiedCommand, CommandSpecification, Expression, ExternalRedirection, Literal,
     NamedArguments, SpannedExpression,
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
@@ -85,34 +85,26 @@ pub fn process_script(
             && block.block[0].pipelines.len() == 1
             && block.block[0].pipelines[0].list.len() == 1
         {
-            if let ClassifiedCommand::Internal(InternalCommand {
-                ref name,
+            if let ClassifiedCommand::External(CommandSpecification {
                 ref args,
                 name_span,
+                ..
             }) = block.block[0].pipelines[0].list[0]
             {
-                let internal_name = name;
-                let name = args
-                    .positional
-                    .as_ref()
-                    .and_then(|positionals| {
-                        positionals.get(0).map(|e| {
-                            if let Expression::Literal(Literal::String(ref s)) = e.expr {
-                                &s
-                            } else {
-                                ""
-                            }
-                        })
-                    })
-                    .unwrap_or("");
+                let name = {
+                    if let Expression::Literal(Literal::String(ref s)) = args.head.expr {
+                        &s
+                    } else {
+                        ""
+                    }
+                };
 
                 ctx.sync_path_to_env();
-                if internal_name == "run_external"
-                    && args
-                        .positional
-                        .as_ref()
-                        .map(|v| v.len() == 1)
-                        .unwrap_or(true)
+                if args
+                    .positional
+                    .as_ref()
+                    .map(|v| v.is_empty())
+                    .unwrap_or(true)
                     && args
                         .named
                         .as_ref()

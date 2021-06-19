@@ -5,9 +5,9 @@ use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
-    Unit,
+    self, Binary, Block, ClassifiedCommand, CommandSpecification, Expression, ExternalRedirection,
+    Flag, FlagKind, Group, Member, NamedArguments, Operator, Pipeline, RangeOperator,
+    SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
@@ -689,7 +689,7 @@ fn parse_interpolated_string(
 
     let pipelines = vec![Pipeline {
         span: lite_arg.span,
-        list: vec![ClassifiedCommand::Internal(InternalCommand {
+        list: vec![ClassifiedCommand::Internal(CommandSpecification {
             name: "build-string".to_owned(),
             name_span: lite_arg.span,
             args: hir::Call {
@@ -1460,7 +1460,7 @@ fn parse_internal_command(
     scope: &dyn ParserScope,
     signature: &Signature,
     mut idx: usize,
-) -> (InternalCommand, Option<ParseError>) {
+) -> (CommandSpecification, Option<ParseError>) {
     // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
 
     let (name, name_span) = (
@@ -1475,8 +1475,8 @@ fn parse_internal_command(
         ),
     );
 
-    let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
-    internal_command.args.set_initial_flags(signature);
+    let mut command_spec = CommandSpecification::new(name, name_span, lite_cmd.span());
+    command_spec.args.set_initial_flags(signature);
 
     let mut current_positional = 0;
     let mut named = NamedArguments::new();
@@ -1488,7 +1488,7 @@ fn parse_internal_command(
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
             let (named_types, err) = super::flag::get_flag_signature_spec(
                 signature,
-                &internal_command,
+                &command_spec,
                 &lite_cmd.parts[idx],
             );
 
@@ -1630,14 +1630,14 @@ fn parse_internal_command(
     }
 
     if !named.is_empty() {
-        internal_command.args.named = Some(named);
+        command_spec.args.named = Some(named);
     }
 
     if !positional.is_empty() {
-        internal_command.args.positional = Some(positional);
+        command_spec.args.positional = Some(positional);
     }
 
-    (internal_command, error)
+    (command_spec, error)
 }
 
 fn parse_external_call(
@@ -1646,19 +1646,14 @@ fn parse_external_call(
     scope: &dyn ParserScope,
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     let mut error = None;
-    let name = lite_cmd.parts[0].clone().map(|v| {
-        let trimmed = trim_quotes(&v);
-        expand_path(&trimmed).to_string()
-    });
-
     let mut args = vec![];
 
-    let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
+    let (name, err) = parse_arg(SyntaxShape::String, scope, &lite_cmd.parts[0]);
     let name_span = name.span;
+
     if error.is_none() {
         error = err;
     }
-    args.push(name);
 
     for lite_arg in &lite_cmd.parts[1..] {
         let (expr, err) = parse_external_arg(lite_arg, scope);
@@ -1669,14 +1664,11 @@ fn parse_external_call(
     }
 
     (
-        Some(ClassifiedCommand::Internal(InternalCommand {
-            name: "run_external".to_string(),
+        Some(ClassifiedCommand::External(CommandSpecification {
+            name: "external".to_string(),
             name_span,
             args: hir::Call {
-                head: Box::new(SpannedExpression {
-                    expr: Expression::string("run_external".to_string()),
-                    span: name_span,
-                }),
+                head: Box::new(name),
                 positional: Some(args),
                 named: None,
                 span: name_span,
@@ -1758,45 +1750,16 @@ fn parse_call(
 
         name.span = Span::new(name.span.start() + 1, name.span.end());
 
-        // TODO this is the same as the `else` branch below, only the name differs. Find a way
-        //      to share this functionality.
-        let mut args = vec![];
+        let mut parts = vec![name];
+        parts.append(&mut lite_cmd.parts[1..].to_vec());
 
-        let (name, err) = parse_arg(SyntaxShape::String, scope, &name);
-        let name_span = name.span;
-        if error.is_none() {
-            error = err;
-        }
-        args.push(name);
-
-        for lite_arg in &lite_cmd.parts[1..] {
-            let (expr, err) = parse_external_arg(lite_arg, scope);
-            if error.is_none() {
-                error = err;
-            }
-            args.push(expr);
-        }
-
-        return (
-            Some(ClassifiedCommand::Internal(InternalCommand {
-                name: "run_external".to_string(),
-                name_span,
-                args: hir::Call {
-                    head: Box::new(SpannedExpression {
-                        expr: Expression::string("run_external".to_string()),
-                        span: name_span,
-                    }),
-                    positional: Some(args),
-                    named: None,
-                    span: name_span,
-                    external_redirection: if end_of_pipeline {
-                        ExternalRedirection::None
-                    } else {
-                        ExternalRedirection::Stdout
-                    },
-                },
-            })),
-            error,
+        return parse_external_call(
+            &LiteCommand {
+                parts,
+                comments: lite_cmd.comments,
+            },
+            end_of_pipeline,
+            scope,
         );
     } else if lite_cmd.parts[0].item.starts_with('{') {
         return parse_value_call(lite_cmd, scope);
@@ -1833,16 +1796,15 @@ fn parse_call(
             "{} {}",
             lite_cmd.parts[0].item, lite_cmd.parts[1].item
         )) {
-            let (mut internal_command, err) =
-                parse_internal_command(&lite_cmd, scope, &signature, 1);
+            let (mut command_spec, err) = parse_internal_command(&lite_cmd, scope, &signature, 1);
 
             error = error.or(err);
-            internal_command.args.external_redirection = if end_of_pipeline {
+            command_spec.args.external_redirection = if end_of_pipeline {
                 ExternalRedirection::None
             } else {
                 ExternalRedirection::Stdout
             };
-            return (Some(ClassifiedCommand::Internal(internal_command)), error);
+            return (Some(ClassifiedCommand::Internal(command_spec)), error);
         }
     }
     // Check if it's an internal command
@@ -1856,12 +1818,12 @@ fn parse_call(
                 );
             }
         }
-        let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
+        let (mut command_spec, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
-        if internal_command.name == "source" {
+        if command_spec.name == "source" {
             if lite_cmd.parts.len() != 2 {
                 return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ClassifiedCommand::Internal(command_spec)),
                     Some(ParseError::argument_error(
                         lite_cmd.parts[0].clone(),
                         ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
@@ -1870,7 +1832,7 @@ fn parse_call(
             }
             if lite_cmd.parts[1].item.starts_with('$') {
                 return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ClassifiedCommand::Internal(command_spec)),
                     Some(ParseError::mismatch(
                         "a filepath constant",
                         lite_cmd.parts[1].clone(),
@@ -1883,7 +1845,7 @@ fn parse_call(
                 let _ = parse(&contents, 0, scope);
             } else {
                 return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ClassifiedCommand::Internal(command_spec)),
                     Some(ParseError::argument_error(
                         lite_cmd.parts[1].clone(),
                         ArgumentError::BadValue("can't load source file".into()),
@@ -1893,19 +1855,19 @@ fn parse_call(
         } else if lite_cmd.parts[0].item == "alias" {
             let error = parse_alias(&lite_cmd, scope);
             if error.is_none() {
-                return (Some(ClassifiedCommand::Internal(internal_command)), None);
+                return (Some(ClassifiedCommand::Internal(command_spec)), None);
             } else {
-                return (Some(ClassifiedCommand::Internal(internal_command)), error);
+                return (Some(ClassifiedCommand::Internal(command_spec)), error);
             }
         }
 
         error = error.or(err);
-        internal_command.args.external_redirection = if end_of_pipeline {
+        command_spec.args.external_redirection = if end_of_pipeline {
             ExternalRedirection::None
         } else {
             ExternalRedirection::Stdout
         };
-        (Some(ClassifiedCommand::Internal(internal_command)), error)
+        (Some(ClassifiedCommand::Internal(command_spec)), error)
     } else {
         parse_external_call(&lite_cmd, end_of_pipeline, scope)
     }
@@ -2090,7 +2052,7 @@ pub fn classify_block(
                         span,
                     },
                 ]);
-                let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
+                let classified_with_env = ClassifiedCommand::Internal(CommandSpecification {
                     name: "with-env".to_string(),
                     name_span: Span::unknown(),
                     args: call,

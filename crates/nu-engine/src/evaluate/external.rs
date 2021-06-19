@@ -1,9 +1,12 @@
-use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, BufCodecReader};
-use nu_engine::{MaybeTextCodec, StringOrBinary};
+use crate::EvaluationContext;
+use crate::Scope;
+use crate::{evaluate_baseline_expr, BufCodecReader};
+use crate::{MaybeTextCodec, StringOrBinary};
+use nu_stream::InputStream;
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 
+use nu_stream::IntoInputStream;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
@@ -12,92 +15,75 @@ use std::{borrow::Cow, io::BufReader};
 
 use log::trace;
 
+use itertools::Itertools;
 use nu_errors::ShellError;
-use nu_protocol::hir::Expression;
-use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
+use nu_protocol::hir::{CommandSpecification, Expression, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
-pub(crate) fn run_external_command(
-    command: ExternalCommand,
-    context: &mut EvaluationContext,
+pub fn run_external_command(
+    command: &CommandSpecification,
+    context: &EvaluationContext,
     input: InputStream,
-    external_redirection: ExternalRedirection,
 ) -> Result<InputStream, ShellError> {
+    let mut command = command.clone();
     trace!(target: "nu::run::external", "-> {}", command.name);
+
+    let name = evaluate_baseline_expr(&command.args.head, context)?.as_string()?;
+
+    command.name = name;
 
     context.sync_path_to_env();
     if !context.host().lock().is_external_cmd(&command.name) {
         return Err(ShellError::labeled_error(
             "Command not found",
             format!("command {} not found", &command.name),
-            &command.name_tag,
+            &command.name_span,
         ));
     }
 
-    run_with_stdin(command, context, input, external_redirection)
-}
-
-#[allow(unused)]
-fn trim_double_quotes(input: &str) -> String {
-    let mut chars = input.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some('"'), Some('"')) => chars.collect(),
-        _ => input.to_string(),
-    }
-}
-
-#[allow(unused)]
-fn escape_where_needed(input: &str) -> String {
-    input.split(' ').join("\\ ").split('\'').join("\\'")
-}
-
-fn run_with_stdin(
-    command: ExternalCommand,
-    context: &mut EvaluationContext,
-    input: InputStream,
-    external_redirection: ExternalRedirection,
-) -> Result<InputStream, ShellError> {
     let path = context.shell_manager().path();
 
     let mut command_args = vec![];
-    for arg in command.args.iter() {
-        let is_literal = matches!(arg.expr, Expression::Literal(_));
-        let value = evaluate_baseline_expr(arg, context)?;
+    if let Some(ref positionals) = command.args.positional {
+        for arg in positionals {
+            let is_literal = matches!(arg.expr, Expression::Literal(_));
+            let value = evaluate_baseline_expr(arg, context)?;
 
-        // Skip any arguments that don't really exist, treating them as optional
-        // FIXME: we may want to preserve the gap in the future, though it's hard to say
-        // what value we would put in its place.
-        if value.value.is_none() {
-            continue;
-        }
+            // Skip any arguments that don't really exist, treating them as optional
+            // FIXME: we may want to preserve the gap in the future, though it's hard to say
+            // what value we would put in its place.
+            if value.value.is_none() {
+                continue;
+            }
 
-        // Do the cleanup that we need to do on any argument going out:
-        match &value.value {
-            UntaggedValue::Table(table) => {
-                for t in table {
-                    match &t.value {
-                        UntaggedValue::Primitive(_) => {
-                            command_args.push((
-                                t.convert_to_string().trim_end_matches('\n').to_string(),
-                                is_literal,
-                            ));
-                        }
-                        _ => {
-                            return Err(ShellError::labeled_error(
-                                "Could not convert to positional arguments",
-                                "could not convert to positional arguments",
-                                value.tag(),
-                            ));
+            // Do the cleanup that we need to do on any argument going out:
+            match &value.value {
+                UntaggedValue::Table(table) => {
+                    for t in table {
+                        match &t.value {
+                            UntaggedValue::Primitive(_) => {
+                                command_args.push((
+                                    t.convert_to_string().trim_end_matches('\n').to_string(),
+                                    is_literal,
+                                ));
+                            }
+                            _ => {
+                                return Err(ShellError::labeled_error(
+                                    "Could not convert to positional arguments",
+                                    "could not convert to positional arguments",
+                                    value.tag(),
+                                ));
+                            }
                         }
                     }
                 }
-            }
-            _ => {
-                let trimmed_value_string = value.as_string()?.trim_end_matches('\n').to_string();
-                //let trimmed_value_string = trim_quotes(&trimmed_value_string);
-                command_args.push((trimmed_value_string, is_literal));
+                _ => {
+                    let trimmed_value_string =
+                        value.as_string()?.trim_end_matches('\n').to_string();
+                    //let trimmed_value_string = trim_quotes(&trimmed_value_string);
+                    command_args.push((trimmed_value_string, is_literal));
+                }
             }
         }
     }
@@ -132,25 +118,33 @@ fn run_with_stdin(
         })
         .collect::<Vec<String>>();
 
-    spawn(
-        &command,
-        &path,
-        &process_args[..],
-        input,
-        external_redirection,
-        &context.scope,
-    )
+    spawn(&command, &path, &process_args[..], input, &context.scope)
+}
+
+#[allow(unused)]
+fn trim_double_quotes(input: &str) -> String {
+    let mut chars = input.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('"'), Some('"')) => chars.collect(),
+        _ => input.to_string(),
+    }
+}
+
+#[allow(unused)]
+fn escape_where_needed(input: &str) -> String {
+    input.split(' ').join("\\ ").split('\'').join("\\'")
 }
 
 fn spawn(
-    command: &ExternalCommand,
+    command: &CommandSpecification,
     path: &str,
     args: &[String],
     input: InputStream,
-    external_redirection: ExternalRedirection,
     scope: &Scope,
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
+    let external_redirection = command.args.external_redirection;
 
     let mut process = {
         #[cfg(windows)]
@@ -220,8 +214,8 @@ fn spawn(
 
             let stdin_write_tx = tx.clone();
             let stdout_read_tx = tx;
-            let stdin_name_tag = command.name_tag.clone();
-            let stdout_name_tag = command.name_tag;
+            let stdin_name_tag: Tag = command.name_span.clone().into();
+            let stdout_name_tag: Tag = command.name_span.into();
 
             std::thread::spawn(move || {
                 if !input.is_empty() {
@@ -457,10 +451,12 @@ fn spawn(
         Err(e) => Err(ShellError::labeled_error(
             format!("{}", e),
             "failed to spawn",
-            &command.name_tag,
+            &command.name_span,
         )),
     }
 }
+
+use std::sync::Arc;
 
 struct ChannelReceiver {
     rx: Arc<Mutex<mpsc::Receiver<Result<Value, ShellError>>>>,
@@ -550,7 +546,7 @@ mod tests {
     use super::{run_external_command, InputStream};
 
     #[cfg(feature = "which")]
-    use nu_engine::EvaluationContext;
+    use crate::EvaluationContext;
 
     #[cfg(feature = "which")]
     use nu_test_support::commands::ExternalBuilder;
@@ -569,13 +565,12 @@ mod tests {
 
     #[cfg(feature = "which")]
     fn non_existent_run() {
-        use nu_protocol::hir::ExternalRedirection;
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let input = InputStream::empty();
         let mut ctx = EvaluationContext::basic();
 
-        assert!(run_external_command(cmd, &mut ctx, input, ExternalRedirection::Stdout).is_err());
+        assert!(run_external_command(&cmd, &mut ctx, input).is_err());
     }
 
     // fn failure_run() -> Result<(), ShellError> {

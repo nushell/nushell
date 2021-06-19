@@ -1,5 +1,5 @@
 use nu_errors::{ArgumentError, ParseError};
-use nu_protocol::hir::InternalCommand;
+use nu_protocol::hir::CommandSpecification;
 use nu_protocol::NamedType;
 use nu_source::{Span, Spanned, SpannedItem};
 
@@ -7,7 +7,7 @@ use nu_source::{Span, Spanned, SpannedItem};
 /// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
 pub fn get_flag_signature_spec(
     signature: &nu_protocol::Signature,
-    cmd: &InternalCommand,
+    cmd: &CommandSpecification,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
     if arg.item.starts_with('-') {
@@ -81,7 +81,7 @@ pub fn get_flag_signature_spec(
 mod tests {
     use super::get_flag_signature_spec;
     use crate::{lex, parse_block};
-    use nu_protocol::{hir::InternalCommand, NamedType, Signature, SyntaxShape};
+    use nu_protocol::{hir::CommandSpecification, NamedType, Signature, SyntaxShape};
     use nu_source::{HasSpan, Span};
 
     fn bundle() -> Signature {
@@ -117,7 +117,7 @@ mod tests {
             ),
         );
 
-        let mut internal = InternalCommand::new(name, name_span, command_node.span());
+        let mut internal = CommandSpecification::new(name, name_span, command_node.span());
 
         let signature = bundle();
 

@@ -35,7 +35,7 @@ impl Palette for DefaultPalette {
             FlatShape::GlobPattern => single_style_span(Color::Cyan.bold(), shape.span),
             FlatShape::Identifier => single_style_span(Color::Purple.normal(), shape.span),
             FlatShape::Int => single_style_span(Color::Purple.bold(), shape.span),
-            FlatShape::InternalCommand => single_style_span(Color::Cyan.bold(), shape.span),
+            FlatShape::CommandSpecification => single_style_span(Color::Cyan.bold(), shape.span),
             FlatShape::ItVariable => single_style_span(Color::Purple.bold(), shape.span),
             FlatShape::Keyword => single_style_span(Color::Purple.bold(), shape.span),
             FlatShape::OpenDelimiter(_) => single_style_span(Color::White.normal(), shape.span),
@@ -101,7 +101,7 @@ impl Palette for ThemedPalette {
             }
             FlatShape::DotDot => single_style_span(self.theme.dot_dot.bold(), shape.span),
             FlatShape::Dot => single_style_span(Style::new().fg(*self.theme.dot), shape.span),
-            FlatShape::InternalCommand => {
+            FlatShape::CommandSpecification => {
                 single_style_span(self.theme.internal_command.bold(), shape.span)
             }
             FlatShape::ExternalCommand => {

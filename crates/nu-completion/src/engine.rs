@@ -70,7 +70,7 @@ impl<'s> Flatten<'s> {
             }
 
             Expression::ExternalWord
-            | Expression::ExternalCommand(_)
+            | Expression::ExternalCommand
             | Expression::Synthetic(_)
             | Expression::Literal(Literal::Operator(_))
             | Expression::Literal(Literal::Bare(_))
@@ -78,37 +78,31 @@ impl<'s> Flatten<'s> {
         }
     }
 
-    fn internal_command(&self, internal: &InternalCommand) -> Vec<CompletionLocation> {
+    fn command_specification(&self, spec: &CommandSpecification) -> Vec<CompletionLocation> {
         let mut result = Vec::new();
 
-        match internal.args.head.expr {
+        match spec.args.head.expr {
             Expression::Command => {
-                result.push(LocationType::Command.spanned(internal.name_span));
+                result.push(LocationType::Command.spanned(spec.name_span));
             }
             Expression::Literal(Literal::String(_)) => {
-                result.push(LocationType::Command.spanned(internal.name_span));
+                result.push(LocationType::Command.spanned(spec.name_span));
             }
             _ => (),
         }
 
-        if let Some(positionals) = &internal.args.positional {
-            let mut positionals = positionals.iter();
-
-            if internal.name == "run_external" {
-                if let Some(external_command) = positionals.next() {
-                    result.push(LocationType::Command.spanned(external_command.span));
-                }
-            }
+        if let Some(positionals) = &spec.args.positional {
+            let positionals = positionals.iter();
 
             result.extend(positionals.flat_map(|positional| match positional.expr {
                 Expression::Garbage => {
                     let garbage = positional.span.slice(self.line);
                     let location = if garbage.starts_with('-') {
-                        LocationType::Flag(internal.name.clone())
+                        LocationType::Flag(spec.name.clone())
                     } else {
                         // TODO we may be able to map this to the name of a positional,
                         //      but we'll need a signature
-                        LocationType::Argument(Some(internal.name.clone()), None)
+                        LocationType::Argument(Some(spec.name.clone()), None)
                     };
 
                     vec![location.spanned(positional.span)]
@@ -118,15 +112,15 @@ impl<'s> Flatten<'s> {
             }));
         }
 
-        if let Some(named) = &internal.args.named {
+        if let Some(named) = &spec.args.named {
             for (name, kind) in &named.named {
                 match kind {
                     NamedValue::PresentSwitch(span) => {
-                        result.push(LocationType::Flag(internal.name.clone()).spanned(*span));
+                        result.push(LocationType::Flag(spec.name.clone()).spanned(*span));
                     }
 
                     NamedValue::Value(span, expr) => {
-                        result.push(LocationType::Flag(internal.name.clone()).spanned(*span));
+                        result.push(LocationType::Flag(spec.name.clone()).spanned(*span));
                         result.append(&mut self.with_flag(name.clone()).expression(expr));
                     }
 
@@ -145,7 +139,12 @@ impl<'s> Flatten<'s> {
             match command {
                 ClassifiedCommand::Internal(internal) => {
                     let engine = self.with_command(internal.name.clone());
-                    result.append(&mut engine.internal_command(internal));
+                    result.append(&mut engine.command_specification(internal));
+                }
+
+                ClassifiedCommand::External(external) => {
+                    let engine = self.with_command(external.name.clone());
+                    result.append(&mut engine.command_specification(external));
                 }
 
                 ClassifiedCommand::Expr(expr) => result.append(&mut self.expression(expr)),
@@ -354,7 +353,7 @@ mod tests {
         }
 
         #[test]
-        fn completes_internal_command_names() {
+        fn completes_command_names() {
             let registry: VecRegistry =
                 vec![Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")].into();
             let line = "echo 1 | echo 2";

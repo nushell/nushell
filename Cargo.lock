@@ -3584,6 +3584,7 @@ dependencies = [
  "rayon",
  "serde 1.0.126",
  "serde_json",
+ "shellexpand",
  "tempfile",
  "term_size",
  "termcolor",

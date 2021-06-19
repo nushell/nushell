@@ -53,6 +53,7 @@ serde_json = "1.0.61"
 tempfile = "3.2.0"
 term_size = "0.3.2"
 termcolor = "1.1.2"
+shellexpand = "2.1.0"
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

@@ -299,7 +299,7 @@ fn get_shape_of_expr(expr: &SpannedExpression) -> Option<SyntaxShape> {
         Expression::FullColumnPath(_) => Some(SyntaxShape::ColumnPath),
         Expression::FilePath(_) => Some(SyntaxShape::FilePath),
         Expression::Block(_) => Some(SyntaxShape::Block),
-        Expression::ExternalCommand(_) => Some(SyntaxShape::String),
+        Expression::ExternalCommand => Some(SyntaxShape::String),
         Expression::Table(_, _) => Some(SyntaxShape::Table),
         Expression::Command => Some(SyntaxShape::String),
         Expression::Subexpression(_) => Some(SyntaxShape::Block),
@@ -446,7 +446,9 @@ impl VarSyntaxShapeDeductor {
                     );
                     self.infer_shapes_in_expr((cmd_pipeline_idx, pipeline), spanned_expr, scope)?;
                 }
-                ClassifiedCommand::Dynamic(_) | ClassifiedCommand::Error(_) => unimplemented!(),
+                ClassifiedCommand::External(_)
+                | ClassifiedCommand::Dynamic(_)
+                | ClassifiedCommand::Error(_) => unimplemented!(),
             }
         }
         Ok(())
@@ -604,7 +606,7 @@ impl VarSyntaxShapeDeductor {
             Expression::ExternalWord => {}
             Expression::Synthetic(_) => {}
             Expression::FilePath(_) => {}
-            Expression::ExternalCommand(_) => {}
+            Expression::ExternalCommand => {}
             Expression::Command => {}
             Expression::Boolean(_) => {}
             Expression::Garbage => {}
@@ -792,7 +794,7 @@ impl VarSyntaxShapeDeductor {
                         | Expression::Block(_)
                         | Expression::FullColumnPath(_)
                         | Expression::FilePath(_)
-                        | Expression::ExternalCommand(_)
+                        | Expression::ExternalCommand
                         | Expression::Command
                         | Expression::Subexpression(_)
                         | Expression::Boolean(_)
