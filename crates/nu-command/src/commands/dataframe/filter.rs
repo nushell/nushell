@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Filters dataframe using a mask as reference"
+        "[DataFrame] Filters dataframe using a mask as reference"
     }
 
     fn signature(&self) -> Signature {

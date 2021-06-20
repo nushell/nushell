@@ -84,7 +84,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Performs an aggregation operation on a dataframe or groupby object"
+        "[DataFrame, GroupBy, Series] Performs an aggregation operation on a dataframe, groupby or series object"
     }
 
     fn signature(&self) -> Signature {
