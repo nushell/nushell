@@ -17,22 +17,24 @@ pub use trim_right::SubCommand as TrimRight;
 struct Arguments {
     character: Option<Tagged<char>>,
     column_paths: Vec<ColumnPath>,
+    all_flag: bool
 }
 
 pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<ActionStream, ShellError>
 where
-    F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>, bool) -> String + Send + Sync + 'static,
 {
     let (options, input) = (
         Arc::new(Arguments {
             character: args.get_flag("char")?,
             column_paths: args.rest(0)?,
+            all_flag: args.has_flag("all")
         }),
         args.input,
     );
 
     let to_trim = options.character.as_ref().map(|tagged| tagged.item);
-
+    let all_trim = options.all_flag;
     Ok(input
         .map(move |v| {
             if options.column_paths.is_empty() {
@@ -40,6 +42,7 @@ where
                     &v,
                     v.tag(),
                     to_trim,
+                    all_trim,
                     &trim_operation,
                     ActionMode::Global,
                 )?)
@@ -50,7 +53,7 @@ where
                     ret = ret.swap_data_by_column_path(
                         path,
                         Box::new(move |old| {
-                            action(old, old.tag(), to_trim, &trim_operation, ActionMode::Local)
+                            action(old, old.tag(), to_trim, all_trim, &trim_operation, ActionMode::Local)
                         }),
                     )?;
                 }
@@ -71,16 +74,17 @@ pub fn action<F>(
     input: &Value,
     tag: impl Into<Tag>,
     char_: Option<char>,
+    all_flag: bool,
     trim_operation: &F,
     mode: ActionMode,
 ) -> Result<Value, ShellError>
 where
-    F: Fn(&str, Option<char>) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>, bool) -> String + Send + Sync + 'static,
 {
     let tag = tag.into();
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::string(trim_operation(s, char_)).into_value(tag))
+            Ok(UntaggedValue::string(trim_operation(s, char_, all_flag)).into_value(tag))
         }
         other => match mode {
             ActionMode::Global => match other {
@@ -91,7 +95,7 @@ where
                         .map(|(k, v)| -> Result<_, ShellError> {
                             Ok((
                                 k.clone(),
-                                action(v, tag.clone(), char_, trim_operation, mode)?,
+                                action(v, tag.clone(), char_, all_flag, trim_operation, mode)?,
                             ))
                         })
                         .collect();
@@ -102,7 +106,7 @@ where
                     let values: Result<Vec<Value>, ShellError> = values
                         .iter()
                         .map(|v| -> Result<_, ShellError> {
-                            action(v, tag.clone(), char_, trim_operation, mode)
+                            action(v, tag.clone(), char_, all_flag, trim_operation, mode)
                         })
                         .collect();
                     Ok(UntaggedValue::Table(values?).into_value(tag))

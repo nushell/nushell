@@ -135,3 +135,4 @@ stable = []
 trash-support = ["trash"]
 table-pager = ["minus", "crossterm"]
 dataframe = ["nu-protocol/dataframe", "polars"]
+

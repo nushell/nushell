@@ -49,7 +49,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn trim_right(s: &str, char_: Option<char>) -> String {
+fn trim_right(s: &str, char_: Option<char>, _all_flag: bool) -> String {
     match char_ {
         None => String::from(s.trim_end()),
         Some(ch) => String::from(s.trim_end_matches(ch)),
@@ -77,7 +77,7 @@ mod tests {
         let word = string(" andres ");
         let expected = string(" andres");
 
-        let actual = action(&word, Tag::unknown(), None, &trim_right, ActionMode::Local).unwrap();
+        let actual = action(&word, Tag::unknown(), None, false, &trim_right, ActionMode::Local).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -86,7 +86,7 @@ mod tests {
         let word = string(" global   ");
         let expected = string(" global");
 
-        let actual = action(&word, Tag::unknown(), None, &trim_right, ActionMode::Global).unwrap();
+        let actual = action(&word, Tag::unknown(), None, false, &trim_right, ActionMode::Global).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -99,6 +99,7 @@ mod tests {
             &number,
             Tag::unknown(),
             None,
+            false,
             &trim_right,
             ActionMode::Global,
         )
@@ -111,7 +112,7 @@ mod tests {
         let row = row!["a".to_string() => string("    c "), " b ".to_string() => string("  d   ")];
         let expected = row!["a".to_string() => string("    c"), " b ".to_string() => string("  d")];
 
-        let actual = action(&row, Tag::unknown(), None, &trim_right, ActionMode::Global).unwrap();
+        let actual = action(&row, Tag::unknown(), None, false, &trim_right, ActionMode::Global).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -120,7 +121,7 @@ mod tests {
         let row = table(&[string("  a  "), int(65), string(" d")]);
         let expected = table(&[string("  a"), int(65), string(" d")]);
 
-        let actual = action(&row, Tag::unknown(), None, &trim_right, ActionMode::Global).unwrap();
+        let actual = action(&row, Tag::unknown(), None, false, &trim_right, ActionMode::Global).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -133,6 +134,7 @@ mod tests {
             &word,
             Tag::unknown(),
             Some('#'),
+            false,
             &trim_right,
             ActionMode::Local,
         )
