@@ -1,6 +1,7 @@
 mod all;
 mod any;
 mod append;
+mod collect;
 mod compact;
 mod default;
 mod drop;
@@ -41,6 +42,7 @@ mod wrap;
 pub use all::Command as All;
 pub use any::Command as Any;
 pub use append::Command as Append;
+pub use collect::Command as Collect;
 pub use compact::Compact;
 pub use default::Default;
 pub use drop::*;
