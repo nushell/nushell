@@ -1004,6 +1004,30 @@ fn date_and_duration_overflow() {
     assert!(actual.err.contains("Duration and date addition overflow"));
 }
 
+#[test]
+fn pipeline_params_simple() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 1 2 3 | $in.1 * $in.2
+        "#)
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn pipeline_params_inner() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
+        "#)
+    );
+
+    assert_eq!(actual.out, "126");
+}
+
 mod parse {
     use nu_test_support::nu;
 
