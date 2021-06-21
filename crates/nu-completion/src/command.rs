@@ -1,6 +1,7 @@
 use super::matchers::Matcher;
 use crate::{Completer, CompletionContext, Suggestion};
 use indexmap::set::IndexSet;
+#[cfg(windows)]
 use is_executable::IsExecutable;
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 use std::iter::FromIterator;
