@@ -1,12 +1,12 @@
-use nu_test_support::NATIVE_PATH_ENV_VAR;
-
-use std::iter::FromIterator;
-use std::path::Path;
-
-use indexmap::set::IndexSet;
-
 use super::matchers::Matcher;
 use crate::{Completer, CompletionContext, Suggestion};
+use indexmap::set::IndexSet;
+#[cfg(feature = "is_executable")]
+#[allow(unused)]
+use is_executable::IsExecutable;
+use nu_test_support::NATIVE_PATH_ENV_VAR;
+use std::iter::FromIterator;
+use std::path::Path;
 
 pub struct CommandCompleter;
 
@@ -56,45 +56,12 @@ where
     }
 }
 
-// TODO create a struct for "is executable" and store this information in it so we don't recompute
-//      on every dir entry
-
-#[cfg(windows)]
-fn pathext() -> Option<Vec<String>> {
-    std::env::var_os("PATHEXT").map(|v| {
-        v.to_string_lossy()
-            .split(';')
-            // Filter out empty tokens and ';' at the end
-            .filter(|f| f.len() > 1)
-            // Cut off the leading '.' character
-            .map(|ext| ext[1..].to_string())
-            .collect::<Vec<_>>()
-    })
-}
-
 #[cfg(windows)]
 fn is_executable(path: &Path) -> bool {
-    if let Ok(metadata) = path.metadata() {
-        let file_type = metadata.file_type();
-
-        // If the entry isn't a file, it cannot be executable
-        if !(file_type.is_file() || file_type.is_symlink()) {
-            return false;
-        }
-
-        if let Some(extension) = path.extension() {
-            if let Some(exts) = pathext() {
-                exts.iter()
-                    .any(|ext| extension.to_string_lossy().eq_ignore_ascii_case(ext))
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    } else {
-        false
-    }
+    // This call to a crate essentially checks the PATHEXT on Windows and does some
+    // low level WinAPI calls to determine if the file is executable. It seems quite
+    // a bit faster than calling path.metadata().
+    path.is_executable()
 }
 
 #[cfg(target_arch = "wasm32")]
