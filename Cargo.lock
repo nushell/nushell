@@ -2606,6 +2606,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
+name = "is_executable"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa9acdc6d67b75e626ad644734e8bc6df893d9cd2a834129065d3dd6158ea9c8"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "isahc"
 version = "0.9.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3498,6 +3507,7 @@ version = "0.32.1"
 dependencies = [
  "dirs-next",
  "indexmap",
+ "is_executable",
  "nu-data",
  "nu-errors",
  "nu-parser",
