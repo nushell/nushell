@@ -492,7 +492,7 @@ mod tests {
                 std::matches!(expanded, Cow::Borrowed(_)),
                 "No PathBuf should be needed here (unecessary allocation)"
             );
-            assert!(&expanded == Path::new(s));
+            assert!(expanded == Path::new(s));
         }
 
         #[test]

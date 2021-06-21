@@ -10,9 +10,9 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_path::{expand_path, expand_path_string};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
-    Unit,
+    self, Binary, Block, Call, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind,
+    Group, InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator,
+    SpannedExpression, Synthetic, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
@@ -1926,14 +1926,20 @@ fn parse_pipeline(
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
 
-    let mut iter = lite_pipeline.commands.into_iter().peekable();
-    while let Some(lite_cmd) = iter.next() {
-        let (call, err) = parse_call(lite_cmd, iter.peek().is_none(), scope);
+    let pipeline_len = lite_pipeline.commands.len();
+    let iter = lite_pipeline.commands.into_iter().peekable();
+    for lite_cmd in iter.enumerate() {
+        let (call, err) = parse_call(lite_cmd.1, lite_cmd.0 == (pipeline_len - 1), scope);
         if error.is_none() {
             error = err;
         }
         if let Some(call) = call {
-            commands.push(call);
+            if call.has_var_usage("$in") && lite_cmd.0 > 0 {
+                let call = wrap_with_collect(call, "$in");
+                commands.push(call);
+            } else {
+                commands.push(call);
+            }
         }
     }
 
@@ -1941,6 +1947,41 @@ fn parse_pipeline(
 }
 
 type SpannedKeyValue = (Spanned<String>, Spanned<String>);
+
+fn wrap_with_collect(call: ClassifiedCommand, var_name: &str) -> ClassifiedCommand {
+    let mut block = Block::basic();
+
+    block.block.push(Group {
+        pipelines: vec![Pipeline {
+            list: vec![call],
+            span: Span::unknown(),
+        }],
+        span: Span::unknown(),
+    });
+
+    block.params.positional = vec![(
+        PositionalType::Mandatory(var_name.into(), SyntaxShape::Any),
+        format!("implied {}", var_name),
+    )];
+
+    ClassifiedCommand::Internal(InternalCommand {
+        name: "collect".into(),
+        name_span: Span::unknown(),
+        args: Call {
+            head: Box::new(SpannedExpression {
+                expr: Expression::Synthetic(Synthetic::String("collect".into())),
+                span: Span::unknown(),
+            }),
+            positional: Some(vec![SpannedExpression {
+                expr: Expression::Block(Arc::new(block)),
+                span: Span::unknown(),
+            }]),
+            named: None,
+            span: Span::unknown(),
+            external_redirection: ExternalRedirection::Stdout,
+        },
+    })
+}
 
 fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,

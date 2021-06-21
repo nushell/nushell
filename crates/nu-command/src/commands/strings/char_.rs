@@ -1,12 +1,18 @@
 use crate::prelude::*;
+use indexmap::indexmap;
+use indexmap::map::IndexMap;
+use lazy_static::lazy_static;
 use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
-use indexmap::indexmap;
-use indexmap::map::IndexMap;
-use lazy_static::lazy_static;
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const ENV_PATH_SEPARATOR_CHAR: char = ';';
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
 pub struct Char;
 
@@ -48,8 +54,11 @@ lazy_static! {
         "double_quote" => '\"'.to_string(),
         "dquote" => '\"'.to_string(),
         "dq" => '\"'.to_string(),
-        "sep" => std::path::MAIN_SEPARATOR.to_string(),
+        "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
+        "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
+        "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
+        "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
         "twiddle" => '~'.to_string(),                              // ~
         "squiggly" => '~'.to_string(),                             // ~
