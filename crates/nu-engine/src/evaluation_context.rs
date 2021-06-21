@@ -1,3 +1,4 @@
+use crate::evaluate::evaluator::Variable;
 use crate::evaluate::scope::{Scope, ScopeFrame};
 use crate::shell::palette::ThemedPalette;
 use crate::shell::shell_manager::ShellManager;
@@ -5,14 +6,17 @@ use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
 use crate::{env::basic_host::BasicHost, Host};
-use indexmap::IndexMap;
-use log::trace;
+
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
-use nu_protocol::{hir, ConfigPath};
+use nu_protocol::{hir, ConfigPath, VariableRegistry};
+use nu_source::Spanned;
 use nu_source::{Span, Tag};
 use nu_stream::InputStream;
 use nu_test_support::NATIVE_PATH_ENV_VAR;
+
+use indexmap::IndexMap;
+use log::trace;
 use parking_lot::Mutex;
 use std::fs::File;
 use std::io::BufReader;
@@ -33,7 +37,7 @@ pub struct EngineState {
 #[derive(Clone, Default)]
 pub struct EvaluationContext {
     pub scope: Scope,
-    engine_state: Arc<EngineState>,
+    pub engine_state: Arc<EngineState>,
 }
 
 impl EvaluationContext {
@@ -61,7 +65,7 @@ impl EvaluationContext {
 
     pub fn basic() -> EvaluationContext {
         let scope = Scope::new();
-        let mut host = BasicHost {};
+        let host = BasicHost {};
         let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
         scope.add_env(env_vars);
 
@@ -393,5 +397,26 @@ impl EvaluationContext {
                 }
             }
         }
+    }
+}
+
+use itertools::Itertools;
+
+impl VariableRegistry for EvaluationContext {
+    fn get_variable(&self, name: &Spanned<&str>) -> Option<nu_protocol::Value> {
+        let span = name.span;
+        let name = nu_protocol::hir::Expression::variable(name.item.to_string(), name.span);
+
+        let var = Variable::from(&name);
+
+        crate::evaluate::evaluator::evaluate_reference(&var, self, span).ok()
+    }
+
+    fn variables(&self) -> Vec<String> {
+        Variable::list()
+            .into_iter()
+            .chain(self.scope.get_variable_names().into_iter())
+            .unique()
+            .collect()
     }
 }
