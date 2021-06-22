@@ -9,7 +9,7 @@ description = "Library for ANSI terminal colors and styles (bold, underline)"
 edition = "2018"
 license = "MIT"
 name = "nu-ansi-term"
-version = "0.32.1"
+version = "0.33.0"
 
 [lib]
 doctest = false
@@ -20,7 +20,7 @@ derive_serde_style = ["serde"]
 
 [dependencies]
 overload = "0.1.1"
-serde = { version = "1.0.90", features = ["derive"], optional = true }
+serde = { version="1.0.90", features=["derive"], optional=true }
 itertools = "0.10.0"
 
 # [dependencies.serde]

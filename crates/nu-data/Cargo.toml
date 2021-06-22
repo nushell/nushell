@@ -4,7 +4,7 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-data"
-version = "0.32.1"
+version = "0.33.0"
 
 [lib]
 doctest = false
@@ -18,24 +18,24 @@ derive-new = "0.5.8"
 directories-next = "2.0.0"
 dirs-next = "2.0.0"
 getset = "0.1.1"
-indexmap = { version = "1.6.1", features = ["serde-1"] }
+indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4.14"
-num-bigint = { version = "0.3.1", features = ["serde"] }
+num-bigint = { version="0.3.1", features=["serde"] }
 num-format = "0.4.0"
 num-traits = "0.2.14"
 query_interface = "0.3.5"
-serde = { version = "1.0.123", features = ["derive"] }
+serde = { version="1.0.123", features=["derive"] }
 sha2 = "0.9.3"
 sys-locale = "0.1.0"
 toml = "0.5.8"
 
-nu-errors = { version = "0.32.1", path = "../nu-errors" }
-nu-protocol = { version = "0.32.1", path = "../nu-protocol" }
-nu-source = { version = "0.32.1", path = "../nu-source" }
-nu-table = { version = "0.32.1", path = "../nu-table" }
-nu-test-support = { version = "0.32.1", path = "../nu-test-support" }
-nu-value-ext = { version = "0.32.1", path = "../nu-value-ext" }
-nu-ansi-term = { version = "0.32.1", path = "../nu-ansi-term" }
+nu-errors = { version="0.33.0", path="../nu-errors" }
+nu-protocol = { version="0.33.0", path="../nu-protocol" }
+nu-source = { version="0.33.0", path="../nu-source" }
+nu-table = { version="0.33.0", path="../nu-table" }
+nu-test-support = { version="0.33.0", path="../nu-test-support" }
+nu-value-ext = { version="0.33.0", path="../nu-value-ext" }
+nu-ansi-term = { version="0.33.0", path="../nu-ansi-term" }
 
 [dependencies.polars]
 git = "https://github.com/pola-rs/polars"
