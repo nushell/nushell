@@ -41,7 +41,8 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 )
             })?)
         }
-        UntaggedValue::Primitive(Primitive::Int(i)) => {
+        UntaggedValue::Primitive(Primitive::Int(i)) => Bson::I64(*i),
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
         UntaggedValue::Primitive(Primitive::Nothing) => Bson::Null,
@@ -50,9 +51,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
             path.iter()
                 .map(|x| match &x.unspanned {
                     UnspannedPathMember::String(string) => Ok(Bson::String(string.clone())),
-                    UnspannedPathMember::Int(int) => Ok(Bson::I64(
-                        int.tagged(&v.tag).coerce_into("converting to BSON")?,
-                    )),
+                    UnspannedPathMember::Int(int) => Ok(Bson::I64(*int)),
                 })
                 .collect::<Result<Vec<Bson>, ShellError>>()?,
         ),
@@ -64,6 +63,8 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 .collect::<Result<_, _>>()?,
         ),
         UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => Bson::Null,
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(_) => Bson::Null,
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             Bson::Binary(BinarySubtype::Generic, b.clone())
@@ -181,7 +182,7 @@ fn get_binary_subtype(tagged_value: &Value) -> Result<BinarySubtype, ShellError>
             "md5" => BinarySubtype::Md5,
             _ => unreachable!(),
         }),
-        UntaggedValue::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => Ok(BinarySubtype::UserDefined(
             i.tagged(&tagged_value.tag)
                 .coerce_into("converting to BSON binary subtype")?,
         )),

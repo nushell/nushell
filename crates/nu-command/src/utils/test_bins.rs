@@ -25,6 +25,15 @@ pub fn cococo() {
     }
 }
 
+pub fn meow() {
+    let args: Vec<String> = args();
+
+    for arg in args.iter().skip(1) {
+        let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
+        println!("{}", contents);
+    }
+}
+
 pub fn nonu() {
     args().iter().skip(1).for_each(|arg| print!("{}", arg));
 }
@@ -68,18 +77,16 @@ pub fn chop() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    for line in stdin.lock().lines() {
-        if let Ok(given) = line {
-            let chopped = if given.is_empty() {
-                &given
-            } else {
-                let to = given.len() - 1;
-                &given[..to]
-            };
+    for given in stdin.lock().lines().flatten() {
+        let chopped = if given.is_empty() {
+            &given
+        } else {
+            let to = given.len() - 1;
+            &given[..to]
+        };
 
-            if let Err(_e) = writeln!(stdout, "{}", chopped) {
-                break;
-            }
+        if let Err(_e) = writeln!(stdout, "{}", chopped) {
+            break;
         }
     }
 

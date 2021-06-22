@@ -8,6 +8,7 @@ use nu_protocol::ShellTypeName;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Span, Tagged};
 use nu_table::TextStyle;
+use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 use std::collections::HashMap;
 
@@ -81,12 +82,18 @@ pub fn unsafe_compute_values(
     match (left, right) {
         (UntaggedValue::Primitive(lhs), UntaggedValue::Primitive(rhs)) => match (lhs, rhs) {
             (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Filesize(x * y))),
-                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Filesize(x / y))),
+                Operator::Multiply => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(x * *y as u64)))
+                }
+                Operator::Divide => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(x / *y as u64)))
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Int(x), Primitive::Filesize(y)) => match operator {
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Filesize(x * y))),
+                Operator::Multiply => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 * y)))
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             _ => Err((left.type_name(), right.type_name())),
@@ -111,12 +118,18 @@ pub fn compute_values(
                 Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
             (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Filesize(x * y))),
-                Operator::Divide => Ok(UntaggedValue::Primitive(Primitive::Filesize(x / y))),
+                Operator::Multiply => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(x * *y as u64)))
+                }
+                Operator::Divide => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(x / *y as u64)))
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Int(x), Primitive::Filesize(y)) => match operator {
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Filesize(x * y))),
+                Operator::Multiply => {
+                    Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 * y)))
+                }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
@@ -126,12 +139,11 @@ pub fn compute_values(
                 Operator::Divide => {
                     if y.is_zero() {
                         Ok(zero_division_error())
-                    } else if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
+                    } else if x - (y * (x / y)) == 0 {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))
                     } else {
                         Ok(UntaggedValue::Primitive(Primitive::Decimal(
-                            bigdecimal::BigDecimal::from(x.clone())
-                                / bigdecimal::BigDecimal::from(y.clone()),
+                            bigdecimal::BigDecimal::from(*x) / bigdecimal::BigDecimal::from(*y),
                         )))
                     }
                 }
@@ -151,7 +163,176 @@ pub fn compute_values(
                 }
                 _ => Err((left.type_name(), right.type_name())),
             },
+            (Primitive::Int(x), Primitive::BigInt(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    BigInt::from(*x) + y,
+                ))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    BigInt::from(*x) - y,
+                ))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    BigInt::from(*x) * y,
+                ))),
+                Operator::Divide => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else if x - (y * (x / y)) == BigInt::from(0) {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                            BigInt::from(*x) / y,
+                        )))
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                            bigdecimal::BigDecimal::from(*x)
+                                / bigdecimal::BigDecimal::from(y.clone()),
+                        )))
+                    }
+                }
+                Operator::Modulo => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(x % y)))
+                    }
+                }
+                Operator::Pow => {
+                    let prim_u32 = ToPrimitive::to_u32(y);
+                    match prim_u32 {
+                        Some(num) => Ok(UntaggedValue::Primitive(Primitive::Int(x.pow(num)))),
+                        _ => Err((left.type_name(), right.type_name())),
+                    }
+                }
+                _ => Err((left.type_name(), right.type_name())),
+            },
+            (Primitive::BigInt(x), Primitive::Int(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    x + BigInt::from(*y),
+                ))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    x - BigInt::from(*y),
+                ))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                    x * BigInt::from(*y),
+                ))),
+                Operator::Divide => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else if x - (y * (x / y)) == BigInt::from(0) {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                            x / BigInt::from(*y),
+                        )))
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                            bigdecimal::BigDecimal::from(x.clone())
+                                / bigdecimal::BigDecimal::from(*y),
+                        )))
+                    }
+                }
+                Operator::Modulo => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(x % y)))
+                    }
+                }
+                Operator::Pow => {
+                    let prim_u32 = ToPrimitive::to_u32(y);
+                    match prim_u32 {
+                        Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num)))),
+                        _ => Err((left.type_name(), right.type_name())),
+                    }
+                }
+                _ => Err((left.type_name(), right.type_name())),
+            },
+            (Primitive::BigInt(x), Primitive::BigInt(y)) => match operator {
+                Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::BigInt(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::BigInt(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::BigInt(x * y))),
+                Operator::Divide => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else if x - (y * (x / y)) == BigInt::from(0) {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(x / y)))
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::Decimal(
+                            bigdecimal::BigDecimal::from(x.clone())
+                                / bigdecimal::BigDecimal::from(y.clone()),
+                        )))
+                    }
+                }
+                Operator::Modulo => {
+                    if y.is_zero() {
+                        Ok(zero_division_error())
+                    } else {
+                        Ok(UntaggedValue::Primitive(Primitive::BigInt(x % y)))
+                    }
+                }
+                Operator::Pow => {
+                    let prim_u32 = ToPrimitive::to_u32(y);
+                    match prim_u32 {
+                        Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num)))),
+                        _ => Err((left.type_name(), right.type_name())),
+                    }
+                }
+                _ => Err((left.type_name(), right.type_name())),
+            },
             (Primitive::Decimal(x), Primitive::Int(y)) => {
+                let result = match operator {
+                    Operator::Plus => Ok(x + bigdecimal::BigDecimal::from(*y)),
+                    Operator::Minus => Ok(x - bigdecimal::BigDecimal::from(*y)),
+                    Operator::Multiply => Ok(x * bigdecimal::BigDecimal::from(*y)),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x / bigdecimal::BigDecimal::from(*y))
+                    }
+                    Operator::Modulo => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(x % bigdecimal::BigDecimal::from(*y))
+                    }
+                    // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
+                    // Operator::Pow => {
+                    //     let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                    //     let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                    //     let pow = bigdecimal::FromPrimitive::from_f64(xp.powf(yp));
+                    //     match pow {
+                    //         Some(p) => Ok(p),
+                    //         None => Err((left.type_name(), right.type_name())),
+                    //     }
+                    // }
+                    _ => Err((left.type_name(), right.type_name())),
+                }?;
+                Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
+            }
+            (Primitive::Int(x), Primitive::Decimal(y)) => {
+                let result = match operator {
+                    Operator::Plus => Ok(bigdecimal::BigDecimal::from(*x) + y),
+                    Operator::Minus => Ok(bigdecimal::BigDecimal::from(*x) - y),
+                    Operator::Multiply => Ok(bigdecimal::BigDecimal::from(*x) * y),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(bigdecimal::BigDecimal::from(*x) / y)
+                    }
+                    Operator::Modulo => {
+                        if y.is_zero() {
+                            return Ok(zero_division_error());
+                        }
+                        Ok(bigdecimal::BigDecimal::from(*x) % y)
+                    }
+                    // big decimal doesn't support pow yet
+                    // Operator::Pow => {
+                    //     let yp = bigdecimal::ToPrimitive::to_u32(y).unwrap_or(0);
+                    //     Ok(bigdecimal::BigDecimal::from(x.pow(yp)))
+                    // }
+                    _ => Err((left.type_name(), right.type_name())),
+                }?;
+                Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
+            }
+            (Primitive::Decimal(x), Primitive::BigInt(y)) => {
                 let result = match operator {
                     Operator::Plus => Ok(x + bigdecimal::BigDecimal::from(y.clone())),
                     Operator::Minus => Ok(x - bigdecimal::BigDecimal::from(y.clone())),
@@ -182,7 +363,7 @@ pub fn compute_values(
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Decimal(result)))
             }
-            (Primitive::Int(x), Primitive::Decimal(y)) => {
+            (Primitive::BigInt(x), Primitive::Decimal(y)) => {
                 let result = match operator {
                     Operator::Plus => Ok(bigdecimal::BigDecimal::from(x.clone()) + y),
                     Operator::Minus => Ok(bigdecimal::BigDecimal::from(x.clone()) - y),
@@ -257,6 +438,15 @@ pub fn compute_values(
                             Err(_) => Err(("Date", "Duration overflow")),
                         }
                     }
+                    Operator::Minus => {
+                        match Primitive::into_chrono_duration(rhs.clone(), Span::unknown()) {
+                            Ok(y) => match x.checked_sub_signed(y) {
+                                Some(value) => Ok(value),
+                                None => Err(("Date", "Duration and date addition overflow")),
+                            },
+                            Err(_) => Err(("Date", "Duration overflow")),
+                        }
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Date(result)))
@@ -285,6 +475,7 @@ pub fn compute_values(
                         if y.is_zero() {
                             return Ok(zero_division_error());
                         }
+
                         let y = y.as_bigint_and_exponent();
                         Ok(x / y.0)
                     }
@@ -292,6 +483,11 @@ pub fn compute_values(
                 }?;
 
                 Ok(UntaggedValue::Primitive(Primitive::Duration(result)))
+            }
+            (Primitive::String(x), Primitive::String(y)) => {
+                let mut new_string = x.clone();
+                new_string.push_str(y);
+                Ok(UntaggedValue::Primitive(Primitive::String(new_string)))
             }
             _ => Err((left.type_name(), right.type_name())),
         },
@@ -346,7 +542,7 @@ pub fn style_leaf<'a>(
             let str_len = str.len();
             let paren_index = str.find('(').unwrap_or(str_len - 1);
             let prim_type = str[0..paren_index].to_string();
-            style_primitive(&prim_type, &color_hash_map)
+            style_primitive(&prim_type, color_hash_map)
         }
         _ => TextStyle::basic_left(),
     }

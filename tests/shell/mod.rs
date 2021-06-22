@@ -18,7 +18,7 @@ fn runs_configuration_startup_commands() {
 
         nu.with_config(&file);
 
-        assert_that!(nu.pipeline("hello-world"), says().to_stdout("Nu World"));
+        assert_that!(nu.pipeline("hello-world"), says().stdout("Nu World"));
     });
 }
 
@@ -47,7 +47,7 @@ fn plugins_are_declared_with_wix() {
                 | wrap wix
             }
             | default wix _
-            | each { if $it.wix != $it.cargo { = 1 } { = 0 } }
+            | each { if $it.wix != $it.cargo { 1 } { 0 } }
             | math sum
             "#
     ));

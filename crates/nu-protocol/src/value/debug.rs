@@ -24,6 +24,8 @@ impl PrettyDebug for Value {
             .nest(),
             UntaggedValue::Error(_) => DbgDocBldr::error("error"),
             UntaggedValue::Block(_) => DbgDocBldr::opaque("block"),
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(_) => DbgDocBldr::opaque("dataframe_prettydebug_for_data"),
         }
     }
 }
@@ -34,6 +36,7 @@ impl PrettyType for Primitive {
         match self {
             Primitive::Nothing => ty("nothing"),
             Primitive::Int(_) => ty("integer"),
+            Primitive::BigInt(_) => ty("big-integer"),
             Primitive::Range(_) => ty("range"),
             Primitive::Decimal(_) => ty("decimal"),
             Primitive::Filesize(_) => ty("filesize"),
@@ -57,6 +60,7 @@ impl PrettyDebug for Primitive {
         match self {
             Primitive::Nothing => DbgDocBldr::primitive("nothing"),
             Primitive::Int(int) => prim(format_args!("{}", int)),
+            Primitive::BigInt(int) => prim(format_args!("{}", int)),
             Primitive::Decimal(decimal) => prim(format_args!("{}", decimal)),
             Primitive::Range(range) => {
                 let (left, left_inclusion) = &range.from;

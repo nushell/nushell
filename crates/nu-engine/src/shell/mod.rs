@@ -1,8 +1,8 @@
 use nu_stream::{ActionStream, OutputStream};
 
-use crate::command_args::EvaluatedWholeStreamCommandArgs;
 use crate::maybe_text_codec::StringOrBinary;
 pub use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
+use crate::CommandArgs;
 use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
@@ -29,11 +29,11 @@ pub trait Shell: std::fmt::Debug {
     ) -> Result<ActionStream, ShellError>;
     fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
-    fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
+    fn mkdir(&self, args: MkdirArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;
     fn mv(&self, args: MvArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn rm(&self, args: RemoveArgs, name: Tag, path: &str) -> Result<ActionStream, ShellError>;
     fn path(&self) -> String;
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError>;
+    fn pwd(&self, args: CommandArgs) -> Result<ActionStream, ShellError>;
     fn set_path(&mut self, path: String);
     fn open(
         &self,

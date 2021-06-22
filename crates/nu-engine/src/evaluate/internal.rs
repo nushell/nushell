@@ -1,8 +1,8 @@
 use crate::call_info::UnevaluatedCallInfo;
-use crate::command_args::RawCommandArgs;
 use crate::evaluation_context::EvaluationContext;
 use crate::filesystem::filesystem_shell::{FilesystemShell, FilesystemShellMode};
 use crate::shell::value_shell::ValueShell;
+use crate::CommandArgs;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::{
@@ -13,7 +13,7 @@ use nu_source::{PrettyDebug, Span, Tag};
 use nu_stream::{ActionStream, InputStream};
 
 pub(crate) fn run_internal_command(
-    command: InternalCommand,
+    command: &InternalCommand,
     context: &EvaluationContext,
     input: InputStream,
 ) -> Result<InputStream, ShellError> {
@@ -30,7 +30,7 @@ pub(crate) fn run_internal_command(
     let result = context.run_command(
         internal_command,
         Tag::unknown_anchor(command.name_span),
-        command.args,
+        command.args.clone(), // FIXME: this is inefficient
         objects,
     )?;
     Ok(InputStream::from_stream(InternalIteratorSimple {
@@ -79,7 +79,7 @@ impl Iterator for InternalIterator {
             match item {
                 Ok(ReturnSuccess::Action(action)) => match action {
                     CommandAction::ChangePath(path) => {
-                        self.context.shell_manager.set_path(path);
+                        self.context.shell_manager().set_path(path);
                     }
                     CommandAction::Exit(code) => std::process::exit(code), // TODO: save history.txt
                     CommandAction::Error(err) => {
@@ -90,12 +90,8 @@ impl Iterator for InternalIterator {
                         let contents_tag = tagged_contents.tag.clone();
                         let command_name = format!("from {}", extension);
                         if let Some(converter) = self.context.scope.get_command(&command_name) {
-                            let new_args = RawCommandArgs {
-                                host: self.context.host.clone(),
-                                ctrl_c: self.context.ctrl_c.clone(),
-                                configs: self.context.configs.clone(),
-                                current_errors: self.context.current_errors.clone(),
-                                shell_manager: self.context.shell_manager.clone(),
+                            let new_args = CommandArgs {
+                                context: self.context.clone(),
                                 call_info: UnevaluatedCallInfo {
                                     args: nu_protocol::hir::Call {
                                         head: Box::new(SpannedExpression {
@@ -111,9 +107,9 @@ impl Iterator for InternalIterator {
                                     },
                                     name_tag: tagged_contents.tag(),
                                 },
-                                scope: self.context.scope.clone(),
+                                input: InputStream::one(tagged_contents),
                             };
-                            let result = converter.run(new_args.with_input(vec![tagged_contents]));
+                            let result = converter.run(new_args);
 
                             match result {
                                 Ok(mut result) => {
@@ -139,16 +135,16 @@ impl Iterator for InternalIterator {
                     }
                     CommandAction::EnterValueShell(value) => {
                         self.context
-                            .shell_manager
+                            .shell_manager()
                             .insert_at_current(Box::new(ValueShell::new(value)));
                     }
                     CommandAction::EnterShell(location) => {
-                        let mode = if self.context.shell_manager.is_interactive() {
+                        let mode = if self.context.shell_manager().is_interactive() {
                             FilesystemShellMode::Cli
                         } else {
                             FilesystemShellMode::Script
                         };
-                        self.context.shell_manager.insert_at_current(Box::new(
+                        self.context.shell_manager().insert_at_current(Box::new(
                             match FilesystemShell::with_location(location, mode) {
                                 Ok(v) => v,
                                 Err(err) => {
@@ -176,14 +172,14 @@ impl Iterator for InternalIterator {
                         }
                     }
                     CommandAction::PreviousShell => {
-                        self.context.shell_manager.prev();
+                        self.context.shell_manager().prev();
                     }
                     CommandAction::NextShell => {
-                        self.context.shell_manager.next();
+                        self.context.shell_manager().next();
                     }
                     CommandAction::LeaveShell(code) => {
-                        self.context.shell_manager.remove_at_current();
-                        if self.context.shell_manager.is_empty() {
+                        self.context.shell_manager().remove_at_current();
+                        if self.context.shell_manager().is_empty() {
                             std::process::exit(code); // TODO: save history.txt
                         }
                     }

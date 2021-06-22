@@ -1,15 +1,9 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SubCommand;
-
-#[derive(Deserialize)]
-pub struct Arguments {
-    column_path: ColumnPath,
-    value: Value,
-}
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
@@ -26,7 +20,7 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         set(args)
     }
 
@@ -56,18 +50,14 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn set(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn set(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
-    let ctx = EvaluationContext::from_args(&args);
-    let (
-        Arguments {
-            column_path,
-            mut value,
-        },
-        _,
-    ) = args.process()?;
+    let ctx = &args.context;
 
-    let result = if let Some(global_cfg) = &mut ctx.configs.lock().global_config {
+    let column_path = args.req(0)?;
+    let mut value: Value = args.req(1)?;
+
+    let result = if let Some(global_cfg) = &mut ctx.configs().lock().global_config {
         let configuration = UntaggedValue::row(global_cfg.vars.clone()).into_value(&name);
 
         if let UntaggedValue::Table(rows) = &value.value {
@@ -85,19 +75,17 @@ pub fn set(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 global_cfg.write()?;
                 ctx.reload_config(global_cfg)?;
 
-                Ok(ActionStream::one(ReturnSuccess::value(
-                    UntaggedValue::row(global_cfg.vars.clone()).into_value(name),
-                )))
+                let value = UntaggedValue::row(global_cfg.vars.clone()).into_value(name);
+                Ok(OutputStream::one(value))
             }
-            Ok(_) => Ok(ActionStream::empty()),
+            Ok(_) => Ok(OutputStream::empty()),
             Err(reason) => Err(reason),
         }
     } else {
-        Ok(vec![ReturnSuccess::value(UntaggedValue::Error(
-            crate::commands::config::err_no_global_cfg_present(),
-        ))]
-        .into_iter()
-        .to_action_stream())
+        let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
+            .into_value(name);
+
+        Ok(OutputStream::one(value))
     };
 
     result

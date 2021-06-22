@@ -10,7 +10,6 @@ use nu_protocol::{
 use nu_source::{Span, Tag};
 use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
-use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
@@ -72,7 +71,9 @@ pub fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Val
 }
 
 pub enum CompareValues {
-    Ints(BigInt, BigInt),
+    Ints(i64, i64),
+    Filesizes(u64, u64),
+    BigInts(BigInt, BigInt),
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
     Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
@@ -83,7 +84,9 @@ pub enum CompareValues {
 impl CompareValues {
     pub fn compare(&self) -> std::cmp::Ordering {
         match self {
+            CompareValues::BigInts(left, right) => left.cmp(right),
             CompareValues::Ints(left, right) => left.cmp(right),
+            CompareValues::Filesizes(left, right) => left.cmp(right),
             CompareValues::Decimals(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
             CompareValues::Date(left, right) => left.cmp(right),
@@ -125,22 +128,34 @@ pub fn coerce_compare_primitive(
     use Primitive::*;
 
     Ok(match (left, right) {
-        (Int(left), Int(right)) => CompareValues::Ints(left.clone(), right.clone()),
-        (Int(left), Decimal(right)) => {
-            CompareValues::Decimals(BigDecimal::zero() + left, right.clone())
+        (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
+        (Int(left), BigInt(right)) => {
+            CompareValues::BigInts(num_bigint::BigInt::from(*left), right.clone())
         }
-        (Int(left), Filesize(right)) => CompareValues::Ints(left.clone(), right.clone()),
+        (BigInt(left), Int(right)) => {
+            CompareValues::BigInts(left.clone(), num_bigint::BigInt::from(*right))
+        }
+        (BigInt(left), BigInt(right)) => CompareValues::BigInts(left.clone(), right.clone()),
+
+        (Int(left), Decimal(right)) => {
+            CompareValues::Decimals(BigDecimal::from(*left), right.clone())
+        }
+        (BigInt(left), Decimal(right)) => {
+            CompareValues::Decimals(BigDecimal::from(left.clone()), right.clone())
+        }
         (Decimal(left), Decimal(right)) => CompareValues::Decimals(left.clone(), right.clone()),
         (Decimal(left), Int(right)) => {
-            CompareValues::Decimals(left.clone(), BigDecimal::zero() + right)
+            CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
         }
-        (Decimal(left), Filesize(right)) => {
+        (Decimal(left), BigInt(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::from(right.clone()))
         }
-        (Filesize(left), Filesize(right)) => CompareValues::Ints(left.clone(), right.clone()),
-        (Filesize(left), Int(right)) => CompareValues::Ints(left.clone(), right.clone()),
+        (Decimal(left), Filesize(right)) => {
+            CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
+        }
+        (Filesize(left), Filesize(right)) => CompareValues::Filesizes(*left, *right),
         (Filesize(left), Decimal(right)) => {
-            CompareValues::Decimals(BigDecimal::from(left.clone()), right.clone())
+            CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (Nothing, Nothing) => CompareValues::Booleans(true, true),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),

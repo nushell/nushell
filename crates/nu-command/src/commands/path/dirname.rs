@@ -8,12 +8,10 @@ use std::path::Path;
 
 pub struct PathDirname;
 
-#[derive(Deserialize)]
 struct PathDirnameArguments {
-    replace: Option<Tagged<String>>,
-    #[serde(rename = "num-levels")]
-    num_levels: Option<Tagged<u32>>,
     rest: Vec<ColumnPath>,
+    replace: Option<Tagged<String>>,
+    num_levels: Option<Tagged<u32>>,
 }
 
 impl PathSubcommandArguments for PathDirnameArguments {
@@ -29,6 +27,7 @@ impl WholeStreamCommand for PathDirname {
 
     fn signature(&self) -> Signature {
         Signature::build("path dirname")
+            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -41,29 +40,21 @@ impl WholeStreamCommand for PathDirname {
                 "Number of directories to walk up",
                 Some('n'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "Gets the parent directory of a path"
+        "Get the parent directory of a path"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (
-            PathDirnameArguments {
-                replace,
-                num_levels,
-                rest,
-            },
-            input,
-        ) = args.process()?;
-        let args = Arc::new(PathDirnameArguments {
-            replace,
-            num_levels,
-            rest,
+        let cmd_args = Arc::new(PathDirnameArguments {
+            rest: args.rest(0)?,
+            replace: args.get_flag("replace")?,
+            num_levels: args.get_flag("num-levels")?,
         });
-        Ok(operate(input, &action, tag.span, args))
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
@@ -77,12 +68,12 @@ impl WholeStreamCommand for PathDirname {
                 ))]),
             },
             Example {
-                description: "Set how many levels up to skip",
+                description: "Walk up two levels",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("C:\\Users\\joe"))]),
             },
             Example {
-                description: "Replace the part that would be returned with custom string",
+                description: "Replace the part that would be returned with a custom path",
                 example:
                     "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
@@ -101,12 +92,12 @@ impl WholeStreamCommand for PathDirname {
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/code"))]),
             },
             Example {
-                description: "Set how many levels up to skip",
+                description: "Walk up two levels",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe"))]),
             },
             Example {
-                description: "Replace the part that would be returned with custom string",
+                description: "Replace the part that would be returned with a custom path",
                 example: "echo '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/viking/code/test.txt",
@@ -116,7 +107,7 @@ impl WholeStreamCommand for PathDirname {
     }
 }
 
-fn action(path: &Path, args: &PathDirnameArguments) -> UntaggedValue {
+fn action(path: &Path, tag: Tag, args: &PathDirnameArguments) -> Value {
     let num_levels = args.num_levels.as_ref().map_or(1, |tagged| tagged.item);
 
     let mut dirname = path;
@@ -131,7 +122,7 @@ fn action(path: &Path, args: &PathDirnameArguments) -> UntaggedValue {
         }
     }
 
-    match args.replace {
+    let untagged = match args.replace {
         Some(ref newdir) => {
             let remainder = path.strip_prefix(dirname).unwrap_or(dirname);
             if !remainder.as_os_str().is_empty() {
@@ -141,7 +132,9 @@ fn action(path: &Path, args: &PathDirnameArguments) -> UntaggedValue {
             }
         }
         None => UntaggedValue::filepath(dirname),
-    }
+    };
+
+    untagged.into_value(tag)
 }
 
 #[cfg(test)]

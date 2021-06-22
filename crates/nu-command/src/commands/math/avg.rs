@@ -5,10 +5,7 @@ use crate::commands::math::utils::run_with_function;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::{convert_number_to_u64, Number, Operator},
-    Primitive, Signature, UntaggedValue, Value,
-};
+use nu_protocol::{hir::Operator, Primitive, Signature, UntaggedValue, Value};
 
 use bigdecimal::FromPrimitive;
 
@@ -47,7 +44,7 @@ impl WholeStreamCommand for SubCommand {
 fn to_byte(value: &Value) -> Option<Value> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::Int(num)) => {
-            Some(UntaggedValue::Primitive(Primitive::Filesize(num.clone())).into_untagged_value())
+            Some(UntaggedValue::Primitive(Primitive::Filesize(*num as u64)).into_untagged_value())
         }
         _ => None,
     }
@@ -79,7 +76,7 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                     Value {
                         value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                         ..
-                    } => UntaggedValue::int(num.clone()).into_untagged_value(),
+                    } => UntaggedValue::int(*num as i64).into_untagged_value(),
                     other => other.clone(),
                 })
                 .collect::<Vec<_>>(),
@@ -100,15 +97,18 @@ pub fn average(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
             value: UntaggedValue::Primitive(Primitive::Filesize(num)),
             ..
         } => {
-            let left = UntaggedValue::from(Primitive::Int(num));
+            let left = UntaggedValue::from(Primitive::Int(num as i64));
             let result = nu_data::value::compute_values(Operator::Divide, &left, &total_rows);
 
             match result {
-                Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => {
-                    let number = Number::Decimal(result);
-                    let number = convert_number_to_u64(&number);
-                    Ok(UntaggedValue::filesize(number).into_value(name))
-                }
+                Ok(UntaggedValue::Primitive(Primitive::Decimal(result))) => match result.to_u64() {
+                    Some(number) => Ok(UntaggedValue::filesize(number).into_value(name)),
+                    None => Err(ShellError::labeled_error(
+                        "could not calculate average of non-integer or unrelated types",
+                        "source",
+                        name,
+                    )),
+                },
                 Ok(_) => Err(ShellError::labeled_error(
                     "could not calculate average of non-integer or unrelated types",
                     "source",

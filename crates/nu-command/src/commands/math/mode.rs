@@ -46,7 +46,7 @@ pub fn mode(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
     let mut max_freq = -1;
     let mut modes = Vec::<Value>::new();
     for (value, frequency) in frequency_map.iter() {
-        match max_freq.cmp(&frequency) {
+        match max_freq.cmp(frequency) {
             Ordering::Less => {
                 max_freq = *frequency;
                 modes.clear();
@@ -59,7 +59,7 @@ pub fn mode(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
         }
     }
 
-    crate::commands::sort_by::sort(&mut modes, &[], name, false)?;
+    crate::commands::filters::sort_by::sort(&mut modes, &[], name, false)?;
     Ok(UntaggedValue::Table(modes).into_value(name))
 }
 

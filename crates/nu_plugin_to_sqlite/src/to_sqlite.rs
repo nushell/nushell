@@ -2,7 +2,7 @@ use hex::encode;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value};
 use nu_source::Tag;
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::Connection;
 use std::io::Read;
 
 #[derive(Default)]
@@ -41,6 +41,7 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
     match &v.value {
         UntaggedValue::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
+            Primitive::BigInt(i) => format!("{}", i),
             Primitive::Int(i) => format!("{}", i),
             Primitive::Duration(i) => format!("{}", i),
             Primitive::Decimal(f) => format!("{}", f),
@@ -79,7 +80,7 @@ fn get_insert_values(rows: Vec<Value>) -> Result<String, std::io::Error> {
         })
         .collect();
     let values = values?;
-    Ok(values.into_iter().fold("".to_string(), comma_concat))
+    Ok(values.join(", "))
 }
 
 fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::Error> {
@@ -99,7 +100,12 @@ fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::E
         Some(Value {
             value: UntaggedValue::Table(l),
             ..
-        }) => (get_columns(l), get_insert_values(l.to_vec())),
+        }) => {
+            if l.is_empty() {
+                return Ok((String::new(), String::new()));
+            }
+            (get_columns(l), get_insert_values(l.to_vec()))
+        }
         _ => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -107,6 +113,7 @@ fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::E
             ))
         }
     };
+
     let create = format!("create table {}({})", table_name, columns?);
     let insert = format!("insert into {} values {}", table_name, insert_values?);
     Ok((create, insert))
@@ -127,9 +134,12 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
         match &value.value {
             UntaggedValue::Row(d) => {
                 let (create, insert) = generate_statements(d.to_owned())?;
+                if create.is_empty() {
+                    continue;
+                }
                 match conn
-                    .execute(&create, NO_PARAMS)
-                    .and_then(|_| conn.execute(&insert, NO_PARAMS))
+                    .execute(&create, [])
+                    .and_then(|_| conn.execute(&insert, []))
                 {
                     Ok(_) => (),
                     Err(e) => {

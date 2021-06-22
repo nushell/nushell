@@ -2,7 +2,7 @@ use nu_errors::ShellError;
 
 use nu_engine::{CommandArgs, WholeStreamCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_stream::{ActionStream, ToActionStream};
+use nu_stream::{ActionStream, IntoActionStream};
 
 use serde::Deserialize;
 
@@ -28,10 +28,10 @@ impl WholeStreamCommand for Command {
 
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
-        let (Arguments { rest }, input) = args.process()?;
+        let rest: Vec<Value> = args.rest(0)?;
 
         let mut base_value = UntaggedValue::string("Yehuda Katz in Ecuador").into_value(name_tag);
-        let input: Vec<Value> = input.collect();
+        let input: Vec<Value> = args.input.collect();
 
         if let Some(first) = input.get(0) {
             base_value = first.clone()
@@ -60,7 +60,7 @@ impl WholeStreamCommand for Command {
                             let subtable =
                                 vec![UntaggedValue::Table(values).into_value(base_value.tag())];
 
-                            (subtable.into_iter().map(ReturnSuccess::value)).to_action_stream()
+                            (subtable.into_iter().map(ReturnSuccess::value)).into_action_stream()
                         } else {
                             (table
                                 .into_iter()
@@ -69,7 +69,7 @@ impl WholeStreamCommand for Command {
                                     v
                                 })
                                 .map(ReturnSuccess::value))
-                            .to_action_stream()
+                            .into_action_stream()
                         }
                     }
                     _ => ActionStream::one(Ok(ReturnSuccess::Value(Value {
@@ -80,6 +80,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok((stream).flatten().to_action_stream())
+        Ok((stream).flatten().into_action_stream())
     }
 }

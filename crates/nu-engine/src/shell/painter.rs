@@ -46,7 +46,9 @@ impl Painter {
 
     fn paint(&mut self, styled_span: &Spanned<Style>) {
         for pos in styled_span.span.start()..styled_span.span.end() {
-            self.styles[pos] = styled_span.item;
+            if pos < self.styles.len() {
+                self.styles[pos] = styled_span.item;
+            }
         }
     }
 
@@ -70,10 +72,8 @@ impl Painter {
 
                     current_style = self.styles[idx_end];
                     idx_start = idx_end;
-                    idx_end += 1;
-                } else {
-                    idx_end += 1;
                 }
+                idx_end += 1;
             }
 
             let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);

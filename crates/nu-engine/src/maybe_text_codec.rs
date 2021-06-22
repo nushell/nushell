@@ -27,8 +27,8 @@ pub struct BufCodecReader<R: Read> {
 impl<R: Read> BufCodecReader<R> {
     pub fn new(input: BufReader<R>, maybe_text_codec: MaybeTextCodec) -> Self {
         BufCodecReader {
-            input,
             maybe_text_codec,
+            input,
         }
     }
 }
@@ -40,7 +40,7 @@ impl<R: Read> Iterator for BufCodecReader<R> {
         let buffer = self.input.fill_buf();
         match buffer {
             Ok(s) => {
-                let result = self.maybe_text_codec.decode(&s).transpose();
+                let result = self.maybe_text_codec.decode(s).transpose();
 
                 let buffer_len = s.len();
                 self.input.consume(buffer_len);

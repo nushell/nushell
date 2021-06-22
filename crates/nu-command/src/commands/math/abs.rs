@@ -20,18 +20,19 @@ impl WholeStreamCommand for SubCommand {
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mapped = args.input.map(move |val| match val.value {
-            UntaggedValue::Primitive(Primitive::Int(val)) => {
-                UntaggedValue::int(val.magnitude().clone()).into()
+            UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val.abs()).into(),
+            UntaggedValue::Primitive(Primitive::BigInt(val)) => {
+                UntaggedValue::big_int(val.magnitude().clone()).into()
             }
             UntaggedValue::Primitive(Primitive::Decimal(val)) => {
                 UntaggedValue::decimal(val.abs()).into()
             }
             UntaggedValue::Primitive(Primitive::Duration(val)) => {
-                UntaggedValue::duration(val.magnitude().clone()).into()
+                UntaggedValue::duration(val).into()
             }
             other => abs_default(other),
         });
-        Ok(mapped.to_output_stream())
+        Ok(mapped.into_output_stream())
     }
 
     fn examples(&self) -> Vec<Example> {

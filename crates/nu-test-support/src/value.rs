@@ -6,7 +6,11 @@ use nu_protocol::{PathMember, Primitive, UntaggedValue, Value};
 use nu_source::{Span, TaggedItem};
 use num_bigint::BigInt;
 
-pub fn int(s: impl Into<BigInt>) -> Value {
+pub fn big_int(s: impl Into<BigInt>) -> Value {
+    UntaggedValue::big_int(s).into_untagged_value()
+}
+
+pub fn int(s: impl Into<i64>) -> Value {
     UntaggedValue::int(s).into_untagged_value()
 }
 

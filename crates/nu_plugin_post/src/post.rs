@@ -9,7 +9,6 @@ use nu_source::{AnchorLocation, Tag, TaggedItem};
 use num_traits::cast::ToPrimitive;
 use std::path::PathBuf;
 use std::str::FromStr;
-use surf::mime;
 
 #[derive(Clone)]
 pub enum HeaderKind {
@@ -92,7 +91,7 @@ pub async fn post_helper(
     let path_str = path.as_string()?;
 
     let (file_extension, contents, contents_tag) =
-        post(&path_str, &body, user, password, &headers, path_tag.clone()).await?;
+        post(&path_str, body, user, password, headers, path_tag.clone()).await?;
 
     let file_extension = if has_raw {
         None
@@ -133,15 +132,15 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::String(body_str)),
                 ..
             } => {
-                let mut s = surf::post(location).body_string(body_str.to_string());
+                let mut s = surf::post(location).body(body_str.to_string());
                 if let Some(login) = login {
-                    s = s.set_header("Authorization", format!("Basic {}", login));
+                    s = s.header("Authorization", format!("Basic {}", login));
                 }
 
                 for h in headers {
                     s = match h {
-                        HeaderKind::ContentType(ct) => s.set_header("Content-Type", ct),
-                        HeaderKind::ContentLength(cl) => s.set_header("Content-Length", cl),
+                        HeaderKind::ContentType(ct) => s.header("Content-Type", ct),
+                        HeaderKind::ContentLength(cl) => s.header("Content-Length", cl),
                     };
                 }
                 s.await
@@ -150,9 +149,9 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::Binary(b)),
                 ..
             } => {
-                let mut s = surf::post(location).body_bytes(b);
+                let mut s = surf::post(location).body(&b[..]);
                 if let Some(login) = login {
-                    s = s.set_header("Authorization", format!("Basic {}", login));
+                    s = s.header("Authorization", format!("Basic {}", login));
                 }
                 s.await
             }
@@ -160,10 +159,10 @@ pub async fn post(
                 match value_to_json_value(&value.clone().into_untagged_value()) {
                     Ok(json_value) => match serde_json::to_string(&json_value) {
                         Ok(result_string) => {
-                            let mut s = surf::post(location).body_string(result_string);
+                            let mut s = surf::post(location).body(result_string);
 
                             if let Some(login) = login {
-                                s = s.set_header("Authorization", format!("Basic {}", login));
+                                s = s.header("Authorization", format!("Basic {}", login));
                             }
                             s.await
                         }
@@ -186,9 +185,9 @@ pub async fn post(
             }
         };
         match response {
-            Ok(mut r) => match r.headers().get("content-type") {
+            Ok(mut r) => match r.header("content-type") {
                 Some(content_type) => {
-                    let content_type = Mime::from_str(content_type).map_err(|_| {
+                    let content_type = Mime::from_str(content_type.as_str()).map_err(|_| {
                         ShellError::labeled_error(
                             format!("Unknown MIME type: {}", content_type),
                             "unknown MIME type",
@@ -350,12 +349,18 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Filesize(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
-        UntaggedValue::Primitive(Primitive::Duration(i)) => {
-            serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
-                i.tagged(&v.tag),
-                "converting to JSON number",
-            )?))
-        }
+        UntaggedValue::Primitive(Primitive::Duration(i)) => serde_json::Value::Number(
+            serde_json::Number::from_f64(
+                i.to_f64().expect("TODO: What about really big decimals?"),
+            )
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Can not convert big decimal to f64",
+                    "cannot convert big decimal to f64",
+                    &v.tag,
+                )
+            })?,
+        ),
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
@@ -372,6 +377,9 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             })?,
         ),
         UntaggedValue::Primitive(Primitive::Int(i)) => {
+            serde_json::Value::Number(serde_json::Number::from(*i))
+        }
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
                 i.tagged(&v.tag),
                 "converting to JSON number",
@@ -386,12 +394,9 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                     UnspannedPathMember::String(string) => {
                         Ok(serde_json::Value::String(string.clone()))
                     }
-                    UnspannedPathMember::Int(int) => Ok(serde_json::Value::Number(
-                        serde_json::Number::from(CoerceInto::<i64>::coerce_into(
-                            int.tagged(&v.tag),
-                            "converting to JSON number",
-                        )?),
-                    )),
+                    UnspannedPathMember::Int(int) => {
+                        Ok(serde_json::Value::Number(serde_json::Number::from(*int)))
+                    }
                 })
                 .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
         ),
@@ -400,6 +405,14 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         }
 
         UntaggedValue::Table(l) => serde_json::Value::Array(json_list(l)?),
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(_) => {
+            return Err(ShellError::labeled_error(
+                "Cannot convert data struct",
+                "Cannot convert data struct",
+                &v.tag,
+            ))
+        }
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => {
             serde_json::Value::Null
@@ -443,7 +456,7 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
 fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
     let mut headers = vec![];
 
-    match extract_header_value(&call_info, "content-type") {
+    match extract_header_value(call_info, "content-type") {
         Ok(h) => {
             if let Some(ct) = h {
                 headers.push(HeaderKind::ContentType(ct))
@@ -454,7 +467,7 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
         }
     };
 
-    match extract_header_value(&call_info, "content-length") {
+    match extract_header_value(call_info, "content-length") {
         Ok(h) => {
             if let Some(cl) = h {
                 headers.push(HeaderKind::ContentLength(cl))

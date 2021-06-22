@@ -86,7 +86,7 @@ fn md_combined() {
             };
 
             title
-            | append $(meals)
+            | append (meals)
             | to md --per-element --pretty
         "#
     ));

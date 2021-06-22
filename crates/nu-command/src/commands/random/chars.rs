@@ -1,14 +1,13 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 use rand::distributions::Alphanumeric;
 use rand::prelude::{thread_rng, Rng};
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct CharsArgs {
     length: Option<Tagged<u32>>,
 }
@@ -33,7 +32,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate random chars"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         chars(args)
     }
 
@@ -53,18 +52,19 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn chars(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let (CharsArgs { length }, _) = args.process()?;
+pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let cmd_args = CharsArgs {
+        length: args.get_flag("length")?,
+    };
 
-    let chars_length = length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
+    let chars_length = cmd_args.length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
 
     let random_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
         .take(chars_length as usize)
         .collect();
 
-    let result = UntaggedValue::string(random_string);
-    Ok(ActionStream::one(ReturnSuccess::value(result)))
+    Ok(OutputStream::one(UntaggedValue::string(random_string)))
 }
 
 #[cfg(test)]

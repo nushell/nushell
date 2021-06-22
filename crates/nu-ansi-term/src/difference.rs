@@ -14,7 +14,7 @@ pub enum Difference {
 
     /// The before style is exactly the same as the after style, so no further
     /// control codes need to be printed.
-    NoDifference,
+    Empty,
 }
 
 impl Difference {
@@ -40,7 +40,7 @@ impl Difference {
         // it commented out for now, and defaulting to Reset.
 
         if first == next {
-            return NoDifference;
+            return Empty;
         }
 
         // Cannot un-bold, so must Reset.
@@ -153,10 +153,10 @@ mod test {
         };
     }
 
-    test!(nothing:    Green.normal(); Green.normal()  => NoDifference);
+    test!(nothing:    Green.normal(); Green.normal()  => Empty);
     test!(uppercase:  Green.normal(); Green.bold()    => ExtraStyles(style().bold()));
     test!(lowercase:  Green.bold();   Green.normal()  => Reset);
-    test!(nothing2:   Green.bold();   Green.bold()    => NoDifference);
+    test!(nothing2:   Green.bold();   Green.bold()    => Empty);
 
     test!(color_change: Red.normal(); Blue.normal() => ExtraStyles(Blue.normal()));
 

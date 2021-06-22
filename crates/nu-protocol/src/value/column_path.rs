@@ -4,7 +4,6 @@ use nu_source::{
     span_for_spanned_list, DbgDocBldr, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span,
     Spanned, SpannedItem,
 };
-use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::hir::{Expression, Literal, Member, SpannedExpression};
@@ -14,7 +13,7 @@ use nu_errors::ParseError;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum UnspannedPathMember {
     String(String),
-    Int(BigInt),
+    Int(i64),
 }
 
 impl UnspannedPathMember {
@@ -79,7 +78,7 @@ impl ColumnPath {
                 span: _,
             },
             _,
-        ) = parse(&text)
+        ) = parse(text)
         {
             ColumnPath {
                 members: path.iter().map(|member| member.to_path_member()).collect(),
@@ -125,8 +124,8 @@ impl PathMember {
     }
 
     /// Create a numeric path member
-    pub fn int(int: impl Into<BigInt>, span: impl Into<Span>) -> PathMember {
-        UnspannedPathMember::Int(int.into()).into_path_member(span)
+    pub fn int(int: i64, span: impl Into<Span>) -> PathMember {
+        UnspannedPathMember::Int(int).into_path_member(span)
     }
 
     pub fn as_string(&self) -> String {
@@ -160,8 +159,8 @@ fn parse(raw_column_path: &Spanned<String>) -> (SpannedExpression, Option<ParseE
                 raw_column_path.span.start() + idx,
             );
 
-            if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(Member::Int(BigInt::from(row_number), part_span));
+            if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(Member::Int(row_number, part_span));
             } else {
                 let trimmed = trim_quotes(&current_part);
                 output.push(Member::Bare(trimmed.clone().spanned(part_span)));
@@ -180,8 +179,8 @@ fn parse(raw_column_path: &Spanned<String>) -> (SpannedExpression, Option<ParseE
             raw_column_path.span.start() + start_index,
             raw_column_path.span.start() + last_index + 1,
         );
-        if let Ok(row_number) = current_part.parse::<u64>() {
-            output.push(Member::Int(BigInt::from(row_number), part_span));
+        if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(Member::Int(row_number, part_span));
         } else {
             let current_part = trim_quotes(&current_part);
             output.push(Member::Bare(current_part.spanned(part_span)));
@@ -200,7 +199,6 @@ fn trim_quotes(input: &str) -> String {
     match (chars.next(), chars.next_back()) {
         (Some('\''), Some('\'')) => chars.collect(),
         (Some('"'), Some('"')) => chars.collect(),
-        (Some('`'), Some('`')) => chars.collect(),
         _ => input.to_string(),
     }
 }

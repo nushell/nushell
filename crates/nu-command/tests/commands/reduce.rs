@@ -8,21 +8,24 @@ fn reduce_table_column() {
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
         | get total
-        | reduce -f 20 { = $it + $( math eval `{{$acc}}^1.05` )}
-        | str from -d 1
+        | reduce -f 20 { $it + (math eval $"($acc)^1.05")}
+        | into string -d 1
         "#
         )
     );
 
     assert_eq!(actual.out, "180.6");
+}
 
+#[test]
+fn reduce_table_column_with_path() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
         echo "[{month:2,total:30}, {month:3,total:10}, {month:4,total:3}, {month:5,total:60}]"
         | from json
-        | reduce -f 20 { = $it.total + $( math eval `{{$acc}}^1.05` )}
-        | str from -d 1
+        | reduce -f 20 { $it.total + (math eval $"($acc)^1.05")}
+        | into string -d 1
         "#
         )
     );
@@ -38,7 +41,7 @@ fn reduce_rows_example() {
         echo a,b 1,2 3,4
         | split column ,
         | headers
-        | reduce -f 1.6 { = $acc * $(echo $it.a | str to-int) + $(echo $it.b | str to-int) }
+        | reduce -f 1.6 { $acc * ($it.a | str to-int) + ($it.b | str to-int) }
         "#
         )
     );
@@ -52,13 +55,28 @@ fn reduce_numbered_example() {
         cwd: ".", pipeline(
         r#"
         echo one longest three bar
-        | reduce -n { if $(echo $it.item | str length) > $(echo $acc.item | str length) {echo $it} {echo $acc}}
+        | reduce -n { if ($it.item | str length) > ($acc.item | str length) {echo $it} {echo $acc}}
         | get index
         "#
         )
     );
 
     assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn reduce_numbered_integer_addition_example() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo [1 2 3 4]
+        | reduce -n { $acc.item + $it.item }
+        | get item
+        "#
+        )
+    );
+
+    assert_eq!(actual.out, "10");
 }
 
 #[test]
@@ -69,7 +87,7 @@ fn folding_with_tables() {
         echo [10 20 30 40]
         | reduce -f [] {
             with-env [value $it] {
-              echo $acc | append $(= 10 * $(= $nu.env.value | str to-int))
+              echo $acc | append (10 * ($nu.env.value | str to-int))
             }
           }
         | math sum
@@ -85,7 +103,7 @@ fn error_reduce_fold_type_mismatch() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo a b c | reduce -f 0 { = $acc + $it }
+        echo a b c | reduce -f 0 { $acc + $it }
         "#
         )
     );
@@ -98,7 +116,7 @@ fn error_reduce_empty() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        reduce { = $acc + $it }
+        reduce { $acc + $it }
         "#
         )
     );

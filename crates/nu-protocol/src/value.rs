@@ -30,6 +30,9 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+#[cfg(feature = "dataframe")]
+use crate::dataframe::PolarsData;
+
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum UntaggedValue {
@@ -47,6 +50,11 @@ pub enum UntaggedValue {
 
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
+
+    /// Data option that holds the polars structs required to to data
+    /// manipulation and operations using polars dataframes
+    #[cfg(feature = "dataframe")]
+    DataFrame(PolarsData),
 }
 
 impl UntaggedValue {
@@ -171,8 +179,13 @@ impl UntaggedValue {
     }
 
     /// Helper for creating integer values
-    pub fn int(i: impl Into<BigInt>) -> UntaggedValue {
+    pub fn int(i: impl Into<i64>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Int(i.into()))
+    }
+
+    /// Helper for creating big integer values
+    pub fn big_int(i: impl Into<BigInt>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::BigInt(i.into()))
     }
 
     /// Helper for creating glob pattern values
@@ -186,8 +199,8 @@ impl UntaggedValue {
     }
 
     /// Helper for creating filesize values
-    pub fn filesize(s: impl Into<BigInt>) -> UntaggedValue {
-        UntaggedValue::Primitive(Primitive::Filesize(s.into()))
+    pub fn filesize(s: u64) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Filesize(s))
     }
 
     /// Helper for creating decimal values
@@ -332,19 +345,27 @@ impl Value {
         }
     }
 
-    /// View the Value as a Int (BigInt), if possible
-    pub fn as_int(&self) -> Result<BigInt, ShellError> {
+    /// View the Value as a Int, if possible
+    pub fn as_int(&self) -> Result<i64, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(n.clone()),
+            UntaggedValue::Primitive(Primitive::Int(n)) => Ok(*n),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
         }
     }
 
-    /// View the Value as a Filesize (BigInt), if possible
-    pub fn as_filesize(&self) -> Result<BigInt, ShellError> {
+    /// View the Value as a Int, if possible
+    pub fn as_big_int(&self) -> Result<BigInt, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(fs.clone()),
+            UntaggedValue::Primitive(Primitive::BigInt(n)) => Ok(n.clone()),
             _ => Err(ShellError::type_error("bigint", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as a Filesize (u64), if possible
+    pub fn as_filesize(&self) -> Result<u64, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Filesize(fs)) => Ok(*fs),
+            _ => Err(ShellError::type_error("int", self.spanned_type_name())),
         }
     }
 
@@ -489,6 +510,22 @@ impl Value {
         }
     }
 
+    /// View the Value as signed 32-bit float, if possible
+    pub fn as_f32(&self) -> Result<f32, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_f32(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
+    /// View the Value as signed 64-bit float, if possible
+    pub fn as_f64(&self) -> Result<f64, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_f64(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
+        }
+    }
+
     /// View the Value as boolean, if possible
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match &self.value {
@@ -499,12 +536,12 @@ impl Value {
 
     /// Returns an iterator of the values rows
     pub fn table_entries(&self) -> TableValueIter<'_> {
-        crate::value::iter::table_entries(&self)
+        crate::value::iter::table_entries(self)
     }
 
     /// Returns an iterator of the value's cells
     pub fn row_entries(&self) -> RowValueIter<'_> {
-        crate::value::iter::row_entries(&self)
+        crate::value::iter::row_entries(self)
     }
 
     /// Returns true if the value is empty
@@ -634,6 +671,12 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Table(_) => "table",
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(_)) => "dataframe",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(PolarsData::Series(_)) => "series",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(PolarsData::GroupBy(_)) => "groupby",
         }
     }
 }
@@ -779,64 +822,10 @@ impl StrExt for &str {
     }
 }
 
-pub trait U64Ext {
-    fn to_untagged_value(&self) -> UntaggedValue;
-    fn to_value(&self, tag: Tag) -> Value;
-    fn to_value_create_tag(&self) -> Value;
-    fn to_filesize_untagged_value(&self) -> UntaggedValue;
-    fn to_filesize_value(&self, tag: Tag) -> Value;
-    fn to_duration_untagged_value(&self) -> UntaggedValue;
-    fn to_duration_value(&self, tag: Tag) -> Value;
-}
-
-impl U64Ext for u64 {
-    fn to_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
-            tag: the_tag,
-        }
-    }
-
-    fn to_filesize_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Filesize(BigInt::from(*self))),
-            tag: the_tag,
-        }
-    }
-
-    fn to_duration_value(&self, the_tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Duration(BigInt::from(*self))),
-            tag: the_tag,
-        }
-    }
-
-    fn to_value_create_tag(&self) -> Value {
-        let end = self.to_string().len();
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
-            tag: Tag {
-                anchor: None,
-                span: Span::new(0, end),
-            },
-        }
-    }
-
-    fn to_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::int(*self)
-    }
-
-    fn to_filesize_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::filesize(*self)
-    }
-
-    fn to_duration_untagged_value(&self) -> UntaggedValue {
-        UntaggedValue::duration(BigInt::from(*self))
-    }
-}
-
 pub trait I64Ext {
     fn to_untagged_value(&self) -> UntaggedValue;
+    fn to_duration_value(&self, tag: Tag) -> Value;
+    fn to_duration_untagged_value(&self) -> UntaggedValue;
     fn to_value(&self, tag: Tag) -> Value;
     fn to_value_create_tag(&self) -> Value;
 }
@@ -844,15 +833,29 @@ pub trait I64Ext {
 impl I64Ext for i64 {
     fn to_value(&self, the_tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self)),
             tag: the_tag,
         }
+    }
+
+    fn to_duration_value(&self, the_tag: Tag) -> Value {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Duration(
+                BigInt::from_i64(*self)
+                    .expect("Internal error: conversion to big int should not fail"),
+            )),
+            tag: the_tag,
+        }
+    }
+
+    fn to_duration_untagged_value(&self) -> UntaggedValue {
+        UntaggedValue::duration(*self)
     }
 
     fn to_value_create_tag(&self) -> Value {
         let end = self.to_string().len();
         Value {
-            value: UntaggedValue::Primitive(Primitive::Int(BigInt::from(*self))),
+            value: UntaggedValue::Primitive(Primitive::Int(*self)),
             tag: Tag {
                 anchor: None,
                 span: Span::new(0, end),

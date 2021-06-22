@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature};
+use nu_protocol::Signature;
 use uuid_crate::Uuid;
 
 pub struct SubCommand;
@@ -19,7 +19,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random uuid4 string"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         uuid(args)
     }
 
@@ -32,10 +32,10 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn uuid(_args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn uuid(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let uuid_4 = Uuid::new_v4().to_hyphenated().to_string();
 
-    Ok(ActionStream::one(ReturnSuccess::value(uuid_4)))
+    Ok(OutputStream::one(uuid_4))
 }
 
 #[cfg(test)]

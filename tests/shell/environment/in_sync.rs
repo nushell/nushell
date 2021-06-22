@@ -25,9 +25,9 @@ fn setting_environment_value_to_configuration_should_pick_up_into_in_memory_envi
         )]);
 
         assert_that!(
-            nu.pipeline("config set env.USER NUNO; echo $nothing")
+            nu.pipeline("config set env.USER NUNO | ignore")
                 .and_then("echo $nu.env.USER"),
-            says().to_stdout("NUNO")
+            says().stdout("NUNO")
         );
     });
 }
@@ -50,7 +50,7 @@ fn inherited_environment_values_not_present_in_configuration_should_pick_up_into
         .with_config(&file)
         .with_env("USER", "NUNO");
 
-        assert_that!(nu.pipeline("echo $nu.env.USER"), says().to_stdout("NUNO"));
+        assert_that!(nu.pipeline("echo $nu.env.USER"), says().stdout("NUNO"));
     });
 }
 
@@ -73,7 +73,7 @@ fn environment_values_present_in_configuration_overwrites_inherited_environment_
 
         assert_that!(
             nu.pipeline("echo $nu.env.SHELL"),
-            says().to_stdout("/usr/bin/you_already_made_the_nu_choice")
+            says().stdout("/usr/bin/you_already_made_the_nu_choice")
         );
     });
 }
@@ -103,11 +103,14 @@ fn inherited_environment_path_values_not_present_in_configuration_should_pick_up
                 "#,
         )])
         .with_config(&file)
-        .with_env("PATH", &PathBuf::from("/path/to/be/added").display_path());
+        .with_env(
+            nu_test_support::NATIVE_PATH_ENV_VAR,
+            &PathBuf::from("/path/to/be/added").display_path(),
+        );
 
         assert_that!(
             nu.pipeline("echo $nu.path | str collect '-'"),
-            says().to_stdout(&expected_paths)
+            says().stdout(&expected_paths)
         );
     });
 }

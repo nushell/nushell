@@ -7,7 +7,6 @@ use rand::prelude::{thread_rng, Rng};
 
 pub struct SubCommand;
 
-#[derive(Deserialize)]
 pub struct DiceArgs {
     dice: Option<Tagged<u32>>,
     sides: Option<Tagged<u32>>,
@@ -38,7 +37,7 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random dice roll"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         dice(args)
     }
 
@@ -58,17 +57,21 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-pub fn dice(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let (DiceArgs { dice, sides }, _) = args.process()?;
 
-    let dice = if let Some(dice_tagged) = dice {
+    let cmd_args = DiceArgs {
+        dice: args.get_flag("dice")?,
+        sides: args.get_flag("sides")?,
+    };
+
+    let dice = if let Some(dice_tagged) = cmd_args.dice {
         *dice_tagged
     } else {
         1
     };
 
-    let sides = if let Some(sides_tagged) = sides {
+    let sides = if let Some(sides_tagged) = cmd_args.sides {
         *sides_tagged
     } else {
         6
@@ -79,7 +82,7 @@ pub fn dice(args: CommandArgs) -> Result<ActionStream, ShellError> {
         UntaggedValue::int(thread_rng.gen_range(1, sides + 1)).into_value(tag.clone())
     });
 
-    Ok((iter).to_action_stream())
+    Ok((iter).into_output_stream())
 }
 
 #[cfg(test)]

@@ -18,6 +18,7 @@ macro_rules! nu {
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
+        pub use $crate::NATIVE_PATH_ENV_VAR;
 
         let commands = &*format!(
             "
@@ -46,7 +47,7 @@ macro_rules! nu {
         };
 
         let mut process = match Command::new($crate::fs::executable_path())
-            .env("PATH", paths_joined)
+            .env(NATIVE_PATH_ENV_VAR, paths_joined)
             .arg("--skip-plugins")
             .arg("--no-history")
             .arg("--config-file")
@@ -98,6 +99,7 @@ macro_rules! nu_with_plugins {
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
+        pub use crate::NATIVE_PATH_ENV_VAR;
 
         let commands = &*format!(
             "
@@ -126,7 +128,7 @@ macro_rules! nu_with_plugins {
         };
 
         let mut process = match Command::new($crate::fs::executable_path())
-            .env("PATH", paths_joined)
+            .env(NATIVE_PATH_ENV_VAR, paths_joined)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())

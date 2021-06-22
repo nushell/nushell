@@ -8,7 +8,6 @@ use std::path::Path;
 
 pub struct PathType;
 
-#[derive(Deserialize)]
 struct PathTypeArguments {
     rest: Vec<ColumnPath>,
 }
@@ -30,14 +29,16 @@ impl WholeStreamCommand for PathType {
     }
 
     fn usage(&self) -> &str {
-        "Gives the type of the object a path refers to (e.g., file, dir, symlink)"
+        "Get the type of the object a path refers to (e.g., file, dir, symlink)"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathTypeArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathTypeArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let cmd_args = Arc::new(PathTypeArguments {
+            rest: args.rest(0)?,
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -49,12 +50,14 @@ impl WholeStreamCommand for PathType {
     }
 }
 
-fn action(path: &Path, _args: &PathTypeArguments) -> UntaggedValue {
+fn action(path: &Path, tag: Tag, _args: &PathTypeArguments) -> Value {
     let meta = std::fs::symlink_metadata(path);
-    UntaggedValue::string(match &meta {
+    let untagged = UntaggedValue::string(match &meta {
         Ok(md) => get_file_type(md),
         Err(_) => "",
-    })
+    });
+
+    untagged.into_value(tag)
 }
 
 #[cfg(test)]

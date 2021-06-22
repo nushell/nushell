@@ -23,11 +23,12 @@ fn main() {
     let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
     // The table itself
     let table = Table::new(headers, vec![rows; 3], Theme::rounded());
-
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
+    // Capture the table as a string
+    let output_table = draw_table(&table, width, &color_hm);
     // Draw the table
-    draw_table(&table, width, &color_hm);
+    println!("{}", output_table)
 }
 
 fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {

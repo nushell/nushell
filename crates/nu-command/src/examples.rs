@@ -8,15 +8,15 @@ use double_echo::Command as DoubleEcho;
 use double_ls::Command as DoubleLs;
 use stub_generate::{mock_path, Command as StubOpen};
 
-use nu_engine::basic_evaluation_context;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::hir::ClassifiedBlock;
+use nu_protocol::hir::{ClassifiedBlock, ExternalRedirection};
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Nth, Select, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
+    StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -24,7 +24,7 @@ use nu_stream::InputStream;
 pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = EvaluationContext::basic();
 
     base_context.add_commands(vec![
         // Command Doubles
@@ -50,8 +50,6 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         let mut ctx = base_context.clone();
 
         let block = parse_line(sample_pipeline.example, &ctx)?;
-
-        println!("{:#?}", block);
 
         if let Some(expected) = &sample_pipeline.result {
             let result = evaluate_block(block, &mut ctx)?;
@@ -90,9 +88,11 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
 pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = EvaluationContext::basic();
 
     base_context.add_commands(vec![
+        whole_stream_command(Math),
+        whole_stream_command(MathMode {}),
         whole_stream_command(Echo {}),
         whole_stream_command(BuildString {}),
         whole_stream_command(Get {}),
@@ -111,7 +111,12 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         let block = parse_line(sample_pipeline.example, &ctx)?;
 
         if let Some(expected) = &sample_pipeline.result {
+            let start = std::time::Instant::now();
             let result = evaluate_block(block, &mut ctx)?;
+
+            println!("input: {}", sample_pipeline.example);
+            println!("result: {:?}", result);
+            println!("done: {:?}", start.elapsed());
 
             ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
                 .map_or(Ok(()), Err)?;
@@ -147,7 +152,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
 pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
     let examples = cmd.examples();
 
-    let base_context = basic_evaluation_context()?;
+    let base_context = EvaluationContext::basic();
 
     base_context.add_commands(vec![
         // Minimal restricted commands to aid in testing
@@ -209,7 +214,7 @@ fn parse_line(line: &str, ctx: &EvaluationContext) -> Result<ClassifiedBlock, Sh
         line
     };
 
-    let (lite_result, err) = nu_parser::lex(&line, 0);
+    let (lite_result, err) = nu_parser::lex(line, 0);
     if let Some(err) = err {
         return Err(err.into());
     }
@@ -231,7 +236,7 @@ fn evaluate_block(
 
     ctx.scope.enter_scope();
 
-    let result = run_block(&block.block, ctx, input_stream);
+    let result = run_block(&block.block, ctx, input_stream, ExternalRedirection::Stdout);
 
     ctx.scope.exit_scope();
 

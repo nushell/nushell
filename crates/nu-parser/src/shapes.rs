@@ -6,7 +6,7 @@ use nu_source::{Spanned, SpannedItem};
 pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>> {
     match &e.expr {
         Expression::Block(exprs) => shapes(exprs),
-        Expression::Invocation(exprs) => shapes(exprs),
+        Expression::Subexpression(exprs) => shapes(exprs),
         Expression::FilePath(_) => vec![FlatShape::Path.spanned(e.span)],
         Expression::Garbage => vec![FlatShape::Garbage.spanned(e.span)],
         Expression::List(exprs) => {
@@ -23,12 +23,12 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             }
             for row in cells {
                 for cell in row {
-                    output.append(&mut expression_to_flat_shape(&cell));
+                    output.append(&mut expression_to_flat_shape(cell));
                 }
             }
             output
         }
-        Expression::Path(exprs) => {
+        Expression::FullColumnPath(exprs) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&exprs.head));
             for member in exprs.tail.iter() {
@@ -59,7 +59,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::Binary(binary) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&binary.left));
-            output.push(FlatShape::Operator.spanned(binary.op.span));
+            output.append(&mut expression_to_flat_shape(&binary.op));
             output.append(&mut expression_to_flat_shape(&binary.right));
             output
         }
@@ -118,6 +118,30 @@ pub fn shapes(commands: &Block) -> Vec<Spanned<FlatShape>> {
                     }
                     ClassifiedCommand::Expr(expr) => {
                         output.append(&mut expression_to_flat_shape(expr))
+                    }
+                    ClassifiedCommand::Dynamic(call) => {
+                        output.append(&mut expression_to_flat_shape(&call.head));
+
+                        if let Some(positionals) = &call.positional {
+                            for positional_arg in positionals {
+                                output.append(&mut expression_to_flat_shape(positional_arg));
+                            }
+                        }
+
+                        if let Some(named) = &call.named {
+                            for (_, named_arg) in named.iter() {
+                                match named_arg {
+                                    NamedValue::PresentSwitch(span) => {
+                                        output.push(FlatShape::Flag.spanned(*span));
+                                    }
+                                    NamedValue::Value(span, expr) => {
+                                        output.push(FlatShape::Flag.spanned(*span));
+                                        output.append(&mut expression_to_flat_shape(expr));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 }

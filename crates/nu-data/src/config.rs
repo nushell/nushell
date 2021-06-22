@@ -93,7 +93,8 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {
             toml::Value::Float(f.tagged(&v.tag).coerce_into("converting to TOML float")?)
         }
-        UntaggedValue::Primitive(Primitive::Int(i)) => {
+        UntaggedValue::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
+        UntaggedValue::Primitive(Primitive::BigInt(i)) => {
             toml::Value::Integer(i.tagged(&v.tag).coerce_into("converting to TOML integer")?)
         }
         UntaggedValue::Primitive(Primitive::Nothing) => {
@@ -108,16 +109,15 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
             path.iter()
                 .map(|x| match &x.unspanned {
                     UnspannedPathMember::String(string) => Ok(toml::Value::String(string.clone())),
-                    UnspannedPathMember::Int(int) => Ok(toml::Value::Integer(
-                        int.tagged(&v.tag)
-                            .coerce_into("converting to TOML integer")?,
-                    )),
+                    UnspannedPathMember::Int(int) => Ok(toml::Value::Integer(*int)),
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
         UntaggedValue::Table(l) => toml::Value::Array(collect_values(l)?),
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(_) => toml::Value::String("<DataFrame>".to_string()),
         UntaggedValue::Primitive(Primitive::Range(_)) => toml::Value::String("<Range>".to_string()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -161,7 +161,6 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     }
 }
 
-#[cfg(feature = "directories")]
 pub fn config_path() -> Result<PathBuf, ShellError> {
     use directories_next::ProjectDirs;
 
@@ -173,13 +172,6 @@ pub fn config_path() -> Result<PathBuf, ShellError> {
     })?;
 
     Ok(path)
-}
-
-#[cfg(not(feature = "directories"))]
-pub fn config_path() -> Result<PathBuf, ShellError> {
-    // FIXME: unsure if this should be error or a simple default
-
-    Ok(std::path::PathBuf::from("/"))
 }
 
 pub fn default_path() -> Result<PathBuf, ShellError> {
@@ -197,7 +189,6 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     Ok(filename)
 }
 
-#[cfg(feature = "directories")]
 pub fn user_data() -> Result<PathBuf, ShellError> {
     use directories_next::ProjectDirs;
 
@@ -212,13 +203,6 @@ pub fn user_data() -> Result<PathBuf, ShellError> {
     })?;
 
     Ok(path)
-}
-
-#[cfg(not(feature = "directories"))]
-pub fn user_data() -> Result<PathBuf, ShellError> {
-    // FIXME: unsure if this should be error or a simple default
-
-    Ok(std::path::PathBuf::from("/"))
 }
 
 #[derive(Debug, Clone)]

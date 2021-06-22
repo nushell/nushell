@@ -1,5 +1,5 @@
-use crate::filesystem::path::canonicalize;
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
@@ -185,7 +185,7 @@ mod tests {
 
             let mut res = FileStructure::new();
 
-            res.walk_decorate(&dirs.test())
+            res.walk_decorate(dirs.test())
                 .expect("Can not decorate files traversal.");
 
             assert_eq!(

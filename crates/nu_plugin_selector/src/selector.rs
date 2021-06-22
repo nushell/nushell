@@ -1,11 +1,12 @@
 use nipper::Document;
 use nu_protocol::{value::StringExt, Value};
-use nu_source::{Tag, Tagged};
+use nu_source::Tag;
 
 pub struct Selector {
     pub query: String,
     pub tag: Tag,
     pub as_html: bool,
+    pub attribute: String,
 }
 
 impl Selector {
@@ -14,6 +15,7 @@ impl Selector {
             query: String::new(),
             tag: Tag::unknown(),
             as_html: false,
+            attribute: String::new(),
         }
     }
 }
@@ -24,42 +26,54 @@ impl Default for Selector {
     }
 }
 
-pub fn begin_selector_query(input: String, query: Tagged<&str>, as_html: bool) -> Vec<Value> {
-    execute_selector_query(input, query.item.to_string(), query.tag(), as_html)
+pub fn begin_selector_query(input_html: String, selector: &Selector) -> Vec<Value> {
+    match selector.attribute.is_empty() {
+        true => execute_selector_query(
+            input_html.as_str(),
+            selector.query.as_str(),
+            selector.as_html,
+        ),
+        false => execute_selector_query_with_attribute(
+            input_html.as_str(),
+            selector.query.as_str(),
+            selector.attribute.as_str(),
+        ),
+    }
 }
 
-fn execute_selector_query(
-    input_string: String,
-    query_string: String,
-    tag: impl Into<Tag>,
-    as_html: bool,
+fn execute_selector_query_with_attribute(
+    input_string: &str,
+    query_string: &str,
+    attribute: &str,
 ) -> Vec<Value> {
-    let _tag = tag.into();
-    let mut ret = vec![];
-    let doc = Document::from(&input_string);
+    let doc = Document::from(input_string);
 
-    // How to internally iterate
-    // doc.nip("tr.athing").iter().for_each(|athing| {
-    //     let title = format!("{}", athing.select(".title a").text().to_string());
-    //     let href = athing
-    //         .select(".storylink")
-    //         .attr("href")
-    //         .unwrap()
-    //         .to_string();
-    //     let title_url = format!("{} - {}\n", title, href);
-    //     ret.push(title_url.to_string_value_create_tag());
-    // });
+    doc.select(query_string)
+        .iter()
+        .map(|selection| {
+            selection
+                .attr_or(attribute, "")
+                .to_string()
+                .to_string_value_create_tag()
+        })
+        .collect()
+}
 
-    if as_html {
-        doc.nip(&query_string).iter().for_each(|athing| {
-            ret.push(athing.html().to_string().to_string_value_create_tag());
-        });
-    } else {
-        doc.nip(&query_string).iter().for_each(|athing| {
-            ret.push(athing.text().to_string().to_string_value_create_tag());
-        });
+fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool) -> Vec<Value> {
+    let doc = Document::from(input_string);
+
+    match as_html {
+        true => doc
+            .select(query_string)
+            .iter()
+            .map(|selection| selection.html().to_string().to_string_value_create_tag())
+            .collect(),
+        false => doc
+            .select(query_string)
+            .iter()
+            .map(|selection| selection.text().to_string().to_string_value_create_tag())
+            .collect(),
     }
-    ret
 }
 
 #[cfg(test)]

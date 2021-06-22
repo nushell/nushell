@@ -937,7 +937,7 @@ impl<'de> de::Deserializer<'de> for Value {
             }
         };
 
-        visitor.visit_enum(EnumDeserializer { value, variant })
+        visitor.visit_enum(EnumDeserializer { variant, value })
     }
 
     #[inline]

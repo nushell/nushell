@@ -1,22 +1,26 @@
-use crate::env::host::Host;
 use crate::evaluate::scope::{Scope, ScopeFrame};
+use crate::shell::palette::ThemedPalette;
 use crate::shell::shell_manager::ShellManager;
 use crate::whole_stream_command::Command;
 use crate::{call_info::UnevaluatedCallInfo, config_holder::ConfigHolder};
 use crate::{command_args::CommandArgs, script};
+use crate::{env::basic_host::BasicHost, Host};
+use indexmap::IndexMap;
 use log::trace;
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
 use nu_protocol::{hir, ConfigPath};
 use nu_source::{Span, Tag};
 use nu_stream::InputStream;
+use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::atomic::AtomicBool;
 use std::{path::Path, sync::Arc};
 
 #[derive(Clone, Default)]
-pub struct EvaluationContext {
-    pub scope: Scope,
+pub struct EngineState {
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
@@ -25,6 +29,11 @@ pub struct EvaluationContext {
 
     /// Windows-specific: keep track of previous cwd on each drive
     pub windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
+}
+#[derive(Clone, Default)]
+pub struct EvaluationContext {
+    pub scope: Scope,
+    engine_state: Arc<EngineState>,
 }
 
 impl EvaluationContext {
@@ -39,24 +48,33 @@ impl EvaluationContext {
     ) -> Self {
         Self {
             scope,
-            host,
-            current_errors,
-            ctrl_c,
-            configs,
-            shell_manager,
-            windows_drives_previous_cwd,
+            engine_state: Arc::new(EngineState {
+                host,
+                current_errors,
+                ctrl_c,
+                configs,
+                shell_manager,
+                windows_drives_previous_cwd,
+            }),
         }
     }
 
-    pub fn from_args(args: &CommandArgs) -> EvaluationContext {
+    pub fn basic() -> EvaluationContext {
+        let scope = Scope::new();
+        let mut host = BasicHost {};
+        let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
+        scope.add_env(env_vars);
+
         EvaluationContext {
-            scope: args.scope.clone(),
-            host: args.host.clone(),
-            current_errors: args.current_errors.clone(),
-            ctrl_c: args.ctrl_c.clone(),
-            configs: args.configs.clone(),
-            shell_manager: args.shell_manager.clone(),
-            windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            scope,
+            engine_state: Arc::new(EngineState {
+                host: Arc::new(parking_lot::Mutex::new(Box::new(host))),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: Arc::new(AtomicBool::new(false)),
+                configs: Arc::new(Mutex::new(ConfigHolder::new())),
+                shell_manager: ShellManager::basic(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            }),
         }
     }
 
@@ -64,12 +82,38 @@ impl EvaluationContext {
         self.with_errors(|errors| errors.push(error))
     }
 
+    pub fn host(&self) -> &Arc<parking_lot::Mutex<Box<dyn Host>>> {
+        &self.engine_state.host
+    }
+
+    pub fn current_errors(&self) -> &Arc<Mutex<Vec<ShellError>>> {
+        &self.engine_state.current_errors
+    }
+
+    pub fn ctrl_c(&self) -> &Arc<AtomicBool> {
+        &self.engine_state.ctrl_c
+    }
+
+    pub fn configs(&self) -> &Arc<Mutex<ConfigHolder>> {
+        &self.engine_state.configs
+    }
+
+    pub fn shell_manager(&self) -> &ShellManager {
+        &self.engine_state.shell_manager
+    }
+
+    pub fn windows_drives_previous_cwd(
+        &self,
+    ) -> &Arc<Mutex<std::collections::HashMap<String, String>>> {
+        &self.engine_state.windows_drives_previous_cwd
+    }
+
     pub fn clear_errors(&self) {
-        self.current_errors.lock().clear()
+        self.engine_state.current_errors.lock().clear()
     }
 
     pub fn get_errors(&self) -> Vec<ShellError> {
-        self.current_errors.lock().clone()
+        self.engine_state.current_errors.lock().clone()
     }
 
     pub fn configure<T>(
@@ -81,13 +125,13 @@ impl EvaluationContext {
     }
 
     pub fn with_host<T>(&self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
-        let mut host = self.host.lock();
+        let mut host = self.engine_state.host.lock();
 
         block(&mut *host)
     }
 
     pub fn with_errors<T>(&self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
-        let mut errors = self.current_errors.lock();
+        let mut errors = self.engine_state.current_errors.lock();
 
         block(&mut *errors)
     }
@@ -98,8 +142,18 @@ impl EvaluationContext {
         }
     }
 
-    #[allow(unused)]
-    pub(crate) fn get_command(&self, name: &str) -> Option<Command> {
+    pub fn sync_path_to_env(&self) {
+        let env_vars = self.scope.get_env_vars();
+
+        for (var, val) in env_vars {
+            if var == NATIVE_PATH_ENV_VAR {
+                std::env::set_var(var, val);
+                break;
+            }
+        }
+    }
+
+    pub fn get_command(&self, name: &str) -> Option<Command> {
         self.scope.get_command(name)
     }
 
@@ -107,7 +161,7 @@ impl EvaluationContext {
         self.scope.has_command(name)
     }
 
-    pub(crate) fn run_command(
+    pub fn run_command(
         &self,
         command: Command,
         name_tag: Tag,
@@ -124,13 +178,8 @@ impl EvaluationContext {
 
     fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
-            host: self.host.clone(),
-            ctrl_c: self.ctrl_c.clone(),
-            configs: self.configs.clone(),
-            current_errors: self.current_errors.clone(),
-            shell_manager: self.shell_manager.clone(),
+            context: self.clone(),
             call_info: self.call_info(args, name_tag),
-            scope: self.scope.clone(),
             input,
         }
     }
@@ -158,7 +207,9 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                if let Some(env_paths) = self.scope.get_env("PATH") {
+                let env_paths = self.scope.get_env(NATIVE_PATH_ENV_VAR);
+
+                if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
                     //No duplicates! Remove env_paths already existing in cfg_paths
                     env_paths.retain(|env_path| !cfg_paths.contains(env_path));
@@ -186,16 +237,63 @@ impl EvaluationContext {
         self.scope.enter_scope_with_tag(tag);
         self.scope.add_env(cfg.env_map());
         if let Some(path) = joined_paths {
-            self.scope.add_env_var("PATH", path);
+            self.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
         }
         self.scope.set_exit_scripts(exit_scripts);
 
         match cfg_path {
-            ConfigPath::Global(_) => self.configs.lock().set_global_cfg(cfg),
+            ConfigPath::Global(_) => self.engine_state.configs.lock().set_global_cfg(cfg),
             ConfigPath::Local(_) => {
-                self.configs.lock().add_local_cfg(cfg);
+                self.engine_state.configs.lock().add_local_cfg(cfg);
             }
         }
+
+        // The syntax_theme is really the file stem of a json file i.e.
+        // grape.json is the theme file and grape is the file stem and
+        // the syntax_theme and grape.json would be located in the same
+        // folder as the config.toml
+
+        // Let's open the config
+        let global_config = self.engine_state.configs.lock().global_config();
+        // Get the root syntax_theme value
+        let syntax_theme = global_config.var("syntax_theme");
+        // If we have a syntax_theme let's process it
+        if let Some(theme_value) = syntax_theme {
+            // Append the .json to the syntax_theme to form the file name
+            let syntax_theme_filename = format!("{}.json", theme_value.convert_to_string());
+            // Load the syntax config json
+            let config_file_path = cfg_path.get_path();
+            // The syntax file should be in the same location as the config.toml
+            let syntax_file_path = if config_file_path.ends_with("config.toml") {
+                config_file_path
+                    .display()
+                    .to_string()
+                    .replace("config.toml", &syntax_theme_filename)
+            } else {
+                "".to_string()
+            };
+            // if we have a syntax_file_path use it otherwise default
+            if Path::new(&syntax_file_path).exists() {
+                // eprintln!("Loading syntax file: [{:?}]", syntax_file_path);
+                let syntax_theme_file = File::open(syntax_file_path)?;
+                let mut reader = BufReader::new(syntax_theme_file);
+                let theme = ThemedPalette::new(&mut reader).unwrap_or_default();
+                // eprintln!("Theme: [{:?}]", theme);
+                self.engine_state.configs.lock().set_syntax_colors(theme);
+            } else {
+                // If the file was missing, use the default
+                self.engine_state
+                    .configs
+                    .lock()
+                    .set_syntax_colors(ThemedPalette::default())
+            }
+        } else {
+            // if there's no syntax_theme, use the default
+            self.engine_state
+                .configs
+                .lock()
+                .set_syntax_colors(ThemedPalette::default())
+        };
 
         if !startup_scripts.is_empty() {
             self.run_scripts(startup_scripts, cfg_path.get_path().parent());
@@ -219,7 +317,9 @@ impl EvaluationContext {
         let joined_paths = cfg_paths
             .map(|mut cfg_paths| {
                 //existing paths are prepended to path
-                if let Some(env_paths) = self.scope.get_env("PATH") {
+                let env_paths = self.scope.get_env(NATIVE_PATH_ENV_VAR);
+
+                if let Some(env_paths) = env_paths {
                     let mut env_paths = std::env::split_paths(&env_paths).collect::<Vec<_>>();
                     //No duplicates! Remove env_paths already existing in cfg_paths
                     env_paths.retain(|env_path| !cfg_paths.contains(env_path));
@@ -247,7 +347,7 @@ impl EvaluationContext {
 
         frame.env = cfg.env_map();
         if let Some(path) = joined_paths {
-            frame.env.insert("PATH".to_string(), path);
+            frame.env.insert(NATIVE_PATH_ENV_VAR.to_string(), path);
         }
         frame.exitscripts = exit_scripts;
 
@@ -271,7 +371,7 @@ impl EvaluationContext {
         }
 
         //Unload config
-        self.configs.lock().remove_cfg(&cfg_path);
+        self.engine_state.configs.lock().remove_cfg(cfg_path);
         self.scope.exit_scope_with_tag(&tag);
     }
 
@@ -280,7 +380,7 @@ impl EvaluationContext {
     pub fn run_scripts(&self, scripts: Vec<String>, dir: Option<&Path>) {
         if let Some(dir) = dir {
             for script in scripts {
-                match script::run_script_in_dir(script.clone(), dir, &self) {
+                match script::run_script_in_dir(script.clone(), dir, self) {
                     Ok(_) => {}
                     Err(e) => {
                         let err = ShellError::untagged_runtime_error(format!(
@@ -288,7 +388,7 @@ impl EvaluationContext {
                             e
                         ));
                         let text = script.into();
-                        self.host.lock().print_err(err, &text);
+                        self.engine_state.host.lock().print_err(err, &text);
                     }
                 }
             }

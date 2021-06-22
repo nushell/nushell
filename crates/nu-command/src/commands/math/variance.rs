@@ -20,12 +20,10 @@ impl WholeStreamCommand for SubCommand {
         "Finds the variance of a list of numbers or tables"
     }
 
-    fn run(&self, raw_args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let mut args = raw_args.evaluate_once()?;
-
+    fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         let sample: bool = args.has_flag("sample");
         let values: Vec<Value> = args.input.drain_vec();
-        let name = args.call_info.name_tag.clone();
+        let name = args.call_info.name_tag;
 
         let n = if sample {
             values.len() - 1
@@ -120,7 +118,7 @@ fn sum_of_squares(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
                 value: UntaggedValue::Primitive(Primitive::Filesize(num)),
                 ..
             } => {
-                UntaggedValue::from(Primitive::Int(num.clone()))
+                UntaggedValue::from(Primitive::Int(*num as i64))
             },
             Value {
                 value: UntaggedValue::Primitive(num),

@@ -10,7 +10,7 @@ fn filesystem_change_from_current_directory_using_relative_path() {
             cwd: dirs.root(),
             r#"
                 cd cd_test_1
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -25,7 +25,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
             cwd: dirs.test(),
             r#"
                 cd "{}"
-                echo $(pwd)
+                echo (pwd)
             "#,
             dirs.formats()
         );
@@ -44,7 +44,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
             r#"
                 cd {}
                 cd -
-                echo $(pwd)
+                echo (pwd)
             "#,
             dirs.test()
         );
@@ -62,7 +62,7 @@ fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
             cwd: dirs.test(),
             r#"
                 cd odin/-
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -80,7 +80,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
             cwd: dirs.test(),
             r#"
                 cd ..
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -97,7 +97,7 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
             cwd: dirs.test().join("foo/bar"),
             r#"
                 cd ...
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -116,7 +116,7 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
                 rm {}/foo/bar
                 echo ","
                 cd ..
-                echo $(pwd)
+                echo (pwd)
             "#,
             dirs.test()
         );
@@ -127,7 +127,6 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
     })
 }
 
-#[cfg(feature = "dirs")]
 #[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {
@@ -135,7 +134,7 @@ fn filesystem_change_to_home_directory() {
             cwd: dirs.test(),
             r#"
                 cd ~
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -152,7 +151,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
             cwd: dirs.test(),
             r#"
                 cd "robalino turner katz"
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -219,7 +218,7 @@ fn filesystem_change_directory_to_symlink_relative() {
             cwd: dirs.test().join("boo"),
             r#"
                 cd ../foo_link
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 

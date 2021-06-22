@@ -8,6 +8,7 @@ pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();
 
     match number {
+        Number::BigInt(int) => Primitive::BigInt(int),
         Number::Int(int) => Primitive::Int(int),
         Number::Decimal(decimal) => Primitive::Decimal(decimal),
     }
@@ -112,7 +113,7 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
 fn update_hashmap(key: &str, val: &Value, hm: &mut HashMap<String, Style>) {
     if let Ok(var) = val.as_string() {
         let color = lookup_ansi_color_style(var);
-        let prim = string_to_lookup_value(&key);
+        let prim = string_to_lookup_value(key);
         if let Some(v) = hm.get_mut(&prim) {
             *v = color;
         } else {
@@ -156,64 +157,64 @@ pub fn get_color_config(config: &NuConfig) -> HashMap<String, Style> {
         for (key, value) in primitive_color_vars.row_entries() {
             match key.as_ref() {
                 "primitive_int" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_decimal" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_filesize" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_string" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_line" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_columnpath" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_pattern" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_boolean" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_date" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_duration" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_range" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_path" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "primitive_binary" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "separator_color" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "header_align" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "header_color" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "header_bold" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "header_style" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "index_color" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 "leading_trailing_space_bg" => {
-                    update_hashmap(&key, &value, &mut hm);
+                    update_hashmap(key, value, &mut hm);
                 }
                 _ => (),
             }

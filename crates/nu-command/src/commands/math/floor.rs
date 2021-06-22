@@ -25,6 +25,7 @@ impl WholeStreamCommand for SubCommand {
 
         run_with_numerical_functions_on_stream(
             input,
+            floor_int,
             floor_big_int,
             floor_big_decimal,
             floor_default,
@@ -36,16 +37,20 @@ impl WholeStreamCommand for SubCommand {
             description: "Apply the floor function to a list of numbers",
             example: "echo [1.5 2.3 -3.1] | math floor",
             result: Some(vec![
-                UntaggedValue::int(1).into(),
-                UntaggedValue::int(2).into(),
-                UntaggedValue::int(-4).into(),
+                UntaggedValue::big_int(1).into(),
+                UntaggedValue::big_int(2).into(),
+                UntaggedValue::big_int(-4).into(),
             ]),
         }]
     }
 }
 
-fn floor_big_int(val: BigInt) -> Value {
+fn floor_int(val: i64) -> Value {
     UntaggedValue::int(val).into()
+}
+
+fn floor_big_int(val: BigInt) -> Value {
+    UntaggedValue::big_int(val).into()
 }
 
 fn floor_big_decimal(val: BigDecimal) -> Value {
@@ -54,7 +59,7 @@ fn floor_big_decimal(val: BigDecimal) -> Value {
         maybe_floored -= BigDecimal::one();
     }
     let (floored, _) = maybe_floored.into_bigint_and_exponent();
-    UntaggedValue::int(floored).into()
+    UntaggedValue::big_int(floored).into()
 }
 
 fn floor_default(_: UntaggedValue) -> Value {

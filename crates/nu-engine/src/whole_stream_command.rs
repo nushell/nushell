@@ -1,14 +1,13 @@
 use crate::command_args::CommandArgs;
 use crate::documentation::get_full_help;
 use crate::evaluate::block::run_block;
-use crate::evaluation_context::EvaluationContext;
 use crate::example::Example;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
 use nu_protocol::hir::Block;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebugWithSource, Span, Tag};
-use nu_stream::{ActionStream, InputStream, OutputStream, ToOutputStream};
+use nu_stream::{ActionStream, InputStream, IntoOutputStream, OutputStream};
 use std::sync::Arc;
 
 pub trait WholeStreamCommand: Send + Sync {
@@ -32,7 +31,7 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 
     fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
-        let context = EvaluationContext::from_args(&args);
+        let context = args.context.clone();
         let stream = self.run_with_actions(args)?;
 
         Ok(Box::new(crate::evaluate::internal::InternalIterator {
@@ -40,7 +39,7 @@ pub trait WholeStreamCommand: Send + Sync {
             input: stream,
             leftovers: InputStream::empty(),
         })
-        .to_output_stream())
+        .into_output_stream())
     }
 
     fn is_binary(&self) -> bool {
@@ -77,13 +76,11 @@ impl WholeStreamCommand for Arc<Block> {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
 
-        let mut block = self.clone();
+        let block = self.clone();
 
-        if let Some(block) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut block) {
-            block.set_redirect(call_info.args.external_redirection);
-        }
+        let external_redirection = args.call_info.args.external_redirection;
 
-        let ctx = EvaluationContext::from_args(&args);
+        let ctx = &args.context;
         let evaluated = call_info.evaluate(&ctx)?;
 
         let input = args.input;
@@ -178,7 +175,7 @@ impl WholeStreamCommand for Arc<Block> {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input);
+        let result = run_block(&block, &ctx, input, external_redirection);
         ctx.scope.exit_scope();
         result
     }
@@ -239,7 +236,8 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(ActionStream::one(Ok(ReturnSuccess::Value(
-                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_full_help(&*cl, &args.context.scope))
+                    .into_value(Tag::unknown()),
             ))))
         } else {
             self.0.run_with_actions(args)
@@ -250,7 +248,8 @@ impl Command {
         if args.call_info.switch_present("help") {
             let cl = self.0.clone();
             Ok(InputStream::one(
-                UntaggedValue::string(get_full_help(&*cl, &args.scope)).into_value(Tag::unknown()),
+                UntaggedValue::string(get_full_help(&*cl, &args.context.scope))
+                    .into_value(Tag::unknown()),
             ))
         } else {
             self.0.run(args)

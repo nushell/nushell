@@ -276,3 +276,33 @@ fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() {
         assert!(!actual.err.contains("no valid path"));
     })
 }
+
+#[test]
+fn rm_wildcard_keeps_dotfiles() {
+    Playground::setup("rm_test_15", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("foo"), EmptyFile(".bar")]);
+
+        nu!(
+            cwd: dirs.test(),
+            r#"rm *"#
+        );
+
+        assert!(!files_exist_at(vec!["foo"], dirs.test()));
+        assert!(files_exist_at(vec![".bar"], dirs.test()));
+    })
+}
+
+#[test]
+fn rm_wildcard_leading_dot_deletes_dotfiles() {
+    Playground::setup("rm_test_16", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("foo"), EmptyFile(".bar")]);
+
+        nu!(
+            cwd: dirs.test(),
+            r#"rm .*"#
+        );
+
+        assert!(files_exist_at(vec!["foo"], dirs.test()));
+        assert!(!files_exist_at(vec![".bar"], dirs.test()));
+    })
+}

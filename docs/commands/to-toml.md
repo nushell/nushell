@@ -51,7 +51,6 @@ byte-unit = "2.1.0"
 bytes = "0.4.12"
 chrono-humanize = "0.0.11"
 chrono-tz = "0.5.1"
-clap = "2.33.0"
 conch-parser = "0.1.1"
 derive-new = "0.5.6"
 dunce = "1.0.0"
@@ -87,7 +86,7 @@ version = "0.4.6"
 [dependencies.cursive]
 default-features = false
 features = ["pancurses-backend"]
-version = "0.29.2"
+version = "0.33.0"
 
 [dependencies.futures-preview]
 features = ["compat", "io-compat"]

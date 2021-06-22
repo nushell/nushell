@@ -11,6 +11,9 @@ use nu_source::{
 };
 use num_traits::cast::ToPrimitive;
 
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::{NuSeries, PolarsData};
+
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
     fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value>;
@@ -199,6 +202,24 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
                 }
             }
         }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => match &name.unspanned {
+            UnspannedPathMember::String(string) => {
+                let column = df.as_ref().column(string.as_ref()).map_err(|e| {
+                    ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
+                })?;
+
+                Ok(NuSeries::series_to_value(
+                    column.clone(),
+                    Tag::new(value.anchor(), name.span),
+                ))
+            }
+            _ => Err(ShellError::labeled_error(
+                "Integer as column",
+                "Only string as column name",
+                &name.span,
+            )),
+        },
         other => Err(ShellError::type_error(
             "row or table",
             other.type_name().spanned(value.tag.span),
@@ -221,7 +242,7 @@ where
 
         match value {
             Ok(v) => current = v.clone(),
-            Err(e) => return Err(get_error(&current, &p, e)),
+            Err(e) => return Err(get_error(&current, p, e)),
         }
     }
 
@@ -239,7 +260,7 @@ where
     let fields = path.clone();
 
     let to_replace =
-        get_data_by_column_path(&value, path, move |obj_source, column_path_tried, error| {
+        get_data_by_column_path(value, path, move |obj_source, column_path_tried, error| {
             let path_members_span = fields.maybe_span().unwrap_or_else(Span::unknown);
 
             match &obj_source.value {
@@ -253,7 +274,7 @@ where
                         let suggestions: IndexSet<_> = rows
                             .iter()
                             .filter_map(|r| {
-                                nu_protocol::did_you_mean(&r, column_path_tried.as_string())
+                                nu_protocol::did_you_mean(r, column_path_tried.as_string())
                             })
                             .map(|s| s[0].to_owned())
                             .collect();
@@ -324,7 +345,7 @@ where
                         let primary_label = format!("There isn't a column named '{}'", &column);
 
                         if let Some(suggestions) =
-                            nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
+                            nu_protocol::did_you_mean(obj_source, column_path_tried.as_string())
                         {
                             return ShellError::labeled_error_with_secondary(
                                 "Unknown column",
@@ -359,7 +380,7 @@ where
             }
 
             if let Some(suggestions) =
-                nu_protocol::did_you_mean(&obj_source, column_path_tried.as_string())
+                nu_protocol::did_you_mean(obj_source, column_path_tried.as_string())
             {
                 return ShellError::labeled_error(
                     "Unknown column",
@@ -375,7 +396,7 @@ where
     let replacement = callback(&old_value)?;
 
     value
-        .replace_data_at_column_path(&path, replacement)
+        .replace_data_at_column_path(path, replacement)
         .ok_or_else(|| {
             ShellError::labeled_error("missing column-path", "missing column-path", value.tag.span)
         })
@@ -539,14 +560,14 @@ pub fn forgiving_insert_data_at_column_path(
             .get_data_by_column_path(&cp, Box::new(move |_, _, err| err))
             .is_ok()
         {
-            return insert_data_at_column_path(&value, &cp, candidate);
+            return insert_data_at_column_path(value, &cp, candidate);
         } else if let Some((last, front)) = cp.split_last() {
             let mut current: &mut Value = &mut original;
 
             for member in front {
                 let type_name = current.spanned_type_name();
 
-                current = get_mut_data_by_member(current, &member).ok_or_else(|| {
+                current = get_mut_data_by_member(current, member).ok_or_else(|| {
                     ShellError::missing_property(
                         member.plain_string(std::usize::MAX).spanned(member.span),
                         type_name,
@@ -554,7 +575,7 @@ pub fn forgiving_insert_data_at_column_path(
                 })?
             }
 
-            insert_data_at_member(current, &last, candidate)?;
+            insert_data_at_member(current, last, candidate)?;
 
             return Ok(original);
         } else {
@@ -564,7 +585,7 @@ pub fn forgiving_insert_data_at_column_path(
         }
     }
 
-    insert_data_at_column_path(&value, split_path, new_value)
+    insert_data_at_column_path(value, split_path, new_value)
 }
 
 pub fn insert_data_at_column_path(
@@ -580,7 +601,7 @@ pub fn insert_data_at_column_path(
         for member in front {
             let type_name = current.spanned_type_name();
 
-            current = get_mut_data_by_member(current, &member).ok_or_else(|| {
+            current = get_mut_data_by_member(current, member).ok_or_else(|| {
                 ShellError::missing_property(
                     member.plain_string(std::usize::MAX).spanned(member.span),
                     type_name,
@@ -588,7 +609,7 @@ pub fn insert_data_at_column_path(
             })?
         }
 
-        insert_data_at_member(current, &last, new_value)?;
+        insert_data_at_member(current, last, new_value)?;
 
         Ok(original)
     } else {
@@ -648,7 +669,7 @@ pub fn as_column_path(value: &Value) -> Result<Tagged<ColumnPath>, ShellError> {
 pub fn as_path_member(value: &Value) -> Result<PathMember, ShellError> {
     match &value.value {
         UntaggedValue::Primitive(primitive) => match primitive {
-            Primitive::Int(int) => Ok(PathMember::int(int.clone(), value.tag.span)),
+            Primitive::Int(int) => Ok(PathMember::int(*int, value.tag.span)),
             Primitive::String(string) => Ok(PathMember::string(string, value.tag.span)),
             other => Err(ShellError::type_error(
                 "path member",
@@ -724,6 +745,10 @@ pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, 
         UntaggedValue::Block(_) | UntaggedValue::Table(_) | UntaggedValue::Error(_) => {
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
+        #[cfg(feature = "dataframe")]
+        UntaggedValue::DataFrame(_) => {
+            MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
+        }
     }
 }
 
@@ -776,7 +801,7 @@ pub(crate) fn get_mut_data_by_member<'value>(
 ) -> Option<&'value mut Value> {
     match &mut value.value {
         UntaggedValue::Row(o) => match &name.unspanned {
-            UnspannedPathMember::String(string) => o.get_mut_data_by_key(&string),
+            UnspannedPathMember::String(string) => o.get_mut_data_by_key(string),
             UnspannedPathMember::Int(_) => None,
         },
         UntaggedValue::Table(l) => match &name.unspanned {
@@ -787,7 +812,7 @@ pub(crate) fn get_mut_data_by_member<'value>(
                         ..
                     } = item
                     {
-                        if let Some(v) = o.get_mut_data_by_key(&string) {
+                        if let Some(v) = o.get_mut_data_by_key(string) {
                             return Some(v);
                         }
                     }

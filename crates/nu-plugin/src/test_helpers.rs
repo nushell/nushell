@@ -62,10 +62,9 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
         self.configure(|flags_configured| {
             let flags_registered = &call_stub.args.named;
 
-            let flag_passed = match flags_registered {
-                Some(names) => Some(names.keys().map(String::from).collect::<Vec<String>>()),
-                None => None,
-            };
+            let flag_passed = flags_registered
+                .as_ref()
+                .map(|names| names.keys().map(String::from).collect::<Vec<String>>());
 
             if let Some(flags) = flag_passed {
                 for flag in flags {
@@ -113,7 +112,7 @@ impl CallStub {
     }
 
     pub fn with_parameter(&mut self, name: &str) -> Result<&mut Self, ShellError> {
-        let cp = column_path(&name)
+        let cp = column_path(name)
             .as_column_path()
             .expect("Failed! Expected valid column path.");
         let cp = UntaggedValue::Primitive(Primitive::ColumnPath(cp.item)).into_value(cp.tag);

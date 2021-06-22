@@ -15,7 +15,6 @@ use crate::line_editor::{
 use nu_data::config;
 use nu_source::{Tag, Text};
 use nu_stream::InputStream;
-use std::ffi::{OsStr, OsString};
 #[allow(unused_imports)]
 use std::sync::atomic::Ordering;
 
@@ -30,69 +29,6 @@ use log::trace;
 use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
-
-pub struct Options {
-    pub config: Option<OsString>,
-    pub stdin: bool,
-    pub scripts: Vec<NuScript>,
-    pub save_history: bool,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Self {
-            config: None,
-            stdin: false,
-            scripts: vec![],
-            save_history: true,
-        }
-    }
-}
-
-pub struct NuScript {
-    pub filepath: Option<OsString>,
-    pub contents: String,
-}
-
-impl NuScript {
-    pub fn code<'a>(content: impl Iterator<Item = &'a str>) -> Result<Self, ShellError> {
-        let text = content
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        Ok(Self {
-            filepath: None,
-            contents: text,
-        })
-    }
-
-    pub fn get_code(&self) -> &str {
-        &self.contents
-    }
-
-    pub fn source_file(path: &OsStr) -> Result<Self, ShellError> {
-        use std::fs::File;
-        use std::io::Read;
-
-        let path = path.to_os_string();
-        let mut file = File::open(&path)?;
-        let mut buffer = String::new();
-
-        file.read_to_string(&mut buffer)?;
-
-        Ok(Self {
-            filepath: Some(path),
-            contents: buffer,
-        })
-    }
-}
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -123,7 +59,10 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn run_script_file(
+    context: EvaluationContext,
+    options: super::app::CliOptions,
+) -> Result<(), ShellError> {
     if let Some(cfg) = options.config {
         load_cfg_as_global_cfg(&context, PathBuf::from(cfg));
     } else {
@@ -144,7 +83,10 @@ pub fn run_script_file(context: EvaluationContext, options: Options) -> Result<(
 }
 
 #[cfg(feature = "rustyline-support")]
-pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn cli(
+    context: EvaluationContext,
+    options: super::app::CliOptions,
+) -> Result<(), Box<dyn Error>> {
     let _ = configure_ctrl_c(&context);
 
     // start time for running startup scripts (this metric includes loading of the cfg, but w/e)
@@ -157,8 +99,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
     // Store cmd duration in an env var
     context.scope.add_env_var(
-        "CMD_DURATION",
-        format!("{:?}", startup_commands_start_time.elapsed()),
+        "CMD_DURATION_MS",
+        format!("{}", startup_commands_start_time.elapsed().as_millis()),
     );
     trace!(
         "startup commands took {:?}",
@@ -167,7 +109,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
-    let history_path = if let Some(cfg) = &context.configs.lock().global_config {
+    let history_path = if let Some(cfg) = &context.configs().lock().global_config {
         let _ = configure_rustyline_editor(&mut rl, cfg);
         let helper = Some(nu_line_editor_helper(&context, cfg));
         rl.set_helper(helper);
@@ -182,7 +124,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     }
 
     //set vars from cfg if present
-    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs.lock().global_config {
+    let (skip_welcome_message, prompt) = if let Some(cfg) = &context.configs().lock().global_config
+    {
         (
             cfg.var("skip_welcome_message")
                 .map(|x| x.is_true())
@@ -205,7 +148,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     if !skip_welcome_message {
         println!(
             "Welcome to Nushell {} (type 'help' for more info)",
-            clap::crate_version!()
+            nu_command::commands::core_version()
         );
     }
 
@@ -217,25 +160,19 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
     let mut ctrlcbreak = false;
 
     loop {
-        if context.ctrl_c.load(Ordering::SeqCst) {
-            context.ctrl_c.store(false, Ordering::SeqCst);
+        if context.ctrl_c().load(Ordering::SeqCst) {
+            context.ctrl_c().store(false, Ordering::SeqCst);
             continue;
         }
 
-        let cwd = context.shell_manager.path();
+        let cwd = context.shell_manager().path();
 
         let colored_prompt = {
             if let Some(prompt) = &prompt {
                 let prompt_line = prompt.as_string()?;
 
                 context.scope.enter_scope();
-                let (mut prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
-
-                if let Some(block) =
-                    std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut prompt_block)
-                {
-                    block.set_redirect(ExternalRedirection::Stdout);
-                }
+                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
 
                 if err.is_some() {
                     context.scope.exit_scope();
@@ -250,7 +187,12 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                         nu_ansi_term::ansi::RESET
                     )
                 } else {
-                    let run_result = run_block(&prompt_block, &context, InputStream::empty());
+                    let run_result = run_block(
+                        &prompt_block,
+                        &context,
+                        InputStream::empty(),
+                        ExternalRedirection::Stdout,
+                    );
                     context.scope.exit_scope();
 
                     match run_result {
@@ -267,14 +209,14 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                                 }
                             }
                             Err(e) => {
-                                context.host.lock().print_err(e, &Text::from(prompt_line));
+                                context.host().lock().print_err(e, &Text::from(prompt_line));
                                 context.clear_errors();
 
                                 "> ".to_string()
                             }
                         },
                         Err(e) => {
-                            context.host.lock().print_err(e, &Text::from(prompt_line));
+                            context.host().lock().print_err(e, &Text::from(prompt_line));
                             context.clear_errors();
 
                             "> ".to_string()
@@ -302,11 +244,13 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
         };
 
-        rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
+        if let Some(helper) = rl.helper_mut() {
+            helper.colored_prompt = colored_prompt;
+        }
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
-            readline = rl.readline_with_initial(&prompt, (&cmd, ""));
+            readline = rl.readline_with_initial(&prompt, (cmd, ""));
             initial_command = None;
         }
 
@@ -331,9 +275,10 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
         };
 
         // Store cmd duration in an env var
-        context
-            .scope
-            .add_env_var("CMD_DURATION", format!("{:?}", cmd_start_time.elapsed()));
+        context.scope.add_env_var(
+            "CMD_DURATION_MS",
+            format!("{}", cmd_start_time.elapsed().as_millis()),
+        );
 
         match line {
             LineResult::Success(line) => {
@@ -358,7 +303,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
                 }
 
                 context
-                    .host
+                    .host()
                     .lock()
                     .print_err(err, &Text::from(session_text.clone()));
 
@@ -372,7 +317,7 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
             LineResult::CtrlC => {
                 let config_ctrlc_exit = context
-                    .configs
+                    .configs()
                     .lock()
                     .global_config
                     .as_ref()
@@ -398,8 +343,8 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
             }
 
             LineResult::CtrlD => {
-                context.shell_manager.remove_at_current();
-                if context.shell_manager.is_empty() {
+                context.shell_manager().remove_at_current();
+                if context.shell_manager().is_empty() {
                     break;
                 }
             }
@@ -421,15 +366,15 @@ pub fn cli(context: EvaluationContext, options: Options) -> Result<(), Box<dyn E
 
 pub fn load_local_cfg_if_present(context: &EvaluationContext) {
     trace!("Loading local cfg if present");
-    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager.path())) {
+    match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager().path())) {
         Ok(Some(cfg_path)) => {
             if let Err(err) = context.load_config(&ConfigPath::Local(cfg_path)) {
-                context.host.lock().print_err(err, &Text::from(""))
+                context.host().lock().print_err(err, &Text::from(""))
             }
         }
         Err(e) => {
             //Report error while checking for local cfg file
-            context.host.lock().print_err(e, &Text::from(""))
+            context.host().lock().print_err(e, &Text::from(""))
         }
         Ok(None) => {
             //No local cfg file present in start dir
@@ -439,7 +384,7 @@ pub fn load_local_cfg_if_present(context: &EvaluationContext) {
 
 fn load_cfg_as_global_cfg(context: &EvaluationContext, path: PathBuf) {
     if let Err(err) = context.load_config(&ConfigPath::Global(path)) {
-        context.host.lock().print_err(err, &Text::from(""));
+        context.host().lock().print_err(err, &Text::from(""));
     }
 }
 
@@ -449,7 +394,7 @@ pub fn load_global_cfg(context: &EvaluationContext) {
             load_cfg_as_global_cfg(context, path);
         }
         Err(e) => {
-            context.host.lock().print_err(e, &Text::from(""));
+            context.host().lock().print_err(e, &Text::from(""));
         }
     }
 }
@@ -477,7 +422,7 @@ pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, She
 
     // TODO ensure the command whose examples we're testing is actually in the pipeline
     ctx.scope.enter_scope();
-    let (classified_block, err) = nu_parser::parse(&line, 0, &ctx.scope);
+    let (classified_block, err) = nu_parser::parse(line, 0, &ctx.scope);
     if let Some(err) = err {
         ctx.scope.exit_scope();
         return Err(err.into());
@@ -485,7 +430,12 @@ pub fn parse_and_eval(line: &str, ctx: &EvaluationContext) -> Result<String, She
 
     let input_stream = InputStream::empty();
 
-    let result = run_block(&classified_block, ctx, input_stream);
+    let result = run_block(
+        &classified_block,
+        ctx,
+        input_stream,
+        ExternalRedirection::Stdout,
+    );
     ctx.scope.exit_scope();
 
     result?.collect_string(Tag::unknown()).map(|x| x.item)
@@ -509,14 +459,14 @@ fn current_branch() -> String {
 
 #[cfg(test)]
 mod tests {
-    use nu_engine::basic_evaluation_context;
+    use nu_engine::EvaluationContext;
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
         let (tokens, err) = nu_parser::lex(&data, 0);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
-            let context = basic_evaluation_context().unwrap();
+            let context = EvaluationContext::basic();
             let _ = nu_parser::classify_block(&lite_block, &context.scope);
         }
         true

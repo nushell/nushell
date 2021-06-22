@@ -2,13 +2,15 @@ use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue};
-use std::path::{Path, PathBuf};
+use nu_path::expand_path;
+use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Span;
+use std::{borrow::Cow, path::Path};
 
 pub struct PathExpand;
 
-#[derive(Deserialize)]
 struct PathExpandArguments {
+    strict: bool,
     rest: Vec<ColumnPath>,
 }
 
@@ -25,46 +27,82 @@ impl WholeStreamCommand for PathExpand {
 
     fn signature(&self) -> Signature {
         Signature::build("path expand")
+            .switch(
+                "strict",
+                "Throw an error if the path could not be expanded",
+                Some('s'),
+            )
             .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
     }
 
     fn usage(&self) -> &str {
-        "Expands a path to its absolute form"
+        "Try to expand a path to its absolute form"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let (PathExpandArguments { rest }, input) = args.process()?;
-        let args = Arc::new(PathExpandArguments { rest });
-        Ok(operate(input, &action, tag.span, args))
+        let cmd_args = Arc::new(PathExpandArguments {
+            strict: args.has_flag("strict"),
+            rest: args.rest(0)?,
+        });
+
+        Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Expand relative directories",
-            example: "echo 'C:\\Users\\joe\\foo\\..\\bar' | path expand",
-            result: None,
-            // fails to canonicalize into Some(vec![Value::from("C:\\Users\\joe\\bar")]) due to non-existing path
-        }]
+        vec![
+            Example {
+                description: "Expand an absolute path",
+                example: r"'C:\Users\joe\foo\..\bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath(r"C:\Users\joe\bar").into_value(Span::new(0, 25))
+                ]),
+            },
+            Example {
+                description: "Expand a relative path",
+                example: r"'foo\..\bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath("bar").into_value(Span::new(0, 12))
+                ]),
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Expand relative directories",
-            example: "echo '/home/joe/foo/../bar' | path expand",
-            result: None,
-            // fails to canonicalize into Some(vec![Value::from("/home/joe/bar")]) due to non-existing path
-        }]
+        vec![
+            Example {
+                description: "Expand an absolute path",
+                example: "'/home/joe/foo/../bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath("/home/joe/bar").into_value(Span::new(0, 22))
+                ]),
+            },
+            Example {
+                description: "Expand a relative path",
+                example: "'foo/../bar' | path expand",
+                result: Some(vec![
+                    UntaggedValue::filepath("bar").into_value(Span::new(0, 12))
+                ]),
+            },
+        ]
     }
 }
 
-fn action(path: &Path, _args: &PathExpandArguments) -> UntaggedValue {
-    let ps = path.to_string_lossy();
-    let expanded = shellexpand::tilde(&ps);
-    let path: &Path = expanded.as_ref().as_ref();
-    UntaggedValue::filepath(dunce::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path)))
+fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
+    if let Ok(p) = dunce::canonicalize(path) {
+        UntaggedValue::filepath(p).into_value(tag)
+    } else if args.strict {
+        Value::error(ShellError::labeled_error(
+            "Could not expand path",
+            "could not be expanded (path might not exist, non-final \
+                    component is not a directory, or other cause)",
+            tag.span,
+        ))
+    } else {
+        UntaggedValue::filepath(expand_path(Cow::Borrowed(path))).into_value(tag)
+    }
 }
 
 #[cfg(test)]

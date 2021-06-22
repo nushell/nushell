@@ -525,6 +525,14 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn new_option(start: usize, end: usize) -> Option<Span> {
+        if end >= start {
+            None
+        } else {
+            Some(Span { start, end })
+        }
+    }
+
     /// Creates a `Span` with a length of 1 from the given position.
     ///
     /// # Example
@@ -794,10 +802,7 @@ where
 
 impl<T> HasFallibleSpan for Option<Spanned<T>> {
     fn maybe_span(&self) -> Option<Span> {
-        match self {
-            None => None,
-            Some(value) => Some(value.span),
-        }
+        self.as_ref().map(|value| value.span)
     }
 }
 
@@ -815,10 +820,7 @@ where
 
 impl<T> HasFallibleSpan for Option<Tagged<T>> {
     fn maybe_span(&self) -> Option<Span> {
-        match self {
-            None => None,
-            Some(value) => Some(value.tag.span),
-        }
+        self.as_ref().map(|value| value.tag.span)
     }
 }
 

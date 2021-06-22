@@ -4,11 +4,29 @@ use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
+#[cfg(feature = "dataframe")]
+use nu_data::dataframe::{compute_between_series, compute_series_single_value};
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::PolarsData;
+
 pub fn apply_operator(
     op: Operator,
     left: &Value,
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
+    #[cfg(feature = "dataframe")]
+    if let (
+        UntaggedValue::DataFrame(PolarsData::Series(_)),
+        UntaggedValue::DataFrame(PolarsData::Series(_)),
+    ) = (&left.value, &right.value)
+    {
+        return compute_between_series(op, left, right);
+    } else if let (UntaggedValue::DataFrame(PolarsData::Series(_)), UntaggedValue::Primitive(_)) =
+        (&left.value, &right.value)
+    {
+        return compute_series_single_value(op, left, right);
+    }
+
     match op {
         Operator::Equal
         | Operator::NotEqual
@@ -84,7 +102,7 @@ fn table_contains(
         UntaggedValue::Table(values) => {
             Ok(values
                 .iter()
-                .any(|x| match compare_values(Operator::Equal, &left, &x.value) {
+                .any(|x| match compare_values(Operator::Equal, left, &x.value) {
                     Ok(coerced) => coerced,
                     _ => false,
                 }))

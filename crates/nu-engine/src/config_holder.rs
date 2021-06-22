@@ -1,13 +1,14 @@
-use std::path::Path;
-
+use crate::shell::palette::ThemedPalette;
 use nu_data::config::NuConfig;
 use nu_protocol::ConfigPath;
+use std::path::Path;
 
 /// ConfigHolder holds information which configs have been loaded.
 #[derive(Clone)]
 pub struct ConfigHolder {
     pub global_config: Option<NuConfig>,
     pub local_configs: Vec<NuConfig>,
+    pub syntax_config: Option<ThemedPalette>,
 }
 
 impl Default for ConfigHolder {
@@ -21,6 +22,7 @@ impl ConfigHolder {
         ConfigHolder {
             global_config: None,
             local_configs: vec![],
+            syntax_config: None,
         }
     }
 
@@ -31,12 +33,23 @@ impl ConfigHolder {
         }
     }
 
+    pub fn syntax_colors(&self) -> ThemedPalette {
+        match &self.syntax_config {
+            Some(cfg) => cfg.clone(),
+            None => ThemedPalette::default(),
+        }
+    }
+
     pub fn add_local_cfg(&mut self, cfg: NuConfig) {
         self.local_configs.push(cfg);
     }
 
     pub fn set_global_cfg(&mut self, cfg: NuConfig) {
         self.global_config = Some(cfg);
+    }
+
+    pub fn set_syntax_colors(&mut self, cfg: ThemedPalette) {
+        self.syntax_config = Some(cfg);
     }
 
     pub fn remove_cfg(&mut self, cfg_path: &ConfigPath) {

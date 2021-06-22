@@ -1,17 +1,18 @@
-use crate::{maybe_print_errors, path::canonicalize, run_block};
+use crate::{evaluate::internal::InternalIterator, maybe_print_errors, run_block, shell::CdArgs};
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_protocol::hir::{
-    Call, ClassifiedCommand, Expression, InternalCommand, Literal, NamedArguments,
-    SpannedExpression,
+    Call, ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, Literal,
+    NamedArguments, SpannedExpression,
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use nu_stream::{InputStream, ToInputStream};
+use nu_stream::{InputStream, IntoInputStream};
 
 use crate::EvaluationContext;
 use log::{debug, trace};
-use nu_source::{Span, Tag, Text};
-use std::path::Path;
+use nu_source::{AnchorLocation, Span, Tag, Tagged, Text};
+use std::path::{Path, PathBuf};
 use std::{error::Error, sync::atomic::Ordering};
 use std::{io::BufReader, iter::Iterator};
 
@@ -39,12 +40,12 @@ pub fn run_script_in_dir(
     ctx: &EvaluationContext,
 ) -> Result<(), Box<dyn Error>> {
     //Save path before to switch back to it after executing script
-    let path_before = ctx.shell_manager.path();
+    let path_before = ctx.shell_manager().path();
 
-    ctx.shell_manager
+    ctx.shell_manager()
         .set_path(dir.to_string_lossy().to_string());
     run_script_standalone(script, false, ctx, false)?;
-    ctx.shell_manager.set_path(path_before);
+    ctx.shell_manager().set_path(path_before);
 
     Ok(())
 }
@@ -62,7 +63,7 @@ pub fn process_script(
     } else {
         let line = chomp_newline(script_text);
 
-        let (block, err) = nu_parser::parse(&line, span_offset, &ctx.scope);
+        let (block, err) = nu_parser::parse(line, span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
         //println!("{:#?}", pipeline);
@@ -83,7 +84,9 @@ pub fn process_script(
             && block.block[0].pipelines[0].list.len() == 1
         {
             if let ClassifiedCommand::Internal(InternalCommand {
-                ref name, ref args, ..
+                ref name,
+                ref args,
+                name_span,
             }) = block.block[0].pipelines[0].list[0]
             {
                 let internal_name = name;
@@ -101,59 +104,83 @@ pub fn process_script(
                     })
                     .unwrap_or("");
 
+                ctx.sync_path_to_env();
                 if internal_name == "run_external"
                     && args
                         .positional
                         .as_ref()
-                        .map(|ref v| v.len() == 1)
+                        .map(|v| v.len() == 1)
                         .unwrap_or(true)
                     && args
                         .named
                         .as_ref()
                         .map(NamedArguments::is_empty)
                         .unwrap_or(true)
-                    && canonicalize(ctx.shell_manager.path(), name).is_ok()
+                    && canonicalize(ctx.shell_manager().path(), name).is_ok()
                     && Path::new(&name).is_dir()
-                    && !ctx.host.lock().is_external_cmd(&name)
+                    && !ctx.host().lock().is_external_cmd(name)
                 {
-                    // Here we work differently if we're in Windows because of the expected Windows behavior
-                    #[cfg(windows)]
-                    {
-                        if name.ends_with(':') {
-                            // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
-                            // But first, we need to save where we are now
-                            let current_path = ctx.shell_manager.path();
+                    let tag = Tag {
+                        anchor: Some(AnchorLocation::Source(line.into())),
+                        span: name_span,
+                    };
+                    let path = {
+                        // Here we work differently if we're in Windows because of the expected Windows behavior
+                        #[cfg(windows)]
+                        {
+                            if name.ends_with(':') {
+                                // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
+                                // But first, we need to save where we are now
+                                let current_path = ctx.shell_manager().path();
 
-                            let split_path: Vec<_> = current_path.split(':').collect();
-                            if split_path.len() > 1 {
-                                ctx.windows_drives_previous_cwd
-                                    .lock()
-                                    .insert(split_path[0].to_string(), current_path);
-                            }
+                                let split_path: Vec<_> = current_path.split(':').collect();
+                                if split_path.len() > 1 {
+                                    ctx.windows_drives_previous_cwd()
+                                        .lock()
+                                        .insert(split_path[0].to_string(), current_path);
+                                }
 
-                            let name = name.to_uppercase();
-                            let new_drive: Vec<_> = name.split(':').collect();
+                                let name = name.to_uppercase();
+                                let new_drive: Vec<_> = name.split(':').collect();
 
-                            if let Some(val) =
-                                ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
-                            {
-                                ctx.shell_manager.set_path(val.to_string());
-                                return LineResult::Success(line.to_string());
+                                if let Some(val) =
+                                    ctx.windows_drives_previous_cwd().lock().get(new_drive[0])
+                                {
+                                    val.to_string()
+                                } else {
+                                    format!("{}\\", name.to_string())
+                                }
                             } else {
-                                ctx.shell_manager
-                                    .set_path(format!("{}\\", name.to_string()));
-                                return LineResult::Success(line.to_string());
+                                name.to_string()
                             }
-                        } else {
-                            ctx.shell_manager.set_path(name.to_string());
-                            return LineResult::Success(line.to_string());
                         }
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        ctx.shell_manager.set_path(name.to_string());
-                        return LineResult::Success(line.to_string());
-                    }
+                        #[cfg(not(windows))]
+                        {
+                            name.to_string()
+                        }
+                    };
+
+                    let cd_args = CdArgs {
+                        path: Some(Tagged {
+                            item: PathBuf::from(path),
+                            tag: tag.clone(),
+                        }),
+                    };
+
+                    return match ctx.shell_manager().cd(cd_args, tag) {
+                        Err(e) => LineResult::Error(line.to_string(), e),
+                        Ok(stream) => {
+                            let iter = InternalIterator {
+                                context: ctx.clone(),
+                                leftovers: InputStream::empty(),
+                                input: stream,
+                            };
+                            for _ in iter {
+                                //nullopt, commands are run by iterating over iter
+                            }
+                            LineResult::Success(line.to_string())
+                        }
+                    };
                 }
             }
         }
@@ -177,14 +204,14 @@ pub fn process_script(
                     panic!("Internal error: could not read lines of text from stdin")
                 }
             });
-            stream.to_input_stream()
+            stream.into_input_stream()
         } else {
             InputStream::empty()
         };
 
         trace!("{:#?}", block);
 
-        let result = run_block(&block, ctx, input_stream);
+        let result = run_block(&block, ctx, input_stream, ExternalRedirection::None);
 
         match result {
             Ok(input) => {
@@ -215,7 +242,7 @@ pub fn process_script(
                                 ..
                             }) => return LineResult::Error(line.to_string(), e),
                             Some(_item) => {
-                                if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                if ctx.ctrl_c().load(Ordering::SeqCst) {
                                     break;
                                 }
                             }
@@ -236,17 +263,17 @@ pub fn run_script_standalone(
     redirect_stdin: bool,
     context: &EvaluationContext,
     exit_on_error: bool,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), ShellError> {
     context
-        .shell_manager
+        .shell_manager()
         .enter_script_mode()
-        .map_err(Box::new)?;
+        .map_err(ShellError::from)?;
     let line = process_script(&script_text, context, redirect_stdin, 0, false);
 
     match line {
         LineResult::Success(line) => {
             let error_code = {
-                let errors = context.current_errors.clone();
+                let errors = context.current_errors().clone();
                 let errors = errors.lock();
 
                 if errors.len() > 0 {
@@ -256,7 +283,7 @@ pub fn run_script_standalone(
                 }
             };
 
-            maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(context, Text::from(line));
             if error_code != 0 && exit_on_error {
                 std::process::exit(error_code);
             }
@@ -264,11 +291,11 @@ pub fn run_script_standalone(
 
         LineResult::Error(line, err) => {
             context
-                .host
+                .host()
                 .lock()
                 .print_err(err, &Text::from(line.clone()));
 
-            maybe_print_errors(&context, Text::from(line));
+            maybe_print_errors(context, Text::from(line));
             if exit_on_error {
                 std::process::exit(1);
             }
@@ -278,7 +305,7 @@ pub fn run_script_standalone(
     }
 
     //exit script mode shell
-    context.shell_manager.remove_at_current();
+    context.shell_manager().remove_at_current();
 
     Ok(())
 }

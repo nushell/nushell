@@ -34,7 +34,7 @@ fn automatically_change_directory() {
             cwd: dirs.test(),
             r#"
                 autodir
-                echo $(pwd)
+                echo (pwd)
             "#
         );
 
@@ -66,6 +66,25 @@ fn correctly_escape_external_arguments() {
     let actual = nu!(cwd: ".", r#"^echo '$0'"#);
 
     assert_eq!(actual.out, "$0");
+}
+
+#[test]
+fn execute_binary_in_string() {
+    let actual = nu!(
+    cwd: ".",
+    r#"
+        let cmd = echo
+        ^$"($cmd)" '$0'
+    "#);
+
+    assert_eq!(actual.out, "$0");
+}
+
+#[test]
+fn redirects_custom_command_external() {
+    let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length "#);
+
+    assert_eq!(actual.out, "8");
 }
 
 mod it_evaluation {
@@ -192,7 +211,8 @@ mod stdin_evaluation {
 
 mod external_words {
     use super::nu;
-
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::{pipeline, playground::Playground};
     #[test]
     fn relaxed_external_words() {
         let actual = nu!(cwd: ".", r#"
@@ -209,6 +229,27 @@ mod external_words {
         "#);
 
         assert_eq!(actual.out, "test \"things\"");
+    }
+
+    #[test]
+    fn external_arg_with_quotes() {
+        Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "sample.toml",
+                r#"
+                    nu_party_venue = "zion"
+                "#,
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    nu --testbin meow "sample.toml" | from toml | get nu_party_venue
+                "#
+            ));
+
+            assert_eq!(actual.out, "zion");
+        })
     }
 }
 
@@ -293,7 +334,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    nu --testbin cococo $(ls | get name)
+                    nu --testbin cococo (ls | get name)
                 "#
                 ));
 
@@ -301,6 +342,29 @@ mod external_command_arguments {
                     actual.out,
                     "andres_likes_arepas.txt ferris_not_here.txt jonathan_likes_cake.txt"
                 );
+            },
+        )
+    }
+
+    #[test]
+    fn proper_subexpression_paths_in_external_args() {
+        Playground::setup(
+            "expands_table_of_primitives_to_positional_arguments",
+            |dirs, sandbox| {
+                sandbox.with_files(vec![
+                    EmptyFile("jonathan_likes_cake.txt"),
+                    EmptyFile("andres_likes_arepas.txt"),
+                    EmptyFile("ferris_not_here.txt"),
+                ]);
+
+                let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    nu --testbin cococo (ls | sort-by name | get name).1
+                "#
+                ));
+
+                assert_eq!(actual.out, "ferris_not_here.txt");
             },
         )
     }

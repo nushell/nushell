@@ -28,6 +28,9 @@ pub enum ParseErrorReason {
         actual: Spanned<String>,
     },
 
+    /// Unclosed delimiter
+    Unclosed { delimiter: String, span: Span },
+
     /// An unexpected internal error has occurred
     InternalError { message: Spanned<String> },
 
@@ -98,6 +101,13 @@ impl ParseError {
             },
         }
     }
+
+    /// Unclosed delimiter
+    pub fn unclosed(delimiter: String, span: Span) -> ParseError {
+        ParseError {
+            reason: ParseErrorReason::Unclosed { delimiter, span },
+        }
+    }
 }
 
 /// Convert a [ParseError](ParseError) into a [ShellError](ShellError)
@@ -117,6 +127,11 @@ impl From<ParseError> for ShellError {
             ParseErrorReason::ArgumentError { command, error } => {
                 ShellError::argument_error(command, error)
             }
+            ParseErrorReason::Unclosed { delimiter, span } => ShellError::labeled_error(
+                "Unclosed delimiter",
+                format!("expected '{}'", delimiter),
+                span,
+            ),
         }
     }
 }
@@ -140,6 +155,8 @@ pub enum ArgumentError {
     /// A sequence of characters was found that was not syntactically valid (but would have
     /// been valid if the command was an external command)
     InvalidExternalWord,
+    /// A bad value in this location
+    BadValue(String),
 }
 
 impl PrettyDebug for ArgumentError {
@@ -171,6 +188,11 @@ impl PrettyDebug for ArgumentError {
                     + DbgDocBldr::description("`")
             }
             ArgumentError::InvalidExternalWord => DbgDocBldr::description("invalid word"),
+            ArgumentError::BadValue(msg) => {
+                DbgDocBldr::description("bad value `")
+                    + DbgDocBldr::description(msg)
+                    + DbgDocBldr::description("`")
+            }
         }
     }
 }
@@ -180,7 +202,7 @@ impl PrettyDebug for ArgumentError {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Hash)]
 pub struct ShellError {
     pub error: ProximateShellError,
-    pub cause: Option<Box<ShellError>>,
+    pub notes: Vec<String>,
 }
 
 /// `PrettyDebug` is for internal debugging. For user-facing debugging, [into_diagnostic](ShellError::into_diagnostic)
@@ -314,9 +336,6 @@ impl PrettyDebug for ShellError {
                 DbgDocBldr::error("Unimplemented")
                     + DbgDocBldr::delimit("(", DbgDocBldr::description(reason), ")")
             }
-            ProximateShellError::ExternalPlaceholderError => {
-                DbgDocBldr::error("non-zero external exit code")
-            }
         }
     }
 }
@@ -437,12 +456,8 @@ impl ShellError {
         ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
-    pub fn external_non_zero() -> ShellError {
-        ProximateShellError::ExternalPlaceholderError.start()
-    }
-
-    pub fn into_diagnostic(self) -> Option<Diagnostic<usize>> {
-        match self.error {
+    pub fn into_diagnostic(self) -> Diagnostic<usize> {
+        let d = match self.error {
             ProximateShellError::MissingValue { span, reason } => {
                 let mut d = Diagnostic::bug().with_message(format!("Internal Error (missing value) :: {}", reason));
 
@@ -450,12 +465,12 @@ impl ShellError {
                     d = d.with_labels(vec![Label::primary(0, span)]);
                 }
 
-                Some(d)
+                d
             }
             ProximateShellError::ArgumentError {
                 command,
                 error,
-            } => Some(match error {
+            } => match error {
                 ArgumentError::InvalidExternalWord => Diagnostic::error().with_message("Invalid bare word for Nu command (did you intend to invoke an external command?)")
                 .with_labels(vec![Label::primary(0, command.span)]),
                 ArgumentError::UnexpectedArgument(argument) => Diagnostic::error().with_message(
@@ -507,7 +522,8 @@ impl ShellError {
                     ),
                 )
                 .with_labels(vec![Label::primary(0, command.span)]),
-            }),
+                ArgumentError::BadValue(msg) => Diagnostic::error().with_message(msg.clone()).with_labels(vec![Label::primary(0, command.span).with_message(msg)])
+            },
             ProximateShellError::TypeError {
                 expected,
                 actual:
@@ -515,9 +531,9 @@ impl ShellError {
                         item: Some(actual),
                         span,
                     },
-            } => Some(Diagnostic::error().with_message("Type Error").with_labels(
+            } => Diagnostic::error().with_message("Type Error").with_labels(
                 vec![Label::primary(0, span)
-                    .with_message(format!("Expected {}, found {}", expected, actual))]),
+                    .with_message(format!("Expected {}, found {}", expected, actual))],
             ),
             ProximateShellError::TypeError {
                 expected,
@@ -526,13 +542,13 @@ impl ShellError {
                         item: None,
                         span
                     },
-            } => Some(Diagnostic::error().with_message("Type Error")
-                .with_labels(vec![Label::primary(0, span).with_message(expected)])),
+            } => Diagnostic::error().with_message("Type Error")
+                .with_labels(vec![Label::primary(0, span).with_message(expected)]),
 
             ProximateShellError::UnexpectedEof {
                 expected, span
-            } => Some(Diagnostic::error().with_message("Unexpected end of input")
-                .with_labels(vec![Label::primary(0, span).with_message(format!("Expected {}", expected))])),
+            } => Diagnostic::error().with_message("Unexpected end of input")
+                .with_labels(vec![Label::primary(0, span).with_message(format!("Expected {}", expected))]),
 
             ProximateShellError::RangeError {
                 kind,
@@ -542,13 +558,13 @@ impl ShellError {
                         item,
                         span
                     },
-            } => Some(Diagnostic::error().with_message("Range Error").with_labels(
+            } => Diagnostic::error().with_message("Range Error").with_labels(
                 vec![Label::primary(0, span).with_message(format!(
                     "Expected to convert {} to {} while {}, but it was out of range",
                     item,
                     kind.display(),
                     operation
-                ))]),
+                ))],
             ),
 
             ProximateShellError::SyntaxError {
@@ -557,8 +573,8 @@ impl ShellError {
                         span,
                         item
                     },
-            } => Some(Diagnostic::error().with_message("Syntax Error")
-                .with_labels(vec![Label::primary(0, span).with_message(item)])),
+            } => Diagnostic::error().with_message("Syntax Error")
+                .with_labels(vec![Label::primary(0, span).with_message(item)]),
 
             ProximateShellError::MissingProperty { subpath, expr, .. } => {
 
@@ -577,7 +593,7 @@ impl ShellError {
                     diag = diag.with_labels(labels);
                 }
 
-                Some(diag)
+                diag
             }
 
             ProximateShellError::InvalidIntegerIndex { subpath,integer } => {
@@ -593,20 +609,23 @@ impl ShellError {
                 labels.push(Label::secondary(0, integer).with_message("integer"));
                 diag = diag.with_labels(labels);
 
-                Some(diag)
+                diag
             }
 
-            ProximateShellError::Diagnostic(diag) => Some(diag.diagnostic),
+            ProximateShellError::Diagnostic(diag) => diag.diagnostic,
             ProximateShellError::CoerceError { left, right } => {
-                Some(Diagnostic::error().with_message("Coercion error")
+                Diagnostic::error().with_message("Coercion error")
                     .with_labels(vec![Label::primary(0, left.span).with_message(left.item),
-                    Label::secondary(0, right.span).with_message(right.item)]))
+                    Label::secondary(0, right.span).with_message(right.item)])
             }
 
-            ProximateShellError::UntaggedRuntimeError { reason } => Some(Diagnostic::error().with_message(format!("Error: {}", reason))),
-            ProximateShellError::Unimplemented { reason } => Some(Diagnostic::error().with_message(format!("Inimplemented: {}", reason))),
-            ProximateShellError::ExternalPlaceholderError => None,
-        }
+            ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::error().with_message(format!("Error: {}", reason)),
+            ProximateShellError::Unimplemented { reason } => Diagnostic::error().with_message(format!("Inimplemented: {}", reason)),
+
+        };
+
+        let notes = self.notes.clone();
+        d.with_notes(notes)
     }
 
     pub fn labeled_error(
@@ -759,14 +778,13 @@ pub enum ProximateShellError {
     Unimplemented {
         reason: String,
     },
-    ExternalPlaceholderError,
 }
 
 impl ProximateShellError {
     fn start(self) -> ShellError {
         ShellError {
-            cause: None,
             error: self,
+            notes: vec![],
         }
     }
 }
@@ -792,7 +810,6 @@ impl HasFallibleSpan for ProximateShellError {
             ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
             ProximateShellError::UntaggedRuntimeError { .. } => return None,
             ProximateShellError::Unimplemented { .. } => return None,
-            ProximateShellError::ExternalPlaceholderError => return None,
         })
     }
 }

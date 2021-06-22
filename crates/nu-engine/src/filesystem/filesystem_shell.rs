@@ -1,17 +1,20 @@
-use crate::filesystem::dir_info::{DirBuilder, DirInfo};
-use crate::filesystem::path::canonicalize;
 use crate::filesystem::utils::FileStructure;
 use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
-use crate::{command_args::EvaluatedWholeStreamCommandArgs, BufCodecReader};
+use crate::BufCodecReader;
+use crate::{
+    filesystem::dir_info::{DirBuilder, DirInfo},
+    CommandArgs,
+};
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
+use nu_path::canonicalize;
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
-use nu_stream::{ActionStream, Interruptible, OutputStream, ToActionStream};
+use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
 use std::collections::VecDeque;
-use std::io::{Error, ErrorKind};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -57,17 +60,17 @@ impl FilesystemShell {
         matches!(&self.mode, FilesystemShellMode::Cli)
     }
 
-    pub fn basic(mode: FilesystemShellMode) -> Result<FilesystemShell, Error> {
+    pub fn basic(mode: FilesystemShellMode) -> FilesystemShell {
         let path = match std::env::current_dir() {
             Ok(path) => path,
             Err(_) => PathBuf::from("/"),
         };
 
-        Ok(FilesystemShell {
+        FilesystemShell {
             path: path.to_string_lossy().to_string(),
             last_path: path.to_string_lossy().to_string(),
             mode,
-        })
+        }
     }
 
     pub fn with_location(
@@ -87,15 +90,7 @@ impl FilesystemShell {
 }
 
 pub fn homedir_if_possible() -> Option<PathBuf> {
-    #[cfg(feature = "dirs")]
-    {
-        dirs_next::home_dir()
-    }
-
-    #[cfg(not(feature = "dirs"))]
-    {
-        None
-    }
+    dirs_next::home_dir()
 }
 
 impl Shell for FilesystemShell {
@@ -222,7 +217,7 @@ impl Shell for FilesystemShell {
                 Some(entry)
             })
             .interruptible(ctrl_c_copy)
-            .to_action_stream())
+            .into_action_stream())
     }
 
     fn cd(&self, args: CdArgs, name: Tag) -> Result<ActionStream, ShellError> {
@@ -378,7 +373,7 @@ impl Shell for FilesystemShell {
 
         let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
-        if any_source_is_dir && !recursive.item {
+        if any_source_is_dir && !recursive {
             return Err(ShellError::labeled_error(
                 "Directories must be copied using \"--recursive\"",
                 "resolves to a directory (not copied)",
@@ -386,82 +381,80 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        for entry in sources {
-            if let Ok(entry) = entry {
-                let mut sources = FileStructure::new();
-                sources.walk_decorate(&entry)?;
+        for entry in sources.into_iter().flatten() {
+            let mut sources = FileStructure::new();
+            sources.walk_decorate(&entry)?;
 
-                if entry.is_file() {
-                    let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
-                        if destination.is_dir() {
-                            let mut dest = canonicalize(&path, &dst.item)?;
-                            if let Some(name) = entry.file_name() {
-                                dest.push(name);
-                            }
-                            Ok((source_file, dest))
-                        } else {
-                            Ok((source_file, destination.clone()))
+            if entry.is_file() {
+                let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
+                    if destination.is_dir() {
+                        let mut dest = canonicalize(&path, &dst.item)?;
+                        if let Some(name) = entry.file_name() {
+                            dest.push(name);
                         }
-                    })?;
+                        Ok((source_file, dest))
+                    } else {
+                        Ok((source_file, destination.clone()))
+                    }
+                })?;
 
-                    for (src, dst) in sources {
-                        if src.is_file() {
-                            std::fs::copy(src, dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
-                            })?;
+                for (src, dst) in sources {
+                    if src.is_file() {
+                        std::fs::copy(src, dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                        })?;
+                    }
+                }
+            } else if entry.is_dir() {
+                let destination = if !destination.exists() {
+                    destination.clone()
+                } else {
+                    match entry.file_name() {
+                        Some(name) => destination.join(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Copy aborted. Not a valid path",
+                                "not a valid path",
+                                dst.tag,
+                            ))
                         }
                     }
-                } else if entry.is_dir() {
-                    let destination = if !destination.exists() {
-                        destination.clone()
-                    } else {
-                        match entry.file_name() {
-                            Some(name) => destination.join(name),
-                            None => {
-                                return Err(ShellError::labeled_error(
-                                    "Copy aborted. Not a valid path",
-                                    "not a valid path",
-                                    dst.tag,
-                                ))
-                            }
-                        }
-                    };
+                };
 
-                    std::fs::create_dir_all(&destination).map_err(|e| {
-                        ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
-                    })?;
+                std::fs::create_dir_all(&destination).map_err(|e| {
+                    ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
+                })?;
 
-                    let sources = sources.paths_applying_with(|(source_file, depth_level)| {
-                        let mut dest = destination.clone();
-                        let path = canonicalize(&path, &source_file)?;
+                let sources = sources.paths_applying_with(|(source_file, depth_level)| {
+                    let mut dest = destination.clone();
+                    let path = canonicalize(&path, &source_file)?;
 
-                        let comps: Vec<_> = path
-                            .components()
-                            .map(|fragment| fragment.as_os_str())
-                            .rev()
-                            .take(1 + depth_level)
-                            .collect();
+                    let comps: Vec<_> = path
+                        .components()
+                        .map(|fragment| fragment.as_os_str())
+                        .rev()
+                        .take(1 + depth_level)
+                        .collect();
 
-                        for fragment in comps.into_iter().rev() {
-                            dest.push(fragment);
-                        }
+                    for fragment in comps.into_iter().rev() {
+                        dest.push(fragment);
+                    }
 
-                        Ok((PathBuf::from(&source_file), dest))
-                    })?;
+                    Ok((PathBuf::from(&source_file), dest))
+                })?;
 
-                    let dst_tag = &dst.tag;
-                    for (src, dst) in sources {
-                        if src.is_dir() && !dst.exists() {
-                            std::fs::create_dir_all(&dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
-                            })?;
-                        }
+                let dst_tag = &dst.tag;
+                for (src, dst) in sources {
+                    if src.is_dir() && !dst.exists() {
+                        std::fs::create_dir_all(&dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
+                        })?;
+                    }
 
-                        if src.is_file() {
-                            std::fs::copy(&src, &dst).map_err(|e| {
-                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
-                            })?;
-                        }
+                    if src.is_file() {
+                        std::fs::copy(&src, &dst).map_err(|e| {
+                            ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                        })?;
                     }
                 }
             }
@@ -478,7 +471,7 @@ impl Shell for FilesystemShell {
         }: MkdirArgs,
         name: Tag,
         path: &str,
-    ) -> Result<ActionStream, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let path = Path::new(path);
         let mut stream = VecDeque::new();
 
@@ -503,7 +496,7 @@ impl Shell for FilesystemShell {
             }
             if show_created_paths {
                 let val = format!("{:}", create_at.to_string_lossy()).into();
-                stream.push_back(Ok(ReturnSuccess::Value(val)));
+                stream.push_back(val);
             }
         }
 
@@ -574,13 +567,11 @@ impl Shell for FilesystemShell {
                 .collect();
         }
 
-        for entry in sources {
-            if let Ok(entry) = entry {
-                move_file(
-                    TaggedPathBuf(&entry, &src.tag),
-                    TaggedPathBuf(&destination, &dst.tag),
-                )?
-            }
+        for entry in sources.into_iter().flatten() {
+            move_file(
+                TaggedPathBuf(&entry, &src.tag),
+                TaggedPathBuf(&destination, &dst.tag),
+            )?
         }
 
         Ok(ActionStream::empty())
@@ -611,11 +602,11 @@ impl Shell for FilesystemShell {
                     `rm_always_trash = true`, but the current nu executable was not \
                     built with feature `trash_support`.",
                 ));
-            } else if _trash.item {
+            } else if _trash {
                 return Err(ShellError::labeled_error(
                     "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled",
                     "this option is only available if nu is built with the `trash-support` feature",
-                    _trash.tag
+                    name
                 ));
             }
         }
@@ -647,11 +638,25 @@ impl Shell for FilesystemShell {
             }
 
             let path = path.join(&target.item);
-            match glob::glob(&path.to_string_lossy()) {
+            match glob::glob_with(
+                &path.to_string_lossy(),
+                glob::MatchOptions {
+                    require_literal_leading_dot: true,
+                    ..Default::default()
+                },
+            ) {
                 Ok(files) => {
                     for file in files {
                         match file {
                             Ok(ref f) => {
+                                // It is not appropriate to try and remove the
+                                // current directory or its parent when using
+                                // glob patterns.
+                                let name = format!("{}", f.display());
+                                if name.ends_with("/.") || name.ends_with("/..") {
+                                    continue;
+                                }
+
                                 all_targets
                                     .entry(f.clone())
                                     .or_insert_with(|| target.tag.clone());
@@ -676,7 +681,7 @@ impl Shell for FilesystemShell {
             };
         }
 
-        if all_targets.is_empty() && !_force.item {
+        if all_targets.is_empty() && !_force {
             return Err(ShellError::labeled_error(
                 "No valid paths",
                 "no valid paths",
@@ -705,7 +710,7 @@ impl Shell for FilesystemShell {
 
                     if metadata.is_file()
                         || metadata.file_type().is_symlink()
-                        || recursive.item
+                        || recursive
                         || is_socket
                         || is_fifo
                         || is_empty()
@@ -713,7 +718,8 @@ impl Shell for FilesystemShell {
                         let result;
                         #[cfg(feature = "trash-support")]
                         {
-                            result = if _trash.item || (rm_always_trash && !_permanent.item) {
+                            use std::io::Error;
+                            result = if _trash || (rm_always_trash && !_permanent) {
                                 trash::delete(&f).map_err(|e: trash::Error| {
                                     Error::new(ErrorKind::Other, format!("{:?}", e))
                                 })
@@ -758,14 +764,14 @@ impl Shell for FilesystemShell {
                     ))
                 }
             })
-            .to_action_stream())
+            .into_action_stream())
     }
 
     fn path(&self) -> String {
         self.path.clone()
     }
 
-    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<ActionStream, ShellError> {
+    fn pwd(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
         let p = match dunce::canonicalize(path.as_path()) {
             Ok(p) => p,
@@ -920,7 +926,7 @@ fn move_file(from: TaggedPathBuf, to: TaggedPathBuf) -> Result<(), ShellError> {
         to.push(from_file_name);
     }
 
-    move_item(&from, from_tag, &to)
+    move_item(from, from_tag, &to)
 }
 
 fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {

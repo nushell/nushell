@@ -30,12 +30,12 @@ fn sets_the_column_from_a_block_full_stream_output() {
 }
 
 #[test]
-fn sets_the_column_from_an_invocation() {
+fn sets_the_column_from_a_subexpression() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             wrap content
-            | insert content $(open --raw cargo_sample.toml | lines | first 5)
+            | insert content (open --raw cargo_sample.toml | lines | first 5)
             | get content.1
             | str contains "nu"
         "#

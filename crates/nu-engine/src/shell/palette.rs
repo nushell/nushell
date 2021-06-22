@@ -7,52 +7,43 @@ use std::ops::Deref;
 use std::str::Bytes;
 use std::{fmt, io};
 
-// FIXME: find a good home, as nu-engine may be too core for styling
 pub trait Palette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>>;
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct DefaultPalette {}
 
 impl Palette for DefaultPalette {
     fn styles_for_shape(&self, shape: &Spanned<FlatShape>) -> Vec<Spanned<Style>> {
         match &shape.item {
-            FlatShape::OpenDelimiter(_) => single_style_span(Color::White.normal(), shape.span),
+            FlatShape::BareMember => single_style_span(Color::Yellow.bold(), shape.span),
             FlatShape::CloseDelimiter(_) => single_style_span(Color::White.normal(), shape.span),
-            FlatShape::ItVariable | FlatShape::Keyword => {
-                single_style_span(Color::Purple.bold(), shape.span)
-            }
-            FlatShape::Variable | FlatShape::Identifier => {
-                single_style_span(Color::Purple.normal(), shape.span)
-            }
-            FlatShape::Type => single_style_span(Color::Blue.bold(), shape.span),
-            FlatShape::Operator => single_style_span(Color::Yellow.normal(), shape.span),
+            FlatShape::Comment => single_style_span(Color::Green.bold(), shape.span),
+            FlatShape::Decimal => single_style_span(Color::Purple.bold(), shape.span),
+            FlatShape::Dot => single_style_span(Style::new().fg(Color::White), shape.span),
+            FlatShape::DotDot => single_style_span(Color::Yellow.bold(), shape.span),
             FlatShape::DotDotLeftAngleBracket => {
                 single_style_span(Color::Yellow.bold(), shape.span)
             }
-            FlatShape::DotDot => single_style_span(Color::Yellow.bold(), shape.span),
-            FlatShape::Dot => single_style_span(Style::new().fg(Color::White), shape.span),
-            FlatShape::InternalCommand => single_style_span(Color::Cyan.bold(), shape.span),
             FlatShape::ExternalCommand => single_style_span(Color::Cyan.normal(), shape.span),
             FlatShape::ExternalWord => single_style_span(Color::Green.bold(), shape.span),
-            FlatShape::BareMember => single_style_span(Color::Yellow.bold(), shape.span),
-            FlatShape::StringMember => single_style_span(Color::Yellow.bold(), shape.span),
-            FlatShape::String => single_style_span(Color::Green.normal(), shape.span),
-            FlatShape::Path => single_style_span(Color::Cyan.normal(), shape.span),
-            FlatShape::GlobPattern => single_style_span(Color::Cyan.bold(), shape.span),
-            FlatShape::Word => single_style_span(Color::Green.normal(), shape.span),
-            FlatShape::Pipe => single_style_span(Color::Purple.bold(), shape.span),
             FlatShape::Flag => single_style_span(Color::Blue.bold(), shape.span),
-            FlatShape::ShorthandFlag => single_style_span(Color::Blue.bold(), shape.span),
-            FlatShape::Int => single_style_span(Color::Purple.bold(), shape.span),
-            FlatShape::Decimal => single_style_span(Color::Purple.bold(), shape.span),
-            FlatShape::Whitespace | FlatShape::Separator => {
-                single_style_span(Color::White.normal(), shape.span)
-            }
-            FlatShape::Comment => single_style_span(Color::Green.bold(), shape.span),
             FlatShape::Garbage => {
                 single_style_span(Style::new().fg(Color::White).on(Color::Red), shape.span)
             }
+            FlatShape::GlobPattern => single_style_span(Color::Cyan.bold(), shape.span),
+            FlatShape::Identifier => single_style_span(Color::Purple.normal(), shape.span),
+            FlatShape::Int => single_style_span(Color::Purple.bold(), shape.span),
+            FlatShape::InternalCommand => single_style_span(Color::Cyan.bold(), shape.span),
+            FlatShape::ItVariable => single_style_span(Color::Purple.bold(), shape.span),
+            FlatShape::Keyword => single_style_span(Color::Purple.bold(), shape.span),
+            FlatShape::OpenDelimiter(_) => single_style_span(Color::White.normal(), shape.span),
+            FlatShape::Operator => single_style_span(Color::Yellow.normal(), shape.span),
+            FlatShape::Path => single_style_span(Color::Cyan.normal(), shape.span),
+            FlatShape::Pipe => single_style_span(Color::Purple.bold(), shape.span),
+            FlatShape::Separator => single_style_span(Color::White.normal(), shape.span),
+            FlatShape::ShorthandFlag => single_style_span(Color::Blue.bold(), shape.span),
             FlatShape::Size { number, unit } => vec![
                 Spanned::<Style> {
                     span: *number,
@@ -63,20 +54,30 @@ impl Palette for DefaultPalette {
                     item: Color::Cyan.bold(),
                 },
             ],
+            FlatShape::String => single_style_span(Color::Green.normal(), shape.span),
+            FlatShape::StringMember => single_style_span(Color::Yellow.bold(), shape.span),
+            FlatShape::Type => single_style_span(Color::Blue.bold(), shape.span),
+            FlatShape::Variable => single_style_span(Color::Purple.normal(), shape.span),
+            FlatShape::Whitespace => single_style_span(Color::White.normal(), shape.span),
+            FlatShape::Word => single_style_span(Color::Green.normal(), shape.span),
         }
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct ThemedPalette {
     theme: Theme,
 }
 
 impl ThemedPalette {
-    // remove this once we start actually loading themes.
-    #[allow(dead_code)]
     pub fn new<R: io::Read>(reader: &mut R) -> Result<ThemedPalette, ThemeError> {
         let theme = serde_json::from_reader(reader)?;
         Ok(ThemedPalette { theme })
+    }
+
+    pub fn default() -> ThemedPalette {
+        let theme = Theme::default();
+        ThemedPalette { theme }
     }
 }
 
@@ -168,41 +169,114 @@ impl From<serde_json::error::Error> for ThemeError {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct Theme {
-    open_delimiter: ThemeColor,
+    bare_member: ThemeColor,
     close_delimiter: ThemeColor,
-    r#type: ThemeColor,
-    identifier: ThemeColor,
-    it_variable: ThemeColor,
-    variable: ThemeColor,
-    operator: ThemeColor,
+    comment: ThemeColor,
+    decimal: ThemeColor,
     dot: ThemeColor,
     dot_dot: ThemeColor,
-    internal_command: ThemeColor,
+    dot_dot_left_angle_bracket: ThemeColor,
     external_command: ThemeColor,
     external_word: ThemeColor,
-    bare_member: ThemeColor,
-    string_member: ThemeColor,
-    string: ThemeColor,
-    path: ThemeColor,
-    word: ThemeColor,
-    keyword: ThemeColor,
-    pipe: ThemeColor,
-    glob_pattern: ThemeColor,
     flag: ThemeColor,
-    shorthand_flag: ThemeColor,
-    int: ThemeColor,
-    decimal: ThemeColor,
     garbage: ThemeColor,
-    whitespace: ThemeColor,
+    glob_pattern: ThemeColor,
+    identifier: ThemeColor,
+    int: ThemeColor,
+    internal_command: ThemeColor,
+    it_variable: ThemeColor,
+    keyword: ThemeColor,
+    open_delimiter: ThemeColor,
+    operator: ThemeColor,
+    path: ThemeColor,
+    pipe: ThemeColor,
     separator: ThemeColor,
-    comment: ThemeColor,
+    shorthand_flag: ThemeColor,
     size_number: ThemeColor,
     size_unit: ThemeColor,
+    string: ThemeColor,
+    string_member: ThemeColor,
+    r#type: ThemeColor,
+    variable: ThemeColor,
+    whitespace: ThemeColor,
+    word: ThemeColor,
 }
 
-#[derive(Debug)]
+impl Default for Theme {
+    fn default() -> Self {
+        Theme {
+            bare_member: ThemeColor(Color::Yellow),
+            close_delimiter: ThemeColor(Color::White),
+            comment: ThemeColor(Color::Green),
+            decimal: ThemeColor(Color::Purple),
+            dot: ThemeColor(Color::White),
+            dot_dot: ThemeColor(Color::Yellow),
+            dot_dot_left_angle_bracket: ThemeColor(Color::Yellow),
+            external_command: ThemeColor(Color::Cyan),
+            external_word: ThemeColor(Color::Green),
+            flag: ThemeColor(Color::Blue),
+            garbage: ThemeColor(Color::White),
+            glob_pattern: ThemeColor(Color::Cyan),
+            identifier: ThemeColor(Color::Purple),
+            int: ThemeColor(Color::Purple),
+            internal_command: ThemeColor(Color::Cyan),
+            it_variable: ThemeColor(Color::Purple),
+            keyword: ThemeColor(Color::Purple),
+            open_delimiter: ThemeColor(Color::White),
+            operator: ThemeColor(Color::Yellow),
+            path: ThemeColor(Color::Cyan),
+            pipe: ThemeColor(Color::Purple),
+            separator: ThemeColor(Color::Red),
+            shorthand_flag: ThemeColor(Color::Blue),
+            size_number: ThemeColor(Color::Purple),
+            size_unit: ThemeColor(Color::Cyan),
+            string: ThemeColor(Color::Green),
+            string_member: ThemeColor(Color::Yellow),
+            r#type: ThemeColor(Color::Blue),
+            variable: ThemeColor(Color::Purple),
+            whitespace: ThemeColor(Color::White),
+            word: ThemeColor(Color::Green),
+            // These should really be Syles and not colors
+            // leave this here for the next change to make
+            // ThemeColor, ThemeStyle.
+            // open_delimiter: ThemeColor(Color::White.normal()),
+            // close_delimiter: ThemeColor(Color::White.normal()),
+            // it_variable: ThemeColor(Color::Purple.bold()),
+            // variable: ThemeColor(Color::Purple.normal()),
+            // r#type: ThemeColor(Color::Blue.bold()),
+            // identifier: ThemeColor(Color::Purple.normal()),
+            // operator: ThemeColor(Color::Yellow.normal()),
+            // dot: ThemeColor(Color::White),
+            // dot_dot: ThemeColor(Color::Yellow.bold()),
+            // //missing DotDotLeftAngleBracket
+            // internal_command: ThemeColor(Color::Cyan.bold()),
+            // external_command: ThemeColor(Color::Cyan.normal()),
+            // external_word: ThemeColor(Color::Green.bold()),
+            // bare_member: ThemeColor(Color::Yellow.bold()),
+            // string: ThemeColor(Color::Green.normal()),
+            // string_member: ThemeColor(Color::Yellow.bold()),
+            // path: ThemeColor(Color::Cyan.normal()),
+            // glob_pattern: ThemeColor(Color::Cyan.bold()),
+            // word: ThemeColor(Color::Green.normal()),
+            // keyword: ThemeColor(Color::Purple.bold()),
+            // pipe: ThemeColor(Color::Purple.bold()),
+            // flag: ThemeColor(Color::Blue.bold()),
+            // shorthand_flag: ThemeColor(Color::Blue.bold()),
+            // int: ThemeColor(Color::Purple.bold()),
+            // decimal: ThemeColor(Color::Purple.bold()),
+            // garbage: ThemeColor(Style::new().fg(Color::White).on(Color::Red)),
+            // whitespace: ThemeColor(Color::White.normal()),
+            // separator: ThemeColor(Color::Red),
+            // comment: ThemeColor(Color::Green.bold()),
+            // size_number: ThemeColor(Color::Purple.bold()),
+            // size_unit: ThemeColor(Color::Cyan.bold()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 struct ThemeColor(Color);
 
 impl Deref for ThemeColor {
@@ -287,36 +361,37 @@ mod tests {
     fn create_themed_palette() {
         let json = r#"
 {
-    "open_delimiter": "a359cc",
+    "bare_member": "a359cc",
     "close_delimiter": "a359cc",
-    "type": "a359cc",
-    "identifier": "a359cc",
-    "it_variable": "a359cc",
-    "variable": "a359cc",
-    "operator": "a359cc",
+    "comment": "a359cc",
+    "decimal": "a359cc",
     "dot": "a359cc",
     "dot_dot": "a359cc",
-    "internal_command": "a359cc",
+    "dot_dot_left_angle_bracket": "a359cc",
     "external_command": "a359cc",
     "external_word": "a359cc",
-    "bare_member": "a359cc",
-    "string_member": "a359cc",
-    "string": "a359cc",
-    "path": "a359cc",
-    "word": "a359cc",
-    "keyword": "a359cc",
-    "pipe": "a359cc",
-    "glob_pattern": "a359cc",
     "flag": "a359cc",
-    "shorthand_flag": "a359cc",
-    "int": "a359cc",
-    "decimal": "a359cc",
     "garbage": "a359cc",
-    "whitespace": "a359cc",
+    "glob_pattern": "a359cc",
+    "identifier": "a359cc",
+    "int": "a359cc",
+    "internal_command": "a359cc",
+    "it_variable": "a359cc",
+    "keyword": "a359cc",
+    "open_delimiter": "a359cc",
+    "operator": "a359cc",
+    "path": "a359cc",
+    "pipe": "a359cc",
     "separator": "a359cc",
-    "comment": "a359cc",
+    "shorthand_flag": "a359cc",
     "size_number": "a359cc",
-    "size_unit": "a359cc"
+    "size_unit": "a359cc",
+    "string": "a359cc",
+    "string_member": "a359cc",
+    "type": "a359cc",
+    "variable": "a359cc",
+    "whitespace": "a359cc",
+    "word": "a359cc"
 }"#;
         let mut json_reader = Cursor::new(json);
         let themed_palette = ThemedPalette::new(&mut json_reader).unwrap();

@@ -1,22 +1,35 @@
-use std::{path::Path, sync::Arc};
+use std::borrow::Cow;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
+use nu_path::{expand_path, expand_path_string};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
-    Unit,
+    self, Binary, Block, Call, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind,
+    Group, InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator,
+    SpannedExpression, Synthetic, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::lex::lexer::{lex, parse_block};
-use crate::lex::tokens::{LiteBlock, LiteCommand, LitePipeline};
-use crate::path::expand_path;
-use crate::scope::ParserScope;
-use bigdecimal::BigDecimal;
+use crate::parse::def::parse_parameter;
+use crate::{
+    lex::lexer::{lex, parse_block},
+    ParserScope,
+};
+use crate::{
+    lex::{
+        lexer::Token,
+        tokens::{LiteBlock, LiteCommand, LitePipeline, TokenContents},
+    },
+    parse::def::lex_split_baseline_tokens_on,
+};
 
 use self::{
     def::{parse_definition, parse_definition_prototype},
@@ -46,7 +59,7 @@ pub fn parse_simple_column_path(
             if c == delimiter {
                 inside_delimiter = false;
             }
-        } else if c == '\'' || c == '"' || c == '`' {
+        } else if c == '\'' || c == '"' {
             inside_delimiter = true;
             delimiter = c;
         } else if c == '.' {
@@ -55,11 +68,11 @@ pub fn parse_simple_column_path(
                 lite_arg.span.start() + idx,
             );
 
-            if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(Member::Int(BigInt::from(row_number), part_span));
+            if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(Member::Int(row_number, part_span));
             } else {
                 let trimmed = trim_quotes(&current_part);
-                output.push(Member::Bare(trimmed.clone().spanned(part_span)));
+                output.push(Member::Bare(trimmed.spanned(part_span)));
             }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using,
@@ -75,8 +88,8 @@ pub fn parse_simple_column_path(
             lite_arg.span.start() + start_index,
             lite_arg.span.start() + last_index + 1,
         );
-        if let Ok(row_number) = current_part.parse::<u64>() {
-            output.push(Member::Int(BigInt::from(row_number), part_span));
+        if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(Member::Int(row_number, part_span));
         } else {
             let current_part = trim_quotes(&current_part);
             output.push(Member::Bare(current_part.spanned(part_span)));
@@ -94,8 +107,7 @@ pub fn parse_full_column_path(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    let mut delimiter = '.';
-    let mut inside_delimiter = false;
+    let mut inside_delimiter = vec![];
     let mut output = vec![];
     let mut current_part = String::new();
     let mut start_index = 0;
@@ -106,25 +118,23 @@ pub fn parse_full_column_path(
 
     for (idx, c) in lite_arg.item.char_indices() {
         last_index = idx;
-        if inside_delimiter {
-            if c == delimiter {
-                inside_delimiter = false;
+        if c == '(' {
+            inside_delimiter.push(')');
+        } else if let Some(delimiter) = inside_delimiter.last() {
+            if c == *delimiter {
+                inside_delimiter.pop();
             }
-        } else if c == '(' {
-            inside_delimiter = true;
-            delimiter = ')';
         } else if c == '\'' || c == '"' {
-            inside_delimiter = true;
-            delimiter = c;
+            inside_delimiter.push(c);
         } else if c == '.' {
             let part_span = Span::new(
                 lite_arg.span.start() + start_index,
                 lite_arg.span.start() + idx,
             );
 
-            if head.is_none() && current_part.starts_with("$(") && current_part.ends_with(')') {
+            if head.is_none() && current_part.starts_with('(') && current_part.ends_with(')') {
                 let (invoc, err) =
-                    parse_invocation(&current_part.clone().spanned(part_span), scope);
+                    parse_subexpression(&current_part.clone().spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
@@ -132,10 +142,8 @@ pub fn parse_full_column_path(
             } else if head.is_none() && current_part.starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
-            } else if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(
-                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-                );
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
             } else {
                 let current_part = trim_quotes(&current_part);
                 output.push(
@@ -158,26 +166,22 @@ pub fn parse_full_column_path(
         );
 
         if head.is_none() {
-            if current_part.starts_with("$(") && current_part.ends_with(')') {
-                let (invoc, err) = parse_invocation(&current_part.spanned(part_span), scope);
+            if current_part.starts_with('(') && current_part.ends_with(')') {
+                let (invoc, err) = parse_subexpression(&current_part.spanned(part_span), scope);
                 if error.is_none() {
                     error = err;
                 }
                 head = Some(invoc.expr);
             } else if current_part.starts_with('$') {
                 head = Some(Expression::variable(current_part, lite_arg.span));
-            } else if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(
-                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-                );
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
             } else {
                 let current_part = trim_quotes(&current_part);
                 output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
             }
-        } else if let Ok(row_number) = current_part.parse::<u64>() {
-            output.push(
-                UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-            );
+        } else if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
         } else {
             let current_part = trim_quotes(&current_part);
             output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
@@ -332,8 +336,8 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
     )
 }
 
-/// Parse a unit type, eg '10kb'
-fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+/// Parse a duration type, eg '10day'
+fn parse_duration(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
@@ -342,17 +346,6 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
         None
     }
     let unit_groups = [
-        (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-        (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-        (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-        (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-        (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-        (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-        (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-        (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-        (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-        (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-        (Unit::Byte, "B", None),
         (Unit::Nanosecond, "NS", None),
         (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
         (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
@@ -407,43 +400,114 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
 
     (
         garbage(lite_arg.span),
+        Some(ParseError::mismatch("duration", lite_arg.clone())),
+    )
+}
+
+/// Parse a unit type, eg '10kb'
+fn parse_filesize(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
+        let string_to_parse = format!("0.{}", decimal);
+        if let Ok(x) = string_to_parse.parse::<f64>() {
+            return Some((1_f64 / x) as i64);
+        }
+        None
+    }
+    let unit_groups = [
+        (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
+        (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
+        (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
+        (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
+        (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+        (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
+        (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
+        (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+        (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
+        (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
+        (Unit::Byte, "B", None),
+    ];
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| lite_arg.to_uppercase().ends_with(x.1))
+    {
+        let mut lhs = lite_arg.item.clone();
+        for _ in 0..unit.1.len() {
+            lhs.pop();
+        }
+
+        let input: Vec<&str> = lhs.split('.').collect();
+        let (value, unit_to_use) = match &input[..] {
+            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
+            [number_str, decimal_part_str] => match unit.2 {
+                Some(unit_to_convert_to) => match (
+                    number_str.parse::<i64>(),
+                    parse_decimal_str_to_number(decimal_part_str),
+                ) {
+                    (Ok(number), Some(decimal_part)) => (
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
+                        unit_to_convert_to.0,
+                    ),
+                    _ => (None, unit.0),
+                },
+                None => (None, unit.0),
+            },
+            _ => (None, unit.0),
+        };
+
+        if let Some(x) = value {
+            let lhs_span = Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+            let unit_span = Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+            return (
+                SpannedExpression::new(
+                    Expression::unit(x.spanned(lhs_span), unit_to_use.spanned(unit_span)),
+                    lite_arg.span,
+                ),
+                None,
+            );
+        }
+    }
+
+    (
+        garbage(lite_arg.span),
         Some(ParseError::mismatch("unit", lite_arg.clone())),
     )
 }
 
-fn parse_invocation(
+fn parse_subexpression(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    // We have a command invocation
+    let mut error = None;
+
     let string: String = lite_arg
         .item
         .chars()
-        .skip(2)
-        .take(lite_arg.item.chars().count() - 3)
+        .skip(1)
+        .take(lite_arg.item.chars().count() - 2)
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it
-    let (tokens, err) = lex(&string, lite_arg.span.start() + 2);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
+    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+    if error.is_none() {
+        error = err;
     };
     let (lite_block, err) = parse_block(tokens);
-    if err.is_some() {
-        return (garbage(lite_arg.span), err);
+    if error.is_none() {
+        error = err;
     };
 
     scope.enter_scope();
-    let (mut classified_block, err) = classify_block(&lite_block, scope);
+    let (classified_block, err) = classify_block(&lite_block, scope);
+    if error.is_none() {
+        error = err;
+    };
     scope.exit_scope();
 
-    if let Some(x) = std::sync::Arc::<nu_protocol::hir::Block>::get_mut(&mut classified_block) {
-        x.set_redirect(ExternalRedirection::Stdout);
-    }
-
     (
-        SpannedExpression::new(Expression::Invocation(classified_block), lite_arg.span),
-        err,
+        SpannedExpression::new(Expression::Subexpression(classified_block), lite_arg.span),
+        error,
     )
 }
 
@@ -466,33 +530,24 @@ fn parse_variable(
 }
 /// Parses the given lite_arg starting with dollar returning
 /// a expression starting with $
-/// Currently either Variable, Invocation, FullColumnPath
+/// Currently either Variable, String interpolation, FullColumnPath
 fn parse_dollar_expr(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parsing dollar expression: {:?}", lite_arg.item);
-    if lite_arg.item == "$true" {
-        (
-            SpannedExpression::new(Expression::boolean(true), lite_arg.span),
-            None,
-        )
-    } else if lite_arg.item == "$false" {
-        (
-            SpannedExpression::new(Expression::boolean(false), lite_arg.span),
-            None,
-        )
-    } else if lite_arg.item.ends_with(')') {
-        //Return invocation
-        trace!("Parsing invocation expression");
-        parse_invocation(lite_arg, scope)
-    } else if lite_arg.item.contains("..") {
-        parse_range(lite_arg, scope)
-    } else if lite_arg.item.contains('.') {
-        trace!("Parsing path expression");
-        parse_full_column_path(lite_arg, scope)
+    if (lite_arg.item.starts_with("$\"") && lite_arg.item.len() > 1 && lite_arg.item.ends_with('"'))
+        || (lite_arg.item.starts_with("$'")
+            && lite_arg.item.len() > 1
+            && lite_arg.item.ends_with('\''))
+    {
+        // This is an interpolated string
+        parse_interpolated_string(lite_arg, scope)
+    } else if let (expr, None) = parse_range(lite_arg, scope) {
+        (expr, None)
+    } else if let (expr, None) = parse_full_column_path(lite_arg, scope) {
+        (expr, None)
     } else {
-        trace!("Parsing variable expression");
         parse_variable(lite_arg, scope)
     }
 }
@@ -514,77 +569,73 @@ fn format(input: &str, start: usize) -> (Vec<FormatCommand>, Option<ParseError>)
     loop {
         let mut before = String::new();
 
-        let mut found_start = false;
-        while let Some(c) = loop_input.next() {
+        loop {
             end += 1;
-            if c == '{' {
-                if let Some(x) = loop_input.peek() {
-                    if *x == '{' {
-                        found_start = true;
-                        end += 1;
-                        let _ = loop_input.next();
-                        break;
-                    }
+            if let Some(c) = loop_input.next() {
+                if c == '(' {
+                    break;
                 }
+                before.push(c);
+            } else {
+                break;
             }
-            before.push(c);
         }
 
         if !before.is_empty() {
-            if found_start {
-                output.push(FormatCommand::Text(
-                    before.to_string().spanned(Span::new(start, end - 2)),
-                ));
-            } else {
-                output.push(FormatCommand::Text(before.spanned(Span::new(start, end))));
-                break;
-            }
+            output.push(FormatCommand::Text(
+                before.to_string().spanned(Span::new(start, end - 1)),
+            ));
         }
         // Look for column as we're now at one
         let mut column = String::new();
         start = end;
 
-        let mut previous_c = ' ';
         let mut found_end = false;
-        while let Some(c) = loop_input.next() {
+        let mut delimiter_stack = vec![')'];
+
+        for c in &mut loop_input {
             end += 1;
-            if c == '}' && previous_c == '}' {
-                let _ = column.pop();
-                found_end = true;
-                break;
+            if let Some('\'') = delimiter_stack.last() {
+                if c == '\'' {
+                    delimiter_stack.pop();
+                }
+            } else if let Some('"') = delimiter_stack.last() {
+                if c == '"' {
+                    delimiter_stack.pop();
+                }
+            } else if c == '\'' {
+                delimiter_stack.push('\'');
+            } else if c == '"' {
+                delimiter_stack.push('"');
+            } else if c == '(' {
+                delimiter_stack.push(')');
+            } else if c == ')' {
+                if let Some(')') = delimiter_stack.last() {
+                    delimiter_stack.pop();
+                }
+                if delimiter_stack.is_empty() {
+                    found_end = true;
+                    break;
+                }
             }
-            previous_c = c;
             column.push(c);
         }
 
         if !column.is_empty() {
-            if found_end {
-                output.push(FormatCommand::Column(
-                    column.to_string().spanned(Span::new(start, end - 2)),
-                ));
-            } else {
-                output.push(FormatCommand::Column(
-                    column.to_string().spanned(Span::new(start, end)),
-                ));
-
-                if error.is_none() {
-                    error = Some(ParseError::argument_error(
-                        input.spanned(Span::new(original_start, end)),
-                        ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
-                    ));
-                }
-            }
-        }
-
-        if found_start && !found_end {
-            error = Some(ParseError::argument_error(
-                input.spanned(Span::new(original_start, end)),
-                ArgumentError::MissingValueForName("unclosed {{ }}".to_string()),
+            output.push(FormatCommand::Column(
+                column.to_string().spanned(Span::new(start, end)),
             ));
         }
 
-        if before.is_empty() && column.is_empty() {
+        if column.is_empty() {
             break;
+        }
+
+        if !found_end {
+            error = Some(ParseError::argument_error(
+                input.spanned(Span::new(original_start, end)),
+                ArgumentError::MissingValueForName("unclosed ()".to_string()),
+            ));
         }
 
         start = end;
@@ -599,10 +650,16 @@ fn parse_interpolated_string(
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
     trace!("Parse_interpolated_string");
-    let inner_string = trim_quotes(&lite_arg.item);
+    let string_len = lite_arg.item.len();
+    let inner_string = lite_arg
+        .item
+        .chars()
+        .skip(2)
+        .take(string_len - 3)
+        .collect::<String>();
     let mut error = None;
 
-    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 1);
+    let (format_result, err) = format(&inner_string, lite_arg.span.start() + 2);
 
     if error.is_none() {
         error = err;
@@ -619,11 +676,18 @@ fn parse_interpolated_string(
                 });
             }
             FormatCommand::Column(c) => {
-                let (o, err) = parse_full_column_path(&c, scope);
-                if error.is_none() {
-                    error = err;
+                let result = parse(&c, c.span.start(), scope);
+                match result {
+                    (classified_block, None) => {
+                        output.push(SpannedExpression {
+                            expr: Expression::Subexpression(classified_block),
+                            span: c.span,
+                        });
+                    }
+                    (_, Some(err)) => {
+                        return (garbage(c.span), Some(err));
+                    }
                 }
-                output.push(o);
             }
         }
     }
@@ -649,8 +713,8 @@ fn parse_interpolated_string(
     let group = Group::new(pipelines, lite_arg.span);
 
     let call = SpannedExpression {
-        expr: Expression::Invocation(Arc::new(Block::new(
-            Signature::new("<invocation>"),
+        expr: Expression::Subexpression(Arc::new(Block::new(
+            Signature::new("<subexpression>"),
             vec![group],
             IndexMap::new(),
             lite_arg.span,
@@ -666,13 +730,8 @@ fn parse_external_arg(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') {
-        return parse_dollar_expr(&lite_arg, scope);
-    }
-
-    if lite_arg.item.starts_with('`') && lite_arg.item.len() > 1 && lite_arg.item.ends_with('`') {
-        // This is an interpolated string
-        parse_interpolated_string(&lite_arg, scope)
+    if lite_arg.item.starts_with('$') || lite_arg.item.starts_with('(') {
+        parse_full_column_path(lite_arg, scope)
     } else {
         (
             SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
@@ -753,7 +812,7 @@ fn parse_table(
     let lite_cells = &lite_rows.commands[0];
 
     for arg in &lite_cells.parts {
-        let (string, err) = verify_and_strip(&arg, '[', ']');
+        let (string, err) = verify_and_strip(arg, '[', ']');
         if error.is_none() {
             error = err;
         }
@@ -778,6 +837,56 @@ fn parse_table(
     )
 }
 
+fn parse_int(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    if lite_arg.item.starts_with("0x") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 16) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if lite_arg.item.starts_with("0b") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 2) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if lite_arg.item.starts_with("0o") {
+        if let Ok(v) = i64::from_str_radix(&lite_arg.item[2..], 8) {
+            (
+                SpannedExpression::new(Expression::integer(v), lite_arg.span),
+                None,
+            )
+        } else {
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("int", lite_arg.clone())),
+            )
+        }
+    } else if let Ok(x) = lite_arg.item.parse::<i64>() {
+        (
+            SpannedExpression::new(Expression::integer(x), lite_arg.span),
+            None,
+        )
+    } else {
+        (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("int", lite_arg.clone())),
+        )
+    }
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: SyntaxShape,
@@ -785,14 +894,21 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_dollar_expr(&lite_arg, scope);
+        return parse_dollar_expr(lite_arg, scope);
+    }
+
+    // before anything else, try to see if this is a number in paranthesis
+    if lite_arg.item.starts_with('(') {
+        return parse_full_column_path(lite_arg, scope);
     }
 
     match expected_type {
         SyntaxShape::Number => {
-            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+            if let (x, None) = parse_int(lite_arg) {
+                (x, None)
+            } else if let Ok(x) = lite_arg.item.parse::<BigInt>() {
                 (
-                    SpannedExpression::new(Expression::integer(x), lite_arg.span),
+                    SpannedExpression::new(Expression::big_integer(x), lite_arg.span),
                     None,
                 )
             } else if let Ok(x) = lite_arg.item.parse::<BigDecimal>() {
@@ -808,9 +924,14 @@ fn parse_arg(
             }
         }
         SyntaxShape::Int => {
-            if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+            if let Ok(x) = lite_arg.item.parse::<i64>() {
                 (
                     SpannedExpression::new(Expression::integer(x), lite_arg.span),
+                    None,
+                )
+            } else if let Ok(x) = lite_arg.item.parse::<BigInt>() {
+                (
+                    SpannedExpression::new(Expression::big_integer(x), lite_arg.span),
                     None,
                 )
             } else {
@@ -821,38 +942,34 @@ fn parse_arg(
             }
         }
         SyntaxShape::String => {
-            if lite_arg.item.starts_with('`')
-                && lite_arg.item.len() > 1
-                && lite_arg.item.ends_with('`')
-            {
-                // This is an interpolated string
-                parse_interpolated_string(&lite_arg, scope)
-            } else {
-                let trimmed = trim_quotes(&lite_arg.item);
-                (
-                    SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
-                    None,
-                )
-            }
+            let trimmed = trim_quotes(&lite_arg.item);
+            (
+                SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
+                None,
+            )
         }
         SyntaxShape::GlobPattern => {
-            let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed).to_string();
+            let trimmed = Cow::Owned(trim_quotes(&lite_arg.item));
+            let expanded = expand_path_string(trimmed).to_string();
             (
                 SpannedExpression::new(Expression::glob_pattern(expanded), lite_arg.span),
                 None,
             )
         }
 
-        SyntaxShape::Range => parse_range(&lite_arg, scope),
-        SyntaxShape::Operator => parse_operator(&lite_arg),
-        SyntaxShape::Unit => parse_unit(&lite_arg),
+        SyntaxShape::Range => parse_range(lite_arg, scope),
+        SyntaxShape::Operator => (
+            garbage(lite_arg.span),
+            Some(ParseError::mismatch("operator", lite_arg.clone())),
+        ),
+        SyntaxShape::Filesize => parse_filesize(lite_arg),
+        SyntaxShape::Duration => parse_duration(lite_arg),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed).to_string();
-            let path = Path::new(&expanded);
+            let path = PathBuf::from(trimmed);
+            let expanded = expand_path(Cow::Owned(path)).to_path_buf();
             (
-                SpannedExpression::new(Expression::FilePath(path.to_path_buf()), lite_arg.span),
+                SpannedExpression::new(Expression::FilePath(expanded), lite_arg.span),
                 None,
             )
         }
@@ -863,7 +980,8 @@ fn parse_arg(
                 SyntaxShape::Int,
                 SyntaxShape::Number,
                 SyntaxShape::Range,
-                SyntaxShape::Unit,
+                SyntaxShape::Filesize,
+                SyntaxShape::Duration,
                 SyntaxShape::Block,
                 SyntaxShape::Table,
                 SyntaxShape::String,
@@ -934,31 +1052,114 @@ fn parse_arg(
         SyntaxShape::Block | SyntaxShape::RowCondition => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
-            let mut chars = lite_arg.item.chars();
+            let mut chars: Vec<_> = lite_arg.item.chars().collect();
 
-            match (chars.next(), chars.next_back()) {
-                (Some('{'), Some('}')) => {
+            match chars.first() {
+                Some('{') => {
+                    let mut error = None;
+
+                    if let Some('}') = chars.last() {
+                        chars = chars[1..(chars.len() - 1)].to_vec();
+                    } else {
+                        chars = chars[1..].to_vec();
+                        error = Some(ParseError::unclosed(
+                            "}".into(),
+                            Span::new(lite_arg.span.end(), lite_arg.span.end()),
+                        ));
+                    }
                     // We have a literal block
-                    let string: String = chars.collect();
+                    let string: String = chars.into_iter().collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
-                    if err.is_some() {
-                        return (garbage(lite_arg.span), err);
+                    let (mut tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    if error.is_none() {
+                        error = err;
                     }
 
+                    // Check to see if we have parameters
+                    let params = if matches!(
+                        tokens.first(),
+                        Some(Token {
+                            contents: TokenContents::Pipe,
+                            ..
+                        })
+                    ) {
+                        // We've found a parameter list
+                        let mut param_tokens = vec![];
+                        let mut token_iter = tokens.into_iter().skip(1);
+                        for token in &mut token_iter {
+                            if matches!(
+                                token,
+                                Token {
+                                    contents: TokenContents::Pipe,
+                                    ..
+                                }
+                            ) {
+                                break;
+                            } else {
+                                param_tokens.push(token);
+                            }
+                        }
+                        let split_tokens =
+                            lex_split_baseline_tokens_on(param_tokens, &[',', ':', '?']);
+
+                        let mut i = 0;
+                        let mut params = vec![];
+
+                        while i < split_tokens.len() {
+                            let (parameter, advance_by, error) =
+                                parse_parameter(&split_tokens[i..], split_tokens[i].span);
+
+                            if error.is_some() {
+                                return (garbage(lite_arg.span), error);
+                            }
+                            i += advance_by;
+                            params.push(parameter);
+                        }
+
+                        tokens = token_iter.collect();
+                        if tokens.is_empty() {
+                            return (
+                                garbage(lite_arg.span),
+                                Some(ParseError::mismatch(
+                                    "block with parameters",
+                                    lite_arg.clone(),
+                                )),
+                            );
+                        }
+                        params
+                    } else {
+                        vec![]
+                    };
+
                     let (lite_block, err) = parse_block(tokens);
-                    if err.is_some() {
-                        return (garbage(lite_arg.span), err);
+                    if error.is_none() {
+                        error = err;
                     }
 
                     scope.enter_scope();
-                    let (classified_block, err) = classify_block(&lite_block, scope);
+                    let (mut classified_block, err) = classify_block(&lite_block, scope);
+                    if error.is_none() {
+                        error = err;
+                    }
                     scope.exit_scope();
+
+                    if let Some(classified_block) = Arc::get_mut(&mut classified_block) {
+                        classified_block.span = lite_arg.span;
+                        if !params.is_empty() {
+                            classified_block.params.positional.clear();
+                            for param in params {
+                                classified_block
+                                    .params
+                                    .positional
+                                    .push((param.pos_type, param.desc.unwrap_or_default()));
+                            }
+                        }
+                    }
 
                     (
                         SpannedExpression::new(Expression::Block(classified_block), lite_arg.span),
-                        err,
+                        error,
                     )
                 }
                 _ => {
@@ -971,66 +1172,6 @@ fn parse_arg(
                 }
             }
         }
-    }
-}
-
-/// Match the available flags in a signature with what the user provided. This will check both long-form flags (--long) and shorthand flags (-l)
-/// This also allows users to provide a group of shorthand flags (-la) that correspond to multiple shorthand flags at once.
-fn get_flags_from_flag(
-    signature: &nu_protocol::Signature,
-    cmd: &Spanned<String>,
-    arg: &Spanned<String>,
-) -> (Vec<(String, NamedType)>, Option<ParseError>) {
-    if arg.item.starts_with('-') {
-        // It's a flag (or set of flags)
-        let mut output = vec![];
-        let mut error = None;
-
-        let remainder: String = arg.item.chars().skip(1).collect();
-
-        if remainder.starts_with('-') {
-            // Long flag expected
-            let remainder: String = remainder.chars().skip(1).collect();
-            if let Some((named_type, _)) = signature.named.get(&remainder) {
-                output.push((remainder.clone(), named_type.clone()));
-            } else {
-                error = Some(ParseError::argument_error(
-                    cmd.clone(),
-                    ArgumentError::UnexpectedFlag(arg.clone()),
-                ));
-            }
-        } else {
-            // Short flag(s) expected
-            let mut starting_pos = arg.span.start() + 1;
-            for c in remainder.chars() {
-                let mut found = false;
-                for (full_name, named_arg) in signature.named.iter() {
-                    if Some(c) == named_arg.0.get_short() {
-                        found = true;
-                        output.push((full_name.clone(), named_arg.0.clone()));
-                        break;
-                    }
-                }
-
-                if !found {
-                    error = Some(ParseError::argument_error(
-                        cmd.clone(),
-                        ArgumentError::UnexpectedFlag(
-                            arg.item
-                                .clone()
-                                .spanned(Span::new(starting_pos, starting_pos + c.len_utf8())),
-                        ),
-                    ));
-                }
-
-                starting_pos += c.len_utf8();
-            }
-        }
-
-        (output, error)
-    } else {
-        // It's not a flag, so don't bother with it
-        (vec![], None)
     }
 }
 
@@ -1056,69 +1197,15 @@ fn shorthand_reparse(
     }
 }
 
-fn parse_parenthesized_expression(
-    lite_arg: &Spanned<String>,
-    scope: &dyn ParserScope,
-    shorthand_mode: bool,
-) -> (SpannedExpression, Option<ParseError>) {
-    let mut chars = lite_arg.item.chars();
-
-    match (chars.next(), chars.next_back()) {
-        (Some('('), Some(')')) => {
-            // We have a literal row
-            let string: String = chars.collect();
-
-            // We haven't done much with the inner string, so let's go ahead and work with it
-            let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
-            if err.is_some() {
-                return (garbage(lite_arg.span), err);
-            }
-
-            let (lite_block, err) = parse_block(tokens);
-            if err.is_some() {
-                return (garbage(lite_arg.span), err);
-            }
-
-            if lite_block.block.len() != 1 {
-                return (
-                    garbage(lite_arg.span),
-                    Some(ParseError::mismatch("math expression", lite_arg.clone())),
-                );
-            }
-
-            let mut lite_pipeline = lite_block.block[0].clone();
-
-            let mut collection = vec![];
-            for lite_pipeline in lite_pipeline.pipelines.iter_mut() {
-                for lite_cmd in lite_pipeline.commands.iter_mut() {
-                    collection.append(&mut lite_cmd.parts);
-                }
-            }
-            let (_, expr, err) = parse_math_expression(0, &collection[..], scope, shorthand_mode);
-            (expr, err)
-        }
-        _ => (
-            garbage(lite_arg.span),
-            Some(ParseError::mismatch("table", lite_arg.clone())),
-        ),
-    }
-}
-
 fn parse_possibly_parenthesized(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
-    shorthand_mode: bool,
 ) -> (
     (Option<Spanned<String>>, SpannedExpression),
     Option<ParseError>,
 ) {
-    if lite_arg.item.starts_with('(') {
-        let (lhs, err) = parse_parenthesized_expression(lite_arg, scope, shorthand_mode);
-        ((None, lhs), err)
-    } else {
-        let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
-        ((Some(lite_arg.clone()), lhs), err)
-    }
+    let (lhs, err) = parse_arg(SyntaxShape::Any, scope, lite_arg);
+    ((Some(lite_arg.clone()), lhs), err)
 }
 
 /// Handle parsing math expressions, complete with working with the precedence of the operators
@@ -1139,8 +1226,7 @@ pub fn parse_math_expression(
     let mut working_exprs = vec![];
     let mut prec = vec![];
 
-    let (lhs_working_expr, err) =
-        parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
+    let (lhs_working_expr, err) = parse_possibly_parenthesized(&lite_args[idx], scope);
 
     if error.is_none() {
         error = err;
@@ -1152,7 +1238,7 @@ pub fn parse_math_expression(
     prec.push(0);
 
     while idx < lite_args.len() {
-        let (op, err) = parse_arg(SyntaxShape::Operator, scope, &lite_args[idx]);
+        let (op, err) = parse_operator(&lite_args[idx]);
         if error.is_none() {
             error = err;
         }
@@ -1178,8 +1264,7 @@ pub fn parse_math_expression(
             prec
         );
 
-        let (rhs_working_expr, err) =
-            parse_possibly_parenthesized(&lite_args[idx], scope, shorthand_mode);
+        let (rhs_working_expr, err) = parse_possibly_parenthesized(&lite_args[idx], scope);
 
         if error.is_none() {
             error = err;
@@ -1333,12 +1418,14 @@ fn parse_positional_argument(
                     let mut commands = hir::Pipeline::new(span);
                     commands.push(ClassifiedCommand::Expr(Box::new(arg)));
 
-                    let block = hir::Block::new(
+                    let mut block = hir::Block::new(
                         Signature::new("<cond>"),
                         vec![Group::new(vec![commands], lite_cmd.span())],
                         IndexMap::new(),
                         span,
                     );
+
+                    block.infer_params();
 
                     let arg = SpannedExpression::new(Expression::Block(Arc::new(block)), span);
 
@@ -1394,7 +1481,7 @@ fn parse_internal_command(
     );
 
     let mut internal_command = InternalCommand::new(name, name_span, lite_cmd.span());
-    internal_command.args.set_initial_flags(&signature);
+    internal_command.args.set_initial_flags(signature);
 
     let mut current_positional = 0;
     let mut named = NamedArguments::new();
@@ -1404,14 +1491,48 @@ fn parse_internal_command(
 
     while idx < lite_cmd.parts.len() {
         if lite_cmd.parts[idx].item.starts_with('-') && lite_cmd.parts[idx].item.len() > 1 {
-            let (named_types, err) =
-                get_flags_from_flag(&signature, &lite_cmd.parts[0], &lite_cmd.parts[idx]);
+            let (named_types, err) = super::flag::get_flag_signature_spec(
+                signature,
+                &internal_command,
+                &lite_cmd.parts[idx],
+            );
 
             if err.is_none() {
                 for (full_name, named_type) in &named_types {
                     match named_type {
                         NamedType::Mandatory(_, shape) | NamedType::Optional(_, shape) => {
-                            if idx == lite_cmd.parts.len() {
+                            if lite_cmd.parts[idx].item.contains('=') {
+                                let mut offset = 0;
+
+                                let value = lite_cmd.parts[idx]
+                                    .item
+                                    .chars()
+                                    .skip_while(|prop| {
+                                        offset += 1;
+                                        *prop != '='
+                                    })
+                                    .nth(1);
+
+                                offset = if value.is_none() { offset - 1 } else { offset };
+
+                                let flag_value = Span::new(
+                                    lite_cmd.parts[idx].span.start() + offset,
+                                    lite_cmd.parts[idx].span.end(),
+                                );
+                                let value = lite_cmd.parts[idx].item[offset..]
+                                    .to_string()
+                                    .spanned(flag_value);
+                                let (arg, err) = parse_arg(*shape, scope, &value);
+                                named.insert_mandatory(
+                                    full_name.clone(),
+                                    lite_cmd.parts[idx].span,
+                                    arg,
+                                );
+
+                                if error.is_none() {
+                                    error = err;
+                                }
+                            } else if idx == lite_cmd.parts.len() {
                                 // Oops, we're missing the argument to our named argument
                                 if error.is_none() {
                                     error = Some(ParseError::argument_error(
@@ -1459,7 +1580,7 @@ fn parse_internal_command(
             let arg = {
                 let (new_idx, expr, err) = parse_positional_argument(
                     idx,
-                    &lite_cmd,
+                    lite_cmd,
                     &signature.positional[current_positional].0,
                     signature.positional.len() - current_positional - 1,
                     scope,
@@ -1531,8 +1652,8 @@ fn parse_external_call(
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     let mut error = None;
     let name = lite_cmd.parts[0].clone().map(|v| {
-        let trimmed = trim_quotes(&v);
-        expand_path(&trimmed).to_string()
+        let trimmed = Cow::Owned(trim_quotes(&v));
+        expand_path_string(trimmed).to_string()
     });
 
     let mut args = vec![];
@@ -1636,9 +1757,12 @@ fn parse_call(
     if lite_cmd.parts.is_empty() {
         return (None, None);
     } else if lite_cmd.parts[0].item.starts_with('^') {
-        let name = lite_cmd.parts[0]
+        let mut name = lite_cmd.parts[0]
             .clone()
             .map(|v| v.chars().skip(1).collect::<String>());
+
+        name.span = Span::new(name.span.start() + 1, name.span.end());
+
         // TODO this is the same as the `else` branch below, only the name differs. Find a way
         //      to share this functionality.
         let mut args = vec![];
@@ -1679,65 +1803,35 @@ fn parse_call(
             })),
             error,
         );
-    } else if lite_cmd.parts[0].item.starts_with('$') || lite_cmd.parts[0].item.starts_with('{') {
+    } else if lite_cmd.parts[0].item.starts_with('{') {
         return parse_value_call(lite_cmd, scope);
-    } else if lite_cmd.parts[0].item == "=" {
-        let expr = if lite_cmd.parts.len() > 1 {
-            let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[1..], scope, false);
-            error = error.or(err);
-            expr
-        } else {
-            error = error.or_else(|| {
-                Some(ParseError::argument_error(
-                    lite_cmd.parts[0].clone(),
-                    ArgumentError::MissingMandatoryPositional("an expression".into()),
-                ))
-            });
-            garbage(lite_cmd.span())
-        };
+    } else if lite_cmd.parts[0].item.starts_with('$')
+        || lite_cmd.parts[0].item.starts_with('\"')
+        || lite_cmd.parts[0].item.starts_with('\'')
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Number, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
+        || (lite_cmd.parts[0].item.starts_with('-')
+            && parse_arg(SyntaxShape::Range, scope, &lite_cmd.parts[0])
+                .1
+                .is_none())
+        || lite_cmd.parts[0].item.starts_with('0')
+        || lite_cmd.parts[0].item.starts_with('1')
+        || lite_cmd.parts[0].item.starts_with('2')
+        || lite_cmd.parts[0].item.starts_with('3')
+        || lite_cmd.parts[0].item.starts_with('4')
+        || lite_cmd.parts[0].item.starts_with('5')
+        || lite_cmd.parts[0].item.starts_with('6')
+        || lite_cmd.parts[0].item.starts_with('7')
+        || lite_cmd.parts[0].item.starts_with('8')
+        || lite_cmd.parts[0].item.starts_with('9')
+        || lite_cmd.parts[0].item.starts_with('[')
+        || lite_cmd.parts[0].item.starts_with('(')
+    {
+        let (_, expr, err) = parse_math_expression(0, &lite_cmd.parts[..], scope, false);
+        error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
-    } else if lite_cmd.parts[0].item == "alias" {
-        let error = parse_alias(&lite_cmd, scope);
-        if error.is_none() {
-            return (None, None);
-        } else {
-            return (
-                Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                error,
-            );
-        }
-    } else if lite_cmd.parts[0].item == "source" {
-        if lite_cmd.parts.len() != 2 {
-            return (
-                None,
-                Some(ParseError::argument_error(
-                    lite_cmd.parts[0].clone(),
-                    ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
-                )),
-            );
-        }
-        if lite_cmd.parts[1].item.starts_with('$') {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath constant",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
-        if let Ok(contents) =
-            std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
-        {
-            let _ = parse(&contents, 0, scope);
-        } else {
-            return (
-                None,
-                Some(ParseError::mismatch(
-                    "a filepath to a source file",
-                    lite_cmd.parts[1].clone(),
-                )),
-            );
-        }
     } else if lite_cmd.parts.len() > 1 {
         // Check if it's a sub-command
         if let Some(signature) = scope.get_signature(&format!(
@@ -1769,6 +1863,47 @@ fn parse_call(
         }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
+        if internal_command.name == "source" {
+            if lite_cmd.parts.len() != 2 {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[0].clone(),
+                        ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
+                    )),
+                );
+            }
+            if lite_cmd.parts[1].item.starts_with('$') {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::mismatch(
+                        "a filepath constant",
+                        lite_cmd.parts[1].clone(),
+                    )),
+                );
+            }
+            if let Ok(contents) = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(
+                &lite_cmd.parts[1].item,
+            )))) {
+                let _ = parse(&contents, 0, scope);
+            } else {
+                return (
+                    Some(ClassifiedCommand::Internal(internal_command)),
+                    Some(ParseError::argument_error(
+                        lite_cmd.parts[1].clone(),
+                        ArgumentError::BadValue("can't load source file".into()),
+                    )),
+                );
+            }
+        } else if lite_cmd.parts[0].item == "alias" {
+            let error = parse_alias(&lite_cmd, scope);
+            if error.is_none() {
+                return (Some(ClassifiedCommand::Internal(internal_command)), None);
+            } else {
+                return (Some(ClassifiedCommand::Internal(internal_command)), error);
+            }
+        }
+
         error = error.or(err);
         internal_command.args.external_redirection = if end_of_pipeline {
             ExternalRedirection::None
@@ -1791,14 +1926,20 @@ fn parse_pipeline(
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
 
-    let mut iter = lite_pipeline.commands.into_iter().peekable();
-    while let Some(lite_cmd) = iter.next() {
-        let (call, err) = parse_call(lite_cmd, iter.peek().is_none(), scope);
+    let pipeline_len = lite_pipeline.commands.len();
+    let iter = lite_pipeline.commands.into_iter().peekable();
+    for lite_cmd in iter.enumerate() {
+        let (call, err) = parse_call(lite_cmd.1, lite_cmd.0 == (pipeline_len - 1), scope);
         if error.is_none() {
             error = err;
         }
         if let Some(call) = call {
-            commands.push(call);
+            if call.has_var_usage("$in") && lite_cmd.0 > 0 {
+                let call = wrap_with_collect(call, "$in");
+                commands.push(call);
+            } else {
+                commands.push(call);
+            }
         }
     }
 
@@ -1807,13 +1948,48 @@ fn parse_pipeline(
 
 type SpannedKeyValue = (Spanned<String>, Spanned<String>);
 
+fn wrap_with_collect(call: ClassifiedCommand, var_name: &str) -> ClassifiedCommand {
+    let mut block = Block::basic();
+
+    block.block.push(Group {
+        pipelines: vec![Pipeline {
+            list: vec![call],
+            span: Span::unknown(),
+        }],
+        span: Span::unknown(),
+    });
+
+    block.params.positional = vec![(
+        PositionalType::Mandatory(var_name.into(), SyntaxShape::Any),
+        format!("implied {}", var_name),
+    )];
+
+    ClassifiedCommand::Internal(InternalCommand {
+        name: "collect".into(),
+        name_span: Span::unknown(),
+        args: Call {
+            head: Box::new(SpannedExpression {
+                expr: Expression::Synthetic(Synthetic::String("collect".into())),
+                span: Span::unknown(),
+            }),
+            positional: Some(vec![SpannedExpression {
+                expr: Expression::Block(Arc::new(block)),
+                span: Span::unknown(),
+            }]),
+            named: None,
+            span: Span::unknown(),
+            external_redirection: ExternalRedirection::Stdout,
+        },
+    })
+}
+
 fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,
 ) -> (LitePipeline, Option<SpannedKeyValue>, Option<ParseError>) {
     if !lite_pipeline.commands.is_empty() {
-        if lite_pipeline.commands[0].parts[0].item == "=" {
-            (lite_pipeline.clone(), None, None)
-        } else if lite_pipeline.commands[0].parts[0].contains('=') {
+        if lite_pipeline.commands[0].parts[0].contains('=')
+            && !lite_pipeline.commands[0].parts[0].starts_with('$')
+        {
             let assignment: Vec<_> = lite_pipeline.commands[0].parts[0].split('=').collect();
             if assignment.len() != 2 {
                 (
@@ -1864,78 +2040,11 @@ fn expand_shorthand_forms(
     }
 }
 
-// pub fn parse_block(lite_block: &LiteBlock, scope: &dyn ParserScope) -> ClassifiedBlock {
-//     let mut block = vec![];
-//     let mut error = None;
-//     for lite_group in &lite_block.block {
-//         let mut command_list = vec![];
-//         for lite_pipeline in &lite_group.pipelines {
-//             let (lite_pipeline, vars, err) = expand_shorthand_forms(lite_pipeline);
-//             if error.is_none() {
-//                 error = err;
-//             }
-
-//             let (pipeline, err) = parse_pipeline(&lite_pipeline, scope);
-
-//             let pipeline = if let Some(vars) = vars {
-//                 let span = pipeline.commands.span;
-//                 let group = Group::new(vec![pipeline.commands.clone()], span);
-//                 let block = hir::Block::new(vec![], vec![group], span);
-//                 let mut call = hir::Call::new(
-//                     Box::new(SpannedExpression {
-//                         expr: Expression::string("with-env".to_string()),
-//                         span,
-//                     }),
-//                     span,
-//                 );
-//                 call.positional = Some(vec![
-//                     SpannedExpression {
-//                         expr: Expression::List(vec![
-//                             SpannedExpression {
-//                                 expr: Expression::string(vars.0.item),
-//                                 span: vars.0.span,
-//                             },
-//                             SpannedExpression {
-//                                 expr: Expression::string(vars.1.item),
-//                                 span: vars.1.span,
-//                             },
-//                         ]),
-//                         span: Span::new(vars.0.span.start(), vars.1.span.end()),
-//                     },
-//                     SpannedExpression {
-//                         expr: Expression::Block(block),
-//                         span,
-//                     },
-//                 ]);
-//                 let classified_with_env = ClassifiedCommand::Internal(InternalCommand {
-//                     name: "with-env".to_string(),
-//                     name_span: Span::unknown(),
-//                     args: call,
-//                 });
-//                 ClassifiedPipeline {
-//                     commands: Pipeline {
-//                         list: vec![classified_with_env],
-//                         span,
-//                     },
-//                 }
-//             } else {
-//                 pipeline
-//             };
-
-//             command_list.push(pipeline.commands);
-//             if error.is_none() {
-//                 error = err;
-//             }
-//         }
-//         let group = Group::new(command_list, lite_block.span());
-//         block.push(group);
-//     }
-//     let block = Block::new(vec![], block, lite_block.span());
-
-//     ClassifiedBlock::new(block, error)
-// }
-
 fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
+    if call.parts.len() == 2 && (call.parts[1].item == "--help" || (call.parts[1].item == "-h")) {
+        return None;
+    }
+
     if call.parts.len() < 4 {
         return Some(ParseError::mismatch("alias", call.parts[0].clone()));
     }
@@ -2067,16 +2176,22 @@ pub fn parse(
     span_offset: usize,
     scope: &dyn ParserScope,
 ) -> (Arc<Block>, Option<ParseError>) {
-    let (output, error) = lex(input, span_offset);
-    if error.is_some() {
-        return (Arc::new(Block::basic()), error);
+    let mut error = None;
+    let (output, err) = lex(input, span_offset);
+    if error.is_none() {
+        error = err;
     }
-    let (lite_block, error) = parse_block(output);
-    if error.is_some() {
-        return (Arc::new(Block::basic()), error);
+    let (lite_block, err) = parse_block(output);
+    if error.is_none() {
+        error = err;
     }
 
-    classify_block(&lite_block, scope)
+    let (block, err) = classify_block(&lite_block, scope);
+    if error.is_none() {
+        error = err;
+    }
+
+    (block, error)
 }
 
 #[test]
@@ -2219,7 +2334,7 @@ fn unit_parse_byte_units() {
         let input_len = case.string.len();
         let value_len = case.value.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
-        let result = parse_unit(&input);
+        let result = parse_filesize(&input);
         assert_eq!(result.1, None);
         assert_eq!(
             result.0.expr,
@@ -2307,7 +2422,7 @@ fn unit_parse_byte_units_decimal() {
         let input_len = case.string.len();
         let value_len = case.value_str.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
-        let result = parse_unit(&input);
+        let result = parse_filesize(&input);
         assert_eq!(result.1, None);
         assert_eq!(
             result.0.expr,

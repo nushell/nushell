@@ -53,7 +53,6 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once()?;
     let precision: Option<Tagged<i16>> = args.get_flag("precision")?;
     let input = args.input;
     let precision = if let Some(precision) = precision {
@@ -62,28 +61,33 @@ fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
         0
     };
     let mapped = input.map(move |val| match val.value {
-        UntaggedValue::Primitive(Primitive::Int(val)) => round_big_int(val),
+        UntaggedValue::Primitive(Primitive::BigInt(val)) => round_big_int(val),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => {
             round_big_decimal(val, precision.into())
         }
+        UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val).into(),
         other => round_default(other),
     });
-    Ok(mapped.to_output_stream())
+    Ok(mapped.into_output_stream())
 }
 
 fn round_big_int(val: BigInt) -> Value {
-    UntaggedValue::int(val).into()
+    UntaggedValue::big_int(val).into()
 }
 
 fn round_big_decimal(val: BigDecimal, precision: i64) -> Value {
     if precision > 0 {
         UntaggedValue::decimal(val.with_scale(precision + 1).round(precision)).into()
     } else {
-        let (rounded, _) = val
-            .with_scale(precision + 1)
-            .round(precision)
-            .as_bigint_and_exponent();
-        UntaggedValue::int(rounded).into()
+        let rounded = val.with_scale(precision + 1).round(precision).to_i64();
+
+        match rounded {
+            Some(x) => UntaggedValue::int(x).into(),
+            None => UntaggedValue::Error(ShellError::untagged_runtime_error(
+                "Number too larger to round to 64-bit int",
+            ))
+            .into(),
+        }
     }
 }
 

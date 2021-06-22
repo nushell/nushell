@@ -30,6 +30,8 @@ pub enum Type {
     Nothing,
     /// An integer-based value
     Int,
+    /// An big integer-based value
+    BigInt,
     /// A range between two values
     Range(Box<RangeType>),
     /// A decimal (floating point) value
@@ -69,6 +71,10 @@ pub enum Type {
     BeginningOfStream,
     /// End of stream marker (used as bookend markers rather than actual values)
     EndOfStream,
+
+    /// Dataframe
+    #[cfg(feature = "dataframe")]
+    DataFrame,
 }
 
 /// A shape representation of the type of a row
@@ -127,6 +133,7 @@ impl Type {
         match primitive {
             Primitive::Nothing => Type::Nothing,
             Primitive::Int(_) => Type::Int,
+            Primitive::BigInt(_) => Type::BigInt,
             Primitive::Range(range) => {
                 let (left_value, left_inclusion) = &range.from;
                 let (right_value, right_inclusion) = &range.to;
@@ -183,6 +190,8 @@ impl Type {
             UntaggedValue::Table(table) => Type::from_table(table.iter()),
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::DataFrame(_) => Type::DataFrame,
         }
     }
 }
@@ -193,6 +202,7 @@ impl PrettyDebug for Type {
         match self {
             Type::Nothing => ty("nothing"),
             Type::Int => ty("integer"),
+            Type::BigInt => ty("big integer"),
             Type::Range(range) => {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;
@@ -287,6 +297,8 @@ impl PrettyDebug for Type {
                     })
             }
             Type::Block => ty("block"),
+            #[cfg(feature = "dataframe")]
+            Type::DataFrame => ty("data_type_formatter"),
         }
     }
 }

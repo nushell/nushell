@@ -24,14 +24,16 @@ const NANOS_PER_SEC: u32 = 1_000_000_000;
 pub enum Primitive {
     /// An empty value
     Nothing,
+    /// A common integer
+    Int(i64),
     /// A "big int", an integer with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigint")]
-    Int(BigInt),
+    BigInt(BigInt),
     /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     /// A count in the number of bytes, used as a filesize
-    Filesize(BigInt),
+    Filesize(u64),
     /// A string value
     String(String),
     /// A path to travel to reach a value in a table
@@ -129,6 +131,30 @@ impl Primitive {
         }
     }
 
+    /// Converts a primitive value to a f64, if possible. Uses a span to build an error if the conversion isn't possible.
+    pub fn as_f64(&self, span: Span) -> Result<f64, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_f64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a 64-bit floating point",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_f64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F64,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a 64-bit floating point",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     /// Converts a primitive value to a i64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_i64(&self, span: Span) -> Result<i64, ShellError> {
         match self {
@@ -144,6 +170,13 @@ impl Primitive {
                     ExpectedRange::I64,
                     &format!("{}", decimal).spanned(span),
                     "converting a decimal into a signed 64-bit integer",
+                )
+            }),
+            Primitive::Duration(duration) => duration.to_i64().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::I64,
+                    &format!("{}", duration).spanned(span),
+                    "converting a duration into a signed 64-bit integer",
                 )
             }),
             other => Err(ShellError::type_error(
@@ -223,12 +256,38 @@ impl Primitive {
         }
     }
 
+    pub fn as_f32(&self, span: Span) -> Result<f32, ShellError> {
+        match self {
+            Primitive::Int(int) => int.to_f32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F32,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a signed 32-bit float",
+                )
+            }),
+            Primitive::Decimal(decimal) => decimal.to_f32().ok_or_else(|| {
+                ShellError::range_error(
+                    ExpectedRange::F32,
+                    &format!("{}", decimal).spanned(span),
+                    "converting a decimal into a signed 32-bit float",
+                )
+            }),
+            other => Err(ShellError::type_error(
+                "number",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
+
     // FIXME: This is a bad name, but no other way to differentiate with our own Duration.
     pub fn into_chrono_duration(self, span: Span) -> Result<chrono::Duration, ShellError> {
         match self {
             Primitive::Duration(duration) => {
                 // Divide into seconds because BigInt can be larger than i64
-                let (secs, nanos) = duration.div_rem(&BigInt::from(NANOS_PER_SEC));
+                let (secs, nanos) = duration.div_rem(
+                    &BigInt::from_u32(NANOS_PER_SEC)
+                        .expect("Internal error: conversion from u32 failed"),
+                );
                 let secs = match secs.to_i64() {
                     Some(secs) => secs,
                     None => {
@@ -304,20 +363,38 @@ impl From<BigDecimal> for Primitive {
 impl From<BigInt> for Primitive {
     /// Helper to convert from integers to a Primitive value
     fn from(int: BigInt) -> Primitive {
-        Primitive::Int(int)
+        Primitive::BigInt(int)
     }
 }
 
-impl From<f64> for Primitive {
-    /// Helper to convert from 64-bit float to a Primitive value
-    fn from(float: f64) -> Primitive {
-        if let Some(f) = BigDecimal::from_f64(float) {
-            Primitive::Decimal(f)
-        } else {
-            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+// Macro to define the From trait for native types to primitives
+// The from trait requires a converter that will be applied to the
+// native type.
+macro_rules! from_native_to_primitive {
+    ($native_type:ty, $primitive_type:expr, $converter: expr) => {
+        // e.g. from u32 -> Primitive
+        impl From<$native_type> for Primitive {
+            fn from(value: $native_type) -> Primitive {
+                if let Some(i) = $converter(value) {
+                    $primitive_type(i)
+                } else {
+                    unreachable!("Internal error: protocol did not use compatible decimal")
+                }
+            }
         }
-    }
+    };
 }
+
+from_native_to_primitive!(i8, Primitive::Int, i64::from_i8);
+from_native_to_primitive!(i16, Primitive::Int, i64::from_i16);
+from_native_to_primitive!(i32, Primitive::Int, i64::from_i32);
+from_native_to_primitive!(i64, Primitive::Int, i64::from_i64);
+from_native_to_primitive!(u8, Primitive::Int, i64::from_u8);
+from_native_to_primitive!(u16, Primitive::Int, i64::from_u16);
+from_native_to_primitive!(u32, Primitive::Int, i64::from_u32);
+from_native_to_primitive!(u64, Primitive::BigInt, BigInt::from_u64);
+from_native_to_primitive!(f32, Primitive::Decimal, BigDecimal::from_f32);
+from_native_to_primitive!(f64, Primitive::Decimal, BigDecimal::from_f64);
 
 impl From<chrono::Duration> for Primitive {
     fn from(duration: chrono::Duration) -> Primitive {
@@ -329,7 +406,10 @@ impl From<chrono::Duration> for Primitive {
             .expect("Unexpected overflow")
             .num_nanoseconds()
             .expect("Unexpected overflow") as u32;
-        Primitive::Duration(BigInt::from(secs) * NANOS_PER_SEC + nanos)
+        Primitive::Duration(
+            BigInt::from_i64(secs * NANOS_PER_SEC as i64 + nanos as i64)
+                .expect("Internal error: can't convert from i64"),
+        )
     }
 }
 
@@ -345,6 +425,7 @@ impl ShellTypeName for Primitive {
         match self {
             Primitive::Nothing => "nothing",
             Primitive::Int(_) => "integer",
+            Primitive::BigInt(_) => "big integer",
             Primitive::Range(_) => "range",
             Primitive::Decimal(_) => "decimal",
             Primitive::Filesize(_) => "filesize(in bytes)",
@@ -389,6 +470,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         Primitive::Duration(duration) => format_duration(duration),
         Primitive::Int(i) => i.to_string(),
+        Primitive::BigInt(i) => i.to_string(),
         Primitive::Decimal(decimal) => {
             // TODO: We should really pass the precision in here instead of hard coding it
             let decimal_string = decimal.to_string();

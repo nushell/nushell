@@ -13,14 +13,14 @@ fn path(p: &Path) -> PathBuf {
 #[test]
 fn asserts_standard_out_expectation_from_nu_executable() {
     Playground::setup("topic", |_, nu| {
-        assert_that!(nu.cococo("andres"), says().to_stdout("andres"));
+        assert_that!(nu.cococo("andres"), says().stdout("andres"));
     })
 }
 
 #[test]
 fn asserts_standard_out_expectation_from_nu_executable_pipeline_fed() {
     Playground::setup("topic", |_, nu| {
-        assert_that!(nu.pipeline("echo 'andres'"), says().to_stdout("andres"));
+        assert_that!(nu.pipeline("echo 'andres'"), says().stdout("andres"));
     })
 }
 
@@ -30,7 +30,7 @@ fn current_working_directory_in_sandbox_directory_created() {
         let original_cwd = dirs.test();
         nu.within("some_directory_within");
 
-        assert_eq!(path(&nu.cwd()), original_cwd.join("some_directory_within"));
+        assert_eq!(path(nu.cwd()), original_cwd.join("some_directory_within"));
     })
 }
 
@@ -42,6 +42,6 @@ fn current_working_directory_back_to_root_from_anywhere() {
         nu.within("some_directory_within");
         nu.back_to_playground();
 
-        assert_eq!(path(&nu.cwd()), *original_cwd);
+        assert_eq!(path(nu.cwd()), *original_cwd);
     })
 }

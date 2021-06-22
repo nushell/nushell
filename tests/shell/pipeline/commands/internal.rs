@@ -35,11 +35,92 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
-fn invocation_properly_redirects() {
+fn treats_dot_dot_as_path_not_range() {
+    Playground::setup("dot_dot_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            mkdir temp;
+            cd temp;
+            echo (open ../nu_times.csv).name | autoview;
+            cd ..;
+            rmdir temp
+            "#
+        ));
+
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert_eq!(actual.out, "Jason");
+    })
+}
+
+#[test]
+fn tags_dont_persist_through_column_path() {
+    Playground::setup("dot_dot_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            mkdir temp;
+            cd temp;
+            let x = (open ../nu_times.csv).name;
+            $x | tags | get anchor | autoview;
+            rmdir temp
+            "#
+        ));
+
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert!(actual.err.contains("isn't a column"));
+    })
+}
+
+#[test]
+fn tags_persist_through_vars() {
+    Playground::setup("dot_dot_dir", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu_times.csv",
+            r#"
+                name,rusty_luck,origin
+                Jason,1,Canada
+            "#,
+        )]);
+
+        let actual = nu!(
+        cwd: dirs.test(), pipeline(
+        r#"
+            mkdir temp;
+            cd temp;
+            let x = (open ../nu_times.csv);
+            $x | tags | get anchor | autoview;
+            rmdir temp
+            "#
+        ));
+
+        // chop will remove the last escaped double quote from \"Estados Unidos\"
+        assert!(actual.out.contains("nu_times.csv"));
+    })
+}
+
+#[test]
+fn subexpression_properly_redirects() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo $(nu --testbin cococo "hello") | str collect
+            echo (nu --testbin cococo "hello") | str collect
         "#
     );
 
@@ -47,11 +128,11 @@ fn invocation_properly_redirects() {
 }
 
 #[test]
-fn argument_invocation() {
+fn argument_subexpression() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo "foo" | each { echo $(echo $it) }
+            echo "foo" | each { echo (echo $it) }
         "#
     );
 
@@ -59,8 +140,8 @@ fn argument_invocation() {
 }
 
 #[test]
-fn invocation_handles_dot() {
-    Playground::setup("invocation_handles_dot", |dirs, sandbox| {
+fn subexpression_handles_dot() {
+    Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nu_times.csv",
             r#"
@@ -75,7 +156,7 @@ fn invocation_handles_dot() {
         let actual = nu!(
         cwd: dirs.test(), pipeline(
         r#"
-            echo $(open nu_times.csv)
+            echo (open nu_times.csv)
             | get name
             | each { nu --testbin chop $it | lines }
             | nth 3
@@ -91,7 +172,7 @@ fn string_interpolation_with_it() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo "foo" | each { echo `{{$it}}` }
+                    echo "foo" | each { echo $"($it)" }
             "#
     );
 
@@ -99,51 +180,39 @@ fn string_interpolation_with_it() {
 }
 
 #[test]
-fn string_interpolation_with_column() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [bob]] | each { echo `{{name}} is cool` }
-            "#
-    );
-
-    assert_eq!(actual.out, "bob is cool");
-}
-
-#[test]
-fn string_interpolation_with_column2() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [fred]] | each { echo `also {{name}} is cool` }
-            "#
-    );
-
-    assert_eq!(actual.out, "also fred is cool");
-}
-
-#[test]
-fn string_interpolation_with_column3() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-                    echo [[name]; [sally]] | each { echo `also {{name}}` }
-            "#
-    );
-
-    assert_eq!(actual.out, "also sally");
-}
-
-#[test]
 fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo [[name]; [sammie]] | each { echo `{{$it.name}}` }
+                    echo [[name]; [sammie]] | each { echo $"($it.name)" }
         "#
     );
 
     assert_eq!(actual.out, "sammie");
+}
+
+#[test]
+fn string_interpolation_shorthand_overlap() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    $"3 + 4 = (3 + 4)"
+        "#
+    );
+
+    assert_eq!(actual.out, "3 + 4 = 7");
+}
+
+#[test]
+fn string_interpolation_and_paren() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+                    $"a paren is ('(')"
+        "#
+    );
+
+    assert_eq!(actual.out, "a paren is (");
 }
 
 #[test]
@@ -175,7 +244,7 @@ fn run_custom_command() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def add-me [x y] { = $x + $y}; add-me 10 5
+            def add-me [x y] { $x + $y}; add-me 10 5
         "#
     );
 
@@ -187,7 +256,7 @@ fn run_custom_command_with_flag() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo --bar 10
+        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } { echo $bar } }; foo --bar 10
         "#
     );
 
@@ -199,7 +268,7 @@ fn run_custom_command_with_flag_missing() {
     let actual = nu!(
         cwd: ".",
         r#"
-        def foo [--bar:number] { if $(echo $bar | empty?) { echo "empty" } { echo $bar } }; foo
+        def foo [--bar:number] { if ($bar | empty?) { echo "empty" } { echo $bar } }; foo
         "#
     );
 
@@ -292,13 +361,25 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
-fn set_variable() {
+fn alias_a_load_env() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def activate-helper [] { [[name, value]; [BOB, SAM]] }; alias activate = load-env (activate-helper); activate; $nu.env.BOB
+        "#
+    );
+
+    assert_eq!(actual.out, r#"SAM"#);
+}
+
+#[test]
+fn let_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
             let x = 5
             let y = 12
-            = $x + $y
+            $x + $y
         "#
     );
 
@@ -306,7 +387,7 @@ fn set_variable() {
 }
 
 #[test]
-fn set_doesnt_leak() {
+fn let_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -318,7 +399,7 @@ fn set_doesnt_leak() {
 }
 
 #[test]
-fn set_env_variable() {
+fn let_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -331,7 +412,32 @@ fn set_env_variable() {
 }
 
 #[test]
-fn set_env_doesnt_leak() {
+fn unlet_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TEST_VAR = "hello world"
+            unlet-env TEST_VAR
+            echo $nu.env.TEST_VAR
+        "#
+    );
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn unlet_nonexistent_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            unlet-env NONEXISTENT_VARIABLE
+        "
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn let_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -343,7 +449,7 @@ fn set_env_doesnt_leak() {
 }
 
 #[test]
-fn proper_shadow_set_env_aliases() {
+fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -354,7 +460,69 @@ fn proper_shadow_set_env_aliases() {
 }
 
 #[test]
-fn proper_shadow_set_aliases() {
+fn load_env_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTENVVAR, "hello world"]] | load-env
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            load-env [[name, value]; [TESTENVVAR, "hello world"]]
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
+fn load_env_variable_arg_and_stream() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            echo [[name, value]; [TESTVARSTREAM, "true"]] | load-env [[name, value]; [TESTVARARG, "false"]]
+            echo $nu.env | format "{TESTVARSTREAM} {TESTVARARG}"
+        "#
+    );
+
+    assert_eq!(actual.out, "true false");
+}
+
+#[test]
+fn load_env_doesnt_leak() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        do { echo [[name, value]; [xyz, "my message"]] | load-env }; echo $nu.env.xyz
+        "#
+    );
+
+    assert!(actual.err.contains("did you mean"));
+}
+
+#[test]
+fn proper_shadow_load_env_aliases() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = true; echo $nu.env.DEBUG | autoview; do { echo [[name, value]; [DEBUG, false]] | load-env; echo $nu.env.DEBUG } | autoview; echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
@@ -364,12 +532,78 @@ fn proper_shadow_set_aliases() {
     assert_eq!(actual.out, "falsetruefalse");
 }
 
-#[cfg(feature = "which")]
 #[test]
-fn argument_invocation_reports_errors() {
+fn block_params_override() {
     let actual = nu!(
         cwd: ".",
-        "echo $(ferris_is_not_here.exe)"
+        r#"
+        [1, 2, 3] | each { |a| echo $it }
+        "#
+    );
+    assert!(actual.err.contains("unknown variable"));
+}
+
+#[test]
+fn block_params_override_correct() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        [1, 2, 3] | each { |a| echo $a } | to json
+        "#
+    );
+    assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
+fn hex_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0x10
+        "#
+    );
+    assert_eq!(actual.out, "16");
+}
+
+#[test]
+fn binary_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0b10
+        "#
+    );
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn octal_number() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        0o10
+        "#
+    );
+    assert_eq!(actual.out, "8");
+}
+
+#[test]
+fn run_dynamic_blocks() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let block = { echo "holaaaa" }; do $block
+        "#
+    );
+    assert_eq!(actual.out, "holaaaa");
+}
+
+#[cfg(feature = "which")]
+#[test]
+fn argument_subexpression_reports_errors() {
+    let actual = nu!(
+        cwd: ".",
+        "echo (ferris_is_not_here.exe)"
     );
 
     assert!(actual.err.contains("Command not found"));
@@ -386,6 +620,18 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
 }
 
 #[test]
+fn bad_operator() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            2 $ 2
+        "#
+    );
+
+    assert!(actual.err.contains("operator"));
+}
+
+#[test]
 fn index_out_of_bounds() {
     let actual = nu!(
         cwd: ".",
@@ -397,6 +643,29 @@ fn index_out_of_bounds() {
     assert!(actual.err.contains("unknown row"));
 }
 
+#[test]
+fn dash_def() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def - [x, y] { $x - $y }; - 4 1
+        "#
+    );
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn negative_decimal_start() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            -1.3 + 4
+        "#
+    );
+
+    assert_eq!(actual.out, "2.7");
+}
 #[test]
 fn index_row() {
     let actual = nu!(
@@ -606,7 +875,7 @@ fn filesize_math() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100 * 10kb
+        100 * 10kb
         "#
     );
 
@@ -620,7 +889,7 @@ fn filesize_math2() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100 / 10kb
+        100 / 10kb
         "#
     );
 
@@ -632,7 +901,7 @@ fn filesize_math3() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100kb / 10
+        100kb / 10
         "#
     );
 
@@ -643,7 +912,7 @@ fn filesize_math4() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 100kb * 5
+        100kb * 5
         "#
     );
 
@@ -655,7 +924,7 @@ fn filesize_math5() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1kb
+        1001 * 1kb
         "#
     );
 
@@ -667,7 +936,7 @@ fn filesize_math6() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1mb
+        1001 * 1mb
         "#
     );
 
@@ -679,7 +948,7 @@ fn filesize_math7() {
     let actual = nu!(
         cwd: ".",
         r#"
-        = 1001 * 1gb
+        1001 * 1gb
         "#
     );
 
@@ -715,7 +984,7 @@ fn duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 10000000000000000day }
+        ls | get modified | each { $it + 10000000000000000day }
         "#)
     );
 
@@ -727,12 +996,36 @@ fn date_and_duration_overflow() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        ls | get modified | each { = $it + 1000000000day }
+        ls | get modified | each { $it + 1000000000day }
         "#)
     );
 
     // assert_eq!(actual.err, "overflow");
     assert!(actual.err.contains("Duration and date addition overflow"));
+}
+
+#[test]
+fn pipeline_params_simple() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 1 2 3 | $in.1 * $in.2
+        "#)
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn pipeline_params_inner() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
+        "#)
+    );
+
+    assert_eq!(actual.out, "126");
 }
 
 mod parse {

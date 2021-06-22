@@ -7,8 +7,8 @@ fn flatten_nested_tables_with_columns() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo [[origin, people]; [Ecuador, $(= 'Andres' | wrap name)]]
-                 [[origin, people]; [Nu, $(= 'nuno' | wrap name)]]
+            echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
+                 [[origin, people]; [Nu, ('nuno' | wrap name)]]
             | flatten
             | get name
             | str collect ','
@@ -23,8 +23,8 @@ fn flatten_nested_tables_that_have_many_columns() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo [[origin, people]; [Ecuador, $(echo [[name, meal]; ['Andres', 'arepa']])]]
-                 [[origin, people]; [USA, $(echo [[name, meal]; ['Katz', 'nurepa']])]] 
+            echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
+                 [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]] 
             | flatten
             | get meal
             | str collect ','

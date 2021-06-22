@@ -34,7 +34,9 @@ pub fn run_with_function(
     }
 }
 
-pub type IntFunction = fn(val: BigInt) -> Value;
+pub type BigIntFunction = fn(val: BigInt) -> Value;
+
+pub type IntFunction = fn(val: i64) -> Value;
 
 pub type DecimalFunction = fn(val: BigDecimal) -> Value;
 
@@ -43,20 +45,22 @@ pub type DefaultFunction = fn(val: UntaggedValue) -> Value;
 pub fn run_with_numerical_functions_on_stream(
     input: InputStream,
     int_function: IntFunction,
+    big_int_function: BigIntFunction,
     decimal_function: DecimalFunction,
     default_function: DefaultFunction,
 ) -> Result<OutputStream, ShellError> {
     let mapped = input.map(move |val| match val.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => int_function(val),
+        UntaggedValue::Primitive(Primitive::BigInt(val)) => big_int_function(val),
         UntaggedValue::Primitive(Primitive::Decimal(val)) => decimal_function(val),
         other => default_function(other),
     });
-    Ok(mapped.to_output_stream())
+    Ok(mapped.into_output_stream())
 }
 
 pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value, ShellError> {
     if values.iter().all(|v| v.is_primitive()) {
-        mf(&values, &name)
+        mf(values, name)
     } else {
         // If we are not dealing with Primitives, then perhaps we are dealing with a table
         // Create a key for each column name
@@ -74,7 +78,7 @@ pub fn calculate(values: &[Value], name: &Tag, mf: MathFunction) -> Result<Value
         // The mathematical function operates over the columns of the table
         let mut column_totals = IndexMap::new();
         for (col_name, col_vals) in column_values {
-            if let Ok(out) = mf(&col_vals, &name) {
+            if let Ok(out) = mf(&col_vals, name) {
                 column_totals.insert(col_name, out);
             }
         }

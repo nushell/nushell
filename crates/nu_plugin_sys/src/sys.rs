@@ -13,6 +13,7 @@ impl Sys {
 
 pub fn disks(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     sys.refresh_disks();
+    sys.refresh_disks_list();
 
     let mut output = vec![];
     for disk in sys.get_disks() {
@@ -43,6 +44,7 @@ pub fn disks(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
 
 pub fn net(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     sys.refresh_networks();
+    sys.refresh_networks_list();
 
     let mut output = vec![];
     for (iface, data) in sys.get_networks() {
@@ -80,7 +82,7 @@ pub fn cpu(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
             "brand",
             UntaggedValue::string(trim_cstyle_null(cpu.get_brand().to_string())),
         );
-        dict.insert_untagged("freq", UntaggedValue::int(cpu.get_frequency()));
+        dict.insert_untagged("freq", UntaggedValue::int(cpu.get_frequency() as i64));
 
         output.push(dict.into_value());
     }
@@ -135,7 +137,7 @@ pub fn host(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
     }
     dict.insert_untagged(
         "uptime",
-        UntaggedValue::duration(1000000000 * sys.get_uptime()),
+        UntaggedValue::duration(1000000000 * sys.get_uptime() as i64),
     );
 
     let mut users = vec![];
@@ -197,7 +199,7 @@ pub fn temp(sys: &mut System, tag: Tag) -> Option<UntaggedValue> {
 }
 
 pub async fn sysinfo(tag: Tag) -> Vec<Value> {
-    let mut sys = System::new_all();
+    let mut sys = System::new();
 
     let mut sysinfo = TaggedDictBuilder::with_capacity(&tag, 6);
 

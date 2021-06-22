@@ -4,30 +4,40 @@ description = "Core values and protocols for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-protocol"
-version = "0.29.2"
+version = "0.33.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-bigdecimal = { version = "0.2.0", features = ["serde"] }
+bigdecimal = { version="0.2.0", features=["serde"] }
 byte-unit = "4.0.9"
-chrono = { version = "0.4.19", features = ["serde"] }
+chrono = { version="0.4.19", features=["serde"] }
 derive-new = "0.5.8"
 getset = "0.1.1"
-indexmap = { version = "1.6.1", features = ["serde-1"] }
+indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4.14"
-nu-errors = { path = "../nu-errors", version = "0.29.2" }
-nu-source = { path = "../nu-source", version = "0.29.2" }
-num-bigint = { version = "0.3.1", features = ["serde"] }
+nu-errors = { path="../nu-errors", version="0.33.0" }
+nu-source = { path="../nu-source", version="0.33.0" }
+num-bigint = { version="0.3.1", features=["serde"] }
 num-integer = "0.1.44"
 num-traits = "0.2.14"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version="1.0", features=["derive"] }
 serde_bytes = "0.11.5"
 
 # implement conversions
 serde_json = "1.0"
 serde_yaml = "0.8.16"
 toml = "0.5.8"
+
+[dependencies.polars]
+git = "https://github.com/pola-rs/polars"
+rev = "f60d86bc0921bd42635e8a33e7aad28ebe62dc3e"
+version = "0.14.2"
+optional = true
+features = ["serde", "rows"]
+
+[features]
+dataframe = ["polars"]
 
 [build-dependencies]

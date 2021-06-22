@@ -2,7 +2,7 @@ use crate::{evaluate::scope::Scope, EvaluationContext};
 use indexmap::IndexMap;
 use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
-use nu_protocol::{ShellTypeName, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Dictionary, ShellTypeName, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
 pub fn nu(
@@ -16,6 +16,7 @@ pub fn nu(
     let mut nu_dict = TaggedDictBuilder::new(&tag);
 
     let mut dict = TaggedDictBuilder::new(&tag);
+
     for v in env.iter() {
         if v.0 != "PATH" && v.0 != "Path" {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
@@ -29,7 +30,7 @@ pub fn nu(
         UntaggedValue::filepath(default_history_path()).into_value(&tag),
     );
 
-    if let Some(global_cfg) = &ctx.configs.lock().global_config {
+    if let Some(global_cfg) = &ctx.configs().lock().global_config {
         nu_dict.insert_value(
             "config",
             UntaggedValue::row(global_cfg.vars.clone()).into_value(&tag),
@@ -49,6 +50,19 @@ pub fn nu(
         }
     }
 
+    // A note about environment variables:
+    //
+    // Environment variables in Unix platforms are case-sensitive. On Windows, case-sensitivity is context-dependent.
+    // In cmd.exe, running `SET` will show you the list of environment variables and their names will be mixed case.
+    // In PowerShell, running `Get-ChildItem Env:` will show you a list of environment variables, and they will match
+    // the case in the environment variable section of the user configuration
+    //
+    // Rust currently returns the DOS-style, all-uppercase environment variables on Windows (as of 1.52) when running
+    // std::env::vars(), rather than the case-sensitive Environment.GetEnvironmentVariables() of .NET that PowerShell
+    // uses.
+    //
+    // For now, we work around the discrepency as best we can by merging the two into what is shown to the user as the
+    // 'path' column of `$nu`
     let mut table = vec![];
     for v in env.iter() {
         if v.0 == "PATH" || v.0 == "Path" {
@@ -110,21 +124,32 @@ pub fn scope(
         commands_dict.insert_untagged(name, UntaggedValue::string(&signature.allowed().join(" ")))
     }
 
-    let mut vars_dict = TaggedDictBuilder::new(&tag);
-    for (name, val) in variables.iter() {
-        let val_type = UntaggedValue::string(format!(
-            "{} ({})",
-            val.convert_to_string(),
-            ShellTypeName::type_name(&val.clone())
-        ));
-        vars_dict.insert_value(name, val_type)
-    }
+    let var_list: Vec<Value> = variables
+        .iter()
+        .map(|var| {
+            let mut entries: IndexMap<String, Value> = IndexMap::new();
+            let name = var.0.trim_start_matches('$');
+            entries.insert(
+                "name".to_string(),
+                UntaggedValue::string(name).into_value(&tag),
+            );
+            entries.insert(
+                "value".to_string(),
+                UntaggedValue::string(var.1.convert_to_string()).into_value(&tag),
+            );
+            entries.insert(
+                "type".to_string(),
+                UntaggedValue::string(ShellTypeName::type_name(&var.1)).into_value(&tag),
+            );
+            UntaggedValue::Row(Dictionary { entries }).into_value(&tag)
+        })
+        .collect();
 
     scope_dict.insert_value("aliases", aliases_dict.into_value());
 
     scope_dict.insert_value("commands", commands_dict.into_value());
 
-    scope_dict.insert_value("variables", vars_dict.into_value());
+    scope_dict.insert_value("variables", UntaggedValue::Table(var_list).into_value(&tag));
 
     Ok(scope_dict.into_value())
 }

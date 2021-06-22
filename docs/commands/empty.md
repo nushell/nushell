@@ -56,7 +56,7 @@ We want to add two totals (numbers `33` and `37`) for the day `2020/04/16`
 
 Set a table with two numbers for the empty column
 ```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { = [33 37] }
+> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] }
 ═══╦════════════════╦════════════════╦════════════════
  # ║ 2020/04/16     ║ 2020/07/10     ║ 2020/11/16
 ═══╬════════════════╬════════════════╬════════════════
@@ -66,7 +66,7 @@ Set a table with two numbers for the empty column
 
 Checking all the numbers
 ```shell
-> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { = [33 37] } | pivot _ totals | get totals
+> echo [[2020/04/16 2020/07/10 2020/11/16]; ['' [27] [37]]] | empty? 2020/04/16 { [33 37] } | pivot _ totals | get totals
 ═══╦════
  0 ║ 33
  1 ║ 37
