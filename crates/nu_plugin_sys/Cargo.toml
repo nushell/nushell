@@ -4,18 +4,18 @@ description = "A system info plugin for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_sys"
-version = "0.32.1"
+version = "0.33.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = { path = "../nu-errors", version = "0.32.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.32.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.32.1" }
-nu-source = { path = "../nu-source", version = "0.32.1" }
+nu-errors = { path="../nu-errors", version="0.33.0" }
+nu-plugin = { path="../nu-plugin", version="0.33.0" }
+nu-protocol = { path="../nu-protocol", version="0.33.0" }
+nu-source = { path="../nu-source", version="0.33.0" }
 
-futures = { version = "0.3.5", features = ["compat", "io-compat"] }
+futures = { version="0.3.5", features=["compat", "io-compat"] }
 futures-util = "0.3.12"
 num-bigint = "0.3.1"
 sysinfo = "0.18.2"
