@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Add a filepath to the pathvar"
+        "Add a filepath to the start of the pathvar"
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
