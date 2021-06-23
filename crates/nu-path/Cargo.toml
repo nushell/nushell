@@ -4,7 +4,7 @@ description = "Nushell parser"
 edition = "2018"
 license = "MIT"
 name = "nu-path"
-version = "0.32.1"
+version = "0.33.1"
 
 [dependencies]
 dirs-next = "2.0.0"

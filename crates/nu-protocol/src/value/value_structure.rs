@@ -17,7 +17,7 @@ pub struct ValueResource {
 
 impl ValueResource {}
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ValueStructure {
     pub resources: Vec<ValueResource>,
 }

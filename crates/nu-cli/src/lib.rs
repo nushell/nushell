@@ -4,7 +4,7 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-mod app;
+pub mod app;
 mod cli;
 #[cfg(feature = "rustyline-support")]
 mod keybinding;

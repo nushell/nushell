@@ -8,6 +8,7 @@ use crate::flag::FlagCompleter;
 use crate::matchers;
 use crate::matchers::Matcher;
 use crate::path::{PathCompleter, PathSuggestion};
+use crate::variable::VariableCompleter;
 use crate::{Completer, CompletionContext, Suggestion};
 
 pub struct NuCompleter {}
@@ -26,7 +27,7 @@ impl NuCompleter {
         let tokens = nu_parser::lex(line, 0).0;
 
         let locations = Some(nu_parser::parse_block(tokens).0)
-            .map(|block| nu_parser::classify_block(&block, context.signature_registry()))
+            .map(|block| nu_parser::classify_block(&block, context.scope()))
             .map(|(block, _)| engine::completion_location(line, &block, pos))
             .unwrap_or_default();
 
@@ -121,7 +122,10 @@ impl NuCompleter {
                             .collect()
                         }
 
-                        LocationType::Variable => Vec::new(),
+                        LocationType::Variable => {
+                            let variable_completer = VariableCompleter;
+                            variable_completer.complete(context, &partial, matcher.to_owned())
+                        }
                     }
                 })
                 .collect();
