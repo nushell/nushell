@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue, Value};
-use nu_test_support::NATIVE_PATH_ENV_VAR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 
 pub struct SubCommand;
 
@@ -29,7 +29,10 @@ pub fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if let Some(global_cfg) = &mut ctx.configs().lock().global_config {
         let pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
-        let paths: Vec<Value> = pathvar.split(':').map(Value::from).collect();
+        let paths: Vec<Value> = pathvar
+            .split(NATIVE_PATH_ENV_SEPARATOR)
+            .map(Value::from)
+            .collect();
 
         let span_range = 0..paths.len();
         let row = Value::new(

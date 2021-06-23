@@ -3,7 +3,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
-use nu_test_support::NATIVE_PATH_ENV_VAR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 use std::path::PathBuf;
 
 pub struct SubCommand;
@@ -41,7 +41,7 @@ pub fn add(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = path_to_add.item.into_os_string().into_string();
 
     if let Ok(mut path) = path {
-        path.push(':');
+        path.push(NATIVE_PATH_ENV_SEPARATOR);
         let old_pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
         path.push_str(&old_pathvar);
 

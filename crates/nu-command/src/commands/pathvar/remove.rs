@@ -3,7 +3,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
-use nu_test_support::NATIVE_PATH_ENV_VAR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 
 pub struct SubCommand;
 
@@ -43,7 +43,7 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let index_to_remove = index_to_remove_arg.item as usize;
 
     let old_pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
-    let mut paths: Vec<&str> = old_pathvar.split(':').collect();
+    let mut paths: Vec<&str> = old_pathvar.split(NATIVE_PATH_ENV_SEPARATOR).collect();
 
     if index_to_remove >= paths.len() {
         return Err(ShellError::labeled_error(
@@ -54,7 +54,10 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     paths.remove(index_to_remove);
-    ctx.scope.add_env_var(NATIVE_PATH_ENV_VAR, paths.join(":"));
+    ctx.scope.add_env_var(
+        NATIVE_PATH_ENV_VAR,
+        paths.join(&NATIVE_PATH_ENV_SEPARATOR.to_string()),
+    );
 
     Ok(OutputStream::empty())
 }

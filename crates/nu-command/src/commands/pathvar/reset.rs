@@ -3,7 +3,7 @@ use log::trace;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, UntaggedValue};
-use nu_test_support::NATIVE_PATH_ENV_VAR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 
 pub struct SubCommand;
 
@@ -42,7 +42,10 @@ pub fn reset(args: CommandArgs) -> Result<OutputStream, ShellError> {
         if let Some(pathvar) = default_pathvar {
             trace!("default_pathvar: {:?}", pathvar);
             if let UntaggedValue::Table(paths) = &pathvar.value {
-                let pathvar_str = paths.iter().map(|x| x.as_string().unwrap()).join(":");
+                let pathvar_str = paths
+                    .iter()
+                    .map(|x| x.as_string().unwrap())
+                    .join(&NATIVE_PATH_ENV_SEPARATOR.to_string());
                 ctx.scope.add_env_var(NATIVE_PATH_ENV_VAR, pathvar_str);
             }
         } else {

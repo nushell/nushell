@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, Value};
-use nu_test_support::NATIVE_PATH_ENV_VAR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 
 pub struct Command;
 
@@ -50,7 +50,7 @@ pub fn get_pathvar(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .scope
         .get_env(NATIVE_PATH_ENV_VAR)
         .unwrap()
-        .split(':')
+        .split(NATIVE_PATH_ENV_SEPARATOR)
         .map(Value::from)
         .collect();
 
