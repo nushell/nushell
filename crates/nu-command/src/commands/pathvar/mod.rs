@@ -1,7 +1,6 @@
 pub mod add;
 pub mod append;
 pub mod command;
-pub mod insert;
 pub mod remove;
 pub mod reset;
 pub mod save;
