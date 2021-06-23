@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 // Utility for applying a function that can only be called on the borrowed type of the Cow
 // and also returns a ref. If the Cow is a borrow, we can return the same borrow but an
 // owned value needs extra handling because the returned valued has to be owned as well
-pub fn cow_map_by_ref<B, O, F>(c: Cow<'_, B>, f: F) -> Cow<'_, B>
+fn cow_map_by_ref<B, O, F>(c: Cow<'_, B>, f: F) -> Cow<'_, B>
 where
     B: ToOwned<Owned = O> + ?Sized,
     O: AsRef<B>,
