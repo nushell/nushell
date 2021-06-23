@@ -16,7 +16,7 @@ where
 {
     fn complete(&self, ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         let registry = ctx.signature_registry();
-        let mut commands: IndexSet<String> = IndexSet::from_iter(registry.get_names());
+        let mut commands: IndexSet<String> = IndexSet::from_iter(registry.names());
 
         // Command suggestions can come from three possible sets:
         //   1. internal command names,

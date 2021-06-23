@@ -14,7 +14,7 @@ pub(crate) mod painter;
 pub(crate) mod palette;
 pub(crate) mod shell_args;
 pub(crate) mod shell_manager;
-pub(crate) mod value_shell;
+pub mod value_shell;
 
 pub trait Shell: std::fmt::Debug {
     fn is_interactive(&self) -> bool;

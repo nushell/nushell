@@ -10,6 +10,7 @@ version = "0.33.0"
 doctest = false
 
 [dependencies]
+nu-engine = { version="0.33.0", path="../nu-engine" }
 nu-data = { version="0.33.0", path="../nu-data" }
 nu-errors = { version="0.33.0", path="../nu-errors" }
 nu-parser = { version="0.33.0", path="../nu-parser" }
@@ -19,5 +20,8 @@ nu-source = { version="0.33.0", path="../nu-source" }
 nu-test-support = { version="0.33.0", path="../nu-test-support" }
 
 dirs-next = "2.0.0"
-indexmap = { version="1.6.1", features=["serde-1"] }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
 is_executable = { version="1.0.1", optional=true }
+
+[dev-dependencies]
+parking_lot = "0.11.1"
