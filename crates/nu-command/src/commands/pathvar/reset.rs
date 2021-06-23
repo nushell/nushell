@@ -2,7 +2,7 @@ use crate::prelude::*;
 use log::trace;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue};
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 
 pub struct SubCommand;
