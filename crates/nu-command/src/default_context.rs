@@ -30,6 +30,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Pathvar),
             whole_stream_command(PathvarAdd),
             whole_stream_command(PathvarRemove),
+            whole_stream_command(PathvarReset),
             whole_stream_command(PathvarAppend),
             whole_stream_command(PathvarSave),
             whole_stream_command(Config),
