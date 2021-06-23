@@ -11,7 +11,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe filter"
+        "dataframe filter-with"
     }
 
     fn usage(&self) -> &str {
@@ -19,8 +19,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe filter")
-            .required("with", SyntaxShape::String, "the word 'with'")
+        Signature::build("dataframe filter-with")
             .required("mask", SyntaxShape::Any, "boolean mask used to filter data")
     }
 
@@ -33,13 +32,13 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Filter dataframe using a bool mask",
                 example: r#"let mask = ([$true $false] | dataframe to-series);
-[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter with $mask"#,
+[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter-with $mask"#,
                 result: None,
             },
             Example {
                 description: "Filter dataframe by creating a mask from operation",
                 example: r#"let mask = (([5 6] | dataframe to-series) > 5);
-[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter with $mask"#,
+[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter-with $mask"#,
                 result: None,
             },
         ]
