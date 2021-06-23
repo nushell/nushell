@@ -113,11 +113,21 @@ pub fn compute_values(
                 let result = match operator {
                     Operator::Plus => Ok(x + y),
                     Operator::Minus => Ok(x - y),
+                    Operator::Multiply => Ok(x * y),
+                    Operator::Divide => {
+                        if y.is_zero() {
+                            Err((left.type_name(), right.type_name()))
+                        } else {
+                            Ok(x / y)
+                        }
+                    }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
                 Ok(UntaggedValue::Primitive(Primitive::Filesize(result)))
             }
             (Primitive::Filesize(x), Primitive::Int(y)) => match operator {
+                // Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Filesize(x + *y as u64))),
+                // Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Filesize(x - *y as u64))),
                 Operator::Multiply => {
                     Ok(UntaggedValue::Primitive(Primitive::Filesize(x * *y as u64)))
                 }
@@ -127,9 +137,14 @@ pub fn compute_values(
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Int(x), Primitive::Filesize(y)) => match operator {
+                // Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 + y))),
+                // Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 - y))),
                 Operator::Multiply => {
                     Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 * y)))
                 }
+                // Operator::Divide => {
+                //     Ok(UntaggedValue::Primitive(Primitive::Filesize(*x as u64 / y)))
+                // }
                 _ => Err((left.type_name(), right.type_name())),
             },
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
