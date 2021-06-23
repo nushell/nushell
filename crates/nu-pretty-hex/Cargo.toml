@@ -4,7 +4,7 @@ description = "Pretty hex dump of bytes slice in the common style."
 edition = "2018"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.33.0"
+version = "0.33.1"
 
 [lib]
 doctest = false
@@ -16,7 +16,7 @@ name = "nu_pretty_hex"
 path = "src/main.rs"
 
 [dependencies]
-nu-ansi-term = { path="../nu-ansi-term", version="0.33.0" }
+nu-ansi-term = { path="../nu-ansi-term", version="0.33.1" }
 rand = "0.8.3"
 
 [dev-dependencies]
