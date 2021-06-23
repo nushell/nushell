@@ -87,6 +87,7 @@ default = [
     "fetch",
     "zip-support",
     "executable-support",
+    "dataframe",
 ]
 
 stable = ["default"]
@@ -155,14 +156,6 @@ dataframe = [
     "nu_plugin_post/dataframe",
     "nu_plugin_to_bson/dataframe",
 ]
-
-
-[profile.release]
-#strip = "symbols" #Couldn't get working +nightly
-codegen-units = 1 #Reduce parallel codegen units
-lto = true #Link Time Optimization
-# opt-level = 'z' #Optimize for size
-# debug = true
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

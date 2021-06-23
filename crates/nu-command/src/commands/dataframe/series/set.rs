@@ -98,7 +98,13 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             })?;
 
             let res = chunked
-                .set(bool_mask, Some(val.to_f64().unwrap()))
+                .set(
+                    bool_mask,
+                    Some(
+                        val.to_f64()
+                            .expect("internal error: expected f64-compatible decimal"),
+                    ),
+                )
                 .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
             Ok(OutputStream::one(NuSeries::series_to_value(
