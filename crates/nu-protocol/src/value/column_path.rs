@@ -61,6 +61,10 @@ impl ColumnPath {
         self.members.iter()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.members.is_empty()
+    }
+
     /// Returns the last member and a slice of the remaining members
     pub fn split_last(&self) -> Option<(&PathMember, &[PathMember])> {
         self.members.split_last()
@@ -69,6 +73,23 @@ impl ColumnPath {
     /// Returns the last member
     pub fn last(&self) -> Option<&PathMember> {
         self.iter().last()
+    }
+
+    pub fn path(&self) -> String {
+        let sep = std::path::MAIN_SEPARATOR;
+        let mut members = self.iter();
+        let mut f = String::from(sep);
+
+        if let Some(member) = members.next() {
+            f.push_str(&member.as_string());
+        }
+
+        for member in members {
+            f.push(sep);
+            f.push_str(&member.as_string());
+        }
+
+        f
     }
 
     pub fn build(text: &Spanned<String>) -> ColumnPath {
@@ -85,6 +106,38 @@ impl ColumnPath {
             }
         } else {
             ColumnPath { members: vec![] }
+        }
+    }
+
+    pub fn with_head(text: &Spanned<String>) -> Option<(String, ColumnPath)> {
+        match parse_full_column_path(text) {
+            (
+                SpannedExpression {
+                    expr: Expression::FullColumnPath(path),
+                    ..
+                },
+                _,
+            ) => {
+                if let crate::hir::FullColumnPath {
+                    head:
+                        SpannedExpression {
+                            expr: Expression::Variable(name, _),
+                            span: _,
+                        },
+                    tail,
+                } = *path
+                {
+                    Some((
+                        name,
+                        ColumnPath {
+                            members: tail.to_vec(),
+                        },
+                    ))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }
@@ -133,6 +186,102 @@ impl PathMember {
             UnspannedPathMember::String(string) => string.clone(),
             UnspannedPathMember::Int(int) => format!("{}", int),
         }
+    }
+}
+
+fn parse_full_column_path(
+    raw_column_path: &Spanned<String>,
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut inside_delimiter = vec![];
+    let mut output = vec![];
+    let mut current_part = String::new();
+    let mut start_index = 0;
+    let mut last_index = 0;
+    let error = None;
+
+    let mut head = None;
+
+    for (idx, c) in raw_column_path.item.char_indices() {
+        last_index = idx;
+        if c == '(' {
+            inside_delimiter.push(')');
+        } else if let Some(delimiter) = inside_delimiter.last() {
+            if c == *delimiter {
+                inside_delimiter.pop();
+            }
+        } else if c == '\'' || c == '"' {
+            inside_delimiter.push(c);
+        } else if c == '.' {
+            let part_span = Span::new(
+                raw_column_path.span.start() + start_index,
+                raw_column_path.span.start() + idx,
+            );
+
+            if head.is_none() && current_part.starts_with('$') {
+                // We have the variable head
+                head = Some(Expression::variable(current_part.clone(), part_span))
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
+            } else {
+                let current_part = trim_quotes(&current_part);
+                output.push(
+                    UnspannedPathMember::String(current_part.clone()).into_path_member(part_span),
+                );
+            }
+            current_part.clear();
+            // Note: I believe this is safe because of the delimiter we're using,
+            // but if we get fancy with Unicode we'll need to change this.
+            start_index = idx + '.'.len_utf8();
+            continue;
+        }
+        current_part.push(c);
+    }
+
+    if !current_part.is_empty() {
+        let part_span = Span::new(
+            raw_column_path.span.start() + start_index,
+            raw_column_path.span.start() + last_index + 1,
+        );
+
+        if head.is_none() {
+            if current_part.starts_with('$') {
+                head = Some(Expression::variable(current_part, raw_column_path.span));
+            } else if let Ok(row_number) = current_part.parse::<i64>() {
+                output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
+            } else {
+                let current_part = trim_quotes(&current_part);
+                output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
+            }
+        } else if let Ok(row_number) = current_part.parse::<i64>() {
+            output.push(UnspannedPathMember::Int(row_number).into_path_member(part_span));
+        } else {
+            let current_part = trim_quotes(&current_part);
+            output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
+        }
+    }
+
+    if let Some(head) = head {
+        (
+            SpannedExpression::new(
+                Expression::path(SpannedExpression::new(head, raw_column_path.span), output),
+                raw_column_path.span,
+            ),
+            error,
+        )
+    } else {
+        (
+            SpannedExpression::new(
+                Expression::path(
+                    SpannedExpression::new(
+                        Expression::variable("$it".into(), raw_column_path.span),
+                        raw_column_path.span,
+                    ),
+                    output,
+                ),
+                raw_column_path.span,
+            ),
+            error,
+        )
     }
 }
 

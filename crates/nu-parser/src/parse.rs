@@ -1,18 +1,24 @@
-use std::{path::Path, sync::Arc};
+use std::borrow::Cow;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
+use nu_path::{expand_path, expand_path_string};
 use nu_protocol::hir::{
-    self, Binary, Block, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind, Group,
-    InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator, SpannedExpression,
-    Unit,
+    self, Binary, Block, Call, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind,
+    Group, InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator,
+    SpannedExpression, Synthetic, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
+use crate::parse::def::parse_parameter;
 use crate::{
     lex::lexer::{lex, parse_block},
     ParserScope,
@@ -24,7 +30,6 @@ use crate::{
     },
     parse::def::lex_split_baseline_tokens_on,
 };
-use crate::{parse::def::parse_parameter, path::expand_path};
 
 use self::{
     def::{parse_definition, parse_definition_prototype},
@@ -67,7 +72,7 @@ pub fn parse_simple_column_path(
                 output.push(Member::Int(row_number, part_span));
             } else {
                 let trimmed = trim_quotes(&current_part);
-                output.push(Member::Bare(trimmed.clone().spanned(part_span)));
+                output.push(Member::Bare(trimmed.spanned(part_span)));
             }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using,
@@ -944,8 +949,8 @@ fn parse_arg(
             )
         }
         SyntaxShape::GlobPattern => {
-            let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed).to_string();
+            let trimmed = Cow::Owned(trim_quotes(&lite_arg.item));
+            let expanded = expand_path_string(trimmed).to_string();
             (
                 SpannedExpression::new(Expression::glob_pattern(expanded), lite_arg.span),
                 None,
@@ -961,10 +966,10 @@ fn parse_arg(
         SyntaxShape::Duration => parse_duration(lite_arg),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = expand_path(&trimmed).to_string();
-            let path = Path::new(&expanded);
+            let path = PathBuf::from(trimmed);
+            let expanded = expand_path(Cow::Owned(path)).to_path_buf();
             (
-                SpannedExpression::new(Expression::FilePath(path.to_path_buf()), lite_arg.span),
+                SpannedExpression::new(Expression::FilePath(expanded), lite_arg.span),
                 None,
             )
         }
@@ -1647,8 +1652,8 @@ fn parse_external_call(
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     let mut error = None;
     let name = lite_cmd.parts[0].clone().map(|v| {
-        let trimmed = trim_quotes(&v);
-        expand_path(&trimmed).to_string()
+        let trimmed = Cow::Owned(trim_quotes(&v));
+        expand_path_string(trimmed).to_string()
     });
 
     let mut args = vec![];
@@ -1877,9 +1882,9 @@ fn parse_call(
                     )),
                 );
             }
-            if let Ok(contents) =
-                std::fs::read_to_string(expand_path(&lite_cmd.parts[1].item).into_owned())
-            {
+            if let Ok(contents) = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(
+                &lite_cmd.parts[1].item,
+            )))) {
                 let _ = parse(&contents, 0, scope);
             } else {
                 return (
@@ -1921,14 +1926,20 @@ fn parse_pipeline(
     let mut commands = Pipeline::new(lite_pipeline.span());
     let mut error = None;
 
-    let mut iter = lite_pipeline.commands.into_iter().peekable();
-    while let Some(lite_cmd) = iter.next() {
-        let (call, err) = parse_call(lite_cmd, iter.peek().is_none(), scope);
+    let pipeline_len = lite_pipeline.commands.len();
+    let iter = lite_pipeline.commands.into_iter().peekable();
+    for lite_cmd in iter.enumerate() {
+        let (call, err) = parse_call(lite_cmd.1, lite_cmd.0 == (pipeline_len - 1), scope);
         if error.is_none() {
             error = err;
         }
         if let Some(call) = call {
-            commands.push(call);
+            if call.has_var_usage("$in") && lite_cmd.0 > 0 {
+                let call = wrap_with_collect(call, "$in");
+                commands.push(call);
+            } else {
+                commands.push(call);
+            }
         }
     }
 
@@ -1936,6 +1947,41 @@ fn parse_pipeline(
 }
 
 type SpannedKeyValue = (Spanned<String>, Spanned<String>);
+
+fn wrap_with_collect(call: ClassifiedCommand, var_name: &str) -> ClassifiedCommand {
+    let mut block = Block::basic();
+
+    block.block.push(Group {
+        pipelines: vec![Pipeline {
+            list: vec![call],
+            span: Span::unknown(),
+        }],
+        span: Span::unknown(),
+    });
+
+    block.params.positional = vec![(
+        PositionalType::Mandatory(var_name.into(), SyntaxShape::Any),
+        format!("implied {}", var_name),
+    )];
+
+    ClassifiedCommand::Internal(InternalCommand {
+        name: "collect".into(),
+        name_span: Span::unknown(),
+        args: Call {
+            head: Box::new(SpannedExpression {
+                expr: Expression::Synthetic(Synthetic::String("collect".into())),
+                span: Span::unknown(),
+            }),
+            positional: Some(vec![SpannedExpression {
+                expr: Expression::Block(Arc::new(block)),
+                span: Span::unknown(),
+            }]),
+            named: None,
+            span: Span::unknown(),
+            external_redirection: ExternalRedirection::Stdout,
+        },
+    })
+}
 
 fn expand_shorthand_forms(
     lite_pipeline: &LitePipeline,

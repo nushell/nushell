@@ -37,7 +37,7 @@ impl Host for BasicHost {
     }
 
     #[allow(unused_variables)]
-    fn vars(&mut self) -> Vec<(String, String)> {
+    fn vars(&self) -> Vec<(String, String)> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             std::env::vars().collect::<Vec<_>>()

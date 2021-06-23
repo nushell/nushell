@@ -5,7 +5,6 @@ use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 
 use std::io::Write;
-use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::{borrow::Cow, io::BufReader};
@@ -105,7 +104,7 @@ fn run_with_stdin(
     let process_args = command_args
         .iter()
         .map(|(arg, _is_literal)| {
-            let arg = expand_tilde(arg.deref(), dirs_next::home_dir);
+            let arg = nu_path::expand_tilde_string(Cow::Borrowed(arg));
 
             #[cfg(not(windows))]
             {
@@ -126,7 +125,7 @@ fn run_with_stdin(
                 if let Some(unquoted) = remove_quotes(&arg) {
                     unquoted.to_string()
                 } else {
-                    arg.as_ref().to_string()
+                    arg.to_string()
                 }
             }
         })
@@ -486,15 +485,6 @@ impl Iterator for ChannelReceiver {
     }
 }
 
-fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
-where
-    SI: AsRef<str>,
-    P: AsRef<std::path::Path>,
-    HD: FnOnce() -> Option<P>,
-{
-    shellexpand::tilde_with_context(input, home_dir)
-}
-
 fn argument_is_quoted(argument: &str) -> bool {
     if argument.len() < 2 {
         return false;
@@ -543,9 +533,7 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        add_double_quotes, argument_is_quoted, escape_double_quotes, expand_tilde, remove_quotes,
-    };
+    use super::{add_double_quotes, argument_is_quoted, escape_double_quotes, remove_quotes};
     #[cfg(feature = "which")]
     use super::{run_external_command, InputStream};
 
@@ -666,21 +654,5 @@ mod tests {
         assert_eq!(remove_quotes(r#"andrés""#), None);
         assert_eq!(remove_quotes("'andrés'"), Some("andrés"));
         assert_eq!(remove_quotes(r#""andrés""#), Some("andrés"));
-    }
-
-    #[test]
-    fn expands_tilde_if_starts_with_tilde_character() {
-        assert_eq!(
-            expand_tilde("~", || Some(std::path::Path::new("the_path_to_nu_light"))),
-            "the_path_to_nu_light"
-        );
-    }
-
-    #[test]
-    fn does_not_expand_tilde_if_tilde_is_not_first_character() {
-        assert_eq!(
-            expand_tilde("1~1", || Some(std::path::Path::new("the_path_to_nu_light"))),
-            "1~1"
-        );
     }
 }

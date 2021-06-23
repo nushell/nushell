@@ -35,7 +35,7 @@ pub fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var, s) => evaluate_reference(var, ctx, *s),
+        expr @ Expression::Variable(_, _) => evaluate_reference(&Variable::from(expr), ctx, span),
         Expression::Command => unimplemented!(),
         Expression::Subexpression(block) => evaluate_subexpression(block, ctx),
         Expression::ExternalCommand(_) => unimplemented!(),
@@ -236,45 +236,64 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
     }
 }
 
-fn evaluate_reference(
-    name: &str,
-    ctx: &EvaluationContext,
-    span: Span,
-) -> Result<Value, ShellError> {
-    match name {
-        "$nu" => crate::evaluate::variables::nu(&ctx.scope, span, ctx),
+pub enum Variable<'a> {
+    Nu,
+    Scope,
+    True,
+    False,
+    Nothing,
+    Other(&'a str),
+}
 
-        "$scope" => crate::evaluate::variables::scope(
+impl<'a> Variable<'a> {
+    pub fn list() -> Vec<String> {
+        vec![
+            String::from("$nu"),
+            String::from("$scope"),
+            String::from("$true"),
+            String::from("$false"),
+            String::from("$nothing"),
+        ]
+    }
+}
+
+impl<'a> From<&'a Expression> for Variable<'a> {
+    fn from(expr: &'a Expression) -> Self {
+        match &expr {
+            Expression::Variable(name, _) => match name.as_str() {
+                "$nu" => Self::Nu,
+                "$scope" => Self::Scope,
+                "$true" => Self::True,
+                "$false" => Self::False,
+                "$nothing" => Self::Nothing,
+                _ => Self::Other(&name),
+            },
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub fn evaluate_reference(
+    variable: &Variable,
+    ctx: &EvaluationContext,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
+    match variable {
+        Variable::Nu => crate::evaluate::variables::nu(&ctx.scope, ctx),
+        Variable::Scope => crate::evaluate::variables::scope(
             &ctx.scope.get_aliases(),
             &ctx.scope.get_commands(),
             &ctx.scope.get_vars(),
-            span,
         ),
-
-        "$true" => Ok(Value {
-            value: UntaggedValue::boolean(true),
-            tag: span.into(),
-        }),
-
-        "$false" => Ok(Value {
-            value: UntaggedValue::boolean(false),
-            tag: span.into(),
-        }),
-
-        "$nothing" => Ok(Value {
-            value: UntaggedValue::nothing(),
-            tag: span.into(),
-        }),
-
-        x => match ctx.scope.get_var(x) {
-            Some(mut v) => {
-                v.tag.span = span;
-                Ok(v)
-            }
+        Variable::True => Ok(UntaggedValue::boolean(true).into_untagged_value()),
+        Variable::False => Ok(UntaggedValue::boolean(false).into_untagged_value()),
+        Variable::Nothing => Ok(UntaggedValue::nothing().into_untagged_value()),
+        Variable::Other(name) => match ctx.scope.get_var(name) {
+            Some(v) => Ok(v),
             None => Err(ShellError::labeled_error(
                 "Variable not in scope",
-                format!("unknown variable: {}", x),
-                span,
+                format!("unknown variable: {}", name),
+                tag.into(),
             )),
         },
     }

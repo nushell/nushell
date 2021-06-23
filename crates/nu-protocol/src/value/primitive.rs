@@ -289,7 +289,17 @@ impl Primitive {
                         .expect("Internal error: conversion from u32 failed"),
                 );
                 let secs = match secs.to_i64() {
-                    Some(secs) => secs,
+                    //The duration crate doesnt accept seconds bigger than i64::MAX / 1000
+                    Some(secs) => match secs.checked_mul(1000) {
+                        Some(_) => secs,
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Internal duration conversion overflow.",
+                                "duration overflow",
+                                span,
+                            ))
+                        }
+                    },
                     None => {
                         return Err(ShellError::labeled_error(
                             "Internal duration conversion overflow.",

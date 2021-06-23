@@ -182,6 +182,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(RollUp),
             whole_stream_command(Rotate),
             whole_stream_command(RotateCounterClockwise),
+            whole_stream_command(Collect),
             // Data processing
             whole_stream_command(Histogram),
             whole_stream_command(Autoenv),
@@ -297,6 +298,24 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameWithColumn),
             whole_stream_command(DataFrameFilter),
             whole_stream_command(DataFrameSeriesRename),
+            whole_stream_command(DataFrameValueCounts),
+            whole_stream_command(DataFrameIsNull),
+            whole_stream_command(DataFrameIsNotNull),
+            whole_stream_command(DataFrameAllTrue),
+            whole_stream_command(DataFrameAllFalse),
+            whole_stream_command(DataFrameArgMax),
+            whole_stream_command(DataFrameArgMin),
+            whole_stream_command(DataFrameArgTrue),
+            whole_stream_command(DataFrameArgUnique),
+            whole_stream_command(DataFrameArgSort),
+            whole_stream_command(DataFrameUnique),
+            whole_stream_command(DataFrameNUnique),
+            whole_stream_command(DataFrameNNull),
+            whole_stream_command(DataFrameIsUnique),
+            whole_stream_command(DataFrameIsDuplicated),
+            whole_stream_command(DataFrameIsIn),
+            whole_stream_command(DataFrameShift),
+            whole_stream_command(DataFrameSet),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
