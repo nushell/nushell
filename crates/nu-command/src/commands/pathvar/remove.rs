@@ -42,22 +42,25 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let index_to_remove_arg: Tagged<u64> = args.req(0)?;
     let index_to_remove = index_to_remove_arg.item as usize;
 
-    let old_pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
-    let mut paths: Vec<&str> = old_pathvar.split(NATIVE_PATH_ENV_SEPARATOR).collect();
+    if let Some(old_pathvar) = ctx.scope.get_env(NATIVE_PATH_ENV_VAR) {
+        let mut paths: Vec<&str> = old_pathvar.split(NATIVE_PATH_ENV_SEPARATOR).collect();
 
-    if index_to_remove >= paths.len() {
-        return Err(ShellError::labeled_error(
-            "Index out of bounds",
-            format!("the index must be between 0 and {}", paths.len() - 1),
-            index_to_remove_arg.tag,
-        ));
+        if index_to_remove >= paths.len() {
+            return Err(ShellError::labeled_error(
+                "Index out of bounds",
+                format!("the index must be between 0 and {}", paths.len() - 1),
+                index_to_remove_arg.tag,
+            ));
+        }
+
+        paths.remove(index_to_remove);
+        ctx.scope.add_env_var(
+            NATIVE_PATH_ENV_VAR,
+            paths.join(&NATIVE_PATH_ENV_SEPARATOR.to_string()),
+        );
+
+        Ok(OutputStream::empty())
+    } else {
+        Err(ShellError::unexpected("PATH not set"))
     }
-
-    paths.remove(index_to_remove);
-    ctx.scope.add_env_var(
-        NATIVE_PATH_ENV_VAR,
-        paths.join(&NATIVE_PATH_ENV_SEPARATOR.to_string()),
-    );
-
-    Ok(OutputStream::empty())
 }

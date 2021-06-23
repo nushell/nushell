@@ -45,14 +45,14 @@ impl WholeStreamCommand for Command {
 }
 
 pub fn get_pathvar(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let pathvar: Vec<Value> = args
-        .context
-        .scope
-        .get_env(NATIVE_PATH_ENV_VAR)
-        .unwrap()
-        .split(NATIVE_PATH_ENV_SEPARATOR)
-        .map(Value::from)
-        .collect();
+    if let Some(pathvar) = args.context.scope.get_env(NATIVE_PATH_ENV_VAR) {
+        let pathvar: Vec<Value> = pathvar
+            .split(NATIVE_PATH_ENV_SEPARATOR)
+            .map(Value::from)
+            .collect();
 
-    Ok(OutputStream::from(pathvar))
+        Ok(OutputStream::from(pathvar))
+    } else {
+        Err(ShellError::unexpected("PATH not set"))
+    }
 }

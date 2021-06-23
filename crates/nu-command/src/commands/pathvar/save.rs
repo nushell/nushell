@@ -28,23 +28,28 @@ pub fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = &args.context;
 
     if let Some(global_cfg) = &mut ctx.configs().lock().global_config {
-        let pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
-        let paths: Vec<Value> = pathvar
-            .split(NATIVE_PATH_ENV_SEPARATOR)
-            .map(Value::from)
-            .collect();
+        if let Some(pathvar) = ctx.scope.get_env(NATIVE_PATH_ENV_VAR) {
+            let paths: Vec<Value> = pathvar
+                .split(NATIVE_PATH_ENV_SEPARATOR)
+                .map(Value::from)
+                .collect();
 
-        let span_range = 0..paths.len();
-        let row = Value::new(
-            UntaggedValue::Table(paths),
-            Tag::from(Span::from(&span_range)),
-        );
+            let span_range = 0..paths.len();
+            let row = Value::new(
+                UntaggedValue::Table(paths),
+                Tag::from(Span::from(&span_range)),
+            );
 
-        global_cfg.vars.insert("path".to_string(), row);
-        global_cfg.write()?;
-        ctx.reload_config(global_cfg)?;
+            global_cfg.vars.insert("path".to_string(), row);
+            global_cfg.write()?;
+            ctx.reload_config(global_cfg)?;
 
-        Ok(OutputStream::empty())
+            Ok(OutputStream::empty())
+
+        } else {
+            Err(ShellError::unexpected("PATH not set"))
+        }
+
     } else {
         let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
             .into_value(name);

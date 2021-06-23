@@ -42,11 +42,13 @@ pub fn add(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if let Ok(mut path) = path {
         path.push(NATIVE_PATH_ENV_SEPARATOR);
-        let old_pathvar = ctx.scope.get_env(NATIVE_PATH_ENV_VAR).unwrap();
-        path.push_str(&old_pathvar);
-
-        ctx.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
-        Ok(OutputStream::empty())
+        if let Some(old_pathvar) = ctx.scope.get_env(NATIVE_PATH_ENV_VAR) {
+            path.push_str(&old_pathvar);
+            ctx.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
+            Ok(OutputStream::empty())
+        } else {
+            Err(ShellError::unexpected("PATH not set"))
+        }
     } else {
         Err(ShellError::labeled_error(
             "Invalid path.",
