@@ -3509,12 +3509,14 @@ dependencies = [
  "indexmap",
  "is_executable",
  "nu-data",
+ "nu-engine",
  "nu-errors",
  "nu-parser",
  "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
+ "parking_lot 0.11.1",
 ]
 
 [[package]]

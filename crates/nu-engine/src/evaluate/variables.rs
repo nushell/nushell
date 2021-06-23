@@ -5,13 +5,9 @@ use nu_errors::ShellError;
 use nu_protocol::{Dictionary, ShellTypeName, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{Spanned, Tag};
 
-pub fn nu(
-    scope: &Scope,
-    tag: impl Into<Tag>,
-    ctx: &EvaluationContext,
-) -> Result<Value, ShellError> {
+pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
     let env = &scope.get_env_vars();
-    let tag = tag.into();
+    let tag = Tag::unknown();
 
     let mut nu_dict = TaggedDictBuilder::new(&tag);
 
@@ -99,9 +95,8 @@ pub fn scope(
     aliases: &IndexMap<String, Vec<Spanned<String>>>,
     commands: &IndexMap<String, Signature>,
     variables: &IndexMap<String, Value>,
-    tag: impl Into<Tag>,
 ) -> Result<Value, ShellError> {
-    let tag = tag.into();
+    let tag = Tag::unknown();
 
     let mut scope_dict = TaggedDictBuilder::new(&tag);
 

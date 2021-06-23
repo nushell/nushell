@@ -27,11 +27,30 @@ impl Helper {
     }
 }
 
+use nu_protocol::{SignatureRegistry, VariableRegistry};
 struct CompletionContext<'a>(&'a EvaluationContext);
 
 impl<'a> nu_completion::CompletionContext for CompletionContext<'a> {
-    fn signature_registry(&self) -> &dyn nu_parser::ParserScope {
+    fn signature_registry(&self) -> &dyn SignatureRegistry {
         &self.0.scope
+    }
+
+    fn scope(&self) -> &dyn nu_parser::ParserScope {
+        &self.0.scope
+    }
+
+    fn source(&self) -> &EvaluationContext {
+        self.as_ref()
+    }
+
+    fn variable_registry(&self) -> &dyn VariableRegistry {
+        self.0
+    }
+}
+
+impl<'a> AsRef<EvaluationContext> for CompletionContext<'a> {
+    fn as_ref(&self) -> &EvaluationContext {
+        self.0
     }
 }
 

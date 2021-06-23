@@ -38,7 +38,17 @@ impl ValueShell {
         }
     }
 
-    fn members_under(&self, path: &Path) -> VecDeque<Value> {
+    pub fn find(&self, path: &Path) -> Option<&Self> {
+        let mut value_system = ValueStructure::new();
+
+        if value_system.walk_decorate(&self.value).is_ok() {
+            value_system.exists(&path).then(|| self)
+        } else {
+            None
+        }
+    }
+
+    pub fn members_under(&self, path: &Path) -> VecDeque<Value> {
         let mut shell_entries = VecDeque::new();
         let full_path = path.to_path_buf();
         let mut viewed = self.value.clone();
@@ -72,12 +82,6 @@ impl ValueShell {
 
         shell_entries
     }
-
-    // TODO make use of this in the new completion engine
-    #[allow(dead_code)]
-    fn members(&self) -> VecDeque<Value> {
-        self.members_under(Path::new("."))
-    }
 }
 
 impl Shell for ValueShell {
@@ -106,10 +110,7 @@ impl Shell for ValueShell {
             full_path.push(value.as_ref());
         }
 
-        let mut value_system = ValueStructure::new();
-        value_system.walk_decorate(&self.value)?;
-
-        if !value_system.exists(&full_path) {
+        if self.find(&full_path).is_none() {
             if let Some(target) = &path {
                 return Err(ShellError::labeled_error(
                     "Can not list entries inside",

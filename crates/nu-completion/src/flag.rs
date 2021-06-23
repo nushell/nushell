@@ -10,7 +10,7 @@ where
     Context: CompletionContext,
 {
     fn complete(&self, ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
-        if let Some(sig) = ctx.signature_registry().get_signature(&self.cmd) {
+        if let Some(sig) = ctx.signature_registry().get(&self.cmd) {
             let mut suggestions = Vec::new();
             for (name, (named_type, _desc)) in sig.named.iter() {
                 suggestions.push(format!("--{}", name));
