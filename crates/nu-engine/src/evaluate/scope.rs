@@ -2,7 +2,7 @@ use crate::whole_stream_command::{whole_stream_command, Command};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
-use nu_protocol::{hir::Block, Signature, Value};
+use nu_protocol::{hir::Block, Signature, SignatureRegistry, Value};
 use nu_source::Spanned;
 use std::sync::Arc;
 
@@ -23,6 +23,7 @@ impl Scope {
             frames: Arc::new(parking_lot::Mutex::new(vec![ScopeFrame::new()])),
         }
     }
+
     pub fn get_command(&self, name: &str) -> Option<Command> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(command) = frame.get_command(name) {
@@ -62,6 +63,10 @@ impl Scope {
         }
 
         output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
+    }
+
+    pub fn get_variable_names(&self) -> Vec<String> {
+        self.get_vars().iter().map(|(k, _)| k.to_string()).collect()
     }
 
     pub fn get_vars(&self) -> IndexMap<String, Value> {
@@ -327,12 +332,26 @@ impl Scope {
     }
 }
 
-impl ParserScope for Scope {
-    fn get_names(&self) -> Vec<String> {
+impl SignatureRegistry for Scope {
+    fn names(&self) -> Vec<String> {
         self.get_command_names()
     }
 
-    fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
+    fn has(&self, name: &str) -> bool {
+        self.get_signature(name).is_some()
+    }
+
+    fn get(&self, name: &str) -> Option<Signature> {
+        self.get_signature(name)
+    }
+
+    fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+        Box::new(self.clone())
+    }
+}
+
+impl ParserScope for Scope {
+    fn get_signature(&self, name: &str) -> Option<Signature> {
         self.get_command(name).map(|x| x.signature())
     }
 

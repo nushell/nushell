@@ -10,7 +10,7 @@ license = "MIT"
 name = "nu"
 readme = "README.md"
 repository = "https://github.com/nushell/nushell"
-version = "0.33.0"
+version = "0.33.1"
 
 [workspace]
 members = ["crates/*/"]
@@ -18,38 +18,38 @@ members = ["crates/*/"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-cli = { version="0.33.0", path="./crates/nu-cli", default-features=false }
-nu-command = { version="0.33.0", path="./crates/nu-command" }
-nu-completion = { version="0.33.0", path="./crates/nu-completion" }
-nu-data = { version="0.33.0", path="./crates/nu-data" }
-nu-engine = { version="0.33.0", path="./crates/nu-engine" }
-nu-errors = { version="0.33.0", path="./crates/nu-errors" }
-nu-parser = { version="0.33.0", path="./crates/nu-parser" }
-nu-path = { version="0.33.0", path="./crates/nu-path" }
-nu-plugin = { version="0.33.0", path="./crates/nu-plugin" }
-nu-protocol = { version="0.33.0", path="./crates/nu-protocol" }
-nu-source = { version="0.33.0", path="./crates/nu-source" }
-nu-value-ext = { version="0.33.0", path="./crates/nu-value-ext" }
+nu-cli = { version="0.33.1", path="./crates/nu-cli", default-features=false }
+nu-command = { version="0.33.1", path="./crates/nu-command" }
+nu-completion = { version="0.33.1", path="./crates/nu-completion" }
+nu-data = { version="0.33.1", path="./crates/nu-data" }
+nu-engine = { version="0.33.1", path="./crates/nu-engine" }
+nu-errors = { version="0.33.1", path="./crates/nu-errors" }
+nu-parser = { version="0.33.1", path="./crates/nu-parser" }
+nu-path = { version="0.33.1", path="./crates/nu-path" }
+nu-plugin = { version="0.33.1", path="./crates/nu-plugin" }
+nu-protocol = { version="0.33.1", path="./crates/nu-protocol" }
+nu-source = { version="0.33.1", path="./crates/nu-source" }
+nu-value-ext = { version="0.33.1", path="./crates/nu-value-ext" }
 
-nu_plugin_binaryview = { version="0.33.0", path="./crates/nu_plugin_binaryview", optional=true }
-nu_plugin_chart = { version="0.33.0", path="./crates/nu_plugin_chart", optional=true }
-nu_plugin_fetch = { version="0.33.0", path="./crates/nu_plugin_fetch", optional=true }
-nu_plugin_from_bson = { version="0.33.0", path="./crates/nu_plugin_from_bson", optional=true }
-nu_plugin_from_sqlite = { version="0.33.0", path="./crates/nu_plugin_from_sqlite", optional=true }
-nu_plugin_inc = { version="0.33.0", path="./crates/nu_plugin_inc", optional=true }
-nu_plugin_match = { version="0.33.0", path="./crates/nu_plugin_match", optional=true }
-nu_plugin_post = { version="0.33.0", path="./crates/nu_plugin_post", optional=true }
-nu_plugin_ps = { version="0.33.0", path="./crates/nu_plugin_ps", optional=true }
-nu_plugin_query_json = { version="0.33.0", path="./crates/nu_plugin_query_json", optional=true }
-nu_plugin_s3 = { version="0.33.0", path="./crates/nu_plugin_s3", optional=true }
-nu_plugin_selector = { version="0.33.0", path="./crates/nu_plugin_selector", optional=true }
-nu_plugin_start = { version="0.33.0", path="./crates/nu_plugin_start", optional=true }
-nu_plugin_sys = { version="0.33.0", path="./crates/nu_plugin_sys", optional=true }
-nu_plugin_textview = { version="0.33.0", path="./crates/nu_plugin_textview", optional=true }
-nu_plugin_to_bson = { version="0.33.0", path="./crates/nu_plugin_to_bson", optional=true }
-nu_plugin_to_sqlite = { version="0.33.0", path="./crates/nu_plugin_to_sqlite", optional=true }
-nu_plugin_tree = { version="0.33.0", path="./crates/nu_plugin_tree", optional=true }
-nu_plugin_xpath = { version="0.33.0", path="./crates/nu_plugin_xpath", optional=true }
+nu_plugin_binaryview = { version="0.33.1", path="./crates/nu_plugin_binaryview", optional=true }
+nu_plugin_chart = { version="0.33.1", path="./crates/nu_plugin_chart", optional=true }
+nu_plugin_fetch = { version="0.33.1", path="./crates/nu_plugin_fetch", optional=true }
+nu_plugin_from_bson = { version="0.33.1", path="./crates/nu_plugin_from_bson", optional=true }
+nu_plugin_from_sqlite = { version="0.33.1", path="./crates/nu_plugin_from_sqlite", optional=true }
+nu_plugin_inc = { version="0.33.1", path="./crates/nu_plugin_inc", optional=true }
+nu_plugin_match = { version="0.33.1", path="./crates/nu_plugin_match", optional=true }
+nu_plugin_post = { version="0.33.1", path="./crates/nu_plugin_post", optional=true }
+nu_plugin_ps = { version="0.33.1", path="./crates/nu_plugin_ps", optional=true }
+nu_plugin_query_json = { version="0.33.1", path="./crates/nu_plugin_query_json", optional=true }
+nu_plugin_s3 = { version="0.33.1", path="./crates/nu_plugin_s3", optional=true }
+nu_plugin_selector = { version="0.33.1", path="./crates/nu_plugin_selector", optional=true }
+nu_plugin_start = { version="0.33.1", path="./crates/nu_plugin_start", optional=true }
+nu_plugin_sys = { version="0.33.1", path="./crates/nu_plugin_sys", optional=true }
+nu_plugin_textview = { version="0.33.1", path="./crates/nu_plugin_textview", optional=true }
+nu_plugin_to_bson = { version="0.33.1", path="./crates/nu_plugin_to_bson", optional=true }
+nu_plugin_to_sqlite = { version="0.33.1", path="./crates/nu_plugin_to_sqlite", optional=true }
+nu_plugin_tree = { version="0.33.1", path="./crates/nu_plugin_tree", optional=true }
+nu_plugin_xpath = { version="0.33.1", path="./crates/nu_plugin_xpath", optional=true }
 
 # Required to bootstrap the main binary
 ctrlc = { version="3.1.7", optional=true }
@@ -57,7 +57,7 @@ futures = { version="0.3.12", features=["compat", "io-compat"] }
 itertools = "0.10.0"
 
 [dev-dependencies]
-nu-test-support = { version="0.33.0", path="./crates/nu-test-support" }
+nu-test-support = { version="0.33.1", path="./crates/nu-test-support" }
 dunce = "1.0.1"
 serial_test = "0.5.1"
 hamcrest2 = "0.3.0"
@@ -87,6 +87,7 @@ default = [
     "fetch",
     "zip-support",
     "executable-support",
+    "dataframe",
 ]
 
 stable = ["default"]
@@ -155,14 +156,6 @@ dataframe = [
     "nu_plugin_post/dataframe",
     "nu_plugin_to_bson/dataframe",
 ]
-
-
-[profile.release]
-#strip = "symbols" #Couldn't get working +nightly
-codegen-units = 1 #Reduce parallel codegen units
-lto = true #Link Time Optimization
-# opt-level = 'z' #Optimize for size
-# debug = true
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary

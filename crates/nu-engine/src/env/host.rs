@@ -11,7 +11,7 @@ pub trait Host: Debug + Send {
     fn stderr(&mut self, out: &str);
     fn print_err(&mut self, err: ShellError, source: &Text);
 
-    fn vars(&mut self) -> Vec<(String, String)>;
+    fn vars(&self) -> Vec<(String, String)>;
     fn env_get(&mut self, key: OsString) -> Option<OsString>;
     fn env_set(&mut self, k: OsString, v: OsString);
     fn env_rm(&mut self, k: OsString);
@@ -41,7 +41,7 @@ impl Host for Box<dyn Host> {
         (**self).print_err(err, source)
     }
 
-    fn vars(&mut self) -> Vec<(String, String)> {
+    fn vars(&self) -> Vec<(String, String)> {
         (**self).vars()
     }
 
@@ -104,7 +104,7 @@ impl Host for FakeHost {
         BasicHost {}.print_err(err, source);
     }
 
-    fn vars(&mut self) -> Vec<(String, String)> {
+    fn vars(&self) -> Vec<(String, String)> {
         self.env_vars
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
