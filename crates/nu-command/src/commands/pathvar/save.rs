@@ -45,11 +45,9 @@ pub fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ctx.reload_config(global_cfg)?;
 
             Ok(OutputStream::empty())
-
         } else {
             Err(ShellError::unexpected("PATH not set"))
         }
-
     } else {
         let value = UntaggedValue::Error(crate::commands::config::err_no_global_cfg_present())
             .into_value(name);
