@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/stale@v3
         with:
-          debug-only: true
+          #debug-only: true
           enable-statistics: true
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: 'This issue is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 5 days.'
