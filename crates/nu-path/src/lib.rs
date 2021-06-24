@@ -2,6 +2,9 @@ use std::borrow::Cow;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
+///////////////////////////////////////////////////////////////////////////////
+// Cow mappers
+
 // Utility for applying a function that can only be called on the borrowed type of the Cow
 // and also returns a ref. If the Cow is a borrow, we can return the same borrow but an
 // owned value needs extra handling because the returned valued has to be owned as well
@@ -49,7 +52,53 @@ where
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Dirs helper functions
+
+pub fn current_dir() -> io::Result<PathBuf>
+{
+    std::env::current_dir()
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Tilde
+
+// Expansion logic lives here to enable testing without depending on dirs-next
+fn expand_tilde_with(path: Cow<'_, Path>, home: Option<PathBuf>) -> Cow<'_, Path> {
+    if !path.starts_with("~") {
+        return path;
+    }
+
+    match home {
+        None => path,
+        Some(mut h) => {
+            if h == Path::new("/") {
+                // Corner case: `h` root directory;
+                // don't prepend extra `/`, just drop the tilde.
+                cow_map_by_ref(path, |p: &Path| {
+                    p.strip_prefix("~").expect("cannot strip ~ prefix")
+                })
+            } else {
+                h.push(path.strip_prefix("~/").expect("cannot strip ~/ prefix"));
+                Cow::Owned(h)
+            }
+        }
+    }
+}
+
+pub fn expand_tilde(path: Cow<'_, Path>) -> Cow<'_, Path> {
+    expand_tilde_with(path, dirs_next::home_dir())
+}
+
+pub fn expand_tilde_string(path: Cow<'_, str>) -> Cow<'_, str> {
+    cow_map_str_path(path, expand_tilde)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Dots handling
+
 const EXPAND_STR: &str = if cfg!(windows) { r"..\" } else { "../" };
+
 fn handle_dots_push(string: &mut String, count: u8) {
     if count < 1 {
         return;
@@ -128,7 +177,46 @@ fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     cow_map_path_str(path, expand_ndots_string)
 }
 
-pub fn absolutize<P, Q>(relative_to: P, path: Q) -> PathBuf
+// Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
+// current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
+pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
+    debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
+    if !path
+        .components()
+        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
+    {
+        return path;
+    }
+
+    let mut result = PathBuf::with_capacity(path.as_os_str().len());
+
+    // Only pop/skip path elements if the previous one was an actual path element
+    let prev_is_normal = |p: &Path| -> bool {
+        p.components()
+            .next_back()
+            .map(|c| std::matches!(c, Component::Normal(_)))
+            .unwrap_or(false)
+    };
+    path.as_ref()
+        .components()
+        .for_each(|component| match component {
+            Component::ParentDir if prev_is_normal(&result) => {
+                result.pop();
+            }
+            Component::CurDir if prev_is_normal(&result) => {}
+            _ => result.push(component),
+        });
+
+    Cow::Owned(dunce::simplified(&result).to_path_buf())
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Full expansions
+
+// TODO: make relative_to optional
+// TODO: rename later
+fn absolutize<P, Q>(relative_to: P, path: Q) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -183,6 +271,8 @@ where
     dunce::simplified(&path).to_path_buf()
 }
 
+// TODO: make relative_to optional
+// TODO: rename later
 pub fn canonicalize<P, Q>(relative_to: P, path: Q) -> io::Result<PathBuf>
 where
     P: AsRef<Path>,
@@ -207,68 +297,16 @@ where
     Ok(dunce::simplified(&path).to_path_buf())
 }
 
-// Expansion logic lives here to enable testing without depending on dirs-next
-fn expand_tilde_with(path: Cow<'_, Path>, home: Option<PathBuf>) -> Cow<'_, Path> {
-    if !path.starts_with("~") {
-        return path;
+// TODO: rename later to just canonicalize
+pub fn canonicalize_new(path: impl AsRef<Path>) -> io::Result<PathBuf>
+{
+    if path.as_ref().is_relative() {
+        canonicalize(current_dir()?, &path)
+    } else {
+        // TODO: Windows equivalent
+        // don't need "relative_to" since it will be overwritten anyway
+        canonicalize("/", &path)
     }
-
-    match home {
-        None => path,
-        Some(mut h) => {
-            if h == Path::new("/") {
-                // Corner case: `h` root directory;
-                // don't prepend extra `/`, just drop the tilde.
-                cow_map_by_ref(path, |p: &Path| {
-                    p.strip_prefix("~").expect("cannot strip ~ prefix")
-                })
-            } else {
-                h.push(path.strip_prefix("~/").expect("cannot strip ~/ prefix"));
-                Cow::Owned(h)
-            }
-        }
-    }
-}
-
-pub fn expand_tilde(path: Cow<'_, Path>) -> Cow<'_, Path> {
-    expand_tilde_with(path, dirs_next::home_dir())
-}
-
-pub fn expand_tilde_string(path: Cow<'_, str>) -> Cow<'_, str> {
-    cow_map_str_path(path, expand_tilde)
-}
-
-// Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
-// current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
-pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
-    debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
-    if !path
-        .components()
-        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
-    {
-        return path;
-    }
-
-    let mut result = PathBuf::with_capacity(path.as_os_str().len());
-
-    // Only pop/skip path elements if the previous one was an actual path element
-    let prev_is_normal = |p: &Path| -> bool {
-        p.components()
-            .next_back()
-            .map(|c| std::matches!(c, Component::Normal(_)))
-            .unwrap_or(false)
-    };
-    path.as_ref()
-        .components()
-        .for_each(|component| match component {
-            Component::ParentDir if prev_is_normal(&result) => {
-                result.pop();
-            }
-            Component::CurDir if prev_is_normal(&result) => {}
-            _ => result.push(component),
-        });
-
-    Cow::Owned(dunce::simplified(&result).to_path_buf())
 }
 
 // Expands ~ to home and shortens paths by removing unecessary ".." and "."
@@ -282,6 +320,8 @@ pub fn expand_path(path: Cow<'_, Path>) -> Cow<'_, Path> {
 pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
     cow_map_str_path(path, expand_path)
 }
+
+
 
 #[cfg(test)]
 mod tests {
