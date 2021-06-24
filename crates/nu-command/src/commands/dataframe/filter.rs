@@ -47,7 +47,7 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let value: Value = args.req(1)?;
+    let value: Value = args.req(0)?;
 
     let series_span = value.tag.span;
     let series = match value.value {

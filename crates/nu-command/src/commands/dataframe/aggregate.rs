@@ -101,6 +101,11 @@ impl WholeStreamCommand for DataFrame {
                 "quantile value for quantile operation",
                 Some('q'),
             )
+            .switch(
+                "explicit",
+                "returns explicit names for groupby aggregations",
+                Some('e'),
+            )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -159,7 +164,13 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                 None => groupby,
             };
 
-            let res = perform_groupby_aggregation(groupby, op, &operation.tag, &agg_span)?;
+            let res = perform_groupby_aggregation(
+                groupby,
+                op,
+                &operation.tag,
+                &agg_span,
+                args.has_flag("explicit"),
+            )?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
@@ -197,8 +208,9 @@ fn perform_groupby_aggregation(
     operation: Operation,
     operation_tag: &Tag,
     agg_span: &Span,
+    explicit: bool,
 ) -> Result<polars::prelude::DataFrame, ShellError> {
-    match operation {
+    let mut res = match operation {
         Operation::Mean => groupby.mean(),
         Operation::Sum => groupby.sum(),
         Operation::Min => groupby.min(),
@@ -219,7 +231,41 @@ fn perform_groupby_aggregation(
         };
 
         parse_polars_error::<&str>(&e, span, None)
-    })
+    })?;
+
+    if !explicit {
+        let col_names = res
+            .get_column_names()
+            .iter()
+            .map(|name| name.to_string())
+            .collect::<Vec<String>>();
+
+        for col in col_names {
+            let from = match operation {
+                Operation::Mean => "_mean",
+                Operation::Sum => "_sum",
+                Operation::Min => "_min",
+                Operation::Max => "_max",
+                Operation::First => "_first",
+                Operation::Last => "_last",
+                Operation::Nunique => "_n_unique",
+                Operation::Quantile(_) => "_quantile",
+                Operation::Median => "_median",
+                Operation::Var => "_agg_var",
+                Operation::Std => "_agg_std",
+                Operation::Count => "_count",
+            };
+
+            let new_col = match col.find(from) {
+                Some(index) => &col[..index],
+                None => &col[..],
+            };
+
+            res.rename(col.as_str(), new_col).unwrap();
+        }
+    }
+
+    Ok(res)
 }
 
 fn perform_dataframe_aggregation(
@@ -266,7 +312,7 @@ fn perform_series_aggregation(
             };
 
             let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("mean", value);
+            data.insert_value(series.name(), value);
 
             Ok(data.into_value())
         }
@@ -282,7 +328,7 @@ fn perform_series_aggregation(
             };
 
             let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("median", value);
+            data.insert_value(series.name(), value);
 
             Ok(data.into_value())
         }
@@ -319,7 +365,7 @@ fn perform_series_aggregation(
             };
 
             let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("sum", value);
+            data.insert_value(series.name(), value);
 
             Ok(data.into_value())
         }
@@ -356,7 +402,7 @@ fn perform_series_aggregation(
             };
 
             let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("max", value);
+            data.insert_value(series.name(), value);
 
             Ok(data.into_value())
         }
@@ -393,7 +439,7 @@ fn perform_series_aggregation(
             };
 
             let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("min", value);
+            data.insert_value(series.name(), value);
 
             Ok(data.into_value())
         }
