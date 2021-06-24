@@ -14,6 +14,7 @@ jobs:
       - uses: actions/stale@v3
         with:
           #debug-only: true
+          ascending: true
           operations-per-run: 520
           enable-statistics: true
           repo-token: ${{ secrets.GITHUB_TOKEN }}
