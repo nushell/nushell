@@ -2,7 +2,10 @@ use crate::prelude::*;
 use indexmap::IndexMap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{
+    value::StringExt, CommandAction, NamedType, PositionalType, ReturnSuccess, Signature,
+    SyntaxShape,
+};
 use serde::{Deserialize, Serialize};
 
 pub struct Lang;
@@ -68,9 +71,14 @@ impl WholeStreamCommand for Lang {
 
         let cmds = serde_json::to_string(&command_info)
             .expect("error converting command info to json string");
-        Ok(ActionStream::one(
-            UntaggedValue::string(cmds).into_value(tag),
-        ))
+
+        // Ok(ActionStream::one(
+        //     UntaggedValue::string(cmds).into_value(tag),
+        // ))
+
+        Ok(ActionStream::one(ReturnSuccess::action(
+            CommandAction::AutoConvert(cmds.to_string_value(tag), "json".to_string()),
+        )))
     }
 
     fn examples(&self) -> Vec<Example> {
