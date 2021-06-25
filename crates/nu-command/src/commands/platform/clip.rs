@@ -21,6 +21,10 @@ impl WholeStreamCommand for Clip {
         "Copy the contents of the pipeline to the copy/paste buffer."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         clip(args)
     }

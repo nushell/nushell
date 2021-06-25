@@ -19,6 +19,10 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random uuid4 string"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         uuid(args)
     }
