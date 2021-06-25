@@ -20,6 +20,10 @@ impl WholeStreamCommand for Command {
         "Mock ls."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name_tag = args.call_info.name_tag.clone();
 
