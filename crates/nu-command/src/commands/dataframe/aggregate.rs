@@ -261,7 +261,8 @@ fn perform_groupby_aggregation(
                 None => &col[..],
             };
 
-            res.rename(col.as_str(), new_col).unwrap();
+            res.rename(col.as_str(), new_col)
+                .expect("Column is always there. Looping with known names");
         }
     }
 

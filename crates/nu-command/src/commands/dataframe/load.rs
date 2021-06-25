@@ -208,7 +208,7 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
     };
 
     match csv_reader.finish() {
-        Ok(csv_reader) => Ok(csv_reader),
+        Ok(df) => Ok(df),
         Err(e) => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
     }
 }
