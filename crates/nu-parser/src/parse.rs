@@ -1841,21 +1841,25 @@ fn parse_call(
         error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts.len() > 1 {
-        // Check if it's a sub-command
-        if let Some(signature) = scope.get_signature(&format!(
-            "{} {}",
-            lite_cmd.parts[0].item, lite_cmd.parts[1].item
-        )) {
-            let (mut internal_command, err) =
-                parse_internal_command(&lite_cmd, scope, &signature, 1);
+        // FIXME: only build up valid subcommands instead of all arguments
+        // by checking each part to see if it's a valid identifier name
+        let mut parts: Vec<_> = lite_cmd.parts.clone().into_iter().map(|x| x.item).collect();
 
-            error = error.or(err);
-            internal_command.args.external_redirection = if end_of_pipeline {
-                ExternalRedirection::None
-            } else {
-                ExternalRedirection::Stdout
-            };
-            return (Some(ClassifiedCommand::Internal(internal_command)), error);
+        while parts.len() > 1 {
+            // Check if it's a sub-command
+            if let Some(signature) = scope.get_signature(&parts.join(" ")) {
+                let (mut internal_command, err) =
+                    parse_internal_command(&lite_cmd, scope, &signature, parts.len() - 1);
+
+                error = error.or(err);
+                internal_command.args.external_redirection = if end_of_pipeline {
+                    ExternalRedirection::None
+                } else {
+                    ExternalRedirection::Stdout
+                };
+                return (Some(ClassifiedCommand::Internal(internal_command)), error);
+            }
+            parts.pop();
         }
     }
     // Check if it's an internal command
