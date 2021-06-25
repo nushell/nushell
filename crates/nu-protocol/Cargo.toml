@@ -32,7 +32,7 @@ toml = "0.5.8"
 
 [dependencies.polars]
 git = "https://github.com/pola-rs/polars"
-rev = "f60d86bc0921bd42635e8a33e7aad28ebe62dc3e"
+rev = "adc358b437f93bc7f844a94d68c064616e9d2ac2"
 version = "0.14.2"
 optional = true
 features = ["serde", "rows"]

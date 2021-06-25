@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe with head rows"
+        "[DataFrame] Creates new dataframe with head rows"
     }
 
     fn signature(&self) -> Signature {

@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes for a sorted series"
+        "[Series] Returns indexes for a sorted series"
     }
 
     fn signature(&self) -> Signature {

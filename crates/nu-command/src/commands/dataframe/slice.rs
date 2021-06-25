@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe from a slice of rows"
+        "[DataFrame] Creates new dataframe from a slice of rows"
     }
 
     fn signature(&self) -> Signature {

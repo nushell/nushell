@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Converts a section of the dataframe to a Table or List value"
+        "[DataFrame] Converts a section of the dataframe to a Table or List value"
     }
 
     fn signature(&self) -> Signature {

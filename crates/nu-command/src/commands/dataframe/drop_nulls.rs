@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Drops null values in dataframe"
+        "[DataFrame, Series] Drops null values in dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -37,7 +37,7 @@ impl WholeStreamCommand for DataFrame {
                 description: "drop null values in dataframe",
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dataframe to-df);
 let res = ($df.b / $df.b);
-let df = ($df | dataframe with-column $res as res);
+let df = ($df | dataframe with-column $res --name res);
 $df | dataframe drop-nulls
 "#,
                 result: None,

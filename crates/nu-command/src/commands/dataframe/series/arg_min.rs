@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Return index for min value in series"
+        "[Series] Return index for min value in series"
     }
 
     fn signature(&self) -> Signature {

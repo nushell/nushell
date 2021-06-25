@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes where values are true"
+        "[Series] Returns indexes where values are true"
     }
 
     fn signature(&self) -> Signature {

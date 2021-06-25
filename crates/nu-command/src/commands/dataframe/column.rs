@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns the selected column as Series"
+        "[DataFrame] Returns the selected column as Series"
     }
 
     fn signature(&self) -> Signature {
