@@ -26,6 +26,14 @@ impl Token {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum NewlineMode {
+    /// Treat newlines as a group separator
+    Normal,
+    /// Treat newlines as just another whitespace
+    Whitespace,
+}
+
 #[derive(Clone, Copy)]
 enum BlockKind {
     Paren,
@@ -427,7 +435,11 @@ pub fn parse_block(tokens: Vec<Token>) -> (LiteBlock, Option<ParseError>) {
 /// Breaks the input string into a vector of tokens. This tokenization only tries to classify separators like
 /// semicolons, pipes, etc from external bare values (values that haven't been classified further)
 /// Takes in a string and and offset, which is used to offset the spans created (for when this function is used to parse inner strings)
-pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) {
+pub fn lex(
+    input: &str,
+    span_offset: usize,
+    newline_mode: NewlineMode,
+) -> (Vec<Token>, Option<ParseError>) {
     // Break the input slice into an iterator of Unicode characters.
     let mut char_indices = input.char_indices().peekable();
     let mut error = None;
@@ -489,10 +501,12 @@ pub fn lex(input: &str, span_offset: usize) -> (Vec<Token>, Option<ParseError>) 
 
             let idx = *idx;
             let _ = char_indices.next();
-            output.push(Token::new(
-                TokenContents::Eol,
-                Span::new(span_offset + idx, span_offset + idx + 1),
-            ));
+            if newline_mode == NewlineMode::Normal {
+                output.push(Token::new(
+                    TokenContents::Eol,
+                    Span::new(span_offset + idx, span_offset + idx + 1),
+                ));
+            }
         } else if *c == '#' {
             // If the next character is `#`, we're at the beginning of a line
             // comment. The comment continues until the next newline.

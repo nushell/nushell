@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    lex::tokens::LiteCommand,
+    lex::{lexer::NewlineMode, tokens::LiteCommand},
     parse::{classify_block, util::trim_quotes},
 };
 
@@ -52,7 +52,8 @@ pub(crate) fn parse_definition(call: &LiteCommand, scope: &dyn ParserScope) -> O
 
                     scope.enter_scope();
 
-                    let (tokens, err) = lex(&string, call.parts[3].span.start() + 1);
+                    let (tokens, err) =
+                        lex(&string, call.parts[3].span.start() + 1, NewlineMode::Normal);
                     if err.is_some() {
                         return err;
                     };
