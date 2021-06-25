@@ -18,7 +18,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::parse::def::parse_parameter;
+use crate::{lex::lexer::NewlineMode, parse::def::parse_parameter};
 use crate::{
     lex::lexer::{lex, parse_block},
     ParserScope,
@@ -489,7 +489,7 @@ fn parse_subexpression(
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it
-    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+    let (tokens, err) = lex(&string, lite_arg.span.start() + 1, NewlineMode::Whitespace);
     if error.is_none() {
         error = err;
     };
@@ -792,7 +792,11 @@ fn parse_table(
         error = err;
     }
 
-    let (tokens, err) = lex(&string, lite_inner.parts[0].span.start() + 1);
+    let (tokens, err) = lex(
+        &string,
+        lite_inner.parts[0].span.start() + 1,
+        NewlineMode::Whitespace,
+    );
     if err.is_some() {
         return (garbage(lite_inner.span()), err);
     }
@@ -816,7 +820,7 @@ fn parse_table(
         if error.is_none() {
             error = err;
         }
-        let (tokens, err) = lex(&string, arg.span.start() + 1);
+        let (tokens, err) = lex(&string, arg.span.start() + 1, NewlineMode::Whitespace);
         if err.is_some() {
             return (garbage(arg.span), err);
         }
@@ -1005,7 +1009,8 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    let (tokens, err) =
+                        lex(&string, lite_arg.span.start() + 1, NewlineMode::Whitespace);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
@@ -1071,7 +1076,8 @@ fn parse_arg(
                     let string: String = chars.into_iter().collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (mut tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    let (mut tokens, err) =
+                        lex(&string, lite_arg.span.start() + 1, NewlineMode::Normal);
                     if error.is_none() {
                         error = err;
                     }
@@ -2177,7 +2183,7 @@ pub fn parse(
     scope: &dyn ParserScope,
 ) -> (Arc<Block>, Option<ParseError>) {
     let mut error = None;
-    let (output, err) = lex(input, span_offset);
+    let (output, err) = lex(input, span_offset, NewlineMode::Normal);
     if error.is_none() {
         error = err;
     }
