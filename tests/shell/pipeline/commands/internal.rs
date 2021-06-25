@@ -1059,6 +1059,30 @@ fn better_subexpr_lex() {
     assert_eq!(actual.out, "6");
 }
 
+#[test]
+fn subsubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb" [url] { $url + " loaded" }; aws s3 rb localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
+#[test]
+fn manysubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb ax vf qqqq rrrr" [url] { $url + " loaded" }; aws s3 rb ax vf qqqq rrrr localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
 mod parse {
     use nu_test_support::nu;
 
