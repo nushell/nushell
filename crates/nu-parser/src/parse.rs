@@ -1859,13 +1859,8 @@ fn parse_call(
     // Check if it's an internal command
     if let Some(signature) = scope.get_signature(&lite_cmd.parts[0].item) {
         if lite_cmd.parts[0].item == "def" {
-            let error = parse_definition(&lite_cmd, scope);
-            if error.is_some() {
-                return (
-                    Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                    error,
-                );
-            }
+            let err = parse_definition(&lite_cmd, scope);
+            error = error.or(err);
         }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
