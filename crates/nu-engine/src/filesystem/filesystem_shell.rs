@@ -592,7 +592,7 @@ impl Shell for FilesystemShell {
         let rm_always_trash = nu_data::config::config(Tag::unknown())?
             .get("rm_always_trash")
             .map(|val| val.is_true())
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         #[cfg(not(feature = "trash-support"))]
         {
