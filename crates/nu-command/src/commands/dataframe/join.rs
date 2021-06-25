@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Joins a dataframe using columns as reference"
+        "[DataFrame] Joins a dataframe using columns as reference"
     }
 
     fn signature(&self) -> Signature {

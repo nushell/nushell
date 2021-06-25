@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates mask where value is not null"
+        "[Series] Creates mask where value is not null"
     }
 
     fn signature(&self) -> Signature {

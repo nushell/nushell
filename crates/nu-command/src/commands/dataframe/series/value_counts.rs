@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns a dataframe with the counts for unique values in series"
+        "[Series] Returns a dataframe with the counts for unique values in series"
     }
 
     fn signature(&self) -> Signature {

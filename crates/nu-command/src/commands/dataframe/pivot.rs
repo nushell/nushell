@@ -46,7 +46,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Performs a pivot operation on a groupby object"
+        "[GroupBy] Performs a pivot operation on a groupby object"
     }
 
     fn signature(&self) -> Signature {

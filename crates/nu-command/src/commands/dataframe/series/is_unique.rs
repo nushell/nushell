@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates mask indicating unique values"
+        "[Series] Creates mask indicating unique values"
     }
 
     fn signature(&self) -> Signature {

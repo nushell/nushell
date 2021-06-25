@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates a new dataframe with dummy variables"
+        "[DataFrame] Creates a new dataframe with dummy variables"
     }
 
     fn signature(&self) -> Signature {

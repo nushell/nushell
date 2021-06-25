@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns indexes for unique values"
+        "[Series] Returns indexes for unique values"
     }
 
     fn signature(&self) -> Signature {

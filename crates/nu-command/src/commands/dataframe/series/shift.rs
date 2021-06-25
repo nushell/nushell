@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Shifts the values by a given period"
+        "[Series] Shifts the values by a given period"
     }
 
     fn signature(&self) -> Signature {

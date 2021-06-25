@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates a new dataframe with the selected columns"
+        "[DataFrame] Creates a new dataframe with the selected columns"
     }
 
     fn signature(&self) -> Signature {

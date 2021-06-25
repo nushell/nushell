@@ -26,7 +26,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Filter dataframe to match the condition"
+        "[DataFrame] Filter dataframe to match the condition"
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
