@@ -9,7 +9,7 @@ use crate::Post;
 impl Plugin for Post {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("post")
-            .desc("Post content to a url and retrieve data as a table if possible.")
+            .desc("Post content to a URL and retrieve data as a table if possible.")
             .required("path", SyntaxShape::Any, "the URL to post to")
             .required("body", SyntaxShape::Any, "the contents of the post body")
             .named(

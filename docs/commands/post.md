@@ -1,5 +1,5 @@
 # post
-Post content to a url and retrieve data as a table if possible.
+Post content to a URL and retrieve data as a table if possible.
 
 ## Usage
 ```shell
