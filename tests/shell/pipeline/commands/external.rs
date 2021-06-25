@@ -368,4 +368,25 @@ mod external_command_arguments {
             },
         )
     }
+
+    #[test]
+    fn string_interpolation_with_an_external_command() {
+        Playground::setup(
+            "string_interpolation_with_an_external_command",
+            |dirs, sandbox| {
+                sandbox.mkdir("cd");
+
+                sandbox.with_files(vec![EmptyFile("cd/jonathan_likes_cake.txt")]);
+
+                let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    ^ls $"(pwd)/cd"
+                "#
+                ));
+
+                assert_eq!(actual.out, "jonathan_likes_cake.txt");
+            },
+        )
+    }
 }
