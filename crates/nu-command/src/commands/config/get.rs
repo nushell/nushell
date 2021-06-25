@@ -22,6 +22,10 @@ impl WholeStreamCommand for SubCommand {
         "Gets a value from the config"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         get(args)
     }

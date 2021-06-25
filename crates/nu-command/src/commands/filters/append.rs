@@ -22,6 +22,10 @@ impl WholeStreamCommand for Command {
         "Append a row to the table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mut value: Value = args.req(0)?;
 

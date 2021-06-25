@@ -23,6 +23,10 @@ impl WholeStreamCommand for FromTsv {
         "Parse text as .tsv and create table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_tsv(args)
     }

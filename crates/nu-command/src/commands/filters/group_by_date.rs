@@ -31,6 +31,10 @@ impl WholeStreamCommand for GroupByDate {
         "creates a table grouped by date."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         group_by_date(args)
     }

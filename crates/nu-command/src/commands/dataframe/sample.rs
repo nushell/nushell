@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Create sample dataframe"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe load")
             .named(

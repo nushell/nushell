@@ -18,6 +18,10 @@ impl WholeStreamCommand for ToToml {
         "Convert table into .toml text"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_toml(args)
     }

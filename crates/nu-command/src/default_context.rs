@@ -63,6 +63,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Benchmark),
             // Metadata
             whole_stream_command(Tags),
+            whole_stream_command(Lang),
             // Shells
             whole_stream_command(Next),
             whole_stream_command(Previous),

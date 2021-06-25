@@ -26,6 +26,10 @@ impl WholeStreamCommand for Nth {
         "Return or skip only the selected rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         nth(args)
     }

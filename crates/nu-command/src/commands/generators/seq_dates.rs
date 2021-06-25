@@ -60,6 +60,10 @@ impl WholeStreamCommand for SeqDates {
         "print sequences of dates"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         seq_dates(args)
     }

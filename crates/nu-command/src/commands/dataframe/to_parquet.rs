@@ -23,6 +23,10 @@ impl WholeStreamCommand for DataFrame {
         "Saves dataframe to parquet file"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe to-parquet").required(
             "file",

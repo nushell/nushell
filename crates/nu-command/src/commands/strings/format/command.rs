@@ -25,6 +25,10 @@ impl WholeStreamCommand for Format {
         "Format columns into a string using a simple pattern."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         format_command(args)
     }

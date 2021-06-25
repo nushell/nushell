@@ -27,6 +27,10 @@ impl WholeStreamCommand for Command {
         "Parse columns from string data using a simple pattern."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }

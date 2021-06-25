@@ -32,6 +32,10 @@ impl WholeStreamCommand for ForIn {
         "Run a block on each row of the table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         for_in(args)
     }

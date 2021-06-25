@@ -18,6 +18,10 @@ impl WholeStreamCommand for FromUrl {
         "Parse url-encoded string as a table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_url(args)
     }

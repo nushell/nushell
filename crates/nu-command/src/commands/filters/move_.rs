@@ -33,6 +33,10 @@ impl WholeStreamCommand for Command {
         "Move columns."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }

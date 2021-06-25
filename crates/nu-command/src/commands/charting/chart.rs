@@ -19,6 +19,10 @@ impl WholeStreamCommand for Chart {
         "Displays charts."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         if args.scope().get_command("chart bar").is_none() {
             return Err(ShellError::untagged_runtime_error(

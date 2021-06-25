@@ -22,6 +22,10 @@ impl WholeStreamCommand for UrlQuery {
         "gets the query of a url"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let rest: Vec<ColumnPath> = args.rest(0)?;
         let input = args.input;

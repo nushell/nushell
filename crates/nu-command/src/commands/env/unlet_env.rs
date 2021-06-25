@@ -29,6 +29,10 @@ impl WholeStreamCommand for UnletEnv {
         "Delete an environment variable."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         unlet_env(args)
     }

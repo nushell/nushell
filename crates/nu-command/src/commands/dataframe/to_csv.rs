@@ -25,6 +25,10 @@ impl WholeStreamCommand for DataFrame {
         "Saves dataframe to csv file"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe to-csv")
             .required("file", SyntaxShape::FilePath, "file path to save dataframe")

@@ -32,6 +32,10 @@ impl WholeStreamCommand for Source {
         "Runs a script file in the current context."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         source(args)
     }

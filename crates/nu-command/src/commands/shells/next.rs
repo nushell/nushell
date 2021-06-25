@@ -18,6 +18,10 @@ impl WholeStreamCommand for Next {
         "Go to next shell."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(next(args))
     }

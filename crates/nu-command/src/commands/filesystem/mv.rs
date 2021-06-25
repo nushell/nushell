@@ -28,6 +28,10 @@ impl WholeStreamCommand for Mv {
         "Move files or directories."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         mv(args)
     }

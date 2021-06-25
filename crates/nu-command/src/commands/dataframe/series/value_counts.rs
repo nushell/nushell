@@ -19,6 +19,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns a dataframe with the counts for unique values in series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe value-counts")
     }

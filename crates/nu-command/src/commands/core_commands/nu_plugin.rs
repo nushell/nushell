@@ -37,6 +37,10 @@ impl WholeStreamCommand for SubCommand {
         "Nu Plugin"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Load all plugins in the current directory",
@@ -103,6 +107,10 @@ impl WholeStreamCommand for SubCommand {
         Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&SubCommand, &scope)).into_value(Tag::unknown()),
         )))
+    }
+
+    fn is_plugin(&self) -> bool {
+        true
     }
 }
 

@@ -25,6 +25,10 @@ impl WholeStreamCommand for Command {
         "Rolls the table rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         roll(args)
     }

@@ -19,6 +19,10 @@ impl WholeStreamCommand for Command {
         "Configuration management."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let name = args.call_info.name_tag.clone();
 

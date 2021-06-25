@@ -14,6 +14,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns true if all values are true"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe all-true")
     }

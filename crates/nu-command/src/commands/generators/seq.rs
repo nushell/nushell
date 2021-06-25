@@ -39,6 +39,10 @@ impl WholeStreamCommand for Seq {
         "Print sequences of numbers."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         seq(args)
     }

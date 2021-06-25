@@ -31,6 +31,10 @@ impl WholeStreamCommand for Histogram {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         histogram(args)
     }

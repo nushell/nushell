@@ -28,6 +28,10 @@ impl WholeStreamCommand for Command {
         "Open given cells as text."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         get(args)
     }

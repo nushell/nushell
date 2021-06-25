@@ -23,6 +23,10 @@ impl WholeStreamCommand for SubCommand {
         "Sets a value in the config"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         set_into(args)
     }

@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates a new dataframe with the selected columns"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe select").required(
             "columns",

@@ -19,6 +19,10 @@ impl WholeStreamCommand for FromIni {
         "Parse text as .ini and create table"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ini(args)
     }

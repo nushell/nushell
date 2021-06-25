@@ -54,6 +54,10 @@ impl WholeStreamCommand for SubCommand {
         "base64 encode or decode a value"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }

@@ -18,6 +18,10 @@ impl WholeStreamCommand for SubCommand {
         "Returns absolute values of a list of numbers"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mapped = args.input.map(move |val| match val.value {
             UntaggedValue::Primitive(Primitive::Int(val)) => UntaggedValue::int(val.abs()).into(),

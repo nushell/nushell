@@ -20,6 +20,10 @@ impl WholeStreamCommand for Date {
         "Print the date in a structured table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_table(args)
     }

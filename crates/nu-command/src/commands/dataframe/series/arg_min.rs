@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Return index for min value in series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe arg-min")
     }

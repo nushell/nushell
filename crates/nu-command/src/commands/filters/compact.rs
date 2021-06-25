@@ -24,6 +24,10 @@ impl WholeStreamCommand for Compact {
         "Creates a table with non-empty rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         compact(args)
     }

@@ -25,6 +25,10 @@ impl WholeStreamCommand for Command {
         "Down-select table to only these columns."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         select(args)
     }

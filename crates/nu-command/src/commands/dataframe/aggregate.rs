@@ -87,6 +87,10 @@ impl WholeStreamCommand for DataFrame {
         "Performs an aggregation operation on a dataframe or groupby object"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe aggregate")
             .required("operation", SyntaxShape::String, "aggregate operation")

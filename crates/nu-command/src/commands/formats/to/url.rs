@@ -18,6 +18,10 @@ impl WholeStreamCommand for ToUrl {
         "Convert table into url-encoded text"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_url(args)
     }

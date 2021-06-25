@@ -45,6 +45,10 @@ impl WholeStreamCommand for Pivot {
         "Pivots the table contents so rows become columns and columns become rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         pivot(args)
     }

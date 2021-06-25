@@ -22,6 +22,10 @@ impl WholeStreamCommand for Date {
         "Format a given date using the given format string."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         format(args)
     }

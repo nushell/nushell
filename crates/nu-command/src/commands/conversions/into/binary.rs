@@ -35,6 +35,10 @@ impl WholeStreamCommand for SubCommand {
         "Convert value to a binary primitive"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         into_binary(args)
     }

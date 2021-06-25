@@ -18,6 +18,10 @@ impl WholeStreamCommand for From {
         "Parse content (string or binary) as a table (input format based on subcommand, like csv, ini, json, toml)."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(
             UntaggedValue::string(get_full_help(&From, args.scope())).into_value(Tag::unknown()),

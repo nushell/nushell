@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Unpivot a DataFrame from wide to long format"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe melt")
             .required("id_columns", SyntaxShape::Table, "Id columns for melting")

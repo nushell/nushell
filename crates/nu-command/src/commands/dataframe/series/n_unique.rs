@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Counts unique value"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe count-unique")
     }

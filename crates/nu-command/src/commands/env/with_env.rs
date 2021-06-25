@@ -37,6 +37,10 @@ impl WholeStreamCommand for WithEnv {
         "Runs a block with an environment variable set."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         with_env(args)
     }

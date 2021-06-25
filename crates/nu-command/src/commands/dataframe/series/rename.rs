@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Renames a series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe rename").required(
             "name",

@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns indexes for a sorted series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe arg-sort").switch("reverse", "reverse order", Some('r'))
     }

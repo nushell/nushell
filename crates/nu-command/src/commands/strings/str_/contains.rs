@@ -35,6 +35,10 @@ impl WholeStreamCommand for SubCommand {
         "Checks if string contains pattern"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }

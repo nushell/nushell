@@ -18,6 +18,10 @@ impl WholeStreamCommand for DataFrame {
         "Filters dataframe using a mask as reference"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe filter")
             .required("with", SyntaxShape::String, "the word 'with'")

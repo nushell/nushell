@@ -28,6 +28,10 @@ impl WholeStreamCommand for SubCommand {
         "outputs the reversals of the strings in the pipeline"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }

@@ -24,6 +24,10 @@ impl WholeStreamCommand for Cd {
         "Change to a new path."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let name = args.call_info.name_tag.clone();
         let shell_manager = args.shell_manager();

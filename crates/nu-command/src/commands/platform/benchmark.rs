@@ -49,6 +49,10 @@ impl WholeStreamCommand for Benchmark {
         "Runs a block and returns the time it took to execute it."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         benchmark(args)
     }

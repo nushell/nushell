@@ -18,6 +18,10 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(tags(args))
     }

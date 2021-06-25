@@ -23,6 +23,10 @@ impl WholeStreamCommand for ToTsv {
         "Convert table into .tsv text"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_tsv(args)
     }

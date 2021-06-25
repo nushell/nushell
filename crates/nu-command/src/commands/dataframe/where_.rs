@@ -25,6 +25,10 @@ impl WholeStreamCommand for DataFrame {
         )
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn usage(&self) -> &str {
         "Filter dataframe to match the condition"
     }

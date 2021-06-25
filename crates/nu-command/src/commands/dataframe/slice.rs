@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates new dataframe from a slice of rows"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe slice")
             .required("offset", SyntaxShape::Number, "start of slice")

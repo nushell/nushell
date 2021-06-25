@@ -23,6 +23,10 @@ impl WholeStreamCommand for Version {
         "Display Nu version."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         version(args)
     }

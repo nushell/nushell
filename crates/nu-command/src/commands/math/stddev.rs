@@ -24,6 +24,10 @@ impl WholeStreamCommand for SubCommand {
         "Finds the stddev of a list of numbers or tables"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         let sample: bool = args.has_flag("sample");
         let values: Vec<Value> = args.input.drain_vec();

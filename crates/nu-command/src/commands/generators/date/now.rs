@@ -19,6 +19,10 @@ impl WholeStreamCommand for Date {
         "Get the current date."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         now(args)
     }

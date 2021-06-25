@@ -19,6 +19,10 @@ impl WholeStreamCommand for Clear {
         "Clears the terminal."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, _: CommandArgs) -> Result<InputStream, ShellError> {
         if cfg!(windows) {
             Command::new("cmd")

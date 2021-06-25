@@ -24,6 +24,10 @@ impl WholeStreamCommand for Which {
         "Finds a program file, alias or custom command."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         which(args)
     }

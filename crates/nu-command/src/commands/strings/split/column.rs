@@ -29,6 +29,10 @@ impl WholeStreamCommand for SubCommand {
         "splits contents across multiple columns via the separator."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         split_column(args)
     }

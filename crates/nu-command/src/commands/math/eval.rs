@@ -15,6 +15,10 @@ impl WholeStreamCommand for SubCommand {
         "Evaluate a math expression into a number"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("math eval").desc(self.usage()).optional(
             "math expression",

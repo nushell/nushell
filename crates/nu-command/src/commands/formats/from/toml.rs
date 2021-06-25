@@ -18,6 +18,10 @@ impl WholeStreamCommand for FromToml {
         "Parse text as .toml and create table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_toml(args)
     }

@@ -19,6 +19,10 @@ impl WholeStreamCommand for DataFrame {
         "Drops null values in dataframe"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe drop-nulls").optional(
             "subset",

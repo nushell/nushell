@@ -34,6 +34,10 @@ impl WholeStreamCommand for Do {
         "Runs a block, optionally ignoring errors."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         do_(args)
     }

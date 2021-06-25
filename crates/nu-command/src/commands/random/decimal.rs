@@ -29,6 +29,10 @@ impl WholeStreamCommand for SubCommand {
         decimal(args)
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

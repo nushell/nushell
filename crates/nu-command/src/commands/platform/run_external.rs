@@ -50,6 +50,10 @@ impl WholeStreamCommand for RunExternalCommand {
         "Runs external command (not a nushell builtin)"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Run the external echo command",
@@ -58,7 +62,7 @@ impl WholeStreamCommand for RunExternalCommand {
         }]
     }
 
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         true
     }
 

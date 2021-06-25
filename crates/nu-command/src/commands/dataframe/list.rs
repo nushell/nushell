@@ -14,6 +14,10 @@ impl WholeStreamCommand for DataFrame {
         "Lists stored dataframes"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe list")
     }

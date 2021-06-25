@@ -20,6 +20,10 @@ impl WholeStreamCommand for SubCommand {
         "Applies the ceil function to a list of numbers"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let input = args.input;
 

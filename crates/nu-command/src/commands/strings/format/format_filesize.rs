@@ -31,6 +31,10 @@ impl WholeStreamCommand for FileSize {
         "Converts a column of filesizes to some specified format"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         filesize(args)
     }

@@ -33,6 +33,10 @@ impl WholeStreamCommand for SubCommand {
         "converts text into decimal"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }

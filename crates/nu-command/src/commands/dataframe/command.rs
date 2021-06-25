@@ -14,6 +14,10 @@ impl WholeStreamCommand for Command {
         "Commands to work with polars dataframes"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe")
     }

@@ -18,6 +18,10 @@ impl WholeStreamCommand for Url {
         "Apply url function."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(ActionStream::one(ReturnSuccess::value(
             UntaggedValue::string(get_full_help(&Url, args.scope())).into_value(Tag::unknown()),

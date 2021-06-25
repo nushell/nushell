@@ -22,6 +22,10 @@ impl WholeStreamCommand for DataFrame {
         "Loads dataframe form csv file"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe load")
             .required(

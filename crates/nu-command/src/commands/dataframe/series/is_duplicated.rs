@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates mask indicating duplicated values"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe is-duplicated")
     }

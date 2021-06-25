@@ -18,6 +18,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates new sorted dataframe or series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe sort")
             .optional(

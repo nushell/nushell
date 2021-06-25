@@ -23,6 +23,10 @@ impl WholeStreamCommand for Command {
         "Keep the number of rows only."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         keep(args)
     }

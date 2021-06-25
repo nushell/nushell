@@ -29,6 +29,10 @@ impl WholeStreamCommand for Uniq {
         "Return the unique rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         uniq(args)
     }

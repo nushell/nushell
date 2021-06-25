@@ -19,6 +19,10 @@ impl WholeStreamCommand for Command {
         "Skip some number of rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         skip(args)
     }

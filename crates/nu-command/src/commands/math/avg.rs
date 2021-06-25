@@ -24,6 +24,10 @@ impl WholeStreamCommand for SubCommand {
         "Finds the average of a list of numbers or tables"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_function(args, average)
     }

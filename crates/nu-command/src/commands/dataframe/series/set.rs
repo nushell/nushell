@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Sets value where given mask is true"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe set")
             .required("value", SyntaxShape::Any, "value to be inserted in series")

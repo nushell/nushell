@@ -23,6 +23,10 @@ impl WholeStreamCommand for First {
         "Show only the first number of rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         first(args)
     }

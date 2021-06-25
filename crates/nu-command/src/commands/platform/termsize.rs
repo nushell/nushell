@@ -27,6 +27,10 @@ impl WholeStreamCommand for TermSize {
         "Returns the terminal size as W H"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
 

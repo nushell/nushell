@@ -26,6 +26,10 @@ impl WholeStreamCommand for Command {
         "Rotates the table by 90 degrees clockwise."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         rotate(args)
     }

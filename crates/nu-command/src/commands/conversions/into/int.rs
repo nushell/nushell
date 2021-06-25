@@ -22,6 +22,10 @@ impl WholeStreamCommand for SubCommand {
         "Convert value to integer"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         into_int(args)
     }

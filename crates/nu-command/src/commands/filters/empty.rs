@@ -34,6 +34,10 @@ impl WholeStreamCommand for Command {
         "Check for empty values."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         is_empty(args)
     }

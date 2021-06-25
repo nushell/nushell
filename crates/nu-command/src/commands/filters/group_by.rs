@@ -26,6 +26,10 @@ impl WholeStreamCommand for Command {
         "Create a new table grouped."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         group_by(args)
     }

@@ -26,6 +26,10 @@ impl WholeStreamCommand for Prepend {
         prepend(args)
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Add something to the beginning of a list or table",

@@ -19,6 +19,10 @@ impl WholeStreamCommand for Shells {
         "Display the list of current shells."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(shells(args))
     }

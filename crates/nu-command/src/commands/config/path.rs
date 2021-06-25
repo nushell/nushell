@@ -18,6 +18,10 @@ impl WholeStreamCommand for SubCommand {
         "return the path to the config file"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         path(args)
     }

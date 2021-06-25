@@ -22,6 +22,10 @@ impl WholeStreamCommand for Mkdir {
         "Make directories, creates intermediary directories as required."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         mkdir(args)
     }

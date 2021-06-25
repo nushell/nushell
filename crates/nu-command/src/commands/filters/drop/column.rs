@@ -24,6 +24,10 @@ impl WholeStreamCommand for SubCommand {
         "Remove the last number of columns. If you want to remove columns by name, try 'reject'."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         drop(args)
     }

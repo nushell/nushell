@@ -41,6 +41,10 @@ impl WholeStreamCommand for Command {
         "View the contents of the pipeline as a table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         table(args)
     }

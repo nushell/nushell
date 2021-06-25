@@ -19,6 +19,10 @@ impl WholeStreamCommand for Lines {
         "Split single string into rows, one per line."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         lines(args)
     }

@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates mask where value is null"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe is-null")
     }

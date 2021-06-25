@@ -23,6 +23,10 @@ impl WholeStreamCommand for SubCommand {
         "Removes a value from the config"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         remove(args)
     }

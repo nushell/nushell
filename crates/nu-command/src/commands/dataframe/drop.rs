@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates a new dataframe by dropping the selected columns"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe drop").required(
             "columns",

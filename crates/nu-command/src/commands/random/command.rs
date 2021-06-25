@@ -18,6 +18,10 @@ impl WholeStreamCommand for Command {
         "Generate random values."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::one(UntaggedValue::string(get_full_help(
             &Command,

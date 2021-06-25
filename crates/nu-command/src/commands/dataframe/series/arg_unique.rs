@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns indexes for unique values"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe arg-unique")
     }

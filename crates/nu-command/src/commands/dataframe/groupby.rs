@@ -19,6 +19,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates a groupby object that can be used for other aggregations"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe group-by").required(
             "by columns",

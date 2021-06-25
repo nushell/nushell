@@ -22,6 +22,10 @@ impl WholeStreamCommand for Alias {
         "Alias a command to an expansion."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         alias(args)
     }

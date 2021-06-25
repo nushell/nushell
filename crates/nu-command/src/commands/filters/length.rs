@@ -23,6 +23,10 @@ impl WholeStreamCommand for Length {
         "Show the total number of rows or items."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let column = args.has_flag("column");

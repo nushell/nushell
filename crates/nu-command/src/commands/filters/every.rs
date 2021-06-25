@@ -28,6 +28,10 @@ impl WholeStreamCommand for Every {
         "Show (or skip) every n-th row, starting from the first one."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         every(args)
     }

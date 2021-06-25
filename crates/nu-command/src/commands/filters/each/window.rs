@@ -33,6 +33,10 @@ impl WholeStreamCommand for EachWindow {
         "Runs a block on sliding windows of `window_size` rows of a table at a time."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Echo the sum of each window",

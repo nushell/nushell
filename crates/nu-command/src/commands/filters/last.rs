@@ -22,6 +22,10 @@ impl WholeStreamCommand for Last {
         "Show only the last number of rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         last(args)
     }

@@ -27,6 +27,10 @@ impl WholeStreamCommand for Command {
         "Filter table to match the condition."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         where_command(args)
     }

@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns unique values from a series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe unique")
     }

@@ -20,6 +20,10 @@ impl WholeStreamCommand for History {
         "Display command history."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         history(args)
     }

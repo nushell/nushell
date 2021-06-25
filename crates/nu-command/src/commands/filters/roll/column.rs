@@ -45,6 +45,10 @@ impl WholeStreamCommand for SubCommand {
         "Rolls the table columns"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         roll(args)
     }

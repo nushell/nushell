@@ -23,6 +23,10 @@ impl WholeStreamCommand for DataFrame {
         "Joins a dataframe using columns as reference"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe join")
             .required("dataframe", SyntaxShape::Any, "right dataframe to join")

@@ -21,6 +21,10 @@ impl WholeStreamCommand for SubCommand {
         "Gets the median of a list of numbers"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         run_with_function(args, median)
     }

@@ -26,6 +26,10 @@ impl WholeStreamCommand for FromOds {
         "Parse OpenDocument Spreadsheet(.ods) data and create table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ods(args)
     }

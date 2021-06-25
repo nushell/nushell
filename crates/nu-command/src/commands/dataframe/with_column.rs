@@ -19,6 +19,10 @@ impl WholeStreamCommand for DataFrame {
         "Adds a series to the dataframe"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe with-column")
             .required("series", SyntaxShape::Any, "series to be added")

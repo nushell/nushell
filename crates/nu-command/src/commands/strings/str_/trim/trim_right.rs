@@ -29,6 +29,10 @@ impl WholeStreamCommand for SubCommand {
         "trims whitespace or character from the end of text"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args, &trim_right)
     }

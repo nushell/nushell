@@ -19,6 +19,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates a new dataframe with dummy variables"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe to-dummies")
     }

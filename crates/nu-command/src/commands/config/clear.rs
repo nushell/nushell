@@ -18,6 +18,10 @@ impl WholeStreamCommand for SubCommand {
         "clear the config"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         clear(args)
     }

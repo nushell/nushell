@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns indexes where values are true"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe arg-true")
     }

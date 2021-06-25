@@ -26,6 +26,10 @@ impl WholeStreamCommand for Range {
         "Return only the selected rows."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

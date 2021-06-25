@@ -22,6 +22,10 @@ impl WholeStreamCommand for Describe {
         "Describes the objects in the stream."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         describe(args)
     }

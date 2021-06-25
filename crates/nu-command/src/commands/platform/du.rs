@@ -70,6 +70,10 @@ impl WholeStreamCommand for Du {
         "Find disk usage sizes of specified items."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         du(args)
     }

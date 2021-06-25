@@ -23,6 +23,10 @@ impl WholeStreamCommand for Command {
         "Collect the stream and pass it to a block."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         collect(args)
     }

@@ -46,6 +46,10 @@ impl WholeStreamCommand for Command {
     fn usage(&self) -> &str {
         "Nu - A new type of shell."
     }
+
+    fn extra_usage(&self) -> &str {
+        ""
+    }
 }
 
 pub fn version() -> &'static str {

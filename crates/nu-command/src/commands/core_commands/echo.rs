@@ -19,6 +19,10 @@ impl WholeStreamCommand for Echo {
         "Echo the arguments back to the user."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
         echo(args)
     }

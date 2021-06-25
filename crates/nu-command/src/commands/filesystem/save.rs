@@ -148,6 +148,10 @@ impl WholeStreamCommand for Save {
         "Save the contents of the pipeline to a file."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         save(args)
     }

@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Converts a pipelined List into a polars series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe to-series").optional(
             "name",

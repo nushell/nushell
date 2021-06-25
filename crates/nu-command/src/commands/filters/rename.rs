@@ -26,6 +26,10 @@ impl WholeStreamCommand for Rename {
         "Creates a new table with columns renamed."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         rename(args)
     }

@@ -28,6 +28,10 @@ impl WholeStreamCommand for SortBy {
         "Sort by the given columns, in increasing order."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         sort_by(args)
     }

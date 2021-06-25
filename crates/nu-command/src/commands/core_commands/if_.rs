@@ -38,6 +38,10 @@ impl WholeStreamCommand for If {
         "Run blocks if a condition is true or false."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         if_command(args)
     }

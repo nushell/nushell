@@ -28,6 +28,10 @@ impl WholeStreamCommand for Sleep {
         "Delay for a specified amount of time."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctrl_c = args.ctrl_c();
 

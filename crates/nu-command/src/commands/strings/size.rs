@@ -22,6 +22,10 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(size(args))
     }

@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Converts a section of the dataframe to a Table or List value"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe show")
             .named(

@@ -26,6 +26,10 @@ impl WholeStreamCommand for Help {
         "Display help information about commands."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         help(args)
     }
@@ -44,11 +48,11 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
             let (mut subcommand_names, command_names) = sorted_names
                 .into_iter()
-                // Internal only commands shouldn't be displayed
+                // private only commands shouldn't be displayed
                 .filter(|cmd_name| {
                     scope
                         .get_command(cmd_name)
-                        .filter(|command| !command.is_internal())
+                        .filter(|command| !command.is_private())
                         .is_some()
                 })
                 .partition::<Vec<_>, _>(|cmd_name| cmd_name.contains(' '));

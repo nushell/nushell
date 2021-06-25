@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Counts null values"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe count-null")
     }

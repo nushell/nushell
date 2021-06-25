@@ -16,6 +16,10 @@ impl WholeStreamCommand for DataFrame {
         "Shifts the values by a given period"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe unique").required("period", SyntaxShape::Int, "shift period")
     }

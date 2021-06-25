@@ -25,6 +25,10 @@ impl WholeStreamCommand for SplitBy {
         "Creates a new table with the data from the inner tables split by the column given."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         split_by(args)
     }

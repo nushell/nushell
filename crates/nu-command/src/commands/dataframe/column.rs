@@ -20,6 +20,10 @@ impl WholeStreamCommand for DataFrame {
         "Returns the selected column as Series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe column").required("column", SyntaxShape::String, "column name")
     }

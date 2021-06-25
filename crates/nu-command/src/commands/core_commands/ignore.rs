@@ -20,6 +20,10 @@ impl WholeStreamCommand for Ignore {
         "Ignore the output of the previous command in the pipeline"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let _: Vec<_> = args.input.collect();
 

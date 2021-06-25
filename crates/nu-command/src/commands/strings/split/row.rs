@@ -24,6 +24,10 @@ impl WholeStreamCommand for SubCommand {
         "splits contents over multiple rows via the separator."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         split_row(args)
     }

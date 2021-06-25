@@ -113,6 +113,10 @@ impl WholeStreamCommand for ToHtml {
         "Convert table into simple HTML"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_html(args)
     }

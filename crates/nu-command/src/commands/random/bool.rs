@@ -29,6 +29,10 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random boolean value"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         bool_command(args)
     }

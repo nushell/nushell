@@ -37,6 +37,10 @@ impl WholeStreamCommand for SubCommand {
         "Generate a random dice roll"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         dice(args)
     }

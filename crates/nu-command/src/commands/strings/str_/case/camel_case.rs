@@ -23,6 +23,10 @@ impl WholeStreamCommand for SubCommand {
         "converts a string to camelCase"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args, &to_camel_case)
     }

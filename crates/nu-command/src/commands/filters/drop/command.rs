@@ -23,6 +23,10 @@ impl WholeStreamCommand for Command {
         "Remove the last number of rows or columns."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         drop(args)
     }

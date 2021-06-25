@@ -34,6 +34,10 @@ impl WholeStreamCommand for FromSsv {
         "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_ssv(args)
     }

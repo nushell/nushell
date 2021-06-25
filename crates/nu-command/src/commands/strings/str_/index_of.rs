@@ -49,6 +49,10 @@ impl WholeStreamCommand for SubCommand {
         "Returns starting index of given pattern in string counting from 0. Returns -1 when there are no results."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         operate(args)
     }

@@ -20,6 +20,10 @@ impl WholeStreamCommand for Date {
         "List supported time zones."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         list_timezone(args)
     }

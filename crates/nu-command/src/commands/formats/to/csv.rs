@@ -30,6 +30,10 @@ impl WholeStreamCommand for ToCsv {
         "Convert table into .csv text "
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_csv(args)
     }

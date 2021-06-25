@@ -49,6 +49,10 @@ impl WholeStreamCommand for DataFrame {
         "Performs a pivot operation on a groupby object"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe pivot")
             .required(

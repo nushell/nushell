@@ -19,9 +19,7 @@ pub trait WholeStreamCommand: Send + Sync {
 
     fn usage(&self) -> &str;
 
-    fn extra_usage(&self) -> &str {
-        ""
-    }
+    fn extra_usage(&self) -> &str;
 
     fn run_with_actions(&self, _args: CommandArgs) -> Result<ActionStream, ShellError> {
         return Err(ShellError::unimplemented(&format!(
@@ -47,19 +45,38 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 
     // Commands that are not meant to be run by users
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         false
     }
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
+
+    // This is a built-in command
+    fn is_builtin(&self) -> bool {
+        true
+    }
+
+    // Is a sub command
+    fn is_sub(&self) -> bool {
+        false
+    }
+
+    // Is a plugin command
+    fn is_plugin(&self) -> bool {
+        false
+    }
+
+    // Is a custom command i.e. def blah [] { }
+    fn is_custom(&self) -> bool {
+        false
+    }
 }
 
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
-
 impl WholeStreamCommand for Arc<Block> {
     fn name(&self) -> &str {
         &self.params.name
@@ -71,6 +88,10 @@ impl WholeStreamCommand for Arc<Block> {
 
     fn usage(&self) -> &str {
         &self.params.usage
+    }
+
+    fn extra_usage(&self) -> &str {
+        &self.params.extra_usage
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -184,12 +205,20 @@ impl WholeStreamCommand for Arc<Block> {
         false
     }
 
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         false
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![]
+    }
+
+    fn is_custom(&self) -> bool {
+        true
+    }
+
+    fn is_builtin(&self) -> bool {
+        false
     }
 }
 
@@ -228,6 +257,10 @@ impl Command {
         self.0.usage()
     }
 
+    pub fn extra_usage(&self) -> &str {
+        self.0.extra_usage()
+    }
+
     pub fn examples(&self) -> Vec<Example> {
         self.0.examples()
     }
@@ -260,12 +293,28 @@ impl Command {
         self.0.is_binary()
     }
 
-    pub fn is_internal(&self) -> bool {
-        self.0.is_internal()
+    pub fn is_private(&self) -> bool {
+        self.0.is_private()
     }
 
     pub fn stream_command(&self) -> &dyn WholeStreamCommand {
         &*self.0
+    }
+
+    pub fn is_builtin(&self) -> bool {
+        self.0.is_builtin()
+    }
+
+    pub fn is_sub(&self) -> bool {
+        self.0.is_sub()
+    }
+
+    pub fn is_plugin(&self) -> bool {
+        self.0.is_plugin()
+    }
+
+    pub fn is_custom(&self) -> bool {
+        self.0.is_custom()
     }
 }
 

@@ -29,6 +29,10 @@ impl WholeStreamCommand for EachGroup {
         "Runs a block on groups of `group_size` rows of a table at a time."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Echo the sum of each pair",

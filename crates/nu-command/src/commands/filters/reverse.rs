@@ -18,6 +18,10 @@ impl WholeStreamCommand for Reverse {
         "Reverses the table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         reverse(args)
     }

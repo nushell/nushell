@@ -144,6 +144,10 @@ impl WholeStreamCommand for Char {
         "Output special characters (e.g., 'newline')."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

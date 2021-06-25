@@ -19,6 +19,10 @@ impl WholeStreamCommand for Command {
         "Split contents across desired subcommand (like row, column) via the separator."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(ActionStream::one(Ok(ReturnSuccess::Value(
             UntaggedValue::string(get_full_help(&Command, args.scope())).into_value(Tag::unknown()),

@@ -18,6 +18,10 @@ impl WholeStreamCommand for FromYaml {
         "Parse text as .yaml/.yml and create table."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         from_yaml(args)
     }
@@ -36,6 +40,10 @@ impl WholeStreamCommand for FromYml {
 
     fn usage(&self) -> &str {
         "Parse text as .yaml/.yml and create table."
+    }
+
+    fn extra_usage(&self) -> &str {
+        ""
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

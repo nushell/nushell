@@ -15,6 +15,10 @@ impl WholeStreamCommand for DataFrame {
         "Creates new dataframe with tail rows"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe tail").optional(
             "n_rows",

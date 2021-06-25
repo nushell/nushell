@@ -18,6 +18,10 @@ impl WholeStreamCommand for DataFrame {
         "Checks if elements from a series are contained in right series"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe is-in").required("other", SyntaxShape::Any, "right series")
     }

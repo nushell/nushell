@@ -29,6 +29,10 @@ impl WholeStreamCommand for Command {
         "Insert a new column with a given value."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         insert(args)
     }

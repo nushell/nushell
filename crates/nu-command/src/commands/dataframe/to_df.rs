@@ -14,6 +14,10 @@ impl WholeStreamCommand for DataFrame {
         "Converts a pipelined Table or List into a polars dataframe"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe to-df")
     }

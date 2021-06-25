@@ -29,6 +29,10 @@ impl WholeStreamCommand for SubCommand {
         "Keeps rows while the condition matches."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let ctx = Arc::new(args.context.clone());
         let tag = args.call_info.name_tag.clone();

@@ -18,6 +18,10 @@ impl WholeStreamCommand for Pwd {
         "Output the current working directory."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         pwd(args)
     }

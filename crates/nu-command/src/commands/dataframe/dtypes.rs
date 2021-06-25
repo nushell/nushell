@@ -14,6 +14,10 @@ impl WholeStreamCommand for DataFrame {
         "Show dataframe data types"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("dataframe dtypes")
     }

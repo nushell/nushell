@@ -19,6 +19,10 @@ impl WholeStreamCommand for Previous {
         "Go to previous shell."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         Ok(previous(args))
     }

@@ -28,6 +28,10 @@ impl WholeStreamCommand for ToXml {
         "Convert table into .xml text"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         to_xml(args)
     }

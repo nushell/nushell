@@ -21,6 +21,10 @@ impl WholeStreamCommand for Headers {
         "Use the first row of the table as column names."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         headers(args)
     }
