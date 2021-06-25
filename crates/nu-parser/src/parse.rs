@@ -730,7 +730,9 @@ fn parse_external_arg(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') || lite_arg.item.starts_with('(') {
+    if lite_arg.item.starts_with('$') {
+        parse_dollar_expr(lite_arg, scope)
+    } else if lite_arg.item.starts_with('(') {
         parse_full_column_path(lite_arg, scope)
     } else {
         (
