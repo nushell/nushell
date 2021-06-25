@@ -463,7 +463,7 @@ mod tests {
 
     #[quickcheck]
     fn quickcheck_parse(data: String) -> bool {
-        let (tokens, err) = nu_parser::lex(&data, 0);
+        let (tokens, err) = nu_parser::lex(&data, 0, nu_parser::NewlineMode::Normal);
         let (lite_block, err2) = nu_parser::parse_block(tokens);
         if err.is_none() && err2.is_none() {
             let context = EvaluationContext::basic();

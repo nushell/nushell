@@ -39,7 +39,7 @@ impl OptionsParser for NuParser {
 
     fn parse(&self, input: &str) -> Result<Options, ShellError> {
         let options = Options::default();
-        let (lite_result, _err) = nu_parser::lex(input, 0);
+        let (lite_result, _err) = nu_parser::lex(input, 0, nu_parser::NewlineMode::Normal);
         let (lite_result, _err) = nu_parser::parse_block(lite_result);
 
         let (parsed, err) = nu_parser::classify_block(&lite_result, &self.context.scope);

@@ -336,7 +336,7 @@ mod tests {
             scope: &dyn ParserScope,
             pos: usize,
         ) -> Vec<LocationType> {
-            let (tokens, _) = lex(line, 0);
+            let (tokens, _) = lex(line, 0, nu_parser::NewlineMode::Normal);
             let (lite_block, _) = parse_block(tokens);
 
             scope.enter_scope();

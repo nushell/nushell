@@ -1028,6 +1028,37 @@ fn pipeline_params_inner() {
     assert_eq!(actual.out, "126");
 }
 
+#[test]
+fn better_table_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let table = [
+            [name, size];
+            [small, 7]
+            [medium, 10]
+            [large, 12]
+        ];
+        $table.1.size
+        "#)
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn better_subexpr_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        (echo boo
+        sam | str length | math sum)
+        "#)
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
 mod parse {
     use nu_test_support::nu;
 
