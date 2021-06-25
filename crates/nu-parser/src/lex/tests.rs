@@ -15,7 +15,7 @@ mod bare {
     fn simple_1() {
         let input = "foo bar baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 3));
@@ -25,7 +25,7 @@ mod bare {
     fn simple_2() {
         let input = "'foo bar' baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 9));
@@ -35,7 +35,7 @@ mod bare {
     fn simple_3() {
         let input = "'foo\" bar' baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 10));
@@ -45,7 +45,7 @@ mod bare {
     fn simple_4() {
         let input = "[foo bar] baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 9));
@@ -55,7 +55,7 @@ mod bare {
     fn simple_5() {
         let input = "'foo 'bar baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 9));
@@ -65,7 +65,7 @@ mod bare {
     fn simple_6() {
         let input = "''foo baz";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 5));
@@ -75,7 +75,7 @@ mod bare {
     fn simple_7() {
         let input = "'' foo";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 2));
@@ -85,7 +85,7 @@ mod bare {
     fn simple_8() {
         let input = " '' foo";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(1, 3));
@@ -95,7 +95,7 @@ mod bare {
     fn simple_9() {
         let input = " 'foo' foo";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(1, 6));
@@ -105,7 +105,7 @@ mod bare {
     fn simple_10() {
         let input = "[foo, bar]";
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_none());
         assert_eq!(result[0].span, span(0, 10));
@@ -118,7 +118,7 @@ mod bare {
 def e [] {echo hi}
             "#;
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
 
         //result[0] == EOL
@@ -141,7 +141,7 @@ def e [] {echo hi}
 def e2 [] {echo hello}
             "#;
 
-        let (result, err) = lex(input, 0);
+        let (result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
 
         let span1 = span(2, 11);
@@ -166,7 +166,7 @@ def e2 [] {echo hello}
             # shouldn't return error
             echo hi
         }"#;
-        let (_result, err) = lex(input, 0);
+        let (_result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
     }
 
@@ -176,7 +176,7 @@ def e2 [] {echo hello}
             # should "not return error
             echo hi
         }"#;
-        let (_result, err) = lex(input, 0);
+        let (_result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
     }
 
@@ -186,7 +186,7 @@ def e2 [] {echo hello}
             # should not [return error
             echo hi
         }"#;
-        let (_result, err) = lex(input, 0);
+        let (_result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
     }
 
@@ -196,7 +196,7 @@ def e2 [] {echo hello}
             # should not return {error
             echo hi
         }"#;
-        let (_result, err) = lex(input, 0);
+        let (_result, err) = lex(input, 0, NewlineMode::Normal);
         assert!(err.is_none());
     }
 
@@ -204,7 +204,7 @@ def e2 [] {echo hello}
     fn ignore_future() {
         let input = "foo 'bar";
 
-        let (result, _) = lex(input, 0);
+        let (result, _) = lex(input, 0, NewlineMode::Normal);
 
         assert_eq!(result[0].span, span(0, 3));
     }
@@ -213,7 +213,7 @@ def e2 [] {echo hello}
     fn invalid_1() {
         let input = "'foo bar";
 
-        let (_, err) = lex(input, 0);
+        let (_, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_some());
     }
@@ -222,7 +222,7 @@ def e2 [] {echo hello}
     fn invalid_2() {
         let input = "'bar";
 
-        let (_, err) = lex(input, 0);
+        let (_, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_some());
     }
@@ -231,7 +231,7 @@ def e2 [] {echo hello}
     fn invalid_4() {
         let input = " 'bar";
 
-        let (_, err) = lex(input, 0);
+        let (_, err) = lex(input, 0, NewlineMode::Normal);
 
         assert!(err.is_some());
     }
@@ -244,7 +244,7 @@ mod lite_parse {
 
     #[test]
     fn pipeline() {
-        let (result, err) = lex("cmd1 | cmd2 ; deploy", 0);
+        let (result, err) = lex("cmd1 | cmd2 ; deploy", 0, NewlineMode::Normal);
         assert!(err.is_none());
         let (result, err) = parse_block(result);
         assert!(err.is_none());
@@ -255,7 +255,7 @@ mod lite_parse {
 
     #[test]
     fn simple_1() {
-        let (result, err) = lex("foo", 0);
+        let (result, err) = lex("foo", 0, NewlineMode::Normal);
         assert!(err.is_none());
         let (result, err) = parse_block(result);
         assert!(err.is_none());
@@ -271,7 +271,7 @@ mod lite_parse {
 
     #[test]
     fn simple_offset() {
-        let (result, err) = lex("foo", 10);
+        let (result, err) = lex("foo", 10, NewlineMode::Normal);
         assert!(err.is_none());
         let (result, err) = parse_block(result);
         assert!(err.is_none());
@@ -286,7 +286,7 @@ mod lite_parse {
 
     #[test]
     fn incomplete_result() {
-        let (result, err) = lex("my_command \"foo' --test", 10);
+        let (result, err) = lex("my_command \"foo' --test", 10, NewlineMode::Normal);
         assert!(matches!(
             err.unwrap().reason(),
             nu_errors::ParseErrorReason::Eof { .. }
@@ -314,7 +314,7 @@ mod lite_parse {
 # * It's much better :)
 def my_echo [arg] { echo $arg }
         "#;
-        let (result, err) = lex(code, 0);
+        let (result, err) = lex(code, 0, NewlineMode::Normal);
         assert!(err.is_none());
         let (result, err) = parse_block(result);
         assert!(err.is_none());
@@ -352,7 +352,7 @@ def my_echo [arg] { echo $arg }
 # * It's even better!
 def my_echo2 [arg] { echo $arg }
         "#;
-        let (result, err) = lex(code, 0);
+        let (result, err) = lex(code, 0, NewlineMode::Normal);
         assert!(err.is_none());
         let (result, err) = parse_block(result);
         assert!(err.is_none());
@@ -404,7 +404,7 @@ def my_echo2 [arg] { echo $arg }
 
 echo 42
         "#;
-        let (result, err) = lex(code, 0);
+        let (result, err) = lex(code, 0, NewlineMode::Normal);
         assert!(err.is_none());
         // assert_eq!(format!("{:?}", result), "");
         let (result, err) = parse_block(result);
@@ -425,7 +425,7 @@ echo 42
 
 echo 42
         "#;
-        let (result, err) = lex(code, 0);
+        let (result, err) = lex(code, 0, NewlineMode::Normal);
         assert!(err.is_none());
         // assert_eq!(format!("{:?}", result), "");
         let (result, err) = parse_block(result);
@@ -445,7 +445,7 @@ fn no_discarded_white_space_start_of_comment() {
 #   Starting space is not discarded
 echo 42
         "#;
-    let (result, err) = lex(code, 0);
+    let (result, err) = lex(code, 0, NewlineMode::Normal);
     assert!(err.is_none());
     // assert_eq!(format!("{:?}", result), "");
     let (result, err) = parse_block(result);
@@ -479,7 +479,7 @@ fn multiple_discarded_white_space_start_of_comment() {
 #  Discard 2 spaces
 echo 42
         "#;
-    let (result, err) = lex(code, 0);
+    let (result, err) = lex(code, 0, NewlineMode::Normal);
     assert!(err.is_none());
     // assert_eq!(format!("{:?}", result), "");
     let (result, err) = parse_block(result);
