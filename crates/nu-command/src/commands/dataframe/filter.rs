@@ -19,8 +19,11 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe filter-with")
-            .required("mask", SyntaxShape::Any, "boolean mask used to filter data")
+        Signature::build("dataframe filter-with").required(
+            "mask",
+            SyntaxShape::Any,
+            "boolean mask used to filter data",
+        )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
