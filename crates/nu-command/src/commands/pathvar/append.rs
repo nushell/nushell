@@ -21,6 +21,10 @@ impl WholeStreamCommand for SubCommand {
         "Add a path to the end of the pathvar"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         add(args)
     }

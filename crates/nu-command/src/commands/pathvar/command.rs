@@ -19,6 +19,10 @@ impl WholeStreamCommand for Command {
         "Manipulate the PATH variable (or pathvar)."
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         get_pathvar(args)
     }

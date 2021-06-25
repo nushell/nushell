@@ -24,6 +24,10 @@ impl WholeStreamCommand for SubCommand {
         "Remove a path from the pathvar"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         remove(args)
     }

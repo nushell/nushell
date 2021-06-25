@@ -19,6 +19,10 @@ impl WholeStreamCommand for SubCommand {
         "Reset the pathvar to the one specified in the config"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         reset(args)
     }

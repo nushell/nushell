@@ -19,6 +19,10 @@ impl WholeStreamCommand for SubCommand {
         "Save the current pathvar to the config file"
     }
 
+    fn extra_usage(&self) -> &str {
+        ""
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         save(args)
     }
