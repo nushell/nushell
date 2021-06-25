@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates new sorted dataframe or series"
+        "[DataFrame, Series] Creates new sorted dataframe or series"
     }
 
     fn extra_usage(&self) -> &str {

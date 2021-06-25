@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Unpivot a DataFrame from wide to long format"
+        "[DataFrame] Unpivot a DataFrame from wide to long format"
     }
 
     fn extra_usage(&self) -> &str {

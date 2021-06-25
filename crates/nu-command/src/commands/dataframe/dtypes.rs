@@ -11,7 +11,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Show dataframe data types"
+        "[DataFrame] Show dataframe data types"
     }
 
     fn extra_usage(&self) -> &str {

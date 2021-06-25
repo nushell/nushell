@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to parquet file"
+        "[DataFrame] Saves dataframe to parquet file"
     }
 
     fn extra_usage(&self) -> &str {

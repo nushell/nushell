@@ -47,7 +47,7 @@ impl WholeStreamCommand for DataFrame {
             .named(
                 "infer_schema",
                 SyntaxShape::Number,
-                "Set number of row to infer the schema of the file. CSV file",
+                "Set number of rows to infer the schema of the file. CSV file",
                 None,
             )
             .named(
@@ -176,14 +176,10 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
         }
     };
 
-    let csv_reader = if no_header {
-        csv_reader.has_header(false)
-    } else {
-        csv_reader.has_header(true)
-    };
+    let csv_reader = csv_reader.has_header(!no_header);
 
     let csv_reader = match infer_schema {
-        None => csv_reader.infer_schema(None),
+        None => csv_reader,
         Some(r) => csv_reader.infer_schema(Some(r.item)),
     };
 
@@ -212,7 +208,7 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
     };
 
     match csv_reader.finish() {
-        Ok(csv_reader) => Ok(csv_reader),
+        Ok(df) => Ok(df),
         Err(e) => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
     }
 }

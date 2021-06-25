@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Sets value where given mask is true"
+        "[Series] Sets value where given mask is true"
     }
 
     fn extra_usage(&self) -> &str {

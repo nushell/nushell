@@ -18,7 +18,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{Span, Spanned};
 
 use crate::lex::{
-    lexer::{lex, Token},
+    lexer::{lex, NewlineMode, Token},
     tokens::TokenContents,
 };
 
@@ -58,7 +58,11 @@ pub fn parse_signature(
         "signature vec span start: {}",
         signature_vec.span.start() + 1
     );
-    let (tokens, error) = lex(&string, signature_vec.span.start() + 1);
+    let (tokens, error) = lex(
+        &string,
+        signature_vec.span.start() + 1,
+        NewlineMode::Whitespace,
+    );
     err = err.or(error);
 
     //After normal lexing, tokens also need to be split on ',' and ':'

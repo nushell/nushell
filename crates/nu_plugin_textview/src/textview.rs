@@ -63,7 +63,7 @@ pub fn view_text_value(value: &Value) {
             .theme(&config.theme);
 
         match value.anchor().and_then(get_file_path) {
-            Some(file_path) => printer.input_file(file_path),
+            Some(file_path) => printer.input(bat::Input::from_bytes(s.as_bytes()).name(file_path)),
             None => printer.input_from_bytes(s.as_bytes()),
         };
 

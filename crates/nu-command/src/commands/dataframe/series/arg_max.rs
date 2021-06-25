@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Return index for max value in series"
+        "[Series] Return index for max value in series"
     }
 
     fn extra_usage(&self) -> &str {

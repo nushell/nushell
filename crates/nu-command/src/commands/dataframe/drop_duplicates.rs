@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Drops duplicate values in dataframe"
+        "[DataFrame] Drops duplicate values in dataframe"
     }
 
     fn extra_usage(&self) -> &str {

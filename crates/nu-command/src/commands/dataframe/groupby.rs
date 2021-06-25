@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates a groupby object that can be used for other aggregations"
+        "[DataFrame] Creates a groupby object that can be used for other aggregations"
     }
 
     fn extra_usage(&self) -> &str {

@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Counts null values"
+        "[Series] Counts null values"
     }
 
     fn extra_usage(&self) -> &str {

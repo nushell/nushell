@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Create sample dataframe"
+        "[DataFrame] Create sample dataframe"
     }
 
     fn extra_usage(&self) -> &str {

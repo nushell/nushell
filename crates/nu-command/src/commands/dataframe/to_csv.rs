@@ -22,7 +22,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to csv file"
+        "[DataFrame] Saves dataframe to csv file"
     }
 
     fn extra_usage(&self) -> &str {

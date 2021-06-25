@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Renames a series"
+        "[Series] Renames a series"
     }
 
     fn extra_usage(&self) -> &str {

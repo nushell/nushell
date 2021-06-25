@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates new dataframe with tail rows"
+        "[DataFrame] Creates new dataframe with tail rows"
     }
 
     fn extra_usage(&self) -> &str {

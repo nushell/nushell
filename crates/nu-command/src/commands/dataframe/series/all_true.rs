@@ -11,7 +11,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns true if all values are true"
+        "[Series] Returns true if all values are true"
     }
 
     fn extra_usage(&self) -> &str {

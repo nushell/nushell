@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Adds a series to the dataframe"
+        "[DataFrame] Adds a series to the dataframe"
     }
 
     fn extra_usage(&self) -> &str {
@@ -26,8 +26,7 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe with-column")
             .required("series", SyntaxShape::Any, "series to be added")
-            .required("as", SyntaxShape::String, "the word 'as'")
-            .required("name", SyntaxShape::String, "column name")
+            .required_named("name", SyntaxShape::String, "column name", Some('n'))
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -38,7 +37,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Adds a series to the dataframe",
             example:
-                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-series) as c",
+                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-series) --name c",
             result: None,
         }]
     }
@@ -47,7 +46,7 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let value: Value = args.req(0)?;
-    let name: Tagged<String> = args.req(2)?;
+    let name: Tagged<String> = args.req_named("name")?;
 
     let mut series = match value.value {
         UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),

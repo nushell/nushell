@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Returns unique values from a series"
+        "[Series] Returns unique values from a series"
     }
 
     fn extra_usage(&self) -> &str {

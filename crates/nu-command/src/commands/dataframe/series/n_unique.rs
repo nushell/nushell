@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Counts unique value"
+        "[Series] Counts unique value"
     }
 
     fn extra_usage(&self) -> &str {

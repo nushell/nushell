@@ -12,7 +12,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Creates dataframe with the selected columns"
+        "[DataFrame] Creates dataframe with the selected columns"
     }
 
     fn extra_usage(&self) -> &str {
