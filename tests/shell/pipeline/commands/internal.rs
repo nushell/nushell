@@ -1028,6 +1028,61 @@ fn pipeline_params_inner() {
     assert_eq!(actual.out, "126");
 }
 
+#[test]
+fn better_table_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let table = [
+            [name, size];
+            [small, 7]
+            [medium, 10]
+            [large, 12]
+        ];
+        $table.1.size
+        "#)
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn better_subexpr_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        (echo boo
+        sam | str length | math sum)
+        "#)
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn subsubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb" [url] { $url + " loaded" }; aws s3 rb localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
+#[test]
+fn manysubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb ax vf qqqq rrrr" [url] { $url + " loaded" }; aws s3 rb ax vf qqqq rrrr localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
 mod parse {
     use nu_test_support::nu;
 

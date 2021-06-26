@@ -18,7 +18,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
-use crate::parse::def::parse_parameter;
+use crate::{lex::lexer::NewlineMode, parse::def::parse_parameter};
 use crate::{
     lex::lexer::{lex, parse_block},
     ParserScope,
@@ -489,7 +489,7 @@ fn parse_subexpression(
         .collect();
 
     // We haven't done much with the inner string, so let's go ahead and work with it
-    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+    let (tokens, err) = lex(&string, lite_arg.span.start() + 1, NewlineMode::Whitespace);
     if error.is_none() {
         error = err;
     };
@@ -730,7 +730,9 @@ fn parse_external_arg(
     lite_arg: &Spanned<String>,
     scope: &dyn ParserScope,
 ) -> (SpannedExpression, Option<ParseError>) {
-    if lite_arg.item.starts_with('$') || lite_arg.item.starts_with('(') {
+    if lite_arg.item.starts_with('$') {
+        parse_dollar_expr(lite_arg, scope)
+    } else if lite_arg.item.starts_with('(') {
         parse_full_column_path(lite_arg, scope)
     } else {
         (
@@ -792,7 +794,11 @@ fn parse_table(
         error = err;
     }
 
-    let (tokens, err) = lex(&string, lite_inner.parts[0].span.start() + 1);
+    let (tokens, err) = lex(
+        &string,
+        lite_inner.parts[0].span.start() + 1,
+        NewlineMode::Whitespace,
+    );
     if err.is_some() {
         return (garbage(lite_inner.span()), err);
     }
@@ -816,7 +822,7 @@ fn parse_table(
         if error.is_none() {
             error = err;
         }
-        let (tokens, err) = lex(&string, arg.span.start() + 1);
+        let (tokens, err) = lex(&string, arg.span.start() + 1, NewlineMode::Whitespace);
         if err.is_some() {
             return (garbage(arg.span), err);
         }
@@ -1005,7 +1011,8 @@ fn parse_arg(
                     let string: String = chars.collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    let (tokens, err) =
+                        lex(&string, lite_arg.span.start() + 1, NewlineMode::Whitespace);
                     if err.is_some() {
                         return (garbage(lite_arg.span), err);
                     }
@@ -1071,7 +1078,8 @@ fn parse_arg(
                     let string: String = chars.into_iter().collect();
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
-                    let (mut tokens, err) = lex(&string, lite_arg.span.start() + 1);
+                    let (mut tokens, err) =
+                        lex(&string, lite_arg.span.start() + 1, NewlineMode::Normal);
                     if error.is_none() {
                         error = err;
                     }
@@ -1833,33 +1841,32 @@ fn parse_call(
         error = error.or(err);
         return (Some(ClassifiedCommand::Expr(Box::new(expr))), error);
     } else if lite_cmd.parts.len() > 1 {
-        // Check if it's a sub-command
-        if let Some(signature) = scope.get_signature(&format!(
-            "{} {}",
-            lite_cmd.parts[0].item, lite_cmd.parts[1].item
-        )) {
-            let (mut internal_command, err) =
-                parse_internal_command(&lite_cmd, scope, &signature, 1);
+        // FIXME: only build up valid subcommands instead of all arguments
+        // by checking each part to see if it's a valid identifier name
+        let mut parts: Vec<_> = lite_cmd.parts.clone().into_iter().map(|x| x.item).collect();
 
-            error = error.or(err);
-            internal_command.args.external_redirection = if end_of_pipeline {
-                ExternalRedirection::None
-            } else {
-                ExternalRedirection::Stdout
-            };
-            return (Some(ClassifiedCommand::Internal(internal_command)), error);
+        while parts.len() > 1 {
+            // Check if it's a sub-command
+            if let Some(signature) = scope.get_signature(&parts.join(" ")) {
+                let (mut internal_command, err) =
+                    parse_internal_command(&lite_cmd, scope, &signature, parts.len() - 1);
+
+                error = error.or(err);
+                internal_command.args.external_redirection = if end_of_pipeline {
+                    ExternalRedirection::None
+                } else {
+                    ExternalRedirection::Stdout
+                };
+                return (Some(ClassifiedCommand::Internal(internal_command)), error);
+            }
+            parts.pop();
         }
     }
     // Check if it's an internal command
     if let Some(signature) = scope.get_signature(&lite_cmd.parts[0].item) {
         if lite_cmd.parts[0].item == "def" {
-            let error = parse_definition(&lite_cmd, scope);
-            if error.is_some() {
-                return (
-                    Some(ClassifiedCommand::Expr(Box::new(garbage(lite_cmd.span())))),
-                    error,
-                );
-            }
+            let err = parse_definition(&lite_cmd, scope);
+            error = error.or(err);
         }
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
@@ -2092,18 +2099,33 @@ pub fn classify_block(
     for group in &lite_block.block {
         let mut out_group = Group::basic();
         for pipeline in &group.pipelines {
-            let (pipeline, vars, err) = expand_shorthand_forms(pipeline);
+            let mut env_vars = vec![];
+            let mut pipeline = pipeline.clone();
+            loop {
+                if pipeline.commands.is_empty() || pipeline.commands[0].parts.is_empty() {
+                    break;
+                }
+                let (pl, vars, err) = expand_shorthand_forms(&pipeline);
+                if error.is_none() {
+                    error = err;
+                }
+
+                pipeline = pl;
+                if let Some(vars) = vars {
+                    env_vars.push(vars);
+                } else {
+                    break;
+                }
+            }
+
+            let pipeline_span = pipeline.span();
+            let (mut out_pipe, err) = parse_pipeline(pipeline, scope);
             if error.is_none() {
                 error = err;
             }
 
-            let (out_pipe, err) = parse_pipeline(pipeline.clone(), scope);
-            if error.is_none() {
-                error = err;
-            }
-
-            let pipeline = if let Some(vars) = vars {
-                let span = pipeline.span();
+            while let Some(vars) = env_vars.pop() {
+                let span = pipeline_span;
                 let block = hir::Block::new(
                     Signature::new("<block>"),
                     vec![Group::new(vec![out_pipe.clone()], span)],
@@ -2142,16 +2164,14 @@ pub fn classify_block(
                     args: call,
                 });
 
-                Pipeline {
+                out_pipe = Pipeline {
                     list: vec![classified_with_env],
                     span,
-                }
-            } else {
-                out_pipe
-            };
+                };
+            }
 
-            if !pipeline.list.is_empty() {
-                out_group.push(pipeline);
+            if !out_pipe.list.is_empty() {
+                out_group.push(out_pipe);
             }
         }
         if !out_group.pipelines.is_empty() {
@@ -2177,7 +2197,7 @@ pub fn parse(
     scope: &dyn ParserScope,
 ) -> (Arc<Block>, Option<ParseError>) {
     let mut error = None;
-    let (output, err) = lex(input, span_offset);
+    let (output, err) = lex(input, span_offset, NewlineMode::Normal);
     if error.is_none() {
         error = err;
     }
