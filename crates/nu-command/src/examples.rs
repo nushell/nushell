@@ -17,6 +17,7 @@ use nu_source::AnchorLocation;
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
     StrCollect, Wrap,
+    Clip,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -103,6 +104,8 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        #[cfg(feature = "clipboard-cli")]
+        whole_stream_command(Clip),
     ]);
 
     for sample_pipeline in examples {
