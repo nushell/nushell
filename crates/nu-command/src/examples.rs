@@ -14,8 +14,6 @@ use nu_protocol::hir::{ClassifiedBlock, ExternalRedirection};
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
-#[cfg(feature = "clipboard-cli")]
-use crate::commands::Clip;
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
     StrCollect, Wrap,
@@ -105,8 +103,6 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
-        #[cfg(feature = "clipboard-cli")]
-        whole_stream_command(Clip),
     ]);
 
     for sample_pipeline in examples {
