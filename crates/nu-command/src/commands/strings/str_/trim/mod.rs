@@ -1,7 +1,4 @@
-mod trim_both_ends;
-mod trim_left;
-mod trim_right;
-
+mod trim;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
@@ -10,31 +7,45 @@ use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 use std::iter::FromIterator;
 
-pub use trim_both_ends::SubCommand as Trim;
-pub use trim_left::SubCommand as TrimLeft;
-pub use trim_right::SubCommand as TrimRight;
+pub use trim::SubCommand as Trim;
 
 struct Arguments {
     character: Option<Tagged<char>>,
     column_paths: Vec<ColumnPath>,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct ClosureFlags {
     all_flag: bool,
+    left_trim: bool,
+    right_trim: bool,
+    format_flag: bool,
+    both_flag: bool,
 }
 
 pub fn operate<F>(args: CommandArgs, trim_operation: &'static F) -> Result<ActionStream, ShellError>
 where
-    F: Fn(&str, Option<char>, bool) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>, &ClosureFlags) -> String + Send + Sync + 'static,
 {
-    let (options, input) = (
+    let (options, closure_flags, input) = (
         Arc::new(Arguments {
             character: args.get_flag("char")?,
             column_paths: args.rest(0)?,
-            all_flag: args.has_flag("all"),
         }),
+        ClosureFlags {
+            all_flag: args.has_flag("all"),
+            left_trim: args.has_flag("left"),
+            right_trim: args.has_flag("right"),
+            format_flag: args.has_flag("format"),
+            both_flag: args.has_flag("both")
+                || (!args.has_flag("all")
+                    && !args.has_flag("left")
+                    && !args.has_flag("right")
+                    && !args.has_flag("format")), // this is the case if no flags are provided
+        },
         args.input,
     );
-
     let to_trim = options.character.as_ref().map(|tagged| tagged.item);
-    let all_trim = options.all_flag;
     Ok(input
         .map(move |v| {
             if options.column_paths.is_empty() {
@@ -42,7 +53,7 @@ where
                     &v,
                     v.tag(),
                     to_trim,
-                    all_trim,
+                    &closure_flags,
                     &trim_operation,
                     ActionMode::Global,
                 )?)
@@ -57,7 +68,7 @@ where
                                 old,
                                 old.tag(),
                                 to_trim,
-                                all_trim,
+                                &closure_flags,
                                 &trim_operation,
                                 ActionMode::Local,
                             )
@@ -81,17 +92,17 @@ pub fn action<F>(
     input: &Value,
     tag: impl Into<Tag>,
     char_: Option<char>,
-    all_flag: bool,
+    closure_flags: &ClosureFlags,
     trim_operation: &F,
     mode: ActionMode,
 ) -> Result<Value, ShellError>
 where
-    F: Fn(&str, Option<char>, bool) -> String + Send + Sync + 'static,
+    F: Fn(&str, Option<char>, &ClosureFlags) -> String + Send + Sync + 'static,
 {
     let tag = tag.into();
     match &input.value {
         UntaggedValue::Primitive(Primitive::String(s)) => {
-            Ok(UntaggedValue::string(trim_operation(s, char_, all_flag)).into_value(tag))
+            Ok(UntaggedValue::string(trim_operation(s, char_, closure_flags)).into_value(tag))
         }
         other => match mode {
             ActionMode::Global => match other {
@@ -102,7 +113,7 @@ where
                         .map(|(k, v)| -> Result<_, ShellError> {
                             Ok((
                                 k.clone(),
-                                action(v, tag.clone(), char_, all_flag, trim_operation, mode)?,
+                                action(v, tag.clone(), char_, closure_flags, trim_operation, mode)?,
                             ))
                         })
                         .collect();
@@ -113,7 +124,7 @@ where
                     let values: Result<Vec<Value>, ShellError> = values
                         .iter()
                         .map(|v| -> Result<_, ShellError> {
-                            action(v, tag.clone(), char_, all_flag, trim_operation, mode)
+                            action(v, tag.clone(), char_, closure_flags, trim_operation, mode)
                         })
                         .collect();
                     Ok(UntaggedValue::Table(values?).into_value(tag))

@@ -42,6 +42,4 @@ pub use to_datetime::SubCommand as StrToDatetime;
 pub use to_decimal::SubCommand as StrToDecimal;
 pub use to_integer::SubCommand as StrToInteger;
 pub use trim::Trim as StrTrim;
-pub use trim::TrimLeft as StrTrimLeft;
-pub use trim::TrimRight as StrTrimRight;
 pub use upcase::SubCommand as StrUpcase;

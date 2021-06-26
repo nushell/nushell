@@ -97,8 +97,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrContains),
             whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
-            whole_stream_command(StrTrimLeft),
-            whole_stream_command(StrTrimRight),
             whole_stream_command(StrStartsWith),
             whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
