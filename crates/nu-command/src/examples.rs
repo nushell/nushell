@@ -15,9 +15,8 @@ use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
-    StrCollect, Wrap,
-    Clip,
+    Append, BuildString, Clip, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth,
+    Select, StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
