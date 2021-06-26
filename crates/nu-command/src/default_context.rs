@@ -322,7 +322,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
         {
             context.add_commands(vec![
                 whole_stream_command(crate::commands::Clip),
-                whole_stream_command(crate::commands::Paste)
+                whole_stream_command(crate::commands::Paste),
             ]);
         }
     }

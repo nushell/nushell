@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, UntaggedValue, Primitive};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue};
 
 use arboard::Clipboard;
 
@@ -31,16 +31,14 @@ pub fn paste(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     if let Ok(mut clip_context) = Clipboard::new() {
         match clip_context.get_text() {
-            Ok(out) => Ok(ActionStream::one(
-                UntaggedValue::Primitive(
-                    Primitive::String(out)
-                )   
-            )),
+            Ok(out) => Ok(ActionStream::one(ReturnSuccess::value(
+                UntaggedValue::Primitive(Primitive::String(out)),
+            ))),
             Err(_) => Err(ShellError::labeled_error(
                 "Could not get contents of clipboard",
                 "could not get contents of clipboard",
                 name,
-            ))
+            )),
         }
     } else {
         Err(ShellError::labeled_error(
