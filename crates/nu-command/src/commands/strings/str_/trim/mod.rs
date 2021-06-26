@@ -1,4 +1,4 @@
-mod trim;
+mod command;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
@@ -7,7 +7,7 @@ use nu_source::{Tag, Tagged};
 use nu_value_ext::ValueExt;
 use std::iter::FromIterator;
 
-pub use trim::SubCommand as Trim;
+pub use command::SubCommand as Trim;
 
 struct Arguments {
     character: Option<Tagged<char>>,

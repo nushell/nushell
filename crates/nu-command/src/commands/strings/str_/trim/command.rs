@@ -135,7 +135,7 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
 mod tests {
     use super::ShellError;
     use super::SubCommand;
-    use crate::commands::strings::str_::trim::trim::trim;
+    use crate::commands::strings::str_::trim::command::trim;
     use crate::commands::strings::str_::trim::{action, ActionMode, ClosureFlags};
     use nu_protocol::row;
     use nu_source::Tag;
