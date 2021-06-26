@@ -669,14 +669,14 @@ fn compare_series_decimal<'r, F>(
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Float64Type>, i64) -> ChunkedArray<BooleanType>,
+    F: Fn(&'r ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
 {
     let casted = series.f64();
     match casted {
         Ok(casted) => {
             let res = f(
                 casted,
-                val.to_i64()
+                val.to_f64()
                     .expect("Internal error: protocol did not use compatible decimal"),
             );
             let res = res.into_series();
