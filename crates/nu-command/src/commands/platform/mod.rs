@@ -3,6 +3,8 @@ mod benchmark;
 mod clear;
 #[cfg(feature = "clipboard-cli")]
 mod clip;
+#[cfg(feature = "clipboard-cli")]
+mod paste;
 mod du;
 mod exec;
 mod kill;
@@ -17,6 +19,8 @@ pub use benchmark::Benchmark;
 pub use clear::Clear;
 #[cfg(feature = "clipboard-cli")]
 pub use clip::Clip;
+#[cfg(feature = "clipboard-cli")]
+pub use paste::Paste;
 pub use du::Du;
 pub use exec::Exec;
 pub use kill::Kill;

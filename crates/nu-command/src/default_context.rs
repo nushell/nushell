@@ -320,7 +320,10 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
 
         #[cfg(feature = "clipboard-cli")]
         {
-            context.add_commands(vec![whole_stream_command(crate::commands::Clip)]);
+            context.add_commands(vec![
+                whole_stream_command(crate::commands::Clip),
+                whole_stream_command(crate::commands::Paste)
+            ]);
         }
     }
 
