@@ -14,12 +14,12 @@ use nu_protocol::hir::{ClassifiedBlock, ExternalRedirection};
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
+#[cfg(feature = "clipboard-cli")]
+use crate::commands::Clip;
 use crate::commands::{
     Append, BuildString, Clip, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth,
     Select, StrCollect, Wrap,
 };
-#[cfg(feature = "clipboard-cli")]
-use crate::commands::Clip;
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
 
