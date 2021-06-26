@@ -24,6 +24,17 @@ impl WholeStreamCommand for Paste {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         paste(args)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Paste text from your clipboard",
+            example: "echo 'secret value' | clip | paste",
+            result: Some(vec![UntaggedValue::Primitive(Primitive::String(
+                "secret value".to_owned(),
+            ))
+            .into_value(Tag::default())]),
+        }]
+    }
 }
 
 pub fn paste(args: CommandArgs) -> Result<ActionStream, ShellError> {
@@ -46,5 +57,18 @@ pub fn paste(args: CommandArgs) -> Result<ActionStream, ShellError> {
             "could not open clipboard",
             name,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Paste;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        test_examples(Paste {})
     }
 }
