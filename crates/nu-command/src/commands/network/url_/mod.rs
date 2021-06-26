@@ -6,7 +6,7 @@ mod scheme;
 
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ColumnPath, Primitive, ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
 use url::Url;
 
 pub use command::Url as UrlCommand;
@@ -37,14 +37,14 @@ where
     Ok(v)
 }
 
-fn operate<F>(input: crate::InputStream, paths: Vec<ColumnPath>, action: &'static F) -> ActionStream
+fn operate<F>(input: crate::InputStream, paths: Vec<ColumnPath>, action: &'static F) -> OutputStream
 where
     F: Fn(&Url) -> &str + Send + Sync + 'static,
 {
     input
         .map(move |v| {
             if paths.is_empty() {
-                ReturnSuccess::value(handle_value(&action, &v)?)
+                handle_value(&action, &v)
             } else {
                 let mut ret = v;
 
@@ -55,8 +55,8 @@ where
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .into_action_stream()
+        .into_input_stream()
 }
