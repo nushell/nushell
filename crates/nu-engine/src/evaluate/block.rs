@@ -175,12 +175,12 @@ fn run_pipeline(
                         {
                             ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
+
                         let result =
                             run_block(&captured_block.block, ctx, input, external_redirection);
                         ctx.scope.exit_scope();
 
-                        let result = result?;
-                        return Ok(result);
+                        result?
                     }
                     _ => {
                         return Err(ShellError::labeled_error("Dynamic commands must start with a block (or variable pointing to a block)", "needs to be a block", call.head.span));
