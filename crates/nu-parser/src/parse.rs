@@ -2099,18 +2099,33 @@ pub fn classify_block(
     for group in &lite_block.block {
         let mut out_group = Group::basic();
         for pipeline in &group.pipelines {
-            let (pipeline, vars, err) = expand_shorthand_forms(pipeline);
+            let mut env_vars = vec![];
+            let mut pipeline = pipeline.clone();
+            loop {
+                if pipeline.commands.is_empty() || pipeline.commands[0].parts.is_empty() {
+                    break;
+                }
+                let (pl, vars, err) = expand_shorthand_forms(&pipeline);
+                if error.is_none() {
+                    error = err;
+                }
+
+                pipeline = pl;
+                if let Some(vars) = vars {
+                    env_vars.push(vars);
+                } else {
+                    break;
+                }
+            }
+
+            let pipeline_span = pipeline.span();
+            let (mut out_pipe, err) = parse_pipeline(pipeline, scope);
             if error.is_none() {
                 error = err;
             }
 
-            let (out_pipe, err) = parse_pipeline(pipeline.clone(), scope);
-            if error.is_none() {
-                error = err;
-            }
-
-            let pipeline = if let Some(vars) = vars {
-                let span = pipeline.span();
+            while let Some(vars) = env_vars.pop() {
+                let span = pipeline_span;
                 let block = hir::Block::new(
                     Signature::new("<block>"),
                     vec![Group::new(vec![out_pipe.clone()], span)],
@@ -2149,16 +2164,14 @@ pub fn classify_block(
                     args: call,
                 });
 
-                Pipeline {
+                out_pipe = Pipeline {
                     list: vec![classified_with_env],
                     span,
-                }
-            } else {
-                out_pipe
-            };
+                };
+            }
 
-            if !pipeline.list.is_empty() {
-                out_group.push(pipeline);
+            if !out_pipe.list.is_empty() {
+                out_group.push(out_pipe);
             }
         }
         if !out_group.pipelines.is_empty() {

@@ -7,6 +7,22 @@ use nu_test_support::playground::Playground;
 use serial_test::serial;
 
 #[test]
+fn env_shorthand() {
+    let actual = nu!(cwd: ".", r#"
+        FOO=bar echo $nu.env.FOO
+        "#);
+    assert_eq!(actual.out, "bar");
+}
+
+#[test]
+fn env_shorthand_multi() {
+    let actual = nu!(cwd: ".", r#"
+        FOO=bar BAR=baz $nu.env.FOO + $nu.env.BAR
+    "#);
+    assert_eq!(actual.out, "barbaz");
+}
+
+#[test]
 fn passes_let_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
         let-env FOO = foo
