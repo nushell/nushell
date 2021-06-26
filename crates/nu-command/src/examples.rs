@@ -17,8 +17,8 @@ use nu_source::AnchorLocation;
 #[cfg(feature = "clipboard-cli")]
 use crate::commands::Clip;
 use crate::commands::{
-    Append, BuildString, Clip, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth,
-    Select, StrCollect, Wrap,
+    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
+    StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
