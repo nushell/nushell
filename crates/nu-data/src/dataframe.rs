@@ -8,10 +8,9 @@ use nu_protocol::{
 use nu_source::Span;
 use num_traits::ToPrimitive;
 
-use num_bigint::BigInt;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, Series,
+    NumOpsDispatchChecked, PolarsError, Series,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -202,19 +201,20 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Int64Type>>::add,
+                    <ChunkedArray<Int64Type>>::add,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Int64Type>>::add,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
+                    <ChunkedArray<Int64Type>>::add,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Float64Type>>::add,
+                    <ChunkedArray<Float64Type>>::add,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -231,19 +231,20 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Int64Type>>::sub,
+                    <ChunkedArray<Int64Type>>::sub,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Int64Type>>::sub,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
+                    <ChunkedArray<Int64Type>>::sub,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Float64Type>>::sub,
+                    <ChunkedArray<Float64Type>>::sub,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -260,19 +261,20 @@ pub fn compute_series_single_value(
                 UntaggedValue::Primitive(Primitive::Int(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Int64Type>>::mul,
+                    <ChunkedArray<Int64Type>>::mul,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compute_series_i64(
                     lhs.as_ref(),
-                    val,
-                    <&ChunkedArray<Int64Type>>::mul,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
+                    <ChunkedArray<Int64Type>>::mul,
                     &left.tag.span,
                 )),
                 UntaggedValue::Primitive(Primitive::Decimal(val)) => Ok(compute_series_decimal(
                     lhs.as_ref(),
                     val,
-                    <&ChunkedArray<Float64Type>>::mul,
+                    <ChunkedArray<Float64Type>>::mul,
                     &left.tag.span,
                 )),
                 _ => Ok(UntaggedValue::Error(
@@ -297,7 +299,7 @@ pub fn compute_series_single_value(
                         Ok(compute_series_i64(
                             lhs.as_ref(),
                             val,
-                            <&ChunkedArray<Int64Type>>::div,
+                            <ChunkedArray<Int64Type>>::div,
                             &left.tag.span,
                         ))
                     }
@@ -310,10 +312,11 @@ pub fn compute_series_single_value(
                             &right.tag.span,
                         )))
                     } else {
-                        Ok(compute_series_bigint(
+                        Ok(compute_series_i64(
                             lhs.as_ref(),
-                            val,
-                            <&ChunkedArray<Int64Type>>::div,
+                            &val.to_i64()
+                                .expect("Internal error: protocol did not use compatible decimal"),
+                            <ChunkedArray<Int64Type>>::div,
                             &left.tag.span,
                         ))
                     }
@@ -329,7 +332,7 @@ pub fn compute_series_single_value(
                         Ok(compute_series_decimal(
                             lhs.as_ref(),
                             val,
-                            <&ChunkedArray<Float64Type>>::div,
+                            <ChunkedArray<Float64Type>>::div,
                             &left.tag.span,
                         ))
                     }
@@ -352,9 +355,10 @@ pub fn compute_series_single_value(
                         ChunkedArray::eq,
                         &left.tag.span,
                     )),
-                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                         lhs.as_ref(),
-                        val,
+                        &val.to_i64()
+                            .expect("Internal error: protocol did not use compatible decimal"),
                         ChunkedArray::eq,
                         &left.tag.span,
                     )),
@@ -379,9 +383,10 @@ pub fn compute_series_single_value(
                     ChunkedArray::neq,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                     lhs.as_ref(),
-                    val,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
                     ChunkedArray::neq,
                     &left.tag.span,
                 )),
@@ -409,9 +414,10 @@ pub fn compute_series_single_value(
                         ChunkedArray::lt,
                         &left.tag.span,
                     )),
-                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                         lhs.as_ref(),
-                        val,
+                        &val.to_i64()
+                            .expect("Internal error: protocol did not use compatible decimal"),
                         ChunkedArray::lt,
                         &left.tag.span,
                     )),
@@ -436,9 +442,10 @@ pub fn compute_series_single_value(
                     ChunkedArray::lt_eq,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                     lhs.as_ref(),
-                    val,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
                     ChunkedArray::lt_eq,
                     &left.tag.span,
                 )),
@@ -466,9 +473,10 @@ pub fn compute_series_single_value(
                         ChunkedArray::gt,
                         &left.tag.span,
                     )),
-                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                    UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                         lhs.as_ref(),
-                        val,
+                        &val.to_i64()
+                            .expect("Internal error: protocol did not use compatible decimal"),
                         ChunkedArray::gt,
                         &left.tag.span,
                     )),
@@ -493,9 +501,10 @@ pub fn compute_series_single_value(
                     ChunkedArray::gt_eq,
                     &left.tag.span,
                 )),
-                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_bigint(
+                UntaggedValue::Primitive(Primitive::BigInt(val)) => Ok(compare_series_i64(
                     lhs.as_ref(),
-                    val,
+                    &val.to_i64()
+                        .expect("Internal error: protocol did not use compatible decimal"),
                     ChunkedArray::gt_eq,
                     &left.tag.span,
                 )),
@@ -540,42 +549,53 @@ pub fn compute_series_single_value(
     }
 }
 
-fn compute_series_i64<'r, F>(series: &'r Series, val: &i64, f: F, span: &Span) -> UntaggedValue
+fn compute_series_i64<F>(series: &Series, val: &i64, f: F, span: &Span) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
+    F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
-    let casted = series.i64();
-    match casted {
-        Ok(casted) => {
-            let res = f(casted, *val);
-            let res = res.into_series();
-            NuSeries::series_to_untagged(res)
+    match series.dtype() {
+        DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
+            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+
+            match to_i64 {
+                Ok(series) => {
+                    let casted = series.i64();
+                    compute_casted_i64(casted, *val, f, span)
+                }
+                Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                    "Casting error",
+                    format!("{}", e),
+                    span,
+                )),
+            }
         }
-        Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+        DataType::Int64 => {
+            let casted = series.i64();
+            compute_casted_i64(casted, *val, f, span)
+        }
+        _ => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            format!(
+                "Series of type {} can not be used for operations with an i64 value",
+                series.dtype()
+            ),
             span,
         )),
     }
 }
 
-fn compute_series_bigint<'r, F>(
-    series: &'r Series,
-    val: &BigInt,
+fn compute_casted_i64<F>(
+    casted: Result<&ChunkedArray<Int64Type>, PolarsError>,
+    val: i64,
     f: F,
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
+    F: Fn(ChunkedArray<Int64Type>, i64) -> ChunkedArray<Int64Type>,
 {
-    let casted = series.i64();
     match casted {
         Ok(casted) => {
-            let res = f(
-                casted,
-                val.to_i64()
-                    .expect("Internal error: protocol did not use compatible decimal"),
-            );
+            let res = f(casted.clone(), val);
             let res = res.into_series();
             NuSeries::series_to_untagged(res)
         }
@@ -588,69 +608,69 @@ where
 }
 
 fn compute_series_decimal<'r, F>(
-    series: &'r Series,
+    series: &Series,
     val: &BigDecimal,
     f: F,
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
+    F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
-    let casted = series.f64();
-    match casted {
-        Ok(casted) => {
-            let res = f(
+    match series.dtype() {
+        DataType::Float32 => {
+            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+
+            match to_f64 {
+                Ok(series) => {
+                    let casted = series.f64();
+                    compute_casted_f64(
+                        casted,
+                        val.to_f64()
+                            .expect("Internal error: protocol did not use compatible decimal"),
+                        f,
+                        span,
+                    )
+                }
+                Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                    "Casting error",
+                    format!("{}", e),
+                    span,
+                )),
+            }
+        }
+        DataType::Float64 => {
+            let casted = series.f64();
+            compute_casted_f64(
                 casted,
                 val.to_f64()
                     .expect("Internal error: protocol did not use compatible decimal"),
-            );
-            let res = res.into_series();
-            NuSeries::series_to_untagged(res)
+                f,
+                span,
+            )
         }
-        Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+        _ => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            format!(
+                "Series of type {} can not be used for operations with a decimal value",
+                series.dtype()
+            ),
             span,
         )),
     }
 }
 
-fn compare_series_i64<'r, F>(series: &'r Series, val: &i64, f: F, span: &Span) -> UntaggedValue
-where
-    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
-{
-    let casted = series.i64();
-    match casted {
-        Ok(casted) => {
-            let res = f(casted, *val);
-            let res = res.into_series();
-            NuSeries::series_to_untagged(res)
-        }
-        Err(e) => UntaggedValue::Error(ShellError::labeled_error(
-            "Casting error",
-            format!("{}", e),
-            span,
-        )),
-    }
-}
-
-fn compare_series_bigint<'r, F>(
-    series: &'r Series,
-    val: &BigInt,
+fn compute_casted_f64<F>(
+    casted: Result<&ChunkedArray<Float64Type>, PolarsError>,
+    val: f64,
     f: F,
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
+    F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
-    let casted = series.i64();
     match casted {
         Ok(casted) => {
-            let res = f(
-                casted,
-                val.to_i64()
-                    .expect("Internal error: protocol did not use compatible decimal"),
-            );
+            let res = f(casted.clone(), val);
             let res = res.into_series();
             NuSeries::series_to_untagged(res)
         }
@@ -662,23 +682,123 @@ where
     }
 }
 
-fn compare_series_decimal<'r, F>(
-    series: &'r Series,
-    val: &BigDecimal,
+fn compare_series_i64<F>(series: &Series, val: &i64, f: F, span: &Span) -> UntaggedValue
+where
+    F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
+{
+    match series.dtype() {
+        DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
+            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+
+            match to_i64 {
+                Ok(series) => {
+                    let casted = series.i64();
+                    compare_casted_i64(casted, *val, f, span)
+                }
+                Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                    "Casting error",
+                    format!("{}", e),
+                    span,
+                )),
+            }
+        }
+        DataType::Int64 => {
+            let casted = series.i64();
+            compare_casted_i64(casted, *val, f, span)
+        }
+        _ => UntaggedValue::Error(ShellError::labeled_error(
+            "Casting error",
+            format!(
+                "Series of type {} can not be used for operations with an i64 value",
+                series.dtype()
+            ),
+            span,
+        )),
+    }
+}
+
+fn compare_casted_i64<F>(
+    casted: Result<&ChunkedArray<Int64Type>, PolarsError>,
+    val: i64,
     f: F,
     span: &Span,
 ) -> UntaggedValue
 where
-    F: Fn(&'r ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
+    F: Fn(&ChunkedArray<Int64Type>, i64) -> ChunkedArray<BooleanType>,
 {
-    let casted = series.f64();
     match casted {
         Ok(casted) => {
-            let res = f(
+            let res = f(casted, val);
+            let res = res.into_series();
+            NuSeries::series_to_untagged(res)
+        }
+        Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+            "Casting error",
+            format!("{}", e),
+            span,
+        )),
+    }
+}
+
+fn compare_series_decimal<F>(series: &Series, val: &BigDecimal, f: F, span: &Span) -> UntaggedValue
+where
+    F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
+{
+    match series.dtype() {
+        DataType::Float32 => {
+            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+
+            match to_f64 {
+                Ok(series) => {
+                    let casted = series.f64();
+                    compare_casted_f64(
+                        casted,
+                        val.to_f64()
+                            .expect("Internal error: protocol did not use compatible decimal"),
+                        f,
+                        span,
+                    )
+                }
+                Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                    "Casting error",
+                    format!("{}", e),
+                    span,
+                )),
+            }
+        }
+        DataType::Float64 => {
+            let casted = series.f64();
+            compare_casted_f64(
                 casted,
                 val.to_f64()
                     .expect("Internal error: protocol did not use compatible decimal"),
-            );
+                f,
+                span,
+            )
+        }
+        _ => UntaggedValue::Error(ShellError::labeled_error(
+            "Casting error",
+            format!(
+                "Series of type {} can not be used for operations with a decimal value",
+                series.dtype()
+            ),
+            span,
+        )),
+    }
+}
+
+fn compare_casted_f64<F>(
+    casted: Result<&ChunkedArray<Float64Type>, PolarsError>,
+    val: f64,
+    f: F,
+    span: &Span,
+) -> UntaggedValue
+where
+    F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
+{
+    match casted {
+        Ok(casted) => {
+            let res = f(casted, val);
             let res = res.into_series();
             NuSeries::series_to_untagged(res)
         }
