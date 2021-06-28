@@ -607,12 +607,7 @@ where
     }
 }
 
-fn compute_series_decimal<'r, F>(
-    series: &Series,
-    val: &BigDecimal,
-    f: F,
-    span: &Span,
-) -> UntaggedValue
+fn compute_series_decimal<F>(series: &Series, val: &BigDecimal, f: F, span: &Span) -> UntaggedValue
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
