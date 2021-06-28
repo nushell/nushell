@@ -111,8 +111,20 @@ impl WholeStreamCommand for PluginFilter {
         &self.config.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.config.extra_usage
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         run_filter(self.path.clone(), args)
+    }
+
+    fn is_plugin(&self) -> bool {
+        true
+    }
+
+    fn is_builtin(&self) -> bool {
+        false
     }
 }
 
@@ -383,8 +395,20 @@ impl WholeStreamCommand for PluginSink {
         &self.config.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.config.extra_usage
+    }
+
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         run_sink(self.path.clone(), args)
+    }
+
+    fn is_plugin(&self) -> bool {
+        true
+    }
+
+    fn is_builtin(&self) -> bool {
+        false
     }
 }
 

@@ -65,6 +65,20 @@ impl Scope {
         output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
     }
 
+    pub fn get_commands_info(&self) -> IndexMap<String, Command> {
+        let mut output: IndexMap<String, Command> = IndexMap::new();
+
+        for frame in self.frames.lock().iter().rev() {
+            for (name, command) in frame.commands.iter() {
+                if !output.contains_key(name) {
+                    output.insert(name.clone(), command.clone());
+                }
+            }
+        }
+
+        output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
+    }
+
     pub fn get_variable_names(&self) -> Vec<String> {
         self.get_vars().iter().map(|(k, _)| k.to_string()).collect()
     }

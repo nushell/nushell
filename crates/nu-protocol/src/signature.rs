@@ -109,6 +109,7 @@ pub struct Signature {
     pub name: String,
     /// Usage instructions about the command
     pub usage: String,
+    pub extra_usage: String,
     /// The list of positional arguments, both required and optional, and their corresponding types and help text
     pub positional: Vec<(PositionalType, Description)>,
     /// After the positional arguments, a catch-all for the rest of the arguments that might follow, their type, and help text
@@ -192,6 +193,7 @@ impl Signature {
         Signature {
             name: name.into(),
             usage: String::new(),
+            extra_usage: String::new(),
             positional: vec![],
             rest_positional: None,
             named: indexmap::indexmap! {"help".into() => (NamedType::Switch(Some('h')), "Display this help message".into())},

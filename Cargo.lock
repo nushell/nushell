@@ -4438,7 +4438,7 @@ dependencies = [
  "lz4",
  "num-bigint 0.4.0",
  "parquet-format",
- "rand 0.8.3",
+ "rand 0.8.4",
  "snap",
  "thrift",
  "zstd",
