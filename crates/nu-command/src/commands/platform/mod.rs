@@ -6,6 +6,7 @@ mod clip;
 mod du;
 mod exec;
 mod kill;
+mod lang;
 #[cfg(feature = "clipboard-cli")]
 mod paste;
 mod pwd;
@@ -22,6 +23,7 @@ pub use clip::Clip;
 pub use du::Du;
 pub use exec::Exec;
 pub use kill::Kill;
+pub use lang::Lang;
 #[cfg(feature = "clipboard-cli")]
 pub use paste::Paste;
 pub use pwd::Pwd;

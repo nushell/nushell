@@ -58,7 +58,7 @@ impl WholeStreamCommand for RunExternalCommand {
         }]
     }
 
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         true
     }
 

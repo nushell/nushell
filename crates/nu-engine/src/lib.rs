@@ -3,7 +3,7 @@ mod command_args;
 mod config_holder;
 pub mod documentation;
 mod env;
-mod evaluate;
+pub mod evaluate;
 pub mod evaluation_context;
 mod example;
 pub mod filesystem;

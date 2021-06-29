@@ -23,6 +23,32 @@ impl NamedType {
             NamedType::Optional(s, _) => *s,
         }
     }
+
+    pub fn get_type_description(&self) -> (String, String, String) {
+        let empty_string = ("".to_string(), "".to_string(), "".to_string());
+        match self {
+            NamedType::Switch(f) => match f {
+                Some(flag) => ("switch_flag".to_string(), flag.to_string(), "".to_string()),
+                None => empty_string,
+            },
+            NamedType::Mandatory(f, shape) => match f {
+                Some(flag) => (
+                    "mandatory_flag".to_string(),
+                    flag.to_string(),
+                    shape.syntax_shape_name().to_string(),
+                ),
+                None => empty_string,
+            },
+            NamedType::Optional(f, shape) => match f {
+                Some(flag) => (
+                    "optional_flag".to_string(),
+                    flag.to_string(),
+                    shape.syntax_shape_name().to_string(),
+                ),
+                None => empty_string,
+            },
+        }
+    }
 }
 
 /// The type of positional arguments
@@ -96,6 +122,13 @@ impl PositionalType {
             PositionalType::Optional(_, t) => t,
         }
     }
+
+    pub fn get_type_description(&self) -> (String, String) {
+        match &self {
+            PositionalType::Mandatory(c, s) => (c.to_string(), s.syntax_shape_name().to_string()),
+            PositionalType::Optional(c, s) => (c.to_string(), s.syntax_shape_name().to_string()),
+        }
+    }
 }
 
 type Description = String;
@@ -109,6 +142,8 @@ pub struct Signature {
     pub name: String,
     /// Usage instructions about the command
     pub usage: String,
+    /// Longer or more verbose usage statement
+    pub extra_usage: String,
     /// The list of positional arguments, both required and optional, and their corresponding types and help text
     pub positional: Vec<(PositionalType, Description)>,
     /// After the positional arguments, a catch-all for the rest of the arguments that might follow, their type, and help text
@@ -192,6 +227,7 @@ impl Signature {
         Signature {
             name: name.into(),
             usage: String::new(),
+            extra_usage: String::new(),
             positional: vec![],
             rest_positional: None,
             named: indexmap::indexmap! {"help".into() => (NamedType::Switch(Some('h')), "Display this help message".into())},
