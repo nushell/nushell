@@ -4,30 +4,7 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue, Value};
 
-// use nu_protocol::{
-//     value::StringExt, CommandAction, Dictionary, NamedType, PositionalType, ReturnSuccess,
-//     Signature, SyntaxShape, UntaggedValue,
-// };
-// use serde::{Deserialize, Serialize};
-
 pub struct Lang;
-
-// #[derive(Debug, Clone, Deserialize, Serialize)]
-// pub struct CommandInfo {
-//     name: String,
-//     usage: String,
-//     params_positional: Vec<(PositionalType, String)>,
-//     params_rest: Option<(SyntaxShape, String)>,
-//     params_named: IndexMap<String, (NamedType, String)>,
-//     is_filter: bool,
-//     is_builtin: bool,
-//     is_subcommand: bool,
-//     is_plugin: bool,
-//     is_custom_command: bool,
-//     is_private_command: bool,
-//     is_binary: bool,
-//     extra_usage: String,
-// }
 
 impl WholeStreamCommand for Lang {
     fn name(&self) -> &str {
@@ -170,7 +147,6 @@ fn get_signature(sig: &mut Signature, tag: Tag) -> Vec<Value> {
     match r {
         Some((shape, desc)) => {
             let mut indexmap = IndexMap::new();
-
             // let output = format!("Rest|{}|{}|{}\n", name, shape.syntax_shape_name(), desc);
             // eprintln!("{}", output);
 
