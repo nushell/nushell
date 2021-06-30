@@ -10,7 +10,6 @@ version = "0.33.1"
 doctest = false
 
 [dependencies]
-nu-cli = { path="../nu-cli", version="0.33.1" }
 nu-data = { path="../nu-data", version="0.33.1" }
 nu-errors = { path="../nu-errors", version="0.33.1" }
 nu-plugin = { path="../nu-plugin", version="0.33.1" }
