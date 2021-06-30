@@ -1,11 +1,11 @@
 [package]
 authors = ["The Nu Project Contributors"]
-build = "build.rs"
 description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-cli"
 version = "0.33.1"
+build = "build.rs"
 
 [lib]
 doctest = false
@@ -16,115 +16,25 @@ nu-command = { version="0.33.1", path="../nu-command" }
 nu-data = { version="0.33.1", path="../nu-data" }
 nu-engine = { version="0.33.1", path="../nu-engine" }
 nu-errors = { version="0.33.1", path="../nu-errors" }
-nu-json = { version="0.33.1", path="../nu-json" }
 nu-parser = { version="0.33.1", path="../nu-parser" }
-nu-plugin = { version="0.33.1", path="../nu-plugin" }
 nu-protocol = { version="0.33.1", path="../nu-protocol" }
 nu-source = { version="0.33.1", path="../nu-source" }
 nu-stream = { version="0.33.1", path="../nu-stream" }
-nu-table = { version="0.33.1", path="../nu-table" }
-nu-test-support = { version="0.33.1", path="../nu-test-support" }
-nu-value-ext = { version="0.33.1", path="../nu-value-ext" }
 nu-ansi-term = { version="0.33.1", path="../nu-ansi-term" }
-nu-pretty-hex = { version="0.33.1", path="../nu-pretty-hex" }
 
-Inflector = "0.11"
-arboard = { version="1.1.0", optional=true }
-async-recursion = "0.3.2"
-async-trait = "0.1.42"
-base64 = "0.13.0"
-bigdecimal = { version="0.2.0", features=["serde"] }
-byte-unit = "4.0.9"
-bytes = "1.0.1"
-calamine = "0.17.0"
-chrono = { version="0.4.19", features=["serde"] }
-chrono-tz = "0.5.3"
-codespan-reporting = "0.11.0"
-csv = "1.1.5"
-ctrlc = { version="3.1.7", optional=true }
-derive-new = "0.5.8"
-directories-next = "2.0.0"
-dirs-next = "2.0.0"
-dtparse = "1.2.0"
-dunce = "1.0.1"
-eml-parser = "0.1.0"
-encoding_rs = "0.8.28"
-filesize = "0.2.0"
-fs_extra = "1.2.0"
-futures = { version="0.3.12", features=["compat", "io-compat"] }
-futures-util = "0.3.12"
-futures_codec = "0.4.1"
-getset = "0.1.1"
-glob = "0.3.0"
-htmlescape = "0.3.1"
-ical = "0.7.0"
-indexmap = { version="1.6.1", features=["serde-1"] }
+indexmap ="1.6.1"
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
-meval = "0.2.0"
-num-bigint = { version="0.3.1", features=["serde"] }
-num-format = { version="0.4.0", features=["with-num-bigint"] }
-num-traits = "0.2.14"
-parking_lot = "0.11.1"
-pin-utils = "0.1.0"
-ptree = { version="0.3.1", optional=true }
-query_interface = "0.3.5"
-quick-xml = "0.21.0"
-rand = "0.8.3"
-rayon = "1.5.0"
-regex = "1.4.3"
-roxmltree = "0.14.0"
-rust-embed = "5.9.0"
-rustyline = { version="8.1.0", optional=true }
-serde = { version="1.0.123", features=["derive"] }
-serde_bytes = "0.11.5"
-serde_ini = "0.2.0"
-serde_json = "1.0.61"
-serde_urlencoded = "0.7.0"
-serde_yaml = "0.8.16"
-sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
-sxd-document = "0.3.2"
-sxd-xpath = "0.4.2"
-tempfile = "3.2.0"
-term = { version="0.7.0", optional=true }
-term_size = "0.3.2"
-termcolor = "1.1.2"
-titlecase = "1.1.0"
-toml = "0.5.8"
-trash = { version="1.3.0", optional=true }
-unicode-segmentation = "1.7.1"
-url = "2.1.1"
-uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
-which = { version="4.0.2", optional=true }
-zip = { version="0.5.9", optional=true }
+rustyline = { version="8.1.0", optional=true }
 shadow-rs = { version="0.5", default-features=false, optional=true }
-
-[target.'cfg(unix)'.dependencies]
-umask = "1.0.0"
-users = "0.11.0"
-
-# TODO this will be possible with new dependency resolver
-#   (currently on nightly behind -Zfeatures=itarget):
-#   https://github.com/rust-lang/cargo/issues/7914
-#[target.'cfg(not(windows))'.dependencies]
-#num-format = {version = "0.4", features = ["with-system-locale"]}
-
-[dependencies.rusqlite]
-features = ["bundled", "blob"]
-optional = true
-version = "0.25.3"
+serde = { version="1.0.123", features=["derive"] }
+serde_yaml = "0.8.16"
 
 [build-dependencies]
 shadow-rs = "0.5"
 
-[dev-dependencies]
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
-
 [features]
 default = ["shadow-rs"]
-clipboard-cli = ["arboard"]
 rustyline-support = ["rustyline", "nu-engine/rustyline-support"]
 stable = []
-trash-support = ["trash"]
