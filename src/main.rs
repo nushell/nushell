@@ -1,4 +1,4 @@
-use nu_parser_new::{lex, lite_parse, LexMode, ParserWorkingSet};
+use engine_q::{lex, lite_parse, LexMode, ParserWorkingSet};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {
