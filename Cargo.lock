@@ -3803,7 +3803,6 @@ name = "nu_plugin_chart"
 version = "0.33.1"
 dependencies = [
  "crossterm 0.19.0",
- "nu-cli",
  "nu-data",
  "nu-errors",
  "nu-plugin",
