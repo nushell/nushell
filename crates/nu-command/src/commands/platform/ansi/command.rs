@@ -328,6 +328,8 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
         "csi" | "escape" | "escape_left" => Some("\x1b[".to_string()),
         // OSC escape (Operating system command)
         "osc" | "escape_right" => Some("\x1b]".to_string()),
+        // OSC string terminator
+        "string_terminator" | "st" | "str_term" => Some("\x1b\\".to_string()),
 
         // Ansi Rgb - Needs to be 32;2;r;g;b or 48;2;r;g;b
         // assuming the rgb will be passed via command and no here

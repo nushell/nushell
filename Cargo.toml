@@ -61,7 +61,7 @@ nu-test-support = { version="0.33.1", path="./crates/nu-test-support" }
 dunce = "1.0.1"
 serial_test = "0.5.1"
 hamcrest2 = "0.3.0"
-
+rstest = "0.10.0"
 
 [build-dependencies]
 
