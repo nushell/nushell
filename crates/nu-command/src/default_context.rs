@@ -267,7 +267,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
         #[cfg(feature = "dataframe")]
         context.add_commands(vec![
             whole_stream_command(DataFrame),
-            whole_stream_command(DataFrameLoad),
+            whole_stream_command(DataFrameOpen),
             whole_stream_command(DataFrameList),
             whole_stream_command(DataFrameGroupBy),
             whole_stream_command(DataFrameAggregate),
@@ -278,8 +278,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameSelect),
             whole_stream_command(DataFrameDTypes),
             whole_stream_command(DataFrameDummies),
-            whole_stream_command(DataFrameHead),
-            whole_stream_command(DataFrameTail),
+            whole_stream_command(DataFrameFirst),
+            whole_stream_command(DataFrameLast),
             whole_stream_command(DataFrameSlice),
             whole_stream_command(DataFrameMelt),
             whole_stream_command(DataFramePivot),

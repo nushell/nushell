@@ -27,8 +27,8 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Create mask where values are null",
             example: r#"let s = ([5 6 0 8] | dataframe to-series);
-let res = ($s / $s);
-$res | dataframe is-null"#,
+    let res = ($s / $s);
+    $res | dataframe is-null"#,
             result: None,
         }]
     }

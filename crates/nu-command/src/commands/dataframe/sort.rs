@@ -20,12 +20,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe sort")
-            .optional(
-                "columns",
-                SyntaxShape::Table,
-                "column names to sort dataframe",
-            )
             .switch("reverse", "invert sort", Some('r'))
+            .rest(SyntaxShape::Any, "column names to sort dataframe")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -36,7 +32,7 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Create new sorted dataframe",
-                example: "[[a b]; [3 4] [1 2]] | dataframe to-df | dataframe sort [a]",
+                example: "[[a b]; [3 4] [1 2]] | dataframe to-df | dataframe sort a",
                 result: None,
             },
             Example {
@@ -59,24 +55,23 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     match value.value {
         UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
-            let columns: Option<Vec<Value>> = args.opt(0)?;
+            let columns: Vec<Value> = args.rest(0)?;
 
-            match columns {
-                Some(columns) => {
-                    let (col_string, col_span) = convert_columns(&columns, &tag)?;
+            if !columns.is_empty() {
+                let (col_string, col_span) = convert_columns(&columns, &tag)?;
 
-                    let res = df
-                        .as_ref()
-                        .sort(&col_string, reverse)
-                        .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
+                let res = df
+                    .as_ref()
+                    .sort(&col_string, reverse)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
-                    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
-                }
-                None => Err(ShellError::labeled_error(
+                Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
+            } else {
+                Err(ShellError::labeled_error(
                     "Missing columns",
                     "missing column name to perform sort",
                     &tag.span,
-                )),
+                ))
             }
         }
         UntaggedValue::DataFrame(PolarsData::Series(series)) => {

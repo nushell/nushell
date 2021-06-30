@@ -17,11 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe select").required(
-            "columns",
-            SyntaxShape::Table,
-            "selected column names",
-        )
+        Signature::build("dataframe select").rest(SyntaxShape::Any, "selected column names")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -31,7 +27,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe with column a",
-            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe select [a]",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe select a",
             result: None,
         }]
     }
@@ -40,7 +36,7 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let columns: Vec<Value> = args.req(0)?;
+    let columns: Vec<Value> = args.rest(0)?;
 
     let (col_string, col_span) = convert_columns(&columns, &tag)?;
 

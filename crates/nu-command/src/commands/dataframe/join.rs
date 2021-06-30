@@ -26,15 +26,17 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe join")
             .required("dataframe", SyntaxShape::Any, "right dataframe to join")
-            .required(
-                "l_columns",
+            .required_named(
+                "left",
                 SyntaxShape::Table,
                 "left column names to perform join",
+                Some('l'),
             )
-            .required(
-                "r_columns",
+            .required_named(
+                "right",
                 SyntaxShape::Table,
                 "right column names to perform join",
+                Some('r'),
             )
             .named(
                 "type",
@@ -52,13 +54,14 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "inner join dataframe",
-                example: "echo [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe join $right [a] [a]",
+                example: r#"let right = ([[a b c]; [1 2 5] [3 4 5] [5 6 6]] | dataframe to-df);
+    $right | dataframe join $right -l [a b] -r [a b]"#,
                 result: None,
             },
             Example {
                 description: "right join dataframe",
-                example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe join $right [b] [b] -t right",
+                example: r#"let right = ([[a b c]; [1 2 3] [3 4 5] [5 6 7]] | dataframe to-df);
+    $right | dataframe join $right -l [a c] -r [a c] -t inner"#,
                 result: None,
             },
         ]
@@ -69,8 +72,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     let r_df: Value = args.req(0)?;
-    let l_col: Vec<Value> = args.req(1)?;
-    let r_col: Vec<Value> = args.req(2)?;
+    let l_col: Vec<Value> = args.req_named("left")?;
+    let r_col: Vec<Value> = args.req_named("right")?;
     let join_type_op: Option<Tagged<String>> = args.get_flag("type")?;
 
     let join_type = match join_type_op {
