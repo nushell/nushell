@@ -1,4 +1,7 @@
-use crate::{evaluate::scope::Scope, EvaluationContext};
+use crate::{
+    evaluate::{lang, scope::Scope},
+    EvaluationContext,
+};
 use indexmap::IndexMap;
 use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
@@ -86,6 +89,12 @@ pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
             "keybinding-path",
             UntaggedValue::filepath(keybinding_path).into_value(&tag),
         );
+    }
+
+    let cmd_info = lang::Lang::query_commands(scope);
+    match cmd_info {
+        Ok(cmds) => nu_dict.insert_value("lang", UntaggedValue::table(&cmds).into_value(&tag)),
+        Err(_) => nu_dict.insert_value("lang", UntaggedValue::string("no commands found")),
     }
 
     Ok(nu_dict.into_value())
