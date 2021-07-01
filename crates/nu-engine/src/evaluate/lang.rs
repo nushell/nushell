@@ -1,28 +1,16 @@
-use crate::prelude::*;
+use crate::Scope;
 use indexmap::IndexMap;
-use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue, Value};
+use nu_source::Tag;
 
 pub struct Lang;
 
-impl WholeStreamCommand for Lang {
-    fn name(&self) -> &str {
-        "lang"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("lang")
-    }
-
-    fn usage(&self) -> &str {
-        "Returns the nushell-lang information"
-    }
-
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let tag = args.call_info.name_tag.clone();
-        let full_commands = args.context.scope.get_commands_info();
-        let mut cmd_vec_deque = VecDeque::new();
+impl Lang {
+    pub fn query_commands(scope: &Scope) -> Result<Vec<Value>, ShellError> {
+        let tag = Tag::unknown();
+        let full_commands = scope.get_commands_info();
+        let mut cmd_vec = Vec::new();
         for (key, cmd) in full_commands {
             let mut indexmap = IndexMap::new();
             let mut sig = cmd.signature();
@@ -78,18 +66,10 @@ impl WholeStreamCommand for Lang {
                 UntaggedValue::string(cmd.extra_usage().to_string()).into_value(&tag),
             );
 
-            cmd_vec_deque
-                .push_back(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag));
+            cmd_vec.push(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag));
         }
-        Ok(cmd_vec_deque.into_iter().into_output_stream())
-    }
 
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Query command information from Nushell",
-            example: "lang",
-            result: None,
-        }]
+        Ok(cmd_vec)
     }
 }
 
