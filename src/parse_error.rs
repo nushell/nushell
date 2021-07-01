@@ -7,4 +7,5 @@ pub enum ParseError {
     UnknownStatement(Span),
     Mismatch(String, Span),
     VariableNotFound(Span),
+    UnknownCommand(Span),
 }

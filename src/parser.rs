@@ -6,9 +6,16 @@ use crate::{
     LiteBlock, LiteCommand, LiteStatement, ParseError, ParserWorkingSet, Span,
 };
 
+pub struct Signature {
+    pub name: String,
+    pub mandatory_positional: Vec<SyntaxShape>,
+}
+
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum SyntaxShape {
+    /// A specific match to a word or symbol
+    Word(Vec<u8>),
     /// Any syntactic form is allowed
     Any,
     /// Strings and string-like bare words are allowed
@@ -154,39 +161,26 @@ fn span(spans: &[Span]) -> Span {
 }
 
 impl ParserWorkingSet {
-    /*
-    fn parse_let(&mut self, command: &LiteCommand) -> (Statement, Option<ParseError>) {
-
-    }
-    fn parse_special_command(&mut self, command: &LiteCommand) -> (Statement, Option<ParseError>) {
-        let command_name = self.get_span_contents(command.parts[0]);
-        println!("{:?}", command_name);
-        match command_name {
-            b"let" => self.parse_let(command),
-            b"def" => self.parse_def(command),
-            b"source" => self.parse_source(command),
-            _ => (
-                Statement::None,
-                Some(ParseError::UnknownStatement(command.parts[0])),
-            ),
-        }
+    pub fn parse_external_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+        // TODO: add external parsing
+        (Expression::garbage(spans[0]), None)
     }
 
-    fn parse_statement(
-        &mut self,
-        block: &mut Block,
-        lite_pipeline: &LiteStatement,
-    ) -> Option<ParseError> {
-        match lite_pipeline.commands.len() {
-            0 => None,
-            1 => None,
-            _ => {
-                // pipeline
-                None
-            }
+    pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+        // assume spans.len() > 0?
+        let name = self.get_span_contents(spans[0]);
+
+        if let Some(decl_id) = self.find_decl(name) {
+            let sig = self.get_decl(decl_id).expect("internal error: bad DeclId");
+
+            let mut positional_idx = 0;
+            let mut arg_offset = 1;
+
+            (Expression::garbage(spans[0]), None)
+        } else {
+            self.parse_external_call(spans)
         }
     }
-    */
 
     pub fn parse_int(&mut self, token: &str, span: Span) -> (Expression, Option<ParseError>) {
         if let Some(token) = token.strip_prefix("0x") {
@@ -272,7 +266,10 @@ impl ParserWorkingSet {
     ) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
         if !bytes.is_empty() && bytes[0] == b'$' {
-            if let Some((var_id, _, ty)) = self.find_variable(bytes) {
+            if let Some(var_id) = self.find_variable(bytes) {
+                let ty = *self
+                    .get_variable(var_id)
+                    .expect("internal error: invalid VarId");
                 return (
                     Expression {
                         expr: Expr::Var(var_id),
@@ -316,7 +313,7 @@ impl ParserWorkingSet {
         let bytes = self.get_span_contents(span);
 
         if is_variable(bytes) {
-            if let Some((var_id, _, _)) = self.find_variable(bytes) {
+            if let Some(var_id) = self.find_variable(bytes) {
                 (Some(var_id), None)
             } else {
                 (None, None)

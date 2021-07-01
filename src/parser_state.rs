@@ -1,13 +1,11 @@
-use crate::{ParseError, Span};
+use crate::{parser::Signature, ParseError, Span};
+use core::num;
 use std::{collections::HashMap, sync::Arc};
 
 pub struct ParserState {
     files: Vec<(String, Vec<u8>)>,
-}
-
-pub enum VarLocation {
-    CurrentScope,
-    OuterScope,
+    vars: Vec<Type>,
+    decls: Vec<Signature>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -17,24 +15,20 @@ pub enum Type {
 }
 
 pub type VarId = usize;
+pub type DeclId = usize;
 
 struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
+    decls: HashMap<Vec<u8>, DeclId>,
 }
 
 impl ScopeFrame {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
+            decls: HashMap::new(),
         }
     }
-}
-
-pub struct ParserWorkingSet {
-    files: Vec<(String, Vec<u8>)>,
-    vars: HashMap<VarId, Type>,
-    permanent_state: Option<Arc<ParserState>>,
-    scope: Vec<ScopeFrame>,
 }
 
 impl Default for ParserState {
@@ -45,7 +39,11 @@ impl Default for ParserState {
 
 impl ParserState {
     pub fn new() -> Self {
-        Self { files: vec![] }
+        Self {
+            files: vec![],
+            vars: vec![],
+            decls: vec![],
+        }
     }
 
     pub fn merge_working_set(this: &mut Arc<ParserState>, mut working_set: ParserWorkingSet) {
@@ -64,6 +62,22 @@ impl ParserState {
         self.files.len()
     }
 
+    pub fn num_vars(&self) -> usize {
+        self.vars.len()
+    }
+
+    pub fn num_decls(&self) -> usize {
+        self.decls.len()
+    }
+
+    pub fn get_var(&self, var_id: VarId) -> Option<&Type> {
+        self.vars.get(var_id)
+    }
+
+    pub fn get_decl(&self, decl_id: VarId) -> Option<&Signature> {
+        self.decls.get(decl_id)
+    }
+
     pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         self.files.push((filename, contents));
 
@@ -75,11 +89,20 @@ impl ParserState {
     }
 }
 
+pub struct ParserWorkingSet {
+    files: Vec<(String, Vec<u8>)>,
+    vars: Vec<Type>,       // indexed by VarId
+    decls: Vec<Signature>, // indexed by DeclId
+    permanent_state: Option<Arc<ParserState>>,
+    scope: Vec<ScopeFrame>,
+}
+
 impl ParserWorkingSet {
     pub fn new(permanent_state: Option<Arc<ParserState>>) -> Self {
         Self {
             files: vec![],
-            vars: HashMap::new(),
+            vars: vec![],
+            decls: vec![],
             permanent_state,
             scope: vec![],
         }
@@ -122,17 +145,29 @@ impl ParserWorkingSet {
         self.scope.push(ScopeFrame::new());
     }
 
-    pub fn find_variable(&self, name: &[u8]) -> Option<(VarId, VarLocation, Type)> {
+    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+        for scope in self.scope.iter().rev().enumerate() {
+            if let Some(decl_id) = scope.1.decls.get(name) {
+                return Some(*decl_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn next_var_id(&self) -> VarId {
+        if let Some(permanent_state) = &self.permanent_state {
+            let num_permanent_vars = permanent_state.num_vars();
+            num_permanent_vars + self.vars.len()
+        } else {
+            self.vars.len()
+        }
+    }
+
+    pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
         for scope in self.scope.iter().rev().enumerate() {
             if let Some(var_id) = scope.1.vars.get(name) {
-                if let Some(result) = self.vars.get(var_id) {
-                    if scope.0 == 0 {
-                        // Top level
-                        return Some((*var_id, VarLocation::CurrentScope, *result));
-                    } else {
-                        return Some((*var_id, VarLocation::OuterScope, *result));
-                    }
-                }
+                return Some(*var_id);
             }
         }
 
@@ -140,18 +175,44 @@ impl ParserWorkingSet {
     }
 
     pub fn add_variable(&mut self, name: Vec<u8>, ty: Type) -> VarId {
+        let next_id = self.next_var_id();
+
         let last = self
             .scope
             .last_mut()
             .expect("internal error: missing stack frame");
-
-        let next_id = self.vars.len();
 
         last.vars.insert(name, next_id);
 
         self.vars.insert(next_id, ty);
 
         next_id
+    }
+
+    pub fn get_variable(&self, var_id: VarId) -> Option<&Type> {
+        if let Some(permanent_state) = &self.permanent_state {
+            let num_permanent_vars = permanent_state.num_vars();
+            if var_id < num_permanent_vars {
+                permanent_state.get_var(var_id)
+            } else {
+                self.vars.get(var_id - num_permanent_vars)
+            }
+        } else {
+            self.vars.get(var_id)
+        }
+    }
+
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Signature> {
+        if let Some(permanent_state) = &self.permanent_state {
+            let num_permanent_decls = permanent_state.num_decls();
+            if decl_id < num_permanent_decls {
+                permanent_state.get_decl(decl_id)
+            } else {
+                self.decls.get(decl_id - num_permanent_decls)
+            }
+        } else {
+            self.decls.get(decl_id)
+        }
     }
 }
 
