@@ -3309,6 +3309,7 @@ dependencies = [
 name = "nu-cli"
 version = "0.33.1"
 dependencies = [
+ "ctrlc",
  "indexmap",
  "log 0.4.14",
  "nu-ansi-term",

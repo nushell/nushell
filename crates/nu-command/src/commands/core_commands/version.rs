@@ -184,6 +184,8 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
 fn features_enabled() -> Vec<String> {
     let mut names = vec!["default".to_string()];
 
+    // NOTE: There should be another way to know
+    // features on.
     #[cfg(feature = "ctrlc")]
     {
         names.push("ctrlc".to_string());
