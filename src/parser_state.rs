@@ -1,5 +1,4 @@
-use crate::{ParseError, Signature, Span};
-use core::num;
+use crate::{Signature, Span};
 use std::{collections::HashMap, sync::Arc};
 
 pub struct ParserState {
@@ -79,6 +78,7 @@ impl ParserState {
         self.decls.get(decl_id)
     }
 
+    #[allow(unused)]
     pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         self.files.push((filename, contents));
 
@@ -258,11 +258,11 @@ mod parser_state_tests {
     #[test]
     fn merge_states() {
         let mut parser_state = ParserState::new();
-        let parent_id = parser_state.add_file("test.nu".into(), vec![]);
+        parser_state.add_file("test.nu".into(), vec![]);
         let mut parser_state = Arc::new(parser_state);
 
         let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
-        let working_set_id = working_set.add_file("child.nu".into(), vec![]);
+        working_set.add_file("child.nu".into(), vec![]);
 
         ParserState::merge_working_set(&mut parser_state, working_set);
 

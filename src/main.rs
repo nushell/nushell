@@ -1,4 +1,4 @@
-use engine_q::{lex, lite_parse, LexMode, ParserWorkingSet, Signature, SyntaxShape};
+use engine_q::{ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {

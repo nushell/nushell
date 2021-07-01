@@ -40,7 +40,7 @@ pub enum SyntaxShape {
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
     RowCondition,
-    /// A general math expression, eg the `1 + 2` of `= 1 + 2`
+    /// A general math expression, eg `1 + 2`
     MathExpression,
 }
 
@@ -281,6 +281,10 @@ impl ParserWorkingSet {
                                 error = error.or(Some(ParseError::UnknownFlag(*first)));
                             }
                         } else if let Some(first) = unmatched_short_flags.first() {
+                            error = error.or(Some(ParseError::UnknownFlag(*first)));
+                        }
+                    } else if !unmatched_short_flags.is_empty() {
+                        if let Some(first) = unmatched_short_flags.first() {
                             error = error.or(Some(ParseError::UnknownFlag(*first)));
                         }
                     }
