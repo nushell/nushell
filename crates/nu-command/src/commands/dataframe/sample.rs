@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe load")
+        Signature::build("dataframe sample")
             .named(
                 "n_rows",
                 SyntaxShape::Number,

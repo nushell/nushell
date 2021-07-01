@@ -20,11 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe group-by").required(
-            "by columns",
-            SyntaxShape::Table,
-            "groupby columns",
-        )
+        Signature::build("dataframe group-by").rest(SyntaxShape::Any, "groupby columns")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -34,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Grouping by column a",
-            example: "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by [a]",
+            example: "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by a",
             result: None,
         }]
     }
@@ -44,7 +40,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     // Extracting the names of the columns to perform the groupby
-    let by_columns: Vec<Value> = args.req(0)?;
+    let by_columns: Vec<Value> = args.rest(0)?;
     let (columns_string, col_span) = convert_columns(&by_columns, &tag)?;
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;

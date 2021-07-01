@@ -36,16 +36,16 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dataframe to-df);
-let res = ($df.b / $df.b);
-let df = ($df | dataframe with-column $res --name res);
-$df | dataframe drop-nulls
+    let res = ($df.b / $df.b);
+    let df = ($df | dataframe with-column $res --name res);
+    $df | dataframe drop-nulls
 "#,
                 result: None,
             },
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let s = ([1 2 0 0 3 4] | dataframe to-series);
-($s / $s) | dataframe drop-nulls"#,
+    ($s / $s) | dataframe drop-nulls"#,
                 result: None,
             },
         ]

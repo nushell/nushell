@@ -34,8 +34,8 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Shifts the values by a given period",
             example: r#"let s = ([1 2 2 3 3] | dataframe to-series | dataframe shift 2);
-let mask = ($s | dataframe is-null);
-$s | dataframe set 0 --mask $mask"#,
+    let mask = ($s | dataframe is-null);
+    $s | dataframe set 0 --mask $mask"#,
             result: None,
         }]
     }

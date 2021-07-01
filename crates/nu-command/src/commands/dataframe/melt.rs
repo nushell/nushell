@@ -19,11 +19,7 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe melt")
             .required("id_columns", SyntaxShape::Table, "Id columns for melting")
-            .required(
-                "value_columns",
-                SyntaxShape::Table,
-                "columns used as value columns",
-            )
+            .rest(SyntaxShape::Any, "columns used as value columns")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -33,7 +29,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example: "[[a b]; [a 2] [b 4] [a 6]] | dataframe to-df | dataframe melt [a] [b]",
+            example: "[[a b]; [a 2] [b 4] [a 6]] | dataframe to-df | dataframe melt a b",
             result: None,
         }]
     }
@@ -43,7 +39,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     let id_col: Vec<Value> = args.req(0)?;
-    let val_col: Vec<Value> = args.req(1)?;
+    let val_col: Vec<Value> = args.rest(1)?;
 
     let (id_col_string, id_col_span) = convert_columns(&id_col, &tag)?;
     let (val_col_string, val_col_span) = convert_columns(&val_col, &tag)?;

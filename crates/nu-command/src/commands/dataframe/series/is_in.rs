@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Checks if elements from a series are contained in right series",
             example: r#"let other = ([1 3 6] | dataframe to-series);
-[5 6 6 6 8 8 8] | dataframe to-series | dataframe is-in $other"#,
+    [5 6 6 6 8 8 8] | dataframe to-series | dataframe is-in $other"#,
             result: None,
         }]
     }

@@ -72,7 +72,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Pivot a dataframe on b and aggregation on col c",
             example:
-                "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by [a] | dataframe pivot b c sum",
+                "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by a | dataframe pivot b c sum",
             result: None,
         }]
     }

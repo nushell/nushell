@@ -1,22 +1,23 @@
-use crate::prelude::*;
+use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{dataframe::NuSeries, Signature};
 use polars::prelude::IntoSeries;
+use std::ops::Not;
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe is-null"
+        "dataframe not"
     }
 
     fn usage(&self) -> &str {
-        "[Series] Creates mask where value is null"
+        "[Series] Inverts boolean mask"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe is-null")
+        Signature::build("dataframe not")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -25,10 +26,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Create mask where values are null",
-            example: r#"let s = ([5 6 0 8] | dataframe to-series);
-    let res = ($s / $s);
-    $res | dataframe is-null"#,
+            description: "Inverts boolean mask",
+            example: "[$true $false $true] | dataframe to-series | dataframe not",
             result: None,
         }]
     }
@@ -39,7 +38,15 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
 
-    let res = series.as_ref().is_null();
+    let bool = series.as_ref().bool().map_err(|e| {
+        parse_polars_error::<&str>(
+            &e,
+            &tag.span,
+            Some("not only works with series of type bool"),
+        )
+    })?;
+
+    let res = bool.not();
 
     Ok(OutputStream::one(NuSeries::series_to_value(
         res.into_series(),

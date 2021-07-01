@@ -28,7 +28,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Counts null values",
             example: r#"let s = ([1 1 0 0 3 3 4] | dataframe to-series);
-($s / ss) | dataframe count-null"#,
+    ($s / ss) | dataframe count-null"#,
             result: None,
         }]
     }

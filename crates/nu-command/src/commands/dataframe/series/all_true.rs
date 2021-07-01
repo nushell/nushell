@@ -32,8 +32,8 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Checks the result from a comparison",
                 example: r#"let s = ([5 6 2 8] | dataframe to-series);
-let res = ($s > 9);
-$res | dataframe all-true"#,
+    let res = ($s > 9);
+    $res | dataframe all-true"#,
                 result: None,
             },
         ]

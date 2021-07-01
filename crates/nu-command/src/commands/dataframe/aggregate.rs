@@ -11,8 +11,6 @@ use polars::{
     prelude::{DataType, PolarsError, Series},
 };
 
-use super::utils::convert_columns;
-
 enum Operation {
     Mean,
     Sum,
@@ -90,11 +88,6 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe aggregate")
             .required("operation", SyntaxShape::String, "aggregate operation")
-            .optional(
-                "selection",
-                SyntaxShape::Table,
-                "columns to perform aggregation",
-            )
             .named(
                 "quantile",
                 SyntaxShape::Number,
@@ -117,7 +110,7 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
-                    "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by [a] | dataframe aggregate sum",
+                    "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by a | dataframe aggregate sum",
                 result: None,
             },
             Example {
@@ -141,16 +134,6 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let operation: Tagged<String> = args.req(0)?;
     let op = Operation::from_tagged(&operation, quantile)?;
 
-    // Extracting the selection columns of the columns to perform the aggregation
-    let agg_cols: Option<Vec<Value>> = args.opt(1)?;
-    let (selection, agg_span) = match agg_cols {
-        Some(cols) => {
-            let (agg_string, agg_span) = convert_columns(&cols, &tag)?;
-            (Some(agg_string), agg_span)
-        }
-        None => (None, Span::unknown()),
-    };
-
     let value = args.input.next().ok_or_else(|| {
         ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
     })?;
@@ -159,16 +142,11 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {
             let groupby = nu_groupby.to_groupby()?;
 
-            let groupby = match &selection {
-                Some(cols) => groupby.select(cols),
-                None => groupby,
-            };
-
             let res = perform_groupby_aggregation(
                 groupby,
                 op,
                 &operation.tag,
-                &agg_span,
+                &tag.span,
                 args.has_flag("explicit"),
             )?;
 
@@ -177,16 +155,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
             let df = df.as_ref();
 
-            let res = match &selection {
-                Some(cols) => {
-                    let df = df
-                        .select(cols)
-                        .map_err(|e| parse_polars_error::<&str>(&e, &agg_span, None))?;
-
-                    perform_dataframe_aggregation(&df, op, &operation.tag)
-                }
-                None => perform_dataframe_aggregation(&df, op, &operation.tag),
-            }?;
+            let res = perform_dataframe_aggregation(&df, op, &operation.tag)?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }

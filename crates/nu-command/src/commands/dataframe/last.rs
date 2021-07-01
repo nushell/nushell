@@ -4,23 +4,22 @@ use nu_errors::ShellError;
 use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
 
 use nu_source::Tagged;
-
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe head"
+        "dataframe last"
     }
 
     fn usage(&self) -> &str {
-        "[DataFrame] Creates new dataframe with head rows"
+        "[DataFrame] Creates new dataframe with tail rows"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe select").optional(
-            "rows",
+        Signature::build("dataframe last").optional(
+            "n_rows",
             SyntaxShape::Number,
-            "Number of rows for head",
+            "Number of rows for tail",
         )
     }
 
@@ -30,8 +29,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Create new dataframe with head rows",
-            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe head",
+            description: "Create new dataframe with last rows",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe last",
             result: None,
         }]
     }
@@ -47,7 +46,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
-    let res = df.as_ref().head(Some(rows));
+
+    let res = df.as_ref().tail(Some(rows));
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

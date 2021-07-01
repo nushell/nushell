@@ -15,15 +15,15 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe load"
+        "dataframe open"
     }
 
     fn usage(&self) -> &str {
-        "Loads dataframe form csv file"
+        "Opens csv, json or parquet file to create dataframe"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe load")
+        Signature::build("dataframe open")
             .required(
                 "file",
                 SyntaxShape::FilePath,
@@ -67,7 +67,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a file name and creates a dataframe",
-            example: "dataframe load test.csv",
+            example: "dataframe open test.csv",
             result: None,
         }]
     }
