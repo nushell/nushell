@@ -1,18 +1,11 @@
-use std::str::Utf8Error;
-
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
-    LiteBlock, LiteCommand, LiteStatement, ParseError, ParserWorkingSet, Span,
+    DeclId, LiteBlock, ParseError, ParserWorkingSet, Span,
 };
 
-pub struct Signature {
-    pub name: String,
-    pub mandatory_positional: Vec<SyntaxShape>,
-}
-
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
     Word(Vec<u8>),
@@ -51,14 +44,39 @@ pub enum SyntaxShape {
     MathExpression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct Call {
+    /// identifier of the declaration to call
+    pub decl_id: DeclId,
+    pub positional: Vec<Expression>,
+    pub named: Vec<(String, Option<Expression>)>,
+}
+
+impl Default for Call {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Call {
+    pub fn new() -> Call {
+        Self {
+            decl_id: 0,
+            positional: vec![],
+            named: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Int(i64),
     Var(VarId),
+    Call(Call),
     Garbage,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     expr: Expr,
     ty: Type,
@@ -167,16 +185,141 @@ impl ParserWorkingSet {
     }
 
     pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+        let mut error = None;
+
         // assume spans.len() > 0?
         let name = self.get_span_contents(spans[0]);
 
         if let Some(decl_id) = self.find_decl(name) {
-            let sig = self.get_decl(decl_id).expect("internal error: bad DeclId");
+            let mut call = Call::new();
+
+            let sig = self
+                .get_decl(decl_id)
+                .expect("internal error: bad DeclId")
+                .clone();
 
             let mut positional_idx = 0;
             let mut arg_offset = 1;
 
-            (Expression::garbage(spans[0]), None)
+            while arg_offset < spans.len() {
+                let arg_span = spans[arg_offset];
+                let arg_contents = self.get_span_contents(arg_span);
+                if arg_contents.starts_with(&[b'-', b'-']) {
+                    // FIXME: only use the first you find
+                    let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
+                    let long_name = String::from_utf8(split[0].into());
+                    if let Ok(long_name) = long_name {
+                        if let Some(flag) = sig.get_long_flag(&long_name) {
+                            if let Some(arg_shape) = &flag.arg {
+                                if split.len() > 1 {
+                                    // and we also have the argument
+                                    let mut span = arg_span;
+                                    span.start += long_name.len() + 1; //offset by long flag and '='
+                                    let (arg, err) = self.parse_arg(span, arg_shape.clone());
+                                    error = error.or(err);
+
+                                    call.named.push((long_name, Some(arg)));
+                                } else if let Some(arg) = spans.get(arg_offset + 1) {
+                                    let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
+                                    error = error.or(err);
+
+                                    call.named.push((long_name, Some(arg)));
+                                    arg_offset += 1;
+                                } else {
+                                    error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
+                                }
+                            }
+                        } else {
+                            error = error.or(Some(ParseError::UnknownFlag(arg_span)))
+                        }
+                    } else {
+                        error = error.or(Some(ParseError::NonUtf8(arg_span)))
+                    }
+                } else if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
+                    let short_flags = &arg_contents[1..];
+                    let mut found_short_flags = vec![];
+                    let mut unmatched_short_flags = vec![];
+                    for short_flag in short_flags.iter().enumerate() {
+                        let short_flag_char = char::from(*short_flag.1);
+                        let orig = arg_span;
+                        let short_flag_span = Span {
+                            start: orig.start + 1 + short_flag.0,
+                            end: orig.start + 1 + short_flag.0 + 1,
+                            file_id: orig.file_id,
+                        };
+                        if let Some(flag) = sig.get_short_flag(short_flag_char) {
+                            // If we require an arg and are in a batch of short flags, error
+                            if !found_short_flags.is_empty() && flag.arg.is_some() {
+                                error = error.or(Some(ParseError::ShortFlagBatchCantTakeArg(
+                                    short_flag_span,
+                                )))
+                            }
+                            found_short_flags.push(flag);
+                        } else {
+                            unmatched_short_flags.push(short_flag_span);
+                        }
+                    }
+
+                    if found_short_flags.is_empty() {
+                        // check to see if we have a negative number
+                        if let Some(positional) = sig.get_positional(positional_idx) {
+                            if positional.shape == SyntaxShape::Int
+                                || positional.shape == SyntaxShape::Number
+                            {
+                                let (arg, err) = self.parse_arg(arg_span, positional.shape);
+
+                                if err.is_some() {
+                                    if let Some(first) = unmatched_short_flags.first() {
+                                        error = error.or(Some(ParseError::UnknownFlag(*first)));
+                                    }
+                                } else {
+                                    // We have successfully found a positional argument, move on
+                                    call.positional.push(arg);
+                                    positional_idx += 1;
+                                }
+                            } else if let Some(first) = unmatched_short_flags.first() {
+                                error = error.or(Some(ParseError::UnknownFlag(*first)));
+                            }
+                        } else if let Some(first) = unmatched_short_flags.first() {
+                            error = error.or(Some(ParseError::UnknownFlag(*first)));
+                        }
+                    }
+
+                    for flag in found_short_flags {
+                        if let Some(arg_shape) = flag.arg {
+                            if let Some(arg) = spans.get(arg_offset + 1) {
+                                let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
+                                error = error.or(err);
+
+                                call.named.push((flag.long.clone(), Some(arg)));
+                                arg_offset += 1;
+                            } else {
+                                error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
+                            }
+                        } else {
+                            call.named.push((flag.long.clone(), None));
+                        }
+                    }
+                } else if let Some(positional) = sig.get_positional(positional_idx) {
+                    let (arg, err) = self.parse_arg(arg_span, positional.shape);
+                    error = error.or(err);
+
+                    call.positional.push(arg);
+                } else {
+                    error = error.or(Some(ParseError::ExtraPositional(arg_span)))
+                }
+                arg_offset += 1;
+            }
+
+            // FIXME: type unknown
+            (
+                Expression {
+                    expr: Expr::Call(call),
+                    ty: Type::Unknown,
+                    span: span(spans),
+                },
+                error,
+            )
         } else {
             self.parse_external_call(spans)
         }
@@ -294,6 +437,16 @@ impl ParserWorkingSet {
                     )
                 }
             }
+            SyntaxShape::Int => {
+                if let Ok(token) = String::from_utf8(bytes.into()) {
+                    self.parse_int(&token, span)
+                } else {
+                    (
+                        garbage(span),
+                        Some(ParseError::Mismatch("number".into(), span)),
+                    )
+                }
+            }
             _ => (
                 garbage(span),
                 Some(ParseError::Mismatch("number".into(), span)),
@@ -306,7 +459,13 @@ impl ParserWorkingSet {
     }
 
     pub fn parse_expression(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
-        self.parse_math_expression(spans)
+        let bytes = self.get_span_contents(spans[0]);
+
+        match bytes[0] {
+            b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
+            | b'[' | b'$' => self.parse_math_expression(spans),
+            _ => self.parse_call(spans),
+        }
     }
 
     pub fn parse_variable(&mut self, span: Span) -> (Option<VarId>, Option<ParseError>) {
@@ -362,14 +521,9 @@ impl ParserWorkingSet {
     pub fn parse_statement(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         if let (stmt, None) = self.parse_let(spans) {
             (stmt, None)
-        } else if let (expr, None) = self.parse_expression(spans) {
-            (Statement::Expression(expr), None)
         } else {
-            let span = span(spans);
-            (
-                Statement::Expression(garbage(span)),
-                Some(ParseError::Mismatch("statement".into(), span)),
-            )
+            let (expr, err) = self.parse_expression(spans);
+            (Statement::Expression(expr), err)
         }
     }
 

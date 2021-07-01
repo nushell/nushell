@@ -1,4 +1,4 @@
-use crate::{parser::Signature, ParseError, Span};
+use crate::{ParseError, Signature, Span};
 use core::num;
 use std::{collections::HashMap, sync::Arc};
 
@@ -17,6 +17,7 @@ pub enum Type {
 pub type VarId = usize;
 pub type DeclId = usize;
 
+#[derive(Debug)]
 struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
@@ -74,7 +75,7 @@ impl ParserState {
         self.vars.get(var_id)
     }
 
-    pub fn get_decl(&self, decl_id: VarId) -> Option<&Signature> {
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Signature> {
         self.decls.get(decl_id)
     }
 
@@ -104,7 +105,7 @@ impl ParserWorkingSet {
             vars: vec![],
             decls: vec![],
             permanent_state,
-            scope: vec![],
+            scope: vec![ScopeFrame::new()],
         }
     }
 
@@ -116,6 +117,20 @@ impl ParserWorkingSet {
         };
 
         self.files.len() + parent_len
+    }
+
+    pub fn add_decl(&mut self, name: Vec<u8>, sig: Signature) -> DeclId {
+        let scope_frame = self
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        self.decls.push(sig);
+        let decl_id = self.decls.len() - 1;
+
+        scope_frame.decls.insert(name, decl_id);
+
+        decl_id
     }
 
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
