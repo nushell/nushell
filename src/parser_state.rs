@@ -1,4 +1,4 @@
-use crate::Span;
+use crate::{ParseError, Span};
 use std::{collections::HashMap, sync::Arc};
 
 pub struct ParserState {
@@ -10,11 +10,16 @@ pub enum VarLocation {
     OuterScope,
 }
 
-#[derive(Clone, Copy)]
-pub enum Type {}
+#[derive(Clone, Copy, Debug)]
+pub enum Type {
+    Int,
+    Unknown,
+}
+
+pub type VarId = usize;
 
 struct ScopeFrame {
-    vars: HashMap<String, Type>,
+    vars: HashMap<Vec<u8>, VarId>,
 }
 
 impl ScopeFrame {
@@ -27,6 +32,7 @@ impl ScopeFrame {
 
 pub struct ParserWorkingSet {
     files: Vec<(String, Vec<u8>)>,
+    vars: HashMap<VarId, Type>,
     permanent_state: Option<Arc<ParserState>>,
     scope: Vec<ScopeFrame>,
 }
@@ -73,6 +79,7 @@ impl ParserWorkingSet {
     pub fn new(permanent_state: Option<Arc<ParserState>>) -> Self {
         Self {
             files: vec![],
+            vars: HashMap::new(),
             permanent_state,
             scope: vec![],
         }
@@ -115,23 +122,38 @@ impl ParserWorkingSet {
         self.scope.push(ScopeFrame::new());
     }
 
-    pub fn find_variable(&self, name: &str) -> Option<(VarLocation, Type)> {
+    pub fn find_variable(&self, name: &[u8]) -> Option<(VarLocation, Type)> {
         for scope in self.scope.iter().rev().enumerate() {
             if let Some(result) = scope.1.vars.get(name) {
-                if scope.0 == 0 {
-                    // Top level
-                    return Some((VarLocation::CurrentScope, result.clone()));
-                } else {
-                    return Some((VarLocation::OuterScope, result.clone()));
+                if let Some(result) = self.vars.get(result) {
+                    if scope.0 == 0 {
+                        // Top level
+                        return Some((VarLocation::CurrentScope, result.clone()));
+                    } else {
+                        return Some((VarLocation::OuterScope, result.clone()));
+                    }
                 }
             }
         }
 
         None
     }
-}
 
-fn main() {}
+    pub fn add_variable(&mut self, name: Vec<u8>, ty: Type) -> VarId {
+        let last = self
+            .scope
+            .last_mut()
+            .expect("internal error: missing stack frame");
+
+        let next_id = self.vars.len();
+
+        last.vars.insert(name, next_id);
+
+        self.vars.insert(next_id, ty);
+
+        next_id
+    }
+}
 
 #[cfg(test)]
 mod parser_state_tests {

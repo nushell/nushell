@@ -4,4 +4,6 @@ pub use crate::Span;
 pub enum ParseError {
     ExtraTokens(Span),
     UnexpectedEof(String, Span),
+    UnknownStatement(Span),
+    Mismatch(String, Span),
 }

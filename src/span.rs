@@ -13,4 +13,12 @@ impl Span {
             file_id,
         }
     }
+
+    pub fn unknown() -> Span {
+        Span {
+            start: usize::MAX,
+            end: usize::MAX,
+            file_id: usize::MAX,
+        }
+    }
 }
