@@ -122,15 +122,15 @@ impl ParserWorkingSet {
         self.scope.push(ScopeFrame::new());
     }
 
-    pub fn find_variable(&self, name: &[u8]) -> Option<(VarLocation, Type)> {
+    pub fn find_variable(&self, name: &[u8]) -> Option<(VarId, VarLocation, Type)> {
         for scope in self.scope.iter().rev().enumerate() {
-            if let Some(result) = scope.1.vars.get(name) {
-                if let Some(result) = self.vars.get(result) {
+            if let Some(var_id) = scope.1.vars.get(name) {
+                if let Some(result) = self.vars.get(var_id) {
                     if scope.0 == 0 {
                         // Top level
-                        return Some((VarLocation::CurrentScope, result.clone()));
+                        return Some((*var_id, VarLocation::CurrentScope, *result));
                     } else {
-                        return Some((VarLocation::OuterScope, result.clone()));
+                        return Some((*var_id, VarLocation::OuterScope, *result));
                     }
                 }
             }

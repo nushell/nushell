@@ -121,6 +121,22 @@ fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
 }
 
+fn is_identifier_byte(b: u8) -> bool {
+    b != b'.' && b != b'[' && b != b'(' && b != b'{'
+}
+
+fn is_identifier(bytes: &[u8]) -> bool {
+    bytes.iter().all(|x| is_identifier_byte(*x))
+}
+
+fn is_variable(bytes: &[u8]) -> bool {
+    if bytes.len() > 1 && bytes[0] == b'$' {
+        is_identifier(&bytes[1..])
+    } else {
+        is_identifier(bytes)
+    }
+}
+
 fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
@@ -254,9 +270,25 @@ impl ParserWorkingSet {
         span: Span,
         shape: SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
+        if !bytes.is_empty() && bytes[0] == b'$' {
+            if let Some((var_id, _, ty)) = self.find_variable(bytes) {
+                return (
+                    Expression {
+                        expr: Expr::Var(var_id),
+                        ty,
+                        span,
+                    },
+                    None,
+                );
+            } else {
+                return (garbage(span), Some(ParseError::VariableNotFound(span)));
+            }
+        }
+
         match shape {
             SyntaxShape::Number => {
-                if let Ok(token) = String::from_utf8(self.get_span_contents(span).into()) {
+                if let Ok(token) = String::from_utf8(bytes.into()) {
                     self.parse_number(&token, span)
                 } else {
                     (
@@ -280,13 +312,17 @@ impl ParserWorkingSet {
         self.parse_math_expression(spans)
     }
 
-    pub fn parse_variable(&mut self, span: Span) -> Option<ParseError> {
-        let contents = self.get_span_contents(span);
+    pub fn parse_variable(&mut self, span: Span) -> (Option<VarId>, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
 
-        if !contents.is_empty() && contents[0] == b'$' {
-            None
+        if is_variable(bytes) {
+            if let Some((var_id, _, _)) = self.find_variable(bytes) {
+                (Some(var_id), None)
+            } else {
+                (None, None)
+            }
         } else {
-            Some(ParseError::Mismatch("variable".into(), span))
+            (None, Some(ParseError::Mismatch("variable".into(), span)))
         }
     }
 
@@ -304,7 +340,7 @@ impl ParserWorkingSet {
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         let mut error = None;
         if spans.len() >= 4 && self.parse_keyword(spans[0], b"let").is_none() {
-            let err = self.parse_variable(spans[1]);
+            let (_, err) = self.parse_variable(spans[1]);
             error = error.or(err);
 
             let err = self.parse_keyword(spans[2], b"=");
@@ -368,8 +404,6 @@ impl ParserWorkingSet {
 
         let (output, err) = lite_parse(&output);
         error = error.or(err);
-
-        println!("{:?}", output);
 
         let (output, err) = self.parse_block(&output);
         error = error.or(err);

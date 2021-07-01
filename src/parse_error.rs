@@ -6,4 +6,5 @@ pub enum ParseError {
     UnexpectedEof(String, Span),
     UnknownStatement(Span),
     Mismatch(String, Span),
+    VariableNotFound(Span),
 }
