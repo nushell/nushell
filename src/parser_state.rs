@@ -156,6 +156,19 @@ impl ParserWorkingSet {
         }
     }
 
+    pub fn get_file_contents(&self, file_id: usize) -> &[u8] {
+        if let Some(permanent_state) = &self.permanent_state {
+            let num_permanent_files = permanent_state.num_files();
+            if file_id < num_permanent_files {
+                &permanent_state.get_file_contents(file_id)
+            } else {
+                &self.files[file_id - num_permanent_files].1
+            }
+        } else {
+            &self.files[file_id].1
+        }
+    }
+
     pub fn enter_scope(&mut self) {
         self.scope.push(ScopeFrame::new());
     }

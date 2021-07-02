@@ -101,6 +101,7 @@ pub enum Expr {
     Call(Call),
     Operator(Operator),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
+    Subexpression(Box<Block>),
     Garbage,
 }
 
@@ -146,10 +147,10 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Import {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub stmts: Vec<Statement>,
 }
@@ -190,13 +191,13 @@ impl Block {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDecl {
     var_id: VarId,
     expression: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Pipeline(Pipeline),
     VarDecl(VarDecl),
@@ -205,7 +206,7 @@ pub enum Statement {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pipeline {}
 
 impl Default for Pipeline {
@@ -504,28 +505,81 @@ impl ParserWorkingSet {
         }
     }
 
+    pub fn parse_dollar_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
+
+        if let Some(var_id) = self.find_variable(bytes) {
+            let ty = *self
+                .get_variable(var_id)
+                .expect("internal error: invalid VarId");
+
+            (
+                Expression {
+                    expr: Expr::Var(var_id),
+                    ty,
+                    span,
+                },
+                None,
+            )
+        } else {
+            (garbage(span), Some(ParseError::VariableNotFound(span)))
+        }
+    }
+
+    pub fn parse_full_column_path(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        // FIXME: assume for now a paren expr, but needs more
+        let bytes = self.get_span_contents(span);
+        let mut error = None;
+
+        let mut start = span.start;
+        let mut end = span.end;
+
+        if bytes.starts_with(b"(") {
+            start += 1;
+        }
+        if bytes.ends_with(b")") {
+            end -= 1;
+        }
+
+        let span = Span {
+            start,
+            end,
+            file_id: span.file_id,
+        };
+
+        let source = self.get_file_contents(span.file_id);
+
+        let (output, err) = lex(&source[..end], span.file_id, start, crate::LexMode::Normal);
+        error = error.or(err);
+
+        println!("parsing subexpression: {:?} {:?}", output, error);
+
+        let (output, err) = lite_parse(&output);
+        error = error.or(err);
+
+        let (output, err) = self.parse_block(&output);
+        error = error.or(err);
+
+        (
+            Expression {
+                expr: Expr::Subexpression(Box::new(output)),
+                ty: Type::Unknown,
+                span,
+            },
+            error,
+        )
+    }
+
     pub fn parse_arg(
         &mut self,
         span: Span,
         shape: SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
-        if !bytes.is_empty() && bytes[0] == b'$' {
-            if let Some(var_id) = self.find_variable(bytes) {
-                let ty = *self
-                    .get_variable(var_id)
-                    .expect("internal error: invalid VarId");
-                return (
-                    Expression {
-                        expr: Expr::Var(var_id),
-                        ty,
-                        span,
-                    },
-                    None,
-                );
-            } else {
-                return (garbage(span), Some(ParseError::VariableNotFound(span)));
-            }
+        if bytes.starts_with(b"$") {
+            return self.parse_dollar_expr(span);
+        } else if bytes.starts_with(b"(") {
+            return self.parse_full_column_path(span);
         }
 
         match shape {
