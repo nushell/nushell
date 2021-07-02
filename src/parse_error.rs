@@ -5,6 +5,7 @@ pub enum ParseError {
     ExtraTokens(Span),
     ExtraPositional(Span),
     UnexpectedEof(String, Span),
+    Unclosed(String, Span),
     UnknownStatement(Span),
     Mismatch(String, Span),
     VariableNotFound(Span),
