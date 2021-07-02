@@ -3,7 +3,7 @@ use std::ops::{Index, IndexMut};
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
-    DeclId, LiteBlock, ParseError, ParserWorkingSet, Span,
+    DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -188,6 +188,23 @@ fn is_variable(bytes: &[u8]) -> bool {
     }
 }
 
+fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
+    if call.positional.len() < sig.required_positional.len() {
+        let missing = &sig.required_positional[call.positional.len()];
+        Some(ParseError::MissingPositional(missing.name.clone(), command))
+    } else {
+        for req_flag in sig.named.iter().filter(|x| x.required) {
+            if call.named.iter().all(|(n, _)| n != &req_flag.long) {
+                return Some(ParseError::MissingRequiredFlag(
+                    req_flag.long.clone(),
+                    command,
+                ));
+            }
+        }
+        None
+    }
+}
+
 fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
@@ -340,6 +357,9 @@ impl ParserWorkingSet {
                 }
                 arg_offset += 1;
             }
+
+            let err = check_call(spans[0], &sig, &call);
+            error = error.or(err);
 
             // FIXME: type unknown
             (
@@ -612,7 +632,7 @@ impl ParserWorkingSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::Signature;
+    use crate::{ParseError, Signature};
 
     use super::*;
 
@@ -651,5 +671,83 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    pub fn parse_call_missing_flag_arg() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+
+        let (_, err) = working_set.parse_source(b"foo --jazz");
+        assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
+    }
+
+    #[test]
+    pub fn parse_call_missing_short_flag_arg() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+
+        let (_, err) = working_set.parse_source(b"foo -j");
+        assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
+    }
+
+    #[test]
+    pub fn parse_call_too_many_shortflag_args() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo")
+            .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
+            .named("--math", SyntaxShape::Int, "math!!", Some('m'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+        let (_, err) = working_set.parse_source(b"foo -mj");
+        assert!(matches!(
+            err,
+            Some(ParseError::ShortFlagBatchCantTakeArg(..))
+        ));
+    }
+
+    #[test]
+    pub fn parse_call_unknown_shorthand() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+        let (_, err) = working_set.parse_source(b"foo -mj");
+        assert!(matches!(err, Some(ParseError::UnknownFlag(..))));
+    }
+
+    #[test]
+    pub fn parse_call_extra_positional() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+        let (_, err) = working_set.parse_source(b"foo -j 100");
+        assert!(matches!(err, Some(ParseError::ExtraPositional(..))));
+    }
+
+    #[test]
+    pub fn parse_call_missing_req_positional() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
+        working_set.add_decl((b"foo").to_vec(), sig);
+        let (_, err) = working_set.parse_source(b"foo");
+        assert!(matches!(err, Some(ParseError::MissingPositional(..))));
+    }
+
+    #[test]
+    pub fn parse_call_missing_req_flag() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig =
+            Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
+        working_set.add_decl((b"foo").to_vec(), sig);
+        let (_, err) = working_set.parse_source(b"foo");
+        assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
     }
 }
