@@ -10,7 +10,8 @@ fn main() -> std::io::Result<()> {
         //let file = std::fs::read(&path)?;
         //let (output, err) = working_set.parse_file(&path, &file);
         let (output, err) = working_set.parse_source(path.as_bytes());
-        println!("{:?} {:?}", output, err);
+        println!("{:#?}", output);
+        println!("error: {:?}", err);
 
         Ok(())
     } else {

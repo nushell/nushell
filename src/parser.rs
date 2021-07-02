@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
-    Word(Vec<u8>),
+    Literal(Vec<u8>),
     /// Any syntactic form is allowed
     Any,
     /// Strings and string-like bare words are allowed
@@ -44,6 +44,30 @@ pub enum SyntaxShape {
     RowCondition,
     /// A general math expression, eg `1 + 2`
     MathExpression,
+    /// A general expression, eg `1 + 2` or `foo --bar`
+    Expression,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Operator {
+    Equal,
+    NotEqual,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+    Contains,
+    NotContains,
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    In,
+    NotIn,
+    Modulo,
+    And,
+    Or,
+    Pow,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +99,8 @@ pub enum Expr {
     Int(i64),
     Var(VarId),
     Call(Call),
+    Operator(Operator),
+    BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Garbage,
 }
 
@@ -90,6 +116,32 @@ impl Expression {
             expr: Expr::Garbage,
             span,
             ty: Type::Unknown,
+        }
+    }
+    pub fn precedence(&self) -> usize {
+        match &self.expr {
+            Expr::Operator(operator) => {
+                // Higher precedence binds tighter
+
+                match operator {
+                    Operator::Pow => 100,
+                    Operator::Multiply | Operator::Divide | Operator::Modulo => 95,
+                    Operator::Plus | Operator::Minus => 90,
+                    Operator::NotContains
+                    | Operator::Contains
+                    | Operator::LessThan
+                    | Operator::LessThanOrEqual
+                    | Operator::GreaterThan
+                    | Operator::GreaterThanOrEqual
+                    | Operator::Equal
+                    | Operator::NotEqual
+                    | Operator::In
+                    | Operator::NotIn => 80,
+                    Operator::And => 50,
+                    Operator::Or => 40, // TODO: should we have And and Or be different precedence?
+                }
+            }
+            _ => 0,
         }
     }
 }
@@ -497,6 +549,27 @@ impl ParserWorkingSet {
                     )
                 }
             }
+            SyntaxShape::Any => {
+                let shapes = vec![
+                    SyntaxShape::Int,
+                    SyntaxShape::Number,
+                    SyntaxShape::Range,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::Block,
+                    SyntaxShape::Table,
+                    SyntaxShape::String,
+                ];
+                for shape in shapes.iter() {
+                    if let (s, None) = self.parse_arg(span, shape.clone()) {
+                        return (s, None);
+                    }
+                }
+                (
+                    garbage(span),
+                    Some(ParseError::Mismatch("any shape".into(), span)),
+                )
+            }
             _ => (
                 garbage(span),
                 Some(ParseError::Mismatch("number".into(), span)),
@@ -504,8 +577,140 @@ impl ParserWorkingSet {
         }
     }
 
+    pub fn parse_operator(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let contents = self.get_span_contents(span);
+
+        let operator = match contents {
+            b"==" => Operator::Equal,
+            b"!=" => Operator::NotEqual,
+            b"<" => Operator::LessThan,
+            b"<=" => Operator::LessThanOrEqual,
+            b">" => Operator::GreaterThan,
+            b">=" => Operator::GreaterThanOrEqual,
+            b"=~" => Operator::Contains,
+            b"!~" => Operator::NotContains,
+            b"+" => Operator::Plus,
+            b"-" => Operator::Minus,
+            b"*" => Operator::Multiply,
+            b"/" => Operator::Divide,
+            b"in" => Operator::In,
+            b"not-in" => Operator::NotIn,
+            b"mod" => Operator::Modulo,
+            b"&&" => Operator::And,
+            b"||" => Operator::Or,
+            b"**" => Operator::Pow,
+            _ => {
+                return (
+                    garbage(span),
+                    Some(ParseError::Mismatch("operator".into(), span)),
+                );
+            }
+        };
+
+        (
+            Expression {
+                expr: Expr::Operator(operator),
+                ty: Type::Unknown,
+                span,
+            },
+            None,
+        )
+    }
+
     pub fn parse_math_expression(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
-        self.parse_arg(spans[0], SyntaxShape::Number)
+        // As the expr_stack grows, we increase the required precedence to grow larger
+        // If, at any time, the operator we're looking at is the same or lower precedence
+        // of what is in the expression stack, we collapse the expression stack.
+        //
+        // This leads to an expression stack that grows under increasing precedence and collapses
+        // under decreasing/sustained precedence
+        //
+        // The end result is a stack that we can fold into binary operations as right associations
+        // safely.
+
+        let mut expr_stack: Vec<Expression> = vec![];
+
+        let mut idx = 0;
+        let mut last_prec = 1000000;
+
+        let mut error = None;
+        let (lhs, err) = self.parse_arg(spans[0], SyntaxShape::Any);
+        error = error.or(err);
+        idx += 1;
+
+        expr_stack.push(lhs);
+
+        while idx < spans.len() {
+            let (op, err) = self.parse_operator(spans[idx]);
+            error = error.or(err);
+
+            let op_prec = op.precedence();
+
+            idx += 1;
+
+            if idx == spans.len() {
+                // Handle broken math expr `1 +` etc
+                error = error.or(Some(ParseError::IncompleteMathExpression(spans[idx - 1])));
+                break;
+            }
+
+            let (rhs, err) = self.parse_arg(spans[idx], SyntaxShape::Any);
+            error = error.or(err);
+
+            if op_prec <= last_prec {
+                while expr_stack.len() > 1 {
+                    // Collapse the right associated operations first
+                    // so that we can get back to a stack with a lower precedence
+                    let rhs = expr_stack
+                        .pop()
+                        .expect("internal error: expression stack empty");
+                    let op = expr_stack
+                        .pop()
+                        .expect("internal error: expression stack empty");
+                    let lhs = expr_stack
+                        .pop()
+                        .expect("internal error: expression stack empty");
+
+                    let op_span = span(&[lhs.span, rhs.span]);
+                    expr_stack.push(Expression {
+                        expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
+                        span: op_span,
+                        ty: Type::Unknown,
+                    });
+                }
+            }
+            expr_stack.push(op);
+            expr_stack.push(rhs);
+
+            last_prec = op_prec;
+
+            idx += 1;
+        }
+
+        while expr_stack.len() != 1 {
+            let rhs = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
+            let op = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
+            let lhs = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
+
+            let binary_op_span = span(&[lhs.span, rhs.span]);
+            expr_stack.push(Expression {
+                expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
+                ty: Type::Unknown,
+                span: binary_op_span,
+            });
+        }
+
+        let output = expr_stack
+            .pop()
+            .expect("internal error: expression stack empty");
+
+        (output, error)
     }
 
     pub fn parse_expression(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
