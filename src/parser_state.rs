@@ -53,6 +53,10 @@ impl ParserState {
         // Take the mutable reference and extend the permanent state from the working set
         if let Some(this) = std::sync::Arc::<ParserState>::get_mut(this) {
             this.files.extend(working_set.files);
+            this.decls.extend(working_set.decls);
+            this.vars.extend(working_set.vars);
+
+            //FIXME: add scope frame merging
         } else {
             panic!("Internal error: merging working set should always succeed");
         }

@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
@@ -97,7 +99,31 @@ pub enum Import {}
 
 #[derive(Debug)]
 pub struct Block {
-    stmts: Vec<Statement>,
+    pub stmts: Vec<Statement>,
+}
+
+impl Block {
+    pub fn len(&self) -> usize {
+        self.stmts.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.stmts.is_empty()
+    }
+}
+
+impl Index<usize> for Block {
+    type Output = Statement;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.stmts[index]
+    }
+}
+
+impl IndexMut<usize> for Block {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.stmts[index]
+    }
 }
 
 impl Default for Block {
@@ -581,5 +607,49 @@ impl ParserWorkingSet {
         error = error.or(err);
 
         (output, error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Signature;
+
+    use super::*;
+
+    #[test]
+    pub fn parse_int() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let (block, err) = working_set.parse_source(b"3");
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        assert!(matches!(
+            block[0],
+            Statement::Expression(Expression {
+                expr: Expr::Int(3),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    pub fn parse_call() {
+        let mut working_set = ParserWorkingSet::new(None);
+
+        let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+        working_set.add_decl((b"foo").to_vec(), sig);
+
+        let (block, err) = working_set.parse_source(b"foo");
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        assert!(matches!(
+            block[0],
+            Statement::Expression(Expression {
+                expr: Expr::Call(Call { decl_id: 0, .. }),
+                ..
+            })
+        ));
     }
 }
