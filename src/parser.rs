@@ -98,7 +98,7 @@ impl Call {
 pub enum Expr {
     Int(i64),
     Var(VarId),
-    Call(Call),
+    Call(Box<Call>),
     Operator(Operator),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(Box<Block>),
@@ -418,7 +418,7 @@ impl ParserWorkingSet {
             // FIXME: type unknown
             (
                 Expression {
-                    expr: Expr::Call(call),
+                    expr: Expr::Call(Box::new(call)),
                     ty: Type::Unknown,
                     span: span(spans),
                 },
@@ -997,13 +997,16 @@ mod tests {
 
         assert!(err.is_none());
         assert!(block.len() == 1);
-        assert!(matches!(
-            block[0],
+
+        match &block[0] {
             Statement::Expression(Expression {
-                expr: Expr::Call(Call { decl_id: 0, .. }),
+                expr: Expr::Call(call),
                 ..
-            })
-        ));
+            }) => {
+                assert_eq!(call.decl_id, 0);
+            }
+            _ => panic!("not a call"),
+        }
     }
 
     #[test]

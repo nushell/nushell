@@ -7,10 +7,10 @@ fn main() -> std::io::Result<()> {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl((b"foo").to_vec(), sig);
 
-        //let file = std::fs::read(&path)?;
-        //let (output, err) = working_set.parse_file(&path, &file);
-        let (output, err) = working_set.parse_source(path.as_bytes());
-        println!("{:#?}", output);
+        let file = std::fs::read(&path)?;
+        let (output, err) = working_set.parse_file(&path, &file);
+        //let (output, err) = working_set.parse_source(path.as_bytes());
+        println!("{}", output.len());
         println!("error: {:?}", err);
 
         Ok(())
