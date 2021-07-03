@@ -1,6 +1,4 @@
-use std::{io::Read, mem::size_of};
-
-use engine_q::{ParserWorkingSet, Signature, Statement, SyntaxShape};
+use engine_q::{ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {
