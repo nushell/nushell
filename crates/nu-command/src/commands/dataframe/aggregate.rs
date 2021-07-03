@@ -165,8 +165,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             Ok(OutputStream::one(value))
         }
         _ => Err(ShellError::labeled_error(
-            "No groupby or dataframe",
-            "no groupby or found in input stream",
+            "No groupby, dataframe or series in stream",
+            "no groupby, dataframe or series found in input stream",
             &value.tag.span,
         )),
     }
