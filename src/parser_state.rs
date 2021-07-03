@@ -2,8 +2,7 @@ use crate::{Signature, Span};
 use std::{collections::HashMap, sync::Arc};
 
 pub struct ParserState {
-    files: Vec<(String, usize, usize)>,
-    file_contents: Vec<u8>,
+    files: Vec<(String, Vec<u8>)>,
     vars: Vec<Type>,
     decls: Vec<Signature>,
 }
@@ -42,7 +41,6 @@ impl ParserState {
     pub fn new() -> Self {
         Self {
             files: vec![],
-            file_contents: vec![],
             vars: vec![],
             decls: vec![],
         }
@@ -55,7 +53,6 @@ impl ParserState {
         // Take the mutable reference and extend the permanent state from the working set
         if let Some(this) = std::sync::Arc::<ParserState>::get_mut(this) {
             this.files.extend(working_set.files);
-            this.file_contents.extend(working_set.file_contents);
             this.decls.extend(working_set.decls);
             this.vars.extend(working_set.vars);
 
@@ -85,27 +82,20 @@ impl ParserState {
         self.decls.get(decl_id)
     }
 
-    pub fn next_span_start(&self) -> usize {
-        self.file_contents.len()
-    }
-
     #[allow(unused)]
     pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
-        let next_span_start = self.next_span_start();
-
-        self.file_contents.extend(&contents);
-
-        let next_span_end = self.next_span_start();
-
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files.push((filename, contents));
 
         self.num_files() - 1
+    }
+
+    pub(crate) fn get_file_contents(&self, idx: usize) -> &[u8] {
+        &self.files[idx].1
     }
 }
 
 pub struct ParserWorkingSet {
-    files: Vec<(String, usize, usize)>,
-    pub(crate) file_contents: Vec<u8>,
+    files: Vec<(String, Vec<u8>)>,
     vars: Vec<Type>,       // indexed by VarId
     decls: Vec<Signature>, // indexed by DeclId
     permanent_state: Option<Arc<ParserState>>,
@@ -116,7 +106,6 @@ impl ParserWorkingSet {
     pub fn new(permanent_state: Option<Arc<ParserState>>) -> Self {
         Self {
             files: vec![],
-            file_contents: vec![],
             vars: vec![],
             decls: vec![],
             permanent_state,
@@ -148,36 +137,35 @@ impl ParserWorkingSet {
         decl_id
     }
 
-    pub fn next_span_start(&self) -> usize {
-        if let Some(permanent_state) = &self.permanent_state {
-            permanent_state.next_span_start() + self.file_contents.len()
-        } else {
-            self.file_contents.len()
-        }
-    }
-
     pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
-        let next_span_start = self.next_span_start();
-
-        self.file_contents.extend(&contents);
-
-        let next_span_end = self.next_span_start();
-
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files.push((filename, contents));
 
         self.num_files() - 1
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         if let Some(permanent_state) = &self.permanent_state {
-            let permanent_end = permanent_state.next_span_start();
-            if permanent_end <= span.start {
-                &self.file_contents[(span.start - permanent_end)..(span.end - permanent_end)]
+            let num_permanent_files = permanent_state.num_files();
+            if span.file_id < num_permanent_files {
+                &permanent_state.get_file_contents(span.file_id)[span.start..span.end]
             } else {
-                &permanent_state.file_contents[span.start..span.end]
+                &self.files[span.file_id - num_permanent_files].1[span.start..span.end]
             }
         } else {
-            &self.file_contents[span.start..span.end]
+            &self.files[span.file_id].1[span.start..span.end]
+        }
+    }
+
+    pub fn get_file_contents(&self, file_id: usize) -> &[u8] {
+        if let Some(permanent_state) = &self.permanent_state {
+            let num_permanent_files = permanent_state.num_files();
+            if file_id < num_permanent_files {
+                &permanent_state.get_file_contents(file_id)
+            } else {
+                &self.files[file_id - num_permanent_files].1
+            }
+        } else {
+            &self.files[file_id].1
         }
     }
 

@@ -128,7 +128,7 @@ mod tests {
     use crate::{lex, lite_parse, LiteBlock, ParseError, Span};
 
     fn lite_parse_helper(input: &[u8]) -> Result<LiteBlock, ParseError> {
-        let (output, err) = lex(input, 0, crate::LexMode::Normal);
+        let (output, err) = lex(input, 0, 0, crate::LexMode::Normal);
         if let Some(err) = err {
             return Err(err);
         }
@@ -194,7 +194,11 @@ mod tests {
         assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
         assert_eq!(
             lite_block.block[0].commands[0].comments[0],
-            Span { start: 21, end: 39 }
+            Span {
+                start: 21,
+                end: 39,
+                file_id: 0
+            }
         );
         assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
