@@ -109,6 +109,7 @@ pub enum Expr {
 #[derive(Debug, Clone)]
 pub struct Expression {
     expr: Expr,
+    ty: Type,
     span: Span,
 }
 impl Expression {
@@ -116,7 +117,7 @@ impl Expression {
         Expression {
             expr: Expr::Garbage,
             span,
-            //ty: Type::Unknown,
+            ty: Type::Unknown,
         }
     }
     pub fn precedence(&self) -> usize {
@@ -263,12 +264,13 @@ fn span(spans: &[Span]) -> Span {
 
     if length == 0 {
         Span::unknown()
-    } else if length == 1 {
+    } else if length == 1 || spans[0].file_id != spans[length - 1].file_id {
         spans[0]
     } else {
         Span {
             start: spans[0].start,
             end: spans[length - 1].end,
+            file_id: spans[0].file_id,
         }
     }
 }
@@ -340,6 +342,7 @@ impl ParserWorkingSet {
                         let short_flag_span = Span {
                             start: orig.start + 1 + short_flag.0,
                             end: orig.start + 1 + short_flag.0 + 1,
+                            file_id: orig.file_id,
                         };
                         if let Some(flag) = sig.get_short_flag(short_flag_char) {
                             // If we require an arg and are in a batch of short flags, error
@@ -416,7 +419,7 @@ impl ParserWorkingSet {
             (
                 Expression {
                     expr: Expr::Call(Box::new(call)),
-                    //ty: Type::Unknown,
+                    ty: Type::Unknown,
                     span: span(spans),
                 },
                 error,
@@ -432,6 +435,7 @@ impl ParserWorkingSet {
                 (
                     Expression {
                         expr: Expr::Int(v),
+                        ty: Type::Int,
                         span,
                     },
                     None,
@@ -447,6 +451,7 @@ impl ParserWorkingSet {
                 (
                     Expression {
                         expr: Expr::Int(v),
+                        ty: Type::Int,
                         span,
                     },
                     None,
@@ -462,6 +467,7 @@ impl ParserWorkingSet {
                 (
                     Expression {
                         expr: Expr::Int(v),
+                        ty: Type::Int,
                         span,
                     },
                     None,
@@ -476,6 +482,7 @@ impl ParserWorkingSet {
             (
                 Expression {
                     expr: Expr::Int(x),
+                    ty: Type::Int,
                     span,
                 },
                 None,
@@ -503,9 +510,14 @@ impl ParserWorkingSet {
         let bytes = self.get_span_contents(span);
 
         if let Some(var_id) = self.find_variable(bytes) {
+            let ty = *self
+                .get_variable(var_id)
+                .expect("internal error: invalid VarId");
+
             (
                 Expression {
                     expr: Expr::Var(var_id),
+                    ty,
                     span,
                 },
                 None,
@@ -535,16 +547,21 @@ impl ParserWorkingSet {
                     Span {
                         start: end,
                         end: end + 1,
+                        file_id: span.file_id,
                     },
                 ))
             });
         }
 
-        let span = Span { start, end };
+        let span = Span {
+            start,
+            end,
+            file_id: span.file_id,
+        };
 
-        let source = self.get_span_contents(span);
+        let source = self.get_file_contents(span.file_id);
 
-        let (output, err) = lex(&source, start, crate::LexMode::Normal);
+        let (output, err) = lex(&source[..end], span.file_id, start, crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -556,6 +573,7 @@ impl ParserWorkingSet {
         (
             Expression {
                 expr: Expr::Subexpression(Box::new(output)),
+                ty: Type::Unknown,
                 span,
             },
             error,
@@ -581,16 +599,21 @@ impl ParserWorkingSet {
                     Span {
                         start: end,
                         end: end + 1,
+                        file_id: span.file_id,
                     },
                 ))
             });
         }
 
-        let span = Span { start, end };
+        let span = Span {
+            start,
+            end,
+            file_id: span.file_id,
+        };
 
-        let source = &self.file_contents[..end];
+        let source = self.get_file_contents(span.file_id);
 
-        let (output, err) = lex(&source, start, crate::LexMode::Normal);
+        let (output, err) = lex(&source[..end], span.file_id, start, crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -604,6 +627,7 @@ impl ParserWorkingSet {
         (
             Expression {
                 expr: Expr::Block(Box::new(output)),
+                ty: Type::Unknown,
                 span,
             },
             error,
@@ -714,6 +738,7 @@ impl ParserWorkingSet {
         (
             Expression {
                 expr: Expr::Operator(operator),
+                ty: Type::Unknown,
                 span,
             },
             None,
@@ -778,6 +803,7 @@ impl ParserWorkingSet {
                     expr_stack.push(Expression {
                         expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
                         span: op_span,
+                        ty: Type::Unknown,
                     });
                 }
             }
@@ -803,6 +829,7 @@ impl ParserWorkingSet {
             let binary_op_span = span(&[lhs.span, rhs.span]);
             expr_stack.push(Expression {
                 expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
+                ty: Type::Unknown,
                 span: binary_op_span,
             });
         }
@@ -862,7 +889,7 @@ impl ParserWorkingSet {
             error = error.or(err);
 
             let var_name: Vec<_> = self.get_span_contents(spans[1]).into();
-            let var_id = self.add_variable(var_name, Type::Unknown);
+            let var_id = self.add_variable(var_name, expression.ty);
 
             (Statement::VarDecl(VarDecl { var_id, expression }), error)
         } else {
@@ -901,13 +928,13 @@ impl ParserWorkingSet {
         (block, error)
     }
 
-    pub fn parse_file(&mut self, fname: &str, contents: Vec<u8>) -> (Block, Option<ParseError>) {
+    pub fn parse_file(&mut self, fname: &str, contents: &[u8]) -> (Block, Option<ParseError>) {
         let mut error = None;
 
-        let (output, err) = lex(&contents, 0, crate::LexMode::Normal);
-        error = error.or(err);
+        let file_id = self.add_file(fname.into(), contents.into());
 
-        self.add_file(fname.into(), contents);
+        let (output, err) = lex(contents, file_id, 0, crate::LexMode::Normal);
+        error = error.or(err);
 
         let (output, err) = lite_parse(&output);
         error = error.or(err);
@@ -921,9 +948,9 @@ impl ParserWorkingSet {
     pub fn parse_source(&mut self, source: &[u8]) -> (Block, Option<ParseError>) {
         let mut error = None;
 
-        self.add_file("source".into(), source.into());
+        let file_id = self.add_file("source".into(), source.into());
 
-        let (output, err) = lex(source, 0, crate::LexMode::Normal);
+        let (output, err) = lex(source, file_id, 0, crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);

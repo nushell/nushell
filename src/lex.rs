@@ -51,7 +51,11 @@ fn is_item_terminator(block_level: &[BlockKind], c: u8) -> bool {
         && (c == b' ' || c == b'\t' || c == b'\n' || c == b'|' || c == b';' || c == b'#')
 }
 
-pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseError>) {
+pub fn lex_item(
+    input: &[u8],
+    curr_offset: &mut usize,
+    file_id: usize,
+) -> (Span, Option<ParseError>) {
     // This variable tracks the starting character of a string literal, so that
     // we remain inside the string literal lexer mode until we encounter the
     // closing quote.
@@ -133,7 +137,7 @@ pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseErr
         *curr_offset += 1;
     }
 
-    let span = Span::new(token_start, *curr_offset);
+    let span = Span::new(token_start, *curr_offset, file_id);
 
     // If there is still unclosed opening delimiters, close them and add
     // synthetic closing characters to the accumulated token.
@@ -167,6 +171,7 @@ pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseErr
 
 pub fn lex(
     input: &[u8],
+    file_id: usize,
     span_offset: usize,
     lex_mode: LexMode,
 ) -> (Vec<Token>, Option<ParseError>) {
@@ -193,7 +198,7 @@ pub fn lex(
                     curr_offset += 1;
                     output.push(Token::new(
                         TokenContents::Item,
-                        Span::new(span_offset + prev_idx, span_offset + idx + 1),
+                        Span::new(span_offset + prev_idx, span_offset + idx + 1, file_id),
                     ));
                     continue;
                 }
@@ -202,7 +207,7 @@ pub fn lex(
             // Otherwise, it's just a regular `|` token.
             output.push(Token::new(
                 TokenContents::Pipe,
-                Span::new(span_offset + idx, span_offset + idx + 1),
+                Span::new(span_offset + idx, span_offset + idx + 1, file_id),
             ));
             is_complete = false;
         } else if c == b';' {
@@ -212,13 +217,14 @@ pub fn lex(
                 error = Some(ParseError::ExtraTokens(Span::new(
                     curr_offset,
                     curr_offset + 1,
+                    file_id,
                 )));
             }
             let idx = curr_offset;
             curr_offset += 1;
             output.push(Token::new(
                 TokenContents::Semicolon,
-                Span::new(idx, idx + 1),
+                Span::new(idx, idx + 1, file_id),
             ));
         } else if c == b'\n' || c == b'\r' {
             // If the next character is a newline, we're looking at an EOL (end of line) token.
@@ -226,7 +232,10 @@ pub fn lex(
             let idx = curr_offset;
             curr_offset += 1;
             if lex_mode == LexMode::Normal {
-                output.push(Token::new(TokenContents::Eol, Span::new(idx, idx + 1)));
+                output.push(Token::new(
+                    TokenContents::Eol,
+                    Span::new(idx, idx + 1, file_id),
+                ));
             }
         } else if c == b'#' {
             // If the next character is `#`, we're at the beginning of a line
@@ -238,7 +247,7 @@ pub fn lex(
                 if *input == b'\n' {
                     output.push(Token::new(
                         TokenContents::Comment,
-                        Span::new(start, curr_offset),
+                        Span::new(start, curr_offset, file_id),
                     ));
                     start = curr_offset;
 
@@ -248,7 +257,7 @@ pub fn lex(
             if start != curr_offset {
                 output.push(Token::new(
                     TokenContents::Comment,
-                    Span::new(start, curr_offset),
+                    Span::new(start, curr_offset, file_id),
                 ));
             }
         } else if c == b' ' || c == b'\t' {
@@ -257,7 +266,7 @@ pub fn lex(
         } else {
             // Otherwise, try to consume an unclassified token.
 
-            let (span, err) = lex_item(input, &mut curr_offset);
+            let (span, err) = lex_item(input, &mut curr_offset, file_id);
             if error.is_none() {
                 error = err;
             }
@@ -276,7 +285,7 @@ mod lex_tests {
     fn lex_basic() {
         let file = b"let x = 4";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, 0, LexMode::Normal);
 
         assert!(output.1.is_none());
     }
@@ -285,12 +294,16 @@ mod lex_tests {
     fn lex_newline() {
         let file = b"let x = 300\nlet y = 500;";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, 0, LexMode::Normal);
 
         println!("{:#?}", output.0);
         assert!(output.0.contains(&Token {
             contents: TokenContents::Eol,
-            span: Span { start: 11, end: 12 }
+            span: Span {
+                start: 11,
+                end: 12,
+                file_id: 0
+            }
         }));
     }
 
@@ -298,7 +311,7 @@ mod lex_tests {
     fn lex_empty() {
         let file = b"";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, 0, LexMode::Normal);
 
         assert!(output.0.is_empty());
         assert!(output.1.is_none());

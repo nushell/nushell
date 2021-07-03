@@ -8,17 +8,10 @@ fn main() -> std::io::Result<()> {
         working_set.add_decl((b"foo").to_vec(), sig);
 
         let file = std::fs::read(&path)?;
-        let (output, err) = working_set.parse_file(&path, file);
+        let (output, err) = working_set.parse_file(&path, &file);
         //let (output, err) = working_set.parse_source(path.as_bytes());
         println!("{}", output.len());
         println!("error: {:?}", err);
-        // println!("{}", size_of::<Statement>());
-
-        // let mut buffer = String::new();
-        // let stdin = std::io::stdin();
-        // let mut handle = stdin.lock();
-
-        // handle.read_to_string(&mut buffer)?;
 
         Ok(())
     } else {
