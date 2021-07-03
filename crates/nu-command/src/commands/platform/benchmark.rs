@@ -12,8 +12,8 @@ use nu_protocol::{
     Dictionary, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use rand::{
-    distributions::Alphanumeric,
-    prelude::{thread_rng, Rng},
+    distributions::{Alphanumeric, Distribution},
+    thread_rng, Rng,
 };
 use std::time::Instant;
 
@@ -206,8 +206,12 @@ fn add_implicit_autoview(mut block: Arc<Block>) -> Arc<Block> {
 
 fn generate_random_env_value() -> String {
     let mut thread_rng = thread_rng();
-    let len = thread_rng.gen_range(1, 16 * 1024);
-    thread_rng.sample_iter(&Alphanumeric).take(len).collect()
+    let len = thread_rng.gen_range(1..16 * 1024);
+    Alphanumeric
+        .sample_iter(&mut thread_rng)
+        .take(len)
+        .map(char::from)
+        .collect()
 }
 
 fn generate_free_name(env: &indexmap::IndexMap<String, String>) -> String {

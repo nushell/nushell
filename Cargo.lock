@@ -3403,7 +3403,7 @@ dependencies = [
  "quick-xml 0.21.0",
  "quickcheck",
  "quickcheck_macros",
- "rand 0.7.3",
+ "rand 0.8.4",
  "rayon",
  "regex 1.5.4",
  "roxmltree",
