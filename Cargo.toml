@@ -67,11 +67,11 @@ rstest = "0.10.0"
 
 [features]
 ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
-ptree-support = ["nu-cli/ptree", "nu-command/ptree"]
+ptree-support = ["nu-command/ptree"]
 rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
-term-support = ["nu-cli/term", "nu-command/term"]
-uuid-support = ["nu-cli/uuid_crate", "nu-command/uuid_crate"]
-which-support = ["nu-cli/which", "nu-command/which", "nu-engine/which"]
+term-support = ["nu-command/term"]
+uuid-support = ["nu-command/uuid_crate"]
+which-support = ["nu-command/which", "nu-engine/which"]
 executable-support = ["nu-completion/is_executable"]
 
 default = [
@@ -128,20 +128,19 @@ textview = ["nu_plugin_textview"]
 binaryview = ["nu_plugin_binaryview"]
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
-clipboard-cli = ["nu-cli/clipboard-cli", "nu-command/clipboard-cli"]
+clipboard-cli = ["nu-command/clipboard-cli"]
 query-json = ["nu_plugin_query_json"]
 s3 = ["nu_plugin_s3"]
 selector = ["nu_plugin_selector"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
 trash-support = [
-    "nu-cli/trash-support",
     "nu-command/trash-support",
     "nu-engine/trash-support",
 ]
 tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
-zip-support = ["nu-cli/zip", "nu-command/zip"]
+zip-support = ["nu-command/zip"]
 
 #This is disabled in extra for now
 table-pager = ["nu-command/table-pager"]

@@ -18,11 +18,11 @@ jobs:
           operations-per-run: 520
           enable-statistics: true
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: 'This issue is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 5 days.'
-          stale-pr-message: 'This PR is stale because it has been open 45 days with no activity. Remove stale label or comment or this will be closed in 10 days.'
-          close-issue-message: 'This issue was closed because it has been stalled for 5 days with no activity.'
-          close-pr-message: 'This PR was closed because it has been stalled for 10 days with no activity.'
+          stale-issue-message: 'This issue is being marked stale because it has been open for 30 days without activity. If you feel that this is in error, please comment below and we will keep it marked as active.'
+          stale-pr-message: 'This PR is being marked stale because it has been open for 45 days without activity. If this PR is still active, please comment below and we will keep it marked as active.'
+          close-issue-message: 'This issue has been marked stale for more than 10 days without activity. Closing this issue, but if you find that the issue is still valid, please reopen.'
+          close-pr-message: 'This PR has been marked stale for more than 10 days without activity. Closing this PR, but if you are still working on it, please reopen.'
           days-before-issue-stale: 30
           days-before-pr-stale: 45
-          days-before-issue-close: 5
+          days-before-issue-close: 10
           days-before-pr-close: 10
