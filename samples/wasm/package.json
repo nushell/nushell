@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "wasm-pack": "^0.10.0"
+  }
+}
