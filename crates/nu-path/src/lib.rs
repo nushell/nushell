@@ -179,14 +179,8 @@ fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 // Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
 // current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
 // TODO: Merge with absolutize
-pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
+fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
-    if !path
-        .components()
-        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
-    {
-        return path;
-    }
 
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
 
@@ -197,6 +191,7 @@ pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
             .map(|c| std::matches!(c, Component::Normal(_)))
             .unwrap_or(false)
     };
+
     path.as_ref()
         .components()
         .for_each(|component| match component {
@@ -213,43 +208,10 @@ pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 ///////////////////////////////////////////////////////////////////////////////
 // Full expansions
 
-// TODO: Merge with resolve_dots
-fn absolutize(path: impl AsRef<Path>) -> PathBuf {
-    let (relative_to, path) = {
-        let components: Vec<_> = path.as_ref().components().collect();
-        let separator = components
-            .iter()
-            .enumerate()
-            // TODO: How about ...+?
-            .find(|(_, c)| c == &&Component::CurDir || c == &&Component::ParentDir);
-
-        if let Some((index, _)) = separator {
-            let (absolute, relative) = components.split_at(index);
-            let absolute: PathBuf = absolute.iter().collect();
-            let relative: PathBuf = relative.iter().collect();
-
-            (Some(absolute), relative)
-        } else {
-            (None, components.iter().collect::<PathBuf>())
-        }
-    };
-
-    let mut result = relative_to.unwrap_or_else(|| PathBuf::with_capacity(path.capacity()));
-    path.components().for_each(|component| match component {
-        Component::ParentDir => {
-            result.pop();
-        }
-        Component::CurDir => {}
-        _ => result.push(component.as_os_str()),
-    });
-
-    dunce::simplified(&result).to_path_buf()
-}
-
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    let absolutized = absolutize(path);
+    let absolutized = expand_dots(Cow::Borrowed(path.as_ref()));
     let path = match std::fs::read_link(&absolutized) {
-        Ok(resolved) => absolutize(resolved),
+        Ok(resolved) => expand_dots(Cow::Owned(resolved)),
         Err(e) => {
             if absolutized.exists() {
                 absolutized
@@ -287,7 +249,7 @@ where
 pub fn expand_path(path: Cow<'_, Path>) -> Cow<'_, Path> {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
-    resolve_dots(path)
+    expand_dots(path)
 }
 
 pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
@@ -300,20 +262,20 @@ mod tests {
     use std::io;
 
     #[test]
-    fn absolutize_two_dots() {
+    fn expand_two_dots() {
         let path = Path::new("/foo/bar/..");
 
         assert_eq!(
             PathBuf::from("/foo"), // missing path
-            absolutize(path)
+            expand_dots(path.into())
         );
     }
 
     #[test]
-    fn absolutize_with_curdir() {
+    fn expand_dots_with_curdir() {
         let path = Path::new("/foo/./bar/./baz");
 
-        assert_eq!(PathBuf::from("/foo/bar/baz"), absolutize(path));
+        assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path.into()));
     }
 
     #[test]
@@ -385,52 +347,52 @@ mod tests {
     }
 
     #[test]
-    fn resolve_dots_double_dots_no_change() {
+    fn expand_dots_double_dots_no_change() {
         // Can't resolve this as we don't know our parent dir
-        assert_eq!(Path::new(".."), resolve_dots(Path::new("..").into()));
+        assert_eq!(Path::new(".."), expand_dots(Path::new("..").into()));
     }
 
     #[test]
-    fn resolve_dots_single_dot_no_change() {
+    fn expand_dots_single_dot_no_change() {
         // Can't resolve this as we don't know our current dir
-        assert_eq!(Path::new("."), resolve_dots(Path::new(".").into()));
+        assert_eq!(Path::new("."), expand_dots(Path::new(".").into()));
     }
 
     #[test]
-    fn resolve_dots_multi_single_dots_no_change() {
-        assert_eq!(Path::new("././."), resolve_dots(Path::new("././.").into()));
+    fn expand_dots_multi_single_dots_no_change() {
+        assert_eq!(Path::new("././."), expand_dots(Path::new("././.").into()));
     }
 
     #[test]
-    fn resolve_multi_double_dots_no_change() {
+    fn expand_multi_double_dots_no_change() {
         assert_eq!(
             Path::new("../../../"),
-            resolve_dots(Path::new("../../../").into())
+            expand_dots(Path::new("../../../").into())
         );
     }
 
     #[test]
-    fn resolve_dots_no_change_with_dirs() {
+    fn expand_dots_no_change_with_dirs() {
         // Can't resolve this as we don't know our parent dir
         assert_eq!(
             Path::new("../../../dir1/dir2/"),
-            resolve_dots(Path::new("../../../dir1/dir2").into())
+            expand_dots(Path::new("../../../dir1/dir2").into())
         );
     }
 
     #[test]
-    fn resolve_dots_simple() {
+    fn expand_dots_simple() {
         assert_eq!(
             Path::new("/foo"),
-            resolve_dots(Path::new("/foo/bar/..").into())
+            expand_dots(Path::new("/foo/bar/..").into())
         );
     }
 
     #[test]
-    fn resolve_dots_complex() {
+    fn expand_dots_complex() {
         assert_eq!(
             Path::new("/test"),
-            resolve_dots(Path::new("/foo/./bar/../../test/././test2/../").into())
+            expand_dots(Path::new("/foo/./bar/../../test/././test2/../").into())
         );
     }
 
