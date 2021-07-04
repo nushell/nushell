@@ -32,9 +32,9 @@ pub use dataframe::{
     DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
     DataFrameLast, DataFrameList, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFrameNot,
     DataFrameOpen, DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameSeriesRename,
-    DataFrameSet, DataFrameShift, DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTake,
-    DataFrameToCsv, DataFrameToDF, DataFrameToParquet, DataFrameToSeries, DataFrameUnique,
-    DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
+    DataFrameSet, DataFrameSetWithIdx, DataFrameShift, DataFrameShow, DataFrameSlice,
+    DataFrameSort, DataFrameTake, DataFrameToCsv, DataFrameToDF, DataFrameToParquet,
+    DataFrameToSeries, DataFrameUnique, DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;

@@ -22,9 +22,9 @@ impl WholeStreamCommand for DataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe take").required(
-            "series",
+            "indices",
             SyntaxShape::Any,
-            "series to be added",
+            "list of indices used to take data",
         )
     }
 

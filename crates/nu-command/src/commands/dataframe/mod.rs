@@ -79,6 +79,7 @@ pub use series::DataFrameNUnique;
 pub use series::DataFrameNot;
 pub use series::DataFrameSeriesRename;
 pub use series::DataFrameSet;
+pub use series::DataFrameSetWithIdx;
 pub use series::DataFrameShift;
 pub use series::DataFrameUnique;
 pub use series::DataFrameValueCounts;
