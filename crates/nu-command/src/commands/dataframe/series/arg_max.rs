@@ -1,9 +1,9 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::NuSeries, Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuSeries, Signature};
+
+use polars::prelude::{IntoSeries, NewChunkedArray, UInt32Chunked};
 
 pub struct DataFrame;
 
@@ -40,18 +40,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let res = series.as_ref().arg_max();
 
-    let value = match res {
-        Some(index) => UntaggedValue::Primitive(Primitive::Int(index as i64)),
-        None => UntaggedValue::Primitive(Primitive::Nothing),
+    let chunked = match res {
+        Some(index) => UInt32Chunked::new_from_slice("arg_max", &[index as u32]),
+        None => UInt32Chunked::new_from_slice("arg_max", &[]),
     };
 
-    let value = Value {
-        value,
-        tag: tag.clone(),
-    };
+    let res = chunked.into_series();
 
-    let mut data = TaggedDictBuilder::new(tag);
-    data.insert_value("arg-max", value);
-
-    Ok(OutputStream::one(data.into_value()))
+    Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
 }

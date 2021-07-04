@@ -38,9 +38,7 @@ nu-value-ext = { version="0.33.1", path="../nu-value-ext" }
 nu-ansi-term = { version="0.33.1", path="../nu-ansi-term" }
 
 [dependencies.polars]
-git = "https://github.com/pola-rs/polars"
-rev = "adc358b437f93bc7f844a94d68c064616e9d2ac2"
-version = "0.14.2"
+version = "0.14.5"
 optional = true
 features = ["strings", "checked_arithmetic"]
 
