@@ -55,8 +55,7 @@ where
 ///////////////////////////////////////////////////////////////////////////////
 // Dirs helper functions
 
-pub fn current_dir() -> io::Result<PathBuf>
-{
+pub fn current_dir() -> io::Result<PathBuf> {
     std::env::current_dir()
 }
 
@@ -179,6 +178,7 @@ fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 
 // Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
 // current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
+// TODO: Merge with absolutize
 pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
     if !path
@@ -210,33 +210,17 @@ pub fn resolve_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     Cow::Owned(dunce::simplified(&result).to_path_buf())
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Full expansions
 
-// TODO: make relative_to optional
-// TODO: rename later
-fn absolutize<P, Q>(relative_to: P, path: Q) -> PathBuf
-where
-    P: AsRef<Path>,
-    Q: AsRef<Path>,
-{
-    let path = if path.as_ref() == Path::new(".") {
-        // Joining a Path with '.' appends a '.' at the end, making the prompt
-        // more ugly - so we don't do anything, which should result in an equal
-        // path on all supported systems.
-        relative_to.as_ref().to_owned()
-    } else if path.as_ref().starts_with("~") {
-        expand_tilde(Cow::Borrowed(path.as_ref())).to_path_buf()
-    } else {
-        relative_to.as_ref().join(path)
-    };
-
+// TODO: Merge with resolve_dots
+fn absolutize(path: impl AsRef<Path>) -> PathBuf {
     let (relative_to, path) = {
-        let components: Vec<_> = path.components().collect();
+        let components: Vec<_> = path.as_ref().components().collect();
         let separator = components
             .iter()
             .enumerate()
+            // TODO: How about ...+?
             .find(|(_, c)| c == &&Component::CurDir || c == &&Component::ParentDir);
 
         if let Some((index, _)) = separator {
@@ -244,47 +228,28 @@ where
             let absolute: PathBuf = absolute.iter().collect();
             let relative: PathBuf = relative.iter().collect();
 
-            (absolute, relative)
+            (Some(absolute), relative)
         } else {
-            (
-                relative_to.as_ref().to_path_buf(),
-                components.iter().collect::<PathBuf>(),
-            )
+            (None, components.iter().collect::<PathBuf>())
         }
     };
 
-    let path = if path.is_relative() {
-        let mut result = relative_to;
-        path.components().for_each(|component| match component {
-            Component::ParentDir => {
-                result.pop();
-            }
-            Component::Normal(normal) => result.push(normal),
-            _ => {}
-        });
+    let mut result = relative_to.unwrap_or_else(|| PathBuf::with_capacity(path.capacity()));
+    path.components().for_each(|component| match component {
+        Component::ParentDir => {
+            result.pop();
+        }
+        Component::CurDir => {}
+        _ => result.push(component.as_os_str()),
+    });
 
-        result
-    } else {
-        path
-    };
-
-    dunce::simplified(&path).to_path_buf()
+    dunce::simplified(&result).to_path_buf()
 }
 
-// TODO: make relative_to optional
-// TODO: rename later
-pub fn canonicalize<P, Q>(relative_to: P, path: Q) -> io::Result<PathBuf>
-where
-    P: AsRef<Path>,
-    Q: AsRef<Path>,
-{
-    let absolutized = absolutize(&relative_to, path);
+pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    let absolutized = absolutize(path);
     let path = match std::fs::read_link(&absolutized) {
-        Ok(resolved) => {
-            let parent = absolutized.parent().unwrap_or(&absolutized);
-            absolutize(parent, resolved)
-        }
-
+        Ok(resolved) => absolutize(resolved),
         Err(e) => {
             if absolutized.exists() {
                 absolutized
@@ -297,16 +262,24 @@ where
     Ok(dunce::simplified(&path).to_path_buf())
 }
 
-// TODO: rename later to just canonicalize
-pub fn canonicalize_new(path: impl AsRef<Path>) -> io::Result<PathBuf>
+pub fn canonicalize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
 {
-    if path.as_ref().is_relative() {
-        canonicalize(current_dir()?, &path)
+    let path = if path.as_ref() == Path::new(".") {
+        // Joining a Path with '.' appends a '.' at the end, making the prompt
+        // more ugly - so we don't do anything, which should result in an equal
+        // path on all supported systems.
+        relative_to.as_ref().to_owned()
+    } else if path.as_ref().starts_with("~") {
+        // TODO: No need for this branch
+        expand_tilde(Cow::Borrowed(path.as_ref())).to_path_buf()
     } else {
-        // TODO: Windows equivalent
-        // don't need "relative_to" since it will be overwritten anyway
-        canonicalize("/", &path)
-    }
+        relative_to.as_ref().join(path)
+    };
+
+    canonicalize(path)
 }
 
 // Expands ~ to home and shortens paths by removing unecessary ".." and "."
@@ -321,8 +294,6 @@ pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
     cow_map_str_path(path, expand_path)
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,24 +301,33 @@ mod tests {
 
     #[test]
     fn absolutize_two_dots() {
-        let relative_to = Path::new("/foo/bar");
-        let path = Path::new("..");
+        let path = Path::new("/foo/bar/..");
 
         assert_eq!(
             PathBuf::from("/foo"), // missing path
-            absolutize(relative_to, path)
+            absolutize(path)
         );
     }
 
     #[test]
     fn absolutize_with_curdir() {
-        let relative_to = Path::new("/foo");
-        let path = Path::new("./bar/./baz");
+        let path = Path::new("/foo/./bar/./baz");
 
-        assert!(!absolutize(relative_to, path)
-            .to_str()
-            .unwrap()
-            .contains('.'));
+        assert_eq!(PathBuf::from("/foo/bar/baz"), absolutize(path));
+    }
+
+    #[test]
+    fn canonicalize_with_and_without_relative() -> io::Result<()> {
+        let relative_to = Path::new("/foo/bar");
+        let path = Path::new("../..");
+        let full_path = Path::new("/foo/bar/../..");
+
+        assert_eq!(
+            canonicalize(full_path)?,
+            canonicalize_with(path, relative_to)?,
+        );
+
+        Ok(())
     }
 
     #[test]
@@ -357,7 +337,7 @@ mod tests {
 
         assert_eq!(
             PathBuf::from("/"), // existing path
-            canonicalize(relative_to, path)?,
+            canonicalize_with(path, relative_to)?,
         );
 
         Ok(())
@@ -368,7 +348,7 @@ mod tests {
         let relative_to = Path::new("/foo/bar/baz"); // '/foo' is missing
         let path = Path::new("../..");
 
-        assert!(canonicalize(relative_to, path).is_err());
+        assert!(canonicalize_with(path, relative_to).is_err());
     }
 
     fn check_ndots_expansion(expected: &str, s: &str) {

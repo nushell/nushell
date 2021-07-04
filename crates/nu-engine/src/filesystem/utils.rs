@@ -1,5 +1,5 @@
 use nu_errors::ShellError;
-use nu_path::canonicalize;
+use nu_path::canonicalize_with;
 use std::path::{Path, PathBuf};
 
 #[derive(Default)]
@@ -47,7 +47,7 @@ impl FileStructure {
     }
 
     fn build(&mut self, src: &Path, lvl: usize) -> Result<(), ShellError> {
-        let source = canonicalize(std::env::current_dir()?, src)?;
+        let source = canonicalize_with(src, std::env::current_dir()?)?;
 
         if source.is_dir() {
             for entry in std::fs::read_dir(src)? {
