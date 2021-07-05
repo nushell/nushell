@@ -33,11 +33,11 @@ base64 = "0.13.0"
 bigdecimal = { version="0.2.0", features=["serde"] }
 byte-unit = "4.0.9"
 bytes = "1.0.1"
-calamine = "0.17.0"
+calamine = "0.18.0"
 chrono = { version="0.4.19", features=["serde"] }
 chrono-tz = "0.5.3"
 codespan-reporting = "0.11.0"
-crossterm = { version="0.19.0", optional=true }
+crossterm = { version="0.20.0", optional=true }
 csv = "1.1.3"
 ctrlc = { version="3.1.7", optional=true }
 derive-new = "0.5.8"
@@ -54,7 +54,7 @@ getset = "0.1.1"
 glob = "0.3.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
-indexmap = { version="1.6.1", features=["serde-1"] }
+indexmap = { version="1.7", features=["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.14"
@@ -68,7 +68,7 @@ parking_lot = "0.11.1"
 pin-utils = "0.1.0"
 ptree = { version="0.3.1", optional=true }
 query_interface = "0.3.5"
-quick-xml = "0.21.0"
+quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.0"
 regex = "1.4.3"
@@ -92,7 +92,7 @@ termcolor = "1.1.2"
 titlecase = "1.1.0"
 toml = "0.5.8"
 trash = { version="1.3.0", optional=true }
-unicode-segmentation = "1.7.1"
+unicode-segmentation = "1.8"
 url = "2.2.0"
 uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
 which = { version="4.1.0", optional=true }
@@ -119,7 +119,7 @@ optional = true
 version = "0.25.3"
 
 [build-dependencies]
-shadow-rs = "0.5"
+shadow-rs = "0.6"
 
 [dev-dependencies]
 quickcheck = "1.0.3"
