@@ -81,7 +81,7 @@ pub fn decimal(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ))),
         _ => {
             let mut thread_rng = thread_rng();
-            let result: f64 = thread_rng.gen_range(min, max);
+            let result: f64 = thread_rng.gen_range(min..max);
 
             Ok(OutputStream::one(UntaggedValue::decimal_from_float(
                 result,

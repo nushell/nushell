@@ -3,8 +3,8 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
-use rand::distributions::Alphanumeric;
-use rand::prelude::{thread_rng, Rng};
+use rand::distributions::{Alphanumeric, Distribution};
+use rand::thread_rng;
 
 pub struct SubCommand;
 
@@ -58,10 +58,12 @@ pub fn chars(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     let chars_length = cmd_args.length.map_or(DEFAULT_CHARS_LENGTH, |l| l.item);
+    let mut rng = thread_rng();
 
-    let random_string: String = thread_rng()
-        .sample_iter(&Alphanumeric)
+    let random_string: String = Alphanumeric
+        .sample_iter(&mut rng)
         .take(chars_length as usize)
+        .map(char::from)
         .collect();
 
     Ok(OutputStream::one(UntaggedValue::string(random_string)))

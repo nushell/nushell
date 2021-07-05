@@ -69,7 +69,7 @@ pin-utils = "0.1.0"
 ptree = { version="0.3.1", optional=true }
 query_interface = "0.3.5"
 quick-xml = "0.21.0"
-rand = "0.7.3"
+rand = "0.8"
 rayon = "1.5.0"
 regex = "1.4.3"
 roxmltree = "0.14.0"
