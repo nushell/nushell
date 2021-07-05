@@ -715,9 +715,9 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
 name = "calamine"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8ee9c2bc7bc6d003c78883b0e576003c6dc0c53a1506288bde10a55dbe9ba24"
+checksum = "b86ca78da4bdce5ac0f0bdbc0218ad14232f1e668376e044233f64c527cf5abb"
 dependencies = [
  "byteorder",
  "codepage",
@@ -1125,7 +1125,7 @@ dependencies = [
  "libc",
  "mio 0.7.13",
  "parking_lot 0.11.1",
- "signal-hook",
+ "signal-hook 0.1.17",
  "winapi 0.3.9",
 ]
 
@@ -1141,7 +1141,23 @@ dependencies = [
  "libc",
  "mio 0.7.13",
  "parking_lot 0.11.1",
- "signal-hook",
+ "signal-hook 0.1.17",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0ebde6a9dd5e331cd6c6f48253254d117642c31653baa475e394657c59c1f7d"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi 0.8.0",
+ "libc",
+ "mio 0.7.13",
+ "parking_lot 0.11.1",
+ "signal-hook 0.3.9",
+ "signal-hook-mio",
  "winapi 0.3.9",
 ]
 
@@ -1159,6 +1175,15 @@ name = "crossterm_winapi"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0da8964ace4d3e4a044fd027919b2237000b24315a37c916f61809f1ff2140b9"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "crossterm_winapi"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a6966607622438301997d3dac0d2f6e9a90c68bb6bc1785ea98456ab93c0507"
 dependencies = [
  "winapi 0.3.9",
 ]
@@ -2234,12 +2259,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
-
-[[package]]
-name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
@@ -2254,7 +2273,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
 dependencies = [
- "hashbrown 0.11.2",
+ "hashbrown",
 ]
 
 [[package]]
@@ -2559,12 +2578,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.6.2"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
+checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg",
- "hashbrown 0.9.1",
+ "hashbrown",
  "serde 1.0.126",
 ]
 
@@ -3334,7 +3353,7 @@ dependencies = [
  "rustyline",
  "serde 1.0.126",
  "serde_yaml",
- "shadow-rs",
+ "shadow-rs 0.5.25",
  "strip-ansi-escapes",
 ]
 
@@ -3352,7 +3371,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "codespan-reporting",
- "crossterm 0.19.0",
+ "crossterm 0.20.0",
  "csv",
  "ctrlc",
  "derive-new",
@@ -3400,7 +3419,7 @@ dependencies = [
  "polars",
  "ptree",
  "query_interface",
- "quick-xml 0.21.0",
+ "quick-xml 0.22.0",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.4",
@@ -3417,7 +3436,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2 0.9.5",
- "shadow-rs",
+ "shadow-rs 0.6.2",
  "strip-ansi-escapes",
  "sxd-document",
  "sxd-xpath",
@@ -4630,7 +4649,7 @@ dependencies = [
  "anyhow",
  "arrow",
  "chrono",
- "hashbrown 0.11.2",
+ "hashbrown",
  "itertools",
  "lazy_static 1.4.0",
  "num 0.4.0",
@@ -4851,9 +4870,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0452695941410a58c8ce4391707ba9bad26a247173bd9886a05a5e8a8babec75"
+checksum = "8533f14c8382aaad0d592c812ac3b826162128b65662331e1127b45c3d18536b"
 dependencies = [
  "memchr",
 ]
@@ -5785,6 +5804,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadow-rs"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20c8330d4ddbcc8552ba57c3058346c3fc1cafd4fea7e9fe201f32e84d4afa6a"
+dependencies = [
+ "chrono",
+ "git2",
+]
+
+[[package]]
 name = "shell-escape"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5805,6 +5834,27 @@ dependencies = [
  "libc",
  "mio 0.7.13",
  "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "470c5a6397076fae0094aaf06a08e6ba6f37acb77d3b1b91ea92b4d6c8650c39"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook-mio"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29fd5867f1c4f2c5be079aee7a2adf1152ebb04a4bc4d341f504b7dece607ed4"
+dependencies = [
+ "libc",
+ "mio 0.7.13",
+ "signal-hook 0.3.9",
 ]
 
 [[package]]
@@ -6881,9 +6931,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb0d2e7be6ae3a5fa87eed5fb451aff96f2573d2694942e40543ae0bbe19c796"
+checksum = "8895849a949e7845e06bd6dc1aa51731a103c42707010a5b591c0038fb73385b"
 
 [[package]]
 name = "unicode-width"
