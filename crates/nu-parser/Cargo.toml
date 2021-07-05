@@ -28,4 +28,3 @@ nu-test-support = { version="0.33.1", path="../nu-test-support" }
 
 [features]
 stable = []
-trace = []
