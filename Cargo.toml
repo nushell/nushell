@@ -113,8 +113,6 @@ extra = [
 
 wasi = ["inc", "match", "ptree-support", "match", "tree", "rustyline-support"]
 
-trace = ["nu-parser/trace"]
-
 # Stable (Default)
 fetch = ["nu_plugin_fetch"]
 inc = ["nu_plugin_inc"]
