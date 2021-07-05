@@ -103,6 +103,7 @@ pub enum Expr {
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(Box<Block>),
     Block(Box<Block>),
+    List(Vec<Expression>),
     Garbage,
 }
 
@@ -562,6 +563,78 @@ impl ParserWorkingSet {
         )
     }
 
+    pub fn parse_table_expression(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
+        let mut error = None;
+
+        let mut start = span.start;
+        let mut end = span.end;
+
+        if bytes.starts_with(b"[") {
+            start += 1;
+        }
+        if bytes.ends_with(b"]") {
+            end -= 1;
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::Unclosed(
+                    "]".into(),
+                    Span {
+                        start: end,
+                        end: end + 1,
+                    },
+                ))
+            });
+        }
+
+        let span = Span { start, end };
+
+        let source = &self.file_contents[..end];
+
+        let (output, err) = lex(&source, start, crate::LexMode::CommaIsSpace);
+        error = error.or(err);
+
+        let (output, err) = lite_parse(&output);
+        error = error.or(err);
+
+        println!("{:?}", output.block);
+
+        match output.block.len() {
+            0 => (
+                Expression {
+                    expr: Expr::List(vec![]),
+                    span,
+                },
+                None,
+            ),
+            1 => {
+                // List
+
+                let mut args = vec![];
+                for arg in &output.block[0].commands {
+                    for part in &arg.parts {
+                        let (arg, err) = self.parse_arg(*part, SyntaxShape::Any);
+                        error = error.or(err);
+
+                        args.push(arg);
+                    }
+                }
+
+                (
+                    Expression {
+                        expr: Expr::List(args),
+                        span,
+                    },
+                    error,
+                )
+            }
+            _ => (
+                garbage(span),
+                Some(ParseError::Mismatch("table".into(), span)),
+            ),
+        }
+    }
+
     pub fn parse_block_expression(&mut self, span: Span) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
         let mut error = None;
@@ -629,6 +702,15 @@ impl ParserWorkingSet {
                 );
             }
             return self.parse_block_expression(span);
+        } else if bytes.starts_with(b"[") {
+            if shape != SyntaxShape::Table && shape != SyntaxShape::Any {
+                // FIXME: need better errors
+                return (
+                    garbage(span),
+                    Some(ParseError::Mismatch("not a table".into(), span)),
+                );
+            }
+            return self.parse_table_expression(span);
         }
 
         match shape {

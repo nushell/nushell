@@ -38,20 +38,32 @@ impl BlockKind {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum LexMode {
     Normal,
+    CommaIsSpace,
+    NewlineIsSpace,
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;`, `#` or any
 // whitespace.
-fn is_item_terminator(block_level: &[BlockKind], c: u8) -> bool {
+fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: LexMode) -> bool {
     block_level.is_empty()
-        && (c == b' ' || c == b'\t' || c == b'\n' || c == b'|' || c == b';' || c == b'#')
+        && (c == b' '
+            || c == b'\t'
+            || c == b'\n'
+            || c == b'|'
+            || c == b';'
+            || c == b'#'
+            || (c == b',' && lex_mode == LexMode::CommaIsSpace))
 }
 
-pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseError>) {
+pub fn lex_item(
+    input: &[u8],
+    curr_offset: &mut usize,
+    lex_mode: LexMode,
+) -> (Span, Option<ParseError>) {
     // This variable tracks the starting character of a string literal, so that
     // we remain inside the string literal lexer mode until we encounter the
     // closing quote.
@@ -85,17 +97,17 @@ pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseErr
                 quote_start = None;
             }
         } else if c == b'#' {
-            if is_item_terminator(&block_level, c) {
+            if is_item_terminator(&block_level, c, lex_mode) {
                 break;
             }
             in_comment = true;
         } else if c == b'\n' {
             in_comment = false;
-            if is_item_terminator(&block_level, c) {
+            if is_item_terminator(&block_level, c, lex_mode) {
                 break;
             }
         } else if in_comment {
-            if is_item_terminator(&block_level, c) {
+            if is_item_terminator(&block_level, c, lex_mode) {
                 break;
             }
         } else if c == b'\'' || c == b'"' {
@@ -126,7 +138,7 @@ pub fn lex_item(input: &[u8], curr_offset: &mut usize) -> (Span, Option<ParseErr
             if let Some(BlockKind::Paren) = block_level.last() {
                 let _ = block_level.pop();
             }
-        } else if is_item_terminator(&block_level, c) {
+        } else if is_item_terminator(&block_level, c, lex_mode) {
             break;
         }
 
@@ -225,7 +237,7 @@ pub fn lex(
 
             let idx = curr_offset;
             curr_offset += 1;
-            if lex_mode == LexMode::Normal {
+            if lex_mode != LexMode::NewlineIsSpace {
                 output.push(Token::new(TokenContents::Eol, Span::new(idx, idx + 1)));
             }
         } else if c == b'#' {
@@ -251,13 +263,13 @@ pub fn lex(
                     Span::new(start, curr_offset),
                 ));
             }
-        } else if c == b' ' || c == b'\t' {
+        } else if c == b' ' || c == b'\t' || (c == b',' && lex_mode == LexMode::CommaIsSpace) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
             // Otherwise, try to consume an unclassified token.
 
-            let (span, err) = lex_item(input, &mut curr_offset);
+            let (span, err) = lex_item(input, &mut curr_offset, lex_mode);
             if error.is_none() {
                 error = err;
             }
