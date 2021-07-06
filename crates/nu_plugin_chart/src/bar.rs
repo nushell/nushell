@@ -108,7 +108,8 @@ impl<'a> Bar<'a> {
                 );
 
             f.render_widget(barchart, chunks[0]);
-        })
+        })?;
+        Ok(())
     }
 
     pub fn on_right(&mut self) {

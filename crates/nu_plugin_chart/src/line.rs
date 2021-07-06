@@ -140,6 +140,7 @@ impl<'a> Line<'a> {
                         .bounds(self.y_range),
                 );
             f.render_widget(chart, chunks[0]);
-        })
+        })?;
+        Ok(())
     }
 }
