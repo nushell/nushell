@@ -67,7 +67,6 @@ rstest = "0.10.0"
 
 [features]
 ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
-ptree-support = ["nu-command/ptree"]
 rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-command/term"]
 uuid-support = ["nu-command/uuid_crate"]
@@ -96,7 +95,6 @@ extra = [
     "binaryview",
     "inc",
     "tree",
-    "ptree-support",
     "textview",
     "clipboard-cli",
     "trash-support",
@@ -111,7 +109,7 @@ extra = [
     "query-json",
 ]
 
-wasi = ["inc", "match", "ptree-support", "match", "tree", "rustyline-support"]
+wasi = ["inc", "match", "match", "tree", "rustyline-support"]
 
 # Stable (Default)
 fetch = ["nu_plugin_fetch"]

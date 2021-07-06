@@ -3392,7 +3392,6 @@ dependencies = [
  "parking_lot 0.11.1",
  "pin-utils",
  "polars",
- "ptree",
  "query_interface",
  "quick-xml 0.22.0",
  "quickcheck",

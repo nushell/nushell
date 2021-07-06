@@ -191,11 +191,6 @@ fn features_enabled() -> Vec<String> {
         names.push("ctrlc".to_string());
     }
 
-    #[cfg(feature = "ptree")]
-    {
-        names.push("ptree".to_string());
-    }
-
     // #[cfg(feature = "rich-benchmark")]
     // {
     //     names.push("rich-benchmark".to_string());
