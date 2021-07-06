@@ -104,6 +104,8 @@ pub enum Expr {
     Subexpression(Box<Block>),
     Block(Box<Block>),
     List(Vec<Expression>),
+    Table(Vec<Expression>, Vec<Vec<Expression>>),
+    String(String), // FIXME: improve this in the future?
     Garbage,
 }
 
@@ -563,6 +565,25 @@ impl ParserWorkingSet {
         )
     }
 
+    pub fn parse_string(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
+
+        if let Ok(token) = String::from_utf8(bytes.into()) {
+            (
+                Expression {
+                    expr: Expr::String(token),
+                    span,
+                },
+                None,
+            )
+        } else {
+            (
+                garbage(span),
+                Some(ParseError::Mismatch("string".into(), span)),
+            )
+        }
+    }
+
     pub fn parse_table_expression(&mut self, span: Span) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
         let mut error = None;
@@ -591,13 +612,11 @@ impl ParserWorkingSet {
 
         let source = &self.file_contents[..end];
 
-        let (output, err) = lex(&source, start, crate::LexMode::CommaIsSpace);
+        let (output, err) = lex(&source, start, crate::LexMode::CommaAndNewlineIsSpace);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
         error = error.or(err);
-
-        println!("{:?}", output.block);
 
         match output.block.len() {
             0 => (
@@ -628,10 +647,42 @@ impl ParserWorkingSet {
                     error,
                 )
             }
-            _ => (
-                garbage(span),
-                Some(ParseError::Mismatch("table".into(), span)),
-            ),
+            _ => {
+                let mut table_headers = vec![];
+
+                let (headers, err) =
+                    self.parse_arg(output.block[0].commands[0].parts[0], SyntaxShape::Table);
+                error = error.or(err);
+
+                if let Expression {
+                    expr: Expr::List(headers),
+                    ..
+                } = headers
+                {
+                    table_headers = headers;
+                }
+
+                let mut rows = vec![];
+                for part in &output.block[1].commands[0].parts {
+                    let (values, err) = self.parse_arg(*part, SyntaxShape::Table);
+                    error = error.or(err);
+                    if let Expression {
+                        expr: Expr::List(values),
+                        ..
+                    } = values
+                    {
+                        rows.push(values);
+                    }
+                }
+
+                (
+                    Expression {
+                        expr: Expr::Table(table_headers, rows),
+                        span,
+                    },
+                    error,
+                )
+            }
         }
     }
 
@@ -644,6 +695,11 @@ impl ParserWorkingSet {
 
         if bytes.starts_with(b"{") {
             start += 1;
+        } else {
+            return (
+                garbage(span),
+                Some(ParseError::Mismatch("block".into(), span)),
+            );
         }
         if bytes.ends_with(b"}") {
             end -= 1;
@@ -734,6 +790,7 @@ impl ParserWorkingSet {
                     )
                 }
             }
+            SyntaxShape::String => self.parse_string(span),
             SyntaxShape::Block => self.parse_block_expression(span),
             SyntaxShape::Any => {
                 let shapes = vec![

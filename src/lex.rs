@@ -43,6 +43,7 @@ pub enum LexMode {
     Normal,
     CommaIsSpace,
     NewlineIsSpace,
+    CommaAndNewlineIsSpace,
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
@@ -56,7 +57,8 @@ fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: LexMode) -> bo
             || c == b'|'
             || c == b';'
             || c == b'#'
-            || (c == b',' && lex_mode == LexMode::CommaIsSpace))
+            || (c == b',' && lex_mode == LexMode::CommaIsSpace)
+            || (c == b',' && lex_mode == LexMode::CommaAndNewlineIsSpace))
 }
 
 pub fn lex_item(
@@ -237,7 +239,7 @@ pub fn lex(
 
             let idx = curr_offset;
             curr_offset += 1;
-            if lex_mode != LexMode::NewlineIsSpace {
+            if lex_mode != LexMode::NewlineIsSpace && lex_mode != LexMode::CommaAndNewlineIsSpace {
                 output.push(Token::new(TokenContents::Eol, Span::new(idx, idx + 1)));
             }
         } else if c == b'#' {
@@ -263,7 +265,11 @@ pub fn lex(
                     Span::new(start, curr_offset),
                 ));
             }
-        } else if c == b' ' || c == b'\t' || (c == b',' && lex_mode == LexMode::CommaIsSpace) {
+        } else if c == b' '
+            || c == b'\t'
+            || (c == b',' && lex_mode == LexMode::CommaIsSpace)
+            || (c == b',' && lex_mode == LexMode::CommaAndNewlineIsSpace)
+        {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
