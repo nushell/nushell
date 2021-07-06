@@ -38,7 +38,7 @@ Run `version | pivot` and paste the output to show OS, features, etc.
 │ 4 │ pkg_version        │ 0.24.1                                                                │
 │ 5 │ build_time         │ 2020-12-18 09:54:09                                                   │
 │ 6 │ build_rust_channel │ release                                                               │
-│ 7 │ features           │ ctrlc, default, directories, dirs, git, ichwh, ptree, rich-benchmark, │
+│ 7 │ features           │ ctrlc, default, directories, dirs, git, ichwh, rich-benchmark,        │
 │   │                    │ rustyline, term, uuid, which, zip                                     │
 ╰───┴────────────────────┴───────────────────────────────────────────────────────────────────────╯
 ```
