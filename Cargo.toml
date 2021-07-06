@@ -71,7 +71,6 @@ rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-command/term"]
 uuid-support = ["nu-command/uuid_crate"]
 which-support = ["nu-command/which", "nu-engine/which"]
-executable-support = ["nu-completion/is_executable"]
 
 default = [
     "nu-cli/shadow-rs",
@@ -85,7 +84,6 @@ default = [
     "post",
     "fetch",
     "zip-support",
-    "executable-support",
     "dataframe",
 ]
 

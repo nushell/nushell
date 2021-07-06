@@ -21,7 +21,9 @@ nu-test-support = { version="0.33.1", path="../nu-test-support" }
 
 dirs-next = "2.0.0"
 indexmap = { version="1.6.1", features=["serde-1"] }
-is_executable = { version="1.0.1", optional=true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+is_executable = "1.0.1"
 
 [dev-dependencies]
 parking_lot = "0.11.1"
