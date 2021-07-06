@@ -380,6 +380,7 @@ mod external_command_arguments {
         )
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn string_interpolation_with_an_external_command() {
         Playground::setup(
