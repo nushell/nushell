@@ -98,37 +98,62 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
         both_flag,
         format_flag,
     } = closure_flags;
-    let delimiter = char_.unwrap_or(' ');
-    let mut buf = vec![];
-    let mut is_delim = false;
-    let left_remove = left_trim | all_flag | both_flag | format_flag;
-    let right_remove = right_trim | all_flag | both_flag | format_flag;
-    let middle_remove = all_flag | format_flag;
-    let middle_add = !all_flag && (*format_flag); // cases like -a -f
-    for c in s.chars() {
-        match c {
-            x if x == delimiter && buf.is_empty() && left_remove => continue,
-            x if x == delimiter => {
-                is_delim = true;
-                if !middle_remove {
-                    buf.push(delimiter);
-                }
-            }
-            _ => {
-                if is_delim && middle_add {
-                    buf.push(delimiter);
-                    is_delim = false;
-                }
-                buf.push(c);
-            }
+    let delimiters = match char_ {
+        Some(c) => vec![c],
+        // Trying to make this trim work like rust default trim()
+        // which uses is_whitespace() as a default
+        None => vec![
+            ' ',    // space
+            '\x09', // horizontal tab
+            '\x0A', // new line, line feed
+            '\x0B', // vertical tab
+            '\x0C', // form feed, new page
+            '\x0D', // carriage return
+        ], //whitespace
+    };
+
+    if *left_trim {
+        s.trim_start_matches(&delimiters[..]).to_string()
+    } else if *right_trim {
+        s.trim_end_matches(&delimiters[..]).to_string()
+    } else if *all_flag {
+        s.split(&delimiters[..])
+            .filter(|s| !s.is_empty())
+            .collect::<String>()
+    } else if *both_flag {
+        s.trim_matches(&delimiters[..]).to_string()
+    } else if *format_flag {
+        // The idea here is to use regex to go through these delimiters and
+        // where there are multiple, replace them with singles
+
+        // create our return string which is a copy of the original string
+        let mut return_string = String::from(s);
+        // Iterate through the delimiters replacing them with regex friendly names
+        for r in &delimiters {
+            let reg = match r {
+                ' ' => r"\s".to_string(),
+                '\x09' => r"\t".to_string(),
+                '\x0A' => r"\n".to_string(),
+                '\x0B' => r"\v".to_string(),
+                '\x0C' => r"\f".to_string(),
+                '\x0D' => r"\r".to_string(),
+                _ => format!(r"\{}", r),
+            };
+            // create a regex string that looks for 2 or more of each of these characters
+            let re_str = format!("{}{{2,}}", reg);
+            // create the regex
+            let re = regex::Regex::new(&re_str).expect("Error creating regular expression");
+            // replace all mutliple occurances with single occurences represented by r
+            let new_str = re.replace_all(&return_string, r.to_string());
+            // update the return string so the next loop has the latest changes
+            return_string = new_str.to_string();
         }
+        // for good measure, trim_matches, which gets the start and end
+        // theoretically we shouldn't have to do this but from my testing, we do.
+        return_string.trim_matches(&delimiters[..]).to_string()
+    } else {
+        s.trim().to_string()
     }
-    if right_remove {
-        while buf.last() == Some(&delimiter) {
-            buf.pop();
-        }
-    }
-    buf.into_iter().collect()
 }
 
 #[cfg(test)]
