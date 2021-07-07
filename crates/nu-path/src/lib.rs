@@ -205,11 +205,42 @@ fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     Cow::Owned(dunce::simplified(&result).to_path_buf())
 }
 
+// Trace a relative path back to its root starting from current directory.
+// Returns error if not possible.
+// If path is absolute, just return it.
+fn absolutize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+    if path.as_ref().is_absolute() {
+        Ok(path.as_ref().into())
+    } else {
+        Ok(current_dir()?.join(path))
+    }
+}
+
+// Trace a relative path back to its root starting from a custom directory.
+// Returns error if not possible.
+// If path is absolute, just return it.
+fn absolutize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    if path.as_ref().is_absolute() {
+        Ok(path.as_ref().into())
+    } else {
+        if relative_to.as_ref().is_absolute() {
+            Ok(relative_to.as_ref().join(path))
+        } else {
+            Ok(absolutize(relative_to)?.join(path))
+        }
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Full expansions
 
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    let absolutized = expand_dots(Cow::Borrowed(path.as_ref()));
+    let absolutized = absolutize(&path)?;
+    let absolutized = expand_dots(Cow::Borrowed(&absolutized));
     let path = match std::fs::read_link(&absolutized) {
         Ok(resolved) => expand_dots(Cow::Owned(resolved)),
         Err(e) => {
@@ -246,6 +277,7 @@ where
 
 // Expands ~ to home and shortens paths by removing unecessary ".." and "."
 // where possible. Also expands "...+" appropriately.
+// Does not convert to absolute form nor does it resolve symlinks.
 pub fn expand_path(path: Cow<'_, Path>) -> Cow<'_, Path> {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
