@@ -190,8 +190,8 @@ impl ParserWorkingSet {
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
-        for scope in self.scope.iter().rev().enumerate() {
-            if let Some(decl_id) = scope.1.decls.get(name) {
+        for scope in self.scope.iter().rev() {
+            if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
             }
         }
@@ -209,8 +209,8 @@ impl ParserWorkingSet {
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
-        for scope in self.scope.iter().rev().enumerate() {
-            if let Some(var_id) = scope.1.vars.get(name) {
+        for scope in self.scope.iter().rev() {
+            if let Some(var_id) = scope.vars.get(name) {
                 return Some(*var_id);
             }
         }

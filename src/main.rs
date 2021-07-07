@@ -7,6 +7,21 @@ fn main() -> std::io::Result<()> {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl((b"foo").to_vec(), sig);
 
+        let sig =
+            Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
+        working_set.add_decl((b"where").to_vec(), sig);
+
+        let sig = Signature::build("if")
+            .required("cond", SyntaxShape::RowCondition, "condition")
+            .required("then_block", SyntaxShape::Block, "then block")
+            .required(
+                "else",
+                SyntaxShape::Literal(b"else".to_vec()),
+                "else keyword",
+            )
+            .required("else_block", SyntaxShape::Block, "else block");
+        working_set.add_decl((b"if").to_vec(), sig);
+
         //let file = std::fs::read(&path)?;
         //let (output, err) = working_set.parse_file(&path, file);
         let (output, err) = working_set.parse_source(path.as_bytes());

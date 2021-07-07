@@ -11,39 +11,56 @@ use crate::{
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
     Literal(Vec<u8>),
+
     /// Any syntactic form is allowed
     Any,
+
     /// Strings and string-like bare words are allowed
     String,
+
     /// A dotted path to navigate the table
     ColumnPath,
+
     /// A dotted path to navigate the table (including variable)
     FullColumnPath,
+
     /// Only a numeric (integer or decimal) value is allowed
     Number,
+
     /// A range is allowed (eg, `1..3`)
     Range,
+
     /// Only an integer value is allowed
     Int,
+
     /// A filepath is allowed
     FilePath,
+
     /// A glob pattern is allowed, eg `foo*`
     GlobPattern,
+
     /// A block is allowed, eg `{start this thing}`
     Block,
+
     /// A table is allowed, eg `[first second]`
     Table,
+
     /// A filesize value is allowed, eg `10kb`
     Filesize,
+
     /// A duration value is allowed, eg `19day`
     Duration,
+
     /// An operator
     Operator,
+
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
     RowCondition,
+
     /// A general math expression, eg `1 + 2`
     MathExpression,
+
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 }
@@ -105,6 +122,7 @@ pub enum Expr {
     Block(Box<Block>),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
+    Literal(Vec<u8>),
     String(String), // FIXME: improve this in the future?
     Garbage,
 }
@@ -290,6 +308,7 @@ impl ParserWorkingSet {
 
         if let Some(decl_id) = self.find_decl(name) {
             let mut call = Call::new();
+            call.decl_id = decl_id;
 
             let sig = self
                 .get_decl(decl_id)
@@ -402,10 +421,35 @@ impl ParserWorkingSet {
                         }
                     }
                 } else if let Some(positional) = sig.get_positional(positional_idx) {
-                    let (arg, err) = self.parse_arg(arg_span, positional.shape);
-                    error = error.or(err);
+                    match positional.shape {
+                        SyntaxShape::RowCondition => {
+                            let remainder = sig.num_positionals() - positional_idx;
 
-                    call.positional.push(arg);
+                            if spans.len() < remainder {
+                                error = error.or_else(|| {
+                                    Some(ParseError::MissingPositional(
+                                        "required args".into(),
+                                        arg_span,
+                                    ))
+                                });
+                            } else {
+                                let (arg, err) = self.parse_row_condition(
+                                    &spans[arg_offset..(spans.len() - remainder + 1)],
+                                );
+                                error = error.or(err);
+                                call.positional.push(arg);
+
+                                arg_offset = spans.len() - remainder;
+                            }
+                        }
+                        _ => {
+                            let (arg, err) = self.parse_arg(arg_span, positional.shape);
+                            error = error.or(err);
+
+                            call.positional.push(arg);
+                        }
+                    }
+                    positional_idx += 1;
                 } else {
                     error = error.or(Some(ParseError::ExtraPositional(arg_span)))
                 }
@@ -582,6 +626,10 @@ impl ParserWorkingSet {
                 Some(ParseError::Mismatch("string".into(), span)),
             )
         }
+    }
+
+    pub fn parse_row_condition(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+        self.parse_math_expression(spans)
     }
 
     pub fn parse_table_expression(&mut self, span: Span) -> (Expression, Option<ParseError>) {
@@ -786,7 +834,26 @@ impl ParserWorkingSet {
                 } else {
                     (
                         garbage(span),
-                        Some(ParseError::Mismatch("number".into(), span)),
+                        Some(ParseError::Mismatch("int".into(), span)),
+                    )
+                }
+            }
+            SyntaxShape::Literal(literal) => {
+                if bytes == literal {
+                    (
+                        Expression {
+                            expr: Expr::Literal(literal),
+                            span,
+                        },
+                        None,
+                    )
+                } else {
+                    (
+                        garbage(span),
+                        Some(ParseError::Mismatch(
+                            format!("keyword '{}'", String::from_utf8_lossy(&literal)),
+                            span,
+                        )),
                     )
                 }
             }
@@ -815,7 +882,7 @@ impl ParserWorkingSet {
             }
             _ => (
                 garbage(span),
-                Some(ParseError::Mismatch("number".into(), span)),
+                Some(ParseError::Mismatch("incomplete parser".into(), span)),
             ),
         }
     }

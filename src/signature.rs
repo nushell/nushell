@@ -190,6 +190,10 @@ impl Signature {
         }
     }
 
+    pub fn num_positionals(&self) -> usize {
+        self.required_positional.len() + self.optional_positional.len()
+    }
+
     /// Find the matching long flag
     pub fn get_long_flag(&self, name: &str) -> Option<Flag> {
         for flag in &self.named {
