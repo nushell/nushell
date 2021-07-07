@@ -1083,6 +1083,30 @@ fn manysubcommand() {
     assert_eq!(actual.out, "localhost loaded");
 }
 
+#[test]
+fn nothing_string_1() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $nothing == "foo"
+        "#)
+    );
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn nothing_string_2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        "" == $nothing
+        "#)
+    );
+
+    assert_eq!(actual.out, "true");
+}
+
 mod parse {
     use nu_test_support::nu;
 

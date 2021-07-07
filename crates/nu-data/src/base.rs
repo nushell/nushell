@@ -164,6 +164,10 @@ pub fn coerce_compare_primitive(
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
         (Boolean(left), Nothing) => CompareValues::Booleans(*left, false),
         (Nothing, Boolean(right)) => CompareValues::Booleans(false, *right),
+        (String(left), Nothing) => CompareValues::String(left.clone(), std::string::String::new()),
+        (Nothing, String(right)) => {
+            CompareValues::String(std::string::String::new(), right.clone())
+        }
         (FilePath(left), String(right)) => {
             CompareValues::String(left.as_path().display().to_string(), right.clone())
         }
