@@ -178,7 +178,6 @@ fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 
 // Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
 // current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
-// TODO: Merge with absolutize
 fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
 
@@ -219,21 +218,21 @@ fn absolutize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
 // Trace a relative path back to its root starting from a custom directory.
 // Returns error if not possible.
 // If path is absolute, just return it.
-fn absolutize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
-where
-    P: AsRef<Path>,
-    Q: AsRef<Path>,
-{
-    if path.as_ref().is_absolute() {
-        Ok(path.as_ref().into())
-    } else {
-        if relative_to.as_ref().is_absolute() {
-            Ok(relative_to.as_ref().join(path))
-        } else {
-            Ok(absolutize(relative_to)?.join(path))
-        }
-    }
-}
+// fn absolutize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
+// where
+//     P: AsRef<Path>,
+//     Q: AsRef<Path>,
+// {
+//     if path.as_ref().is_absolute() {
+//         Ok(path.as_ref().into())
+//     } else {
+//         if relative_to.as_ref().is_absolute() {
+//             Ok(relative_to.as_ref().join(path))
+//         } else {
+//             Ok(absolutize(relative_to)?.join(path))
+//         }
+//     }
+// }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Full expansions

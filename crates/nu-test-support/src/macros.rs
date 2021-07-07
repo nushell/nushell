@@ -30,7 +30,7 @@ macro_rules! nu {
         );
 
         let test_bins = $crate::fs::binaries();
-        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
+        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),
@@ -111,7 +111,7 @@ macro_rules! nu_with_plugins {
         );
 
         let test_bins = $crate::fs::binaries();
-        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
+        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),

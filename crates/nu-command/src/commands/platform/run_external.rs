@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use nu_engine::WholeStreamCommand;
 use nu_engine::{evaluate_baseline_expr, shell::CdArgs};
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_protocol::{
     hir::{ExternalArgs, ExternalCommand, SpannedExpression},
     Primitive, UntaggedValue,
@@ -137,7 +138,7 @@ fn maybe_autocd_dir(cmd: &ExternalCommand, ctx: &mut EvaluationContext) -> Optio
     let path_name = if name.ends_with(std::path::is_separator)
         || (cmd.args.is_empty()
             && PathBuf::from(name).is_dir()
-            && dunce::canonicalize(name).is_ok()
+            && canonicalize(name).is_ok()
             && !ctx.host().lock().is_external_cmd(name))
     {
         Some(name)
