@@ -117,8 +117,23 @@ fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let bytes: Option<Value> = args.get_flag("bytes")?;
     let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
+    let stream_chunks = match bytes.clone() {
+        Some(a_byte) => {
+            // if we want to see only a few bytes
+            if a_byte > UntaggedValue::int(0).into_untagged_value() {
+                // return 1 so that we only get one chunk of the stream
+                1
+            } else {
+                // otherwise take all of it
+                usize::MAX
+            }
+        }
+        _ => usize::MAX,
+    };
+
     Ok(args
         .input
+        .take(stream_chunks) // limit the stream
         .map(move |v| {
             if column_paths.is_empty() {
                 action(&v, v.tag(), &skip, &bytes)
@@ -208,7 +223,6 @@ pub fn action(
                 }
             },
             Primitive::String(a_string) => {
-                // a_string.as_bytes().to_vec()
                 if num_bytes == 0usize {
                     a_string
                         .as_bytes()
