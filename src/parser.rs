@@ -3,7 +3,7 @@ use std::ops::{Index, IndexMut};
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
-    DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
+    span, DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -441,6 +441,22 @@ impl ParserWorkingSet {
 
                                 arg_offset = spans.len() - remainder;
                             }
+                        }
+                        SyntaxShape::Literal(literal) => {
+                            if arg_contents != literal {
+                                // When keywords mismatch, this is a strong indicator of something going wrong.
+                                // We won't often override the current error, but as this is a strong indicator
+                                // go ahead and override the current error and tell the user about the missing
+                                // keyword/literal.
+                                error = Some(ParseError::Mismatch(
+                                    format!("{}", String::from_utf8_lossy(&literal)),
+                                    arg_span,
+                                ))
+                            }
+                            call.positional.push(Expression {
+                                expr: Expr::Literal(literal),
+                                span: arg_span,
+                            });
                         }
                         _ => {
                             let (arg, err) = self.parse_arg(arg_span, positional.shape);
