@@ -3,6 +3,7 @@ use std::ops::{Index, IndexMut};
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
+    signature::Flag,
     DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
@@ -318,6 +319,127 @@ impl ParserWorkingSet {
         )
     }
 
+    fn parse_long_flag(
+        &mut self,
+        spans: &[Span],
+        arg_offset: &mut usize,
+        sig: &Signature,
+    ) -> (Option<String>, Option<Expression>, Option<ParseError>) {
+        let arg_span = spans[*arg_offset];
+        let arg_contents = self.get_span_contents(arg_span);
+
+        if arg_contents.starts_with(&[b'-', b'-']) {
+            // FIXME: only use the first you find
+            let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
+            let long_name = String::from_utf8(split[0].into());
+            if let Ok(long_name) = long_name {
+                if let Some(flag) = sig.get_long_flag(&long_name) {
+                    if let Some(arg_shape) = &flag.arg {
+                        if split.len() > 1 {
+                            // and we also have the argument
+                            let mut span = arg_span;
+                            span.start += long_name.len() + 1; //offset by long flag and '='
+                            let (arg, err) = self.parse_arg(span, arg_shape.clone());
+
+                            (Some(long_name), Some(arg), err)
+                        } else if let Some(arg) = spans.get(*arg_offset + 1) {
+                            let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
+
+                            *arg_offset += 1;
+                            (Some(long_name), Some(arg), err)
+                        } else {
+                            (
+                                Some(long_name),
+                                None,
+                                Some(ParseError::MissingFlagParam(arg_span)),
+                            )
+                        }
+                    } else {
+                        // A flag with no argument
+                        (Some(long_name), None, None)
+                    }
+                } else {
+                    (
+                        Some(long_name),
+                        None,
+                        Some(ParseError::UnknownFlag(arg_span)),
+                    )
+                }
+            } else {
+                (Some("--".into()), None, Some(ParseError::NonUtf8(arg_span)))
+            }
+        } else {
+            (None, None, None)
+        }
+    }
+
+    fn parse_short_flags(
+        &mut self,
+        spans: &[Span],
+        arg_offset: &mut usize,
+        positional_idx: usize,
+        sig: &Signature,
+    ) -> (Option<Vec<Flag>>, Option<ParseError>) {
+        let mut error = None;
+        let arg_span = spans[*arg_offset];
+
+        let arg_contents = self.get_span_contents(arg_span);
+
+        if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
+            let short_flags = &arg_contents[1..];
+            let mut found_short_flags = vec![];
+            let mut unmatched_short_flags = vec![];
+            for short_flag in short_flags.iter().enumerate() {
+                let short_flag_char = char::from(*short_flag.1);
+                let orig = arg_span;
+                let short_flag_span = Span {
+                    start: orig.start + 1 + short_flag.0,
+                    end: orig.start + 1 + short_flag.0 + 1,
+                };
+                if let Some(flag) = sig.get_short_flag(short_flag_char) {
+                    // If we require an arg and are in a batch of short flags, error
+                    if !found_short_flags.is_empty() && flag.arg.is_some() {
+                        error =
+                            error.or(Some(ParseError::ShortFlagBatchCantTakeArg(short_flag_span)))
+                    }
+                    found_short_flags.push(flag);
+                } else {
+                    unmatched_short_flags.push(short_flag_span);
+                }
+            }
+
+            if found_short_flags.is_empty() {
+                // check to see if we have a negative number
+                if let Some(positional) = sig.get_positional(positional_idx) {
+                    if positional.shape == SyntaxShape::Int
+                        || positional.shape == SyntaxShape::Number
+                    {
+                        if String::from_utf8_lossy(&arg_contents)
+                            .parse::<f64>()
+                            .is_ok()
+                        {
+                            return (None, None);
+                        } else if let Some(first) = unmatched_short_flags.first() {
+                            error = error.or(Some(ParseError::UnknownFlag(*first)));
+                        }
+                    } else if let Some(first) = unmatched_short_flags.first() {
+                        error = error.or(Some(ParseError::UnknownFlag(*first)));
+                    }
+                } else if let Some(first) = unmatched_short_flags.first() {
+                    error = error.or(Some(ParseError::UnknownFlag(*first)));
+                }
+            } else if !unmatched_short_flags.is_empty() {
+                if let Some(first) = unmatched_short_flags.first() {
+                    error = error.or(Some(ParseError::UnknownFlag(*first)));
+                }
+            }
+
+            (Some(found_short_flags), error)
+        } else {
+            (None, None)
+        }
+    }
+
     pub fn parse_internal_call(
         &mut self,
         spans: &[Span],
@@ -338,91 +460,22 @@ impl ParserWorkingSet {
 
         while arg_offset < spans.len() {
             let arg_span = spans[arg_offset];
-            let arg_contents = self.get_span_contents(arg_span);
-            if arg_contents.starts_with(&[b'-', b'-']) {
-                // FIXME: only use the first you find
-                let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
-                let long_name = String::from_utf8(split[0].into());
-                if let Ok(long_name) = long_name {
-                    if let Some(flag) = sig.get_long_flag(&long_name) {
-                        if let Some(arg_shape) = &flag.arg {
-                            if split.len() > 1 {
-                                // and we also have the argument
-                                let mut span = arg_span;
-                                span.start += long_name.len() + 1; //offset by long flag and '='
-                                let (arg, err) = self.parse_arg(span, arg_shape.clone());
-                                error = error.or(err);
 
-                                call.named.push((long_name, Some(arg)));
-                            } else if let Some(arg) = spans.get(arg_offset + 1) {
-                                let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
-                                error = error.or(err);
+            let (long_name, arg, err) = self.parse_long_flag(spans, &mut arg_offset, &sig);
+            if let Some(long_name) = long_name {
+                // We found a long flag, like --bar
+                error = error.or(err);
+                call.named.push((long_name, arg));
+                arg_offset += 1;
+                continue;
+            }
 
-                                call.named.push((long_name, Some(arg)));
-                                arg_offset += 1;
-                            } else {
-                                error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
-                            }
-                        }
-                    } else {
-                        error = error.or(Some(ParseError::UnknownFlag(arg_span)))
-                    }
-                } else {
-                    error = error.or(Some(ParseError::NonUtf8(arg_span)))
-                }
-            } else if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
-                let short_flags = &arg_contents[1..];
-                let mut found_short_flags = vec![];
-                let mut unmatched_short_flags = vec![];
-                for short_flag in short_flags.iter().enumerate() {
-                    let short_flag_char = char::from(*short_flag.1);
-                    let orig = arg_span;
-                    let short_flag_span = Span {
-                        start: orig.start + 1 + short_flag.0,
-                        end: orig.start + 1 + short_flag.0 + 1,
-                    };
-                    if let Some(flag) = sig.get_short_flag(short_flag_char) {
-                        // If we require an arg and are in a batch of short flags, error
-                        if !found_short_flags.is_empty() && flag.arg.is_some() {
-                            error = error
-                                .or(Some(ParseError::ShortFlagBatchCantTakeArg(short_flag_span)))
-                        }
-                        found_short_flags.push(flag);
-                    } else {
-                        unmatched_short_flags.push(short_flag_span);
-                    }
-                }
+            let (short_flags, err) =
+                self.parse_short_flags(spans, &mut arg_offset, positional_idx, &sig);
 
-                if found_short_flags.is_empty() {
-                    // check to see if we have a negative number
-                    if let Some(positional) = sig.get_positional(positional_idx) {
-                        if positional.shape == SyntaxShape::Int
-                            || positional.shape == SyntaxShape::Number
-                        {
-                            let (arg, err) = self.parse_arg(arg_span, positional.shape);
-
-                            if err.is_some() {
-                                if let Some(first) = unmatched_short_flags.first() {
-                                    error = error.or(Some(ParseError::UnknownFlag(*first)));
-                                }
-                            } else {
-                                // We have successfully found a positional argument, move on
-                                call.positional.push(arg);
-                                positional_idx += 1;
-                            }
-                        } else if let Some(first) = unmatched_short_flags.first() {
-                            error = error.or(Some(ParseError::UnknownFlag(*first)));
-                        }
-                    } else if let Some(first) = unmatched_short_flags.first() {
-                        error = error.or(Some(ParseError::UnknownFlag(*first)));
-                    }
-                } else if !unmatched_short_flags.is_empty() {
-                    if let Some(first) = unmatched_short_flags.first() {
-                        error = error.or(Some(ParseError::UnknownFlag(*first)));
-                    }
-                }
-
-                for flag in found_short_flags {
+            if let Some(short_flags) = short_flags {
+                error = error.or(err);
+                for flag in short_flags {
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(arg_offset + 1) {
                             let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
@@ -437,7 +490,11 @@ impl ParserWorkingSet {
                         call.named.push((flag.long.clone(), None));
                     }
                 }
-            } else if let Some(positional) = sig.get_positional(positional_idx) {
+                arg_offset += 1;
+                continue;
+            }
+
+            if let Some(positional) = sig.get_positional(positional_idx) {
                 match positional.shape {
                     SyntaxShape::RowCondition => {
                         let remainder = sig.num_positionals() - positional_idx;
@@ -480,6 +537,7 @@ impl ParserWorkingSet {
                         }
                     }
                     SyntaxShape::Literal(literal) => {
+                        let arg_contents = self.get_span_contents(arg_span);
                         if arg_contents != literal {
                             // When keywords mismatch, this is a strong indicator of something going wrong.
                             // We won't often override the current error, but as this is a strong indicator

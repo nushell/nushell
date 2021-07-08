@@ -7,6 +7,11 @@ fn main() -> std::io::Result<()> {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl((b"foo").to_vec(), sig);
 
+        let sig = Signature::build("bar")
+            .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
+            .switch("--rock", "rock!!", Some('r'));
+        working_set.add_decl((b"bar").to_vec(), sig);
+
         let sig =
             Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
         working_set.add_decl((b"where").to_vec(), sig);
