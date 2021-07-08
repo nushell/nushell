@@ -237,8 +237,6 @@ Finally, we can use commands outside of Nu once we have the data we want:
 0.32.0
 ```
 
-Here we use the variable `$it` to refer to the value being piped to the external command.
-
 ### Configuration
 
 Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/configuration.html).
