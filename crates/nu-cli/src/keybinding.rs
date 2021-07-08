@@ -410,7 +410,7 @@ pub enum CharSearch {
 }
 
 /// The set of modifier keys that were triggered along with a key press.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum NuModifiers {
     /// Control modifier
@@ -442,7 +442,7 @@ pub enum NuModifiers {
 /// The number of times one command should be repeated.
 pub type RepeatCount = usize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Keybinding {
     key: KeyCode,
     modifiers: Option<NuModifiers>,
@@ -460,9 +460,10 @@ pub(crate) fn load_keybindings(
     // Silently fail if there is no file there
     if let Ok(contents) = contents {
         let keybindings: Keybindings = serde_yaml::from_str(&contents)?;
-        // eprint!("{}{}{}", keybindings.key, keybindings.mo);
+        // eprintln!("{:#?}", keybindings);
         for keybinding in keybindings.into_iter() {
             let (k, b) = convert_keybinding(keybinding);
+            // eprintln!("{:?} {:?}", k, b);
 
             rl.bind_sequence(k, b);
         }
