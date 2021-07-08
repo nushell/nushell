@@ -592,7 +592,7 @@ impl ParserWorkingSet {
         }
     }
 
-    pub fn parse_dollar_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+    pub(crate) fn parse_dollar_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
 
         if let Some(var_id) = self.find_variable(bytes) {
@@ -869,6 +869,13 @@ impl ParserWorkingSet {
         shape: SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
+
+        // First, check the special-cases. These will likely represent specific values as expressions
+        // and may fit a variety of shapes.
+        //
+        // We check variable first because immediately following we check for variables with column paths
+        // which might result in a value that fits other shapes (and require the variable to already be
+        // declared)
         if shape == SyntaxShape::Variable {
             return self.parse_variable_expr(span);
         } else if bytes.starts_with(b"$") {
@@ -1137,7 +1144,7 @@ impl ParserWorkingSet {
 
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         if let Some(decl_id) = self.find_decl(b"let") {
-            let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
+            let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
 
             if err.is_some() {
                 return (
@@ -1150,15 +1157,10 @@ impl ParserWorkingSet {
             } else if let Expression {
                 expr: Expr::Var(var_id),
                 ..
-            } = &call.positional[0]
+            } = call.positional[0]
             {
-                return (
-                    Statement::VarDecl(VarDecl {
-                        var_id: *var_id,
-                        expression: call.positional[2].clone(),
-                    }),
-                    None,
-                );
+                let expression = call.positional.swap_remove(2);
+                return (Statement::VarDecl(VarDecl { var_id, expression }), None);
             }
         }
         (
@@ -1171,31 +1173,6 @@ impl ParserWorkingSet {
                 span(spans),
             )),
         )
-
-        /*
-        let mut error = None;
-        if spans.len() >= 4 && self.parse_keyword(spans[0], b"let").is_none() {
-            let (_, err) = self.parse_variable(spans[1]);
-            error = error.or(err);
-
-            let err = self.parse_keyword(spans[2], b"=");
-            error = error.or(err);
-
-            let (expression, err) = self.parse_expression(&spans[3..]);
-            error = error.or(err);
-
-            let var_name: Vec<_> = self.get_span_contents(spans[1]).into();
-            let var_id = self.add_variable(var_name, Type::Unknown);
-
-            (Statement::VarDecl(VarDecl { var_id, expression }), error)
-        } else {
-            let span = span(spans);
-            (
-                Statement::Expression(garbage(span)),
-                Some(ParseError::Mismatch("let".into(), span)),
-            )
-        }
-        */
     }
 
     pub fn parse_statement(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
