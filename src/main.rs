@@ -22,6 +22,16 @@ fn main() -> std::io::Result<()> {
             .required("else_block", SyntaxShape::Block, "else block");
         working_set.add_decl((b"if").to_vec(), sig);
 
+        let sig = Signature::build("let")
+            .required("var_name", SyntaxShape::Variable, "variable name")
+            .required("=", SyntaxShape::Literal(b"=".to_vec()), "equals sign")
+            .required(
+                "value",
+                SyntaxShape::Expression,
+                "the value to set the variable to",
+            );
+        working_set.add_decl((b"let").to_vec(), sig);
+
         //let file = std::fs::read(&path)?;
         //let (output, err) = working_set.parse_file(&path, file);
         let (output, err) = working_set.parse_source(path.as_bytes());

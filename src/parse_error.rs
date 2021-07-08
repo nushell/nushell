@@ -17,4 +17,5 @@ pub enum ParseError {
     MissingPositional(String, Span),
     MissingRequiredFlag(String, Span),
     IncompleteMathExpression(Span),
+    UnknownState(String, Span),
 }

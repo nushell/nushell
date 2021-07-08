@@ -3,7 +3,7 @@ use std::ops::{Index, IndexMut};
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
-    span, DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
+    DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -60,6 +60,9 @@ pub enum SyntaxShape {
 
     /// A general math expression, eg `1 + 2`
     MathExpression,
+
+    /// A variable name
+    Variable,
 
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
@@ -300,189 +303,216 @@ impl ParserWorkingSet {
         (Expression::garbage(spans[0]), None)
     }
 
-    pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+    pub fn parse_internal_call(
+        &mut self,
+        spans: &[Span],
+        decl_id: usize,
+    ) -> (Box<Call>, Span, Option<ParseError>) {
         let mut error = None;
 
-        // assume spans.len() > 0?
-        let name = self.get_span_contents(spans[0]);
+        let mut call = Call::new();
+        call.decl_id = decl_id;
 
-        if let Some(decl_id) = self.find_decl(name) {
-            let mut call = Call::new();
-            call.decl_id = decl_id;
+        let sig = self
+            .get_decl(decl_id)
+            .expect("internal error: bad DeclId")
+            .clone();
 
-            let sig = self
-                .get_decl(decl_id)
-                .expect("internal error: bad DeclId")
-                .clone();
+        let mut positional_idx = 0;
+        let mut arg_offset = 1;
 
-            let mut positional_idx = 0;
-            let mut arg_offset = 1;
+        while arg_offset < spans.len() {
+            let arg_span = spans[arg_offset];
+            let arg_contents = self.get_span_contents(arg_span);
+            if arg_contents.starts_with(&[b'-', b'-']) {
+                // FIXME: only use the first you find
+                let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
+                let long_name = String::from_utf8(split[0].into());
+                if let Ok(long_name) = long_name {
+                    if let Some(flag) = sig.get_long_flag(&long_name) {
+                        if let Some(arg_shape) = &flag.arg {
+                            if split.len() > 1 {
+                                // and we also have the argument
+                                let mut span = arg_span;
+                                span.start += long_name.len() + 1; //offset by long flag and '='
+                                let (arg, err) = self.parse_arg(span, arg_shape.clone());
+                                error = error.or(err);
 
-            while arg_offset < spans.len() {
-                let arg_span = spans[arg_offset];
-                let arg_contents = self.get_span_contents(arg_span);
-                if arg_contents.starts_with(&[b'-', b'-']) {
-                    // FIXME: only use the first you find
-                    let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
-                    let long_name = String::from_utf8(split[0].into());
-                    if let Ok(long_name) = long_name {
-                        if let Some(flag) = sig.get_long_flag(&long_name) {
-                            if let Some(arg_shape) = &flag.arg {
-                                if split.len() > 1 {
-                                    // and we also have the argument
-                                    let mut span = arg_span;
-                                    span.start += long_name.len() + 1; //offset by long flag and '='
-                                    let (arg, err) = self.parse_arg(span, arg_shape.clone());
-                                    error = error.or(err);
-
-                                    call.named.push((long_name, Some(arg)));
-                                } else if let Some(arg) = spans.get(arg_offset + 1) {
-                                    let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
-                                    error = error.or(err);
-
-                                    call.named.push((long_name, Some(arg)));
-                                    arg_offset += 1;
-                                } else {
-                                    error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
-                                }
-                            }
-                        } else {
-                            error = error.or(Some(ParseError::UnknownFlag(arg_span)))
-                        }
-                    } else {
-                        error = error.or(Some(ParseError::NonUtf8(arg_span)))
-                    }
-                } else if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
-                    let short_flags = &arg_contents[1..];
-                    let mut found_short_flags = vec![];
-                    let mut unmatched_short_flags = vec![];
-                    for short_flag in short_flags.iter().enumerate() {
-                        let short_flag_char = char::from(*short_flag.1);
-                        let orig = arg_span;
-                        let short_flag_span = Span {
-                            start: orig.start + 1 + short_flag.0,
-                            end: orig.start + 1 + short_flag.0 + 1,
-                        };
-                        if let Some(flag) = sig.get_short_flag(short_flag_char) {
-                            // If we require an arg and are in a batch of short flags, error
-                            if !found_short_flags.is_empty() && flag.arg.is_some() {
-                                error = error.or(Some(ParseError::ShortFlagBatchCantTakeArg(
-                                    short_flag_span,
-                                )))
-                            }
-                            found_short_flags.push(flag);
-                        } else {
-                            unmatched_short_flags.push(short_flag_span);
-                        }
-                    }
-
-                    if found_short_flags.is_empty() {
-                        // check to see if we have a negative number
-                        if let Some(positional) = sig.get_positional(positional_idx) {
-                            if positional.shape == SyntaxShape::Int
-                                || positional.shape == SyntaxShape::Number
-                            {
-                                let (arg, err) = self.parse_arg(arg_span, positional.shape);
-
-                                if err.is_some() {
-                                    if let Some(first) = unmatched_short_flags.first() {
-                                        error = error.or(Some(ParseError::UnknownFlag(*first)));
-                                    }
-                                } else {
-                                    // We have successfully found a positional argument, move on
-                                    call.positional.push(arg);
-                                    positional_idx += 1;
-                                }
-                            } else if let Some(first) = unmatched_short_flags.first() {
-                                error = error.or(Some(ParseError::UnknownFlag(*first)));
-                            }
-                        } else if let Some(first) = unmatched_short_flags.first() {
-                            error = error.or(Some(ParseError::UnknownFlag(*first)));
-                        }
-                    } else if !unmatched_short_flags.is_empty() {
-                        if let Some(first) = unmatched_short_flags.first() {
-                            error = error.or(Some(ParseError::UnknownFlag(*first)));
-                        }
-                    }
-
-                    for flag in found_short_flags {
-                        if let Some(arg_shape) = flag.arg {
-                            if let Some(arg) = spans.get(arg_offset + 1) {
+                                call.named.push((long_name, Some(arg)));
+                            } else if let Some(arg) = spans.get(arg_offset + 1) {
                                 let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
                                 error = error.or(err);
 
-                                call.named.push((flag.long.clone(), Some(arg)));
+                                call.named.push((long_name, Some(arg)));
                                 arg_offset += 1;
                             } else {
                                 error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
                             }
-                        } else {
-                            call.named.push((flag.long.clone(), None));
                         }
+                    } else {
+                        error = error.or(Some(ParseError::UnknownFlag(arg_span)))
                     }
-                } else if let Some(positional) = sig.get_positional(positional_idx) {
-                    match positional.shape {
-                        SyntaxShape::RowCondition => {
-                            let remainder = sig.num_positionals() - positional_idx;
-
-                            if spans.len() < remainder {
-                                error = error.or_else(|| {
-                                    Some(ParseError::MissingPositional(
-                                        "required args".into(),
-                                        arg_span,
-                                    ))
-                                });
-                            } else {
-                                let (arg, err) = self.parse_row_condition(
-                                    &spans[arg_offset..(spans.len() - remainder + 1)],
-                                );
-                                error = error.or(err);
-                                call.positional.push(arg);
-
-                                arg_offset = spans.len() - remainder;
-                            }
+                } else {
+                    error = error.or(Some(ParseError::NonUtf8(arg_span)))
+                }
+            } else if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
+                let short_flags = &arg_contents[1..];
+                let mut found_short_flags = vec![];
+                let mut unmatched_short_flags = vec![];
+                for short_flag in short_flags.iter().enumerate() {
+                    let short_flag_char = char::from(*short_flag.1);
+                    let orig = arg_span;
+                    let short_flag_span = Span {
+                        start: orig.start + 1 + short_flag.0,
+                        end: orig.start + 1 + short_flag.0 + 1,
+                    };
+                    if let Some(flag) = sig.get_short_flag(short_flag_char) {
+                        // If we require an arg and are in a batch of short flags, error
+                        if !found_short_flags.is_empty() && flag.arg.is_some() {
+                            error = error
+                                .or(Some(ParseError::ShortFlagBatchCantTakeArg(short_flag_span)))
                         }
-                        SyntaxShape::Literal(literal) => {
-                            if arg_contents != literal {
-                                // When keywords mismatch, this is a strong indicator of something going wrong.
-                                // We won't often override the current error, but as this is a strong indicator
-                                // go ahead and override the current error and tell the user about the missing
-                                // keyword/literal.
-                                error = Some(ParseError::Mismatch(
-                                    format!("{}", String::from_utf8_lossy(&literal)),
-                                    arg_span,
-                                ))
-                            }
-                            call.positional.push(Expression {
-                                expr: Expr::Literal(literal),
-                                span: arg_span,
-                            });
-                        }
-                        _ => {
+                        found_short_flags.push(flag);
+                    } else {
+                        unmatched_short_flags.push(short_flag_span);
+                    }
+                }
+
+                if found_short_flags.is_empty() {
+                    // check to see if we have a negative number
+                    if let Some(positional) = sig.get_positional(positional_idx) {
+                        if positional.shape == SyntaxShape::Int
+                            || positional.shape == SyntaxShape::Number
+                        {
                             let (arg, err) = self.parse_arg(arg_span, positional.shape);
+
+                            if err.is_some() {
+                                if let Some(first) = unmatched_short_flags.first() {
+                                    error = error.or(Some(ParseError::UnknownFlag(*first)));
+                                }
+                            } else {
+                                // We have successfully found a positional argument, move on
+                                call.positional.push(arg);
+                                positional_idx += 1;
+                            }
+                        } else if let Some(first) = unmatched_short_flags.first() {
+                            error = error.or(Some(ParseError::UnknownFlag(*first)));
+                        }
+                    } else if let Some(first) = unmatched_short_flags.first() {
+                        error = error.or(Some(ParseError::UnknownFlag(*first)));
+                    }
+                } else if !unmatched_short_flags.is_empty() {
+                    if let Some(first) = unmatched_short_flags.first() {
+                        error = error.or(Some(ParseError::UnknownFlag(*first)));
+                    }
+                }
+
+                for flag in found_short_flags {
+                    if let Some(arg_shape) = flag.arg {
+                        if let Some(arg) = spans.get(arg_offset + 1) {
+                            let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
                             error = error.or(err);
 
+                            call.named.push((flag.long.clone(), Some(arg)));
+                            arg_offset += 1;
+                        } else {
+                            error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
+                        }
+                    } else {
+                        call.named.push((flag.long.clone(), None));
+                    }
+                }
+            } else if let Some(positional) = sig.get_positional(positional_idx) {
+                match positional.shape {
+                    SyntaxShape::RowCondition => {
+                        let remainder = sig.num_positionals() - positional_idx;
+
+                        if spans.len() < remainder {
+                            error = error.or_else(|| {
+                                Some(ParseError::MissingPositional(
+                                    "required args".into(),
+                                    arg_span,
+                                ))
+                            });
+                        } else {
+                            let (arg, err) = self.parse_row_condition(
+                                &spans[arg_offset..(spans.len() - remainder + 1)],
+                            );
+                            error = error.or(err);
                             call.positional.push(arg);
+
+                            arg_offset = spans.len() - remainder;
                         }
                     }
-                    positional_idx += 1;
-                } else {
-                    error = error.or(Some(ParseError::ExtraPositional(arg_span)))
+                    SyntaxShape::Expression => {
+                        let remainder = sig.num_positionals() - positional_idx;
+
+                        if spans.len() < remainder {
+                            error = error.or_else(|| {
+                                Some(ParseError::MissingPositional(
+                                    "required args".into(),
+                                    arg_span,
+                                ))
+                            });
+                        } else {
+                            let (arg, err) = self.parse_expression(
+                                &spans[arg_offset..(spans.len() - remainder + 1)],
+                            );
+                            error = error.or(err);
+                            call.positional.push(arg);
+
+                            arg_offset = spans.len() - remainder;
+                        }
+                    }
+                    SyntaxShape::Literal(literal) => {
+                        if arg_contents != literal {
+                            // When keywords mismatch, this is a strong indicator of something going wrong.
+                            // We won't often override the current error, but as this is a strong indicator
+                            // go ahead and override the current error and tell the user about the missing
+                            // keyword/literal.
+                            error = Some(ParseError::Mismatch(
+                                String::from_utf8_lossy(&literal).into(),
+                                arg_span,
+                            ))
+                        }
+                        call.positional.push(Expression {
+                            expr: Expr::Literal(literal),
+                            span: arg_span,
+                        });
+                    }
+                    _ => {
+                        let (arg, err) = self.parse_arg(arg_span, positional.shape);
+                        error = error.or(err);
+
+                        call.positional.push(arg);
+                    }
                 }
-                arg_offset += 1;
+                positional_idx += 1;
+            } else {
+                error = error.or(Some(ParseError::ExtraPositional(arg_span)))
             }
+            arg_offset += 1;
+        }
 
-            let err = check_call(spans[0], &sig, &call);
-            error = error.or(err);
+        let err = check_call(spans[0], &sig, &call);
+        error = error.or(err);
 
-            // FIXME: type unknown
+        // FIXME: type unknown
+        (Box::new(call), span(spans), error)
+    }
+
+    pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+        // assume spans.len() > 0?
+        let name = self.get_span_contents(spans[0]);
+
+        if let Some(decl_id) = self.find_decl(name) {
+            let (call, span, err) = self.parse_internal_call(spans, decl_id);
             (
                 Expression {
-                    expr: Expr::Call(Box::new(call)),
-                    //ty: Type::Unknown,
-                    span: span(spans),
+                    expr: Expr::Call(call),
+                    span,
                 },
-                error,
+                err,
             )
         } else {
             self.parse_external_call(spans)
@@ -575,6 +605,36 @@ impl ParserWorkingSet {
             )
         } else {
             (garbage(span), Some(ParseError::VariableNotFound(span)))
+        }
+    }
+
+    pub fn parse_variable_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let (id, err) = self.parse_variable(span);
+
+        if err.is_none() {
+            if let Some(id) = id {
+                (
+                    Expression {
+                        expr: Expr::Var(id),
+                        span,
+                    },
+                    None,
+                )
+            } else {
+                let name = self.get_span_contents(span).to_vec();
+                // this seems okay to set it to unknown here, but we should double-check
+                let id = self.add_variable(name, Type::Unknown);
+
+                (
+                    Expression {
+                        expr: Expr::Var(id),
+                        span,
+                    },
+                    None,
+                )
+            }
+        } else {
+            (garbage(span), err)
         }
     }
 
@@ -809,7 +869,9 @@ impl ParserWorkingSet {
         shape: SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
-        if bytes.starts_with(b"$") {
+        if shape == SyntaxShape::Variable {
+            return self.parse_variable_expr(span);
+        } else if bytes.starts_with(b"$") {
             return self.parse_dollar_expr(span);
         } else if bytes.starts_with(b"(") {
             return self.parse_full_column_path(span);
@@ -873,7 +935,9 @@ impl ParserWorkingSet {
                     )
                 }
             }
-            SyntaxShape::String => self.parse_string(span),
+            SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
+                self.parse_string(span)
+            }
             SyntaxShape::Block => self.parse_block_expression(span),
             SyntaxShape::Any => {
                 let shapes = vec![
@@ -1072,6 +1136,43 @@ impl ParserWorkingSet {
     }
 
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
+        if let Some(decl_id) = self.find_decl(b"let") {
+            let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
+
+            if err.is_some() {
+                return (
+                    Statement::Expression(Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                    }),
+                    err,
+                );
+            } else if let Expression {
+                expr: Expr::Var(var_id),
+                ..
+            } = &call.positional[0]
+            {
+                return (
+                    Statement::VarDecl(VarDecl {
+                        var_id: *var_id,
+                        expression: call.positional[2].clone(),
+                    }),
+                    None,
+                );
+            }
+        }
+        (
+            Statement::Expression(Expression {
+                expr: Expr::Garbage,
+                span: span(spans),
+            }),
+            Some(ParseError::UnknownState(
+                "internal error: let statement unparseable".into(),
+                span(spans),
+            )),
+        )
+
+        /*
         let mut error = None;
         if spans.len() >= 4 && self.parse_keyword(spans[0], b"let").is_none() {
             let (_, err) = self.parse_variable(spans[1]);
@@ -1094,6 +1195,7 @@ impl ParserWorkingSet {
                 Some(ParseError::Mismatch("let".into(), span)),
             )
         }
+        */
     }
 
     pub fn parse_statement(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
