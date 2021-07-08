@@ -119,6 +119,7 @@ pub enum Expr {
     Int(i64),
     Var(VarId),
     Call(Box<Call>),
+    ExternalCall(Vec<u8>, Vec<Vec<u8>>),
     Operator(Operator),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(Box<Block>),
@@ -300,7 +301,18 @@ fn span(spans: &[Span]) -> Span {
 impl ParserWorkingSet {
     pub fn parse_external_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
         // TODO: add external parsing
-        (Expression::garbage(spans[0]), None)
+        let mut args = vec![];
+        let name = self.get_span_contents(spans[0]).to_vec();
+        for span in &spans[1..] {
+            args.push(self.get_span_contents(*span).to_vec());
+        }
+        (
+            Expression {
+                expr: Expr::ExternalCall(name, args),
+                span: span(spans),
+            },
+            None,
+        )
     }
 
     pub fn parse_internal_call(
@@ -1143,24 +1155,28 @@ impl ParserWorkingSet {
     }
 
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
-        if let Some(decl_id) = self.find_decl(b"let") {
-            let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
+        let name = self.get_span_contents(spans[0]);
 
-            if err.is_some() {
-                return (
-                    Statement::Expression(Expression {
-                        expr: Expr::Call(call),
-                        span: call_span,
-                    }),
-                    err,
-                );
-            } else if let Expression {
-                expr: Expr::Var(var_id),
-                ..
-            } = call.positional[0]
-            {
-                let expression = call.positional.swap_remove(2);
-                return (Statement::VarDecl(VarDecl { var_id, expression }), None);
+        if name == b"let" {
+            if let Some(decl_id) = self.find_decl(b"let") {
+                let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
+
+                if err.is_some() {
+                    return (
+                        Statement::Expression(Expression {
+                            expr: Expr::Call(call),
+                            span: call_span,
+                        }),
+                        err,
+                    );
+                } else if let Expression {
+                    expr: Expr::Var(var_id),
+                    ..
+                } = call.positional[0]
+                {
+                    let expression = call.positional.swap_remove(2);
+                    return (Statement::VarDecl(VarDecl { var_id, expression }), None);
+                }
             }
         }
         (
