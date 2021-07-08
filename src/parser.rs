@@ -45,6 +45,9 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[first second]`
     Table,
 
+    /// A table is allowed, eg `[first second]`
+    List(Box<SyntaxShape>),
+
     /// A filesize value is allowed, eg `10kb`
     Filesize,
 
@@ -720,6 +723,65 @@ impl ParserWorkingSet {
         self.parse_math_expression(spans)
     }
 
+    pub fn parse_list_expression(
+        &mut self,
+        span: Span,
+        element_shape: &SyntaxShape,
+    ) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(span);
+
+        let mut error = None;
+
+        let mut start = span.start;
+        let mut end = span.end;
+
+        if bytes.starts_with(b"[") {
+            start += 1;
+        }
+        if bytes.ends_with(b"]") {
+            end -= 1;
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::Unclosed(
+                    "]".into(),
+                    Span {
+                        start: end,
+                        end: end + 1,
+                    },
+                ))
+            });
+        }
+
+        let span = Span { start, end };
+        let source = &self.file_contents[..span.end];
+
+        let (output, err) = lex(&source, span.start, crate::LexMode::CommaAndNewlineIsSpace);
+        error = error.or(err);
+
+        let (output, err) = lite_parse(&output);
+        error = error.or(err);
+
+        println!("{:?}", output);
+
+        let mut args = vec![];
+        for arg in &output.block[0].commands {
+            for part in &arg.parts {
+                let (arg, err) = self.parse_arg(*part, element_shape.clone());
+                error = error.or(err);
+
+                args.push(arg);
+            }
+        }
+
+        (
+            Expression {
+                expr: Expr::List(args),
+                span,
+            },
+            error,
+        )
+    }
+
     pub fn parse_table_expression(&mut self, span: Span) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
         let mut error = None;
@@ -764,24 +826,7 @@ impl ParserWorkingSet {
             ),
             1 => {
                 // List
-
-                let mut args = vec![];
-                for arg in &output.block[0].commands {
-                    for part in &arg.parts {
-                        let (arg, err) = self.parse_arg(*part, SyntaxShape::Any);
-                        error = error.or(err);
-
-                        args.push(arg);
-                    }
-                }
-
-                (
-                    Expression {
-                        expr: Expr::List(args),
-                        span,
-                    },
-                    error,
-                )
+                self.parse_list_expression(span, &SyntaxShape::Any)
             }
             _ => {
                 let mut table_headers = vec![];
@@ -894,24 +939,6 @@ impl ParserWorkingSet {
             return self.parse_dollar_expr(span);
         } else if bytes.starts_with(b"(") {
             return self.parse_full_column_path(span);
-        } else if bytes.starts_with(b"{") {
-            if shape != SyntaxShape::Block && shape != SyntaxShape::Any {
-                // FIXME: need better errors
-                return (
-                    garbage(span),
-                    Some(ParseError::Mismatch("not a block".into(), span)),
-                );
-            }
-            return self.parse_block_expression(span);
-        } else if bytes.starts_with(b"[") {
-            if shape != SyntaxShape::Table && shape != SyntaxShape::Any {
-                // FIXME: need better errors
-                return (
-                    garbage(span),
-                    Some(ParseError::Mismatch("not a table".into(), span)),
-                );
-            }
-            return self.parse_table_expression(span);
         }
 
         match shape {
@@ -957,7 +984,27 @@ impl ParserWorkingSet {
             SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
                 self.parse_string(span)
             }
-            SyntaxShape::Block => self.parse_block_expression(span),
+            SyntaxShape::Block => {
+                if bytes.starts_with(b"{") {
+                    self.parse_block_expression(span)
+                } else {
+                    (
+                        Expression::garbage(span),
+                        Some(ParseError::Mismatch("table".into(), span)),
+                    )
+                }
+            }
+            SyntaxShape::List(elem) => self.parse_list_expression(span, &elem),
+            SyntaxShape::Table => {
+                if bytes.starts_with(b"[") {
+                    self.parse_table_expression(span)
+                } else {
+                    (
+                        Expression::garbage(span),
+                        Some(ParseError::Mismatch("table".into(), span)),
+                    )
+                }
+            }
             SyntaxShape::Any => {
                 let shapes = vec![
                     SyntaxShape::Int,

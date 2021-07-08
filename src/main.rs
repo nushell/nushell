@@ -42,6 +42,13 @@ fn main() -> std::io::Result<()> {
             );
         working_set.add_decl((b"alias").to_vec(), sig);
 
+        let sig = Signature::build("sum").required(
+            "arg",
+            SyntaxShape::List(Box::new(SyntaxShape::Number)),
+            "list of numbers",
+        );
+        working_set.add_decl((b"sum").to_vec(), sig);
+
         //let file = std::fs::read(&path)?;
         //let (output, err) = working_set.parse_file(&path, file);
         let (output, err) = working_set.parse_source(path.as_bytes());
