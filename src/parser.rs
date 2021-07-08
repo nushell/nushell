@@ -824,15 +824,18 @@ impl ParserWorkingSet {
         let (output, err) = lite_parse(&output);
         error = error.or(err);
 
-        println!("{:?}", output);
-
         let mut args = vec![];
         for arg in &output.block[0].commands {
-            for part in &arg.parts {
-                let (arg, err) = self.parse_value(*part, element_shape.clone());
+            let mut spans_idx = 0;
+
+            while spans_idx < arg.parts.len() {
+                let (arg, err) =
+                    self.parse_multispan_value(&arg.parts, &mut spans_idx, element_shape.clone());
                 error = error.or(err);
 
                 args.push(arg);
+
+                spans_idx += 1;
             }
         }
 
@@ -1002,6 +1005,16 @@ impl ParserWorkingSet {
             return self.parse_dollar_expr(span);
         } else if bytes.starts_with(b"(") {
             return self.parse_full_column_path(span);
+        } else if bytes.starts_with(b"[") {
+            match shape {
+                SyntaxShape::Any | SyntaxShape::List(_) | SyntaxShape::Table => {}
+                _ => {
+                    return (
+                        Expression::garbage(span),
+                        Some(ParseError::Mismatch("non-table/non-list".into(), span)),
+                    );
+                }
+            }
         }
 
         match shape {
@@ -1076,6 +1089,7 @@ impl ParserWorkingSet {
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Block,
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     SyntaxShape::Table,
                     SyntaxShape::String,
                 ];
