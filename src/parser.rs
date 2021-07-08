@@ -322,10 +322,10 @@ impl ParserWorkingSet {
     fn parse_long_flag(
         &mut self,
         spans: &[Span],
-        arg_offset: &mut usize,
+        spans_idx: &mut usize,
         sig: &Signature,
     ) -> (Option<String>, Option<Expression>, Option<ParseError>) {
-        let arg_span = spans[*arg_offset];
+        let arg_span = spans[*spans_idx];
         let arg_contents = self.get_span_contents(arg_span);
 
         if arg_contents.starts_with(&[b'-', b'-']) {
@@ -342,10 +342,10 @@ impl ParserWorkingSet {
                             let (arg, err) = self.parse_arg(span, arg_shape.clone());
 
                             (Some(long_name), Some(arg), err)
-                        } else if let Some(arg) = spans.get(*arg_offset + 1) {
+                        } else if let Some(arg) = spans.get(*spans_idx + 1) {
                             let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
 
-                            *arg_offset += 1;
+                            *spans_idx += 1;
                             (Some(long_name), Some(arg), err)
                         } else {
                             (
@@ -376,12 +376,12 @@ impl ParserWorkingSet {
     fn parse_short_flags(
         &mut self,
         spans: &[Span],
-        arg_offset: &mut usize,
+        spans_idx: &mut usize,
         positional_idx: usize,
         sig: &Signature,
     ) -> (Option<Vec<Flag>>, Option<ParseError>) {
         let mut error = None;
-        let arg_span = spans[*arg_offset];
+        let arg_span = spans[*spans_idx];
 
         let arg_contents = self.get_span_contents(arg_span);
 
@@ -440,6 +440,59 @@ impl ParserWorkingSet {
         }
     }
 
+    fn parse_multispan_value(
+        &mut self,
+        spans: &[Span],
+        spans_idx: &mut usize,
+        shape: SyntaxShape,
+    ) -> (Expression, Option<ParseError>) {
+        let mut error = None;
+        let arg_span = spans[*spans_idx];
+
+        match shape {
+            SyntaxShape::RowCondition => {
+                let (arg, err) = self.parse_row_condition(spans);
+                error = error.or(err);
+                *spans_idx = spans.len();
+
+                (arg, error)
+            }
+            SyntaxShape::Expression => {
+                let (arg, err) = self.parse_expression(spans);
+                error = error.or(err);
+                *spans_idx = spans.len();
+
+                (arg, error)
+            }
+            SyntaxShape::Literal(literal) => {
+                let arg_contents = self.get_span_contents(arg_span);
+                if arg_contents != literal {
+                    // When keywords mismatch, this is a strong indicator of something going wrong.
+                    // We won't often override the current error, but as this is a strong indicator
+                    // go ahead and override the current error and tell the user about the missing
+                    // keyword/literal.
+                    error = Some(ParseError::Mismatch(
+                        String::from_utf8_lossy(&literal).into(),
+                        arg_span,
+                    ))
+                }
+                (
+                    Expression {
+                        expr: Expr::Literal(literal),
+                        span: arg_span,
+                    },
+                    error,
+                )
+            }
+            _ => {
+                let (arg, err) = self.parse_arg(arg_span, shape);
+                error = error.or(err);
+
+                (arg, error)
+            }
+        }
+    }
+
     pub fn parse_internal_call(
         &mut self,
         spans: &[Span],
@@ -455,34 +508,38 @@ impl ParserWorkingSet {
             .expect("internal error: bad DeclId")
             .clone();
 
+        // The index into the positional parameter in the definition
         let mut positional_idx = 0;
-        let mut arg_offset = 1;
 
-        while arg_offset < spans.len() {
-            let arg_span = spans[arg_offset];
+        // The index into the spans of argument data given to parse
+        // Starting at the first argument
+        let mut spans_idx = 1;
 
-            let (long_name, arg, err) = self.parse_long_flag(spans, &mut arg_offset, &sig);
+        while spans_idx < spans.len() {
+            let arg_span = spans[spans_idx];
+
+            let (long_name, arg, err) = self.parse_long_flag(spans, &mut spans_idx, &sig);
             if let Some(long_name) = long_name {
                 // We found a long flag, like --bar
                 error = error.or(err);
                 call.named.push((long_name, arg));
-                arg_offset += 1;
+                spans_idx += 1;
                 continue;
             }
 
             let (short_flags, err) =
-                self.parse_short_flags(spans, &mut arg_offset, positional_idx, &sig);
+                self.parse_short_flags(spans, &mut spans_idx, positional_idx, &sig);
 
             if let Some(short_flags) = short_flags {
                 error = error.or(err);
                 for flag in short_flags {
                     if let Some(arg_shape) = flag.arg {
-                        if let Some(arg) = spans.get(arg_offset + 1) {
+                        if let Some(arg) = spans.get(spans_idx + 1) {
                             let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
                             error = error.or(err);
 
                             call.named.push((flag.long.clone(), Some(arg)));
-                            arg_offset += 1;
+                            spans_idx += 1;
                         } else {
                             error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
                         }
@@ -490,81 +547,28 @@ impl ParserWorkingSet {
                         call.named.push((flag.long.clone(), None));
                     }
                 }
-                arg_offset += 1;
+                spans_idx += 1;
                 continue;
             }
 
             if let Some(positional) = sig.get_positional(positional_idx) {
-                match positional.shape {
-                    SyntaxShape::RowCondition => {
-                        let remainder = sig.num_positionals() - positional_idx;
+                //Make sure we leave enough spans for the remaining positionals
+                let remainder = sig.num_positionals() - positional_idx;
 
-                        if spans.len() < remainder {
-                            error = error.or_else(|| {
-                                Some(ParseError::MissingPositional(
-                                    "required args".into(),
-                                    arg_span,
-                                ))
-                            });
-                        } else {
-                            let (arg, err) = self.parse_row_condition(
-                                &spans[arg_offset..(spans.len() - remainder + 1)],
-                            );
-                            error = error.or(err);
-                            call.positional.push(arg);
-
-                            arg_offset = spans.len() - remainder;
-                        }
-                    }
-                    SyntaxShape::Expression => {
-                        let remainder = sig.num_positionals() - positional_idx;
-
-                        if spans.len() < remainder {
-                            error = error.or_else(|| {
-                                Some(ParseError::MissingPositional(
-                                    "required args".into(),
-                                    arg_span,
-                                ))
-                            });
-                        } else {
-                            let (arg, err) = self.parse_expression(
-                                &spans[arg_offset..(spans.len() - remainder + 1)],
-                            );
-                            error = error.or(err);
-                            call.positional.push(arg);
-
-                            arg_offset = spans.len() - remainder;
-                        }
-                    }
-                    SyntaxShape::Literal(literal) => {
-                        let arg_contents = self.get_span_contents(arg_span);
-                        if arg_contents != literal {
-                            // When keywords mismatch, this is a strong indicator of something going wrong.
-                            // We won't often override the current error, but as this is a strong indicator
-                            // go ahead and override the current error and tell the user about the missing
-                            // keyword/literal.
-                            error = Some(ParseError::Mismatch(
-                                String::from_utf8_lossy(&literal).into(),
-                                arg_span,
-                            ))
-                        }
-                        call.positional.push(Expression {
-                            expr: Expr::Literal(literal),
-                            span: arg_span,
-                        });
-                    }
-                    _ => {
-                        let (arg, err) = self.parse_arg(arg_span, positional.shape);
-                        error = error.or(err);
-
-                        call.positional.push(arg);
-                    }
-                }
+                let (arg, err) = self.parse_multispan_value(
+                    &spans[..(spans.len() - remainder + 1)],
+                    &mut spans_idx,
+                    positional.shape,
+                );
+                error = error.or(err);
+                call.positional.push(arg);
                 positional_idx += 1;
             } else {
                 error = error.or(Some(ParseError::ExtraPositional(arg_span)))
             }
-            arg_offset += 1;
+
+            error = error.or(err);
+            spans_idx += 1;
         }
 
         let err = check_call(spans[0], &sig, &call);
