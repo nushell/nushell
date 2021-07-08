@@ -339,11 +339,11 @@ impl ParserWorkingSet {
                             // and we also have the argument
                             let mut span = arg_span;
                             span.start += long_name.len() + 1; //offset by long flag and '='
-                            let (arg, err) = self.parse_arg(span, arg_shape.clone());
+                            let (arg, err) = self.parse_value(span, arg_shape.clone());
 
                             (Some(long_name), Some(arg), err)
                         } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                            let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
+                            let (arg, err) = self.parse_value(*arg, arg_shape.clone());
 
                             *spans_idx += 1;
                             (Some(long_name), Some(arg), err)
@@ -485,7 +485,8 @@ impl ParserWorkingSet {
                 )
             }
             _ => {
-                let (arg, err) = self.parse_arg(arg_span, shape);
+                // All other cases are single-span values
+                let (arg, err) = self.parse_value(arg_span, shape);
                 error = error.or(err);
 
                 (arg, error)
@@ -535,7 +536,7 @@ impl ParserWorkingSet {
                 for flag in short_flags {
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
-                            let (arg, err) = self.parse_arg(*arg, arg_shape.clone());
+                            let (arg, err) = self.parse_value(*arg, arg_shape.clone());
                             error = error.or(err);
 
                             call.named.push((flag.long.clone(), Some(arg)));
@@ -828,7 +829,7 @@ impl ParserWorkingSet {
         let mut args = vec![];
         for arg in &output.block[0].commands {
             for part in &arg.parts {
-                let (arg, err) = self.parse_arg(*part, element_shape.clone());
+                let (arg, err) = self.parse_value(*part, element_shape.clone());
                 error = error.or(err);
 
                 args.push(arg);
@@ -894,7 +895,7 @@ impl ParserWorkingSet {
                 let mut table_headers = vec![];
 
                 let (headers, err) =
-                    self.parse_arg(output.block[0].commands[0].parts[0], SyntaxShape::Table);
+                    self.parse_value(output.block[0].commands[0].parts[0], SyntaxShape::Table);
                 error = error.or(err);
 
                 if let Expression {
@@ -907,7 +908,7 @@ impl ParserWorkingSet {
 
                 let mut rows = vec![];
                 for part in &output.block[1].commands[0].parts {
-                    let (values, err) = self.parse_arg(*part, SyntaxShape::Table);
+                    let (values, err) = self.parse_value(*part, SyntaxShape::Table);
                     error = error.or(err);
                     if let Expression {
                         expr: Expr::List(values),
@@ -982,7 +983,7 @@ impl ParserWorkingSet {
         )
     }
 
-    pub fn parse_arg(
+    pub fn parse_value(
         &mut self,
         span: Span,
         shape: SyntaxShape,
@@ -1079,7 +1080,7 @@ impl ParserWorkingSet {
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
-                    if let (s, None) = self.parse_arg(span, shape.clone()) {
+                    if let (s, None) = self.parse_value(span, shape.clone()) {
                         return (s, None);
                     }
                 }
@@ -1151,7 +1152,7 @@ impl ParserWorkingSet {
         let mut last_prec = 1000000;
 
         let mut error = None;
-        let (lhs, err) = self.parse_arg(spans[0], SyntaxShape::Any);
+        let (lhs, err) = self.parse_value(spans[0], SyntaxShape::Any);
         error = error.or(err);
         idx += 1;
 
@@ -1171,7 +1172,7 @@ impl ParserWorkingSet {
                 break;
             }
 
-            let (rhs, err) = self.parse_arg(spans[idx], SyntaxShape::Any);
+            let (rhs, err) = self.parse_value(spans[idx], SyntaxShape::Any);
             error = error.or(err);
 
             if op_prec <= last_prec {
