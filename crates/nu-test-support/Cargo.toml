@@ -10,11 +10,11 @@ version = "0.34.0"
 doctest = false
 
 [dependencies]
-nu-errors = { version = "0.34.0", path="../nu-errors" }
+nu-errors = { version="0.34.0", path="../nu-errors" }
 nu-path = { version="0.34.0", path="../nu-path" }
-nu-protocol = { path="../nu-protocol", version = "0.34.0" }
-nu-source = { path="../nu-source", version = "0.34.0" }
-nu-value-ext = { version = "0.34.0", path="../nu-value-ext" }
+nu-protocol = { version="0.34.0", path="../nu-protocol" }
+nu-source = { version="0.34.0", path="../nu-source" }
+nu-value-ext = { version="0.34.0", path="../nu-value-ext" }
 
 bigdecimal = { version="0.2.0", features=["serde"] }
 chrono = "0.4.19"
