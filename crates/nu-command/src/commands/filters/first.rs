@@ -125,6 +125,7 @@ fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 "found block",
                 tag,
             )),
+            #[cfg(not(target_arch = "wasm32"))]
             UntaggedValue::DataFrame(_) => Err(ShellError::labeled_error(
                 "unsure how to handled UntaggedValue::DataFrame",
                 "found dataframe",
