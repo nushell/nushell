@@ -23,6 +23,7 @@ impl WholeStreamCommand for Uniq {
                 "Ignore differences in case when comparing",
                 Some('i'),
             )
+            .switch("unique", "Only return unique values", Some('u'))
     }
 
     fn usage(&self) -> &str {
@@ -48,6 +49,11 @@ impl WholeStreamCommand for Uniq {
                 description: "Only print duplicate lines, one for each group",
                 example: "echo [1 2 2] | uniq -d",
                 result: Some(vec![UntaggedValue::int(2).into()]),
+            },
+            Example {
+                description: "Only print unique lines lines",
+                example: "echo [1 2 2] | uniq -u",
+                result: Some(vec![UntaggedValue::int(1).into()]),
             },
             Example {
                 description: "Ignore differences in case when comparing",
@@ -95,6 +101,7 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let should_show_count = args.has_flag("count");
     let show_repeated = args.has_flag("repeated");
     let ignore_case = args.has_flag("ignore-case");
+    let only_uniques = args.has_flag("unique");
     let input = args.input;
     let uniq_values = {
         let mut counter = IndexMap::<nu_protocol::Value, usize>::new();
@@ -109,13 +116,17 @@ fn uniq(args: CommandArgs) -> Result<ActionStream, ShellError> {
         counter
     };
 
-    let mut values_vec_deque = VecDeque::new();
-
-    let values = if show_repeated {
+    let mut values = if show_repeated {
         uniq_values.into_iter().filter(|i| i.1 > 1).collect::<_>()
     } else {
         uniq_values
     };
+
+    if only_uniques {
+        values = values.into_iter().filter(|i| i.1 == 1).collect::<_>();
+    }
+
+    let mut values_vec_deque = VecDeque::new();
 
     if should_show_count {
         for item in values {
