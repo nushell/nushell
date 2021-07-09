@@ -30,7 +30,7 @@ impl WholeStreamCommand for AutoenvUntrust {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
             }) => {
-                let mut dir = fs::canonicalize(path)?;
+                let mut dir = nu_path::canonicalize(path)?;
                 dir.push(".nu-env");
                 dir
             }

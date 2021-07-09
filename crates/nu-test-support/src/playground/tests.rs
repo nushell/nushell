@@ -6,7 +6,7 @@ use hamcrest2::assert_that;
 use hamcrest2::prelude::*;
 
 fn path(p: &Path) -> PathBuf {
-    dunce::canonicalize(p)
+    nu_path::canonicalize(p)
         .unwrap_or_else(|e| panic!("Couldn't canonicalize path {}: {:?}", p.display(), e))
 }
 
