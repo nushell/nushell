@@ -3245,6 +3245,7 @@ dependencies = [
  "log",
  "nu-ansi-term",
  "nu-errors",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-table",
@@ -3340,9 +3341,9 @@ dependencies = [
 name = "nu-json"
 version = "0.34.0"
 dependencies = [
- "dunce",
  "lazy_static 1.4.0",
  "linked-hash-map 0.5.4",
+ "nu-path",
  "nu-test-support",
  "num-traits 0.2.14",
  "regex",
@@ -3466,12 +3467,12 @@ version = "0.34.0"
 dependencies = [
  "bigdecimal",
  "chrono",
- "dunce",
  "getset",
  "glob",
  "hamcrest2",
  "indexmap",
  "nu-errors",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-value-ext",

@@ -11,13 +11,13 @@ doctest = false
 
 [dependencies]
 nu-errors = { version = "0.34.0", path="../nu-errors" }
+nu-path = { version="0.34.0", path="../nu-path" }
 nu-protocol = { path="../nu-protocol", version = "0.34.0" }
 nu-source = { path="../nu-source", version = "0.34.0" }
 nu-value-ext = { version = "0.34.0", path="../nu-value-ext" }
 
 bigdecimal = { version="0.2.0", features=["serde"] }
 chrono = "0.4.19"
-dunce = "1.0.1"
 getset = "0.1.1"
 glob = "0.3.0"
 indexmap = { version="1.6.1", features=["serde-1"] }
