@@ -23,7 +23,7 @@ impl WholeStreamCommand for Uniq {
                 "Ignore differences in case when comparing",
                 Some('i'),
             )
-            .switch("unique", "Only print unique lines", Some('u'))
+            .switch("unique", "Only return unique values", Some('u'))
     }
 
     fn usage(&self) -> &str {
