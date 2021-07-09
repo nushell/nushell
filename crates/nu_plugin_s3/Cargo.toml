@@ -15,6 +15,6 @@ nu-errors = { path="../nu-errors", version="0.33.1" }
 nu-plugin = { path="../nu-plugin", version="0.33.1" }
 nu-protocol = { path="../nu-protocol", version="0.33.1" }
 nu-source = { path="../nu-source", version="0.33.1" }
-s3handler = "0.6.3"
+s3handler = "0.7"
 
 [build-dependencies]
