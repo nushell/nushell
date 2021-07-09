@@ -4,7 +4,7 @@ use crate::prelude::*;
 use indexmap::indexmap;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue, Value};
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct Size;
@@ -22,8 +22,8 @@ impl WholeStreamCommand for Size {
         "Gather word count statistics on the text."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
-        Ok(size(args))
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        size(args)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,15 +54,15 @@ impl WholeStreamCommand for Size {
     }
 }
 
-fn size(args: CommandArgs) -> ActionStream {
+fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let tag = args.call_info.name_tag;
     let name_span = tag.span;
 
-    input
+    Ok(input
         .map(move |v| {
             if let Ok(s) = v.as_string() {
-                ReturnSuccess::value(count(&s, &v.tag))
+                Ok(count(&s, &v.tag))
             } else {
                 Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
@@ -73,7 +73,7 @@ fn size(args: CommandArgs) -> ActionStream {
                 ))
             }
         })
-        .into_action_stream()
+        .into_input_stream())
 }
 
 fn count(contents: &str, tag: impl Into<Tag>) -> Value {
