@@ -43,7 +43,7 @@ pub enum SyntaxShape {
     /// A block is allowed, eg `{start this thing}`
     Block,
 
-    /// A table is allowed, eg `[first second]`
+    /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
 
     /// A table is allowed, eg `[first second]`
@@ -519,6 +519,7 @@ impl ParserWorkingSet {
         while spans_idx < spans.len() {
             let arg_span = spans[spans_idx];
 
+            // Check if we're on a long flag, if so, parse
             let (long_name, arg, err) = self.parse_long_flag(spans, &mut spans_idx, &sig);
             if let Some(long_name) = long_name {
                 // We found a long flag, like --bar
@@ -528,6 +529,7 @@ impl ParserWorkingSet {
                 continue;
             }
 
+            // Check if we're on a short flag or group of short flags, if so, parse
             let (short_flags, err) =
                 self.parse_short_flags(spans, &mut spans_idx, positional_idx, &sig);
 
@@ -552,6 +554,7 @@ impl ParserWorkingSet {
                 continue;
             }
 
+            // Parse a positional arg if there is one
             if let Some(positional) = sig.get_positional(positional_idx) {
                 //Make sure we leave enough spans for the remaining positionals
                 let remainder = sig.num_positionals() - positional_idx;
@@ -1070,7 +1073,16 @@ impl ParserWorkingSet {
                     )
                 }
             }
-            SyntaxShape::List(elem) => self.parse_list_expression(span, &elem),
+            SyntaxShape::List(elem) => {
+                if bytes.starts_with(b"[") {
+                    self.parse_list_expression(span, &elem)
+                } else {
+                    (
+                        Expression::garbage(span),
+                        Some(ParseError::Mismatch("list".into(), span)),
+                    )
+                }
+            }
             SyntaxShape::Table => {
                 if bytes.starts_with(b"[") {
                     self.parse_table_expression(span)
@@ -1082,15 +1094,15 @@ impl ParserWorkingSet {
                 }
             }
             SyntaxShape::Any => {
-                let shapes = vec![
+                let shapes = [
                     SyntaxShape::Int,
                     SyntaxShape::Number,
                     SyntaxShape::Range,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Block,
-                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     SyntaxShape::Table,
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
