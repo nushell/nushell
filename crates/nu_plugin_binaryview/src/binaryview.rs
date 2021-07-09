@@ -1,6 +1,6 @@
 use crossterm::{style::Attribute, ExecutableCommand};
 use nu_pretty_hex::*;
-use nu_protocol::{outln, Value};
+use nu_protocol::outln;
 use nu_source::AnchorLocation;
 
 #[derive(Default)]
@@ -16,8 +16,6 @@ pub fn view_binary(
     b: &[u8],
     source: Option<&AnchorLocation>,
     lores_mode: bool,
-    skip: Option<&Value>,
-    length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
         if let (0x4e, 0x45, 0x53) = (b[0], b[1], b[2]) {
@@ -26,7 +24,7 @@ pub fn view_binary(
         }
     }
 
-    view_contents(b, source, lores_mode, skip, length)?;
+    view_contents(b, source, lores_mode)?;
     Ok(())
 }
 
@@ -210,8 +208,6 @@ pub fn view_contents(
     buffer: &[u8],
     _source: Option<&AnchorLocation>,
     lores_mode: bool,
-    skip: Option<&Value>,
-    length: Option<&Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Some 'bad actor' binaries turn off ansi support so we need to make sure
     // that ansi support is enabled in windows
@@ -220,18 +216,15 @@ pub fn view_contents(
         let _ = nu_ansi_term::enable_ansi_support();
     }
 
-    let skip_bytes = skip.map(|s| s.as_usize().unwrap_or(0));
-
-    let num_bytes = length.map(|b| b.as_usize().unwrap_or(0));
-
-    let config = HexConfig {
+    // we never use skip and length here because the composable pipeline should do that part
+    let hex_config = HexConfig {
         title: true,
         ascii: true,
         width: 16,
         group: 4,
         chunk: 1,
-        skip: skip_bytes,
-        length: num_bytes,
+        skip: None,
+        length: None,
     };
 
     let mut raw_image_buffer = load_from_png_buffer(buffer);
@@ -242,7 +235,7 @@ pub fn view_contents(
 
     if raw_image_buffer.is_err() {
         //Not yet supported
-        outln!("{}", config_hex(&buffer, config));
+        outln!("{}", config_hex(&buffer, hex_config));
         return Ok(());
     }
     let raw_image_buffer = raw_image_buffer?;
@@ -296,8 +289,7 @@ pub fn view_contents(
         }
         _ => {
             //Not yet supported
-            // outln!("{:?}", buffer.hex_dump());
-            outln!("{}", config_hex(&buffer, config));
+            outln!("{}", config_hex(&buffer, hex_config));
             return Ok(());
         }
     }

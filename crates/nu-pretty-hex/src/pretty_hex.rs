@@ -172,14 +172,12 @@ where
         .map(|x| *x as u8)
         .collect();
 
-    let source_part = String::from_utf8_lossy(&source_part_vec[..]);
-
     if cfg.title {
         if use_color {
             writeln!(
                 writer,
                 "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other {4}non_ascii{5}",
-                source_part.as_bytes().as_ref().len(),
+                source_part_vec.len(),
                 Style::default().fg(Color::Cyan).bold().prefix(),
                 Style::default().fg(Color::Green).bold().prefix(),
                 Style::default().fg(Color::Purple).bold().prefix(),
@@ -187,18 +185,14 @@ where
                 Style::default().fg(Color::Yellow).suffix()
             )?;
         } else {
-            writeln!(
-                writer,
-                "Length: {0} (0x{0:x}) bytes",
-                source_part.as_bytes().as_ref().len(),
-            )?;
+            writeln!(writer, "Length: {0} (0x{0:x}) bytes", source_part_vec.len(),)?;
         }
     }
 
-    let lines = source_part.as_bytes().as_ref().chunks(if cfg.width > 0 {
+    let lines = source_part_vec.chunks(if cfg.width > 0 {
         cfg.width
     } else {
-        source_part.as_bytes().as_ref().len()
+        source_part_vec.len()
     });
 
     let lines_len = lines.len();

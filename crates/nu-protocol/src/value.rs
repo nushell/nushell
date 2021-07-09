@@ -82,6 +82,11 @@ impl UntaggedValue {
         }
     }
 
+    /// Returns true if this value represents a binary
+    pub fn is_binary(&self) -> bool {
+        matches!(self, &UntaggedValue::Primitive(Primitive::Binary(_)))
+    }
+
     /// Returns true if this value represents boolean true
     pub fn is_true(&self) -> bool {
         matches!(self, UntaggedValue::Primitive(Primitive::Boolean(true)))
@@ -418,6 +423,14 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format(fmt).to_string()),
             _ => Err(ShellError::type_error("date", self.spanned_type_name())),
+        }
+    }
+
+    /// View a Primitive::Binary as a Vec<u8>, if possible
+    pub fn as_binary_vec(&self) -> Result<Vec<u8>, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Binary(bin)) => Ok(bin.to_vec()),
+            _ => Err(ShellError::type_error("binary", self.spanned_type_name())),
         }
     }
 

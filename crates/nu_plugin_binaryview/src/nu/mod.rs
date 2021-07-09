@@ -29,9 +29,7 @@ impl Plugin for BinaryView {
             let value_anchor = v.anchor();
             if let UntaggedValue::Primitive(Primitive::Binary(b)) = &v.value {
                 let low_res = call_info.args.has("lores");
-                let skip = call_info.args.get("skip");
-                let length = call_info.args.get("bytes");
-                let _ = view_binary(b, value_anchor.as_ref(), low_res, skip, length);
+                let _ = view_binary(b, value_anchor.as_ref(), low_res);
             }
         }
     }
