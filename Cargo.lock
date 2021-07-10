@@ -3186,7 +3186,7 @@ dependencies = [
  "rustyline",
  "serde 1.0.126",
  "serde_yaml",
- "shadow-rs 0.5.25",
+ "shadow-rs",
  "strip-ansi-escapes",
 ]
 
@@ -3268,7 +3268,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2 0.9.5",
- "shadow-rs 0.6.2",
+ "shadow-rs",
  "strip-ansi-escapes",
  "sxd-document",
  "sxd-xpath",
@@ -5532,16 +5532,6 @@ dependencies = [
  "cpufeatures",
  "digest 0.9.0",
  "opaque-debug",
-]
-
-[[package]]
-name = "shadow-rs"
-version = "0.5.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "110e0e7bde3d3f0f2a4284f250c40f1f6ed7ef1eef281598f8eb76838ac42305"
-dependencies = [
- "chrono",
- "git2",
 ]
 
 [[package]]
