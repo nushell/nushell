@@ -48,6 +48,25 @@ fn trim_double_quotes(input: &str) -> String {
 }
 
 #[allow(unused)]
+fn escape_inner_quotes(input: &str) -> String {
+    let mut chars = input.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('"'), Some('"')) => {
+            let inner: String = chars.collect();
+            inner.replace('"', "\\\"");
+            format!("\"{}\"", inner)
+        }
+        (Some('\''), Some('\'')) => {
+            let inner: String = chars.collect();
+            inner.replace('\'', "\\'");
+            format!("'{}'", inner)
+        }
+        _ => input.to_string(),
+    }
+}
+
+#[allow(unused)]
 fn escape_where_needed(input: &str) -> String {
     input.split(' ').join("\\ ").split('\'').join("\\'")
 }
@@ -112,12 +131,7 @@ fn run_with_stdin(
                     let escaped = escape_double_quotes(&arg);
                     add_double_quotes(&escaped)
                 } else {
-                    let trimmed = trim_double_quotes(&arg);
-                    if trimmed != arg {
-                        escape_where_needed(&trimmed)
-                    } else {
-                        trimmed
-                    }
+                    escape_inner_quotes(&arg)
                 }
             }
             #[cfg(windows)]
