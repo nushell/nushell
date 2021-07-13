@@ -181,6 +181,14 @@ fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
     debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
 
+    // Early-exit if path does not contain '.' or '..'
+    if !path
+        .components()
+        .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
+    {
+        return path;
+    }
+
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
 
     // Only pop/skip path elements if the previous one was an actual path element
@@ -233,6 +241,13 @@ fn absolutize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
 //         }
 //     }
 // }
+
+///////////////////////////////////////////////////////////////////////////////
+// Misc
+
+pub fn trim_trailing_slash(s: &str) -> &str {
+    s.trim_end_matches(std::path::is_separator)
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Full expansions
