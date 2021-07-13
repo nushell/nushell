@@ -298,6 +298,6 @@ jobs:
           $nushellVersion="${{ needs.release.outputs.version }}"
           $nushellInstallerName="nu_$($nushellVersion -replace '\.','_')_windows.msi"
           $installerUrl = "https://github.com/nushell/nushell/releases/download/$nushellVersion/$nushellInstallerName"
-          .\wingetcreate.exe update Nushell.Nushell -v $nushellVersion -u $installerUrl -t ${{ secrets.NUSHELL_PAT }}
+          .\wingetcreate.exe update Nushell.Nushell -s -v $nushellVersion -u $installerUrl -t ${{ secrets.NUSHELL_PAT }}
     
     
