@@ -104,6 +104,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             // Checking the column types before performing the join
             check_column_datatypes(
                 df.as_ref(),
+                r_df.as_ref(),
                 &l_col_string,
                 &l_col_span,
                 &r_col_string,
@@ -125,7 +126,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
+    df_l: &polars::prelude::DataFrame,
+    df_r: &polars::prelude::DataFrame,
     l_cols: &[T],
     l_col_span: &Span,
     r_cols: &[T],
@@ -146,11 +148,11 @@ fn check_column_datatypes<T: AsRef<str>>(
     }
 
     for (l, r) in l_cols.iter().zip(r_cols.iter()) {
-        let l_series = df
+        let l_series = df_l
             .column(l.as_ref())
             .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))?;
 
-        let r_series = df
+        let r_series = df_r
             .column(r.as_ref())
             .map_err(|e| parse_polars_error::<&str>(&e, &r_col_span, None))?;
 
