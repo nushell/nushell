@@ -19,7 +19,7 @@ nu-protocol = { path="../nu-protocol", version = "0.34.0" }
 nu-source = { path="../nu-source", version = "0.34.0" }
 num-traits = "0.2.12"
 serde_json = "1.0.57"
-surf = "2.2.0"
+surf = { version="2.2.0", default-features = false, features=["hyper-client"] }
 url = "2.1.1"
 
 [features]
