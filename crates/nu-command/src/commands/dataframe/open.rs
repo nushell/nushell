@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 
 use nu_source::Tagged;
-use polars::prelude::{CsvReader, JsonReader, ParquetReader, SerReader};
+use polars::prelude::{CsvEncoding, CsvReader, JsonReader, ParquetReader, PolarsError, SerReader};
 use std::fs::File;
 
 pub struct DataFrame;
@@ -151,7 +151,8 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
     let columns: Option<Vec<Value>> = args.get_flag("columns")?;
 
     let csv_reader = CsvReader::from_path(&file.item)
-        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))?;
+        .map_err(|e| parse_polars_error::<&str>(&e, &file.tag.span, None))?
+        .with_encoding(CsvEncoding::LossyUtf8);
 
     let csv_reader = match delimiter {
         None => csv_reader,
@@ -205,6 +206,15 @@ fn from_csv(args: CommandArgs) -> Result<polars::prelude::DataFrame, ShellError>
 
     match csv_reader.finish() {
         Ok(df) => Ok(df),
-        Err(e) => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
+        Err(e) => match e {
+            PolarsError::Other(_) => Err(ShellError::labeled_error_with_secondary(
+                "Schema error",
+                "Error with the inferred schema",
+                &file.tag.span,
+                "You can use the argument 'infer_schema' with a number of rows large enough to better infer the schema",
+                &file.tag.span,
+            )),
+            _ => Err(parse_polars_error::<&str>(&e, &file.tag.span, None)),
+        },
     }
 }
