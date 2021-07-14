@@ -38,7 +38,7 @@ nu-value-ext = { version = "0.34.0", path="../nu-value-ext" }
 nu-ansi-term = { version = "0.34.0", path="../nu-ansi-term" }
 
 [dependencies.polars]
-version = "0.14.5"
+version = "0.14.7"
 optional = true
 features = ["strings", "checked_arithmetic"]
 

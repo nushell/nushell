@@ -31,7 +31,7 @@ serde_yaml = "0.8.16"
 toml = "0.5.8"
 
 [dependencies.polars]
-version = "0.14.5"
+version = "0.14.7"
 optional = true
 features = ["serde", "rows"]
 
