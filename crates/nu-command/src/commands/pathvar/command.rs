@@ -1,8 +1,9 @@
+use super::get_var;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, Value};
-use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
+use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_test_support::NATIVE_PATH_ENV_SEPARATOR;
 
 pub struct Command;
 
@@ -12,11 +13,17 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pathvar")
+        Signature::build("pathvar").named(
+            "var",
+            SyntaxShape::String,
+            "Use a different variable than PATH",
+            Some('v'),
+        )
     }
 
     fn usage(&self) -> &str {
-        "Manipulate the PATH variable (or pathvar)."
+        r#"Manipulate the PATH variable (pathvar) or a different variable following the
+same rules."#
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -28,6 +35,11 @@ impl WholeStreamCommand for Command {
             Example {
                 description: "Display the current session's pathvar",
                 example: "pathvar",
+                result: None,
+            },
+            Example {
+                description: "Display the current session's LD_LIBRARY_PATH",
+                example: "pathvar -v LD_LIBRARY_PATH",
                 result: None,
             },
             Example {
@@ -45,7 +57,9 @@ impl WholeStreamCommand for Command {
 }
 
 pub fn get_pathvar(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if let Some(pathvar) = args.context.scope.get_env(NATIVE_PATH_ENV_VAR) {
+    let var = get_var(&args)?;
+
+    if let Some(pathvar) = args.context.scope.get_env(&var) {
         let pathvar: Vec<Value> = pathvar
             .split(NATIVE_PATH_ENV_SEPARATOR)
             .map(Value::from)
@@ -53,6 +67,9 @@ pub fn get_pathvar(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         Ok(OutputStream::from(pathvar))
     } else {
-        Err(ShellError::unexpected("PATH not set"))
+        Err(ShellError::unexpected(&format!(
+            "Variable {} not set",
+            &var.item
+        )))
     }
 }
