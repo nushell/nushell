@@ -2,7 +2,8 @@ use crate::prelude::*;
 use nu_engine::shell::RemoveArgs;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{Primitive, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_source::Tagged;
 
 pub struct Remove;
 
@@ -25,7 +26,7 @@ impl WholeStreamCommand for Remove {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .rest(SyntaxShape::GlobPattern, "the file path(s) to remove")
+            .optional("files", SyntaxShape::GlobPattern, "the file path(s) to remove")
     }
 
     fn usage(&self) -> &str {
@@ -66,7 +67,7 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let shell_manager = args.shell_manager();
 
-    let args = RemoveArgs {
+    let mut rm_args = RemoveArgs {
         rest: args.rest(0)?,
         recursive: args.has_flag("recursive"),
         trash: args.has_flag("trash"),
@@ -74,7 +75,7 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
         force: args.has_flag("force"),
     };
 
-    if args.trash && args.permanent {
+    if rm_args.trash && rm_args.permanent {
         return Ok(ActionStream::one(Err(ShellError::labeled_error(
             "only one of --permanent and --trash can be used",
             "conflicting flags",
@@ -82,7 +83,28 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
         ))));
     }
 
-    shell_manager.rm(args, name)
+    if rm_args.rest.len() == 0 {
+        let mut input_peek = args.input.peekable();
+        loop {
+            match &mut input_peek.next() {
+                Some(v) => match &v.value {
+                    UntaggedValue::Primitive(v) => match &v {
+                        Primitive::FilePath(path) => {
+                            rm_args.rest.push(Tagged {
+                                item: path.to_path_buf(),
+                                tag: args.call_info.name_tag.clone(),
+                            });
+                        },
+                        _ => {}
+                    },
+                    _ => {}
+                },
+                None => break
+            };
+        }
+    }
+
+    shell_manager.rm(rm_args, name)
 }
 
 #[cfg(test)]
