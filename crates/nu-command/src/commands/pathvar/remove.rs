@@ -1,9 +1,10 @@
+use super::get_var;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
-use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
+use nu_test_support::NATIVE_PATH_ENV_SEPARATOR;
 
 pub struct SubCommand;
 
@@ -13,11 +14,18 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pathvar remove").required(
-            "index",
-            SyntaxShape::Int,
-            "index of the path to remove (starting at 0)",
-        )
+        Signature::build("pathvar remove")
+            .required(
+                "index",
+                SyntaxShape::Int,
+                "index of the path to remove (starting at 0)",
+            )
+            .named(
+                "var",
+                SyntaxShape::String,
+                "Use a different variable than PATH",
+                Some('v'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -39,10 +47,12 @@ impl WholeStreamCommand for SubCommand {
 
 pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = &args.context;
+
+    let var = get_var(&args)?;
     let index_to_remove_arg: Tagged<u64> = args.req(0)?;
     let index_to_remove = index_to_remove_arg.item as usize;
 
-    if let Some(old_pathvar) = ctx.scope.get_env(NATIVE_PATH_ENV_VAR) {
+    if let Some(old_pathvar) = ctx.scope.get_env(&var) {
         let mut paths: Vec<&str> = old_pathvar.split(NATIVE_PATH_ENV_SEPARATOR).collect();
 
         if index_to_remove >= paths.len() {
@@ -55,12 +65,15 @@ pub fn remove(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         paths.remove(index_to_remove);
         ctx.scope.add_env_var(
-            NATIVE_PATH_ENV_VAR,
+            &var.item,
             paths.join(&NATIVE_PATH_ENV_SEPARATOR.to_string()),
         );
 
         Ok(OutputStream::empty())
     } else {
-        Err(ShellError::unexpected("PATH not set"))
+        Err(ShellError::unexpected(&format!(
+            "Variable {} not set",
+            &var.item
+        )))
     }
 }
