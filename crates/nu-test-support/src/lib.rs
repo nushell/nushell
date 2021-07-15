@@ -15,9 +15,9 @@ pub const NATIVE_PATH_ENV_VAR: &str = "Path";
 pub const NATIVE_PATH_ENV_VAR: &str = "PATH";
 
 #[cfg(windows)]
-pub const NATIVE_PATH_ENV_SEPARATOR: char = ':';
-#[cfg(not(windows))]
 pub const NATIVE_PATH_ENV_SEPARATOR: char = ';';
+#[cfg(not(windows))]
+pub const NATIVE_PATH_ENV_SEPARATOR: char = ':';
 
 impl Outcome {
     pub fn new(out: String, err: String) -> Outcome {
