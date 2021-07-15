@@ -16,7 +16,7 @@ nu-errors = { path="../nu-errors", version = "0.34.0" }
 nu-plugin = { path="../nu-plugin", version = "0.34.0" }
 nu-protocol = { path="../nu-protocol", version = "0.34.0" }
 nu-source = { path="../nu-source", version = "0.34.0" }
-surf = { version="2.2.0", default-features = false, features=["hyper-client"] }
+surf = { version="2.2.0", features=["hyper-client"] }
 url = "2.2.1"
 mime = "0.3.16"
 
