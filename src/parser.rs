@@ -1008,19 +1008,39 @@ impl ParserWorkingSet {
                                     let syntax_shape = self.parse_shape_name(contents);
                                     //TODO check if we're replacing one already
                                     match last {
-                                        Arg::Positional(PositionalArg { name, desc, shape }) => {
+                                        Arg::Positional(PositionalArg { shape, .. }) => {
                                             *shape = syntax_shape;
                                         }
-                                        Arg::Flag(Flag {
-                                            long,
-                                            short,
-                                            arg,
-                                            required,
-                                            desc,
-                                        }) => *arg = Some(syntax_shape),
+                                        Arg::Flag(Flag { arg, .. }) => *arg = Some(syntax_shape),
                                     }
                                 }
                                 parse_mode = ParseMode::ArgMode;
+                            }
+                        }
+                    }
+                }
+                Token {
+                    contents: crate::TokenContents::Comment,
+                    span,
+                } => {
+                    let contents = &self.file_contents[span.start + 1..span.end];
+
+                    let mut contents = String::from_utf8_lossy(contents).to_string();
+                    contents = contents.trim().into();
+
+                    if let Some(last) = args.last_mut() {
+                        match last {
+                            Arg::Flag(flag) => {
+                                if !flag.desc.is_empty() {
+                                    flag.desc.push_str("\n");
+                                }
+                                flag.desc.push_str(&contents);
+                            }
+                            Arg::Positional(positional) => {
+                                if !positional.desc.is_empty() {
+                                    positional.desc.push_str("\n");
+                                }
+                                positional.desc.push_str(&contents);
                             }
                         }
                     }

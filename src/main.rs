@@ -60,9 +60,9 @@ fn main() -> std::io::Result<()> {
             .required("block", SyntaxShape::Block, "body of the definition");
         working_set.add_decl(sig.into());
 
-        //let file = std::fs::read(&path)?;
-        //let (output, err) = working_set.parse_file(&path, file);
-        let (output, err) = working_set.parse_source(path.as_bytes());
+        let file = std::fs::read(&path)?;
+        let (output, err) = working_set.parse_file(&path, file);
+        //let (output, err) = working_set.parse_source(path.as_bytes());
         println!("{:#?}", output);
         println!("error: {:?}", err);
 
