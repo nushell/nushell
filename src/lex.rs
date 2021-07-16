@@ -38,18 +38,28 @@ impl BlockKind {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum LexMode {
     Normal,
-    CommaIsSpace,
-    NewlineIsSpace,
-    CommaAndNewlineIsSpace,
+    Custom {
+        whitespace: Vec<u8>,
+        special: Vec<u8>,
+    },
+}
+
+impl LexMode {
+    pub fn whitespace_contains(&self, b: u8) -> bool {
+        match self {
+            LexMode::Custom { ref whitespace, .. } => whitespace.contains(&b),
+            _ => false,
+        }
+    }
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;`, `#` or any
 // whitespace.
-fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: LexMode) -> bool {
+fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: &LexMode) -> bool {
     block_level.is_empty()
         && (c == b' '
             || c == b'\t'
@@ -57,14 +67,25 @@ fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: LexMode) -> bo
             || c == b'|'
             || c == b';'
             || c == b'#'
-            || (c == b',' && lex_mode == LexMode::CommaIsSpace)
-            || (c == b',' && lex_mode == LexMode::CommaAndNewlineIsSpace))
+            || lex_mode.whitespace_contains(c))
+}
+
+// A special token is one that is a byte that stands alone as its own token. For example
+// when parsing a signature you may want to have `:` be able to separate tokens and also
+// to be handled as its own token to notify you you're about to parse a type in the example
+// `foo:bar`
+fn is_special_item(block_level: &[BlockKind], c: u8, lex_mode: &LexMode) -> bool {
+    block_level.is_empty()
+        && (match lex_mode {
+            LexMode::Custom { special, .. } => special.contains(&c),
+            _ => false,
+        })
 }
 
 pub fn lex_item(
     input: &[u8],
     curr_offset: &mut usize,
-    lex_mode: LexMode,
+    lex_mode: &LexMode,
 ) -> (Span, Option<ParseError>) {
     // This variable tracks the starting character of a string literal, so that
     // we remain inside the string literal lexer mode until we encounter the
@@ -99,19 +120,22 @@ pub fn lex_item(
                 quote_start = None;
             }
         } else if c == b'#' {
-            if is_item_terminator(&block_level, c, lex_mode) {
+            if is_item_terminator(&block_level, c, &lex_mode) {
                 break;
             }
             in_comment = true;
         } else if c == b'\n' {
             in_comment = false;
-            if is_item_terminator(&block_level, c, lex_mode) {
+            if is_item_terminator(&block_level, c, &lex_mode) {
                 break;
             }
         } else if in_comment {
-            if is_item_terminator(&block_level, c, lex_mode) {
+            if is_item_terminator(&block_level, c, &lex_mode) {
                 break;
             }
+        } else if is_special_item(&block_level, c, &lex_mode) && token_start == *curr_offset {
+            *curr_offset += 1;
+            break;
         } else if c == b'\'' || c == b'"' {
             // We encountered the opening quote of a string literal.
             quote_start = Some(c);
@@ -140,7 +164,7 @@ pub fn lex_item(
             if let Some(BlockKind::Paren) = block_level.last() {
                 let _ = block_level.pop();
             }
-        } else if is_item_terminator(&block_level, c, lex_mode) {
+        } else if is_item_terminator(&block_level, c, &lex_mode) {
             break;
         }
 
@@ -182,7 +206,7 @@ pub fn lex_item(
 pub fn lex(
     input: &[u8],
     span_offset: usize,
-    lex_mode: LexMode,
+    lex_mode: &LexMode,
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut error = None;
 
@@ -239,7 +263,7 @@ pub fn lex(
 
             let idx = curr_offset;
             curr_offset += 1;
-            if lex_mode != LexMode::NewlineIsSpace && lex_mode != LexMode::CommaAndNewlineIsSpace {
+            if !lex_mode.whitespace_contains(c) {
                 output.push(Token::new(TokenContents::Eol, Span::new(idx, idx + 1)));
             }
         } else if c == b'#' {
@@ -265,17 +289,13 @@ pub fn lex(
                     Span::new(start, curr_offset),
                 ));
             }
-        } else if c == b' '
-            || c == b'\t'
-            || (c == b',' && lex_mode == LexMode::CommaIsSpace)
-            || (c == b',' && lex_mode == LexMode::CommaAndNewlineIsSpace)
-        {
+        } else if c == b' ' || c == b'\t' || lex_mode.whitespace_contains(c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
             // Otherwise, try to consume an unclassified token.
 
-            let (span, err) = lex_item(input, &mut curr_offset, lex_mode);
+            let (span, err) = lex_item(input, &mut curr_offset, &lex_mode);
             if error.is_none() {
                 error = err;
             }
@@ -294,7 +314,7 @@ mod lex_tests {
     fn lex_basic() {
         let file = b"let x = 4";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, &LexMode::Normal);
 
         assert!(output.1.is_none());
     }
@@ -303,7 +323,7 @@ mod lex_tests {
     fn lex_newline() {
         let file = b"let x = 300\nlet y = 500;";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, &LexMode::Normal);
 
         println!("{:#?}", output.0);
         assert!(output.0.contains(&Token {
@@ -316,7 +336,7 @@ mod lex_tests {
     fn lex_empty() {
         let file = b"";
 
-        let output = lex(file, 0, LexMode::Normal);
+        let output = lex(file, 0, &LexMode::Normal);
 
         assert!(output.0.is_empty());
         assert!(output.1.is_none());

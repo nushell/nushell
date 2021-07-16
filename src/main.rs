@@ -56,11 +56,7 @@ fn main() -> std::io::Result<()> {
 
         let sig = Signature::build("def")
             .required("def_name", SyntaxShape::String, "definition name")
-            .required(
-                "params",
-                SyntaxShape::List(Box::new(SyntaxShape::VarWithOptType)),
-                "parameters",
-            )
+            .required("params", SyntaxShape::Signature, "parameters")
             .required("block", SyntaxShape::Block, "body of the definition");
         working_set.add_decl(sig.into());
 

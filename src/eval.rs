@@ -64,6 +64,7 @@ impl Engine {
             Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
             Expr::Literal(_) => Err(ShellError::Unsupported(expr.span)),
             Expr::String(_) => Err(ShellError::Unsupported(expr.span)),
+            Expr::Signature(_) => Err(ShellError::Unsupported(expr.span)),
             Expr::Garbage => Err(ShellError::Unsupported(expr.span)),
         }
     }

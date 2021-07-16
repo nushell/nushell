@@ -3,8 +3,8 @@ use std::ops::{Index, IndexMut};
 use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
-    signature::Flag,
-    BlockId, DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
+    signature::{Flag, PositionalArg},
+    BlockId, DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span, Token,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -71,6 +71,9 @@ pub enum SyntaxShape {
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
 
+    /// A signature for a definition, `[x:int, --foo]`
+    Signature,
+
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 }
@@ -135,6 +138,7 @@ pub enum Expr {
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Literal(Vec<u8>),
     String(String), // FIXME: improve this in the future?
+    Signature(Signature),
     Garbage,
 }
 
@@ -181,6 +185,13 @@ impl Expression {
     pub fn as_block(self) -> Option<BlockId> {
         match self.expr {
             Expr::Block(block_id) => Some(block_id),
+            _ => None,
+        }
+    }
+
+    pub fn as_signature(self) -> Option<Signature> {
+        match self.expr {
+            Expr::Signature(sig) => Some(sig),
             _ => None,
         }
     }
@@ -787,7 +798,7 @@ impl ParserWorkingSet {
 
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, start, crate::LexMode::Normal);
+        let (output, err) = lex(&source, start, &crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -823,6 +834,28 @@ impl ParserWorkingSet {
                 garbage(span),
                 Some(ParseError::Mismatch("string".into(), span)),
             )
+        }
+    }
+
+    //TODO: Handle error case
+    pub fn parse_shape_name(&self, bytes: &[u8]) -> SyntaxShape {
+        match bytes {
+            b"any" => SyntaxShape::Any,
+            b"string" => SyntaxShape::String,
+            b"column-path" => SyntaxShape::ColumnPath,
+            b"number" => SyntaxShape::Number,
+            b"range" => SyntaxShape::Range,
+            b"int" => SyntaxShape::Int,
+            b"path" => SyntaxShape::FilePath,
+            b"glob" => SyntaxShape::GlobPattern,
+            b"block" => SyntaxShape::Block,
+            b"cond" => SyntaxShape::RowCondition,
+            b"operator" => SyntaxShape::Operator,
+            b"math" => SyntaxShape::MathExpression,
+            b"variable" => SyntaxShape::Variable,
+            b"signature" => SyntaxShape::Signature,
+            b"expr" => SyntaxShape::Expression,
+            _ => SyntaxShape::Any,
         }
     }
 
@@ -887,6 +920,140 @@ impl ParserWorkingSet {
         self.parse_math_expression(spans)
     }
 
+    pub fn parse_signature(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        enum ParseMode {
+            ArgMode,
+            TypeMode,
+        }
+
+        enum Arg {
+            Positional(PositionalArg),
+            Flag(Flag),
+        }
+
+        println!("parse signature");
+        let bytes = self.get_span_contents(span);
+
+        let mut error = None;
+        let mut start = span.start;
+        let mut end = span.end;
+
+        if bytes.starts_with(b"[") {
+            start += 1;
+        }
+        if bytes.ends_with(b"]") {
+            end -= 1;
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::Unclosed(
+                    "]".into(),
+                    Span {
+                        start: end,
+                        end: end + 1,
+                    },
+                ))
+            });
+        }
+
+        let span = Span { start, end };
+        let source = &self.file_contents[..span.end];
+
+        let (output, err) = lex(
+            &source,
+            span.start,
+            &crate::LexMode::Custom {
+                whitespace: vec![b'\n', b','],
+                special: vec![b':', b'?'],
+            },
+        );
+        error = error.or(err);
+
+        let mut args: Vec<Arg> = vec![];
+        let mut parse_mode = ParseMode::ArgMode;
+
+        for token in &output {
+            match token {
+                Token {
+                    contents: crate::TokenContents::Item,
+                    span,
+                } => {
+                    let contents = &self.file_contents[span.start..span.end];
+
+                    if contents == b":" {
+                        match parse_mode {
+                            ParseMode::ArgMode => {
+                                parse_mode = ParseMode::TypeMode;
+                            }
+                            ParseMode::TypeMode => {
+                                // We're seeing two types for the same thing for some reason, error
+                                error = error.or(Some(ParseError::Mismatch("type".into(), *span)));
+                            }
+                        }
+                    } else {
+                        match parse_mode {
+                            ParseMode::ArgMode => {
+                                if contents.starts_with(b"--") {
+                                    // Long flag
+                                    args.push(Arg::Flag(Flag {
+                                        arg: None,
+                                        desc: String::new(),
+                                        long: String::from_utf8_lossy(contents).to_string(),
+                                        short: None,
+                                        required: true,
+                                    }));
+                                } else {
+                                    // Positional arg
+                                    args.push(Arg::Positional(PositionalArg {
+                                        desc: String::new(),
+                                        name: String::from_utf8_lossy(contents).to_string(),
+                                        shape: SyntaxShape::Any,
+                                    }))
+                                }
+                            }
+                            ParseMode::TypeMode => {
+                                if let Some(last) = args.last_mut() {
+                                    let syntax_shape = self.parse_shape_name(contents);
+                                    //TODO check if we're replacing one already
+                                    match last {
+                                        Arg::Positional(PositionalArg { name, desc, shape }) => {
+                                            *shape = syntax_shape;
+                                        }
+                                        Arg::Flag(Flag {
+                                            long,
+                                            short,
+                                            arg,
+                                            required,
+                                            desc,
+                                        }) => *arg = Some(syntax_shape),
+                                    }
+                                }
+                                parse_mode = ParseMode::ArgMode;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut sig = Signature::new(String::new());
+
+        for arg in args {
+            match arg {
+                Arg::Positional(positional) => sig.required_positional.push(positional),
+                Arg::Flag(flag) => sig.named.push(flag),
+            }
+        }
+
+        (
+            Expression {
+                expr: Expr::Signature(sig),
+                span,
+            },
+            error,
+        )
+    }
+
     pub fn parse_list_expression(
         &mut self,
         span: Span,
@@ -919,7 +1086,14 @@ impl ParserWorkingSet {
         let span = Span { start, end };
         let source = &self.file_contents[..span.end];
 
-        let (output, err) = lex(&source, span.start, crate::LexMode::CommaAndNewlineIsSpace);
+        let (output, err) = lex(
+            &source,
+            span.start,
+            &crate::LexMode::Custom {
+                whitespace: vec![b'\n', b','],
+                special: vec![],
+            },
+        );
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -983,7 +1157,14 @@ impl ParserWorkingSet {
 
         let source = &self.file_contents[..end];
 
-        let (output, err) = lex(&source, start, crate::LexMode::CommaAndNewlineIsSpace);
+        let (output, err) = lex(
+            &source,
+            start,
+            &crate::LexMode::Custom {
+                whitespace: vec![b'\n', b','],
+                special: vec![],
+            },
+        );
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1073,7 +1254,7 @@ impl ParserWorkingSet {
 
         let source = &self.file_contents[..end];
 
-        let (output, err) = lex(&source, start, crate::LexMode::Normal);
+        let (output, err) = lex(&source, start, &crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1116,11 +1297,14 @@ impl ParserWorkingSet {
             return self.parse_full_column_path(span);
         } else if bytes.starts_with(b"[") {
             match shape {
-                SyntaxShape::Any | SyntaxShape::List(_) | SyntaxShape::Table => {}
+                SyntaxShape::Any
+                | SyntaxShape::List(_)
+                | SyntaxShape::Table
+                | SyntaxShape::Signature => {}
                 _ => {
                     return (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("non-table/non-list".into(), span)),
+                        Some(ParseError::Mismatch("non-[] value".into(), span)),
                     );
                 }
             }
@@ -1176,6 +1360,16 @@ impl ParserWorkingSet {
                     (
                         Expression::garbage(span),
                         Some(ParseError::Mismatch("table".into(), span)),
+                    )
+                }
+            }
+            SyntaxShape::Signature => {
+                if bytes.starts_with(b"[") {
+                    self.parse_signature(span)
+                } else {
+                    (
+                        Expression::garbage(span),
+                        Some(ParseError::Mismatch("signature".into(), span)),
                     )
                 }
             }
@@ -1419,22 +1613,20 @@ impl ParserWorkingSet {
                         .remove(0)
                         .as_string()
                         .expect("internal error: expected def name");
-                    let args = call
+                    let mut signature = call
                         .positional
                         .remove(0)
-                        .as_list()
-                        .expect("internal error: expected param list")
-                        .into_iter()
-                        .map(|x| x.as_var().expect("internal error: expected parameter"))
-                        .collect::<Vec<_>>();
+                        .as_signature()
+                        .expect("internal error: expected param list");
                     let block_id = call
                         .positional
                         .remove(0)
                         .as_block()
                         .expect("internal error: expected block");
 
+                    signature.name = name;
                     let decl = Declaration {
-                        signature: Signature::new(name),
+                        signature,
                         body: Some(block_id),
                     };
 
@@ -1526,7 +1718,7 @@ impl ParserWorkingSet {
     pub fn parse_file(&mut self, fname: &str, contents: Vec<u8>) -> (Block, Option<ParseError>) {
         let mut error = None;
 
-        let (output, err) = lex(&contents, 0, crate::LexMode::Normal);
+        let (output, err) = lex(&contents, 0, &crate::LexMode::Normal);
         error = error.or(err);
 
         self.add_file(fname.into(), contents);
@@ -1545,7 +1737,7 @@ impl ParserWorkingSet {
 
         self.add_file("source".into(), source.into());
 
-        let (output, err) = lex(source, 0, crate::LexMode::Normal);
+        let (output, err) = lex(source, 0, &crate::LexMode::Normal);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
