@@ -1,4 +1,4 @@
-use crate::{parser::Block, Declaration, Signature, Span};
+use crate::{parser::Block, Declaration, Span};
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug)]
@@ -7,7 +7,7 @@ pub struct ParserState {
     file_contents: Vec<u8>,
     vars: Vec<Type>,
     decls: Vec<Declaration>,
-    blocks: Vec<Box<Block>>,
+    blocks: Vec<Block>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -118,7 +118,7 @@ pub struct ParserWorkingSet {
     pub(crate) file_contents: Vec<u8>,
     vars: Vec<Type>,         // indexed by VarId
     decls: Vec<Declaration>, // indexed by DeclId
-    blocks: Vec<Box<Block>>, // indexed by BlockId
+    blocks: Vec<Block>,      // indexed by BlockId
     permanent_state: Option<Arc<ParserState>>,
     scope: Vec<ScopeFrame>,
 }
@@ -181,7 +181,7 @@ impl ParserWorkingSet {
         decl_id
     }
 
-    pub fn add_block(&mut self, block: Box<Block>) -> BlockId {
+    pub fn add_block(&mut self, block: Block) -> BlockId {
         self.blocks.push(block);
 
         self.num_blocks() - 1

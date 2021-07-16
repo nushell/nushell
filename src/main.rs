@@ -1,4 +1,4 @@
-use engine_q::{Engine, ParserWorkingSet, Signature, SyntaxShape};
+use engine_q::{ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {
@@ -70,7 +70,7 @@ fn main() -> std::io::Result<()> {
         println!("{:#?}", output);
         println!("error: {:?}", err);
 
-        println!("working set: {:#?}", working_set);
+        //println!("working set: {:#?}", working_set);
 
         // println!("{}", size_of::<Statement>());
 

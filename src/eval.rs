@@ -53,7 +53,7 @@ impl Engine {
                 val: i,
                 span: expr.span,
             }),
-            Expr::Var(v) => Err(ShellError::Unsupported(expr.span)),
+            Expr::Var(_) => Err(ShellError::Unsupported(expr.span)),
             Expr::Call(_) => Err(ShellError::Unsupported(expr.span)),
             Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
             Expr::Operator(_) => Err(ShellError::Unsupported(expr.span)),

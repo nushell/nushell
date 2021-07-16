@@ -4,7 +4,7 @@ use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
     signature::Flag,
-    DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
+    BlockId, DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -129,8 +129,8 @@ pub enum Expr {
     ExternalCall(Vec<u8>, Vec<Vec<u8>>),
     Operator(Operator),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
-    Subexpression(Box<Block>),
-    Block(Box<Block>),
+    Subexpression(BlockId),
+    Block(BlockId),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Literal(Vec<u8>),
@@ -178,9 +178,9 @@ impl Expression {
         }
     }
 
-    pub fn as_block(self) -> Option<Box<Block>> {
+    pub fn as_block(self) -> Option<BlockId> {
         match self.expr {
-            Expr::Block(block) => Some(block),
+            Expr::Block(block_id) => Some(block_id),
             _ => None,
         }
     }
@@ -796,9 +796,11 @@ impl ParserWorkingSet {
         let (output, err) = self.parse_block(&output);
         error = error.or(err);
 
+        let block_id = self.add_block(output);
+
         (
             Expression {
-                expr: Expr::Subexpression(Box::new(output)),
+                expr: Expr::Subexpression(block_id),
                 span,
             },
             error,
@@ -1082,9 +1084,11 @@ impl ParserWorkingSet {
 
         println!("{:?} {:?}", output, error);
 
+        let block_id = self.add_block(output);
+
         (
             Expression {
-                expr: Expr::Block(Box::new(output)),
+                expr: Expr::Block(block_id),
                 span,
             },
             error,
@@ -1423,13 +1427,11 @@ impl ParserWorkingSet {
                         .into_iter()
                         .map(|x| x.as_var().expect("internal error: expected parameter"))
                         .collect::<Vec<_>>();
-                    let block = call
+                    let block_id = call
                         .positional
                         .remove(0)
                         .as_block()
                         .expect("internal error: expected block");
-
-                    let block_id = self.add_block(block);
 
                     let decl = Declaration {
                         signature: Signature::new(name),
