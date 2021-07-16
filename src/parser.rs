@@ -994,6 +994,43 @@ impl ParserWorkingSet {
                                         short: None,
                                         required: false,
                                     }));
+                                } else if contents.starts_with(b"-") {
+                                    // Short flag
+
+                                    let short_flag = &contents[1..];
+                                    let short_flag =
+                                        String::from_utf8_lossy(short_flag).to_string();
+                                    let chars: Vec<char> = short_flag.chars().collect();
+
+                                    if chars.len() > 1 {
+                                        error = error.or(Some(ParseError::Mismatch(
+                                            "short flag".into(),
+                                            *span,
+                                        )));
+
+                                        args.push(Arg::Flag(Flag {
+                                            arg: None,
+                                            desc: String::new(),
+                                            long: String::new(),
+                                            short: None,
+                                            required: false,
+                                        }));
+                                    } else if chars.is_empty() {
+                                        // Positional arg
+                                        args.push(Arg::Positional(PositionalArg {
+                                            desc: String::new(),
+                                            name: String::from_utf8_lossy(contents).to_string(),
+                                            shape: SyntaxShape::Any,
+                                        }))
+                                    } else {
+                                        args.push(Arg::Flag(Flag {
+                                            arg: None,
+                                            desc: String::new(),
+                                            long: String::new(),
+                                            short: Some(chars[0]),
+                                            required: false,
+                                        }));
+                                    }
                                 } else {
                                     // Positional arg
                                     args.push(Arg::Positional(PositionalArg {
