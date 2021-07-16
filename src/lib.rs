@@ -10,7 +10,7 @@ mod span;
 
 pub use declaration::Declaration;
 pub use eval::Engine;
-pub use lex::{lex, LexMode, Token, TokenContents};
+pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock, LiteCommand, LiteStatement};
 pub use parse_error::ParseError;
 pub use parser::{

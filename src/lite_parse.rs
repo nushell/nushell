@@ -128,7 +128,7 @@ mod tests {
     use crate::{lex, lite_parse, LiteBlock, ParseError, Span};
 
     fn lite_parse_helper(input: &[u8]) -> Result<LiteBlock, ParseError> {
-        let (output, err) = lex(input, 0, &crate::LexMode::Normal);
+        let (output, err) = lex(input, 0, &[], &[]);
         if let Some(err) = err {
             return Err(err);
         }

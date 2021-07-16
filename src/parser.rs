@@ -798,7 +798,7 @@ impl ParserWorkingSet {
 
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, start, &crate::LexMode::Normal);
+        let (output, err) = lex(&source, start, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -958,14 +958,7 @@ impl ParserWorkingSet {
         let span = Span { start, end };
         let source = &self.file_contents[..span.end];
 
-        let (output, err) = lex(
-            &source,
-            span.start,
-            &crate::LexMode::Custom {
-                whitespace: vec![b'\n', b','],
-                special: vec![b':', b'?'],
-            },
-        );
+        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':', b'?']);
         error = error.or(err);
 
         let mut args: Vec<Arg> = vec![];
@@ -1086,14 +1079,7 @@ impl ParserWorkingSet {
         let span = Span { start, end };
         let source = &self.file_contents[..span.end];
 
-        let (output, err) = lex(
-            &source,
-            span.start,
-            &crate::LexMode::Custom {
-                whitespace: vec![b'\n', b','],
-                special: vec![],
-            },
-        );
+        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1157,14 +1143,7 @@ impl ParserWorkingSet {
 
         let source = &self.file_contents[..end];
 
-        let (output, err) = lex(
-            &source,
-            start,
-            &crate::LexMode::Custom {
-                whitespace: vec![b'\n', b','],
-                special: vec![],
-            },
-        );
+        let (output, err) = lex(&source, start, &[b'\n', b','], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1254,7 +1233,7 @@ impl ParserWorkingSet {
 
         let source = &self.file_contents[..end];
 
-        let (output, err) = lex(&source, start, &crate::LexMode::Normal);
+        let (output, err) = lex(&source, start, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1718,7 +1697,7 @@ impl ParserWorkingSet {
     pub fn parse_file(&mut self, fname: &str, contents: Vec<u8>) -> (Block, Option<ParseError>) {
         let mut error = None;
 
-        let (output, err) = lex(&contents, 0, &crate::LexMode::Normal);
+        let (output, err) = lex(&contents, 0, &[], &[]);
         error = error.or(err);
 
         self.add_file(fname.into(), contents);
@@ -1737,7 +1716,7 @@ impl ParserWorkingSet {
 
         self.add_file("source".into(), source.into());
 
-        let (output, err) = lex(source, 0, &crate::LexMode::Normal);
+        let (output, err) = lex(source, 0, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
