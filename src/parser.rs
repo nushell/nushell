@@ -607,13 +607,16 @@ impl ParserWorkingSet {
             // Parse a positional arg if there is one
             if let Some(positional) = decl.signature.get_positional(positional_idx) {
                 //Make sure we leave enough spans for the remaining positionals
-                let remainder = decl.signature.num_positionals() - positional_idx;
 
-                let (arg, err) = self.parse_multispan_value(
-                    &spans[..(spans.len() - remainder + 1)],
-                    &mut spans_idx,
-                    positional.shape,
-                );
+                let end = if decl.signature.rest_positional.is_some() {
+                    spans.len()
+                } else {
+                    let remainder = decl.signature.num_positionals() - positional_idx;
+                    spans.len() - remainder + 1
+                };
+
+                let (arg, err) =
+                    self.parse_multispan_value(&spans[..end], &mut spans_idx, positional.shape);
                 error = error.or(err);
                 call.positional.push(arg);
                 positional_idx += 1;
@@ -1111,7 +1114,17 @@ impl ParserWorkingSet {
         for arg in args {
             match arg {
                 Arg::Positional(positional, required) => {
-                    if required {
+                    if positional.name == "...rest" {
+                        if sig.rest_positional.is_none() {
+                            sig.rest_positional = Some(PositionalArg {
+                                name: "rest".into(),
+                                ..positional
+                            })
+                        } else {
+                            // Too many rest params
+                            error = error.or(Some(ParseError::MultipleRestParams(span)))
+                        }
+                    } else if required {
                         sig.required_positional.push(positional)
                     } else {
                         sig.optional_positional.push(positional)

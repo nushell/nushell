@@ -8,6 +8,7 @@ pub enum ParseError {
     Unclosed(String, Span),
     UnknownStatement(Span),
     Mismatch(String, Span),
+    MultipleRestParams(Span),
     VariableNotFound(Span),
     UnknownCommand(Span),
     NonUtf8(Span),
