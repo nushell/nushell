@@ -1,20 +1,20 @@
-use engine_q::{ParserWorkingSet, Signature, SyntaxShape};
+use engine_q::{Engine, ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
 
         let sig = Signature::build("bar")
             .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
             .switch("--rock", "rock!!", Some('r'));
-        working_set.add_decl((b"bar").to_vec(), sig);
+        working_set.add_decl((b"bar").to_vec(), sig.into());
 
         let sig =
             Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
-        working_set.add_decl((b"where").to_vec(), sig);
+        working_set.add_decl((b"where").to_vec(), sig.into());
 
         let sig = Signature::build("if")
             .required("cond", SyntaxShape::RowCondition, "condition")
@@ -25,7 +25,7 @@ fn main() -> std::io::Result<()> {
                 "else keyword",
             )
             .required("else_block", SyntaxShape::Block, "else block");
-        working_set.add_decl((b"if").to_vec(), sig);
+        working_set.add_decl((b"if").to_vec(), sig.into());
 
         let sig = Signature::build("let")
             .required("var_name", SyntaxShape::Variable, "variable name")
@@ -35,7 +35,7 @@ fn main() -> std::io::Result<()> {
                 SyntaxShape::Expression,
                 "the value to set the variable to",
             );
-        working_set.add_decl((b"let").to_vec(), sig);
+        working_set.add_decl((b"let").to_vec(), sig.into());
 
         let sig = Signature::build("alias")
             .required("var_name", SyntaxShape::Variable, "variable name")
@@ -45,14 +45,14 @@ fn main() -> std::io::Result<()> {
                 SyntaxShape::Expression,
                 "the value to set the variable to",
             );
-        working_set.add_decl((b"alias").to_vec(), sig);
+        working_set.add_decl((b"alias").to_vec(), sig.into());
 
         let sig = Signature::build("sum").required(
             "arg",
             SyntaxShape::List(Box::new(SyntaxShape::Number)),
             "list of numbers",
         );
-        working_set.add_decl((b"sum").to_vec(), sig);
+        working_set.add_decl((b"sum").to_vec(), sig.into());
 
         //let file = std::fs::read(&path)?;
         //let (output, err) = working_set.parse_file(&path, file);
@@ -60,6 +60,10 @@ fn main() -> std::io::Result<()> {
         println!("{:#?}", output);
         println!("error: {:?}", err);
         // println!("{}", size_of::<Statement>());
+
+        let engine = Engine::new();
+        let result = engine.eval_block(&output);
+        println!("{:?}", result);
 
         // let mut buffer = String::new();
         // let stdin = std::io::stdin();

@@ -1,4 +1,4 @@
-use crate::parser::SyntaxShape;
+use crate::{parser::SyntaxShape, Declaration};
 
 #[derive(Debug, Clone)]
 pub struct Flag {
@@ -214,5 +214,14 @@ impl Signature {
             }
         }
         None
+    }
+}
+
+impl Into<Declaration> for Signature {
+    fn into(self) -> Declaration {
+        Declaration {
+            signature: self,
+            body: None,
+        }
     }
 }

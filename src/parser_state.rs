@@ -1,11 +1,12 @@
-use crate::{Signature, Span};
+use crate::{parser::Block, Declaration, Signature, Span};
 use std::{collections::HashMap, sync::Arc};
 
 pub struct ParserState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<u8>,
     vars: Vec<Type>,
-    decls: Vec<Signature>,
+    decls: Vec<Declaration>,
+    blocks: Vec<Block>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -16,6 +17,7 @@ pub enum Type {
 
 pub type VarId = usize;
 pub type DeclId = usize;
+pub type BlockId = usize;
 
 #[derive(Debug)]
 struct ScopeFrame {
@@ -45,6 +47,7 @@ impl ParserState {
             file_contents: vec![],
             vars: vec![],
             decls: vec![],
+            blocks: vec![],
         }
     }
 
@@ -58,6 +61,7 @@ impl ParserState {
             this.file_contents.extend(working_set.file_contents);
             this.decls.extend(working_set.decls);
             this.vars.extend(working_set.vars);
+            this.blocks.extend(working_set.blocks);
 
             //FIXME: add scope frame merging
         } else {
@@ -81,7 +85,7 @@ impl ParserState {
         self.vars.get(var_id)
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Signature> {
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Declaration> {
         self.decls.get(decl_id)
     }
 
@@ -106,8 +110,9 @@ impl ParserState {
 pub struct ParserWorkingSet {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
-    vars: Vec<Type>,       // indexed by VarId
-    decls: Vec<Signature>, // indexed by DeclId
+    vars: Vec<Type>,         // indexed by VarId
+    decls: Vec<Declaration>, // indexed by DeclId
+    blocks: Vec<Block>,      // indexed by BlockId
     permanent_state: Option<Arc<ParserState>>,
     scope: Vec<ScopeFrame>,
 }
@@ -119,6 +124,7 @@ impl ParserWorkingSet {
             file_contents: vec![],
             vars: vec![],
             decls: vec![],
+            blocks: vec![],
             permanent_state,
             scope: vec![ScopeFrame::new()],
         }
@@ -134,13 +140,13 @@ impl ParserWorkingSet {
         self.files.len() + parent_len
     }
 
-    pub fn add_decl(&mut self, name: Vec<u8>, sig: Signature) -> DeclId {
+    pub fn add_decl(&mut self, name: Vec<u8>, decl: Declaration) -> DeclId {
         let scope_frame = self
             .scope
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        self.decls.push(sig);
+        self.decls.push(decl);
         let decl_id = self.decls.len() - 1;
 
         scope_frame.decls.insert(name, decl_id);
@@ -246,7 +252,7 @@ impl ParserWorkingSet {
         }
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Signature> {
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Declaration> {
         if let Some(permanent_state) = &self.permanent_state {
             let num_permanent_decls = permanent_state.num_decls();
             if decl_id < num_permanent_decls {

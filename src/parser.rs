@@ -137,8 +137,8 @@ pub enum Expr {
 
 #[derive(Debug, Clone)]
 pub struct Expression {
-    expr: Expr,
-    span: Span,
+    pub expr: Expr,
+    pub span: Span,
 }
 impl Expression {
     pub fn garbage(span: Span) -> Expression {
@@ -504,7 +504,7 @@ impl ParserWorkingSet {
         let mut call = Call::new();
         call.decl_id = decl_id;
 
-        let sig = self
+        let decl = self
             .get_decl(decl_id)
             .expect("internal error: bad DeclId")
             .clone();
@@ -520,7 +520,8 @@ impl ParserWorkingSet {
             let arg_span = spans[spans_idx];
 
             // Check if we're on a long flag, if so, parse
-            let (long_name, arg, err) = self.parse_long_flag(spans, &mut spans_idx, &sig);
+            let (long_name, arg, err) =
+                self.parse_long_flag(spans, &mut spans_idx, &decl.signature);
             if let Some(long_name) = long_name {
                 // We found a long flag, like --bar
                 error = error.or(err);
@@ -531,7 +532,7 @@ impl ParserWorkingSet {
 
             // Check if we're on a short flag or group of short flags, if so, parse
             let (short_flags, err) =
-                self.parse_short_flags(spans, &mut spans_idx, positional_idx, &sig);
+                self.parse_short_flags(spans, &mut spans_idx, positional_idx, &decl.signature);
 
             if let Some(short_flags) = short_flags {
                 error = error.or(err);
@@ -555,9 +556,9 @@ impl ParserWorkingSet {
             }
 
             // Parse a positional arg if there is one
-            if let Some(positional) = sig.get_positional(positional_idx) {
+            if let Some(positional) = decl.signature.get_positional(positional_idx) {
                 //Make sure we leave enough spans for the remaining positionals
-                let remainder = sig.num_positionals() - positional_idx;
+                let remainder = decl.signature.num_positionals() - positional_idx;
 
                 let (arg, err) = self.parse_multispan_value(
                     &spans[..(spans.len() - remainder + 1)],
@@ -575,7 +576,7 @@ impl ParserWorkingSet {
             spans_idx += 1;
         }
 
-        let err = check_call(spans[0], &sig, &call);
+        let err = check_call(spans[0], &decl.signature, &call);
         error = error.or(err);
 
         // FIXME: type unknown
@@ -1185,6 +1186,7 @@ impl ParserWorkingSet {
         expr_stack.push(lhs);
 
         while idx < spans.len() {
+            println!("idx: {}", idx);
             let (op, err) = self.parse_operator(spans[idx]);
             error = error.or(err);
 
@@ -1417,7 +1419,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
 
         let (block, err) = working_set.parse_source(b"foo");
 
@@ -1440,7 +1442,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
 
         let (_, err) = working_set.parse_source(b"foo --jazz");
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
@@ -1451,7 +1453,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
 
         let (_, err) = working_set.parse_source(b"foo -j");
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
@@ -1464,7 +1466,7 @@ mod tests {
         let sig = Signature::build("foo")
             .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
             .named("--math", SyntaxShape::Int, "math!!", Some('m'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
         let (_, err) = working_set.parse_source(b"foo -mj");
         assert!(matches!(
             err,
@@ -1477,7 +1479,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
         let (_, err) = working_set.parse_source(b"foo -mj");
         assert!(matches!(err, Some(ParseError::UnknownFlag(..))));
     }
@@ -1487,7 +1489,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
         let (_, err) = working_set.parse_source(b"foo -j 100");
         assert!(matches!(err, Some(ParseError::ExtraPositional(..))));
     }
@@ -1497,7 +1499,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
         let (_, err) = working_set.parse_source(b"foo");
         assert!(matches!(err, Some(ParseError::MissingPositional(..))));
     }
@@ -1508,7 +1510,7 @@ mod tests {
 
         let sig =
             Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
-        working_set.add_decl((b"foo").to_vec(), sig);
+        working_set.add_decl((b"foo").to_vec(), sig.into());
         let (_, err) = working_set.parse_source(b"foo");
         assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
     }
