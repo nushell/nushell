@@ -999,7 +999,7 @@ impl ParserWorkingSet {
                                         desc: String::new(),
                                         long: String::from_utf8_lossy(contents).to_string(),
                                         short: None,
-                                        required: true,
+                                        required: false,
                                     }));
                                 } else {
                                     // Positional arg

@@ -54,6 +54,13 @@ impl LexMode {
             _ => false,
         }
     }
+
+    pub fn special_contains(&self, b: u8) -> bool {
+        match self {
+            LexMode::Custom { ref special, .. } => special.contains(&b),
+            _ => false,
+        }
+    }
 }
 
 // A baseline token is terminated if it's not nested inside of a paired
@@ -67,7 +74,8 @@ fn is_item_terminator(block_level: &[BlockKind], c: u8, lex_mode: &LexMode) -> b
             || c == b'|'
             || c == b';'
             || c == b'#'
-            || lex_mode.whitespace_contains(c))
+            || lex_mode.whitespace_contains(c)
+            || lex_mode.special_contains(c))
 }
 
 // A special token is one that is a byte that stands alone as its own token. For example
