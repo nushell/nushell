@@ -4,7 +4,7 @@ use crate::{
     lex, lite_parse,
     parser_state::{Type, VarId},
     signature::Flag,
-    DeclId, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
+    DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -67,6 +67,9 @@ pub enum SyntaxShape {
 
     /// A variable name
     Variable,
+
+    /// A variable with optional type, `x` or `x: int`
+    VarWithOptType,
 
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
@@ -174,6 +177,34 @@ impl Expression {
             _ => 0,
         }
     }
+
+    pub fn as_block(self) -> Option<Box<Block>> {
+        match self.expr {
+            Expr::Block(block) => Some(block),
+            _ => None,
+        }
+    }
+
+    pub fn as_list(self) -> Option<Vec<Expression>> {
+        match self.expr {
+            Expr::List(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    pub fn as_var(self) -> Option<VarId> {
+        match self.expr {
+            Expr::Var(var_id) => Some(var_id),
+            _ => None,
+        }
+    }
+
+    pub fn as_string(self) -> Option<String> {
+        match self.expr {
+            Expr::String(string) => Some(string),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -230,6 +261,7 @@ pub struct VarDecl {
 pub enum Statement {
     Pipeline(Pipeline),
     VarDecl(VarDecl),
+    Declaration(DeclId),
     Import(Import),
     Expression(Expression),
     None,
@@ -450,6 +482,12 @@ impl ParserWorkingSet {
         let arg_span = spans[*spans_idx];
 
         match shape {
+            SyntaxShape::VarWithOptType => {
+                let (arg, err) = self.parse_var_with_opt_type(spans, spans_idx);
+                error = error.or(err);
+
+                (arg, error)
+            }
             SyntaxShape::RowCondition => {
                 let (arg, err) = self.parse_row_condition(spans);
                 error = error.or(err);
@@ -786,6 +824,63 @@ impl ParserWorkingSet {
         }
     }
 
+    pub fn parse_type(&self, bytes: &[u8]) -> Type {
+        if bytes == b"int" {
+            Type::Int
+        } else {
+            Type::Unknown
+        }
+    }
+
+    pub fn parse_var_with_opt_type(
+        &mut self,
+        spans: &[Span],
+        spans_idx: &mut usize,
+    ) -> (Expression, Option<ParseError>) {
+        let bytes = self.get_span_contents(spans[*spans_idx]).to_vec();
+
+        if bytes.ends_with(b":") {
+            // We end with colon, so the next span should be the type
+            if *spans_idx + 1 < spans.len() {
+                *spans_idx += 1;
+                let type_bytes = self.get_span_contents(spans[*spans_idx]);
+
+                let ty = self.parse_type(type_bytes);
+                *spans_idx += 1;
+
+                let id = self.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), ty);
+
+                (
+                    Expression {
+                        expr: Expr::Var(id),
+                        span: span(&spans[*spans_idx - 2..*spans_idx]),
+                    },
+                    None,
+                )
+            } else {
+                let id = self.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), Type::Unknown);
+                *spans_idx += 1;
+                (
+                    Expression {
+                        expr: Expr::Var(id),
+                        span: spans[*spans_idx],
+                    },
+                    Some(ParseError::MissingType(spans[*spans_idx])),
+                )
+            }
+        } else {
+            let id = self.add_variable(bytes, Type::Unknown);
+            *spans_idx += 1;
+
+            (
+                Expression {
+                    expr: Expr::Var(id),
+                    span: span(&spans[*spans_idx - 1..*spans_idx]),
+                },
+                None,
+            )
+        }
+    }
     pub fn parse_row_condition(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
         self.parse_math_expression(spans)
     }
@@ -829,17 +924,23 @@ impl ParserWorkingSet {
         error = error.or(err);
 
         let mut args = vec![];
-        for arg in &output.block[0].commands {
-            let mut spans_idx = 0;
 
-            while spans_idx < arg.parts.len() {
-                let (arg, err) =
-                    self.parse_multispan_value(&arg.parts, &mut spans_idx, element_shape.clone());
-                error = error.or(err);
+        if !output.block.is_empty() {
+            for arg in &output.block[0].commands {
+                let mut spans_idx = 0;
 
-                args.push(arg);
+                while spans_idx < arg.parts.len() {
+                    let (arg, err) = self.parse_multispan_value(
+                        &arg.parts,
+                        &mut spans_idx,
+                        element_shape.clone(),
+                    );
+                    error = error.or(err);
 
-                spans_idx += 1;
+                    args.push(arg);
+
+                    spans_idx += 1;
+                }
             }
         }
 
@@ -1292,6 +1393,67 @@ impl ParserWorkingSet {
         }
     }
 
+    pub fn parse_def(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
+        let name = self.get_span_contents(spans[0]);
+
+        if name == b"def" {
+            if let Some(decl_id) = self.find_decl(b"def") {
+                let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
+
+                if err.is_some() {
+                    return (
+                        Statement::Expression(Expression {
+                            expr: Expr::Call(call),
+                            span: call_span,
+                        }),
+                        err,
+                    );
+                } else {
+                    println!("{:?}", call);
+                    let name = call
+                        .positional
+                        .remove(0)
+                        .as_string()
+                        .expect("internal error: expected def name");
+                    let args = call
+                        .positional
+                        .remove(0)
+                        .as_list()
+                        .expect("internal error: expected param list")
+                        .into_iter()
+                        .map(|x| x.as_var().expect("internal error: expected parameter"))
+                        .collect::<Vec<_>>();
+                    let block = call
+                        .positional
+                        .remove(0)
+                        .as_block()
+                        .expect("internal error: expected block");
+
+                    let block_id = self.add_block(block);
+
+                    let decl = Declaration {
+                        signature: Signature::new(name),
+                        body: Some(block_id),
+                    };
+
+                    let decl_id = self.add_decl(decl);
+
+                    return (Statement::Declaration(decl_id), None);
+                }
+            }
+        }
+        (
+            Statement::Expression(Expression {
+                expr: Expr::Garbage,
+                span: span(spans),
+            }),
+            Some(ParseError::UnknownState(
+                "internal error: let statement unparseable".into(),
+                span(spans),
+            )),
+        )
+    }
+
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         let name = self.get_span_contents(spans[0]);
 
@@ -1330,7 +1492,10 @@ impl ParserWorkingSet {
     }
 
     pub fn parse_statement(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
-        if let (stmt, None) = self.parse_let(spans) {
+        // FIXME: improve errors by checking keyword first
+        if let (decl, None) = self.parse_def(spans) {
+            (decl, None)
+        } else if let (stmt, None) = self.parse_let(spans) {
             (stmt, None)
         } else {
             let (expr, err) = self.parse_expression(spans);
@@ -1419,7 +1584,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
 
         let (block, err) = working_set.parse_source(b"foo");
 
@@ -1442,7 +1607,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
 
         let (_, err) = working_set.parse_source(b"foo --jazz");
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
@@ -1453,7 +1618,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
 
         let (_, err) = working_set.parse_source(b"foo -j");
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
@@ -1466,7 +1631,7 @@ mod tests {
         let sig = Signature::build("foo")
             .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
             .named("--math", SyntaxShape::Int, "math!!", Some('m'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
         let (_, err) = working_set.parse_source(b"foo -mj");
         assert!(matches!(
             err,
@@ -1479,7 +1644,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
         let (_, err) = working_set.parse_source(b"foo -mj");
         assert!(matches!(err, Some(ParseError::UnknownFlag(..))));
     }
@@ -1489,7 +1654,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
         let (_, err) = working_set.parse_source(b"foo -j 100");
         assert!(matches!(err, Some(ParseError::ExtraPositional(..))));
     }
@@ -1499,7 +1664,7 @@ mod tests {
         let mut working_set = ParserWorkingSet::new(None);
 
         let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
         let (_, err) = working_set.parse_source(b"foo");
         assert!(matches!(err, Some(ParseError::MissingPositional(..))));
     }
@@ -1510,7 +1675,7 @@ mod tests {
 
         let sig =
             Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
-        working_set.add_decl((b"foo").to_vec(), sig.into());
+        working_set.add_decl(sig.into());
         let (_, err) = working_set.parse_source(b"foo");
         assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
     }

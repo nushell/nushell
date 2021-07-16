@@ -15,6 +15,7 @@ pub enum ParseError {
     MissingFlagParam(Span),
     ShortFlagBatchCantTakeArg(Span),
     MissingPositional(String, Span),
+    MissingType(Span),
     MissingRequiredFlag(String, Span),
     IncompleteMathExpression(Span),
     UnknownState(String, Span),

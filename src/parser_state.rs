@@ -1,12 +1,13 @@
 use crate::{parser::Block, Declaration, Signature, Span};
 use std::{collections::HashMap, sync::Arc};
 
+#[derive(Debug)]
 pub struct ParserState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<u8>,
     vars: Vec<Type>,
     decls: Vec<Declaration>,
-    blocks: Vec<Block>,
+    blocks: Vec<Box<Block>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -81,6 +82,10 @@ impl ParserState {
         self.decls.len()
     }
 
+    pub fn num_blocks(&self) -> usize {
+        self.blocks.len()
+    }
+
     pub fn get_var(&self, var_id: VarId) -> Option<&Type> {
         self.vars.get(var_id)
     }
@@ -107,12 +112,13 @@ impl ParserState {
     }
 }
 
+#[derive(Debug)]
 pub struct ParserWorkingSet {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
     vars: Vec<Type>,         // indexed by VarId
     decls: Vec<Declaration>, // indexed by DeclId
-    blocks: Vec<Block>,      // indexed by BlockId
+    blocks: Vec<Box<Block>>, // indexed by BlockId
     permanent_state: Option<Arc<ParserState>>,
     scope: Vec<ScopeFrame>,
 }
@@ -140,18 +146,45 @@ impl ParserWorkingSet {
         self.files.len() + parent_len
     }
 
-    pub fn add_decl(&mut self, name: Vec<u8>, decl: Declaration) -> DeclId {
+    pub fn num_decls(&self) -> usize {
+        let parent_len = if let Some(permanent_state) = &self.permanent_state {
+            permanent_state.num_decls()
+        } else {
+            0
+        };
+
+        self.decls.len() + parent_len
+    }
+
+    pub fn num_blocks(&self) -> usize {
+        let parent_len = if let Some(permanent_state) = &self.permanent_state {
+            permanent_state.num_blocks()
+        } else {
+            0
+        };
+
+        self.blocks.len() + parent_len
+    }
+
+    pub fn add_decl(&mut self, decl: Declaration) -> DeclId {
+        let name = decl.signature.name.as_bytes().to_vec();
+
+        self.decls.push(decl);
+        let decl_id = self.num_decls() - 1;
+
         let scope_frame = self
             .scope
             .last_mut()
             .expect("internal error: missing required scope frame");
-
-        self.decls.push(decl);
-        let decl_id = self.decls.len() - 1;
-
         scope_frame.decls.insert(name, decl_id);
 
         decl_id
+    }
+
+    pub fn add_block(&mut self, block: Box<Block>) -> BlockId {
+        self.blocks.push(block);
+
+        self.num_blocks() - 1
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -192,7 +225,7 @@ impl ParserWorkingSet {
     }
 
     pub fn exit_scope(&mut self) {
-        self.scope.push(ScopeFrame::new());
+        self.scope.pop();
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
