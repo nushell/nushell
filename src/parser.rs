@@ -927,7 +927,7 @@ impl ParserWorkingSet {
         }
 
         enum Arg {
-            Positional(PositionalArg),
+            Positional(PositionalArg, bool), // bool - required
             Flag(Flag),
         }
 
@@ -958,7 +958,7 @@ impl ParserWorkingSet {
         let span = Span { start, end };
         let source = &self.file_contents[..span.end];
 
-        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':', b'?']);
+        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':']);
         error = error.or(err);
 
         let mut args: Vec<Arg> = vec![];
@@ -1017,11 +1017,14 @@ impl ParserWorkingSet {
                                         }));
                                     } else if chars.is_empty() {
                                         // Positional arg
-                                        args.push(Arg::Positional(PositionalArg {
-                                            desc: String::new(),
-                                            name: String::from_utf8_lossy(contents).to_string(),
-                                            shape: SyntaxShape::Any,
-                                        }))
+                                        args.push(Arg::Positional(
+                                            PositionalArg {
+                                                desc: String::new(),
+                                                name: String::from_utf8_lossy(contents).to_string(),
+                                                shape: SyntaxShape::Any,
+                                            },
+                                            true,
+                                        ))
                                     } else {
                                         args.push(Arg::Flag(Flag {
                                             arg: None,
@@ -1032,12 +1035,29 @@ impl ParserWorkingSet {
                                         }));
                                     }
                                 } else {
-                                    // Positional arg
-                                    args.push(Arg::Positional(PositionalArg {
-                                        desc: String::new(),
-                                        name: String::from_utf8_lossy(contents).to_string(),
-                                        shape: SyntaxShape::Any,
-                                    }))
+                                    if contents.ends_with(b"?") {
+                                        let contents = &contents[..(contents.len() - 1)];
+
+                                        // Positional arg, optional
+                                        args.push(Arg::Positional(
+                                            PositionalArg {
+                                                desc: String::new(),
+                                                name: String::from_utf8_lossy(contents).to_string(),
+                                                shape: SyntaxShape::Any,
+                                            },
+                                            false,
+                                        ))
+                                    } else {
+                                        // Positional arg, required
+                                        args.push(Arg::Positional(
+                                            PositionalArg {
+                                                desc: String::new(),
+                                                name: String::from_utf8_lossy(contents).to_string(),
+                                                shape: SyntaxShape::Any,
+                                            },
+                                            true,
+                                        ))
+                                    }
                                 }
                             }
                             ParseMode::TypeMode => {
@@ -1045,7 +1065,7 @@ impl ParserWorkingSet {
                                     let syntax_shape = self.parse_shape_name(contents);
                                     //TODO check if we're replacing one already
                                     match last {
-                                        Arg::Positional(PositionalArg { shape, .. }) => {
+                                        Arg::Positional(PositionalArg { shape, .. }, ..) => {
                                             *shape = syntax_shape;
                                         }
                                         Arg::Flag(Flag { arg, .. }) => *arg = Some(syntax_shape),
@@ -1073,7 +1093,7 @@ impl ParserWorkingSet {
                                 }
                                 flag.desc.push_str(&contents);
                             }
-                            Arg::Positional(positional) => {
+                            Arg::Positional(positional, ..) => {
                                 if !positional.desc.is_empty() {
                                     positional.desc.push_str("\n");
                                 }
@@ -1090,7 +1110,13 @@ impl ParserWorkingSet {
 
         for arg in args {
             match arg {
-                Arg::Positional(positional) => sig.required_positional.push(positional),
+                Arg::Positional(positional, required) => {
+                    if required {
+                        sig.required_positional.push(positional)
+                    } else {
+                        sig.optional_positional.push(positional)
+                    }
+                }
                 Arg::Flag(flag) => sig.named.push(flag),
             }
         }
