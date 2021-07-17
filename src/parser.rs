@@ -182,37 +182,37 @@ impl Expression {
         }
     }
 
-    pub fn as_block(self) -> Option<BlockId> {
+    pub fn as_block(&self) -> Option<BlockId> {
         match self.expr {
             Expr::Block(block_id) => Some(block_id),
             _ => None,
         }
     }
 
-    pub fn as_signature(self) -> Option<Signature> {
-        match self.expr {
-            Expr::Signature(sig) => Some(sig),
+    pub fn as_signature(&self) -> Option<Signature> {
+        match &self.expr {
+            Expr::Signature(sig) => Some(sig.clone()),
             _ => None,
         }
     }
 
-    pub fn as_list(self) -> Option<Vec<Expression>> {
-        match self.expr {
-            Expr::List(list) => Some(list),
+    pub fn as_list(&self) -> Option<Vec<Expression>> {
+        match &self.expr {
+            Expr::List(list) => Some(list.clone()),
             _ => None,
         }
     }
 
-    pub fn as_var(self) -> Option<VarId> {
+    pub fn as_var(&self) -> Option<VarId> {
         match self.expr {
             Expr::Var(var_id) => Some(var_id),
             _ => None,
         }
     }
 
-    pub fn as_string(self) -> Option<String> {
-        match self.expr {
-            Expr::String(string) => Some(string),
+    pub fn as_string(&self) -> Option<String> {
+        match &self.expr {
+            Expr::String(string) => Some(string.clone()),
             _ => None,
         }
     }
@@ -271,9 +271,6 @@ pub struct VarDecl {
 #[derive(Debug, Clone)]
 pub enum Statement {
     Pipeline(Pipeline),
-    VarDecl(VarDecl),
-    Declaration(DeclId),
-    Import(Import),
     Expression(Expression),
     None,
 }
@@ -494,7 +491,6 @@ impl ParserWorkingSet {
         shape: SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let mut error = None;
-        let arg_span = spans[*spans_idx];
 
         match shape {
             SyntaxShape::VarWithOptType => {
@@ -504,21 +500,24 @@ impl ParserWorkingSet {
                 (arg, error)
             }
             SyntaxShape::RowCondition => {
-                let (arg, err) = self.parse_row_condition(spans);
+                let (arg, err) = self.parse_row_condition(&spans[*spans_idx..]);
                 error = error.or(err);
                 *spans_idx = spans.len();
 
                 (arg, error)
             }
             SyntaxShape::Expression => {
-                let (arg, err) = self.parse_expression(spans);
+                let (arg, err) = self.parse_expression(&spans[*spans_idx..]);
                 error = error.or(err);
                 *spans_idx = spans.len();
 
                 (arg, error)
             }
             SyntaxShape::Literal(literal) => {
+                let arg_span = spans[*spans_idx];
+
                 let arg_contents = self.get_span_contents(arg_span);
+
                 if arg_contents != literal {
                     // When keywords mismatch, this is a strong indicator of something going wrong.
                     // We won't often override the current error, but as this is a strong indicator
@@ -539,6 +538,8 @@ impl ParserWorkingSet {
             }
             _ => {
                 // All other cases are single-span values
+                let arg_span = spans[*spans_idx];
+
                 let (arg, err) = self.parse_value(arg_span, shape);
                 error = error.or(err);
 
@@ -938,7 +939,6 @@ impl ParserWorkingSet {
             Flag(Flag),
         }
 
-        println!("parse signature");
         let bytes = self.get_span_contents(span);
 
         let mut error = None;
@@ -1564,7 +1564,6 @@ impl ParserWorkingSet {
         expr_stack.push(lhs);
 
         while idx < spans.len() {
-            println!("idx: {}", idx);
             let (op, err) = self.parse_operator(spans[idx]);
             error = error.or(err);
 
@@ -1675,7 +1674,7 @@ impl ParserWorkingSet {
 
         if name == b"def" {
             if let Some(decl_id) = self.find_decl(b"def") {
-                let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
+                let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
 
                 if err.is_some() {
                     return (
@@ -1686,20 +1685,13 @@ impl ParserWorkingSet {
                         err,
                     );
                 } else {
-                    println!("{:?}", call);
-                    let name = call
-                        .positional
-                        .remove(0)
+                    let name = call.positional[0]
                         .as_string()
                         .expect("internal error: expected def name");
-                    let mut signature = call
-                        .positional
-                        .remove(0)
+                    let mut signature = call.positional[1]
                         .as_signature()
                         .expect("internal error: expected param list");
-                    let block_id = call
-                        .positional
-                        .remove(0)
+                    let block_id = call.positional[2]
                         .as_block()
                         .expect("internal error: expected block");
 
@@ -1709,9 +1701,15 @@ impl ParserWorkingSet {
                         body: Some(block_id),
                     };
 
-                    let decl_id = self.add_decl(decl);
+                    self.add_decl(decl);
 
-                    return (Statement::Declaration(decl_id), None);
+                    return (
+                        Statement::Expression(Expression {
+                            expr: Expr::Call(call),
+                            span: call_span,
+                        }),
+                        None,
+                    );
                 }
             }
         }
@@ -1732,24 +1730,15 @@ impl ParserWorkingSet {
 
         if name == b"let" {
             if let Some(decl_id) = self.find_decl(b"let") {
-                let (mut call, call_span, err) = self.parse_internal_call(spans, decl_id);
+                let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
 
-                if err.is_some() {
-                    return (
-                        Statement::Expression(Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                        }),
-                        err,
-                    );
-                } else if let Expression {
-                    expr: Expr::Var(var_id),
-                    ..
-                } = call.positional[0]
-                {
-                    let expression = call.positional.swap_remove(2);
-                    return (Statement::VarDecl(VarDecl { var_id, expression }), None);
-                }
+                return (
+                    Statement::Expression(Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                    }),
+                    err,
+                );
             }
         }
         (
