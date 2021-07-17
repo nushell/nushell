@@ -256,6 +256,28 @@ impl ParserWorkingSet {
         None
     }
 
+    pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
+        for scope in self.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    return true;
+                }
+            }
+        }
+
+        if let Some(permanent_state) = &self.permanent_state {
+            for scope in permanent_state.scope.iter().rev() {
+                for decl in &scope.decls {
+                    if decl.0.starts_with(name) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn next_var_id(&self) -> VarId {
         if let Some(permanent_state) = &self.permanent_state {
             let num_permanent_vars = permanent_state.num_vars();

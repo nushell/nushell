@@ -643,15 +643,36 @@ impl ParserWorkingSet {
         // assume spans.len() > 0?
         let name = self.get_span_contents(spans[0]);
 
-        if let Some(decl_id) = self.find_decl(name) {
-            let (call, span, err) = self.parse_internal_call(spans, decl_id);
-            (
-                Expression {
-                    expr: Expr::Call(call),
-                    span,
-                },
-                err,
-            )
+        if self.contains_decl_partial_match(name) {
+            // potentially subcommand
+            let mut name = name.to_vec();
+            let mut pos = 1;
+            let mut decl_id = None;
+            while pos < spans.len() {
+                let mut new_name = name.to_vec();
+                new_name.push(b' ');
+                new_name.extend(self.get_span_contents(spans[pos]));
+                if let Some(did) = self.find_decl(&new_name) {
+                    decl_id = Some(did);
+                } else {
+                    break;
+                }
+                name = new_name;
+                pos += 1;
+            }
+            // parse internal command
+            if let Some(decl_id) = decl_id {
+                let (call, span, err) = self.parse_internal_call(&spans[(pos - 1)..], decl_id);
+                (
+                    Expression {
+                        expr: Expr::Call(call),
+                        span,
+                    },
+                    err,
+                )
+            } else {
+                self.parse_external_call(spans)
+            }
         } else {
             self.parse_external_call(spans)
         }

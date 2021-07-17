@@ -63,6 +63,16 @@ fn main() -> std::io::Result<()> {
             .required("block", SyntaxShape::Block, "body of the definition");
         working_set.add_decl(sig.into());
 
+        let sig = Signature::build("add");
+        working_set.add_decl(sig.into());
+        let sig = Signature::build("add it");
+        working_set.add_decl(sig.into());
+
+        let sig = Signature::build("add it together")
+            .required("x", SyntaxShape::Int, "x value")
+            .required("y", SyntaxShape::Int, "y value");
+        working_set.add_decl(sig.into());
+
         ParserState::merge_working_set(&mut parser_state, working_set);
 
         // let file = std::fs::read(&path)?;
