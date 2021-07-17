@@ -21,5 +21,6 @@ linked-hash-map = { version="0.5", optional=true }
 
 [dev-dependencies]
 nu-test-support = { version = "0.34.0", path="../nu-test-support" }
+nu-path = { version="0.34.0", path="../nu-path" }
 serde_json = "1.0.39"
-dunce = "1.0.1"
+

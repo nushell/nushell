@@ -19,7 +19,6 @@ serde = "1.0"
 itertools = "0.10.0"
 smart-default = "0.6.0"
 
-dunce = "1.0.1"
 nu-errors = { version = "0.34.0", path="../nu-errors" }
 nu-path = { version = "0.34.0", path="../nu-path" }
 nu-protocol = { version = "0.34.0", path="../nu-protocol" }

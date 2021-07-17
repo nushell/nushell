@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "Nushell parser"
+description = "Path handling library for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-path"

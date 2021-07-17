@@ -3121,7 +3121,6 @@ name = "nu"
 version = "0.34.0"
 dependencies = [
  "ctrlc",
- "dunce",
  "futures 0.3.15",
  "hamcrest2",
  "itertools",
@@ -3220,7 +3219,6 @@ dependencies = [
  "directories-next",
  "dirs-next",
  "dtparse",
- "dunce",
  "eml-parser",
  "encoding_rs",
  "filesize",
@@ -3331,6 +3329,7 @@ dependencies = [
  "log",
  "nu-ansi-term",
  "nu-errors",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-table",
@@ -3361,7 +3360,6 @@ dependencies = [
  "codespan-reporting",
  "derive-new",
  "dirs-next",
- "dunce",
  "dyn-clone",
  "encoding_rs",
  "filesize",
@@ -3426,9 +3424,9 @@ dependencies = [
 name = "nu-json"
 version = "0.34.0"
 dependencies = [
- "dunce",
  "lazy_static 1.4.0",
  "linked-hash-map 0.5.4",
+ "nu-path",
  "nu-test-support",
  "num-traits 0.2.14",
  "regex",
@@ -3444,7 +3442,6 @@ dependencies = [
  "codespan-reporting",
  "derive-new",
  "derive_is_enum_variant",
- "dunce",
  "indexmap",
  "itertools",
  "log",
@@ -3552,12 +3549,12 @@ version = "0.34.0"
 dependencies = [
  "bigdecimal",
  "chrono",
- "dunce",
  "getset",
  "glob",
  "hamcrest2",
  "indexmap",
  "nu-errors",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
