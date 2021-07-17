@@ -991,16 +991,52 @@ impl ParserWorkingSet {
                     } else {
                         match parse_mode {
                             ParseMode::ArgMode => {
-                                if contents.starts_with(b"--") {
+                                if contents.starts_with(b"--") && contents.len() > 2 {
                                     // Long flag
-                                    args.push(Arg::Flag(Flag {
-                                        arg: None,
-                                        desc: String::new(),
-                                        long: String::from_utf8_lossy(contents).to_string(),
-                                        short: None,
-                                        required: false,
-                                    }));
-                                } else if contents.starts_with(b"-") {
+                                    let flags: Vec<_> = contents.split(|x| x == &b'(').collect();
+
+                                    if flags.len() == 1 {
+                                        args.push(Arg::Flag(Flag {
+                                            arg: None,
+                                            desc: String::new(),
+                                            long: String::from_utf8_lossy(flags[0]).to_string(),
+                                            short: None,
+                                            required: false,
+                                        }));
+                                    } else {
+                                        let short_flag = flags[1];
+                                        let short_flag = if !short_flag.starts_with(b"-")
+                                            || !short_flag.ends_with(b")")
+                                        {
+                                            error = error.or(Some(ParseError::Mismatch(
+                                                "short flag".into(),
+                                                *span,
+                                            )));
+                                            short_flag
+                                        } else {
+                                            &short_flag[1..(short_flag.len() - 1)]
+                                        };
+
+                                        let short_flag =
+                                            String::from_utf8_lossy(short_flag).to_string();
+                                        let chars: Vec<char> = short_flag.chars().collect();
+
+                                        if chars.len() == 1 {
+                                            args.push(Arg::Flag(Flag {
+                                                arg: None,
+                                                desc: String::new(),
+                                                long: String::from_utf8_lossy(flags[0]).to_string(),
+                                                short: Some(chars[0]),
+                                                required: false,
+                                            }));
+                                        } else {
+                                            error = error.or(Some(ParseError::Mismatch(
+                                                "short flag".into(),
+                                                *span,
+                                            )));
+                                        }
+                                    }
+                                } else if contents.starts_with(b"-") && contents.len() > 1 {
                                     // Short flag
 
                                     let short_flag = &contents[1..];
@@ -1021,16 +1057,6 @@ impl ParserWorkingSet {
                                             short: None,
                                             required: false,
                                         }));
-                                    } else if chars.is_empty() {
-                                        // Positional arg
-                                        args.push(Arg::Positional(
-                                            PositionalArg {
-                                                desc: String::new(),
-                                                name: String::from_utf8_lossy(contents).to_string(),
-                                                shape: SyntaxShape::Any,
-                                            },
-                                            true,
-                                        ))
                                     } else {
                                         args.push(Arg::Flag(Flag {
                                             arg: None,
@@ -1039,6 +1065,48 @@ impl ParserWorkingSet {
                                             short: Some(chars[0]),
                                             required: false,
                                         }));
+                                    }
+                                } else if contents.starts_with(b"(-") {
+                                    let short_flag = &contents[2..];
+
+                                    let short_flag = if !short_flag.ends_with(b")") {
+                                        error = error.or(Some(ParseError::Mismatch(
+                                            "short flag".into(),
+                                            *span,
+                                        )));
+                                        short_flag
+                                    } else {
+                                        &short_flag[..(short_flag.len() - 1)]
+                                    };
+
+                                    let short_flag =
+                                        String::from_utf8_lossy(short_flag).to_string();
+                                    let chars: Vec<char> = short_flag.chars().collect();
+
+                                    if chars.len() == 1 {
+                                        match args.last_mut() {
+                                            Some(Arg::Flag(flag)) => {
+                                                if flag.short.is_some() {
+                                                    error = error.or(Some(ParseError::Mismatch(
+                                                        "one short flag".into(),
+                                                        *span,
+                                                    )));
+                                                } else {
+                                                    flag.short = Some(chars[0]);
+                                                }
+                                            }
+                                            _ => {
+                                                error = error.or(Some(ParseError::Mismatch(
+                                                    "unknown flag".into(),
+                                                    *span,
+                                                )));
+                                            }
+                                        }
+                                    } else {
+                                        error = error.or(Some(ParseError::Mismatch(
+                                            "short flag".into(),
+                                            *span,
+                                        )));
                                     }
                                 } else {
                                     if contents.ends_with(b"?") {

@@ -8,6 +8,8 @@ mod parser_state;
 mod signature;
 mod span;
 mod syntax_highlight;
+#[cfg(test)]
+mod tests;
 
 pub use declaration::Declaration;
 pub use eval::Engine;
