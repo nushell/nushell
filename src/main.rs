@@ -7,8 +7,8 @@ fn main() -> std::io::Result<()> {
         let mut parser_state = Arc::new(ParserState::new());
         let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
 
-        // let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
-        // working_set.add_decl(sig.into());
+        let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+        working_set.add_decl(sig.into());
 
         // let sig = Signature::build("bar")
         //     .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
