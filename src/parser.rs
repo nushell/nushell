@@ -279,7 +279,9 @@ pub enum Statement {
 }
 
 #[derive(Debug, Clone)]
-pub struct Pipeline {}
+pub struct Pipeline {
+    pub expressions: Vec<Expression>,
+}
 
 impl Default for Pipeline {
     fn default() -> Self {
@@ -289,7 +291,9 @@ impl Default for Pipeline {
 
 impl Pipeline {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            expressions: vec![],
+        }
     }
 }
 
@@ -371,7 +375,7 @@ impl ParserWorkingSet {
         let arg_span = spans[*spans_idx];
         let arg_contents = self.get_span_contents(arg_span);
 
-        if arg_contents.starts_with(&[b'-', b'-']) {
+        if arg_contents.starts_with(b"--") {
             // FIXME: only use the first you find
             let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
             let long_name = String::from_utf8(split[0].into());
@@ -428,7 +432,7 @@ impl ParserWorkingSet {
 
         let arg_contents = self.get_span_contents(arg_span);
 
-        if arg_contents.starts_with(&[b'-']) && arg_contents.len() > 1 {
+        if arg_contents.starts_with(b"-") && arg_contents.len() > 1 {
             let short_flags = &arg_contents[1..];
             let mut found_short_flags = vec![];
             let mut unmatched_short_flags = vec![];
@@ -1779,10 +1783,23 @@ impl ParserWorkingSet {
         let mut block = Block::new();
 
         for pipeline in &lite_block.block {
-            let (stmt, err) = self.parse_statement(&pipeline.commands[0].parts);
-            error = error.or(err);
+            if pipeline.commands.len() > 1 {
+                let mut output = vec![];
+                for command in &pipeline.commands {
+                    let (expr, err) = self.parse_expression(&command.parts);
+                    error = error.or(err);
 
-            block.stmts.push(stmt);
+                    output.push(expr);
+                }
+                block.stmts.push(Statement::Pipeline(Pipeline {
+                    expressions: output,
+                }));
+            } else {
+                let (stmt, err) = self.parse_statement(&pipeline.commands[0].parts);
+                error = error.or(err);
+
+                block.stmts.push(stmt);
+            }
         }
 
         self.exit_scope();
