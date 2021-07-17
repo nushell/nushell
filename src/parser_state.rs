@@ -8,6 +8,7 @@ pub struct ParserState {
     vars: Vec<Type>,
     decls: Vec<Declaration>,
     blocks: Vec<Block>,
+    scope: Vec<ScopeFrame>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -49,6 +50,7 @@ impl ParserState {
             vars: vec![],
             decls: vec![],
             blocks: vec![],
+            scope: vec![ScopeFrame::new()],
         }
     }
 
@@ -64,7 +66,15 @@ impl ParserState {
             this.vars.extend(working_set.vars);
             this.blocks.extend(working_set.blocks);
 
-            //FIXME: add scope frame merging
+            if let Some(last) = this.scope.last_mut() {
+                let first = working_set.scope.remove(0);
+                for item in first.decls.into_iter() {
+                    last.decls.insert(item.0, item.1);
+                }
+                for item in first.vars.into_iter() {
+                    last.vars.insert(item.0, item.1);
+                }
+            }
         } else {
             panic!("Internal error: merging working set should always succeed");
         }
@@ -235,6 +245,14 @@ impl ParserWorkingSet {
             }
         }
 
+        if let Some(permanent_state) = &self.permanent_state {
+            for scope in permanent_state.scope.iter().rev() {
+                if let Some(decl_id) = scope.decls.get(name) {
+                    return Some(*decl_id);
+                }
+            }
+        }
+
         None
     }
 
@@ -251,6 +269,14 @@ impl ParserWorkingSet {
         for scope in self.scope.iter().rev() {
             if let Some(var_id) = scope.vars.get(name) {
                 return Some(*var_id);
+            }
+        }
+
+        if let Some(permanent_state) = &self.permanent_state {
+            for scope in permanent_state.scope.iter().rev() {
+                if let Some(var_id) = scope.vars.get(name) {
+                    return Some(*var_id);
+                }
             }
         }
 

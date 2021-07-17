@@ -272,7 +272,6 @@ pub struct VarDecl {
 pub enum Statement {
     Pipeline(Pipeline),
     Expression(Expression),
-    None,
 }
 
 #[derive(Debug, Clone)]
@@ -812,7 +811,7 @@ impl ParserWorkingSet {
         let (output, err) = lite_parse(&output);
         error = error.or(err);
 
-        let (output, err) = self.parse_block(&output);
+        let (output, err) = self.parse_block(&output, true);
         error = error.or(err);
 
         let block_id = self.add_block(output);
@@ -1339,7 +1338,7 @@ impl ParserWorkingSet {
         let (output, err) = lite_parse(&output);
         error = error.or(err);
 
-        let (output, err) = self.parse_block(&output);
+        let (output, err) = self.parse_block(&output, true);
         error = error.or(err);
 
         println!("{:?} {:?}", output, error);
@@ -1765,9 +1764,15 @@ impl ParserWorkingSet {
         }
     }
 
-    pub fn parse_block(&mut self, lite_block: &LiteBlock) -> (Block, Option<ParseError>) {
+    pub fn parse_block(
+        &mut self,
+        lite_block: &LiteBlock,
+        scoped: bool,
+    ) -> (Block, Option<ParseError>) {
         let mut error = None;
-        self.enter_scope();
+        if scoped {
+            self.enter_scope();
+        }
 
         let mut block = Block::new();
 
@@ -1791,12 +1796,19 @@ impl ParserWorkingSet {
             }
         }
 
-        self.exit_scope();
+        if scoped {
+            self.exit_scope();
+        }
 
         (block, error)
     }
 
-    pub fn parse_file(&mut self, fname: &str, contents: Vec<u8>) -> (Block, Option<ParseError>) {
+    pub fn parse_file(
+        &mut self,
+        fname: &str,
+        contents: Vec<u8>,
+        scoped: bool,
+    ) -> (Block, Option<ParseError>) {
         let mut error = None;
 
         let (output, err) = lex(&contents, 0, &[], &[]);
@@ -1807,13 +1819,13 @@ impl ParserWorkingSet {
         let (output, err) = lite_parse(&output);
         error = error.or(err);
 
-        let (output, err) = self.parse_block(&output);
+        let (output, err) = self.parse_block(&output, scoped);
         error = error.or(err);
 
         (output, error)
     }
 
-    pub fn parse_source(&mut self, source: &[u8]) -> (Block, Option<ParseError>) {
+    pub fn parse_source(&mut self, source: &[u8], scoped: bool) -> (Block, Option<ParseError>) {
         let mut error = None;
 
         self.add_file("source".into(), source.into());
@@ -1824,7 +1836,7 @@ impl ParserWorkingSet {
         let (output, err) = lite_parse(&output);
         error = error.or(err);
 
-        let (output, err) = self.parse_block(&output);
+        let (output, err) = self.parse_block(&output, scoped);
         error = error.or(err);
 
         (output, error)
@@ -1841,7 +1853,7 @@ mod tests {
     pub fn parse_int() {
         let mut working_set = ParserWorkingSet::new(None);
 
-        let (block, err) = working_set.parse_source(b"3");
+        let (block, err) = working_set.parse_source(b"3", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -1861,7 +1873,7 @@ mod tests {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
 
-        let (block, err) = working_set.parse_source(b"foo");
+        let (block, err) = working_set.parse_source(b"foo", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -1884,7 +1896,7 @@ mod tests {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
 
-        let (_, err) = working_set.parse_source(b"foo --jazz");
+        let (_, err) = working_set.parse_source(b"foo --jazz", true);
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
     }
 
@@ -1895,7 +1907,7 @@ mod tests {
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
 
-        let (_, err) = working_set.parse_source(b"foo -j");
+        let (_, err) = working_set.parse_source(b"foo -j", true);
         assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
     }
 
@@ -1907,7 +1919,7 @@ mod tests {
             .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
             .named("--math", SyntaxShape::Int, "math!!", Some('m'));
         working_set.add_decl(sig.into());
-        let (_, err) = working_set.parse_source(b"foo -mj");
+        let (_, err) = working_set.parse_source(b"foo -mj", true);
         assert!(matches!(
             err,
             Some(ParseError::ShortFlagBatchCantTakeArg(..))
@@ -1920,7 +1932,7 @@ mod tests {
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
-        let (_, err) = working_set.parse_source(b"foo -mj");
+        let (_, err) = working_set.parse_source(b"foo -mj", true);
         assert!(matches!(err, Some(ParseError::UnknownFlag(..))));
     }
 
@@ -1930,7 +1942,7 @@ mod tests {
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
-        let (_, err) = working_set.parse_source(b"foo -j 100");
+        let (_, err) = working_set.parse_source(b"foo -j 100", true);
         assert!(matches!(err, Some(ParseError::ExtraPositional(..))));
     }
 
@@ -1940,7 +1952,7 @@ mod tests {
 
         let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
         working_set.add_decl(sig.into());
-        let (_, err) = working_set.parse_source(b"foo");
+        let (_, err) = working_set.parse_source(b"foo", true);
         assert!(matches!(err, Some(ParseError::MissingPositional(..))));
     }
 
@@ -1951,7 +1963,7 @@ mod tests {
         let sig =
             Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
         working_set.add_decl(sig.into());
-        let (_, err) = working_set.parse_source(b"foo");
+        let (_, err) = working_set.parse_source(b"foo", true);
         assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
     }
 }

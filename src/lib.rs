@@ -7,6 +7,7 @@ mod parser;
 mod parser_state;
 mod signature;
 mod span;
+mod syntax_highlight;
 
 pub use declaration::Declaration;
 pub use eval::Engine;

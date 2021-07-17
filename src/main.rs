@@ -1,8 +1,11 @@
-use engine_q::{ParserWorkingSet, Signature, SyntaxShape};
+use std::sync::Arc;
+
+use engine_q::{ParserState, ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     if let Some(path) = std::env::args().nth(1) {
-        let mut working_set = ParserWorkingSet::new(None);
+        let mut parser_state = Arc::new(ParserState::new());
+        let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
 
         // let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         // working_set.add_decl(sig.into());
@@ -60,9 +63,13 @@ fn main() -> std::io::Result<()> {
             .required("block", SyntaxShape::Block, "body of the definition");
         working_set.add_decl(sig.into());
 
+        ParserState::merge_working_set(&mut parser_state, working_set);
+
         // let file = std::fs::read(&path)?;
         // let (output, err) = working_set.parse_file(&path, file);
-        let (output, err) = working_set.parse_source(path.as_bytes());
+
+        let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
+        let (output, err) = working_set.parse_source(path.as_bytes(), false);
         println!("{:#?}", output);
         println!("error: {:?}", err);
 
