@@ -29,6 +29,7 @@ impl WholeStreamCommand for SubCommand {
         reset(args)
     }
 }
+
 pub fn reset(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let ctx = &args.context;
