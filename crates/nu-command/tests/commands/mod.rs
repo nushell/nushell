@@ -37,6 +37,7 @@ mod move_;
 mod open;
 mod parse;
 mod path;
+mod pathvar;
 mod prepend;
 mod random;
 mod range;
