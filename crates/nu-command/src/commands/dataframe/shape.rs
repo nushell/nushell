@@ -7,7 +7,7 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe size"
+        "dataframe shape"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe size")
+        Signature::build("dataframe shape")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -24,8 +24,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Shows row and column size",
-            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe size",
+            description: "Shows row and column shape",
+            example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe shape",
             result: None,
         }]
     }

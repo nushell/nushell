@@ -317,7 +317,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameNot),
             whole_stream_command(DataFrameTake),
             whole_stream_command(DataFrameSetWithIdx),
-            whole_stream_command(DataFrameSize),
+            whole_stream_command(DataFrameShape),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
