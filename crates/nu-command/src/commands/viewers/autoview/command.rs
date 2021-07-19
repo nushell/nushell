@@ -9,7 +9,7 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::PolarsData;
+use nu_protocol::dataframe::FrameStruct;
 
 pub struct Command;
 
@@ -239,7 +239,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)),
+                        value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)),
                         tag,
                     } => {
                         if let Some(table) = table {
@@ -253,7 +253,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(PolarsData::GroupBy(groupby)),
+                        value: UntaggedValue::FrameStruct(FrameStruct::GroupBy(groupby)),
                         tag,
                     } => {
                         if let Some(table) = table {
@@ -267,7 +267,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(PolarsData::Series(series)),
+                        value: UntaggedValue::FrameStruct(FrameStruct::Series(series)),
                         tag,
                     } => {
                         if let Some(table) = table {

@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::{FrameStruct, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
@@ -54,7 +54,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let series_span = value.tag.span;
     let series = match value.value {
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only add a series to a dataframe",

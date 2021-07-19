@@ -2,7 +2,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuSeries, PolarsData},
+    dataframe::{FrameStruct, NuSeries},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use polars::prelude::IntoSeries;
@@ -41,7 +41,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value: Value = args.req(0)?;
 
     let other = match value.value {
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only search in a series",

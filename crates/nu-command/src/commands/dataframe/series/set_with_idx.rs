@@ -47,7 +47,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let indices: Value = args.req_named("indices")?;
 
     let indices = match &indices.value {
-        UntaggedValue::DataFrame(nu_protocol::dataframe::PolarsData::Series(series)) => Ok(series),
+        UntaggedValue::FrameStruct(nu_protocol::dataframe::FrameStruct::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only use a series for set command",

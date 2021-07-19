@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 #[cfg(feature = "dataframe")]
-use crate::dataframe::PolarsData;
+use crate::dataframe::{FrameStruct, NuDataFrame};
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -51,10 +51,14 @@ pub enum UntaggedValue {
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
 
-    /// Data option that holds the polars structs required to to data
-    /// manipulation and operations using polars dataframes
+    /// Main nushell dataframe structure
     #[cfg(feature = "dataframe")]
-    DataFrame(PolarsData),
+    DataFrame(NuDataFrame),
+
+    /// Data option that holds intermediate structs required to do data
+    /// manipulation and operations for dataframes
+    #[cfg(feature = "dataframe")]
+    FrameStruct(FrameStruct),
 }
 
 impl UntaggedValue {
@@ -685,11 +689,13 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(_)) => "dataframe",
+            UntaggedValue::DataFrame(_) => "dataframe",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::Series(_)) => "series",
+            UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(_)) => "dataframe",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::GroupBy(_)) => "groupby",
+            UntaggedValue::FrameStruct(FrameStruct::Series(_)) => "series",
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::FrameStruct(FrameStruct::GroupBy(_)) => "groupby",
         }
     }
 }

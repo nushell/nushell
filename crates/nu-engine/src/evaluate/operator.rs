@@ -7,7 +7,7 @@ use std::ops::Not;
 #[cfg(feature = "dataframe")]
 use nu_data::dataframe::{compute_between_series, compute_series_single_value};
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::PolarsData;
+use nu_protocol::dataframe::FrameStruct;
 
 pub fn apply_operator(
     op: Operator,
@@ -16,13 +16,15 @@ pub fn apply_operator(
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     #[cfg(feature = "dataframe")]
     if let (
-        UntaggedValue::DataFrame(PolarsData::Series(_)),
-        UntaggedValue::DataFrame(PolarsData::Series(_)),
+        UntaggedValue::FrameStruct(FrameStruct::Series(_)),
+        UntaggedValue::FrameStruct(FrameStruct::Series(_)),
     ) = (&left.value, &right.value)
     {
         return compute_between_series(op, left, right);
-    } else if let (UntaggedValue::DataFrame(PolarsData::Series(_)), UntaggedValue::Primitive(_)) =
-        (&left.value, &right.value)
+    } else if let (
+        UntaggedValue::FrameStruct(FrameStruct::Series(_)),
+        UntaggedValue::Primitive(_),
+    ) = (&left.value, &right.value)
     {
         return compute_series_single_value(op, left, right);
     }

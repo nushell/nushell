@@ -2,7 +2,7 @@ use bigdecimal::BigDecimal;
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
 use nu_protocol::{
-    dataframe::{NuSeries, PolarsData},
+    dataframe::{FrameStruct, NuSeries},
     Primitive, ShellTypeName, UntaggedValue, Value,
 };
 use nu_source::Span;
@@ -20,8 +20,8 @@ pub fn compute_between_series(
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     if let (
-        UntaggedValue::DataFrame(PolarsData::Series(lhs)),
-        UntaggedValue::DataFrame(PolarsData::Series(rhs)),
+        UntaggedValue::FrameStruct(FrameStruct::Series(lhs)),
+        UntaggedValue::FrameStruct(FrameStruct::Series(rhs)),
     ) = (&left.value, &right.value)
     {
         if lhs.as_ref().dtype() != rhs.as_ref().dtype() {
@@ -193,7 +193,7 @@ pub fn compute_series_single_value(
     left: &Value,
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
-    if let (UntaggedValue::DataFrame(PolarsData::Series(lhs)), UntaggedValue::Primitive(_)) =
+    if let (UntaggedValue::FrameStruct(FrameStruct::Series(lhs)), UntaggedValue::Primitive(_)) =
         (&left.value, &right.value)
     {
         match operator {

@@ -47,7 +47,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mask: Value = args.req_named("mask")?;
 
     let bool_mask = match &mask.value {
-        UntaggedValue::DataFrame(nu_protocol::dataframe::PolarsData::Series(series)) => {
+        UntaggedValue::FrameStruct(nu_protocol::dataframe::FrameStruct::Series(series)) => {
             match series.as_ref().dtype() {
                 DataType::Boolean => series
                     .as_ref()

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
 
-use super::PolarsData;
+use super::FrameStruct;
 
 const SECS_PER_DAY: i64 = 86_400;
 
@@ -94,7 +94,7 @@ impl NuDataFrame {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
+                UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => Some(df),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -136,14 +136,14 @@ impl NuDataFrame {
 
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(self)),
+            value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(self)),
             tag,
         }
     }
 
     pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
+            value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(NuDataFrame::new(df))),
             tag,
         }
     }

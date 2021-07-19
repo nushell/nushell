@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, NuSeries, PolarsData},
+    dataframe::{FrameStruct, NuDataFrame, NuSeries},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use polars::prelude::DataType;
@@ -57,7 +57,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value: Value = args.req(0)?;
 
     let series = match &value.value {
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Ok(series),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only use a series for take command",
@@ -88,12 +88,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
             let res = df.as_ref().take(indices);
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
             let res = series.as_ref().take(indices);
 
             Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))

@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::{FrameStruct, NuDataFrame},
     Signature, UntaggedValue,
 };
 
@@ -51,7 +51,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
             let res = df.as_ref().to_dummies().map_err(|e| {
                 parse_polars_error(
                     &e,
@@ -62,7 +62,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
             let res = series.as_ref().to_dummies().map_err(|e| {
                 parse_polars_error(
                     &e,

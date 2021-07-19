@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::PolarsData, Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{dataframe::FrameStruct, Signature, TaggedDictBuilder, UntaggedValue};
 
 pub struct DataFrame;
 
@@ -25,7 +25,7 @@ impl WholeStreamCommand for DataFrame {
             .get_vars()
             .into_iter()
             .filter_map(|(name, value)| {
-                if let UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) = &value.value {
+                if let UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) = &value.value {
                     let mut data = TaggedDictBuilder::new(value.tag.clone());
 
                     let rows = df.as_ref().height();

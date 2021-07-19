@@ -8,7 +8,7 @@ pub use nu_series::NuSeries;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub enum PolarsData {
+pub enum FrameStruct {
     EagerDataFrame(NuDataFrame),
     GroupBy(NuGroupBy),
     Series(NuSeries),

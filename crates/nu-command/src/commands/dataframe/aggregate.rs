@@ -2,7 +2,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::{FrameStruct, NuDataFrame},
     Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
@@ -139,7 +139,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {
+        UntaggedValue::FrameStruct(FrameStruct::GroupBy(nu_groupby)) => {
             let groupby = nu_groupby.to_groupby()?;
 
             let res = perform_groupby_aggregation(
@@ -152,14 +152,14 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
             let df = df.as_ref();
 
             let res = perform_dataframe_aggregation(&df, op, &operation.tag)?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
             let value = perform_series_aggregation(series.as_ref(), op, &operation.tag)?;
 
             Ok(OutputStream::one(value))

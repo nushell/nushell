@@ -12,7 +12,7 @@ use nu_source::{
 use num_traits::cast::ToPrimitive;
 
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::{NuSeries, PolarsData};
+use nu_protocol::dataframe::{FrameStruct, NuSeries};
 
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
@@ -203,7 +203,7 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
             }
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => match &name.unspanned {
+        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => match &name.unspanned {
             UnspannedPathMember::String(string) => {
                 let column = df.as_ref().column(string.as_ref()).map_err(|e| {
                     ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
@@ -746,7 +746,7 @@ pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, 
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => {
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
     }

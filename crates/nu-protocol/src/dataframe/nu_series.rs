@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
 
-use super::PolarsData;
+use super::FrameStruct;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuSeries {
@@ -57,7 +57,7 @@ impl NuSeries {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::DataFrame(PolarsData::Series(series)) => Some(series),
+                UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Some(series),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -100,20 +100,20 @@ impl NuSeries {
 
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::Series(self)),
+            value: UntaggedValue::FrameStruct(FrameStruct::Series(self)),
             tag,
         }
     }
 
     pub fn series_to_value(series: Series, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::Series(NuSeries::new(series))),
+            value: UntaggedValue::FrameStruct(FrameStruct::Series(NuSeries::new(series))),
             tag,
         }
     }
 
     pub fn series_to_untagged(series: Series) -> UntaggedValue {
-        UntaggedValue::DataFrame(PolarsData::Series(NuSeries::new(series)))
+        UntaggedValue::FrameStruct(FrameStruct::Series(NuSeries::new(series)))
     }
 
     pub fn dtype(&self) -> &str {

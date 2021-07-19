@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, NuSeries, PolarsData},
+    dataframe::{FrameStruct, NuDataFrame, NuSeries},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
@@ -60,7 +60,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
             // Extracting the selection columns of the columns to perform the aggregation
             let columns: Option<Vec<Value>> = args.opt(0)?;
             let (subset, col_span) = match columns {
@@ -80,7 +80,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
+        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
             let res = series.as_ref().drop_nulls();
             Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
         }
