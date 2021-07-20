@@ -49,8 +49,8 @@ impl WholeStreamCommand for Command {
                 result: Some(vec![Value::from(one(r#"
                 |name|type|chickens|modified|
                 |-|-|-|-|
-                |Andres.txt|File|10|1 year ago|
-                |Jonathan|Dir|5|1 year ago|
+                |Andres.txt|File|10|2 years ago|
+                |Jonathan|Dir|5|2 years ago|
                 |Darren.txt|File|20|1 year ago|
                 |Yehuda|Dir|4|1 year ago|
                 "#))]),
@@ -59,12 +59,12 @@ impl WholeStreamCommand for Command {
                 description: "Optionally, output a formatted markdown string",
                 example: "ls | to md --pretty",
                 result: Some(vec![Value::from(one(r#"
-                    | name       | type | chickens | modified   |
-                    | ---------- | ---- | -------- | ---------- |
-                    | Andres.txt | File | 10       | 1 year ago |
-                    | Jonathan   | Dir  | 5        | 1 year ago |
-                    | Darren.txt | File | 20       | 1 year ago |
-                    | Yehuda     | Dir  | 4        | 1 year ago |
+                    | name       | type | chickens | modified    |
+                    | ---------- | ---- | -------- | ----------- |
+                    | Andres.txt | File | 10       | 2 years ago |
+                    | Jonathan   | Dir  | 5        | 2 years ago |
+                    | Darren.txt | File | 20       | 1 year ago  |
+                    | Yehuda     | Dir  | 4        | 1 year ago  |
                     "#))]),
             },
             Example {
@@ -72,10 +72,10 @@ impl WholeStreamCommand for Command {
                 example: "echo [[H1]; [\"Welcome to Nushell\"]] | append (ls | first 2) | to md --per-element --pretty",
                 result: Some(vec![Value::from(one(r#"
                     # Welcome to Nushell
-                    | name       | type | chickens | modified   |
-                    | ---------- | ---- | -------- | ---------- |
-                    | Andres.txt | File | 10       | 1 year ago |
-                    | Jonathan   | Dir  | 5        | 1 year ago |
+                    | name       | type | chickens | modified    |
+                    | ---------- | ---- | -------- | ----------- |
+                    | Andres.txt | File | 10       | 2 years ago |
+                    | Jonathan   | Dir  | 5        | 2 years ago |
                     "#))]),
             }
         ]
