@@ -9,9 +9,6 @@ pub struct Outcome {
     pub err: String,
 }
 
-#[cfg(windows)]
-pub const NATIVE_PATH_ENV_VAR: &str = "Path";
-#[cfg(not(windows))]
 pub const NATIVE_PATH_ENV_VAR: &str = "PATH";
 
 #[cfg(windows)]
