@@ -239,7 +239,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)),
+                        value: UntaggedValue::DataFrame(df),
                         tag,
                     } => {
                         if let Some(table) = table {

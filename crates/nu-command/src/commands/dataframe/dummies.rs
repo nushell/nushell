@@ -51,7 +51,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             let res = df.as_ref().to_dummies().map_err(|e| {
                 parse_polars_error(
                     &e,

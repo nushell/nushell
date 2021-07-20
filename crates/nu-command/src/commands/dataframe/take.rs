@@ -88,7 +88,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             let res = df.as_ref().take(indices);
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))

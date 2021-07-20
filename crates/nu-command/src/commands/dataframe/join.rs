@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 
 use super::utils::{convert_columns, parse_polars_error};
 
@@ -100,7 +97,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = match r_df.value {
-        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(r_df)) => {
+        UntaggedValue::DataFrame(r_df) => {
             // Checking the column types before performing the join
             check_column_datatypes(
                 df.as_ref(),

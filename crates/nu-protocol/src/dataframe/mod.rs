@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum FrameStruct {
-    EagerDataFrame(NuDataFrame),
     GroupBy(NuGroupBy),
     Series(NuSeries),
 }

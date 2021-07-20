@@ -54,7 +54,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let reverse = args.has_flag("reverse");
 
     match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             let columns: Vec<Value> = args.rest(0)?;
 
             if !columns.is_empty() {

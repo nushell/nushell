@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
 
-use super::FrameStruct;
-
 const SECS_PER_DAY: i64 = 86_400;
 
 #[derive(Debug)]
@@ -44,8 +42,8 @@ pub struct NuDataFrame {
     dataframe: DataFrame,
 }
 
-// TODO. Better definition of equality and comparison for a dataframe.
-// Probably it make sense to have a name field and use it for comparisons
+// Dataframes are considered always different. There is no equality
+// between them
 impl PartialEq for NuDataFrame {
     fn eq(&self, _: &Self) -> bool {
         false
@@ -94,7 +92,7 @@ impl NuDataFrame {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => Some(df),
+                UntaggedValue::DataFrame(df) => Some(df),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -136,16 +134,28 @@ impl NuDataFrame {
 
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(self)),
+            value: UntaggedValue::DataFrame(self),
             tag,
         }
     }
 
     pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(NuDataFrame::new(df))),
+            value: UntaggedValue::DataFrame(NuDataFrame::new(df)),
             tag,
         }
+    }
+
+    pub fn column(self, column: &str, tag: &Tag) -> Result<NuDataFrame, ShellError> {
+        let s = self.as_ref().column(column).map_err(|e| {
+            ShellError::labeled_error("Column not found", format!("{}", e), tag.span)
+        })?;
+
+        let dataframe = DataFrame::new(vec![s.clone()]).map_err(|e| {
+            ShellError::labeled_error("DataFrame error", format!("{}", e), tag.span)
+        })?;
+
+        Ok(Self { dataframe })
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail

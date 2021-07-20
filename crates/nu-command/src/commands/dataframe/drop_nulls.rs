@@ -60,7 +60,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             // Extracting the selection columns of the columns to perform the aggregation
             let columns: Option<Vec<Value>> = args.opt(0)?;
             let (subset, col_span) = match columns {

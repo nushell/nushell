@@ -56,7 +56,8 @@ pub enum UntaggedValue {
     DataFrame(NuDataFrame),
 
     /// Data option that holds intermediate structs required to do data
-    /// manipulation and operations for dataframes
+    /// manipulation and operations for dataframes such as groupby, lazy frames
+    /// and lazy groupby
     #[cfg(feature = "dataframe")]
     FrameStruct(FrameStruct),
 }
@@ -690,8 +691,6 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Block(_) => "block",
             #[cfg(feature = "dataframe")]
             UntaggedValue::DataFrame(_) => "dataframe",
-            #[cfg(feature = "dataframe")]
-            UntaggedValue::FrameStruct(FrameStruct::EagerDataFrame(_)) => "dataframe",
             #[cfg(feature = "dataframe")]
             UntaggedValue::FrameStruct(FrameStruct::Series(_)) => "series",
             #[cfg(feature = "dataframe")]
