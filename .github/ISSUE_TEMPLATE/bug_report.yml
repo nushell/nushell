@@ -19,7 +19,7 @@ body:
         1.
         2.
         3.
-     validations:
+    validations:
       required: true
   - type: textarea
     id: expected
