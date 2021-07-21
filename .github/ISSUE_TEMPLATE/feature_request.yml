@@ -21,7 +21,7 @@ body:
     validations:
       required: true
   - type: textarea
-    id: desired
+    id: alternatives
     attributes:
       label: "Describe alternatives you've considered"
       description: "A clear and concise description of any alternative solutions or features you've considered."
