@@ -205,24 +205,17 @@ impl NuDataFrame {
 
     pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
         let df = self.as_ref();
-        let column_names = df.get_column_names();
+        let upper_row = to_row.min(df.height());
 
         let mut values: Vec<Value> = Vec::new();
-
-        let upper_row = to_row.min(df.height());
         for i in from_row..upper_row {
-            let row = df.get_row(i);
             let mut dictionary_row = Dictionary::default();
-
-            for (val, name) in row.0.iter().zip(column_names.iter()) {
-                let untagged_val = anyvalue_to_untagged(val)?;
-
+            for col in df.get_columns() {
                 let dict_val = Value {
-                    value: untagged_val,
+                    value: anyvalue_to_untagged(&col.get(i))?,
                     tag: Tag::unknown(),
                 };
-
-                dictionary_row.insert(name.to_string(), dict_val);
+                dictionary_row.insert(col.name().into(), dict_val);
             }
 
             let value = Value {
@@ -230,7 +223,7 @@ impl NuDataFrame {
                 tag: Tag::unknown(),
             };
 
-            values.push(value);
+            values.push(value)
         }
 
         Ok(values)
