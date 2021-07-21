@@ -12,7 +12,7 @@ use nu_source::{
 use num_traits::cast::ToPrimitive;
 
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::NuSeries;
+use nu_protocol::dataframe::NuDataFrame;
 
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
@@ -205,12 +205,12 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
         #[cfg(feature = "dataframe")]
         UntaggedValue::DataFrame(df) => match &name.unspanned {
             UnspannedPathMember::String(string) => {
-                let column = df.as_ref().column(string.as_ref()).map_err(|e| {
+                let column = df.as_ref().select(string.as_str()).map_err(|e| {
                     ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
                 })?;
 
-                Ok(NuSeries::series_to_value(
-                    column.clone(),
+                Ok(NuDataFrame::dataframe_to_value(
+                    column,
                     Tag::new(value.anchor(), name.span),
                 ))
             }

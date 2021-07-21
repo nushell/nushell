@@ -152,6 +152,17 @@ impl NuDataFrame {
         Ok(Self { dataframe })
     }
 
+    pub fn series_to_untagged(series: Series, span: &Span) -> UntaggedValue {
+        match DataFrame::new(vec![series]) {
+            Ok(dataframe) => UntaggedValue::DataFrame(Self { dataframe }),
+            Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                "DataFrame Creation",
+                format!("Unable to create DataFrame: {}", e),
+                span,
+            )),
+        }
+    }
+
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
             value: UntaggedValue::DataFrame(self),

@@ -692,8 +692,6 @@ impl ShellTypeName for UntaggedValue {
             #[cfg(feature = "dataframe")]
             UntaggedValue::DataFrame(_) => "dataframe",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::FrameStruct(FrameStruct::Series(_)) => "series",
-            #[cfg(feature = "dataframe")]
             UntaggedValue::FrameStruct(FrameStruct::GroupBy(_)) => "groupby",
         }
     }
