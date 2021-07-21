@@ -11,7 +11,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Converts a pipelined Table or List into a polars dataframe"
+        "Converts a List, Table or Dictionary into a polars dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -27,10 +27,27 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Takes an input stream and converts it to a polars dataframe",
-            example: "[[a b];[1 2] [3 4]] | dataframe to-df",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Takes a dictionary and creates a dataframe",
+                example: "[[a b];[1 2] [3 4]] | dataframe to-df",
+                result: None,
+            },
+            Example {
+                description: "Takes a list of tables and creates a dataframe",
+                example: "[[1 2 a] [3 4 b] [5 6 c]] | dataframe to-df",
+                result: None,
+            },
+            Example {
+                description: "Takes a list and creates a dataframe",
+                example: "[a b c] | dataframe to-df",
+                result: None,
+            },
+            Example {
+                description: "Takes a list of booleans and creates a dataframe",
+                example: "[true true false] | dataframe to-df",
+                result: None,
+            },
+        ]
     }
 }

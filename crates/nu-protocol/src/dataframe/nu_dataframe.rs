@@ -117,12 +117,19 @@ impl NuDataFrame {
             match value.value {
                 UntaggedValue::Row(dictionary) => insert_row(&mut column_values, dictionary)?,
                 UntaggedValue::Table(table) => insert_table(&mut column_values, table)?,
+                UntaggedValue::Primitive(Primitive::Int(_))
+                | UntaggedValue::Primitive(Primitive::Decimal(_))
+                | UntaggedValue::Primitive(Primitive::String(_))
+                | UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+                    let key = format!("{}", 0);
+                    insert_value(value, key, &mut column_values)?
+                }
                 _ => {
                     return Err(ShellError::labeled_error_with_secondary(
                         "Format not supported",
                         "Value not supported for conversion",
                         &value.tag,
-                        "Perhaps you want to use a List of Tables or a Dictionary",
+                        "Perhaps you want to use a List, a List of Tables or a Dictionary",
                         &value.tag,
                     ));
                 }
