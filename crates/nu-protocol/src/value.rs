@@ -55,7 +55,7 @@ pub enum UntaggedValue {
     #[cfg(feature = "dataframe")]
     DataFrame(NuDataFrame),
 
-    /// Data option that holds intermediate structs required to do data
+    /// Data option that holds intermediate struct required to do data
     /// manipulation and operations for dataframes such as groupby, lazy frames
     /// and lazy groupby
     #[cfg(feature = "dataframe")]
