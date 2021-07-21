@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 
 use super::utils::parse_polars_error;
 pub struct DataFrame;
@@ -34,13 +31,13 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Filter dataframe using a bool mask",
-                example: r#"let mask = ([$true $false] | dataframe to-series);
+                example: r#"let mask = ([$true $false] | dataframe to-df);
     [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter-with $mask"#,
                 result: None,
             },
             Example {
                 description: "Filter dataframe by creating a mask from operation",
-                example: r#"let mask = (([5 6] | dataframe to-series) > 5);
+                example: r#"let mask = (([5 6] | dataframe to-df) > 5);
     [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter-with $mask"#,
                 result: None,
             },
@@ -53,16 +50,16 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value: Value = args.req(0)?;
 
     let series_span = value.tag.span;
-    let series = match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Ok(series),
+    let df = match value.value {
+        UntaggedValue::DataFrame(df) => Ok(df),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only add a series to a dataframe",
             value.tag.span,
         )),
     }?;
-
-    let casted = series.as_ref().bool().map_err(|e| {
+    let series = df.as_series(&series_span)?;
+    let casted = series.bool().map_err(|e| {
         parse_polars_error(
             &e,
             &&series_span,

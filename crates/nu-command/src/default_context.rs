@@ -285,7 +285,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFramePivot),
             whole_stream_command(DataFrameWhere),
             whole_stream_command(DataFrameToDF),
-            whole_stream_command(DataFrameToSeries),
             whole_stream_command(DataFrameToParquet),
             whole_stream_command(DataFrameToCsv),
             whole_stream_command(DataFrameSort),

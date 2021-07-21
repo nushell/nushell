@@ -45,7 +45,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "Takes a list of booleans and creates a dataframe",
-                example: "[true true false] | dataframe to-df",
+                example: "[$true $true $false] | dataframe to-df",
                 result: None,
             },
         ]

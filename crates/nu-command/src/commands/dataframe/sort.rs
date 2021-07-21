@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame, NuSeries},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 
 use super::utils::{convert_columns, parse_polars_error};
 pub struct DataFrame;
@@ -37,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "Create new sorted series",
-                example: "[3 4 1 2] | dataframe to-series | dataframe sort",
+                example: "[3 4 1 2] | dataframe to-df | dataframe sort",
                 result: None,
             },
         ]
@@ -53,30 +50,37 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let reverse = args.has_flag("reverse");
 
-    match value.value {
+    match &value.value {
         UntaggedValue::DataFrame(df) => {
-            let columns: Vec<Value> = args.rest(0)?;
-
-            if !columns.is_empty() {
-                let (col_string, col_span) = convert_columns(&columns, &tag)?;
+            if df.is_series() {
+                let columns = df.as_ref().get_column_names();
 
                 let res = df
                     .as_ref()
-                    .sort(&col_string, reverse)
-                    .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
+                    .sort(columns, reverse)
+                    .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
                 Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
             } else {
-                Err(ShellError::labeled_error(
-                    "Missing columns",
-                    "missing column name to perform sort",
-                    &tag.span,
-                ))
+                let columns: Vec<Value> = args.rest(0)?;
+
+                if !columns.is_empty() {
+                    let (col_string, col_span) = convert_columns(&columns, &tag)?;
+
+                    let res = df
+                        .as_ref()
+                        .sort(&col_string, reverse)
+                        .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
+
+                    Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
+                } else {
+                    Err(ShellError::labeled_error(
+                        "Missing columns",
+                        "missing column name to perform sort",
+                        &tag.span,
+                    ))
+                }
             }
-        }
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
-            let res = series.as_ref().sort(reverse);
-            Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
         }
         _ => Err(ShellError::labeled_error(
             "Incorrect type",

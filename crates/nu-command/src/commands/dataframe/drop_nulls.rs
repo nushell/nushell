@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame, NuSeries},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 
 use super::utils::{convert_columns, parse_polars_error};
 
@@ -44,7 +41,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let s = ([1 2 0 0 3 4] | dataframe to-series);
+                example: r#"let s = ([1 2 0 0 3 4] | dataframe to-df);
     ($s / $s) | dataframe drop-nulls"#,
                 result: None,
             },
@@ -79,10 +76,6 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
-        }
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
-            let res = series.as_ref().drop_nulls();
-            Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
         }
         _ => Err(ShellError::labeled_error(
             "Incorrect type",

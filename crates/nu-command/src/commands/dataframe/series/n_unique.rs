@@ -2,7 +2,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::NuSeries, Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value,
+    dataframe::NuDataFrame, Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value,
 };
 
 pub struct DataFrame;
@@ -27,7 +27,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Counts unique values",
-            example: "[1 1 2 2 3 3 4] | dataframe to-series | dataframe count-unique",
+            example: "[1 1 2 2 3 3 4] | dataframe to-df | dataframe count-unique",
             result: None,
         }]
     }
@@ -36,10 +36,10 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let res = series
-        .as_ref()
+    let res = df
+        .as_series(&df_tag.span)?
         .n_unique()
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 

@@ -18,6 +18,7 @@ enum InputValue {
     Integer,
     Decimal,
     String,
+    Boolean,
 }
 
 #[derive(Debug)]
@@ -400,6 +401,9 @@ fn insert_value(
             UntaggedValue::Primitive(Primitive::String(_)) => {
                 col_val.value_type = InputValue::String;
             }
+            UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+                col_val.value_type = InputValue::Boolean;
+            }
             _ => {
                 return Err(ShellError::labeled_error(
                     "Only primitive values accepted",
@@ -424,6 +428,10 @@ fn insert_value(
             | (
                 UntaggedValue::Primitive(Primitive::String(_)),
                 UntaggedValue::Primitive(Primitive::String(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
             ) => col_val.values.push(value),
             _ => {
                 return Err(ShellError::labeled_error_with_secondary(
@@ -462,6 +470,12 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
             InputValue::String => {
                 let series_values: Result<Vec<_>, _> =
                     column.values.iter().map(|v| v.as_string()).collect();
+                let series = Series::new(&name, series_values?);
+                df_series.push(series)
+            }
+            InputValue::Boolean => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_bool()).collect();
                 let series = Series::new(&name, series_values?);
                 df_series.push(series)
             }

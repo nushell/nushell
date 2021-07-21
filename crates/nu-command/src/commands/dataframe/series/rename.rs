@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuSeries, Signature, SyntaxShape};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 pub struct DataFrame;
@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Renames a series",
-            example: "[5 6 7 8] | dataframe to-series | dataframe rename-series new_name",
+            example: "[5 6 7 8] | dataframe to-df | dataframe rename-series new_name",
             result: None,
         }]
     }
@@ -40,9 +40,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let name: Tagged<String> = args.req(0)?;
 
-    let mut series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    series.as_mut().rename(name.item.as_ref());
+    let mut series = df.as_series(&df_tag.span)?;
 
-    Ok(OutputStream::one(series.into_value(tag)))
+    series.rename(name.item.as_ref());
+
+    let df = NuDataFrame::try_from_series(vec![series], &tag.span)?;
+    Ok(OutputStream::one(df.into_value(df_tag)))
 }

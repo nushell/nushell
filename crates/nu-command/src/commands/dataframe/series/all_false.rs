@@ -1,7 +1,7 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuSeries, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct DataFrame;
 
@@ -26,12 +26,12 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Returns true if all values are false",
-                example: "[$false $false $false] | dataframe to-series | dataframe all-false",
+                example: "[$false $false $false] | dataframe to-df | dataframe all-false",
                 result: None,
             },
             Example {
                 description: "Checks the result from a comparison",
-                example: r#"let s = ([5 6 2 8] | dataframe to-series);
+                example: r#"let s = ([5 6 2 8] | dataframe to-df);
     let res = ($s > 9);
     $res | dataframe all-false"#,
                 result: None,
@@ -43,9 +43,10 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let bool = series.as_ref().bool().map_err(|e| {
+    let series = df.as_series(&df_tag.span)?;
+    let bool = series.bool().map_err(|e| {
         parse_polars_error::<&str>(
             &e,
             &tag.span,

@@ -2,7 +2,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{FrameStruct, NuSeries},
+    dataframe::{FrameStruct, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use polars::prelude::IntoSeries;
@@ -29,8 +29,8 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Checks if elements from a series are contained in right series",
-            example: r#"let other = ([1 3 6] | dataframe to-series);
-    [5 6 6 6 8 8 8] | dataframe to-series | dataframe is-in $other"#,
+            example: r#"let other = ([1 3 6] | dataframe to-df);
+    [5 6 6 6 8 8 8] | dataframe to-df | dataframe is-in $other"#,
             result: None,
         }]
     }
@@ -49,15 +49,13 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let res = series
-        .as_ref()
+    let res = df
+        .as_series(&df_tag.span)?
         .is_in(other.as_ref())
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
-    Ok(OutputStream::one(NuSeries::series_to_value(
-        res.into_series(),
-        tag,
-    )))
+    let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
+    Ok(OutputStream::one(df.into_value(df_tag)))
 }

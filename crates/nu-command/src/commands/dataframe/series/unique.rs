@@ -42,6 +42,5 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     let df = NuDataFrame::try_from_series(vec![res], &tag.span)?;
-
-    Ok(OutputStream::one(df.into_value(tag)))
+    Ok(OutputStream::one(df.into_value(df_tag)))
 }

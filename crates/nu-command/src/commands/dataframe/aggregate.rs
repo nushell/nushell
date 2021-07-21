@@ -3,13 +3,10 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::{FrameStruct, NuDataFrame},
-    Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    Signature, SyntaxShape, UntaggedValue,
 };
 use nu_source::Tagged;
-use polars::{
-    frame::groupby::GroupBy,
-    prelude::{DataType, PolarsError, Series},
-};
+use polars::{frame::groupby::GroupBy, prelude::PolarsError};
 
 enum Operation {
     Mean,
@@ -120,7 +117,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "Aggregate sum in series",
-                example: "[4 1 5 6] | dataframe to-series | dataframe aggregate sum",
+                example: "[4 1 5 6] | dataframe to-df | dataframe aggregate sum",
                 result: None,
             },
         ]
@@ -158,11 +155,6 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             let res = perform_dataframe_aggregation(&df, op, &operation.tag)?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
-        }
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
-            let value = perform_series_aggregation(series.as_ref(), op, &operation.tag)?;
-
-            Ok(OutputStream::one(value))
         }
         _ => Err(ShellError::labeled_error(
             "No groupby, dataframe or series in stream",
@@ -259,166 +251,6 @@ fn perform_dataframe_aggregation(
             "operation not valid for dataframe",
             &operation_tag.span,
             "Perhaps you want: mean, sum, min, max, quantile, median, var, or std",
-            &operation_tag.span,
-        )),
-    }
-}
-
-fn perform_series_aggregation(
-    series: &Series,
-    operation: Operation,
-    operation_tag: &Tag,
-) -> Result<Value, ShellError> {
-    match operation {
-        Operation::Mean => {
-            let res = match series.mean() {
-                Some(val) => UntaggedValue::Primitive(val.into()),
-                None => UntaggedValue::Primitive(0.into()),
-            };
-
-            let value = Value {
-                value: res,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value(series.name(), value);
-
-            Ok(data.into_value())
-        }
-        Operation::Median => {
-            let res = match series.median() {
-                Some(val) => UntaggedValue::Primitive(val.into()),
-                None => UntaggedValue::Primitive(0.into()),
-            };
-
-            let value = Value {
-                value: res,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value(series.name(), value);
-
-            Ok(data.into_value())
-        }
-        Operation::Sum => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.sum().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.sum().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value(series.name(), value);
-
-            Ok(data.into_value())
-        }
-        Operation::Max => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.max().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.max().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value(series.name(), value);
-
-            Ok(data.into_value())
-        }
-        Operation::Min => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.min().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.min().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value(series.name(), value);
-
-            Ok(data.into_value())
-        }
-
-        _ => Err(ShellError::labeled_error_with_secondary(
-            "Not valid operation",
-            "operation not valid for series",
-            &operation_tag.span,
-            "Perhaps you want: mean, median, sum, max, min",
             &operation_tag.span,
         )),
     }

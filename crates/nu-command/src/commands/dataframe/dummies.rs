@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame},
-    Signature, UntaggedValue,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, UntaggedValue};
 
 use super::utils::parse_polars_error;
 
@@ -36,7 +33,7 @@ impl WholeStreamCommand for DataFrame {
             },
             Example {
                 description: "Create new dataframe with dummy variables from a series",
-                example: "[1 2 2 3 3] | dataframe to-series | dataframe to-dummies",
+                example: "[1 2 2 3 3] | dataframe to-df | dataframe to-dummies",
                 result: None,
             },
         ]
@@ -53,17 +50,6 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     match value.value {
         UntaggedValue::DataFrame(df) => {
             let res = df.as_ref().to_dummies().map_err(|e| {
-                parse_polars_error(
-                    &e,
-                    &tag.span,
-                    Some("The only allowed column types for dummies are String or Int"),
-                )
-            })?;
-
-            Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
-        }
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => {
-            let res = series.as_ref().to_dummies().map_err(|e| {
                 parse_polars_error(
                     &e,
                     &tag.span,

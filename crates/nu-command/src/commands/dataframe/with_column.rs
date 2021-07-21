@@ -1,10 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame},
-    Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 use super::utils::parse_polars_error;
@@ -33,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Adds a series to the dataframe",
             example:
-                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-series) --name c",
+                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-df) --name c",
             result: None,
         }]
     }
@@ -44,8 +41,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value: Value = args.req(0)?;
     let name: Tagged<String> = args.req_named("name")?;
 
-    let mut series = match value.value {
-        UntaggedValue::FrameStruct(FrameStruct::Series(series)) => Ok(series),
+    let df = match value.value {
+        UntaggedValue::DataFrame(df) => Ok(df),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only add a series to a dataframe",
@@ -53,7 +50,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let series = series.as_mut().rename(name.item.as_ref()).clone();
+    let mut series = df.as_series(&value.tag.span)?;
+
+    let series = series.rename(name.item.as_ref()).clone();
 
     let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 

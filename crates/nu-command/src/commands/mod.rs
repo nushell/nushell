@@ -34,8 +34,7 @@ pub use dataframe::{
     DataFrameOpen, DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameSeriesRename,
     DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift, DataFrameShow,
     DataFrameSlice, DataFrameSort, DataFrameTake, DataFrameToCsv, DataFrameToDF,
-    DataFrameToParquet, DataFrameToSeries, DataFrameUnique, DataFrameValueCounts, DataFrameWhere,
-    DataFrameWithColumn,
+    DataFrameToParquet, DataFrameUnique, DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;

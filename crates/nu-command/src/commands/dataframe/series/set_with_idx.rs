@@ -1,7 +1,9 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuSeries, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use polars::prelude::{ChunkSet, DataType, IntoSeries};
 
 pub struct DataFrame;
@@ -33,8 +35,8 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Set value in selected rows from series",
-            example: r#"let series = ([4 1 5 2 4 3] | dataframe to-series);
-    let indices = ([0 2] | dataframe to-series);
+            example: r#"let series = ([4 1 5 2 4 3] | dataframe to-df);
+    let indices = ([0 2] | dataframe to-df);
     $series | dataframe set-with-idx 6 -i $indices"#,
             result: None,
         }]
@@ -47,7 +49,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let indices: Value = args.req_named("indices")?;
 
     let indices = match &indices.value {
-        UntaggedValue::FrameStruct(nu_protocol::dataframe::FrameStruct::Series(series)) => Ok(series),
+        UntaggedValue::DataFrame(df) => Ok(df),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only use a series for set command",
@@ -55,7 +57,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let casted = match indices.as_ref().dtype() {
+    let indices = indices.as_series(&value.tag.span)?;
+
+    let casted = match indices.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => indices
             .as_ref()
             .cast_with_dtype(&DataType::UInt32)
@@ -75,11 +79,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .into_iter()
         .filter_map(|val| val.map(|v| v as usize));
 
-    let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let series = df.as_series(&df_tag.span)?;
 
     match &value.value {
         UntaggedValue::Primitive(Primitive::Int(val)) => {
-            let chunked = series.as_ref().i64().map_err(|e| {
+            let chunked = series.i64().map_err(|e| {
                 parse_polars_error::<&str>(
                     &e,
                     &value.tag.span,
@@ -91,10 +96,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .set_at_idx(indices, Some(*val))
                 .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
-            Ok(OutputStream::one(NuSeries::series_to_value(
-                res.into_series(),
-                tag,
-            )))
+            let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
+            Ok(OutputStream::one(df.into_value(df_tag)))
         }
         UntaggedValue::Primitive(Primitive::Decimal(val)) => {
             let chunked = series.as_ref().f64().map_err(|e| {
@@ -115,10 +118,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                 )
                 .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
-            Ok(OutputStream::one(NuSeries::series_to_value(
-                res.into_series(),
-                tag,
-            )))
+            let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
+            Ok(OutputStream::one(df.into_value(df_tag)))
         }
         UntaggedValue::Primitive(Primitive::String(val)) => {
             let chunked = series.as_ref().utf8().map_err(|e| {
@@ -136,10 +137,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut res = res.into_series();
             res.rename("string");
 
-            Ok(OutputStream::one(NuSeries::series_to_value(
-                res.into_series(),
-                tag,
-            )))
+            let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
+            Ok(OutputStream::one(df.into_value(df_tag)))
         }
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
