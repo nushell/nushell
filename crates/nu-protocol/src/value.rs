@@ -51,7 +51,7 @@ pub enum UntaggedValue {
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
 
-    /// Main nushell dataframe structure
+    /// Main nushell dataframe
     #[cfg(feature = "dataframe")]
     DataFrame(NuDataFrame),
 
