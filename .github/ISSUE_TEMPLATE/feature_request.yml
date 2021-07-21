@@ -3,7 +3,7 @@ description: "When you want a new feature for something that doesn't already exi
 title: "[Feature]: "
 labels: ["feature-request"]
 body:
-- type: textarea
+  - type: textarea
     id: problem
     attributes:
       label: Related Problem
