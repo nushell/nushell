@@ -70,12 +70,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )
     })?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = df
         .as_ref()
         .filter(&casted)
-        .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+        .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

@@ -143,7 +143,7 @@ fn filter_dataframe(
     }?;
 
     let span = args.call_info.name_tag.span;
-    let df = NuDataFrame::try_from_stream(&mut args.input, &span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &span)?;
 
     let col = df
         .as_ref()

@@ -55,7 +55,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let series = series.as_mut().rename(name.item.as_ref()).clone();
 
-    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     df.as_mut()
         .with_column(series)

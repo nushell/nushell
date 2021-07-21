@@ -85,14 +85,14 @@ impl NuDataFrame {
         NuDataFrame { dataframe }
     }
 
-    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuDataFrame, ShellError>
+    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<(Self, Tag), ShellError>
     where
         T: Iterator<Item = Value>,
     {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::DataFrame(df) => Some(df),
+                UntaggedValue::DataFrame(df) => Some((df, value.tag)),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -139,6 +139,18 @@ impl NuDataFrame {
         from_parsed_columns(column_values, tag)
     }
 
+    pub fn try_from_series(columns: Vec<Series>, span: &Span) -> Result<Self, ShellError> {
+        let dataframe = DataFrame::new(columns).map_err(|e| {
+            ShellError::labeled_error(
+                "DataFrame Creation",
+                format!("Unable to create DataFrame: {}", e),
+                span,
+            )
+        })?;
+
+        Ok(Self { dataframe })
+    }
+
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
             value: UntaggedValue::DataFrame(self),
@@ -153,7 +165,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn column(self, column: &str, tag: &Tag) -> Result<NuDataFrame, ShellError> {
+    pub fn column(&self, column: &str, tag: &Tag) -> Result<NuDataFrame, ShellError> {
         let s = self.as_ref().column(column).map_err(|e| {
             ShellError::labeled_error("Column not found", format!("{}", e), tag.span)
         })?;
@@ -163,6 +175,30 @@ impl NuDataFrame {
         })?;
 
         Ok(Self { dataframe })
+    }
+
+    pub fn is_series(&self) -> bool {
+        self.as_ref().width() == 1
+    }
+
+    pub fn as_series(&self, span: &Span) -> Result<Series, ShellError> {
+        if !self.is_series() {
+            return Err(ShellError::labeled_error_with_secondary(
+                "Not a Series",
+                "DataFrame cannot be used as Series",
+                span,
+                "Note that a Series is a DataFrame with one column",
+                span,
+            ));
+        }
+
+        let series = self
+            .as_ref()
+            .get_columns()
+            .get(0)
+            .expect("We have already checked that the width is 1");
+
+        Ok(series.clone())
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail

@@ -43,7 +43,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let by_columns: Vec<Value> = args.rest(0)?;
     let (columns_string, col_span) = convert_columns(&by_columns, &tag)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     // This is the expensive part of the groupby; to create the
     // groups that will be used for grouping the data in the

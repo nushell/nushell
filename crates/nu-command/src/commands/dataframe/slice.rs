@@ -40,7 +40,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let offset: Tagged<usize> = args.req(0)?;
     let size: Tagged<usize> = args.req(1)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
     let res = df.as_ref().slice(offset.item as i64, size.item);
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))

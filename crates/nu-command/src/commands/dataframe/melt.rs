@@ -44,7 +44,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (id_col_string, id_col_span) = convert_columns(&id_col, &tag)?;
     let (val_col_string, val_col_span) = convert_columns(&val_col, &tag)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     check_column_datatypes(df.as_ref(), &id_col_string, &id_col_span)?;
     check_column_datatypes(df.as_ref(), &val_col_string, &val_col_span)?;

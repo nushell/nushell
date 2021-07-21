@@ -61,7 +61,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let fraction: Option<Tagged<f64>> = args.get_flag("fraction")?;
     let replace: bool = args.has_flag("replace");
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = match (rows, fraction) {
         (Some(rows), None) => df

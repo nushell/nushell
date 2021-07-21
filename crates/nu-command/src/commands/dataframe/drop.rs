@@ -39,7 +39,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let columns: Vec<Value> = args.rest(0)?;
     let (col_string, col_span) = convert_columns(&columns, &tag)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let new_df = match col_string.get(0) {
         Some(col) => df

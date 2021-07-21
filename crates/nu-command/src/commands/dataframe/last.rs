@@ -45,7 +45,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => 5,
     };
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = df.as_ref().tail(Some(rows));
 
