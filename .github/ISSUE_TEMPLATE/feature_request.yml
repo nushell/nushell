@@ -1,7 +1,5 @@
 name: Feature Request
 description: "When you want a new feature for something that doesn't already exist"
-title: "[Feature]: "
-labels: ["feature-request"]
 body:
   - type: textarea
     id: problem
