@@ -74,7 +74,7 @@ fn main() -> std::io::Result<()> {
             .required("y", SyntaxShape::Int, "y value");
         working_set.add_decl(sig.into());
 
-        working_set.delta
+        working_set.render()
     };
 
     {
@@ -134,7 +134,7 @@ fn main() -> std::io::Result<()> {
                         );
                         println!("{:#?}", output);
                         println!("Error: {:?}", err);
-                        working_set.delta
+                        working_set.render()
                     };
 
                     ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);

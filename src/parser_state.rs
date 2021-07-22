@@ -1,5 +1,5 @@
 use crate::{parser::Block, Declaration, Span};
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct ParserState {
@@ -327,6 +327,10 @@ impl<'a> ParserWorkingSet<'a> {
             self.delta.decls.get(decl_id - num_permanent_decls).cloned()
         }
     }
+
+    pub fn render(self) -> ParserDelta {
+        self.delta
+    }
 }
 
 #[cfg(test)]
@@ -362,7 +366,7 @@ mod parser_state_tests {
         let delta = {
             let mut working_set = ParserWorkingSet::new(&parser_state);
             working_set.add_file("child.nu".into(), &[]);
-            working_set.delta
+            working_set.render()
         };
 
         ParserState::merge_delta(&mut parser_state, delta);
