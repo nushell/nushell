@@ -19,7 +19,9 @@ pub mod set_with_idx;
 pub mod shift;
 pub mod unique;
 pub mod value_counts;
+pub mod replace;
 
+pub use replace::DataFrame as DataFrameReplace;
 pub use all_false::DataFrame as DataFrameAllFalse;
 pub use all_true::DataFrame as DataFrameAllTrue;
 pub use arg_max::DataFrame as DataFrameArgMax;
