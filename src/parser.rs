@@ -549,6 +549,7 @@ impl ParserWorkingSet {
 
     pub fn parse_internal_call(
         &mut self,
+        command_span: Span,
         spans: &[Span],
         decl_id: usize,
     ) -> (Box<Call>, Span, Option<ParseError>) {
@@ -567,7 +568,7 @@ impl ParserWorkingSet {
 
         // The index into the spans of argument data given to parse
         // Starting at the first argument
-        let mut spans_idx = 1;
+        let mut spans_idx = 0;
 
         while spans_idx < spans.len() {
             let arg_span = spans[spans_idx];
@@ -615,8 +616,17 @@ impl ParserWorkingSet {
                 let end = if decl.signature.rest_positional.is_some() {
                     spans.len()
                 } else {
+                    println!("num_positionals: {}", decl.signature.num_positionals());
+                    println!("positional_idx: {}", positional_idx);
+                    println!("spans.len(): {}", spans.len());
+                    println!("spans_idx: {}", spans_idx);
                     let remainder = decl.signature.num_positionals() - positional_idx;
-                    spans.len() - remainder + 1
+
+                    if remainder > spans.len() {
+                        spans.len()
+                    } else {
+                        spans.len() - remainder + 1
+                    }
                 };
 
                 let (arg, err) =
@@ -632,7 +642,7 @@ impl ParserWorkingSet {
             spans_idx += 1;
         }
 
-        let err = check_call(spans[0], &decl.signature, &call);
+        let err = check_call(command_span, &decl.signature, &call);
         error = error.or(err);
 
         // FIXME: type unknown
@@ -651,6 +661,7 @@ impl ParserWorkingSet {
                 let mut new_name = name.to_vec();
                 new_name.push(b' ');
                 new_name.extend(self.get_span_contents(spans[pos]));
+
                 if let Some(did) = self.find_decl(&new_name) {
                     decl_id = did;
                 } else {
@@ -660,11 +671,12 @@ impl ParserWorkingSet {
                 pos += 1;
             }
             // parse internal command
-            let (call, span, err) = self.parse_internal_call(&spans[(pos - 1)..], decl_id);
+            let (call, _, err) =
+                self.parse_internal_call(span(&spans[0..pos]), &spans[pos..], decl_id);
             (
                 Expression {
                     expr: Expr::Call(call),
-                    span,
+                    span: span(spans),
                 },
                 err,
             )
@@ -1757,7 +1769,8 @@ impl ParserWorkingSet {
 
         if name == b"def" {
             if let Some(decl_id) = self.find_decl(b"def") {
-                let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
+                let (call, call_span, err) =
+                    self.parse_internal_call(spans[0], &spans[1..], decl_id);
 
                 if err.is_some() {
                     return (
@@ -1813,7 +1826,8 @@ impl ParserWorkingSet {
 
         if name == b"let" {
             if let Some(decl_id) = self.find_decl(b"let") {
-                let (call, call_span, err) = self.parse_internal_call(spans, decl_id);
+                let (call, call_span, err) =
+                    self.parse_internal_call(spans[0], &spans[1..], decl_id);
 
                 return (
                     Statement::Expression(Expression {
@@ -1890,15 +1904,17 @@ impl ParserWorkingSet {
     pub fn parse_file(
         &mut self,
         fname: &str,
-        contents: Vec<u8>,
+        contents: &[u8],
         scoped: bool,
     ) -> (Block, Option<ParseError>) {
         let mut error = None;
 
-        let (output, err) = lex(&contents, 0, &[], &[]);
-        error = error.or(err);
+        let span_offset = self.next_span_start();
 
         self.add_file(fname.into(), contents);
+
+        let (output, err) = lex(&contents, span_offset, &[], &[]);
+        error = error.or(err);
 
         let (output, err) = lite_parse(&output);
         error = error.or(err);
@@ -1912,9 +1928,11 @@ impl ParserWorkingSet {
     pub fn parse_source(&mut self, source: &[u8], scoped: bool) -> (Block, Option<ParseError>) {
         let mut error = None;
 
+        let span_offset = self.next_span_start();
+
         self.add_file("source".into(), source.into());
 
-        let (output, err) = lex(source, 0, &[], &[]);
+        let (output, err) = lex(source, span_offset, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);

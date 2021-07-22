@@ -69,6 +69,7 @@ fn is_special_item(block_level: &[BlockKind], c: u8, special_tokens: &[u8]) -> b
 pub fn lex_item(
     input: &[u8],
     curr_offset: &mut usize,
+    span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
 ) -> (Span, Option<ParseError>) {
@@ -156,7 +157,7 @@ pub fn lex_item(
         *curr_offset += 1;
     }
 
-    let span = Span::new(token_start, *curr_offset);
+    let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
     // If there is still unclosed opening delimiters, close them and add
     // synthetic closing characters to the accumulated token.
@@ -196,7 +197,7 @@ pub fn lex(
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut error = None;
 
-    let mut curr_offset = span_offset;
+    let mut curr_offset = 0;
 
     let mut output = vec![];
     let mut is_complete = true;
@@ -242,7 +243,7 @@ pub fn lex(
             curr_offset += 1;
             output.push(Token::new(
                 TokenContents::Semicolon,
-                Span::new(idx, idx + 1),
+                Span::new(span_offset + idx, span_offset + idx + 1),
             ));
         } else if c == b'\n' || c == b'\r' {
             // If the next character is a newline, we're looking at an EOL (end of line) token.
@@ -250,7 +251,10 @@ pub fn lex(
             let idx = curr_offset;
             curr_offset += 1;
             if !additional_whitespace.contains(&c) {
-                output.push(Token::new(TokenContents::Eol, Span::new(idx, idx + 1)));
+                output.push(Token::new(
+                    TokenContents::Eol,
+                    Span::new(span_offset + idx, span_offset + idx + 1),
+                ));
             }
         } else if c == b'#' {
             // If the next character is `#`, we're at the beginning of a line
@@ -272,7 +276,7 @@ pub fn lex(
             if start != curr_offset {
                 output.push(Token::new(
                     TokenContents::Comment,
-                    Span::new(start, curr_offset),
+                    Span::new(span_offset + start, span_offset + curr_offset),
                 ));
             }
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
@@ -284,6 +288,7 @@ pub fn lex(
             let (span, err) = lex_item(
                 input,
                 &mut curr_offset,
+                span_offset,
                 additional_whitespace,
                 special_tokens,
             );

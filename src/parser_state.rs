@@ -205,10 +205,10 @@ impl ParserWorkingSet {
         }
     }
 
-    pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
+    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
         let next_span_start = self.next_span_start();
 
-        self.file_contents.extend(&contents);
+        self.file_contents.extend(contents);
 
         let next_span_end = self.next_span_start();
 
@@ -354,7 +354,7 @@ mod parser_state_tests {
     #[test]
     fn add_file_gives_id() {
         let mut parser_state = ParserWorkingSet::new(Some(Arc::new(ParserState::new())));
-        let id = parser_state.add_file("test.nu".into(), vec![]);
+        let id = parser_state.add_file("test.nu".into(), &[]);
 
         assert_eq!(id, 0);
     }
@@ -365,7 +365,7 @@ mod parser_state_tests {
         let parent_id = parser_state.add_file("test.nu".into(), vec![]);
 
         let mut working_set = ParserWorkingSet::new(Some(Arc::new(parser_state)));
-        let working_set_id = working_set.add_file("child.nu".into(), vec![]);
+        let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
         assert_eq!(parent_id, 0);
         assert_eq!(working_set_id, 1);
@@ -378,7 +378,7 @@ mod parser_state_tests {
         let mut parser_state = Arc::new(parser_state);
 
         let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
-        working_set.add_file("child.nu".into(), vec![]);
+        working_set.add_file("child.nu".into(), &[]);
 
         ParserState::merge_working_set(&mut parser_state, working_set);
 
