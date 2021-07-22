@@ -12,4 +12,11 @@ impl Span {
     pub fn unknown() -> Span {
         Span { start: 0, end: 0 }
     }
+
+    pub fn offset(&self, offset: usize) -> Span {
+        Span {
+            start: self.start - offset,
+            end: self.end - offset,
+        }
+    }
 }

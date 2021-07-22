@@ -210,6 +210,10 @@ impl<'a> ParserWorkingSet<'a> {
         self.permanent_state.next_span_start() + self.delta.file_contents.len()
     }
 
+    pub fn global_span_offset(&self) -> usize {
+        self.permanent_state.next_span_start()
+    }
+
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
         let next_span_start = self.next_span_start();
 

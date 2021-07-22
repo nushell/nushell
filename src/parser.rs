@@ -994,7 +994,7 @@ impl<'a> ParserWorkingSet<'a> {
         }
 
         let span = Span { start, end };
-        let source = &self.delta.file_contents[..span.end];
+        let source = self.get_span_contents(span);
 
         let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':']);
         error = error.or(err);
@@ -1008,7 +1008,8 @@ impl<'a> ParserWorkingSet<'a> {
                     contents: crate::TokenContents::Item,
                     span,
                 } => {
-                    let contents = &self.delta.file_contents[span.start..span.end];
+                    let span = *span;
+                    let contents = self.get_span_contents(span);
 
                     if contents == b":" {
                         match parse_mode {
@@ -1017,7 +1018,7 @@ impl<'a> ParserWorkingSet<'a> {
                             }
                             ParseMode::TypeMode => {
                                 // We're seeing two types for the same thing for some reason, error
-                                error = error.or(Some(ParseError::Mismatch("type".into(), *span)));
+                                error = error.or(Some(ParseError::Mismatch("type".into(), span)));
                             }
                         }
                     } else {
@@ -1042,7 +1043,7 @@ impl<'a> ParserWorkingSet<'a> {
                                         {
                                             error = error.or(Some(ParseError::Mismatch(
                                                 "short flag".into(),
-                                                *span,
+                                                span,
                                             )));
                                             short_flag
                                         } else {
@@ -1064,7 +1065,7 @@ impl<'a> ParserWorkingSet<'a> {
                                         } else {
                                             error = error.or(Some(ParseError::Mismatch(
                                                 "short flag".into(),
-                                                *span,
+                                                span,
                                             )));
                                         }
                                     }
@@ -1079,7 +1080,7 @@ impl<'a> ParserWorkingSet<'a> {
                                     if chars.len() > 1 {
                                         error = error.or(Some(ParseError::Mismatch(
                                             "short flag".into(),
-                                            *span,
+                                            span,
                                         )));
 
                                         args.push(Arg::Flag(Flag {
@@ -1104,7 +1105,7 @@ impl<'a> ParserWorkingSet<'a> {
                                     let short_flag = if !short_flag.ends_with(b")") {
                                         error = error.or(Some(ParseError::Mismatch(
                                             "short flag".into(),
-                                            *span,
+                                            span,
                                         )));
                                         short_flag
                                     } else {
@@ -1121,7 +1122,7 @@ impl<'a> ParserWorkingSet<'a> {
                                                 if flag.short.is_some() {
                                                     error = error.or(Some(ParseError::Mismatch(
                                                         "one short flag".into(),
-                                                        *span,
+                                                        span,
                                                     )));
                                                 } else {
                                                     flag.short = Some(chars[0]);
@@ -1130,14 +1131,14 @@ impl<'a> ParserWorkingSet<'a> {
                                             _ => {
                                                 error = error.or(Some(ParseError::Mismatch(
                                                     "unknown flag".into(),
-                                                    *span,
+                                                    span,
                                                 )));
                                             }
                                         }
                                     } else {
                                         error = error.or(Some(ParseError::Mismatch(
                                             "short flag".into(),
-                                            *span,
+                                            span,
                                         )));
                                     }
                                 } else {
@@ -1186,7 +1187,10 @@ impl<'a> ParserWorkingSet<'a> {
                     contents: crate::TokenContents::Comment,
                     span,
                 } => {
-                    let contents = &self.delta.file_contents[span.start + 1..span.end];
+                    let contents = self.get_span_contents(Span {
+                        start: span.start + 1,
+                        end: span.end,
+                    });
 
                     let mut contents = String::from_utf8_lossy(contents).to_string();
                     contents = contents.trim().into();
@@ -1276,7 +1280,7 @@ impl<'a> ParserWorkingSet<'a> {
         }
 
         let span = Span { start, end };
-        let source = &self.delta.file_contents[..span.end];
+        let source = self.get_span_contents(span);
 
         let (output, err) = lex(&source, span.start, &[b'\n', b','], &[]);
         error = error.or(err);
@@ -1340,7 +1344,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let span = Span { start, end };
 
-        let source = &self.delta.file_contents[..end];
+        let source = self.get_span_contents(span);
 
         let (output, err) = lex(&source, start, &[b'\n', b','], &[]);
         error = error.or(err);
@@ -1430,7 +1434,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let span = Span { start, end };
 
-        let source = &self.delta.file_contents[..end];
+        let source = self.get_span_contents(span);
 
         let (output, err) = lex(&source, start, &[], &[]);
         error = error.or(err);
@@ -1440,8 +1444,6 @@ impl<'a> ParserWorkingSet<'a> {
 
         let (output, err) = self.parse_block(&output, true);
         error = error.or(err);
-
-        println!("{:?} {:?}", output, error);
 
         let block_id = self.add_block(output);
 

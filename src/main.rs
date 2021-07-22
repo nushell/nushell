@@ -110,7 +110,10 @@ fn main() -> std::io::Result<()> {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
         let mut line_editor = Reedline::new()
-            .with_history(Box::new(FileBackedHistory::new(1000)))?
+            .with_history(Box::new(FileBackedHistory::with_file(
+                1000,
+                "history.txt".into(),
+            )?))?
             .with_highlighter(Box::new(NuHighlighter {
                 parser_state: parser_state.clone(),
             }));
