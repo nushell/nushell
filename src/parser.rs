@@ -104,6 +104,7 @@ pub enum Operator {
 pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
+    pub head: Span,
     pub positional: Vec<Expression>,
     pub named: Vec<(String, Option<Expression>)>,
 }
@@ -118,6 +119,7 @@ impl Call {
     pub fn new() -> Call {
         Self {
             decl_id: 0,
+            head: Span::unknown(),
             positional: vec![],
             named: vec![],
         }
@@ -557,6 +559,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let mut call = Call::new();
         call.decl_id = decl_id;
+        call.head = command_span;
 
         let decl = self
             .get_decl(decl_id)
@@ -616,18 +619,19 @@ impl<'a> ParserWorkingSet<'a> {
                 let end = if decl.signature.rest_positional.is_some() {
                     spans.len()
                 } else {
-                    println!("num_positionals: {}", decl.signature.num_positionals());
-                    println!("positional_idx: {}", positional_idx);
-                    println!("spans.len(): {}", spans.len());
-                    println!("spans_idx: {}", spans_idx);
+                    // println!("num_positionals: {}", decl.signature.num_positionals());
+                    // println!("positional_idx: {}", positional_idx);
+                    // println!("spans.len(): {}", spans.len());
+                    // println!("spans_idx: {}", spans_idx);
                     let remainder = decl.signature.num_positionals() - positional_idx;
 
-                    if remainder > spans.len() {
+                    if remainder >= spans.len() {
                         spans.len()
                     } else {
                         spans.len() - remainder + 1
                     }
                 };
+                // println!("end: {}", end);
 
                 let (arg, err) =
                     self.parse_multispan_value(&spans[..end], &mut spans_idx, positional.shape);
@@ -1669,6 +1673,10 @@ impl<'a> ParserWorkingSet<'a> {
             if idx == spans.len() {
                 // Handle broken math expr `1 +` etc
                 error = error.or(Some(ParseError::IncompleteMathExpression(spans[idx - 1])));
+
+                expr_stack.push(Expression::garbage(spans[idx - 1]));
+                expr_stack.push(Expression::garbage(spans[idx - 1]));
+
                 break;
             }
 
@@ -1947,7 +1955,7 @@ impl<'a> ParserWorkingSet<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser_state, ParseError, ParserState, Signature};
+    use crate::{ParseError, ParserState, Signature};
 
     use super::*;
 

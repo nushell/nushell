@@ -6,4 +6,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reedline = {git = "https://github.com/jntrnr/reedline"}
+reedline = {path = "../reedline"}
+nu-ansi-term = "0.32.0"

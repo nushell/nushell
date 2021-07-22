@@ -1,5 +1,6 @@
 mod declaration;
 mod eval;
+mod flatten;
 mod lex;
 mod lite_parse;
 mod parse_error;
@@ -22,3 +23,4 @@ pub use parser::{
 pub use parser_state::{BlockId, DeclId, ParserState, ParserWorkingSet, VarId};
 pub use signature::Signature;
 pub use span::Span;
+pub use syntax_highlight::NuHighlighter;

@@ -97,6 +97,10 @@ impl ParserState {
         self.decls.get(decl_id)
     }
 
+    pub fn get_block(&self, block_id: BlockId) -> Option<&Block> {
+        self.blocks.get(block_id)
+    }
+
     pub fn next_span_start(&self) -> usize {
         self.file_contents.len()
     }
@@ -310,21 +314,30 @@ impl<'a> ParserWorkingSet<'a> {
         next_id
     }
 
-    pub fn get_variable(&self, var_id: VarId) -> Option<Type> {
+    pub fn get_variable(&self, var_id: VarId) -> Option<&Type> {
         let num_permanent_vars = self.permanent_state.num_vars();
         if var_id < num_permanent_vars {
-            self.permanent_state.get_var(var_id).cloned()
+            self.permanent_state.get_var(var_id)
         } else {
-            self.delta.vars.get(var_id - num_permanent_vars).cloned()
+            self.delta.vars.get(var_id - num_permanent_vars)
         }
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> Option<Declaration> {
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Declaration> {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
-            self.permanent_state.get_decl(decl_id).cloned()
+            self.permanent_state.get_decl(decl_id)
         } else {
-            self.delta.decls.get(decl_id - num_permanent_decls).cloned()
+            self.delta.decls.get(decl_id - num_permanent_decls)
+        }
+    }
+
+    pub fn get_block(&self, block_id: BlockId) -> Option<&Block> {
+        let num_permanent_blocks = self.permanent_state.num_blocks();
+        if block_id < num_permanent_blocks {
+            self.permanent_state.get_block(block_id)
+        } else {
+            self.delta.blocks.get(block_id - num_permanent_blocks)
         }
     }
 

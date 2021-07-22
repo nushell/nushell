@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use engine_q::{ParserState, ParserWorkingSet, Signature, SyntaxShape};
+use engine_q::{NuHighlighter, ParserState, ParserWorkingSet, Signature, SyntaxShape};
 
 fn main() -> std::io::Result<()> {
     let parser_state = Rc::new(RefCell::new(ParserState::new()));
@@ -109,8 +109,11 @@ fn main() -> std::io::Result<()> {
     } else {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
-        let mut line_editor =
-            Reedline::new().with_history(Box::new(FileBackedHistory::new(1000)))?;
+        let mut line_editor = Reedline::new()
+            .with_history(Box::new(FileBackedHistory::new(1000)))?
+            .with_highlighter(Box::new(NuHighlighter {
+                parser_state: parser_state.clone(),
+            }));
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
@@ -132,7 +135,7 @@ fn main() -> std::io::Result<()> {
                             s.as_bytes(),
                             false,
                         );
-                        println!("{:#?}", output);
+                        println!("{:?}", output);
                         println!("Error: {:?}", err);
                         working_set.render()
                     };
