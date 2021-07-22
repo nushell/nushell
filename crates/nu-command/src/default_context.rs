@@ -319,6 +319,12 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameShape),
             whole_stream_command(DataFrameReplace),
             whole_stream_command(DataFrameReplaceAll),
+            whole_stream_command(DataFrameStringLengths),
+            whole_stream_command(DataFrameContains),
+            whole_stream_command(DataFrameToLowercase),
+            whole_stream_command(DataFrameToUppercase),
+            whole_stream_command(DataFrameStringSlice),
+            whole_stream_command(DataFrameConcatenate),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

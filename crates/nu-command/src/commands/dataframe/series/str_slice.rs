@@ -9,27 +9,17 @@ pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe replace-all"
+        "dataframe str-slice"
     }
 
     fn usage(&self) -> &str {
-        "[Series] Replace all (sub)strings by a regex pattern"
+        "[Series] Slices the string from the start position until the selected length"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe replace")
-            .required_named(
-                "pattern",
-                SyntaxShape::String,
-                "Regex pattern to be matched",
-                Some('p'),
-            )
-            .required_named(
-                "replace",
-                SyntaxShape::String,
-                "replacing string",
-                Some('r'),
-            )
+            .required_named("start", SyntaxShape::Int, "start of slice", Some('s'))
+            .named("length", SyntaxShape::Int, "optional length", Some('l'))
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -38,8 +28,8 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Replaces string",
-            example: "[abac abac abac] | dataframe to-df | dataframe replace-all -p a -r A",
+            description: "Creates slices from the strings",
+            example: "[abcded abc321 abc123] | dataframe to-df | dataframe str-slice -s 1 -l 2",
             result: None,
         }]
     }
@@ -47,8 +37,10 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let pattern: Tagged<String> = args.req_named("pattern")?;
-    let replace: Tagged<String> = args.req_named("replace")?;
+    let start: Tagged<i64> = args.req_named("start")?;
+
+    let length: Option<Tagged<i64>> = args.get_flag("length")?;
+    let length = length.map(|v| v.item as u64);
 
     let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
@@ -57,12 +49,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         parse_polars_error::<&str>(
             &e,
             &df_tag.span,
-            Some("The replace command can only be used with string columns"),
+            Some("The str-slice command can only be used with string columns"),
         )
     })?;
 
     let mut res = chunked
-        .replace_all(pattern.as_str(), replace.as_str())
+        .str_slice(start.item, length)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     res.rename(series.name());

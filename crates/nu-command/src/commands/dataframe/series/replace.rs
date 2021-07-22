@@ -57,12 +57,11 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         parse_polars_error::<&str>(
             &e,
             &df_tag.span,
-            Some("The replace command can only be used with string columns"),
+            Some("The replace-all command can only be used with string columns"),
         )
     })?;
 
     let mut res = chunked
-        .as_ref()
         .replace(pattern.as_str(), replace.as_str())
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 

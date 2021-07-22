@@ -27,15 +27,16 @@ pub use core_commands::*;
 pub use dataframe::{
     DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameArgMax,
     DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique, DataFrameColumn,
-    DataFrameDTypes, DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies,
-    DataFrameFilter, DataFrameFirst, DataFrameGet, DataFrameGroupBy, DataFrameIsDuplicated,
-    DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
-    DataFrameLast, DataFrameList, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFrameNot,
-    DataFrameOpen, DataFramePivot, DataFrameReplace, DataFrameReplaceAll, DataFrameSample,
-    DataFrameSelect, DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape,
-    DataFrameShift, DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTake, DataFrameToCsv,
-    DataFrameToDF, DataFrameToParquet, DataFrameUnique, DataFrameValueCounts, DataFrameWhere,
-    DataFrameWithColumn,
+    DataFrameConcatenate, DataFrameContains, DataFrameDTypes, DataFrameDrop,
+    DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameFilter, DataFrameFirst,
+    DataFrameGet, DataFrameGroupBy, DataFrameIsDuplicated, DataFrameIsIn, DataFrameIsNotNull,
+    DataFrameIsNull, DataFrameIsUnique, DataFrameJoin, DataFrameLast, DataFrameList, DataFrameMelt,
+    DataFrameNNull, DataFrameNUnique, DataFrameNot, DataFrameOpen, DataFramePivot,
+    DataFrameReplace, DataFrameReplaceAll, DataFrameSample, DataFrameSelect, DataFrameSeriesRename,
+    DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift, DataFrameShow,
+    DataFrameSlice, DataFrameSort, DataFrameStringLengths, DataFrameStringSlice, DataFrameTake,
+    DataFrameToCsv, DataFrameToDF, DataFrameToLowercase, DataFrameToParquet, DataFrameToUppercase,
+    DataFrameUnique, DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;
