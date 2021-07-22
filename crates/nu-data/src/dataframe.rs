@@ -7,12 +7,12 @@ use nu_source::Span;
 use num_traits::ToPrimitive;
 
 use polars::prelude::{
-    BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series,
+    BooleanType, ChunkCompare, ChunkedArray, DataFrame, DataType, Float64Type, Int64Type,
+    IntoSeries, NumOpsDispatchChecked, PolarsError, Series,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
-pub fn compute_between_series(
+pub fn compute_between_dataframes(
     operator: Operator,
     left: &Value,
     right: &Value,
@@ -20,177 +20,239 @@ pub fn compute_between_series(
     if let (UntaggedValue::DataFrame(lhs), UntaggedValue::DataFrame(rhs)) =
         (&left.value, &right.value)
     {
-        let lhs = match lhs.as_series(&left.tag.span) {
-            Ok(series) => series,
-            Err(e) => return Ok(UntaggedValue::Error(e)),
-        };
-
-        let rhs = match rhs.as_series(&right.tag.span) {
-            Ok(series) => series,
-            Err(e) => return Ok(UntaggedValue::Error(e)),
-        };
-
         let operation_span = left.tag.span.until(right.tag.span);
+        match (lhs.is_series(), rhs.is_series()) {
+            (true, true) => {
+                let lhs = &lhs
+                    .as_series(&left.tag.span)
+                    .expect("Already checked that is a series");
+                let rhs = &rhs
+                    .as_series(&right.tag.span)
+                    .expect("Already checked that is a series");
 
-        if lhs.dtype() != rhs.dtype() {
-            return Ok(UntaggedValue::Error(
-                ShellError::labeled_error_with_secondary(
-                    "Mixed datatypes",
-                    "this datatype does not match the right hand side datatype",
-                    &left.tag.span,
-                    format!(
-                        "Perhaps you want to change this datatype to '{}'",
-                        lhs.as_ref().dtype()
-                    ),
-                    &right.tag.span,
-                ),
-            ));
-        }
+                if lhs.dtype() != rhs.dtype() {
+                    return Ok(UntaggedValue::Error(
+                        ShellError::labeled_error_with_secondary(
+                            "Mixed datatypes",
+                            "this datatype does not match the right hand side datatype",
+                            &left.tag.span,
+                            format!(
+                                "Perhaps you want to change this datatype to '{}'",
+                                lhs.as_ref().dtype()
+                            ),
+                            &right.tag.span,
+                        ),
+                    ));
+                }
 
-        if lhs.len() != rhs.len() {
-            return Ok(UntaggedValue::Error(ShellError::labeled_error(
-                "Different length",
-                "this column length does not match the right hand column length",
-                &left.tag.span,
-            )));
-        }
-
-        match operator {
-            Operator::Plus => {
-                let mut res = &lhs + &rhs;
-                let name = format!("sum_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::Minus => {
-                let mut res = &lhs - &rhs;
-                let name = format!("sub_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::Multiply => {
-                let mut res = &lhs * &rhs;
-                let name = format!("mul_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::Divide => {
-                let res = lhs.checked_div(&rhs);
-                match res {
-                    Ok(mut res) => {
-                        let name = format!("div_{}_{}", lhs.name(), rhs.name());
-                        res.rename(name.as_ref());
-                        Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-                    }
-                    Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
-                        "Division error",
-                        format!("{}", e),
+                if lhs.len() != rhs.len() {
+                    return Ok(UntaggedValue::Error(ShellError::labeled_error(
+                        "Different length",
+                        "this column length does not match the right hand column length",
                         &left.tag.span,
-                    ))),
+                    )));
                 }
-            }
-            Operator::Equal => {
-                let mut res = Series::eq(&lhs, &rhs).into_series();
-                let name = format!("eq_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::NotEqual => {
-                let mut res = Series::neq(&lhs, &rhs).into_series();
-                let name = format!("neq_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::LessThan => {
-                let mut res = Series::lt(&lhs, &rhs).into_series();
-                let name = format!("lt_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::LessThanOrEqual => {
-                let mut res = Series::lt_eq(&lhs, &rhs).into_series();
-                let name = format!("lte_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::GreaterThan => {
-                let mut res = Series::gt(&lhs, &rhs).into_series();
-                let name = format!("gt_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::GreaterThanOrEqual => {
-                let mut res = Series::gt_eq(&lhs, &rhs).into_series();
-                let name = format!("gte_{}_{}", lhs.name(), rhs.name());
-                res.rename(name.as_ref());
-                Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-            }
-            Operator::And => match lhs.dtype() {
-                DataType::Boolean => {
-                    let lhs_cast = lhs.bool();
-                    let rhs_cast = rhs.bool();
 
-                    match (lhs_cast, rhs_cast) {
-                        (Ok(l), Ok(r)) => {
-                            let mut res = l.bitand(r).into_series();
-                            let name = format!("and_{}_{}", lhs.name(), rhs.name());
-                            res.rename(name.as_ref());
-                            Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-                        }
-                        _ => Ok(UntaggedValue::Error(
-                            ShellError::labeled_error_with_secondary(
-                                "Casting error",
-                                "unable to cast to boolean",
-                                &left.tag.span,
-                                "unable to cast to boolean",
-                                &right.tag.span,
-                            ),
-                        )),
-                    }
+                compute_between_series(operator, lhs, rhs, &operation_span)
+            }
+            _ => {
+                if lhs.as_ref().height() != rhs.as_ref().height() {
+                    return Ok(UntaggedValue::Error(
+                        ShellError::labeled_error_with_secondary(
+                            "Mixed datatypes",
+                            "this datatype size does not match the right hand side datatype",
+                            &left.tag.span,
+                            "Perhaps you want to select another dataframe with same number of rows",
+                            &right.tag.span,
+                        ),
+                    ));
                 }
-                _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
-                    "Incorrect datatype",
-                    "And operation can only be done with boolean values",
-                    &left.tag.span,
-                ))),
-            },
-            Operator::Or => match lhs.dtype() {
-                DataType::Boolean => {
-                    let lhs_cast = lhs.bool();
-                    let rhs_cast = rhs.bool();
 
-                    match (lhs_cast, rhs_cast) {
-                        (Ok(l), Ok(r)) => {
-                            let mut res = l.bitor(r).into_series();
-                            let name = format!("or_{}_{}", lhs.name(), rhs.name());
-                            res.rename(name.as_ref());
-                            Ok(NuDataFrame::series_to_untagged(res, &operation_span))
-                        }
-                        _ => Ok(UntaggedValue::Error(
-                            ShellError::labeled_error_with_secondary(
-                                "Casting error",
-                                "unable to cast to boolean",
-                                &left.tag.span,
-                                "unable to cast to boolean",
-                                &right.tag.span,
-                            ),
-                        )),
-                    }
-                }
-                _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
-                    "Incorrect datatype",
-                    "And operation can only be done with boolean values",
-                    &left.tag.span,
-                ))),
-            },
-            _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
-                "Incorrect datatype",
-                "unable to use this datatype for this operation",
-                &left.tag.span,
-            ))),
+                between_dataframes(operator, lhs, rhs, &operation_span)
+            }
         }
     } else {
         Err((left.type_name(), right.type_name()))
+    }
+}
+
+pub fn between_dataframes(
+    operator: Operator,
+    lhs: &NuDataFrame,
+    rhs: &NuDataFrame,
+    operation_span: &Span,
+) -> Result<UntaggedValue, (&'static str, &'static str)> {
+    match operator {
+        Operator::Plus => {
+            let mut columns: Vec<&str> = Vec::new();
+
+            let new = lhs
+                .as_ref()
+                .get_columns()
+                .iter()
+                .chain(rhs.as_ref().get_columns().iter())
+                .map(|s| {
+                    let name = if columns.contains(&s.name()) {
+                        format!("{}_{}", s.name(), "x")
+                    } else {
+                        columns.push(s.name());
+                        s.name().to_string()
+                    };
+
+                    let mut series = s.clone();
+                    series.rename(name.as_str());
+                    series
+                })
+                .collect::<Vec<Series>>();
+
+            match DataFrame::new(new) {
+                Ok(df) => Ok(NuDataFrame::dataframe_to_untagged(df)),
+                Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                    "Appending error",
+                    format!("{}", e),
+                    operation_span,
+                ))),
+            }
+        }
+        _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+            "Incorrect datatype",
+            "unable to use this datatype for this operation",
+            operation_span,
+        ))),
+    }
+}
+
+pub fn compute_between_series(
+    operator: Operator,
+    lhs: &Series,
+    rhs: &Series,
+    operation_span: &Span,
+) -> Result<UntaggedValue, (&'static str, &'static str)> {
+    match operator {
+        Operator::Plus => {
+            let mut res = lhs + rhs;
+            let name = format!("sum_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::Minus => {
+            let mut res = lhs - rhs;
+            let name = format!("sub_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::Multiply => {
+            let mut res = lhs * rhs;
+            let name = format!("mul_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::Divide => {
+            let res = lhs.checked_div(rhs);
+            match res {
+                Ok(mut res) => {
+                    let name = format!("div_{}_{}", lhs.name(), rhs.name());
+                    res.rename(name.as_ref());
+                    Ok(NuDataFrame::series_to_untagged(res, operation_span))
+                }
+                Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                    "Division error",
+                    format!("{}", e),
+                    operation_span,
+                ))),
+            }
+        }
+        Operator::Equal => {
+            let mut res = Series::eq(lhs, rhs).into_series();
+            let name = format!("eq_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::NotEqual => {
+            let mut res = Series::neq(lhs, rhs).into_series();
+            let name = format!("neq_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::LessThan => {
+            let mut res = Series::lt(lhs, rhs).into_series();
+            let name = format!("lt_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::LessThanOrEqual => {
+            let mut res = Series::lt_eq(lhs, rhs).into_series();
+            let name = format!("lte_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::GreaterThan => {
+            let mut res = Series::gt(lhs, rhs).into_series();
+            let name = format!("gt_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::GreaterThanOrEqual => {
+            let mut res = Series::gt_eq(lhs, rhs).into_series();
+            let name = format!("gte_{}_{}", lhs.name(), rhs.name());
+            res.rename(name.as_ref());
+            Ok(NuDataFrame::series_to_untagged(res, operation_span))
+        }
+        Operator::And => match lhs.dtype() {
+            DataType::Boolean => {
+                let lhs_cast = lhs.bool();
+                let rhs_cast = rhs.bool();
+
+                match (lhs_cast, rhs_cast) {
+                    (Ok(l), Ok(r)) => {
+                        let mut res = l.bitand(r).into_series();
+                        let name = format!("and_{}_{}", lhs.name(), rhs.name());
+                        res.rename(name.as_ref());
+                        Ok(NuDataFrame::series_to_untagged(res, &operation_span))
+                    }
+                    _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                        "Casting error",
+                        "unable to cast to boolean",
+                        operation_span,
+                    ))),
+                }
+            }
+            _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                "Incorrect datatype",
+                "And operation can only be done with boolean values",
+                operation_span,
+            ))),
+        },
+        Operator::Or => match lhs.dtype() {
+            DataType::Boolean => {
+                let lhs_cast = lhs.bool();
+                let rhs_cast = rhs.bool();
+
+                match (lhs_cast, rhs_cast) {
+                    (Ok(l), Ok(r)) => {
+                        let mut res = l.bitor(r).into_series();
+                        let name = format!("or_{}_{}", lhs.name(), rhs.name());
+                        res.rename(name.as_ref());
+                        Ok(NuDataFrame::series_to_untagged(res, &operation_span))
+                    }
+                    _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                        "Casting error",
+                        "unable to cast to boolean",
+                        operation_span,
+                    ))),
+                }
+            }
+            _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                "Incorrect datatype",
+                "And operation can only be done with boolean values",
+                operation_span,
+            ))),
+        },
+        _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
+            "Incorrect datatype",
+            "unable to use this datatype for this operation",
+            operation_span,
+        ))),
     }
 }
 

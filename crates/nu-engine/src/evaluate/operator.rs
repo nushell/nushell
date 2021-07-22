@@ -5,7 +5,7 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 #[cfg(feature = "dataframe")]
-use nu_data::dataframe::{compute_between_series, compute_series_single_value};
+use nu_data::dataframe::{compute_between_dataframes, compute_series_single_value};
 
 pub fn apply_operator(
     op: Operator,
@@ -15,7 +15,7 @@ pub fn apply_operator(
     #[cfg(feature = "dataframe")]
     if let (UntaggedValue::DataFrame(_), UntaggedValue::DataFrame(_)) = (&left.value, &right.value)
     {
-        return compute_between_series(op, left, right);
+        return compute_between_dataframes(op, left, right);
     } else if let (UntaggedValue::DataFrame(_), UntaggedValue::Primitive(_)) =
         (&left.value, &right.value)
     {

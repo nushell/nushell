@@ -172,9 +172,13 @@ impl NuDataFrame {
 
     pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(NuDataFrame::new(df)),
+            value: NuDataFrame::dataframe_to_untagged(df),
             tag,
         }
+    }
+
+    pub fn dataframe_to_untagged(df: DataFrame) -> UntaggedValue {
+        UntaggedValue::DataFrame(NuDataFrame::new(df))
     }
 
     pub fn column(&self, column: &str, tag: &Tag) -> Result<NuDataFrame, ShellError> {
