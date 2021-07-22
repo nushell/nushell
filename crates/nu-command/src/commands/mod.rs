@@ -31,10 +31,11 @@ pub use dataframe::{
     DataFrameFilter, DataFrameFirst, DataFrameGet, DataFrameGroupBy, DataFrameIsDuplicated,
     DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
     DataFrameLast, DataFrameList, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFrameNot,
-    DataFrameOpen, DataFramePivot, DataFrameReplace, DataFrameSample, DataFrameSelect,
-    DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift,
-    DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTake, DataFrameToCsv, DataFrameToDF,
-    DataFrameToParquet, DataFrameUnique, DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
+    DataFrameOpen, DataFramePivot, DataFrameReplace, DataFrameReplaceAll, DataFrameSample,
+    DataFrameSelect, DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape,
+    DataFrameShift, DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTake, DataFrameToCsv,
+    DataFrameToDF, DataFrameToParquet, DataFrameUnique, DataFrameValueCounts, DataFrameWhere,
+    DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;
