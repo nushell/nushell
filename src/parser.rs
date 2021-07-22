@@ -345,7 +345,7 @@ fn span(spans: &[Span]) -> Span {
     }
 }
 
-impl ParserWorkingSet {
+impl<'a> ParserWorkingSet<'a> {
     pub fn parse_external_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
         // TODO: add external parsing
         let mut args = vec![];
@@ -990,7 +990,7 @@ impl ParserWorkingSet {
         }
 
         let span = Span { start, end };
-        let source = &self.file_contents[..span.end];
+        let source = &self.delta.file_contents[..span.end];
 
         let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':']);
         error = error.or(err);
@@ -1004,7 +1004,7 @@ impl ParserWorkingSet {
                     contents: crate::TokenContents::Item,
                     span,
                 } => {
-                    let contents = &self.file_contents[span.start..span.end];
+                    let contents = &self.delta.file_contents[span.start..span.end];
 
                     if contents == b":" {
                         match parse_mode {
@@ -1182,7 +1182,7 @@ impl ParserWorkingSet {
                     contents: crate::TokenContents::Comment,
                     span,
                 } => {
-                    let contents = &self.file_contents[span.start + 1..span.end];
+                    let contents = &self.delta.file_contents[span.start + 1..span.end];
 
                     let mut contents = String::from_utf8_lossy(contents).to_string();
                     contents = contents.trim().into();
@@ -1272,7 +1272,7 @@ impl ParserWorkingSet {
         }
 
         let span = Span { start, end };
-        let source = &self.file_contents[..span.end];
+        let source = &self.delta.file_contents[..span.end];
 
         let (output, err) = lex(&source, span.start, &[b'\n', b','], &[]);
         error = error.or(err);
@@ -1336,7 +1336,7 @@ impl ParserWorkingSet {
 
         let span = Span { start, end };
 
-        let source = &self.file_contents[..end];
+        let source = &self.delta.file_contents[..end];
 
         let (output, err) = lex(&source, start, &[b'\n', b','], &[]);
         error = error.or(err);
@@ -1426,7 +1426,7 @@ impl ParserWorkingSet {
 
         let span = Span { start, end };
 
-        let source = &self.file_contents[..end];
+        let source = &self.delta.file_contents[..end];
 
         let (output, err) = lex(&source, start, &[], &[]);
         error = error.or(err);
@@ -1947,13 +1947,14 @@ impl ParserWorkingSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ParseError, Signature};
+    use crate::{parser_state, ParseError, ParserState, Signature};
 
     use super::*;
 
     #[test]
     pub fn parse_int() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let (block, err) = working_set.parse_source(b"3", true);
 
@@ -1970,7 +1971,8 @@ mod tests {
 
     #[test]
     pub fn parse_call() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
@@ -1993,7 +1995,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_missing_flag_arg() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
@@ -2004,7 +2007,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_missing_short_flag_arg() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
@@ -2015,7 +2019,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_too_many_shortflag_args() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo")
             .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
@@ -2030,7 +2035,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_unknown_shorthand() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
@@ -2040,7 +2046,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_extra_positional() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
         working_set.add_decl(sig.into());
@@ -2050,7 +2057,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_missing_req_positional() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
         working_set.add_decl(sig.into());
@@ -2060,7 +2068,8 @@ mod tests {
 
     #[test]
     pub fn parse_call_missing_req_flag() {
-        let mut working_set = ParserWorkingSet::new(None);
+        let parser_state = ParserState::new();
+        let mut working_set = ParserWorkingSet::new(&parser_state);
 
         let sig =
             Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);

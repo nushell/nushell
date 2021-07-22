@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use crate::{Block, Expr, Expression, ParserState, ParserWorkingSet, Statement};
 
-fn syntax_highlight(parser_state: Arc<ParserState>, input: &[u8]) {
-    let mut working_set = ParserWorkingSet::new(Some(parser_state));
+fn syntax_highlight<'a, 'b>(parser_state: &'a ParserState, input: &'b [u8]) {
+    // let mut working_set = ParserWorkingSet::new(parser_state);
 
-    let (block, _) = working_set.parse_source(input, false);
+    // let (block, _) = working_set.parse_source(input, false);
 
     // for stmt in &block.stmts {
     //     match stmt {

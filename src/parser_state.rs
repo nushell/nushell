@@ -1,5 +1,5 @@
 use crate::{parser::Block, Declaration, Span};
-use std::{collections::HashMap, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Arc};
 
 #[derive(Debug)]
 pub struct ParserState {
@@ -54,29 +54,22 @@ impl ParserState {
         }
     }
 
-    pub fn merge_working_set(this: &mut Arc<ParserState>, mut working_set: ParserWorkingSet) {
-        // Remove the working set's reference to the permanent state so we can safely take a mutable reference
-        working_set.permanent_state = None;
-
+    pub fn merge_delta(this: &mut ParserState, mut delta: ParserDelta) {
         // Take the mutable reference and extend the permanent state from the working set
-        if let Some(this) = std::sync::Arc::<ParserState>::get_mut(this) {
-            this.files.extend(working_set.files);
-            this.file_contents.extend(working_set.file_contents);
-            this.decls.extend(working_set.decls);
-            this.vars.extend(working_set.vars);
-            this.blocks.extend(working_set.blocks);
+        this.files.extend(delta.files);
+        this.file_contents.extend(delta.file_contents);
+        this.decls.extend(delta.decls);
+        this.vars.extend(delta.vars);
+        this.blocks.extend(delta.blocks);
 
-            if let Some(last) = this.scope.last_mut() {
-                let first = working_set.scope.remove(0);
-                for item in first.decls.into_iter() {
-                    last.decls.insert(item.0, item.1);
-                }
-                for item in first.vars.into_iter() {
-                    last.vars.insert(item.0, item.1);
-                }
+        if let Some(last) = this.scope.last_mut() {
+            let first = delta.scope.remove(0);
+            for item in first.decls.into_iter() {
+                last.decls.insert(item.0, item.1);
             }
-        } else {
-            panic!("Internal error: merging working set should always succeed");
+            for item in first.vars.into_iter() {
+                last.vars.insert(item.0, item.1);
+            }
         }
     }
 
@@ -123,111 +116,32 @@ impl ParserState {
 }
 
 #[derive(Debug)]
-pub struct ParserWorkingSet {
+pub struct ParserWorkingSet<'a> {
+    permanent_state: &'a ParserState,
+    pub delta: ParserDelta,
+}
+
+#[derive(Debug)]
+pub struct ParserDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
     vars: Vec<Type>,         // indexed by VarId
     decls: Vec<Declaration>, // indexed by DeclId
     blocks: Vec<Block>,      // indexed by BlockId
-    permanent_state: Option<Arc<ParserState>>,
     scope: Vec<ScopeFrame>,
 }
 
-impl ParserWorkingSet {
-    pub fn new(permanent_state: Option<Arc<ParserState>>) -> Self {
-        Self {
-            files: vec![],
-            file_contents: vec![],
-            vars: vec![],
-            decls: vec![],
-            blocks: vec![],
-            permanent_state,
-            scope: vec![ScopeFrame::new()],
-        }
-    }
-
+impl ParserDelta {
     pub fn num_files(&self) -> usize {
-        let parent_len = if let Some(permanent_state) = &self.permanent_state {
-            permanent_state.num_files()
-        } else {
-            0
-        };
-
-        self.files.len() + parent_len
+        self.files.len()
     }
 
     pub fn num_decls(&self) -> usize {
-        let parent_len = if let Some(permanent_state) = &self.permanent_state {
-            permanent_state.num_decls()
-        } else {
-            0
-        };
-
-        self.decls.len() + parent_len
+        self.decls.len()
     }
 
     pub fn num_blocks(&self) -> usize {
-        let parent_len = if let Some(permanent_state) = &self.permanent_state {
-            permanent_state.num_blocks()
-        } else {
-            0
-        };
-
-        self.blocks.len() + parent_len
-    }
-
-    pub fn add_decl(&mut self, decl: Declaration) -> DeclId {
-        let name = decl.signature.name.as_bytes().to_vec();
-
-        self.decls.push(decl);
-        let decl_id = self.num_decls() - 1;
-
-        let scope_frame = self
-            .scope
-            .last_mut()
-            .expect("internal error: missing required scope frame");
-        scope_frame.decls.insert(name, decl_id);
-
-        decl_id
-    }
-
-    pub fn add_block(&mut self, block: Block) -> BlockId {
-        self.blocks.push(block);
-
-        self.num_blocks() - 1
-    }
-
-    pub fn next_span_start(&self) -> usize {
-        if let Some(permanent_state) = &self.permanent_state {
-            permanent_state.next_span_start() + self.file_contents.len()
-        } else {
-            self.file_contents.len()
-        }
-    }
-
-    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
-        let next_span_start = self.next_span_start();
-
-        self.file_contents.extend(contents);
-
-        let next_span_end = self.next_span_start();
-
-        self.files.push((filename, next_span_start, next_span_end));
-
-        self.num_files() - 1
-    }
-
-    pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        if let Some(permanent_state) = &self.permanent_state {
-            let permanent_end = permanent_state.next_span_start();
-            if permanent_end <= span.start {
-                &self.file_contents[(span.start - permanent_end)..(span.end - permanent_end)]
-            } else {
-                &permanent_state.file_contents[span.start..span.end]
-            }
-        } else {
-            &self.file_contents[span.start..span.end]
-        }
+        self.blocks.len()
     }
 
     pub fn enter_scope(&mut self) {
@@ -237,19 +151,102 @@ impl ParserWorkingSet {
     pub fn exit_scope(&mut self) {
         self.scope.pop();
     }
+}
+
+impl<'a> ParserWorkingSet<'a> {
+    pub fn new(permanent_state: &'a ParserState) -> Self {
+        Self {
+            delta: ParserDelta {
+                files: vec![],
+                file_contents: vec![],
+                vars: vec![],
+                decls: vec![],
+                blocks: vec![],
+                scope: vec![ScopeFrame::new()],
+            },
+            permanent_state,
+        }
+    }
+
+    pub fn num_files(&self) -> usize {
+        self.delta.num_files() + self.permanent_state.num_files()
+    }
+
+    pub fn num_decls(&self) -> usize {
+        self.delta.num_decls() + self.permanent_state.num_decls()
+    }
+
+    pub fn num_blocks(&self) -> usize {
+        self.delta.num_blocks() + self.permanent_state.num_blocks()
+    }
+
+    pub fn add_decl(&mut self, decl: Declaration) -> DeclId {
+        let name = decl.signature.name.as_bytes().to_vec();
+
+        self.delta.decls.push(decl);
+        let decl_id = self.num_decls() - 1;
+
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+        scope_frame.decls.insert(name, decl_id);
+
+        decl_id
+    }
+
+    pub fn add_block(&mut self, block: Block) -> BlockId {
+        self.delta.blocks.push(block);
+
+        self.num_blocks() - 1
+    }
+
+    pub fn next_span_start(&self) -> usize {
+        self.permanent_state.next_span_start() + self.delta.file_contents.len()
+    }
+
+    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
+        let next_span_start = self.next_span_start();
+
+        self.delta.file_contents.extend(contents);
+
+        let next_span_end = self.next_span_start();
+
+        self.delta
+            .files
+            .push((filename, next_span_start, next_span_end));
+
+        self.num_files() - 1
+    }
+
+    pub fn get_span_contents(&self, span: Span) -> &[u8] {
+        let permanent_end = self.permanent_state.next_span_start();
+        if permanent_end <= span.start {
+            &self.delta.file_contents[(span.start - permanent_end)..(span.end - permanent_end)]
+        } else {
+            &self.permanent_state.file_contents[span.start..span.end]
+        }
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.delta.enter_scope();
+    }
+
+    pub fn exit_scope(&mut self) {
+        self.delta.exit_scope();
+    }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
-        for scope in self.scope.iter().rev() {
+        for scope in self.delta.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
             }
         }
 
-        if let Some(permanent_state) = &self.permanent_state {
-            for scope in permanent_state.scope.iter().rev() {
-                if let Some(decl_id) = scope.decls.get(name) {
-                    return Some(*decl_id);
-                }
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(decl_id) = scope.decls.get(name) {
+                return Some(*decl_id);
             }
         }
 
@@ -257,7 +254,7 @@ impl ParserWorkingSet {
     }
 
     pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
-        for scope in self.scope.iter().rev() {
+        for scope in self.delta.scope.iter().rev() {
             for decl in &scope.decls {
                 if decl.0.starts_with(name) {
                     return true;
@@ -265,12 +262,10 @@ impl ParserWorkingSet {
             }
         }
 
-        if let Some(permanent_state) = &self.permanent_state {
-            for scope in permanent_state.scope.iter().rev() {
-                for decl in &scope.decls {
-                    if decl.0.starts_with(name) {
-                        return true;
-                    }
+        for scope in self.permanent_state.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    return true;
                 }
             }
         }
@@ -279,26 +274,20 @@ impl ParserWorkingSet {
     }
 
     pub fn next_var_id(&self) -> VarId {
-        if let Some(permanent_state) = &self.permanent_state {
-            let num_permanent_vars = permanent_state.num_vars();
-            num_permanent_vars + self.vars.len()
-        } else {
-            self.vars.len()
-        }
+        let num_permanent_vars = self.permanent_state.num_vars();
+        num_permanent_vars + self.delta.vars.len()
     }
 
     pub fn find_variable(&self, name: &[u8]) -> Option<VarId> {
-        for scope in self.scope.iter().rev() {
+        for scope in self.delta.scope.iter().rev() {
             if let Some(var_id) = scope.vars.get(name) {
                 return Some(*var_id);
             }
         }
 
-        if let Some(permanent_state) = &self.permanent_state {
-            for scope in permanent_state.scope.iter().rev() {
-                if let Some(var_id) = scope.vars.get(name) {
-                    return Some(*var_id);
-                }
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(var_id) = scope.vars.get(name) {
+                return Some(*var_id);
             }
         }
 
@@ -309,40 +298,33 @@ impl ParserWorkingSet {
         let next_id = self.next_var_id();
 
         let last = self
+            .delta
             .scope
             .last_mut()
             .expect("internal error: missing stack frame");
 
         last.vars.insert(name, next_id);
 
-        self.vars.insert(next_id, ty);
+        self.delta.vars.insert(next_id, ty);
 
         next_id
     }
 
-    pub fn get_variable(&self, var_id: VarId) -> Option<&Type> {
-        if let Some(permanent_state) = &self.permanent_state {
-            let num_permanent_vars = permanent_state.num_vars();
-            if var_id < num_permanent_vars {
-                permanent_state.get_var(var_id)
-            } else {
-                self.vars.get(var_id - num_permanent_vars)
-            }
+    pub fn get_variable(&self, var_id: VarId) -> Option<Type> {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id < num_permanent_vars {
+            self.permanent_state.get_var(var_id).cloned()
         } else {
-            self.vars.get(var_id)
+            self.delta.vars.get(var_id - num_permanent_vars).cloned()
         }
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> Option<&Declaration> {
-        if let Some(permanent_state) = &self.permanent_state {
-            let num_permanent_decls = permanent_state.num_decls();
-            if decl_id < num_permanent_decls {
-                permanent_state.get_decl(decl_id)
-            } else {
-                self.decls.get(decl_id - num_permanent_decls)
-            }
+    pub fn get_decl(&self, decl_id: DeclId) -> Option<Declaration> {
+        let num_permanent_decls = self.permanent_state.num_decls();
+        if decl_id < num_permanent_decls {
+            self.permanent_state.get_decl(decl_id).cloned()
         } else {
-            self.decls.get(decl_id)
+            self.delta.decls.get(decl_id - num_permanent_decls).cloned()
         }
     }
 }
@@ -353,7 +335,8 @@ mod parser_state_tests {
 
     #[test]
     fn add_file_gives_id() {
-        let mut parser_state = ParserWorkingSet::new(Some(Arc::new(ParserState::new())));
+        let parser_state = ParserState::new();
+        let mut parser_state = ParserWorkingSet::new(&parser_state);
         let id = parser_state.add_file("test.nu".into(), &[]);
 
         assert_eq!(id, 0);
@@ -364,7 +347,7 @@ mod parser_state_tests {
         let mut parser_state = ParserState::new();
         let parent_id = parser_state.add_file("test.nu".into(), vec![]);
 
-        let mut working_set = ParserWorkingSet::new(Some(Arc::new(parser_state)));
+        let mut working_set = ParserWorkingSet::new(&parser_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
         assert_eq!(parent_id, 0);
@@ -375,12 +358,14 @@ mod parser_state_tests {
     fn merge_states() {
         let mut parser_state = ParserState::new();
         parser_state.add_file("test.nu".into(), vec![]);
-        let mut parser_state = Arc::new(parser_state);
 
-        let mut working_set = ParserWorkingSet::new(Some(parser_state.clone()));
-        working_set.add_file("child.nu".into(), &[]);
+        let delta = {
+            let mut working_set = ParserWorkingSet::new(&parser_state);
+            working_set.add_file("child.nu".into(), &[]);
+            working_set.delta
+        };
 
-        ParserState::merge_working_set(&mut parser_state, working_set);
+        ParserState::merge_delta(&mut parser_state, delta);
 
         assert_eq!(parser_state.num_files(), 2);
         assert_eq!(&parser_state.files[0].0, "test.nu");
