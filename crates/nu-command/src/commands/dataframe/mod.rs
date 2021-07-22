@@ -77,6 +77,7 @@ pub use series::DataFrameIsUnique;
 pub use series::DataFrameNNull;
 pub use series::DataFrameNUnique;
 pub use series::DataFrameNot;
+pub use series::DataFrameReplace;
 pub use series::DataFrameSeriesRename;
 pub use series::DataFrameSet;
 pub use series::DataFrameSetWithIdx;

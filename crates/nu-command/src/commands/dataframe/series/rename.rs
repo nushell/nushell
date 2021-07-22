@@ -30,7 +30,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Renames a series",
-            example: "[5 6 7 8] | dataframe to-df | dataframe rename-series new_name",
+            example: "[5 6 7 8] | dataframe to-df | dataframe rename new_name",
             result: None,
         }]
     }
