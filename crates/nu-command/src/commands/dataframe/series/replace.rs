@@ -17,7 +17,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe count-null")
+        Signature::build("dataframe replace")
             .required_named(
                 "pattern",
                 SyntaxShape::String,
