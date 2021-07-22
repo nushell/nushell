@@ -276,7 +276,9 @@ pub fn compute_values(
 
                     if prim_u32 >= Some(0) {
                         match prim_u32 {
-                            Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num)))),
+                            Some(num) => {
+                                Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num))))
+                            }
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
@@ -319,7 +321,9 @@ pub fn compute_values(
 
                     if prim_u32 >= Some(0) {
                         match prim_u32 {
-                            Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num)))),
+                            Some(num) => {
+                                Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num))))
+                            }
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
