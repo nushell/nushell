@@ -38,10 +38,7 @@ impl<'a> ParserWorkingSet<'a> {
                 output.extend(self.flatten_expression(&rhs));
                 output
             }
-            Expr::Block(block_id) => self.flatten_block(
-                self.get_block(*block_id)
-                    .expect("internal error: missing block"),
-            ),
+            Expr::Block(block_id) => self.flatten_block(self.get_block(*block_id)),
             Expr::Call(call) => {
                 let mut output = vec![];
                 output.push((call.head, FlatShape::InternalCall));
@@ -78,10 +75,7 @@ impl<'a> ParserWorkingSet<'a> {
             Expr::String(_) => {
                 vec![(expr.span, FlatShape::String)]
             }
-            Expr::Subexpression(block_id) => self.flatten_block(
-                self.get_block(*block_id)
-                    .expect("internal error: missing block"),
-            ),
+            Expr::Subexpression(block_id) => self.flatten_block(self.get_block(*block_id)),
             Expr::Table(headers, cells) => {
                 let mut output = vec![];
                 for e in headers {

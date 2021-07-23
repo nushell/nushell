@@ -1,6 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use engine_q::{NuHighlighter, ParserState, ParserWorkingSet, Signature, SyntaxShape};
+use engine_q::{
+    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, Stack, State, SyntaxShape,
+};
 
 fn main() -> std::io::Result<()> {
     let parser_state = Rc::new(RefCell::new(ParserState::new()));
@@ -82,14 +84,15 @@ fn main() -> std::io::Result<()> {
     }
 
     if let Some(path) = std::env::args().nth(1) {
-        // let file = std::fs::read(&path)?;
-        // let (output, err) = working_set.parse_file(&path, file);
-
         let parser_state = parser_state.borrow();
         let mut working_set = ParserWorkingSet::new(&*parser_state);
-        let (output, err) = working_set.parse_source(path.as_bytes(), false);
-        println!("{:#?}", output);
-        println!("error: {:?}", err);
+
+        let file = std::fs::read(&path)?;
+
+        let (block, err) = working_set.parse_file(&path, &file, false);
+        println!("{}", block.len());
+        // println!("{:#?}", output);
+        // println!("error: {:?}", err);
 
         //println!("working set: {:#?}", working_set);
 
@@ -128,9 +131,9 @@ fn main() -> std::io::Result<()> {
                     if s.trim() == "exit" {
                         break;
                     }
-                    println!("input: '{}'", s);
+                    // println!("input: '{}'", s);
 
-                    let delta = {
+                    let (block, delta) = {
                         let parser_state = parser_state.borrow();
                         let mut working_set = ParserWorkingSet::new(&*parser_state);
                         let (output, err) = working_set.parse_file(
@@ -139,12 +142,24 @@ fn main() -> std::io::Result<()> {
                             false,
                         );
                         println!("{:?}", output);
-                        println!("Error: {:?}", err);
-                        working_set.render()
+                        if let Some(err) = err {
+                            println!("Error: {:?}", err);
+                        }
+                        // println!("Error: {:?}", err);
+                        (output, working_set.render())
                     };
 
                     ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
-                    // println!("{:#?}", parser_state);
+
+                    let mut stack = Stack {
+                        vars: HashMap::new(),
+                    };
+                    let state = State {
+                        parser_state: &*parser_state.borrow(),
+                    };
+
+                    let output = eval_block(&state, &mut stack, &block);
+                    println!("{:#?}", output);
                 }
                 Signal::CtrlC => {
                     println!("Ctrl-c");

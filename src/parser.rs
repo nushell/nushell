@@ -561,10 +561,7 @@ impl<'a> ParserWorkingSet<'a> {
         call.decl_id = decl_id;
         call.head = command_span;
 
-        let decl = self
-            .get_decl(decl_id)
-            .expect("internal error: bad DeclId")
-            .clone();
+        let decl = self.get_decl(decl_id).clone();
 
         // The index into the positional parameter in the definition
         let mut positional_idx = 0;
