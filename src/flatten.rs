@@ -26,6 +26,7 @@ impl<'a> ParserWorkingSet<'a> {
         match stmt {
             Statement::Expression(expr) => self.flatten_expression(expr),
             Statement::Pipeline(pipeline) => self.flatten_pipeline(pipeline),
+            _ => vec![],
         }
     }
 

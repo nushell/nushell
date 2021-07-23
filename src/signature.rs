@@ -1,4 +1,4 @@
-use crate::{parser::SyntaxShape, Declaration};
+use crate::{parser::SyntaxShape, Declaration, VarId};
 
 #[derive(Debug, Clone)]
 pub struct Flag {
@@ -7,6 +7,8 @@ pub struct Flag {
     pub arg: Option<SyntaxShape>,
     pub required: bool,
     pub desc: String,
+    // For custom commands
+    pub var_id: Option<VarId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +16,8 @@ pub struct PositionalArg {
     pub name: String,
     pub desc: String,
     pub shape: SyntaxShape,
+    // For custom commands
+    pub var_id: Option<VarId>,
 }
 
 #[derive(Clone, Debug)]
@@ -75,6 +79,7 @@ impl Signature {
             name: name.into(),
             desc: desc.into(),
             shape: shape.into(),
+            var_id: None,
         });
 
         self
@@ -91,6 +96,7 @@ impl Signature {
             name: name.into(),
             desc: desc.into(),
             shape: shape.into(),
+            var_id: None,
         });
 
         self
@@ -114,6 +120,7 @@ impl Signature {
             arg: Some(shape.into()),
             required: false,
             desc: desc.into(),
+            var_id: None,
         });
 
         self
@@ -137,6 +144,7 @@ impl Signature {
             arg: Some(shape.into()),
             required: true,
             desc: desc.into(),
+            var_id: None,
         });
 
         self
@@ -163,6 +171,7 @@ impl Signature {
             arg: None,
             required: false,
             desc: desc.into(),
+            var_id: None,
         });
         self
     }

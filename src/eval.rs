@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{parser::Operator, Block, Call, Expr, Expression, ParserState, Span, Statement, VarId};
+use crate::{
+    parser::Operator, Block, BlockId, Call, Expr, Expression, ParserState, Span, Statement, VarId,
+};
 
 #[derive(Debug)]
 pub enum ShellError {
@@ -12,6 +14,9 @@ pub enum ShellError {
 #[derive(Debug, Clone)]
 pub enum Value {
     Int { val: i64, span: Span },
+    String { val: String, span: Span },
+    List(Vec<Value>),
+    Block(BlockId),
     Unknown,
 }
 impl Value {
@@ -38,14 +43,21 @@ impl Stack {
     pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
         match self.vars.get(&var_id) {
             Some(v) => Ok(v.clone()),
-            _ => Err(ShellError::InternalError("variable not found".into())),
+            _ => {
+                println!("var_id: {}", var_id);
+                Err(ShellError::InternalError("variable not found".into()))
+            }
         }
+    }
+
+    pub fn add_var(&mut self, var_id: VarId, value: Value) {
+        self.vars.insert(var_id, value);
     }
 }
 
 pub fn eval_operator(
-    state: &State,
-    stack: &mut Stack,
+    _state: &State,
+    _stack: &mut Stack,
     op: &Expression,
 ) -> Result<Operator, ShellError> {
     match op {
@@ -59,8 +71,19 @@ pub fn eval_operator(
 
 fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, ShellError> {
     let decl = state.parser_state.get_decl(call.decl_id);
-
     if let Some(block_id) = decl.body {
+        for (arg, param) in call
+            .positional
+            .iter()
+            .zip(decl.signature.required_positional.iter())
+        {
+            let result = eval_expression(state, stack, arg)?;
+            let var_id = param
+                .var_id
+                .expect("internal error: all custom parameters must have var_ids");
+
+            stack.add_var(var_id, result);
+        }
         let block = state.parser_state.get_block(block_id);
         eval_block(state, stack, block)
     } else {
@@ -98,13 +121,22 @@ pub fn eval_expression(
 
             eval_block(state, stack, block)
         }
-        Expr::Block(_) => Err(ShellError::Unsupported(expr.span)),
-        Expr::List(_) => Err(ShellError::Unsupported(expr.span)),
+        Expr::Block(block_id) => Ok(Value::Block(*block_id)),
+        Expr::List(x) => {
+            let mut output = vec![];
+            for expr in x {
+                output.push(eval_expression(state, stack, expr)?);
+            }
+            Ok(Value::List(output))
+        }
         Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Literal(_) => Err(ShellError::Unsupported(expr.span)),
-        Expr::String(_) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Signature(_) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Garbage => Err(ShellError::Unsupported(expr.span)),
+        Expr::Literal(_) => Ok(Value::Unknown),
+        Expr::String(s) => Ok(Value::String {
+            val: s.clone(),
+            span: expr.span,
+        }),
+        Expr::Signature(_) => Ok(Value::Unknown),
+        Expr::Garbage => Ok(Value::Unknown),
     }
 }
 

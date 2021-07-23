@@ -1,4 +1,5 @@
 use crate::{parser::Block, Declaration, Span};
+use core::panic;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -11,9 +12,19 @@ pub struct ParserState {
     scope: Vec<ScopeFrame>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Type {
     Int,
+    Bool,
+    String,
+    Block,
+    ColumnPath,
+    Duration,
+    FilePath,
+    Filesize,
+    List(Box<Type>),
+    Number,
+    Table,
     Unknown,
 }
 
@@ -87,6 +98,24 @@ impl ParserState {
 
     pub fn num_blocks(&self) -> usize {
         self.blocks.len()
+    }
+
+    pub fn print_vars(&self) {
+        for var in self.vars.iter().enumerate() {
+            println!("var{}: {:?}", var.0, var.1);
+        }
+    }
+
+    pub fn print_decls(&self) {
+        for decl in self.decls.iter().enumerate() {
+            println!("decl{}: {:?}", decl.0, decl.1);
+        }
+    }
+
+    pub fn print_blocks(&self) {
+        for block in self.blocks.iter().enumerate() {
+            println!("block{}: {:?}", block.0, block.1);
+        }
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Type {
@@ -319,9 +348,18 @@ impl<'a> ParserWorkingSet<'a> {
 
         last.vars.insert(name, next_id);
 
-        self.delta.vars.insert(next_id, ty);
+        self.delta.vars.push(ty);
 
         next_id
+    }
+
+    pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {
+        let num_permanent_vars = self.permanent_state.num_vars();
+        if var_id < num_permanent_vars {
+            panic!("Internal error: attempted to set into permanent state from working set")
+        } else {
+            self.delta.vars[var_id - num_permanent_vars] = ty;
+        }
     }
 
     pub fn get_variable(&self, var_id: VarId) -> &Type {

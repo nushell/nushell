@@ -65,6 +65,14 @@ fn main() -> std::io::Result<()> {
         //     .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
         //     .switch("--rock", "rock!!", Some('r'));
         // working_set.add_decl(sig.into());
+        let sig = Signature::build("exit");
+        working_set.add_decl(sig.into());
+        let sig = Signature::build("vars");
+        working_set.add_decl(sig.into());
+        let sig = Signature::build("decls");
+        working_set.add_decl(sig.into());
+        let sig = Signature::build("blocks");
+        working_set.add_decl(sig.into());
 
         let sig = Signature::build("add");
         working_set.add_decl(sig.into());
@@ -89,7 +97,7 @@ fn main() -> std::io::Result<()> {
 
         let file = std::fs::read(&path)?;
 
-        let (block, err) = working_set.parse_file(&path, &file, false);
+        let (block, _err) = working_set.parse_file(&path, &file, false);
         println!("{}", block.len());
         // println!("{:#?}", output);
         // println!("error: {:?}", err);
@@ -130,6 +138,15 @@ fn main() -> std::io::Result<()> {
                 Signal::Success(s) => {
                     if s.trim() == "exit" {
                         break;
+                    } else if s.trim() == "vars" {
+                        parser_state.borrow().print_vars();
+                        continue;
+                    } else if s.trim() == "decls" {
+                        parser_state.borrow().print_decls();
+                        continue;
+                    } else if s.trim() == "blocks" {
+                        parser_state.borrow().print_blocks();
+                        continue;
                     }
                     // println!("input: '{}'", s);
 

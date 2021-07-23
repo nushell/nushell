@@ -13,6 +13,7 @@ pub enum ParseError {
     UnknownCommand(Span),
     NonUtf8(Span),
     UnknownFlag(Span),
+    UnknownType(Span),
     MissingFlagParam(Span),
     ShortFlagBatchCantTakeArg(Span),
     MissingPositional(String, Span),
