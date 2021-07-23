@@ -666,12 +666,30 @@ impl<'a> ParserWorkingSet<'a> {
                 };
                 // println!("end: {}", end);
 
-                let (arg, err) =
-                    self.parse_multispan_value(&spans[..end], &mut spans_idx, positional.shape);
+                let orig_idx = spans_idx;
+                let (arg, err) = self.parse_multispan_value(
+                    &spans[..end],
+                    &mut spans_idx,
+                    positional.shape.clone(),
+                );
                 error = error.or(err);
+
+                let arg = if positional.shape.to_type() != Type::Unknown
+                    && arg.ty != positional.shape.to_type()
+                {
+                    let span = span(&spans[orig_idx..spans_idx + 1]);
+                    error = error.or(Some(ParseError::TypeMismatch(
+                        positional.shape.to_type(),
+                        span,
+                    )));
+                    Expression::garbage(span)
+                } else {
+                    arg
+                };
                 call.positional.push(arg);
                 positional_idx += 1;
             } else {
+                call.positional.push(Expression::garbage(arg_span));
                 error = error.or(Some(ParseError::ExtraPositional(arg_span)))
             }
 

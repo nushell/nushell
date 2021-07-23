@@ -87,7 +87,20 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
         let block = state.parser_state.get_block(block_id);
         eval_block(state, stack, block)
     } else {
-        Ok(Value::Unknown)
+        if decl.signature.name == "let" {
+            let var_id = call.positional[0]
+                .as_var()
+                .expect("internal error: missing variable");
+
+            let rhs = eval_expression(state, stack, &call.positional[2])?;
+
+            println!("Adding: {:?} to {}", rhs, var_id);
+
+            stack.add_var(var_id, rhs);
+            Ok(Value::Unknown)
+        } else {
+            Ok(Value::Unknown)
+        }
     }
 }
 

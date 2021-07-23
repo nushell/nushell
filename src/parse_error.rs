@@ -1,3 +1,4 @@
+use crate::parser_state::Type;
 pub use crate::Span;
 
 #[derive(Debug)]
@@ -18,6 +19,7 @@ pub enum ParseError {
     ShortFlagBatchCantTakeArg(Span),
     MissingPositional(String, Span),
     MissingType(Span),
+    TypeMismatch(Type, Span),
     MissingRequiredFlag(String, Span),
     IncompleteMathExpression(Span),
     UnknownState(String, Span),

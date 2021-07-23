@@ -131,6 +131,9 @@ fn main() -> std::io::Result<()> {
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
+        let mut stack = Stack {
+            vars: HashMap::new(),
+        };
 
         loop {
             let input = line_editor.read_line(&prompt)?;
@@ -158,9 +161,10 @@ fn main() -> std::io::Result<()> {
                             s.as_bytes(),
                             false,
                         );
-                        println!("{:?}", output);
+                        // println!("{:?}", output);
                         if let Some(err) = err {
                             println!("Error: {:?}", err);
+                            continue;
                         }
                         // println!("Error: {:?}", err);
                         (output, working_set.render())
@@ -168,9 +172,6 @@ fn main() -> std::io::Result<()> {
 
                     ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
 
-                    let mut stack = Stack {
-                        vars: HashMap::new(),
-                    };
                     let state = State {
                         parser_state: &*parser_state.borrow(),
                     };

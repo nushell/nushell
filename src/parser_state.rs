@@ -12,7 +12,7 @@ pub struct ParserState {
     scope: Vec<ScopeFrame>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Int,
     Bool,
@@ -116,6 +116,16 @@ impl ParserState {
         for block in self.blocks.iter().enumerate() {
             println!("block{}: {:?}", block.0, block.1);
         }
+    }
+
+    pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+        for scope in self.scope.iter().rev() {
+            if let Some(decl_id) = scope.decls.get(name) {
+                return Some(*decl_id);
+            }
+        }
+
+        None
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Type {
