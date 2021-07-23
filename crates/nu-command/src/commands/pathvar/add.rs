@@ -1,10 +1,9 @@
-use super::get_var;
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
-use nu_test_support::NATIVE_PATH_ENV_SEPARATOR;
+use nu_test_support::{NATIVE_PATH_ENV_SEPARATOR, NATIVE_PATH_ENV_VAR};
 use std::path::PathBuf;
 
 pub struct SubCommand;
@@ -15,14 +14,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pathvar add")
-            .required("path", SyntaxShape::FilePath, "path to add")
-            .named(
-                "var",
-                SyntaxShape::String,
-                "Use a different variable than PATH",
-                Some('v'),
-            )
+        Signature::build("pathvar add").required("path", SyntaxShape::FilePath, "path to add")
     }
 
     fn usage(&self) -> &str {
@@ -45,21 +37,17 @@ impl WholeStreamCommand for SubCommand {
 pub fn add(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = &args.context;
 
-    let var = get_var(&args)?;
     let path_to_add: Tagged<PathBuf> = args.req(0)?;
     let path = path_to_add.item.into_os_string().into_string();
 
     if let Ok(mut path) = path {
         path.push(NATIVE_PATH_ENV_SEPARATOR);
-        if let Some(old_pathvar) = ctx.scope.get_env(&var) {
+        if let Some(old_pathvar) = ctx.scope.get_env(NATIVE_PATH_ENV_VAR) {
             path.push_str(&old_pathvar);
-            ctx.scope.add_env_var(&var.item, path);
+            ctx.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
             Ok(OutputStream::empty())
         } else {
-            Err(ShellError::unexpected(&format!(
-                "Variable {} not set",
-                &var.item
-            )))
+            Err(ShellError::unexpected("PATH not set"))
         }
     } else {
         Err(ShellError::labeled_error(
