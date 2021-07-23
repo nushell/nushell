@@ -1,6 +1,7 @@
 use crate::base::coerce_compare;
 use crate::base::shape::{Column, InlineShape};
 use crate::primitive::style_primitive;
+use bigdecimal::Signed;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
 use nu_protocol::hir::Operator;
@@ -172,7 +173,7 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    if prim_u32 >= Some(0) {
+                    if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => Ok(UntaggedValue::Primitive(Primitive::Int(x.pow(num)))),
                             _ => Err((left.type_name(), right.type_name())),
@@ -223,7 +224,7 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    if prim_u32 >= Some(0) {
+                    if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => Ok(UntaggedValue::Primitive(Primitive::Int(x.pow(num)))),
                             _ => Err((left.type_name(), right.type_name())),
@@ -274,7 +275,7 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    if prim_u32 >= Some(0) {
+                    if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => {
                                 Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num))))
@@ -319,7 +320,7 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    if prim_u32 >= Some(0) {
+                    if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => {
                                 Ok(UntaggedValue::Primitive(Primitive::BigInt(x.pow(num))))
@@ -388,8 +389,13 @@ pub fn compute_values(
                     }
                     // big decimal doesn't support pow yet
                     Operator::Pow => {
-                        let yp = bigdecimal::ToPrimitive::to_u32(y).unwrap_or(0);
-                        Ok(bigdecimal::BigDecimal::from(x.pow(yp)))
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                        let pow = bigdecimal::FromPrimitive::from_f64(xp.powf(yp));
+                        match pow {
+                            Some(p) => Ok(p),
+                            None => Err((left.type_name(), right.type_name())),
+                        }
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
@@ -445,8 +451,13 @@ pub fn compute_values(
                     }
                     // big decimal doesn't support pow yet
                     Operator::Pow => {
-                        let yp = bigdecimal::ToPrimitive::to_u32(y).unwrap_or(0);
-                        Ok(bigdecimal::BigDecimal::from(x.pow(yp)))
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                        let pow = bigdecimal::FromPrimitive::from_f64(xp.powf(yp));
+                        match pow {
+                            Some(p) => Ok(p),
+                            None => Err((left.type_name(), right.type_name())),
+                        }
                     }
                     _ => Err((left.type_name(), right.type_name())),
                 }?;
