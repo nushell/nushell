@@ -14,6 +14,9 @@ use nu_protocol::hir::{ClassifiedBlock, ExternalRedirection};
 use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
+#[cfg(feature = "dataframe")]
+use crate::commands::{DataFrame, DataFrameToDF};
+
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
     StrCollect, Wrap,
@@ -143,6 +146,70 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
                     );
                 }
             }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "dataframe")]
+pub fn test_dataframe(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
+    use nu_protocol::UntaggedValue;
+
+    let examples = cmd.examples();
+
+    let base_context = EvaluationContext::basic();
+
+    base_context.add_commands(vec![
+        whole_stream_command(DataFrame),
+        whole_stream_command(DataFrameToDF),
+        // Base commands for context
+        whole_stream_command(cmd),
+    ]);
+
+    for sample_pipeline in examples {
+        let mut ctx = base_context.clone();
+
+        println!("{:?}", &sample_pipeline.example);
+        let block = parse_line(sample_pipeline.example, &ctx)?;
+
+        if let Some(expected) = &sample_pipeline.result {
+            let start = std::time::Instant::now();
+            let result = evaluate_block(block, &mut ctx)?;
+
+            println!("input: {}", sample_pipeline.example);
+            println!("result: {:?}", result);
+            println!("done: {:?}", start.elapsed());
+
+            let value = match result.get(0) {
+                Some(v) => v,
+                None => panic!(
+                    "Unable to extract a value after parsing example: {}",
+                    sample_pipeline.example
+                ),
+            };
+
+            let df = match &value.value {
+                UntaggedValue::DataFrame(df) => df,
+                _ => panic!(
+                    "Unable to extract dataframe from parsed example: {}",
+                    sample_pipeline.example
+                ),
+            };
+
+            let expected = match expected.get(0) {
+                Some(v) => v,
+                None => panic!("Empty vector in result example"),
+            };
+
+            let df_expected = match &expected.value {
+                UntaggedValue::DataFrame(df) => df,
+                _ => panic!("Unable to extract dataframe from example result"),
+            };
+
+            println!("expected: {:?}", df_expected);
+
+            assert_eq!(df, df_expected)
         }
     }
 

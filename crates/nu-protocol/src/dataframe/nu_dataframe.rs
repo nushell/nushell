@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+use std::ops::{Deref, DerefMut};
 use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
 
 use bigdecimal::FromPrimitive;
@@ -14,40 +15,97 @@ use crate::{Dictionary, Primitive, UntaggedValue, Value};
 const SECS_PER_DAY: i64 = 86_400;
 
 #[derive(Debug)]
-enum InputValue {
+pub struct Column {
+    name: String,
+    values: Vec<Value>,
+}
+
+impl Column {
+    pub fn new(name: String, values: Vec<Value>) -> Self {
+        Self { name, values }
+    }
+
+    pub fn new_empty(name: String) -> Self {
+        Self {
+            name,
+            values: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum InputType {
     Integer,
     Decimal,
     String,
     Boolean,
 }
 
+type ColumnMap = HashMap<String, TypedColumn>;
+
 #[derive(Debug)]
-struct ColumnValues {
-    pub value_type: InputValue,
-    pub values: Vec<Value>,
+struct TypedColumn {
+    pub column: Column,
+    pub column_type: Option<InputType>,
 }
 
-impl Default for ColumnValues {
-    fn default() -> Self {
+impl TypedColumn {
+    fn new_empty(name: String) -> Self {
         Self {
-            value_type: InputValue::Integer,
-            values: Vec::new(),
+            column: Column::new_empty(name),
+            column_type: None,
         }
     }
 }
 
-type ColumnMap = HashMap<String, ColumnValues>;
+impl Deref for TypedColumn {
+    type Target = Column;
+
+    fn deref(&self) -> &Self::Target {
+        &self.column
+    }
+}
+
+impl DerefMut for TypedColumn {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.column
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuDataFrame {
     dataframe: DataFrame,
 }
 
-// Dataframes are considered always different. There is no equality
-// between them
+// Dataframes are considered equal if they have the same shape, column name
+// and values
 impl PartialEq for NuDataFrame {
-    fn eq(&self, _: &Self) -> bool {
-        false
+    fn eq(&self, other: &Self) -> bool {
+        if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
+            return false;
+        }
+
+        if self.as_ref().height() != other.as_ref().height() {
+            return false;
+        }
+
+        for name in self.as_ref().get_column_names() {
+            let self_series = self
+                .as_ref()
+                .column(name)
+                .expect("name from dataframe names");
+
+            let other_series = other
+                .as_ref()
+                .column(name)
+                .expect("already checked that name in other");
+
+            if !self_series.series_equal(other_series) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -137,7 +195,7 @@ impl NuDataFrame {
             }
         }
 
-        from_parsed_columns(column_values, tag)
+        from_parsed_columns(column_values, &tag.span)
     }
 
     pub fn try_from_series(columns: Vec<Series>, span: &Span) -> Result<Self, ShellError> {
@@ -152,6 +210,40 @@ impl NuDataFrame {
         Ok(Self { dataframe })
     }
 
+    pub fn try_from_columns(columns: Vec<Column>, span: &Span) -> Result<Self, ShellError> {
+        let mut column_values: ColumnMap = HashMap::new();
+
+        for column in columns {
+            for value in column.values {
+                insert_value(value, column.name.clone(), &mut column_values)?;
+            }
+        }
+
+        from_parsed_columns(column_values, span)
+    }
+
+    pub fn into_value(self, tag: Tag) -> Value {
+        Value {
+            value: Self::into_untagged(self),
+            tag,
+        }
+    }
+
+    pub fn into_untagged(self) -> UntaggedValue {
+        UntaggedValue::DataFrame(self)
+    }
+
+    pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
+        Value {
+            value: Self::dataframe_to_untagged(df),
+            tag,
+        }
+    }
+
+    pub fn dataframe_to_untagged(df: DataFrame) -> UntaggedValue {
+        UntaggedValue::DataFrame(Self::new(df))
+    }
+
     pub fn series_to_untagged(series: Series, span: &Span) -> UntaggedValue {
         match DataFrame::new(vec![series]) {
             Ok(dataframe) => UntaggedValue::DataFrame(Self { dataframe }),
@@ -163,25 +255,7 @@ impl NuDataFrame {
         }
     }
 
-    pub fn into_value(self, tag: Tag) -> Value {
-        Value {
-            value: UntaggedValue::DataFrame(self),
-            tag,
-        }
-    }
-
-    pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
-        Value {
-            value: NuDataFrame::dataframe_to_untagged(df),
-            tag,
-        }
-    }
-
-    pub fn dataframe_to_untagged(df: DataFrame) -> UntaggedValue {
-        UntaggedValue::DataFrame(NuDataFrame::new(df))
-    }
-
-    pub fn column(&self, column: &str, tag: &Tag) -> Result<NuDataFrame, ShellError> {
+    pub fn column(&self, column: &str, tag: &Tag) -> Result<Self, ShellError> {
         let s = self.as_ref().column(column).map_err(|e| {
             ShellError::labeled_error("Column not found", format!("{}", e), tag.span)
         })?;
@@ -398,8 +472,8 @@ fn insert_value(
     key: String,
     column_values: &mut ColumnMap,
 ) -> Result<(), ShellError> {
-    let col_val = match column_values.entry(key) {
-        Entry::Vacant(entry) => entry.insert(ColumnValues::default()),
+    let col_val = match column_values.entry(key.clone()) {
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
@@ -408,16 +482,16 @@ fn insert_value(
     if col_val.values.is_empty() {
         match &value.value {
             UntaggedValue::Primitive(Primitive::Int(_)) => {
-                col_val.value_type = InputValue::Integer;
+                col_val.column_type = Some(InputType::Integer);
             }
             UntaggedValue::Primitive(Primitive::Decimal(_)) => {
-                col_val.value_type = InputValue::Decimal;
+                col_val.column_type = Some(InputType::Decimal);
             }
             UntaggedValue::Primitive(Primitive::String(_)) => {
-                col_val.value_type = InputValue::String;
+                col_val.column_type = Some(InputType::String);
             }
             UntaggedValue::Primitive(Primitive::Boolean(_)) => {
-                col_val.value_type = InputValue::Boolean;
+                col_val.column_type = Some(InputType::Boolean);
             }
             _ => {
                 return Err(ShellError::labeled_error(
@@ -466,33 +540,35 @@ fn insert_value(
 // The ColumnMap has the parsed data from the StreamInput
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
-fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFrame, ShellError> {
+fn from_parsed_columns(column_values: ColumnMap, span: &Span) -> Result<NuDataFrame, ShellError> {
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
-        match column.value_type {
-            InputValue::Decimal => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_f64()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
-            }
-            InputValue::Integer => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_i64()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
-            }
-            InputValue::String => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_string()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
-            }
-            InputValue::Boolean => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_bool()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
+        if let Some(column_type) = &column.column_type {
+            match column_type {
+                InputType::Decimal => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_f64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::Integer => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_i64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::String => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_string()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::Boolean => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_bool()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
             }
         }
     }
@@ -505,7 +581,7 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
             return Err(ShellError::labeled_error(
                 "Error while creating dataframe",
                 format!("{}", e),
-                tag,
+                span,
             ))
         }
     }

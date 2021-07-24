@@ -1,7 +1,7 @@
 pub mod nu_dataframe;
 pub mod nu_groupby;
 
-pub use nu_dataframe::NuDataFrame;
+pub use nu_dataframe::{Column, NuDataFrame};
 pub use nu_groupby::NuGroupBy;
 use serde::{Deserialize, Serialize};
 
