@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, UntaggedValue, Value,
+};
 
 pub struct DataFrame;
 
@@ -26,7 +29,27 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "drop column a",
             example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe dtypes",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "column".to_string(),
+                        vec![
+                            UntaggedValue::string("a").into(),
+                            UntaggedValue::string("b").into(),
+                        ],
+                    ),
+                    Column::new(
+                        "dtype".to_string(),
+                        vec![
+                            UntaggedValue::string("i64").into(),
+                            UntaggedValue::string("i64").into(),
+                        ],
+                    ),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -36,25 +59,48 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
     let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
-    let col_names = df
+
+    let mut dtypes: Vec<Value> = Vec::new();
+    let names: Vec<Value> = df
         .as_ref()
         .get_column_names()
         .iter()
-        .map(|v| v.to_string())
-        .collect::<Vec<String>>();
+        .map(|v| {
+            let dtype = df
+                .as_ref()
+                .column(v)
+                .expect("using name from list of names from dataframe")
+                .dtype();
 
-    let values = df
-        .as_ref()
-        .dtypes()
-        .into_iter()
-        .zip(col_names.into_iter())
-        .map(move |(dtype, name)| {
-            let mut data = TaggedDictBuilder::new(tag.clone());
-            data.insert_value("column", name.as_ref());
-            data.insert_value("dtype", format!("{}", dtype));
+            let dtype_str = format!("{}", dtype);
+            dtypes.push(Value {
+                value: dtype_str.into(),
+                tag: Tag::default(),
+            });
 
-            data.into_value()
-        });
+            Value {
+                value: v.to_string().into(),
+                tag: Tag::default(),
+            }
+        })
+        .collect();
 
-    Ok(OutputStream::from_stream(values))
+    let names_col = Column::new("column".to_string(), names);
+    let dtypes_col = Column::new("dtype".to_string(), dtypes);
+
+    let df = NuDataFrame::try_from_columns(vec![names_col, dtypes_col], &tag.span)?;
+    Ok(OutputStream::one(df.into_value(tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

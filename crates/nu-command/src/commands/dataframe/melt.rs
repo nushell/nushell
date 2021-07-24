@@ -1,7 +1,10 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::convert_columns;
 
@@ -18,8 +21,18 @@ impl WholeStreamCommand for DataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe melt")
-            .required("id_columns", SyntaxShape::Table, "Id columns for melting")
-            .rest(SyntaxShape::Any, "columns used as value columns")
+            .required_named(
+                "columns",
+                SyntaxShape::Table,
+                "column names for melting",
+                Some('c'),
+            )
+            .required_named(
+                "values",
+                SyntaxShape::Table,
+                "column names used as value columns",
+                Some('v'),
+            )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -29,8 +42,59 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example: "[[a b]; [a 2] [b 4] [a 6]] | dataframe to-df | dataframe melt a b",
-            result: None,
+            example:
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dataframe to-df | dataframe melt -c [b c] -v [a d]",
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "b".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(2).into(),
+                            UntaggedValue::int(3).into(),
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(2).into(),
+                            UntaggedValue::int(3).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "c".to_string(),
+                        vec![
+                            UntaggedValue::int(4).into(),
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(6).into(),
+                            UntaggedValue::int(4).into(),
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(6).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "variable".to_string(),
+                        vec![
+                            UntaggedValue::string("a").into(),
+                            UntaggedValue::string("a").into(),
+                            UntaggedValue::string("a").into(),
+                            UntaggedValue::string("d").into(),
+                            UntaggedValue::string("d").into(),
+                            UntaggedValue::string("d").into(),
+                        ],
+                    ),
+                    Column::new(
+                        "value".to_string(),
+                        vec![
+                            UntaggedValue::string("x").into(),
+                            UntaggedValue::string("y").into(),
+                            UntaggedValue::string("z").into(),
+                            UntaggedValue::string("a").into(),
+                            UntaggedValue::string("b").into(),
+                            UntaggedValue::string("c").into(),
+                        ],
+                    ),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -38,8 +102,8 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let id_col: Vec<Value> = args.req(0)?;
-    let val_col: Vec<Value> = args.rest(1)?;
+    let id_col: Vec<Value> = args.req_named("columns")?;
+    let val_col: Vec<Value> = args.req_named("values")?;
 
     let (id_col_string, id_col_span) = convert_columns(&id_col, &tag)?;
     let (val_col_string, val_col_span) = convert_columns(&val_col, &tag)?;
@@ -98,4 +162,17 @@ fn check_column_datatypes<T: AsRef<str>>(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

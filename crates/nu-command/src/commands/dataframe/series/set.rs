@@ -2,7 +2,8 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::NuDataFrame, Primitive, Signature, SyntaxShape, UntaggedValue, Value,
+    dataframe::{Column, NuDataFrame},
+    Primitive, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use polars::prelude::{ChunkSet, DataType, IntoSeries};
 
@@ -38,7 +39,21 @@ impl WholeStreamCommand for DataFrame {
             example: r#"let s = ([1 2 2 3 3] | dataframe to-df | dataframe shift 2);
     let mask = ($s | dataframe is-null);
     $s | dataframe set 0 --mask $mask"#,
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![Column::new(
+                    "0".to_string(),
+                    vec![
+                        UntaggedValue::int(0).into(),
+                        UntaggedValue::int(0).into(),
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(2).into(),
+                        UntaggedValue::int(2).into(),
+                    ],
+                )],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -139,5 +154,18 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             ),
             value.tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }

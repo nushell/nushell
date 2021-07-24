@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::{convert_columns, parse_polars_error};
 
@@ -35,15 +38,45 @@ impl WholeStreamCommand for DataFrame {
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dataframe to-df);
     let res = ($df.b / $df.b);
     let df = ($df | dataframe with-column $res --name res);
-    $df | dataframe drop-nulls
-"#,
-                result: None,
+    $df | dataframe drop-nulls"#,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(1).into()],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![UntaggedValue::int(2).into(), UntaggedValue::int(2).into()],
+                        ),
+                        Column::new(
+                            "res".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(1).into()],
+                        ),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let s = ([1 2 0 0 3 4] | dataframe to-df);
     ($s / $s) | dataframe drop-nulls"#,
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "div_0_0".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                        ],
+                    )],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -82,5 +115,18 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             "drop nulls cannot be done with this value",
             &value.tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }

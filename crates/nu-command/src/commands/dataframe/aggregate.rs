@@ -2,7 +2,7 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{FrameStruct, NuDataFrame},
+    dataframe::{Column, FrameStruct, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue,
 };
 use nu_source::Tagged;
@@ -108,17 +108,40 @@ impl WholeStreamCommand for DataFrame {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
                     "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by a | dataframe aggregate sum",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![UntaggedValue::string("one").into()]),
+                        Column::new("b".to_string(), vec![UntaggedValue::int(3).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Aggregate sum in dataframe columns",
                 example: "[[a b]; [4 1] [5 2]] | dataframe to-df | dataframe aggregate sum",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![UntaggedValue::int(9).into()]),
+                        Column::new("b".to_string(), vec![UntaggedValue::int(3).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Aggregate sum in series",
                 example: "[4 1 5 6] | dataframe to-df | dataframe aggregate sum",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("0".to_string(), vec![UntaggedValue::int(16).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -253,5 +276,18 @@ fn perform_dataframe_aggregation(
             "Perhaps you want: mean, sum, min, max, quantile, median, var, or std",
             &operation_tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }

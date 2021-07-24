@@ -1,7 +1,10 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue,
+};
 use nu_source::Tagged;
 use polars::prelude::IntoSeries;
 
@@ -33,7 +36,19 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Returns boolean indicating if patter was found",
             example: "[abc acb acb] | dataframe to-df | dataframe contains -p ab",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![Column::new(
+                    "0".to_string(),
+                    vec![
+                        UntaggedValue::boolean(true).into(),
+                        UntaggedValue::boolean(false).into(),
+                        UntaggedValue::boolean(false).into(),
+                    ],
+                )],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -59,4 +74,17 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
     Ok(OutputStream::one(df.into_value(df_tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

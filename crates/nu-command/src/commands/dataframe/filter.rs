@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::parse_polars_error;
 pub struct DataFrame;
@@ -33,7 +36,15 @@ impl WholeStreamCommand for DataFrame {
                 description: "Filter dataframe using a bool mask",
                 example: r#"let mask = ([$true $false] | dataframe to-df);
     [[a b]; [1 2] [3 4]] | dataframe to-df | dataframe filter-with $mask"#,
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![UntaggedValue::int(1).into()]),
+                        Column::new("b".to_string(), vec![UntaggedValue::int(2).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Filter dataframe by creating a mask from operation",
@@ -75,4 +86,17 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

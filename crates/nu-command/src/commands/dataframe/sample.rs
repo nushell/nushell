@@ -42,13 +42,13 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Sample rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -r 1",
-                result: None,
+                result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
                 example:
                     "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe sample -f 0.5 -e",
-                result: None,
+                result: None, // No expected value because sampling is random
             },
         ]
     }

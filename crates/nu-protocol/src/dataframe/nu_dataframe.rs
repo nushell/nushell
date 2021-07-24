@@ -1,13 +1,14 @@
+use indexmap::{map::Entry, IndexMap};
+use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
 
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
-use polars::prelude::{AnyValue, DataFrame, NamedFrom, Series, TimeUnit};
+use polars::prelude::{AnyValue, DataFrame, DataType, NamedFrom, Series, TimeUnit};
 use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
@@ -31,6 +32,10 @@ impl Column {
             values: Vec::new(),
         }
     }
+
+    pub fn push(&mut self, value: Value) {
+        self.values.push(value)
+    }
 }
 
 #[derive(Debug)]
@@ -40,8 +45,6 @@ enum InputType {
     String,
     Boolean,
 }
-
-type ColumnMap = HashMap<String, TypedColumn>;
 
 #[derive(Debug)]
 struct TypedColumn {
@@ -72,6 +75,8 @@ impl DerefMut for TypedColumn {
     }
 }
 
+type ColumnMap = IndexMap<String, TypedColumn>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuDataFrame {
     dataframe: DataFrame,
@@ -99,6 +104,17 @@ impl PartialEq for NuDataFrame {
                 .as_ref()
                 .column(name)
                 .expect("already checked that name in other");
+
+            let self_series = match self_series.dtype() {
+                // Casting needed to compare other numeric types with nushell numeric type.
+                // In nushell we only have i64 integer numeric types and any array created
+                // with nushell untagged primitives will be of type i64
+                DataType::UInt32 => match self_series.cast_with_dtype(&DataType::Int64) {
+                    Ok(series) => series,
+                    Err(_) => return false,
+                },
+                _ => self_series.clone(),
+            };
 
             if !self_series.series_equal(other_series) {
                 return false;
@@ -170,7 +186,7 @@ impl NuDataFrame {
         // Dictionary to store the columnar data extracted from
         // the input. During the iteration we check if the values
         // have different type
-        let mut column_values: ColumnMap = HashMap::new();
+        let mut column_values: ColumnMap = IndexMap::new();
 
         for value in iter {
             match value.value {
@@ -211,7 +227,7 @@ impl NuDataFrame {
     }
 
     pub fn try_from_columns(columns: Vec<Column>, span: &Span) -> Result<Self, ShellError> {
-        let mut column_values: ColumnMap = HashMap::new();
+        let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
             for value in column.values {

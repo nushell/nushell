@@ -1,7 +1,10 @@
 use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, UntaggedValue,
+};
 use polars::prelude::IntoSeries;
 
 pub struct DataFrame;
@@ -27,7 +30,19 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Returns string lengths",
             example: "[a ab abc] | dataframe to-df | dataframe str-lengths",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![Column::new(
+                    "0".to_string(),
+                    vec![
+                        UntaggedValue::int(1).into(),
+                        UntaggedValue::int(2).into(),
+                        UntaggedValue::int(3).into(),
+                    ],
+                )],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -50,4 +65,17 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
     Ok(OutputStream::one(df.into_value(df_tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

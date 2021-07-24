@@ -15,7 +15,9 @@ use nu_protocol::{ShellTypeName, Value};
 use nu_source::AnchorLocation;
 
 #[cfg(feature = "dataframe")]
-use crate::commands::{DataFrame, DataFrameToDF};
+use crate::commands::{
+    DataFrameGroupBy, DataFrameIsNull, DataFrameShift, DataFrameToDF, DataFrameWithColumn,
+};
 
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
@@ -161,10 +163,25 @@ pub fn test_dataframe(cmd: impl WholeStreamCommand + 'static) -> Result<(), Shel
     let base_context = EvaluationContext::basic();
 
     base_context.add_commands(vec![
-        whole_stream_command(DataFrame),
-        whole_stream_command(DataFrameToDF),
-        // Base commands for context
         whole_stream_command(cmd),
+        // Commands used with dataframe
+        whole_stream_command(DataFrameToDF),
+        whole_stream_command(DataFrameShift),
+        whole_stream_command(DataFrameIsNull),
+        whole_stream_command(DataFrameGroupBy),
+        whole_stream_command(DataFrameWithColumn),
+        // Base commands for context
+        whole_stream_command(Math),
+        whole_stream_command(MathMode {}),
+        whole_stream_command(Echo {}),
+        whole_stream_command(BuildString {}),
+        whole_stream_command(Get {}),
+        whole_stream_command(Keep {}),
+        whole_stream_command(Each {}),
+        whole_stream_command(Let {}),
+        whole_stream_command(Select),
+        whole_stream_command(StrCollect),
+        whole_stream_command(Wrap),
     ]);
 
     for sample_pipeline in examples {

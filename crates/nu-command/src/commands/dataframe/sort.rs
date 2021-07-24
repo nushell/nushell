@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::{convert_columns, parse_polars_error};
 pub struct DataFrame;
@@ -30,12 +33,39 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Create new sorted dataframe",
                 example: "[[a b]; [3 4] [1 2]] | dataframe to-df | dataframe sort a",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(3).into()],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![UntaggedValue::int(2).into(), UntaggedValue::int(4).into()],
+                        ),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Create new sorted series",
                 example: "[3 4 1 2] | dataframe to-df | dataframe sort",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(2).into(),
+                            UntaggedValue::int(3).into(),
+                            UntaggedValue::int(4).into(),
+                        ],
+                    )],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -87,5 +117,18 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             "sort cannot be done with this value",
             &value.tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }
