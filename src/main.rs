@@ -15,33 +15,30 @@ fn main() -> std::io::Result<()> {
         working_set.add_decl(sig.into());
 
         let sig = Signature::build("if")
-            .required("cond", SyntaxShape::RowCondition, "condition")
+            .required("cond", SyntaxShape::Expression, "condition")
             .required("then_block", SyntaxShape::Block, "then block")
-            .required(
+            .optional(
                 "else",
-                SyntaxShape::Literal(b"else".to_vec()),
-                "else keyword",
-            )
-            .required("else_block", SyntaxShape::Block, "else block");
+                SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
+                "optional else followed by else block",
+            );
         working_set.add_decl(sig.into());
 
         let sig = Signature::build("let")
             .required("var_name", SyntaxShape::Variable, "variable name")
-            .required("=", SyntaxShape::Literal(b"=".to_vec()), "equals sign")
             .required(
-                "value",
-                SyntaxShape::Expression,
-                "the value to set the variable to",
+                "initial_value",
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                "equals sign followed by value",
             );
         working_set.add_decl(sig.into());
 
         let sig = Signature::build("alias")
             .required("var_name", SyntaxShape::Variable, "variable name")
-            .required("=", SyntaxShape::Literal(b"=".to_vec()), "equals sign")
             .required(
-                "value",
-                SyntaxShape::Expression,
-                "the value to set the variable to",
+                "initial_value",
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                "equals sign followed by value",
             );
         working_set.add_decl(sig.into());
 
@@ -161,7 +158,7 @@ fn main() -> std::io::Result<()> {
                             s.as_bytes(),
                             false,
                         );
-                        // println!("{:?}", output);
+                        println!("{:?}", output);
                         if let Some(err) = err {
                             println!("Error: {:?}", err);
                             continue;

@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
-    Literal(Vec<u8>),
+    Keyword(Vec<u8>, Box<SyntaxShape>),
 
     /// Any syntactic form is allowed
     Any,
@@ -95,7 +95,7 @@ impl SyntaxShape {
                 let contents = x.to_type();
                 Type::List(Box::new(contents))
             }
-            SyntaxShape::Literal(..) => Type::Unknown,
+            SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MathExpression => Type::Unknown,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::Operator => Type::Unknown,
@@ -160,6 +160,7 @@ impl Call {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Bool(bool),
     Int(i64),
     Var(VarId),
     Call(Box<Call>),
@@ -170,7 +171,7 @@ pub enum Expr {
     Block(BlockId),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
-    Literal(Vec<u8>),
+    Keyword(Vec<u8>, Box<Expression>),
     String(String), // FIXME: improve this in the future?
     Signature(Signature),
     Garbage,
@@ -234,6 +235,13 @@ impl Expression {
     pub fn as_list(&self) -> Option<Vec<Expression>> {
         match &self.expr {
             Expr::List(list) => Some(list.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_keyword(&self) -> Option<&Expression> {
+        match &self.expr {
+            Expr::Keyword(_, expr) => Some(expr),
             _ => None,
         }
     }
@@ -419,11 +427,11 @@ impl<'a> ParserWorkingSet<'a> {
                             // and we also have the argument
                             let mut span = arg_span;
                             span.start += long_name.len() + 1; //offset by long flag and '='
-                            let (arg, err) = self.parse_value(span, arg_shape.clone());
+                            let (arg, err) = self.parse_value(span, arg_shape);
 
                             (Some(long_name), Some(arg), err)
                         } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                            let (arg, err) = self.parse_value(*arg, arg_shape.clone());
+                            let (arg, err) = self.parse_value(*arg, arg_shape);
 
                             *spans_idx += 1;
                             (Some(long_name), Some(arg), err)
@@ -520,11 +528,76 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
+    fn calculate_end_span(
+        &self,
+        decl: &Declaration,
+        spans: &[Span],
+        spans_idx: usize,
+        positional_idx: usize,
+    ) -> usize {
+        if decl.signature.rest_positional.is_some() {
+            spans.len()
+        } else {
+            // println!("num_positionals: {}", decl.signature.num_positionals());
+            // println!("positional_idx: {}", positional_idx);
+            // println!("spans.len(): {}", spans.len());
+            // println!("spans_idx: {}", spans_idx);
+
+            // check to see if a keyword follows the current position.
+
+            let mut next_keyword_idx = spans.len();
+            for idx in (positional_idx + 1)..decl.signature.num_positionals() {
+                match decl.signature.get_positional(idx) {
+                    Some(PositionalArg {
+                        shape: SyntaxShape::Keyword(kw, ..),
+                        ..
+                    }) => {
+                        for span_idx in spans_idx..spans.len() {
+                            let contents = self.get_span_contents(spans[span_idx]);
+
+                            if contents == kw {
+                                next_keyword_idx = span_idx - (idx - (positional_idx + 1));
+                                break;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            let remainder = decl.signature.num_positionals_after(positional_idx);
+            let remainder_idx = if remainder < spans.len() {
+                spans.len() - remainder + 1
+            } else {
+                spans_idx + 1
+            };
+
+            let end = [next_keyword_idx, remainder_idx, spans.len()]
+                .iter()
+                .min()
+                .expect("internal error: can't find min")
+                .clone();
+
+            // println!(
+            //     "{:?}",
+            //     [
+            //         next_keyword_idx,
+            //         remainder_idx,
+            //         spans.len(),
+            //         spans_idx,
+            //         remainder,
+            //         positional_idx,
+            //     ]
+            // );
+            end
+        }
+    }
+
     fn parse_multispan_value(
         &mut self,
         spans: &[Span],
         spans_idx: &mut usize,
-        shape: SyntaxShape,
+        shape: &SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let mut error = None;
 
@@ -538,46 +611,69 @@ impl<'a> ParserWorkingSet<'a> {
             SyntaxShape::RowCondition => {
                 let (arg, err) = self.parse_row_condition(&spans[*spans_idx..]);
                 error = error.or(err);
-                *spans_idx = spans.len();
+                *spans_idx = spans.len() - 1;
 
                 (arg, error)
             }
             SyntaxShape::Expression => {
                 let (arg, err) = self.parse_expression(&spans[*spans_idx..]);
                 error = error.or(err);
-                *spans_idx = spans.len();
+                *spans_idx = spans.len() - 1;
 
                 (arg, error)
             }
-            SyntaxShape::Literal(literal) => {
+            SyntaxShape::Keyword(keyword, arg) => {
                 let arg_span = spans[*spans_idx];
 
                 let arg_contents = self.get_span_contents(arg_span);
 
-                if arg_contents != literal {
+                if arg_contents != keyword {
                     // When keywords mismatch, this is a strong indicator of something going wrong.
                     // We won't often override the current error, but as this is a strong indicator
                     // go ahead and override the current error and tell the user about the missing
                     // keyword/literal.
                     error = Some(ParseError::Mismatch(
-                        String::from_utf8_lossy(&literal).into(),
+                        String::from_utf8_lossy(&keyword).into(),
                         arg_span,
                     ))
                 }
+
+                *spans_idx += 1;
+                if *spans_idx >= spans.len() {
+                    error = error.or(Some(ParseError::MissingPositional(
+                        String::from_utf8_lossy(&keyword).into(),
+                        spans[*spans_idx - 1],
+                    )));
+                    return (
+                        Expression {
+                            expr: Expr::Keyword(
+                                keyword.clone(),
+                                Box::new(Expression::garbage(arg_span)),
+                            ),
+                            span: arg_span,
+                            ty: Type::Unknown,
+                        },
+                        error,
+                    );
+                }
+                let (expr, err) = self.parse_multispan_value(&spans, spans_idx, arg);
+                error = error.or(err);
+                let ty = expr.ty.clone();
+
                 (
                     Expression {
-                        expr: Expr::Literal(literal),
+                        expr: Expr::Keyword(keyword.clone(), Box::new(expr)),
                         span: arg_span,
-                        ty: Type::Unknown,
+                        ty,
                     },
                     error,
                 )
             }
-            _ => {
+            x => {
                 // All other cases are single-span values
                 let arg_span = spans[*spans_idx];
 
-                let (arg, err) = self.parse_value(arg_span, shape);
+                let (arg, err) = self.parse_value(arg_span, &shape);
                 error = error.or(err);
 
                 (arg, error)
@@ -629,7 +725,7 @@ impl<'a> ParserWorkingSet<'a> {
                 for flag in short_flags {
                     if let Some(arg_shape) = flag.arg {
                         if let Some(arg) = spans.get(spans_idx + 1) {
-                            let (arg, err) = self.parse_value(*arg, arg_shape.clone());
+                            let (arg, err) = self.parse_value(*arg, &arg_shape);
                             error = error.or(err);
 
                             call.named.push((flag.long.clone(), Some(arg)));
@@ -649,35 +745,17 @@ impl<'a> ParserWorkingSet<'a> {
             if let Some(positional) = decl.signature.get_positional(positional_idx) {
                 //Make sure we leave enough spans for the remaining positionals
 
-                let end = if decl.signature.rest_positional.is_some() {
-                    spans.len()
-                } else {
-                    // println!("num_positionals: {}", decl.signature.num_positionals());
-                    // println!("positional_idx: {}", positional_idx);
-                    // println!("spans.len(): {}", spans.len());
-                    // println!("spans_idx: {}", spans_idx);
-                    let remainder = decl.signature.num_positionals() - positional_idx;
-
-                    if remainder >= spans.len() {
-                        spans.len()
-                    } else {
-                        spans.len() - remainder + 1
-                    }
-                };
-                // println!("end: {}", end);
+                let end = self.calculate_end_span(&decl, spans, spans_idx, positional_idx);
 
                 let orig_idx = spans_idx;
-                let (arg, err) = self.parse_multispan_value(
-                    &spans[..end],
-                    &mut spans_idx,
-                    positional.shape.clone(),
-                );
+                let (arg, err) =
+                    self.parse_multispan_value(&spans[..end], &mut spans_idx, &positional.shape);
                 error = error.or(err);
 
                 let arg = if positional.shape.to_type() != Type::Unknown
                     && arg.ty != positional.shape.to_type()
                 {
-                    let span = span(&spans[orig_idx..spans_idx + 1]);
+                    let span = span(&spans[orig_idx..spans_idx]);
                     error = error.or(Some(ParseError::TypeMismatch(
                         positional.shape.to_type(),
                         span,
@@ -819,23 +897,32 @@ impl<'a> ParserWorkingSet<'a> {
     }
 
     pub(crate) fn parse_dollar_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
-        let bytes = self.get_span_contents(span);
-
-        if let Some(var_id) = self.find_variable(bytes) {
-            (
-                Expression {
-                    expr: Expr::Var(var_id),
-                    span,
-                    ty: self.get_variable(var_id).clone(),
-                },
-                None,
-            )
-        } else {
-            (garbage(span), Some(ParseError::VariableNotFound(span)))
-        }
+        self.parse_variable_expr(span)
     }
 
     pub fn parse_variable_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        let contents = self.get_span_contents(span);
+
+        if contents == b"$true" {
+            return (
+                Expression {
+                    expr: Expr::Bool(true),
+                    span,
+                    ty: Type::Bool,
+                },
+                None,
+            );
+        } else if contents == b"$false" {
+            return (
+                Expression {
+                    expr: Expr::Bool(false),
+                    span,
+                    ty: Type::Bool,
+                },
+                None,
+            );
+        }
+
         let (id, err) = self.parse_variable(span);
 
         if err.is_none() {
@@ -852,14 +939,9 @@ impl<'a> ParserWorkingSet<'a> {
                 let name = self.get_span_contents(span).to_vec();
                 // this seems okay to set it to unknown here, but we should double-check
                 let id = self.add_variable(name, Type::Unknown);
-
                 (
-                    Expression {
-                        expr: Expr::Var(id),
-                        span,
-                        ty: Type::Unknown,
-                    },
-                    None,
+                    Expression::garbage(span),
+                    Some(ParseError::VariableNotFound(span)),
                 )
             }
         } else {
@@ -1402,11 +1484,8 @@ impl<'a> ParserWorkingSet<'a> {
                 let mut spans_idx = 0;
 
                 while spans_idx < arg.parts.len() {
-                    let (arg, err) = self.parse_multispan_value(
-                        &arg.parts,
-                        &mut spans_idx,
-                        element_shape.clone(),
-                    );
+                    let (arg, err) =
+                        self.parse_multispan_value(&arg.parts, &mut spans_idx, element_shape);
                     error = error.or(err);
 
                     args.push(arg);
@@ -1477,7 +1556,7 @@ impl<'a> ParserWorkingSet<'a> {
                 let mut table_headers = vec![];
 
                 let (headers, err) =
-                    self.parse_value(output.block[0].commands[0].parts[0], SyntaxShape::Table);
+                    self.parse_value(output.block[0].commands[0].parts[0], &SyntaxShape::Table);
                 error = error.or(err);
 
                 if let Expression {
@@ -1490,7 +1569,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                 let mut rows = vec![];
                 for part in &output.block[1].commands[0].parts {
-                    let (values, err) = self.parse_value(*part, SyntaxShape::Table);
+                    let (values, err) = self.parse_value(*part, &SyntaxShape::Table);
                     error = error.or(err);
                     if let Expression {
                         expr: Expr::List(values),
@@ -1570,7 +1649,7 @@ impl<'a> ParserWorkingSet<'a> {
     pub fn parse_value(
         &mut self,
         span: Span,
-        shape: SyntaxShape,
+        shape: &SyntaxShape,
     ) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
 
@@ -1580,7 +1659,7 @@ impl<'a> ParserWorkingSet<'a> {
         // We check variable first because immediately following we check for variables with column paths
         // which might result in a value that fits other shapes (and require the variable to already be
         // declared)
-        if shape == SyntaxShape::Variable {
+        if shape == &SyntaxShape::Variable {
             return self.parse_variable_expr(span);
         } else if bytes.starts_with(b"$") {
             return self.parse_dollar_expr(span);
@@ -1619,26 +1698,6 @@ impl<'a> ParserWorkingSet<'a> {
                     (
                         garbage(span),
                         Some(ParseError::Mismatch("int".into(), span)),
-                    )
-                }
-            }
-            SyntaxShape::Literal(literal) => {
-                if bytes == literal {
-                    (
-                        Expression {
-                            expr: Expr::Literal(literal),
-                            span,
-                            ty: Type::Unknown,
-                        },
-                        None,
-                    )
-                } else {
-                    (
-                        garbage(span),
-                        Some(ParseError::Mismatch(
-                            format!("keyword '{}'", String::from_utf8_lossy(&literal)),
-                            span,
-                        )),
                     )
                 }
             }
@@ -1698,7 +1757,7 @@ impl<'a> ParserWorkingSet<'a> {
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
-                    if let (s, None) = self.parse_value(span, shape.clone()) {
+                    if let (s, None) = self.parse_value(span, shape) {
                         return (s, None);
                     }
                 }
@@ -1771,7 +1830,7 @@ impl<'a> ParserWorkingSet<'a> {
         let mut last_prec = 1000000;
 
         let mut error = None;
-        let (lhs, err) = self.parse_value(spans[0], SyntaxShape::Any);
+        let (lhs, err) = self.parse_value(spans[0], &SyntaxShape::Any);
         error = error.or(err);
         idx += 1;
 
@@ -1795,7 +1854,7 @@ impl<'a> ParserWorkingSet<'a> {
                 break;
             }
 
-            let (rhs, err) = self.parse_value(spans[idx], SyntaxShape::Any);
+            let (rhs, err) = self.parse_value(spans[idx], &SyntaxShape::Any);
             error = error.or(err);
 
             if op_prec <= last_prec {

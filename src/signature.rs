@@ -200,7 +200,66 @@ impl Signature {
     }
 
     pub fn num_positionals(&self) -> usize {
-        self.required_positional.len() + self.optional_positional.len()
+        let mut total = self.required_positional.len() + self.optional_positional.len();
+
+        for positional in &self.required_positional {
+            match positional.shape {
+                SyntaxShape::Keyword(..) => {
+                    // Keywords have a required argument, so account for that
+                    total += 1;
+                }
+                _ => {}
+            }
+        }
+        for positional in &self.optional_positional {
+            match positional.shape {
+                SyntaxShape::Keyword(..) => {
+                    // Keywords have a required argument, so account for that
+                    total += 1;
+                }
+                _ => {}
+            }
+        }
+        total
+    }
+
+    pub fn num_positionals_after(&self, idx: usize) -> usize {
+        let mut total = 0;
+        let mut curr = 0;
+
+        for positional in &self.required_positional {
+            match positional.shape {
+                SyntaxShape::Keyword(..) => {
+                    // Keywords have a required argument, so account for that
+                    if curr > idx {
+                        total += 2;
+                    }
+                }
+                _ => {
+                    if curr > idx {
+                        total += 1;
+                    }
+                }
+            }
+            curr += 1;
+        }
+        for positional in &self.optional_positional {
+            match positional.shape {
+                SyntaxShape::Keyword(..) => {
+                    // Keywords have a required argument, so account for that
+                    if curr > idx {
+                        total += 2;
+                    }
+                }
+                _ => {
+                    if curr > idx {
+                        total += 1;
+                    }
+                }
+            }
+            curr += 1;
+        }
+        total
     }
 
     /// Find the matching long flag

@@ -13,6 +13,7 @@ pub enum ShellError {
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Bool { val: bool, span: Span },
     Int { val: i64, span: Span },
     String { val: String, span: Span },
     List(Vec<Value>),
@@ -92,12 +93,47 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
                 .as_var()
                 .expect("internal error: missing variable");
 
-            let rhs = eval_expression(state, stack, &call.positional[2])?;
+            let keyword_expr = call.positional[1]
+                .as_keyword()
+                .expect("internal error: missing keyword");
+
+            let rhs = eval_expression(state, stack, keyword_expr)?;
 
             println!("Adding: {:?} to {}", rhs, var_id);
 
             stack.add_var(var_id, rhs);
             Ok(Value::Unknown)
+        } else if decl.signature.name == "if" {
+            let cond = &call.positional[0];
+            let then_block = call.positional[1]
+                .as_block()
+                .expect("internal error: expected block");
+            let else_case = call.positional.get(2);
+
+            let result = eval_expression(state, stack, cond)?;
+            match result {
+                Value::Bool { val, .. } => {
+                    if val {
+                        let block = state.parser_state.get_block(then_block);
+                        eval_block(state, stack, block)
+                    } else if let Some(else_case) = else_case {
+                        println!("{:?}", else_case);
+                        if let Some(else_expr) = else_case.as_keyword() {
+                            if let Some(block_id) = else_expr.as_block() {
+                                let block = state.parser_state.get_block(block_id);
+                                eval_block(state, stack, block)
+                            } else {
+                                eval_expression(state, stack, else_expr)
+                            }
+                        } else {
+                            eval_expression(state, stack, else_case)
+                        }
+                    } else {
+                        Ok(Value::Unknown)
+                    }
+                }
+                _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
+            }
         } else {
             Ok(Value::Unknown)
         }
@@ -110,6 +146,10 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
+        Expr::Bool(b) => Ok(Value::Bool {
+            val: *b,
+            span: expr.span,
+        }),
         Expr::Int(i) => Ok(Value::Int {
             val: *i,
             span: expr.span,
@@ -143,7 +183,7 @@ pub fn eval_expression(
             Ok(Value::List(output))
         }
         Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Literal(_) => Ok(Value::Unknown),
+        Expr::Keyword(_, expr) => eval_expression(state, stack, expr),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,
