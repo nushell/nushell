@@ -83,23 +83,14 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
         ))));
     }
 
-    if rm_args.rest.len() == 0 {
+    if rm_args.rest.is_empty() {
         let mut input_peek = args.input.peekable();
-        loop {
-            match &mut input_peek.next() {
-                Some(v) => match &v.value {
-                    UntaggedValue::Primitive(v) => match &v {
-                        Primitive::FilePath(path) => {
-                            rm_args.rest.push(Tagged {
-                                item: path.to_path_buf(),
-                                tag: args.call_info.name_tag.clone(),
-                            });
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                },
-                None => break,
+        while let Some(v) = &input_peek.next() {
+            if let UntaggedValue::Primitive(Primitive::FilePath(path)) = &v.value {
+                rm_args.rest.push(Tagged {
+                    item: path.to_path_buf(),
+                    tag: args.call_info.name_tag.clone(),
+                })
             };
         }
     }
