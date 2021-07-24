@@ -537,6 +537,10 @@ pub fn compare_values(
     Ok(result)
 }
 
+pub fn plain_type<'a>(value: impl Into<&'a UntaggedValue>, width: usize) -> String {
+    Type::from_value(value.into()).plain_string(width)
+}
+
 pub fn format_type<'a>(value: impl Into<&'a UntaggedValue>, width: usize) -> String {
     Type::from_value(value.into()).colored_string(width)
 }
