@@ -936,6 +936,9 @@ impl<'a> ParserWorkingSet<'a> {
                     None,
                 )
             } else {
+                let name = self.get_span_contents(span).to_vec();
+                // this seems okay to set it to unknown here, but we should double-check
+                let id = self.add_variable(name, Type::Unknown);
                 (
                     Expression::garbage(span),
                     Some(ParseError::VariableNotFound(span)),

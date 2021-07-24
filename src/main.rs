@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
             .required("then_block", SyntaxShape::Block, "then block")
             .optional(
                 "else",
-                SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Block)),
+                SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
                 "optional else followed by else block",
             );
         working_set.add_decl(sig.into());

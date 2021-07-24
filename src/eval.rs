@@ -103,6 +103,37 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
 
             stack.add_var(var_id, rhs);
             Ok(Value::Unknown)
+        } else if decl.signature.name == "if" {
+            let cond = &call.positional[0];
+            let then_block = call.positional[1]
+                .as_block()
+                .expect("internal error: expected block");
+            let else_case = call.positional.get(2);
+
+            let result = eval_expression(state, stack, cond)?;
+            match result {
+                Value::Bool { val, .. } => {
+                    if val {
+                        let block = state.parser_state.get_block(then_block);
+                        eval_block(state, stack, block)
+                    } else if let Some(else_case) = else_case {
+                        println!("{:?}", else_case);
+                        if let Some(else_expr) = else_case.as_keyword() {
+                            if let Some(block_id) = else_expr.as_block() {
+                                let block = state.parser_state.get_block(block_id);
+                                eval_block(state, stack, block)
+                            } else {
+                                eval_expression(state, stack, else_expr)
+                            }
+                        } else {
+                            eval_expression(state, stack, else_case)
+                        }
+                    } else {
+                        Ok(Value::Unknown)
+                    }
+                }
+                _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
+            }
         } else {
             Ok(Value::Unknown)
         }
