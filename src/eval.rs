@@ -13,6 +13,7 @@ pub enum ShellError {
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Bool { val: bool, span: Span },
     Int { val: i64, span: Span },
     String { val: String, span: Span },
     List(Vec<Value>),
@@ -92,7 +93,11 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
                 .as_var()
                 .expect("internal error: missing variable");
 
-            let rhs = eval_expression(state, stack, &call.positional[2])?;
+            let keyword_expr = call.positional[1]
+                .as_keyword()
+                .expect("internal error: missing keyword");
+
+            let rhs = eval_expression(state, stack, keyword_expr)?;
 
             println!("Adding: {:?} to {}", rhs, var_id);
 
@@ -110,6 +115,10 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
+        Expr::Bool(b) => Ok(Value::Bool {
+            val: *b,
+            span: expr.span,
+        }),
         Expr::Int(i) => Ok(Value::Int {
             val: *i,
             span: expr.span,
@@ -143,7 +152,7 @@ pub fn eval_expression(
             Ok(Value::List(output))
         }
         Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Literal(_) => Ok(Value::Unknown),
+        Expr::Keyword(_, expr) => eval_expression(state, stack, expr),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,

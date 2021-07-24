@@ -3,6 +3,7 @@ use crate::{Block, Expr, Expression, ParserWorkingSet, Pipeline, Span, Statement
 #[derive(Debug)]
 pub enum FlatShape {
     Garbage,
+    Bool,
     Int,
     InternalCall,
     External,
@@ -57,6 +58,10 @@ impl<'a> ParserWorkingSet<'a> {
             Expr::Int(_) => {
                 vec![(expr.span, FlatShape::Int)]
             }
+            Expr::Bool(_) => {
+                vec![(expr.span, FlatShape::Bool)]
+            }
+
             Expr::List(list) => {
                 let mut output = vec![];
                 for l in list {
@@ -64,9 +69,7 @@ impl<'a> ParserWorkingSet<'a> {
                 }
                 output
             }
-            Expr::Literal(_) => {
-                vec![(expr.span, FlatShape::Literal)]
-            }
+            Expr::Keyword(_, expr) => self.flatten_expression(expr),
             Expr::Operator(_) => {
                 vec![(expr.span, FlatShape::Operator)]
             }
