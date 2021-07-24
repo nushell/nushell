@@ -64,7 +64,7 @@ fn pathvar_correctly_reads_path_from_config() {
             .with_config(&file);
 
         let expected = "/Users/andresrobalino/.volta/bin-/Users/mosqueteros/bin";
-        let actual = sandbox.pipeline(r#" pathvar | str collect '-' "#);
+        let actual = sandbox.pipeline(r#" pathvar | first 2 | str collect '-' "#);
 
         assert_that!(actual, says().stdout(&expected));
     })
