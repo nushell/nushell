@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::shell::RemoveArgs;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 pub struct Remove;
@@ -26,7 +26,7 @@ impl WholeStreamCommand for Remove {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
-            .optional("files", SyntaxShape::GlobPattern, "the file path(s) to remove")
+            .rest(SyntaxShape::GlobPattern, "the file path(s) to remove")
     }
 
     fn usage(&self) -> &str {
@@ -94,12 +94,12 @@ fn rm(args: CommandArgs) -> Result<ActionStream, ShellError> {
                                 item: path.to_path_buf(),
                                 tag: args.call_info.name_tag.clone(),
                             });
-                        },
+                        }
                         _ => {}
                     },
                     _ => {}
                 },
-                None => break
+                None => break,
             };
         }
     }
