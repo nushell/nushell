@@ -34,37 +34,18 @@ fn joins_env_on_non_windows() {
     assert_eq!(&actual, "sausage:bacon:spam");
 }
 
-// pathvar
-
-// The following test doesn't work likely because of this issue:
+// The following tests don't work on Windows likely because of this issue:
 //   https://github.com/nushell/nushell/issues/3831
-// #[test]
-// fn pathvar_correctly_reads_path_from_config_and_env() {
-//     Playground::setup("hi_there", |dirs, sandbox| {
-//         let file = AbsolutePath::new(dirs.test().join("config.toml"));
 //
-//         sandbox
-//             .with_files(vec![FileWithContent(
-//                 "config.toml",
-//                 r#"
-//                     skip_welcome_message = true
+// fn pathvar_correctly_reads_path_from_config_and_env()
+// fn pathvar_correctly_reads_path_from_env()
+// fn pathvar_saves_new_path_to_config()
 //
-//                     path = ["/Users/andresrobalino/.volta/bin", "/Users/mosqueteros/bin"]
-//                 "#,
-//             )])
-//             .with_config(&file)
-//             .with_env(
-//                 nu_test_support::NATIVE_PATH_ENV_VAR,
-//                 &PathBuf::from("/Users/mosquito/proboscis").display_path(),
-//             );
-//
-//         let expected =
-//             "/Users/andresrobalino/.volta/bin-/Users/mosqueteros/bin-/Users/mosquito/proboscis";
-//         let actual = sandbox.pipeline(r#" pathvar | str collect '-' "#);
-//
-//         assert_that!(actual, says().stdout(&expected));
-//     })
-// }
+// Requires also auto-reading other-than-path env vars from config:
+// fn pathvar_correctly_reads_env_var_from_config_and_env()
+// fn pathvar_correctly_reads_env_var_from_config()
+
+// pathvar
 
 #[test]
 fn pathvar_correctly_reads_path_from_config() {
@@ -88,77 +69,6 @@ fn pathvar_correctly_reads_path_from_config() {
         assert_that!(actual, says().stdout(&expected));
     })
 }
-
-// The following test doesn't work likely because of this issue:
-//   https://github.com/nushell/nushell/issues/3831
-// #[test]
-// fn pathvar_correctly_reads_path_from_env() {
-//     Playground::setup("hi_there", |_, sandbox| {
-//         sandbox
-//             .with_env(
-//                 nu_test_support::NATIVE_PATH_ENV_VAR,
-//                 &PathBuf::from("/Users/mosquito/proboscis").display_path(),
-//             );
-//
-//         let expected = "/Users/mosquito/proboscis";
-//         let actual = sandbox.pipeline(r#" pathvar | str collect '-' "#);
-//
-//         assert_that!(actual, says().stdout(&expected));
-//     })
-// }
-
-// Doesn't work because Nushell is not set up to read other vars than path from config
-// Maybe also https://github.com/nushell/nushell/issues/3831
-// #[test]
-// fn pathvar_correctly_reads_env_var_from_config_and_env() {
-//     Playground::setup("hi_there", |dirs, sandbox| {
-//         let file = AbsolutePath::new(dirs.test().join("config.toml"));
-//
-//         sandbox
-//             .with_files(vec![FileWithContent(
-//                 "config.toml",
-//                 r#"
-//                     skip_welcome_message = true
-//
-//                     breakfast = ["egg", "sausage"]
-//                 "#,
-//             )])
-//             .with_config(&file)
-//             .with_env(
-//                 "BREAKFAST",
-//                 &join_env_sep(&["bacon", "spam"]),
-//             );
-//
-//         let expected = "egg-sausage-bacon-spam";
-//         let actual = sandbox.pipeline(r#" pathvar -v BREAKFAST | str collect '-' "#);
-//
-//         assert_that!(actual, says().stdout(&expected));
-//     })
-// }
-
-// Doesn't work because Nushell is not set up to read other vars than path from config
-// #[test]
-// fn pathvar_correctly_reads_env_var_from_config() {
-//     Playground::setup("hi_there", |dirs, sandbox| {
-//         let file = AbsolutePath::new(dirs.test().join("config.toml"));
-//
-//         sandbox
-//             .with_files(vec![FileWithContent(
-//                 "config.toml",
-//                 r#"
-//                     skip_welcome_message = true
-//
-//                     breakfast = ["egg", "sausage"]
-//                 "#,
-//             )])
-//             .with_config(&file);
-//
-//         let expected = "egg-sausage";
-//         let actual = sandbox.pipeline(r#" pathvar -v BREAKFAST | str collect '-' "#);
-//
-//         assert_that!(actual, says().stdout(&expected));
-//     })
-// }
 
 #[test]
 fn pathvar_correctly_reads_env_var_from_env() {
@@ -397,35 +307,6 @@ fn pathvar_saves_path_to_config() {
         assert_that!(actual, says().stdout(&expected));
     })
 }
-
-// The following test doesn't work likely because of this issue:
-//   https://github.com/nushell/nushell/issues/3831
-// #[test]
-// fn pathvar_saves_new_path_to_config() {
-//     Playground::setup("hi_there", |dirs, sandbox| {
-//         let file = AbsolutePath::new(dirs.test().join("config.toml"));
-//
-//         sandbox
-//             .with_files(vec![FileWithContent(
-//                 "config.toml",
-//                 r#"
-//                     skip_welcome_message = true
-//                 "#,
-//             )])
-//             .with_config(&file);
-//
-//         let expected = "/Users/mosquito/proboscis";
-//         let actual = sandbox.pipeline(
-//             r#"
-//                 pathvar append "/Users/mosquito/proboscis"
-//                 pathvar save
-//                 (config).path | str collect '-'
-//             "#,
-//         );
-//
-//         assert_that!(actual, says().stdout(&expected));
-//     })
-// }
 
 #[test]
 fn pathvar_saves_env_var_to_config() {
