@@ -80,11 +80,7 @@ fn pathvar_correctly_reads_path_from_config() {
                     path = ["/Users/andresrobalino/.volta/bin", "/Users/mosqueteros/bin"]
                 "#,
             )])
-            .with_config(&file)
-            .with_env(
-                nu_test_support::NATIVE_PATH_ENV_VAR,
-                &PathBuf::from("/Users/mosquito/proboscis").display_path(),
-            );
+            .with_config(&file);
 
         let expected = "/Users/andresrobalino/.volta/bin-/Users/mosqueteros/bin";
         let actual = sandbox.pipeline(r#" pathvar | str collect '-' "#);
@@ -194,8 +190,8 @@ fn pathvar_adds_to_path() {
             )])
             .with_config(&file);
 
-        let expected = "spam-/Users/mosquito/proboscis";
-        let actual = sandbox.pipeline(r#" pathvar add spam; pathvar | str collect '-' "#);
+        let expected = "spam";
+        let actual = sandbox.pipeline(r#" pathvar add spam; pathvar | first "#);
 
         assert_that!(actual, says().stdout(&expected));
     })
@@ -236,8 +232,8 @@ fn pathvar_appends_to_path() {
             )])
             .with_config(&file);
 
-        let expected = "/Users/mosquito/proboscis-spam";
-        let actual = sandbox.pipeline(r#" pathvar append spam; pathvar | str collect '-' "#);
+        let expected = "spam";
+        let actual = sandbox.pipeline(r#" pathvar append spam; pathvar | last "#);
 
         assert_that!(actual, says().stdout(&expected));
     })
@@ -279,7 +275,7 @@ fn pathvar_removes_from_path() {
             .with_config(&file);
 
         let expected = "/Users/mosquito/proboscis";
-        let actual = sandbox.pipeline(r#" pathvar remove 1; pathvar"#);
+        let actual = sandbox.pipeline(r#" pathvar remove 1; pathvar | first "#);
 
         assert_that!(actual, says().stdout(&expected));
     })
@@ -389,13 +385,12 @@ fn pathvar_saves_path_to_config() {
             )])
             .with_config(&file);
 
-        let expected =
-            "/Users/andresrobalino/.volta/bin-/Users/mosqueteros/bin-/Users/mosquito/proboscis";
+        let expected = "/Users/mosquito/proboscis";
         let actual = sandbox.pipeline(
             r#"
                 pathvar append "/Users/mosquito/proboscis"
                 pathvar save
-                (config).path | str collect '-'
+                (config).path | last
             "#,
         );
 
