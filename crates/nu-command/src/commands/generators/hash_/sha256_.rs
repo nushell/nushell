@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use md5::Md5;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
+use sha2::Sha256;
 
 use super::generic_digest;
 
@@ -10,39 +10,39 @@ pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "hash md5"
+        "hash sha256"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("hash md5").rest(
+        Signature::build("hash sha256").rest(
             SyntaxShape::ColumnPath,
-            "optionally md5 encode data by column paths",
+            "optionally sha256 encode data by column paths",
         )
     }
 
     fn usage(&self) -> &str {
-        "md5 encode a value"
+        "sha256 encode a value"
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        generic_digest::run::<Md5>(args)
+        generic_digest::run::<Sha256>(args)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "md5 encode a string",
-                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5",
+                description: "sha256 encode a string",
+                example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash sha256",
                 result: Some(vec![UntaggedValue::string(
-                    "c3fcd3d76192e4007dfb496cca67e13b",
+                    "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73",
                 )
                 .into_untagged_value()]),
             },
             Example {
-                description: "md5 encode a file",
-                example: "open ./nu_0_24_1_windows.zip | hash md5",
+                description: "sha256 encode a file",
+                example: "open ./nu_0_24_1_windows.zip | hash sha256",
                 result: Some(vec![UntaggedValue::string(
-                    "dcf30f2836a1a99fc55cf72e28272606",
+                    "c47a10dc272b1221f0380a2ae0f7d7fa830b3e378f2f5309bbf13f61ad211913",
                 )
                 .into_untagged_value()]),
             },
@@ -52,20 +52,22 @@ impl WholeStreamCommand for SubCommand {
 
 #[cfg(test)]
 mod tests {
-    use md5::Md5;
     use nu_protocol::{Primitive, UntaggedValue};
     use nu_source::Tag;
     use nu_test_support::value::string;
+    use sha2::Sha256;
 
     use crate::commands::generators::hash_::generic_digest::action;
 
     #[test]
     fn md5_encode_string() {
         let word = string("abcdefghijklmnopqrstuvwxyz");
-        let expected =
-            UntaggedValue::string("c3fcd3d76192e4007dfb496cca67e13b").into_untagged_value();
+        let expected = UntaggedValue::string(
+            "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73",
+        )
+        .into_untagged_value();
 
-        let actual = action::<Md5>(&word, Tag::unknown()).unwrap();
+        let actual = action::<Sha256>(&word, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 
@@ -73,10 +75,12 @@ mod tests {
     fn md5_encode_bytes() {
         let bytes = vec![0xC0, 0xFF, 0xEE];
         let binary = UntaggedValue::Primitive(Primitive::Binary(bytes)).into_untagged_value();
-        let expected =
-            UntaggedValue::string("5f80e231382769b0102b1164cf722d83").into_untagged_value();
+        let expected = UntaggedValue::string(
+            "c47a10dc272b1221f0380a2ae0f7d7fa830b3e378f2f5309bbf13f61ad211913",
+        )
+        .into_untagged_value();
 
-        let actual = action::<Md5>(&binary, Tag::unknown()).unwrap();
+        let actual = action::<Sha256>(&binary, Tag::unknown()).unwrap();
         assert_eq!(actual, expected);
     }
 }
