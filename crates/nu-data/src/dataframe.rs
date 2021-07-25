@@ -1,14 +1,14 @@
 use bigdecimal::BigDecimal;
 use nu_errors::ShellError;
-use nu_protocol::dataframe::NuDataFrame;
+use nu_protocol::dataframe::{Axis, NuDataFrame};
 use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Span;
 use num_traits::ToPrimitive;
 
 use polars::prelude::{
-    BooleanType, ChunkCompare, ChunkedArray, DataFrame, DataType, Float64Type, Int64Type,
-    IntoSeries, NumOpsDispatchChecked, PolarsError, Series,
+    BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
+    NumOpsDispatchChecked, PolarsError, Series,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -83,37 +83,14 @@ pub fn between_dataframes(
     operation_span: &Span,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     match operator {
-        Operator::Plus => {
-            let mut columns: Vec<&str> = Vec::new();
-
-            let new = lhs
-                .as_ref()
-                .get_columns()
-                .iter()
-                .chain(rhs.as_ref().get_columns().iter())
-                .map(|s| {
-                    let name = if columns.contains(&s.name()) {
-                        format!("{}_{}", s.name(), "x")
-                    } else {
-                        columns.push(s.name());
-                        s.name().to_string()
-                    };
-
-                    let mut series = s.clone();
-                    series.rename(name.as_str());
-                    series
-                })
-                .collect::<Vec<Series>>();
-
-            match DataFrame::new(new) {
-                Ok(df) => Ok(NuDataFrame::dataframe_to_untagged(df)),
-                Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
-                    "Appending error",
-                    format!("{}", e),
-                    operation_span,
-                ))),
-            }
-        }
+        Operator::Plus => match lhs.append_df(rhs, Axis::Row, operation_span) {
+            Ok(df) => Ok(df.into_untagged()),
+            Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
+                "Appending error",
+                format!("{}", e),
+                operation_span,
+            ))),
+        },
         _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
             "Incorrect datatype",
             "unable to use this datatype for this operation",

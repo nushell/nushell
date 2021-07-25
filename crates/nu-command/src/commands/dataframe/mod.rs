@@ -1,4 +1,5 @@
 pub mod aggregate;
+pub mod append;
 pub mod column;
 pub mod command;
 pub mod drop;
@@ -31,6 +32,7 @@ pub mod where_;
 pub mod with_column;
 
 pub use aggregate::DataFrame as DataFrameAggregate;
+pub use append::DataFrame as DataFrameAppend;
 pub use column::DataFrame as DataFrameColumn;
 pub use command::Command as DataFrame;
 pub use drop::DataFrame as DataFrameDrop;
