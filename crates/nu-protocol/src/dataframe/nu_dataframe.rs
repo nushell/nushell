@@ -86,22 +86,42 @@ pub struct NuDataFrame {
 // and values
 impl PartialEq for NuDataFrame {
     fn eq(&self, other: &Self) -> bool {
+        if self.as_ref().width() == 0 {
+            // checking for empty dataframe
+            return false;
+        }
+
         if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
+            // checking both dataframes share the same names
             return false;
         }
 
         if self.as_ref().height() != other.as_ref().height() {
+            // checking both dataframes have the same row size
             return false;
         }
 
-        for name in self.as_ref().get_column_names() {
-            let self_series = self
-                .as_ref()
-                .column(name)
-                .expect("name from dataframe names");
+        // sorting dataframe by the first column
+        let column_names = self.as_ref().get_column_names();
+        let first_col = column_names
+            .get(0)
+            .expect("already checked that dataframe is different than 0");
 
-            let other_series = other
-                .as_ref()
+        // if unable to sort, then unable to compare
+        let lhs = match self.as_ref().sort(*first_col, false) {
+            Ok(df) => df,
+            Err(_) => return false,
+        };
+
+        let rhs = match other.as_ref().sort(*first_col, false) {
+            Ok(df) => df,
+            Err(_) => return false,
+        };
+
+        for name in self.as_ref().get_column_names() {
+            let self_series = lhs.column(name).expect("name from dataframe names");
+
+            let other_series = rhs
                 .column(name)
                 .expect("already checked that name in other");
 
@@ -116,7 +136,7 @@ impl PartialEq for NuDataFrame {
                 _ => self_series.clone(),
             };
 
-            if !self_series.series_equal(other_series) {
+            if !self_series.series_equal(&other_series) {
                 return false;
             }
         }

@@ -30,11 +30,17 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Calculates value counts",
-            example: "[5 5 5 5] | dataframe to-df | dataframe value-counts",
+            example: "[5 5 5 5 6 6] | dataframe to-df | dataframe value-counts",
             result: Some(vec![NuDataFrame::try_from_columns(
                 vec![
-                    Column::new("0".to_string(), vec![UntaggedValue::int(5).into()]),
-                    Column::new("counts".to_string(), vec![UntaggedValue::int(4).into()]),
+                    Column::new(
+                        "0".to_string(),
+                        vec![UntaggedValue::int(5).into(), UntaggedValue::int(6).into()],
+                    ),
+                    Column::new(
+                        "counts".to_string(),
+                        vec![UntaggedValue::int(4).into(), UntaggedValue::int(2).into()],
+                    ),
                 ],
                 &Span::default(),
             )
