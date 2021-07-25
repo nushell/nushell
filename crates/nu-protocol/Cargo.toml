@@ -4,7 +4,7 @@ description = "Core values and protocols for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-protocol"
-version = "0.34.0"
+version = "0.34.1"
 
 [lib]
 doctest = false
@@ -13,12 +13,13 @@ doctest = false
 bigdecimal = { version="0.2.0", features=["serde"] }
 byte-unit = "4.0.9"
 chrono = { version="0.4.19", features=["serde"] }
+chrono-humanize = "0.2.1"
 derive-new = "0.5.8"
 getset = "0.1.1"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4.14"
-nu-errors = { path="../nu-errors", version = "0.34.0" }
-nu-source = { path="../nu-source", version = "0.34.0" }
+nu-errors = { path="../nu-errors", version = "0.34.1" }
+nu-source = { path="../nu-source", version = "0.34.1" }
 num-bigint = { version="0.3.1", features=["serde"] }
 num-integer = "0.1.44"
 num-traits = "0.2.14"

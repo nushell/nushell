@@ -51,6 +51,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DateToTable),
             whole_stream_command(DateToTimeZone),
             whole_stream_command(DateFormat),
+            whole_stream_command(DateHumanize),
             whole_stream_command(Cal),
             whole_stream_command(Mkdir),
             whole_stream_command(Mv),
@@ -131,6 +132,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Into),
             whole_stream_command(IntoBinary),
             whole_stream_command(IntoInt),
+            whole_stream_command(IntoFilepath),
             whole_stream_command(IntoString),
             whole_stream_command(SplitBy),
             // Row manipulation

@@ -3,7 +3,8 @@ use crate::value::column_path::ColumnPath;
 use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
+use chrono_humanize::HumanTime;
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
@@ -592,127 +593,7 @@ pub fn format_duration(duration: &BigInt) -> String {
     )
 }
 
-#[allow(clippy::cognitive_complexity)]
 /// Format a date value into a humanized string (eg "1 week ago" instead of a formal date string)
 pub fn format_date(d: &DateTime<FixedOffset>) -> String {
-    let utc: DateTime<Utc> = Utc::now();
-
-    let duration = utc.signed_duration_since(*d);
-
-    if duration.num_seconds() < 0 {
-        // Our duration is negative, so we need to speak about the future
-        if -duration.num_weeks() >= 52 {
-            let num_years = -duration.num_weeks() / 52;
-
-            format!(
-                "{} year{} from now",
-                num_years,
-                if num_years == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_weeks() >= 4 {
-            let num_months = -duration.num_weeks() / 4;
-
-            format!(
-                "{} month{} from now",
-                num_months,
-                if num_months == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_weeks() >= 1 {
-            let num_weeks = -duration.num_weeks();
-
-            format!(
-                "{} week{} from now",
-                num_weeks,
-                if num_weeks == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_days() >= 1 {
-            let num_days = -duration.num_days();
-
-            format!(
-                "{} day{} from now",
-                num_days,
-                if num_days == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_hours() >= 1 {
-            let num_hours = -duration.num_hours();
-
-            format!(
-                "{} hour{} from now",
-                num_hours,
-                if num_hours == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_minutes() >= 1 {
-            let num_minutes = -duration.num_minutes();
-
-            format!(
-                "{} min{} from now",
-                num_minutes,
-                if num_minutes == 1 { "" } else { "s" }
-            )
-        } else {
-            let num_seconds = -duration.num_seconds();
-
-            format!(
-                "{} sec{} from now",
-                num_seconds,
-                if num_seconds == 1 { "" } else { "s" }
-            )
-        }
-    } else if duration.num_weeks() >= 52 {
-        let num_years = duration.num_weeks() / 52;
-
-        format!(
-            "{} year{} ago",
-            num_years,
-            if num_years == 1 { "" } else { "s" }
-        )
-    } else if duration.num_weeks() >= 4 {
-        let num_months = duration.num_weeks() / 4;
-
-        format!(
-            "{} month{} ago",
-            num_months,
-            if num_months == 1 { "" } else { "s" }
-        )
-    } else if duration.num_weeks() >= 1 {
-        let num_weeks = duration.num_weeks();
-
-        format!(
-            "{} week{} ago",
-            num_weeks,
-            if num_weeks == 1 { "" } else { "s" }
-        )
-    } else if duration.num_days() >= 1 {
-        let num_days = duration.num_days();
-
-        format!(
-            "{} day{} ago",
-            num_days,
-            if num_days == 1 { "" } else { "s" }
-        )
-    } else if duration.num_hours() >= 1 {
-        let num_hours = duration.num_hours();
-
-        format!(
-            "{} hour{} ago",
-            num_hours,
-            if num_hours == 1 { "" } else { "s" }
-        )
-    } else if duration.num_minutes() >= 1 {
-        let num_minutes = duration.num_minutes();
-
-        format!(
-            "{} min{} ago",
-            num_minutes,
-            if num_minutes == 1 { "" } else { "s" }
-        )
-    } else {
-        let num_seconds = duration.num_seconds();
-
-        format!(
-            "{} sec{} ago",
-            num_seconds,
-            if num_seconds == 1 { "" } else { "s" }
-        )
-    }
+    format!("{}", HumanTime::from(*d))
 }
