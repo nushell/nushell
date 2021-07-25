@@ -73,7 +73,7 @@ impl WholeStreamCommand for DataFrame {
             description: "Pivot a dataframe on b and aggregation on col c",
             example:
                 "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by a | dataframe pivot b c sum",
-            result: None,
+            result: None, // No sample because there are nulls in the result dataframe
         }]
     }
 }

@@ -1,54 +1,147 @@
+use indexmap::{map::Entry, IndexMap};
+use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::{cmp::Ordering, collections::hash_map::Entry, collections::HashMap};
+use std::ops::{Deref, DerefMut};
 
 use bigdecimal::FromPrimitive;
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
-use polars::prelude::{AnyValue, DataFrame, NamedFrom, Series, TimeUnit};
+use polars::prelude::{AnyValue, DataFrame, DataType, NamedFrom, Series, TimeUnit};
 use serde::{Deserialize, Serialize};
 
 use crate::{Dictionary, Primitive, UntaggedValue, Value};
 
-use super::PolarsData;
-
 const SECS_PER_DAY: i64 = 86_400;
 
 #[derive(Debug)]
-enum InputValue {
-    Integer,
-    Decimal,
-    String,
+pub struct Column {
+    name: String,
+    values: Vec<Value>,
+}
+
+impl Column {
+    pub fn new(name: String, values: Vec<Value>) -> Self {
+        Self { name, values }
+    }
+
+    pub fn new_empty(name: String) -> Self {
+        Self {
+            name,
+            values: Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.values.push(value)
+    }
 }
 
 #[derive(Debug)]
-struct ColumnValues {
-    pub value_type: InputValue,
-    pub values: Vec<Value>,
+enum InputType {
+    Integer,
+    Decimal,
+    String,
+    Boolean,
 }
 
-impl Default for ColumnValues {
-    fn default() -> Self {
+#[derive(Debug)]
+struct TypedColumn {
+    pub column: Column,
+    pub column_type: Option<InputType>,
+}
+
+impl TypedColumn {
+    fn new_empty(name: String) -> Self {
         Self {
-            value_type: InputValue::Integer,
-            values: Vec::new(),
+            column: Column::new_empty(name),
+            column_type: None,
         }
     }
 }
 
-type ColumnMap = HashMap<String, ColumnValues>;
+impl Deref for TypedColumn {
+    type Target = Column;
+
+    fn deref(&self) -> &Self::Target {
+        &self.column
+    }
+}
+
+impl DerefMut for TypedColumn {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.column
+    }
+}
+
+type ColumnMap = IndexMap<String, TypedColumn>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuDataFrame {
     dataframe: DataFrame,
 }
 
-// TODO. Better definition of equality and comparison for a dataframe.
-// Probably it make sense to have a name field and use it for comparisons
+// Dataframes are considered equal if they have the same shape, column name
+// and values
 impl PartialEq for NuDataFrame {
-    fn eq(&self, _: &Self) -> bool {
-        false
+    fn eq(&self, other: &Self) -> bool {
+        if self.as_ref().width() == 0 {
+            // checking for empty dataframe
+            return false;
+        }
+
+        if self.as_ref().get_column_names() != other.as_ref().get_column_names() {
+            // checking both dataframes share the same names
+            return false;
+        }
+
+        if self.as_ref().height() != other.as_ref().height() {
+            // checking both dataframes have the same row size
+            return false;
+        }
+
+        // sorting dataframe by the first column
+        let column_names = self.as_ref().get_column_names();
+        let first_col = column_names
+            .get(0)
+            .expect("already checked that dataframe is different than 0");
+
+        // if unable to sort, then unable to compare
+        let lhs = match self.as_ref().sort(*first_col, false) {
+            Ok(df) => df,
+            Err(_) => return false,
+        };
+
+        let rhs = match other.as_ref().sort(*first_col, false) {
+            Ok(df) => df,
+            Err(_) => return false,
+        };
+
+        for name in self.as_ref().get_column_names() {
+            let self_series = lhs.column(name).expect("name from dataframe names");
+
+            let other_series = rhs
+                .column(name)
+                .expect("already checked that name in other");
+
+            let self_series = match self_series.dtype() {
+                // Casting needed to compare other numeric types with nushell numeric type.
+                // In nushell we only have i64 integer numeric types and any array created
+                // with nushell untagged primitives will be of type i64
+                DataType::UInt32 => match self_series.cast_with_dtype(&DataType::Int64) {
+                    Ok(series) => series,
+                    Err(_) => return false,
+                },
+                _ => self_series.clone(),
+            };
+
+            if !self_series.series_equal(&other_series) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -87,14 +180,14 @@ impl NuDataFrame {
         NuDataFrame { dataframe }
     }
 
-    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuDataFrame, ShellError>
+    pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<(Self, Tag), ShellError>
     where
         T: Iterator<Item = Value>,
     {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => Some(df),
+                UntaggedValue::DataFrame(df) => Some((df, value.tag)),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -113,39 +206,125 @@ impl NuDataFrame {
         // Dictionary to store the columnar data extracted from
         // the input. During the iteration we check if the values
         // have different type
-        let mut column_values: ColumnMap = HashMap::new();
+        let mut column_values: ColumnMap = IndexMap::new();
 
         for value in iter {
             match value.value {
                 UntaggedValue::Row(dictionary) => insert_row(&mut column_values, dictionary)?,
                 UntaggedValue::Table(table) => insert_table(&mut column_values, table)?,
+                UntaggedValue::Primitive(Primitive::Int(_))
+                | UntaggedValue::Primitive(Primitive::Decimal(_))
+                | UntaggedValue::Primitive(Primitive::String(_))
+                | UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+                    let key = format!("{}", 0);
+                    insert_value(value, key, &mut column_values)?
+                }
                 _ => {
                     return Err(ShellError::labeled_error_with_secondary(
                         "Format not supported",
                         "Value not supported for conversion",
                         &value.tag,
-                        "Perhaps you want to use a List of Tables or a Dictionary",
+                        "Perhaps you want to use a List, a List of Tables or a Dictionary",
                         &value.tag,
                     ));
                 }
             }
         }
 
-        from_parsed_columns(column_values, tag)
+        from_parsed_columns(column_values, &tag.span)
+    }
+
+    pub fn try_from_series(columns: Vec<Series>, span: &Span) -> Result<Self, ShellError> {
+        let dataframe = DataFrame::new(columns).map_err(|e| {
+            ShellError::labeled_error(
+                "DataFrame Creation",
+                format!("Unable to create DataFrame: {}", e),
+                span,
+            )
+        })?;
+
+        Ok(Self { dataframe })
+    }
+
+    pub fn try_from_columns(columns: Vec<Column>, span: &Span) -> Result<Self, ShellError> {
+        let mut column_values: ColumnMap = IndexMap::new();
+
+        for column in columns {
+            for value in column.values {
+                insert_value(value, column.name.clone(), &mut column_values)?;
+            }
+        }
+
+        from_parsed_columns(column_values, span)
     }
 
     pub fn into_value(self, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(self)),
+            value: Self::into_untagged(self),
             tag,
         }
     }
 
+    pub fn into_untagged(self) -> UntaggedValue {
+        UntaggedValue::DataFrame(self)
+    }
+
     pub fn dataframe_to_value(df: DataFrame, tag: Tag) -> Value {
         Value {
-            value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(NuDataFrame::new(df))),
+            value: Self::dataframe_to_untagged(df),
             tag,
         }
+    }
+
+    pub fn dataframe_to_untagged(df: DataFrame) -> UntaggedValue {
+        UntaggedValue::DataFrame(Self::new(df))
+    }
+
+    pub fn series_to_untagged(series: Series, span: &Span) -> UntaggedValue {
+        match DataFrame::new(vec![series]) {
+            Ok(dataframe) => UntaggedValue::DataFrame(Self { dataframe }),
+            Err(e) => UntaggedValue::Error(ShellError::labeled_error(
+                "DataFrame Creation",
+                format!("Unable to create DataFrame: {}", e),
+                span,
+            )),
+        }
+    }
+
+    pub fn column(&self, column: &str, tag: &Tag) -> Result<Self, ShellError> {
+        let s = self.as_ref().column(column).map_err(|e| {
+            ShellError::labeled_error("Column not found", format!("{}", e), tag.span)
+        })?;
+
+        let dataframe = DataFrame::new(vec![s.clone()]).map_err(|e| {
+            ShellError::labeled_error("DataFrame error", format!("{}", e), tag.span)
+        })?;
+
+        Ok(Self { dataframe })
+    }
+
+    pub fn is_series(&self) -> bool {
+        self.as_ref().width() == 1
+    }
+
+    pub fn as_series(&self, span: &Span) -> Result<Series, ShellError> {
+        if !self.is_series() {
+            return Err(ShellError::labeled_error_with_secondary(
+                "Not a Series",
+                "DataFrame cannot be used as Series",
+                span,
+                "Note that a Series is a DataFrame with one column",
+                span,
+            ));
+        }
+
+        let series = self
+            .as_ref()
+            .get_columns()
+            .get(0)
+            .expect("We have already checked that the width is 1");
+
+        Ok(series.clone())
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
@@ -188,24 +367,17 @@ impl NuDataFrame {
 
     pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
         let df = self.as_ref();
-        let column_names = df.get_column_names();
+        let upper_row = to_row.min(df.height());
 
         let mut values: Vec<Value> = Vec::new();
-
-        let upper_row = to_row.min(df.height());
         for i in from_row..upper_row {
-            let row = df.get_row(i);
             let mut dictionary_row = Dictionary::default();
-
-            for (val, name) in row.0.iter().zip(column_names.iter()) {
-                let untagged_val = anyvalue_to_untagged(val)?;
-
+            for col in df.get_columns() {
                 let dict_val = Value {
-                    value: untagged_val,
+                    value: anyvalue_to_untagged(&col.get(i))?,
                     tag: Tag::unknown(),
                 };
-
-                dictionary_row.insert(name.to_string(), dict_val);
+                dictionary_row.insert(col.name().into(), dict_val);
             }
 
             let value = Value {
@@ -213,7 +385,7 @@ impl NuDataFrame {
                 tag: Tag::unknown(),
             };
 
-            values.push(value);
+            values.push(value)
         }
 
         Ok(values)
@@ -336,8 +508,8 @@ fn insert_value(
     key: String,
     column_values: &mut ColumnMap,
 ) -> Result<(), ShellError> {
-    let col_val = match column_values.entry(key) {
-        Entry::Vacant(entry) => entry.insert(ColumnValues::default()),
+    let col_val = match column_values.entry(key.clone()) {
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
@@ -346,13 +518,16 @@ fn insert_value(
     if col_val.values.is_empty() {
         match &value.value {
             UntaggedValue::Primitive(Primitive::Int(_)) => {
-                col_val.value_type = InputValue::Integer;
+                col_val.column_type = Some(InputType::Integer);
             }
             UntaggedValue::Primitive(Primitive::Decimal(_)) => {
-                col_val.value_type = InputValue::Decimal;
+                col_val.column_type = Some(InputType::Decimal);
             }
             UntaggedValue::Primitive(Primitive::String(_)) => {
-                col_val.value_type = InputValue::String;
+                col_val.column_type = Some(InputType::String);
+            }
+            UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+                col_val.column_type = Some(InputType::Boolean);
             }
             _ => {
                 return Err(ShellError::labeled_error(
@@ -378,6 +553,10 @@ fn insert_value(
             | (
                 UntaggedValue::Primitive(Primitive::String(_)),
                 UntaggedValue::Primitive(Primitive::String(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
+                UntaggedValue::Primitive(Primitive::Boolean(_)),
             ) => col_val.values.push(value),
             _ => {
                 return Err(ShellError::labeled_error_with_secondary(
@@ -397,27 +576,35 @@ fn insert_value(
 // The ColumnMap has the parsed data from the StreamInput
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
-fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFrame, ShellError> {
+fn from_parsed_columns(column_values: ColumnMap, span: &Span) -> Result<NuDataFrame, ShellError> {
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
-        match column.value_type {
-            InputValue::Decimal => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_f64()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
-            }
-            InputValue::Integer => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_i64()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
-            }
-            InputValue::String => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| v.as_string()).collect();
-                let series = Series::new(&name, series_values?);
-                df_series.push(series)
+        if let Some(column_type) = &column.column_type {
+            match column_type {
+                InputType::Decimal => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_f64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::Integer => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_i64()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::String => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_string()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
+                InputType::Boolean => {
+                    let series_values: Result<Vec<_>, _> =
+                        column.values.iter().map(|v| v.as_bool()).collect();
+                    let series = Series::new(&name, series_values?);
+                    df_series.push(series)
+                }
             }
         }
     }
@@ -430,7 +617,7 @@ fn from_parsed_columns(column_values: ColumnMap, tag: &Tag) -> Result<NuDataFram
             return Err(ShellError::labeled_error(
                 "Error while creating dataframe",
                 format!("{}", e),
-                tag,
+                span,
             ))
         }
     }

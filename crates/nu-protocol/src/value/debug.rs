@@ -25,7 +25,9 @@ impl PrettyDebug for Value {
             UntaggedValue::Error(_) => DbgDocBldr::error("error"),
             UntaggedValue::Block(_) => DbgDocBldr::opaque("block"),
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(_) => DbgDocBldr::opaque("dataframe_prettydebug_for_data"),
+            UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
+                DbgDocBldr::opaque("dataframe")
+            }
         }
     }
 }

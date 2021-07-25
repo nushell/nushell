@@ -64,7 +64,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
 
-    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
         ShellError::labeled_error(

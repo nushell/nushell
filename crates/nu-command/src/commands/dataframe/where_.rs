@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::NuDataFrame,
+    dataframe::{Column, NuDataFrame},
     hir::{CapturedBlock, ClassifiedCommand, Expression, Literal, Operator, SpannedExpression},
     Primitive, Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
 };
@@ -37,7 +37,15 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Filter dataframe based on column a",
             example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe where a == 1",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new("a".to_string(), vec![UntaggedValue::int(1).into()]),
+                    Column::new("b".to_string(), vec![UntaggedValue::int(2).into()]),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -143,7 +151,7 @@ fn filter_dataframe(
     }?;
 
     let span = args.call_info.name_tag.span;
-    let df = NuDataFrame::try_from_stream(&mut args.input, &span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &span)?;
 
     let col = df
         .as_ref()
@@ -213,4 +221,17 @@ fn filter_dataframe(
         res,
         args.call_info.name_tag,
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

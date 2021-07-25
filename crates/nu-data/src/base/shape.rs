@@ -131,7 +131,7 @@ impl InlineShape {
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(_) => InlineShape::DataFrame,
+            UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => InlineShape::DataFrame,
         }
     }
 
