@@ -10,10 +10,10 @@ version = "0.1.0"
 doctest = false
 
 [dependencies]
-nu-errors = { path="../nu-errors", version = "0.34.0" }
-nu-plugin = { path="../nu-plugin", version = "0.34.0" }
-nu-protocol = { path="../nu-protocol", version = "0.34.0" }
-nu-source = { path="../nu-source", version = "0.34.0" }
+nu-errors = { path="../nu-errors", version = "0.34.1" }
+nu-plugin = { path="../nu-plugin", version = "0.34.1" }
+nu-protocol = { path="../nu-protocol", version = "0.34.1" }
+nu-source = { path="../nu-source", version = "0.34.1" }
 tempfile = "3.2.0"
 mp4 = "0.8.2"
 
