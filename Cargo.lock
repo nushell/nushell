@@ -2831,6 +2831,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 
 [[package]]
+name = "md-5"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5a279bb9607f9f53c22d496eade00d138d1bdcccd07d74650387cf94942a15"
+dependencies = [
+ "block-buffer 0.9.0",
+ "digest 0.9.0",
+ "opaque-debug",
+]
+
+[[package]]
 name = "md5"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3226,6 +3237,7 @@ dependencies = [
  "csv",
  "ctrlc",
  "derive-new",
+ "digest 0.9.0",
  "directories-next",
  "dirs-next",
  "dtparse",
@@ -3244,7 +3256,7 @@ dependencies = [
  "itertools",
  "lazy_static 1.4.0",
  "log",
- "md5 0.7.0",
+ "md-5",
  "meval",
  "minus",
  "nu-ansi-term",

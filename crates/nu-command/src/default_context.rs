@@ -85,6 +85,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Hash),
             whole_stream_command(HashBase64),
             whole_stream_command(HashMd5),
+            whole_stream_command(HashSha256),
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),

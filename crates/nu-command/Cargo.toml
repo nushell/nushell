@@ -58,7 +58,7 @@ indexmap = { version="1.7", features=["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.14"
-md5 = "0.7.0"
+md-5 = "0.9.1"
 meval = "0.2.0"
 minus = { version="3.4.0", optional=true, features=["async_std_lib", "search"] }
 num-bigint = { version="0.3.1", features=["serde"] }
@@ -96,6 +96,7 @@ url = "2.2.0"
 uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
 which = { version="4.1.0", optional=true }
 zip = { version="0.5.9", optional=true }
+digest = "0.9.0"
 
 [dependencies.polars]
 version = "0.14.7"
