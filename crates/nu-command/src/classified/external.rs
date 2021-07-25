@@ -432,10 +432,8 @@ fn spawn(
                     if let Ok(cfg) = cfg {
                         if cfg.contains_key("nonzero_exit_errors") {
                             let _ = stdout_read_tx.send(Ok(Value {
-                                value: UntaggedValue::Error(ShellError::labeled_error(
-                                    "External command failed",
-                                    "command failed",
-                                    &stdout_name_tag,
+                                value: UntaggedValue::Error(ShellError::command_failed(
+                                    &stdout_name_tag.span,
                                 )),
                                 tag: stdout_name_tag.clone(),
                             }));

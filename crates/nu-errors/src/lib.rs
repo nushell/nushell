@@ -220,6 +220,12 @@ impl PrettyDebug for ShellError {
                     + DbgDocBldr::space()
                     + DbgDocBldr::delimit("(", DbgDocBldr::description(&problem.item), ")")
             }
+            ProximateShellError::CommandFailed { span: _ } => {
+                // FIXME: report span here
+                DbgDocBldr::error("Command Failed")
+                    + DbgDocBldr::space()
+                    + DbgDocBldr::delimit("(", DbgDocBldr::description("command failed"), ")")
+            }
             ProximateShellError::UnexpectedEof { .. } => DbgDocBldr::error("Unexpected end"),
             ProximateShellError::TypeError { expected, actual } => {
                 DbgDocBldr::error("Type Error")
@@ -438,6 +444,10 @@ impl ShellError {
         .start()
     }
 
+    pub fn command_failed(span: impl Into<Span>) -> ShellError {
+        ProximateShellError::CommandFailed { span: span.into() }.start()
+    }
+
     pub fn coerce_error(
         left: Spanned<impl Into<String>>,
         right: Spanned<impl Into<String>>,
@@ -616,6 +626,14 @@ impl ShellError {
 
                 diag
             }
+            // FIXME: decide on an ordering for this variant and use it everywhere.
+            ProximateShellError::CommandFailed { span } => {
+                Diagnostic::error()
+                .with_message("External command failed")
+                .with_labels(vec![
+                    Label::primary(0, span).with_message("command failed (TODO: squash this error)")
+                ])
+            }
 
             ProximateShellError::Diagnostic(diag) => diag.diagnostic,
             ProximateShellError::CoerceError { left, right } => {
@@ -636,7 +654,7 @@ impl ShellError {
     pub fn labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
-        span: impl Into<Span>,
+        span: impl Into<Span>, //
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::error()
@@ -743,6 +761,9 @@ pub enum ProximateShellError {
     SyntaxError {
         problem: Spanned<String>,
     },
+    CommandFailed {
+        span: Span,
+    },
     UnexpectedEof {
         expected: String,
         span: Span,
@@ -804,6 +825,7 @@ impl HasFallibleSpan for ProximateShellError {
     fn maybe_span(&self) -> Option<Span> {
         Some(match self {
             ProximateShellError::SyntaxError { problem } => problem.span,
+            ProximateShellError::CommandFailed { span } => *span,
             ProximateShellError::UnexpectedEof { span, .. } => *span,
             ProximateShellError::TypeError { actual, .. } => actual.span,
             ProximateShellError::MissingProperty { subpath, .. } => subpath.span,
