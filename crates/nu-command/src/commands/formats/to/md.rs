@@ -51,8 +51,8 @@ impl WholeStreamCommand for Command {
                 |-|-|-|-|
                 |Andres.txt|File|10|2 years ago|
                 |Jonathan|Dir|5|2 years ago|
-                |Darren.txt|File|20|1 year ago|
-                |Yehuda|Dir|4|1 year ago|
+                |Darren.txt|File|20|2 years ago|
+                |Yehuda|Dir|4|2 years ago|
                 "#))]),
             },
             Example {
@@ -63,8 +63,8 @@ impl WholeStreamCommand for Command {
                     | ---------- | ---- | -------- | ----------- |
                     | Andres.txt | File | 10       | 2 years ago |
                     | Jonathan   | Dir  | 5        | 2 years ago |
-                    | Darren.txt | File | 20       | 1 year ago  |
-                    | Yehuda     | Dir  | 4        | 1 year ago  |
+                    | Darren.txt | File | 20       | 2 years ago |
+                    | Yehuda     | Dir  | 4        | 2 years ago |
                     "#))]),
             },
             Example {
