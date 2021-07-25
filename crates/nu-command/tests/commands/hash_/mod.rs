@@ -96,3 +96,19 @@ fn md5_works_with_file() {
 
     assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
 }
+
+#[test]
+fn sha256_works_with_file() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+        open sample.db | hash sha256
+        "#
+        )
+    );
+
+    assert_eq!(
+        actual.out,
+        "2f5050e7eea415c1f3d80b5d93355efd15043ec9157a2bb167a9e73f2ae651f2"
+    );
+}
