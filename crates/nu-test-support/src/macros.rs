@@ -51,6 +51,7 @@ macro_rules! nu {
             .arg("--skip-plugins")
             .arg("--no-history")
             .arg("--config-file")
+            .arg("--perf")
             .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())

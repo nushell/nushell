@@ -3200,6 +3200,7 @@ version = "0.34.1"
 dependencies = [
  "ctrlc",
  "indexmap",
+ "lazy_static 1.4.0",
  "log",
  "nu-ansi-term",
  "nu-command",

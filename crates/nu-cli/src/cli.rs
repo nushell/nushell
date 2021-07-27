@@ -1,3 +1,4 @@
+use crate::app::STOPWATCH;
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
@@ -86,6 +87,7 @@ pub fn run_script_file(
 pub fn cli(
     context: EvaluationContext,
     options: super::app::CliOptions,
+    // sw: &STOPWATCH,
 ) -> Result<(), Box<dyn Error>> {
     let _ = configure_ctrl_c(&context);
 
@@ -97,6 +99,21 @@ pub fn cli(
     } else {
         load_global_cfg(&context);
     }
+
+    if options.perf {
+        println!(
+            "config loaded: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
+
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION_MS",
@@ -118,9 +135,37 @@ pub fn cli(
         nu_data::config::path::default_history_path()
     };
 
+    if options.perf {
+        println!(
+            "rustyline configuration: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
+
     // Don't load history if it's not necessary
     if options.save_history {
         let _ = rl.load_history(&history_path);
+    }
+
+    if options.perf {
+        println!(
+            "history load: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
     }
 
     //set vars from cfg if present
@@ -135,6 +180,20 @@ pub fn cli(
     } else {
         (false, None)
     };
+
+    if options.perf {
+        println!(
+            "find custom prompt: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .stop();
+    }
 
     //Check whether dir we start in contains local cfg file and if so load it.
     load_local_cfg_if_present(&context);

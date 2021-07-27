@@ -31,6 +31,7 @@ ctrlc = { version="3.1.7", optional=true }
 shadow-rs = { version="0.6", default-features=false, optional=true }
 serde = { version="1.0.123", features=["derive"] }
 serde_yaml = "0.8.16"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 shadow-rs = "0.6"
