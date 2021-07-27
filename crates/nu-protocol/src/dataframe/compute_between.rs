@@ -1,10 +1,11 @@
 use bigdecimal::BigDecimal;
 use nu_errors::ShellError;
-use nu_protocol::dataframe::{Axis, NuDataFrame};
-use nu_protocol::hir::Operator;
-use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Span;
 use num_traits::ToPrimitive;
+
+use super::{Axis, NuDataFrame};
+use crate::hir::Operator;
+use crate::{Primitive, ShellTypeName, UntaggedValue, Value};
 
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,

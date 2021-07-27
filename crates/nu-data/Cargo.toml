@@ -37,13 +37,8 @@ nu-test-support = { version = "0.34.1", path="../nu-test-support" }
 nu-value-ext = { version = "0.34.1", path="../nu-value-ext" }
 nu-ansi-term = { version = "0.34.1", path="../nu-ansi-term" }
 
-[dependencies.polars]
-version = "0.14.7"
-optional = true
-features = ["strings", "checked_arithmetic"]
-
 [target.'cfg(unix)'.dependencies]
 users = "0.11.0"
 
 [features]
-dataframe = ["nu-protocol/dataframe", "polars"]
+dataframe = ["nu-protocol/dataframe"]
