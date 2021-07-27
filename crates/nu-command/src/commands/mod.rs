@@ -25,9 +25,9 @@ pub use conversions::*;
 pub use core_commands::*;
 #[cfg(feature = "dataframe")]
 pub use dataframe::{
-    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameArgMax,
-    DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique, DataFrameColumn,
-    DataFrameConcatenate, DataFrameContains, DataFrameDTypes, DataFrameDrop,
+    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameAppend,
+    DataFrameArgMax, DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique,
+    DataFrameColumn, DataFrameConcatenate, DataFrameContains, DataFrameDTypes, DataFrameDrop,
     DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameFilter, DataFrameFirst,
     DataFrameGet, DataFrameGroupBy, DataFrameIsDuplicated, DataFrameIsIn, DataFrameIsNotNull,
     DataFrameIsNull, DataFrameIsUnique, DataFrameJoin, DataFrameLast, DataFrameList, DataFrameMelt,

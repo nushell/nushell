@@ -78,6 +78,7 @@ pub enum CompareValues {
     String(String, String),
     Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
     DateDuration(DateTime<FixedOffset>, BigInt),
+    TimeDuration(BigInt, BigInt),
     Booleans(bool, bool),
 }
 
@@ -104,6 +105,7 @@ impl CompareValues {
                 right.cmp(left)
             }
             CompareValues::Booleans(left, right) => left.cmp(right),
+            CompareValues::TimeDuration(left, right) => left.cmp(right),
         }
     }
 }
@@ -173,6 +175,9 @@ pub fn coerce_compare_primitive(
         }
         (String(left), FilePath(right)) => {
             CompareValues::String(left.clone(), right.as_path().display().to_string())
+        }
+        (Duration(left), Duration(right)) => {
+            CompareValues::TimeDuration(left.clone(), right.clone())
         }
         _ => return Err((left.type_name(), right.type_name())),
     })
