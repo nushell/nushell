@@ -1889,10 +1889,9 @@ fn parse_call(
                     )),
                 );
             }
-            if let Ok(contents) = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(
-                &lite_cmd.parts[1].item,
-            )))) {
-                let _ = parse(&contents, 0, scope);
+            let path = expand_path(Cow::Borrowed(Path::new(&lite_cmd.parts[1].item)));
+            if path.exists() && !path.is_dir() {
+                return (Some(ClassifiedCommand::Internal(internal_command)), None);
             } else {
                 return (
                     Some(ClassifiedCommand::Internal(internal_command)),
