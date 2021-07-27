@@ -3360,7 +3360,6 @@ dependencies = [
  "num-bigint 0.3.2",
  "num-format",
  "num-traits 0.2.14",
- "polars",
  "query_interface",
  "serde 1.0.126",
  "sha2 0.9.5",
@@ -4450,9 +4449,9 @@ dependencies = [
 
 [[package]]
 name = "polars"
-version = "0.14.7"
+version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c1bf71de63afed8a9262b61a2a7c3a463bf3b2b8dc28a91873621a86ddeb996"
+checksum = "9ed1645f3daba885ecedef8a76839536bfc7263f1e4fc0b67b27282f19325756"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4461,9 +4460,9 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.14.7"
+version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1d436b455a6ac76f09b7b8127d2c4b21e80e8b7579218edee91ce138281d178"
+checksum = "5943252213fbd21e26b62240f5bb73f5d874e1072ed93234c6860781a4c366f2"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4472,9 +4471,9 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.14.7"
+version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e1a74ab0ddbb0cca4f9a79691cf419ec7af63fc1f72206fac6ab45508d6d85"
+checksum = "df43d51c6314623deafdd1266ca9a8431f087d9d345fffc8eeb16508aec69fee"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4499,9 +4498,9 @@ dependencies = [
 
 [[package]]
 name = "polars-io"
-version = "0.14.7"
+version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54f37bf032736512cc938000e937175b3bbfc27ea72abd07fc03d25145d709a0"
+checksum = "cd998aab494826fb08d9c83763fc2925c9aa4eab2e4b349416bb174b9b300a3a"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4525,9 +4524,9 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.14.7"
+version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c7f767d152af32f2880c02d0e4ead23d5591e066bf92af462ef9d1e4149e7af"
+checksum = "6596b6d1cf1e378976ad9f5d2abe88ba08f112684ca1b67fbe89b97832c9f11d"
 dependencies = [
  "ahash",
  "itertools",

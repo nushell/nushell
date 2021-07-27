@@ -5,7 +5,7 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 #[cfg(feature = "dataframe")]
-use nu_data::dataframe::{compute_between_dataframes, compute_series_single_value};
+use nu_protocol::dataframe::{compute_between_dataframes, compute_series_single_value};
 
 pub fn apply_operator(
     op: Operator,
