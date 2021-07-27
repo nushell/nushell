@@ -87,7 +87,6 @@ pub fn run_script_file(
 pub fn cli(
     context: EvaluationContext,
     options: super::app::CliOptions,
-    // sw: &STOPWATCH,
 ) -> Result<(), Box<dyn Error>> {
     let _ = configure_ctrl_c(&context);
 

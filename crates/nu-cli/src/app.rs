@@ -270,7 +270,6 @@ impl App {
 
         #[cfg(feature = "rustyline-support")]
         {
-            // crate::cli(context, opts, &STOPWATCH)?;
             crate::cli(context, opts)?;
         }
 
