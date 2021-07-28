@@ -30,6 +30,7 @@ sys-locale = "0.1.0"
 toml = "0.5.8"
 
 nu-errors = { version = "0.36.1", path="../nu-errors" }
+nu-path = { version = "0.36.1", path="../nu-path" }
 nu-protocol = { version = "0.36.1", path="../nu-protocol" }
 nu-source = { version = "0.36.1", path="../nu-source" }
 nu-table = { version = "0.36.1", path="../nu-table" }
