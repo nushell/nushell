@@ -174,23 +174,25 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                    let convert_x = match x.is_negative() {
-                        true => -1.0 * x_float,
-                        false => 1.0 * x_float,
+                    let sign = match x.is_negative() {
+                        true => -1,
+                        false => 1,
                     };
 
                     if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => Ok(UntaggedValue::Primitive(Primitive::Int(
-                                (convert_x as i64).pow(num),
+                                sign * (x.pow(num)),
                             ))),
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
+
                         match pow {
                             Some(p) => Ok(UntaggedValue::Primitive(Primitive::Decimal(p))),
                             _ => Err((left.type_name(), right.type_name())),
@@ -233,23 +235,23 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                    let convert_x = match x.is_negative() {
-                        true => -1.0 * x_float,
-                        false => 1.0 * x_float,
+                    let sign = match x.is_negative() {
+                        true => -1,
+                        false => 1,
                     };
 
                     if !y.is_negative() {
                         match prim_u32 {
                             Some(num) => Ok(UntaggedValue::Primitive(Primitive::Int(
-                                (convert_x as i64).pow(num),
+                                sign * (x.pow(num)),
                             ))),
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(UntaggedValue::Primitive(Primitive::Decimal(p))),
                             _ => Err((left.type_name(), right.type_name())),
@@ -292,24 +294,22 @@ pub fn compute_values(
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
 
-                    let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                    let convert_x = match x.is_negative() {
-                        true => -1.0 * x_float,
-                        false => 1.0 * x_float,
+                    let sign = match x.is_negative() {
+                        true => -1,
+                        false => 1,
                     };
 
                     if !y.is_negative() {
-                        let cast_x = convert_x.to_bigint().unwrap();
                         match prim_u32 {
-                            Some(num) => {
-                                Ok(UntaggedValue::Primitive(Primitive::BigInt(cast_x.pow(num))))
-                            }
+                            Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                                (sign.to_bigint().unwrap_or_default()) * x.pow(num),
+                            ))),
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow = bigdecimal::FromPrimitive::from_f64((sign as f64) * xp.powf(yp));
                         match pow {
                             Some(p) => Ok(UntaggedValue::Primitive(Primitive::Decimal(p))),
                             _ => Err((left.type_name(), right.type_name())),
@@ -343,28 +343,25 @@ pub fn compute_values(
                 }
                 Operator::Pow => {
                     let prim_u32 = ToPrimitive::to_u32(y);
-                    let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
 
-                    let convert_x = match x.is_negative() {
-                        true => -1.0 * x_float,
-                        false => 1.0 * x_float,
+                    let sign = match x.is_negative() {
+                        true => -1,
+                        false => 1,
                     };
 
                     if !y.is_negative() {
-                        let cast_x = convert_x.to_bigint().unwrap();
                         match prim_u32 {
-                            Some(num) => {
-                                Ok(UntaggedValue::Primitive(Primitive::BigInt(cast_x.pow(num))))
-                            }
+                            Some(num) => Ok(UntaggedValue::Primitive(Primitive::BigInt(
+                                (sign.to_bigint().unwrap_or_default()).pow(num),
+                            ))),
                             _ => Err((left.type_name(), right.type_name())),
                         }
                     } else {
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
 
-                        let pow = match x.is_negative() {
-                            true => bigdecimal::FromPrimitive::from_f64((convert_x).powf(yp)),
-                            false => bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp)),
-                        };
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
 
                         match pow {
                             Some(p) => Ok(UntaggedValue::Primitive(Primitive::Decimal(p))),
@@ -393,15 +390,15 @@ pub fn compute_values(
                     }
                     // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
                     Operator::Pow => {
-                        let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                        let convert_x = match x.is_negative() {
-                            true => -1.0 * x_float,
-                            false => 1.0 * x_float,
+                        let sign = match x.is_negative() {
+                            true => -1,
+                            false => 1,
                         };
 
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(p),
                             None => Err((left.type_name(), right.type_name())),
@@ -430,14 +427,15 @@ pub fn compute_values(
                     }
                     // big decimal doesn't support pow yet
                     Operator::Pow => {
-                        let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                        let convert_x = match x.is_negative() {
-                            true => -1.0 * x_float,
-                            false => 1.0 * x_float,
+                        let sign = match x.is_negative() {
+                            true => -1,
+                            false => 1,
                         };
+
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(p),
                             None => Err((left.type_name(), right.type_name())),
@@ -466,15 +464,15 @@ pub fn compute_values(
                     }
                     // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
                     Operator::Pow => {
-                        let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                        let convert_x = match x.is_negative() {
-                            true => -1.0 * x_float,
-                            false => 1.0 * x_float,
+                        let sign = match x.is_negative() {
+                            true => -1,
+                            false => 1,
                         };
 
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(p),
                             None => Err((left.type_name(), right.type_name())),
@@ -503,15 +501,15 @@ pub fn compute_values(
                     }
                     // big decimal doesn't support pow yet
                     Operator::Pow => {
-                        let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                        let convert_x = match x.is_negative() {
-                            true => -1.0 * x_float,
-                            false => 1.0 * x_float,
+                        let sign = match x.is_negative() {
+                            true => -1,
+                            false => 1,
                         };
 
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(p),
                             None => Err((left.type_name(), right.type_name())),
@@ -540,14 +538,15 @@ pub fn compute_values(
                     }
                     // big decimal doesn't support pow yet
                     Operator::Pow => {
-                        let x_float = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
-
-                        let convert_x = match x.is_negative() {
-                            true => -1.0 * x_float,
-                            false => 1.0 * x_float,
+                        let sign = match x.is_negative() {
+                            true => -1,
+                            false => 1,
                         };
+
                         let yp = bigdecimal::ToPrimitive::to_f64(y).unwrap_or(0.0);
-                        let pow = bigdecimal::FromPrimitive::from_f64(convert_x.powf(yp));
+                        let xp = bigdecimal::ToPrimitive::to_f64(x).unwrap_or(0.0);
+                        let pow =
+                            bigdecimal::FromPrimitive::from_f64((sign as f64) * (xp.powf(yp)));
                         match pow {
                             Some(p) => Ok(p),
                             None => Err((left.type_name(), right.type_name())),
@@ -799,13 +798,37 @@ mod tests {
 
         let should_equal_neg_zero_decimal = bigdecimal::FromPrimitive::from_f64(-0.25).unwrap();
 
-        // Need to validate
-
-        /*
         assert_eq!(
             result_five.unwrap(),
             UntaggedValue::Primitive(Primitive::Decimal(should_equal_neg_zero_decimal))
         );
-        */
+
+        // test -2 ** 2
+        let result_six = compute_values(
+            Operator::Pow,
+            &UntaggedValue::Primitive(Primitive::Int(-2)),
+            &UntaggedValue::Primitive(Primitive::Int(2)),
+        );
+
+        assert_eq!(
+            result_six.unwrap(),
+            UntaggedValue::Primitive(Primitive::Int(-4))
+        );
+
+        // test -2.0 ** 2
+        let lhs_decimal = bigdecimal::FromPrimitive::from_f64(-2.0).unwrap();
+        let should_equal_neg_four_decimal = bigdecimal::FromPrimitive::from_f64(-4.0).unwrap();
+
+        let result_seven = compute_values(
+            Operator::Pow,
+            &UntaggedValue::Primitive(Primitive::Decimal(lhs_decimal)),
+            &UntaggedValue::Primitive(Primitive::Int(2)),
+        );
+
+        // Need to validate
+        assert_eq!(
+            result_seven.unwrap(),
+            UntaggedValue::Primitive(Primitive::Decimal(should_equal_neg_four_decimal))
+        );
     }
 }
