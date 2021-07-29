@@ -20,6 +20,34 @@ fn checks_all_rows_are_true() {
 }
 
 #[test]
+fn checks_all_rows_are_false_with_param() {
+    Playground::setup("all_test_1", |_, nu| {
+        assert_that!(
+            nu.pipeline(&input(
+                r#"
+                [1, 2, 3, 4] | all? { |a| $a >= 5 }
+                "#
+            )),
+            says().stdout("false")
+        );
+    })
+}
+
+#[test]
+fn checks_all_rows_are_true_with_param() {
+    Playground::setup("all_test_1", |_, nu| {
+        assert_that!(
+            nu.pipeline(&input(
+                r#"
+                [1, 2, 3, 4] | all? { |a| $a < 5 }
+                "#
+            )),
+            says().stdout("true")
+        );
+    })
+}
+
+#[test]
 fn checks_all_columns_of_a_table_is_true() {
     Playground::setup("any_test_1", |_, nu| {
         assert_that!(
