@@ -99,7 +99,7 @@ fn command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let rhs = evaluate_baseline_expr(&expression.right, &args.context)?;
 
-    filter_dataframe(args, &col_name, &col_name_span, &rhs, &expression.op)
+    filter_dataframe(args, col_name, col_name_span, &rhs, &expression.op)
 }
 
 macro_rules! comparison_arm {

@@ -218,7 +218,7 @@ fn which(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut output = vec![];
 
     for app in which_args.applications {
-        let values = which_single(app, which_args.all, &args.scope());
+        let values = which_single(app, which_args.all, args.scope());
         output.extend(values);
     }
 

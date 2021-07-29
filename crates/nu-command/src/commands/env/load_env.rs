@@ -85,10 +85,10 @@ pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = &args.context;
 
     if let Some(values) = args.opt::<Vec<Value>>(0)? {
-        load_env_from_table(values, &ctx)?;
+        load_env_from_table(values, ctx)?;
     }
 
-    load_env_from_table(args.input, &ctx)?;
+    load_env_from_table(args.input, ctx)?;
 
     Ok(ActionStream::empty())
 }

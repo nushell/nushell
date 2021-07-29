@@ -73,7 +73,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let casted = series.bool().map_err(|e| {
         parse_polars_error(
             &e,
-            &&series_span,
+            &series_span,
             Some("Perhaps you want to use a series with booleans as mask"),
         )
     })?;
@@ -82,7 +82,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let res = df
         .as_ref()
-        .filter(&casted)
+        .filter(casted)
         .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
