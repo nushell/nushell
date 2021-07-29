@@ -104,7 +104,7 @@ impl WholeStreamCommand for Arc<Block> {
         let external_redirection = args.call_info.args.external_redirection;
 
         let ctx = &args.context;
-        let evaluated = call_info.evaluate(&ctx)?;
+        let evaluated = call_info.evaluate(ctx)?;
 
         let input = args.input;
         ctx.scope.enter_scope();
@@ -198,7 +198,7 @@ impl WholeStreamCommand for Arc<Block> {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input, external_redirection);
+        let result = run_block(&block, ctx, input, external_redirection);
         ctx.scope.exit_scope();
         result
     }

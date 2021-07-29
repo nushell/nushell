@@ -52,7 +52,7 @@ fn merge(args: CommandArgs) -> Result<ActionStream, ShellError> {
     context.scope.add_vars(&block.captured.entries);
     let result = run_block(
         &block.block,
-        &context,
+        context,
         InputStream::empty(),
         ExternalRedirection::Stdout,
     );

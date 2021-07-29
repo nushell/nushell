@@ -67,7 +67,7 @@ fn collect(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let result = run_block(
         &block.block,
-        &context,
+        context,
         InputStream::empty(),
         external_redirection,
     );

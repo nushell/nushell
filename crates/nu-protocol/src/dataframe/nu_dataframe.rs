@@ -94,7 +94,7 @@ impl PartialEq for NuDataFrame {
                 _ => self_series.clone(),
             };
 
-            if !self_series.series_equal(&other_series) {
+            if !self_series.series_equal(other_series) {
                 return false;
             }
         }

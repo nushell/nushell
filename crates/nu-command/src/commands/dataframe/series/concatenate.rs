@@ -85,7 +85,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )
     })?;
 
-    let mut res = chunked.concat(&other_chunked);
+    let mut res = chunked.concat(other_chunked);
 
     res.rename(series.name());
 

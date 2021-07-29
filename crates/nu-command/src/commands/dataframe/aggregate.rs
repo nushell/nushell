@@ -175,7 +175,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::DataFrame(df) => {
             let df = df.as_ref();
 
-            let res = perform_dataframe_aggregation(&df, op, &operation.tag)?;
+            let res = perform_dataframe_aggregation(df, op, &operation.tag)?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
