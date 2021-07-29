@@ -78,7 +78,7 @@ impl App {
                     .lock()
                     .expect("unable to lock the stopwatch")
                     .stop();
-                println!(
+                eprintln!(
                     "help {:?}",
                     STOPWATCH
                         .lock()
@@ -135,7 +135,7 @@ impl App {
                     .lock()
                     .expect("unable to lock the stopwatch")
                     .stop();
-                println!(
+                eprintln!(
                     "version {:?}",
                     STOPWATCH
                         .lock()
@@ -197,7 +197,7 @@ impl App {
 
         if self.perf() {
             // start a new spit
-            println!(
+            eprintln!(
                 "run_script_file commands 1: {:?}",
                 STOPWATCH
                     .lock()
@@ -238,7 +238,7 @@ impl App {
 
         if self.perf() {
             // start a new split
-            println!(
+            eprintln!(
                 "run_script_file commands 2: {:?}",
                 STOPWATCH
                     .lock()
@@ -259,7 +259,7 @@ impl App {
 
         if self.perf() {
             // start a new split
-            println!(
+            eprintln!(
                 "plugins registered: {:?}",
                 STOPWATCH
                     .lock()

@@ -100,7 +100,7 @@ pub fn cli(
     }
 
     if options.perf {
-        println!(
+        eprintln!(
             "config loaded: {:?}",
             STOPWATCH
                 .lock()
@@ -135,7 +135,7 @@ pub fn cli(
     };
 
     if options.perf {
-        println!(
+        eprintln!(
             "rustyline configuration: {:?}",
             STOPWATCH
                 .lock()
@@ -154,7 +154,7 @@ pub fn cli(
     }
 
     if options.perf {
-        println!(
+        eprintln!(
             "history load: {:?}",
             STOPWATCH
                 .lock()
@@ -181,7 +181,7 @@ pub fn cli(
     };
 
     if options.perf {
-        println!(
+        eprintln!(
             "find custom prompt: {:?}",
             STOPWATCH
                 .lock()
