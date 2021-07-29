@@ -96,7 +96,11 @@ fn all(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let result = args.input.fold(init, move |acc, row| {
         let condition = condition.clone();
         let ctx = ctx.clone();
-        ctx.scope.add_var("$it", row);
+        if let Some(positional) = all_args.predicate.block.params.positional.get(0) {
+            ctx.scope.add_var(positional.0.name(), row);
+        } else {
+            ctx.scope.add_var("$it", row);
+        }
 
         let condition = evaluate_baseline_expr(&condition, &ctx);
 
