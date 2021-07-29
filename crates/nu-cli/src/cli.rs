@@ -1,3 +1,4 @@
+use crate::app::STOPWATCH;
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
@@ -97,15 +98,26 @@ pub fn cli(
     } else {
         load_global_cfg(&context);
     }
+
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION_MS",
         format!("{}", startup_commands_start_time.elapsed().as_millis()),
     );
-    trace!(
-        "startup commands took {:?}",
-        startup_commands_start_time.elapsed()
-    );
+
+    if options.perf {
+        eprintln!(
+            "config loaded: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
@@ -118,9 +130,37 @@ pub fn cli(
         nu_data::config::path::default_history_path()
     };
 
+    if options.perf {
+        eprintln!(
+            "rustyline configuration: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
+
     // Don't load history if it's not necessary
     if options.save_history {
         let _ = rl.load_history(&history_path);
+    }
+
+    if options.perf {
+        eprintln!(
+            "history load: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
     }
 
     //set vars from cfg if present
@@ -135,6 +175,20 @@ pub fn cli(
     } else {
         (false, None)
     };
+
+    if options.perf {
+        eprintln!(
+            "load custom prompt: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
 
     //Check whether dir we start in contains local cfg file and if so load it.
     load_local_cfg_if_present(&context);
@@ -158,6 +212,20 @@ pub fn cli(
     }
 
     let mut ctrlcbreak = false;
+
+    if options.perf {
+        eprintln!(
+            "timing stopped. starting run loop: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .stop();
+    }
 
     loop {
         if context.ctrl_c().load(Ordering::SeqCst) {

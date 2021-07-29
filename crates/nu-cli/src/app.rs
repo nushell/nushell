@@ -1,10 +1,10 @@
 mod logger;
 mod options;
 mod options_parser;
+pub mod stopwatch;
 
-pub use options::{CliOptions, NuScript, Options};
-use options_parser::{NuParser, OptionsParser};
-
+use self::stopwatch::Stopwatch;
+use lazy_static::lazy_static;
 use nu_command::{commands::NuSignature as Nu, utils::test_bins as binaries};
 use nu_engine::{get_full_help, EvaluationContext};
 use nu_errors::ShellError;
@@ -12,6 +12,18 @@ use nu_protocol::hir::{Call, Expression, SpannedExpression, Synthetic};
 use nu_protocol::{Primitive, UntaggedValue};
 use nu_source::{Span, Tag};
 use nu_stream::InputStream;
+pub use options::{CliOptions, NuScript, Options};
+use options_parser::{NuParser, OptionsParser};
+use std::sync::Mutex;
+
+lazy_static! {
+    pub static ref STOPWATCH: Mutex<Stopwatch> = {
+        let mut sw = Stopwatch::default();
+        sw.start();
+        sw.stop();
+        Mutex::new(sw)
+    };
+}
 
 pub struct App {
     parser: Box<dyn OptionsParser>,
@@ -32,6 +44,14 @@ impl App {
     }
 
     pub fn main(&self, argv: &[String]) -> Result<(), ShellError> {
+        if self.perf() {
+            // start the stopwatch running
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .start();
+        }
+
         let argv = quote_positionals(argv).join(" ");
 
         if let Err(cause) = self.parse(&argv) {
@@ -51,6 +71,21 @@ impl App {
             );
 
             consume(context, stream)?;
+
+            if self.perf() {
+                // stop the stopwatch since we're exiting
+                STOPWATCH
+                    .lock()
+                    .expect("unable to lock the stopwatch")
+                    .stop();
+                eprintln!(
+                    "help {:?}",
+                    STOPWATCH
+                        .lock()
+                        .expect("unable to lock the stopwatch")
+                        .elapsed()
+                );
+            }
 
             std::process::exit(0);
         }
@@ -93,6 +128,22 @@ impl App {
             };
 
             consume(context, stream)?;
+
+            if self.perf() {
+                // stop the stopwatch since we're exiting
+                STOPWATCH
+                    .lock()
+                    .expect("unable to lock the stopwatch")
+                    .stop();
+                eprintln!(
+                    "version {:?}",
+                    STOPWATCH
+                        .lock()
+                        .expect("unable to lock the stopwatch")
+                        .elapsed()
+                );
+            }
+
             std::process::exit(0);
         }
 
@@ -113,10 +164,10 @@ impl App {
         }
 
         let mut opts = CliOptions::new();
-
         opts.config = self.config().map(std::ffi::OsString::from);
         opts.stdin = self.takes_stdin();
         opts.save_history = self.save_history();
+        opts.perf = self.perf();
 
         use logger::{configure, debug_filters, logger, trace_filters};
 
@@ -128,12 +179,35 @@ impl App {
             Ok(())
         })?;
 
+        if self.perf() {
+            // start a new split
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .start()
+        }
+
         if let Some(commands) = self.commands() {
             let commands = commands?;
             let script = NuScript::code(&commands)?;
             opts.scripts = vec![script];
             let context = crate::create_default_context(false)?;
             return crate::run_script_file(context, opts);
+        }
+
+        if self.perf() {
+            // start a new spit
+            eprintln!(
+                "commands using -c at launch: {:?}",
+                STOPWATCH
+                    .lock()
+                    .expect("unable to lock the stopwatch")
+                    .elapsed_split()
+            );
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .start();
         }
 
         if let Some(scripts) = self.scripts() {
@@ -162,10 +236,36 @@ impl App {
             return Ok(());
         }
 
+        if self.perf() {
+            // start a new split
+            eprintln!(
+                "script file(s) passed in: {:?}",
+                STOPWATCH
+                    .lock()
+                    .expect("unable to lock the stopwatch")
+                    .elapsed_split()
+            );
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .start();
+        }
+
         let context = crate::create_default_context(true)?;
 
         if !self.skip_plugins() {
             let _ = crate::register_plugins(&context);
+        }
+
+        if self.perf() {
+            // start a new split
+            eprintln!(
+                "plugins registered: {:?}",
+                STOPWATCH
+                    .lock()
+                    .expect("unable to lock the stopwatch")
+                    .elapsed_split()
+            );
         }
 
         #[cfg(feature = "rustyline-support")]
@@ -187,6 +287,13 @@ impl App {
             UntaggedValue::Primitive(Primitive::String(name)) => Ok(name),
             _ => Err(ShellError::untagged_runtime_error("Unsupported option")),
         })
+    }
+
+    pub fn perf(&self) -> bool {
+        self.options
+            .get("perf")
+            .map(|v| matches!(v.as_bool(), Ok(true)))
+            .unwrap_or(false)
     }
 
     pub fn help(&self) -> bool {
