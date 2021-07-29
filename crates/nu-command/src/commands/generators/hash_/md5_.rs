@@ -1,34 +1,17 @@
 use crate::prelude::*;
 use md5::Md5;
-use nu_engine::WholeStreamCommand;
-use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::UntaggedValue;
 
-use super::generic_digest;
+use super::generic_digest::{self, HashDigest};
 
-pub struct SubCommand;
+pub type SubCommand = generic_digest::SubCommand<Md5>;
 
-impl WholeStreamCommand for SubCommand {
-    fn name(&self) -> &str {
-        "hash md5"
+impl HashDigest for Md5 {
+    fn name() -> &'static str {
+        "md5"
     }
 
-    fn signature(&self) -> Signature {
-        Signature::build("hash md5").rest(
-            SyntaxShape::ColumnPath,
-            "optionally md5 encode data by column paths",
-        )
-    }
-
-    fn usage(&self) -> &str {
-        "md5 encode a value"
-    }
-
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        generic_digest::run::<Md5>(args)
-    }
-
-    fn examples(&self) -> Vec<Example> {
+    fn examples() -> Vec<Example> {
         vec![
             Example {
                 description: "md5 encode a string",

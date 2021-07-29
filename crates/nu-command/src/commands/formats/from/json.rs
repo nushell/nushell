@@ -69,10 +69,10 @@ fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let concat_string = args.input.collect_string(name_tag.clone())?;
 
-    let string_clone: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
-
     if objects {
-        Ok(string_clone
+        #[allow(clippy::needless_collect)]
+        let lines: Vec<_> = concat_string.item.lines().map(|x| x.to_string()).collect();
+        Ok(lines
             .into_iter()
             .filter_map(move |json_str| {
                 if json_str.is_empty() {

@@ -186,7 +186,7 @@ pub fn compute_between_series(
                         let mut res = l.bitand(r).into_series();
                         let name = format!("and_{}_{}", lhs.name(), rhs.name());
                         res.rename(name.as_ref());
-                        Ok(NuDataFrame::series_to_untagged(res, &operation_span))
+                        Ok(NuDataFrame::series_to_untagged(res, operation_span))
                     }
                     _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
                         "Casting error",
@@ -211,7 +211,7 @@ pub fn compute_between_series(
                         let mut res = l.bitor(r).into_series();
                         let name = format!("or_{}_{}", lhs.name(), rhs.name());
                         res.rename(name.as_ref());
-                        Ok(NuDataFrame::series_to_untagged(res, &operation_span))
+                        Ok(NuDataFrame::series_to_untagged(res, operation_span))
                     }
                     _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
                         "Casting error",
