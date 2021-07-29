@@ -32,9 +32,9 @@ serde_yaml = "0.8.16"
 toml = "0.5.8"
 
 [dependencies.polars]
-version = "0.14.7"
+version = "0.14.8"
 optional = true
-features = ["serde", "rows"]
+features = ["serde", "rows", "strings", "checked_arithmetic"]
 
 [features]
 dataframe = ["polars"]
