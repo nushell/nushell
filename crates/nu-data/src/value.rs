@@ -388,7 +388,7 @@ pub fn compute_values(
                         }
                         Ok(x % bigdecimal::BigDecimal::from(*y))
                     }
-                    // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
+
                     Operator::Pow => {
                         let sign = match x.is_negative() {
                             true => -1,
@@ -425,7 +425,7 @@ pub fn compute_values(
                         }
                         Ok(bigdecimal::BigDecimal::from(*x) % y)
                     }
-                    // big decimal doesn't support pow yet
+
                     Operator::Pow => {
                         let sign = match x.is_negative() {
                             true => -1,
@@ -462,7 +462,7 @@ pub fn compute_values(
                         }
                         Ok(x % bigdecimal::BigDecimal::from(y.clone()))
                     }
-                    // leaving this here for the hope that bigdecimal will one day support pow/powf/fpow
+
                     Operator::Pow => {
                         let sign = match x.is_negative() {
                             true => -1,
@@ -499,7 +499,7 @@ pub fn compute_values(
                         }
                         Ok(bigdecimal::BigDecimal::from(x.clone()) % y)
                     }
-                    // big decimal doesn't support pow yet
+
                     Operator::Pow => {
                         let sign = match x.is_negative() {
                             true => -1,
@@ -536,7 +536,7 @@ pub fn compute_values(
                         }
                         Ok(x % y)
                     }
-                    // big decimal doesn't support pow yet
+
                     Operator::Pow => {
                         let sign = match x.is_negative() {
                             true => -1,
