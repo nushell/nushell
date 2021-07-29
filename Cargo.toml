@@ -41,7 +41,7 @@ nu_plugin_match = { version = "0.34.1", path="./crates/nu_plugin_match", optiona
 nu_plugin_post = { version = "0.34.1", path="./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.34.1", path="./crates/nu_plugin_ps", optional=true }
 nu_plugin_query_json = { version = "0.34.1", path="./crates/nu_plugin_query_json", optional=true }
-nu_plugin_s3 = { version = "0.34.1", path="./crates/nu_plugin_s3", optional=true }
+# nu_plugin_s3 = { version = "0.34.1", path="./crates/nu_plugin_s3", optional=true }
 nu_plugin_selector = { version = "0.34.1", path="./crates/nu_plugin_selector", optional=true }
 nu_plugin_start = { version = "0.34.1", path="./crates/nu_plugin_start", optional=true }
 nu_plugin_sys = { version = "0.34.1", path="./crates/nu_plugin_sys", optional=true }
@@ -100,7 +100,7 @@ extra = [
     "start",
     "bson",
     "sqlite",
-    "s3",
+    # "s3",
     "chart",
     "xpath",
     "selector",
@@ -124,7 +124,7 @@ bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
 clipboard-cli = ["nu-command/clipboard-cli"]
 query-json = ["nu_plugin_query_json"]
-s3 = ["nu_plugin_s3"]
+# s3 = ["nu_plugin_s3"]
 selector = ["nu_plugin_selector"]
 sqlite = ["nu_plugin_from_sqlite", "nu_plugin_to_sqlite"]
 start = ["nu_plugin_start"]
@@ -210,10 +210,10 @@ name = "nu_plugin_extra_start"
 path = "src/plugins/nu_plugin_extra_start.rs"
 required-features = ["start"]
 
-[[bin]]
-name = "nu_plugin_extra_s3"
-path = "src/plugins/nu_plugin_extra_s3.rs"
-required-features = ["s3"]
+# [[bin]]
+# name = "nu_plugin_extra_s3"
+# path = "src/plugins/nu_plugin_extra_s3.rs"
+# required-features = ["s3"]
 
 [[bin]]
 name = "nu_plugin_extra_chart_bar"
