@@ -342,14 +342,19 @@ impl NuDataFrame {
             })
             .collect::<Result<Vec<Column>, ShellError>>()?;
 
+        let mut iterators = columns
+            .into_iter()
+            .map(|col| (col.name().to_string(), col.into_iter()))
+            .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
+
         let values = (0..size)
             .into_iter()
             .map(|i| {
                 let mut dictionary_row = Dictionary::default();
 
-                for col in columns.iter() {
-                    let dict_val = match col.get(i) {
-                        Some(v) => v.clone(),
+                for (name, col) in iterators.iter_mut() {
+                    let dict_val = match col.next() {
+                        Some(v) => v,
                         None => {
                             println!("index: {}", i);
                             Value {
@@ -358,7 +363,7 @@ impl NuDataFrame {
                             }
                         }
                     };
-                    dictionary_row.insert(col.name().to_string(), dict_val);
+                    dictionary_row.insert(name.clone(), dict_val);
                 }
 
                 Value {
