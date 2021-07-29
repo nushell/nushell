@@ -11,6 +11,7 @@ mod span;
 mod syntax_highlight;
 #[cfg(test)]
 mod tests;
+mod type_check;
 
 pub use declaration::Declaration;
 pub use eval::{eval_block, eval_expression, Stack, State};

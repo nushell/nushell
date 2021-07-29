@@ -35,15 +35,14 @@ impl<'a> ParserWorkingSet<'a> {
         match &expr.expr {
             Expr::BinaryOp(lhs, op, rhs) => {
                 let mut output = vec![];
-                output.extend(self.flatten_expression(&lhs));
-                output.extend(self.flatten_expression(&op));
-                output.extend(self.flatten_expression(&rhs));
+                output.extend(self.flatten_expression(lhs));
+                output.extend(self.flatten_expression(op));
+                output.extend(self.flatten_expression(rhs));
                 output
             }
             Expr::Block(block_id) => self.flatten_block(self.get_block(*block_id)),
             Expr::Call(call) => {
-                let mut output = vec![];
-                output.push((call.head, FlatShape::InternalCall));
+                let mut output = vec![(call.head, FlatShape::InternalCall)];
                 for positional in &call.positional {
                     output.extend(self.flatten_expression(positional));
                 }

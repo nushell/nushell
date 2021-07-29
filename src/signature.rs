@@ -203,21 +203,15 @@ impl Signature {
         let mut total = self.required_positional.len() + self.optional_positional.len();
 
         for positional in &self.required_positional {
-            match positional.shape {
-                SyntaxShape::Keyword(..) => {
-                    // Keywords have a required argument, so account for that
-                    total += 1;
-                }
-                _ => {}
+            if let SyntaxShape::Keyword(..) = positional.shape {
+                // Keywords have a required argument, so account for that
+                total += 1;
             }
         }
         for positional in &self.optional_positional {
-            match positional.shape {
-                SyntaxShape::Keyword(..) => {
-                    // Keywords have a required argument, so account for that
-                    total += 1;
-                }
-                _ => {}
+            if let SyntaxShape::Keyword(..) = positional.shape {
+                // Keywords have a required argument, so account for that
+                total += 1;
             }
         }
         total
@@ -285,10 +279,19 @@ impl Signature {
     }
 }
 
-impl Into<Declaration> for Signature {
-    fn into(self) -> Declaration {
+impl From<Box<Signature>> for Declaration {
+    fn from(val: Box<Signature>) -> Self {
         Declaration {
-            signature: self,
+            signature: val,
+            body: None,
+        }
+    }
+}
+
+impl From<Signature> for Declaration {
+    fn from(val: Signature) -> Self {
+        Declaration {
+            signature: Box::new(val),
             body: None,
         }
     }

@@ -173,7 +173,7 @@ pub enum Expr {
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Keyword(Vec<u8>, Box<Expression>),
     String(String), // FIXME: improve this in the future?
-    Signature(Signature),
+    Signature(Box<Signature>),
     Garbage,
 }
 
@@ -225,7 +225,7 @@ impl Expression {
         }
     }
 
-    pub fn as_signature(&self) -> Option<Signature> {
+    pub fn as_signature(&self) -> Option<Box<Signature>> {
         match &self.expr {
             Expr::Signature(sig) => Some(sig.clone()),
             _ => None,
@@ -502,10 +502,7 @@ impl<'a> ParserWorkingSet<'a> {
                     if positional.shape == SyntaxShape::Int
                         || positional.shape == SyntaxShape::Number
                     {
-                        if String::from_utf8_lossy(&arg_contents)
-                            .parse::<f64>()
-                            .is_ok()
-                        {
+                        if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
                             return (None, None);
                         } else if let Some(first) = unmatched_short_flags.first() {
                             error = error.or(Some(ParseError::UnknownFlag(*first)));
@@ -547,21 +544,20 @@ impl<'a> ParserWorkingSet<'a> {
 
             let mut next_keyword_idx = spans.len();
             for idx in (positional_idx + 1)..decl.signature.num_positionals() {
-                match decl.signature.get_positional(idx) {
-                    Some(PositionalArg {
-                        shape: SyntaxShape::Keyword(kw, ..),
-                        ..
-                    }) => {
-                        for span_idx in spans_idx..spans.len() {
-                            let contents = self.get_span_contents(spans[span_idx]);
+                if let Some(PositionalArg {
+                    shape: SyntaxShape::Keyword(kw, ..),
+                    ..
+                }) = decl.signature.get_positional(idx)
+                {
+                    #[allow(clippy::needless_range_loop)]
+                    for span_idx in spans_idx..spans.len() {
+                        let contents = self.get_span_contents(spans[span_idx]);
 
-                            if contents == kw {
-                                next_keyword_idx = span_idx - (idx - (positional_idx + 1));
-                                break;
-                            }
+                        if contents == kw {
+                            next_keyword_idx = span_idx - (idx - (positional_idx + 1));
+                            break;
                         }
                     }
-                    _ => {}
                 }
             }
 
@@ -575,8 +571,8 @@ impl<'a> ParserWorkingSet<'a> {
             let end = [next_keyword_idx, remainder_idx, spans.len()]
                 .iter()
                 .min()
-                .expect("internal error: can't find min")
-                .clone();
+                .copied()
+                .expect("internal error: can't find min");
 
             // println!(
             //     "{:?}",
@@ -633,17 +629,19 @@ impl<'a> ParserWorkingSet<'a> {
                     // go ahead and override the current error and tell the user about the missing
                     // keyword/literal.
                     error = Some(ParseError::Mismatch(
-                        String::from_utf8_lossy(&keyword).into(),
+                        String::from_utf8_lossy(keyword).into(),
                         arg_span,
                     ))
                 }
 
                 *spans_idx += 1;
                 if *spans_idx >= spans.len() {
-                    error = error.or(Some(ParseError::MissingPositional(
-                        String::from_utf8_lossy(&keyword).into(),
-                        spans[*spans_idx - 1],
-                    )));
+                    error = error.or_else(|| {
+                        Some(ParseError::MissingPositional(
+                            String::from_utf8_lossy(keyword).into(),
+                            spans[*spans_idx - 1],
+                        ))
+                    });
                     return (
                         Expression {
                             expr: Expr::Keyword(
@@ -656,7 +654,7 @@ impl<'a> ParserWorkingSet<'a> {
                         error,
                     );
                 }
-                let (expr, err) = self.parse_multispan_value(&spans, spans_idx, arg);
+                let (expr, err) = self.parse_multispan_value(spans, spans_idx, arg);
                 error = error.or(err);
                 let ty = expr.ty.clone();
 
@@ -669,11 +667,11 @@ impl<'a> ParserWorkingSet<'a> {
                     error,
                 )
             }
-            x => {
+            _ => {
                 // All other cases are single-span values
                 let arg_span = spans[*spans_idx];
 
-                let (arg, err) = self.parse_value(arg_span, &shape);
+                let (arg, err) = self.parse_value(arg_span, shape);
                 error = error.or(err);
 
                 (arg, error)
@@ -756,10 +754,9 @@ impl<'a> ParserWorkingSet<'a> {
                     && arg.ty != positional.shape.to_type()
                 {
                     let span = span(&spans[orig_idx..spans_idx]);
-                    error = error.or(Some(ParseError::TypeMismatch(
-                        positional.shape.to_type(),
-                        span,
-                    )));
+                    error = error.or_else(|| {
+                        Some(ParseError::TypeMismatch(positional.shape.to_type(), span))
+                    });
                     Expression::garbage(span)
                 } else {
                     arg
@@ -940,8 +937,12 @@ impl<'a> ParserWorkingSet<'a> {
                 // this seems okay to set it to unknown here, but we should double-check
                 let id = self.add_variable(name, Type::Unknown);
                 (
-                    Expression::garbage(span),
-                    Some(ParseError::VariableNotFound(span)),
+                    Expression {
+                        expr: Expr::Var(id),
+                        span,
+                        ty: Type::Unknown,
+                    },
+                    None,
                 )
             }
         } else {
@@ -978,7 +979,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, start, &[], &[]);
+        let (output, err) = lex(source, start, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1001,6 +1002,13 @@ impl<'a> ParserWorkingSet<'a> {
 
     pub fn parse_string(&mut self, span: Span) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(span);
+        let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+            || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+        {
+            &bytes[1..(bytes.len() - 1)]
+        } else {
+            bytes
+        };
 
         if let Ok(token) = String::from_utf8(bytes.into()) {
             (
@@ -1144,7 +1152,7 @@ impl<'a> ParserWorkingSet<'a> {
         let span = Span { start, end };
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[b':']);
+        let (output, err) = lex(source, span.start, &[b'\n', b','], &[b':']);
         error = error.or(err);
 
         let mut args: Vec<Arg> = vec![];
@@ -1166,7 +1174,8 @@ impl<'a> ParserWorkingSet<'a> {
                             }
                             ParseMode::TypeMode => {
                                 // We're seeing two types for the same thing for some reason, error
-                                error = error.or(Some(ParseError::Mismatch("type".into(), span)));
+                                error = error
+                                    .or_else(|| Some(ParseError::Mismatch("type".into(), span)));
                             }
                         }
                     } else {
@@ -1197,17 +1206,19 @@ impl<'a> ParserWorkingSet<'a> {
                                         let short_flag = if !short_flag.starts_with(b"-")
                                             || !short_flag.ends_with(b")")
                                         {
-                                            error = error.or(Some(ParseError::Mismatch(
-                                                "short flag".into(),
-                                                span,
-                                            )));
+                                            error = error.or_else(|| {
+                                                Some(ParseError::Mismatch(
+                                                    "short flag".into(),
+                                                    span,
+                                                ))
+                                            });
                                             short_flag
                                         } else {
                                             &short_flag[1..(short_flag.len() - 1)]
                                         };
 
                                         let short_flag =
-                                            String::from_utf8_lossy(&short_flag).to_string();
+                                            String::from_utf8_lossy(short_flag).to_string();
                                         let chars: Vec<char> = short_flag.chars().collect();
                                         let long = String::from_utf8_lossy(&flags[0]).to_string();
                                         let variable_name = flags[0][2..].to_vec();
@@ -1224,10 +1235,12 @@ impl<'a> ParserWorkingSet<'a> {
                                                 var_id: Some(var_id),
                                             }));
                                         } else {
-                                            error = error.or(Some(ParseError::Mismatch(
-                                                "short flag".into(),
-                                                span,
-                                            )));
+                                            error = error.or_else(|| {
+                                                Some(ParseError::Mismatch(
+                                                    "short flag".into(),
+                                                    span,
+                                                ))
+                                            });
                                         }
                                     }
                                 } else if contents.starts_with(b"-") && contents.len() > 1 {
@@ -1239,10 +1252,9 @@ impl<'a> ParserWorkingSet<'a> {
                                     let chars: Vec<char> = short_flag.chars().collect();
 
                                     if chars.len() > 1 {
-                                        error = error.or(Some(ParseError::Mismatch(
-                                            "short flag".into(),
-                                            span,
-                                        )));
+                                        error = error.or_else(|| {
+                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                        });
 
                                         args.push(Arg::Flag(Flag {
                                             arg: None,
@@ -1272,10 +1284,9 @@ impl<'a> ParserWorkingSet<'a> {
                                     let short_flag = &contents[2..];
 
                                     let short_flag = if !short_flag.ends_with(b")") {
-                                        error = error.or(Some(ParseError::Mismatch(
-                                            "short flag".into(),
-                                            span,
-                                        )));
+                                        error = error.or_else(|| {
+                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                        });
                                         short_flag
                                     } else {
                                         &short_flag[..(short_flag.len() - 1)]
@@ -1289,62 +1300,62 @@ impl<'a> ParserWorkingSet<'a> {
                                         match args.last_mut() {
                                             Some(Arg::Flag(flag)) => {
                                                 if flag.short.is_some() {
-                                                    error = error.or(Some(ParseError::Mismatch(
-                                                        "one short flag".into(),
-                                                        span,
-                                                    )));
+                                                    error = error.or_else(|| {
+                                                        Some(ParseError::Mismatch(
+                                                            "one short flag".into(),
+                                                            span,
+                                                        ))
+                                                    });
                                                 } else {
                                                     flag.short = Some(chars[0]);
                                                 }
                                             }
                                             _ => {
-                                                error = error.or(Some(ParseError::Mismatch(
-                                                    "unknown flag".into(),
-                                                    span,
-                                                )));
+                                                error = error.or_else(|| {
+                                                    Some(ParseError::Mismatch(
+                                                        "unknown flag".into(),
+                                                        span,
+                                                    ))
+                                                });
                                             }
                                         }
                                     } else {
-                                        error = error.or(Some(ParseError::Mismatch(
-                                            "short flag".into(),
-                                            span,
-                                        )));
+                                        error = error.or_else(|| {
+                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                        });
                                     }
+                                } else if contents.ends_with(b"?") {
+                                    let contents: Vec<_> = contents[..(contents.len() - 1)].into();
+                                    let name = String::from_utf8_lossy(&contents).to_string();
+
+                                    let var_id = self.add_variable(contents, Type::Unknown);
+
+                                    // Positional arg, optional
+                                    args.push(Arg::Positional(
+                                        PositionalArg {
+                                            desc: String::new(),
+                                            name,
+                                            shape: SyntaxShape::Any,
+                                            var_id: Some(var_id),
+                                        },
+                                        false,
+                                    ))
                                 } else {
-                                    if contents.ends_with(b"?") {
-                                        let contents: Vec<_> =
-                                            contents[..(contents.len() - 1)].into();
-                                        let name = String::from_utf8_lossy(&contents).to_string();
+                                    let name = String::from_utf8_lossy(contents).to_string();
+                                    let contents_vec = contents.to_vec();
 
-                                        let var_id =
-                                            self.add_variable(contents.into(), Type::Unknown);
+                                    let var_id = self.add_variable(contents_vec, Type::Unknown);
 
-                                        // Positional arg, optional
-                                        args.push(Arg::Positional(
-                                            PositionalArg {
-                                                desc: String::new(),
-                                                name,
-                                                shape: SyntaxShape::Any,
-                                                var_id: Some(var_id),
-                                            },
-                                            false,
-                                        ))
-                                    } else {
-                                        let name = String::from_utf8_lossy(contents).to_string();
-                                        let contents_vec = contents.to_vec();
-                                        let var_id = self.add_variable(contents_vec, Type::Unknown);
-
-                                        // Positional arg, required
-                                        args.push(Arg::Positional(
-                                            PositionalArg {
-                                                desc: String::new(),
-                                                name,
-                                                shape: SyntaxShape::Any,
-                                                var_id: Some(var_id),
-                                            },
-                                            true,
-                                        ))
-                                    }
+                                    // Positional arg, required
+                                    args.push(Arg::Positional(
+                                        PositionalArg {
+                                            desc: String::new(),
+                                            name,
+                                            shape: SyntaxShape::Any,
+                                            var_id: Some(var_id),
+                                        },
+                                        true,
+                                    ))
                                 }
                             }
                             ParseMode::TypeMode => {
@@ -1387,13 +1398,13 @@ impl<'a> ParserWorkingSet<'a> {
                         match last {
                             Arg::Flag(flag) => {
                                 if !flag.desc.is_empty() {
-                                    flag.desc.push_str("\n");
+                                    flag.desc.push('\n');
                                 }
                                 flag.desc.push_str(&contents);
                             }
                             Arg::Positional(positional, ..) => {
                                 if !positional.desc.is_empty() {
-                                    positional.desc.push_str("\n");
+                                    positional.desc.push('\n');
                                 }
                                 positional.desc.push_str(&contents);
                             }
@@ -1431,7 +1442,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         (
             Expression {
-                expr: Expr::Signature(sig),
+                expr: Expr::Signature(Box::new(sig)),
                 span,
                 ty: Type::Unknown,
             },
@@ -1471,7 +1482,7 @@ impl<'a> ParserWorkingSet<'a> {
         let span = Span { start, end };
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, span.start, &[b'\n', b','], &[]);
+        let (output, err) = lex(source, span.start, &[b'\n', b','], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1533,7 +1544,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, start, &[b'\n', b','], &[]);
+        let (output, err) = lex(source, start, &[b'\n', b','], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1625,7 +1636,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let source = self.get_span_contents(span);
 
-        let (output, err) = lex(&source, start, &[], &[]);
+        let (output, err) = lex(source, start, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -1726,7 +1737,7 @@ impl<'a> ParserWorkingSet<'a> {
             }
             SyntaxShape::List(elem) => {
                 if bytes.starts_with(b"[") {
-                    self.parse_list_expression(span, &elem)
+                    self.parse_list_expression(span, elem)
                 } else {
                     (
                         Expression::garbage(span),
@@ -1919,64 +1930,12 @@ impl<'a> ParserWorkingSet<'a> {
         (output, error)
     }
 
-    pub fn math_result_type(
-        &self,
-        lhs: &mut Expression,
-        op: &mut Expression,
-        rhs: &mut Expression,
-    ) -> (Type, Option<ParseError>) {
-        match &op.expr {
-            Expr::Operator(operator) => match operator {
-                Operator::Plus => match (&lhs.ty, &rhs.ty) {
-                    (Type::Int, Type::Int) => (Type::Int, None),
-                    (Type::Unknown, _) => (Type::Unknown, None),
-                    (_, Type::Unknown) => (Type::Unknown, None),
-                    (Type::Int, _) => {
-                        *rhs = Expression::garbage(rhs.span);
-                        (
-                            Type::Unknown,
-                            Some(ParseError::Mismatch("int".into(), rhs.span)),
-                        )
-                    }
-                    (_, Type::Int) => {
-                        *lhs = Expression::garbage(lhs.span);
-                        (
-                            Type::Unknown,
-                            Some(ParseError::Mismatch("int".into(), lhs.span)),
-                        )
-                    }
-                    _ => {
-                        *op = Expression::garbage(op.span);
-                        (
-                            Type::Unknown,
-                            Some(ParseError::Mismatch("math".into(), op.span)),
-                        )
-                    }
-                },
-                _ => {
-                    *op = Expression::garbage(op.span);
-                    (
-                        Type::Unknown,
-                        Some(ParseError::Mismatch("math".into(), op.span)),
-                    )
-                }
-            },
-            _ => {
-                *op = Expression::garbage(op.span);
-                (
-                    Type::Unknown,
-                    Some(ParseError::Mismatch("operator".into(), op.span)),
-                )
-            }
-        }
-    }
-
     pub fn parse_expression(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
         let bytes = self.get_span_contents(spans[0]);
 
         match bytes[0] {
             b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-            | b'[' | b'$' => self.parse_math_expression(spans),
+            | b'[' | b'$' | b'"' | b'\'' => self.parse_math_expression(spans),
             _ => self.parse_call(spans),
         }
     }
@@ -2166,7 +2125,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         self.add_file(fname.into(), contents);
 
-        let (output, err) = lex(&contents, span_offset, &[], &[]);
+        let (output, err) = lex(contents, span_offset, &[], &[]);
         error = error.or(err);
 
         let (output, err) = lite_parse(&output);
@@ -2183,7 +2142,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         let span_offset = self.next_span_start();
 
-        self.add_file("source".into(), source.into());
+        self.add_file("source".into(), source);
 
         let (output, err) = lex(source, span_offset, &[], &[]);
         error = error.or(err);

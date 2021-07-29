@@ -163,7 +163,13 @@ pub fn lex_item(
     // synthetic closing characters to the accumulated token.
     if let Some(block) = block_level.last() {
         let delim = block.closing();
-        let cause = ParseError::UnexpectedEof((delim as char).to_string(), span);
+        let cause = ParseError::UnexpectedEof(
+            (delim as char).to_string(),
+            Span {
+                start: span.end - 1,
+                end: span.end,
+            },
+        );
 
         return (span, Some(cause));
     }

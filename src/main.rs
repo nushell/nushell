@@ -163,7 +163,7 @@ fn main() -> std::io::Result<()> {
                             println!("Error: {:?}", err);
                             continue;
                         }
-                        // println!("Error: {:?}", err);
+                        println!("Error: {:?}", err);
                         (output, working_set.render())
                     };
 

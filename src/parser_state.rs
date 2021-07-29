@@ -347,8 +347,13 @@ impl<'a> ParserWorkingSet<'a> {
         None
     }
 
-    pub fn add_variable(&mut self, name: Vec<u8>, ty: Type) -> VarId {
+    pub fn add_variable(&mut self, mut name: Vec<u8>, ty: Type) -> VarId {
         let next_id = self.next_var_id();
+
+        // correct name if necessary
+        if !name.starts_with(b"$") {
+            name.insert(0, b'$');
+        }
 
         let last = self
             .delta

@@ -27,6 +27,11 @@ impl Value {
                 val: lhs + rhs,
                 span: Span::unknown(),
             }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
+                val: lhs.to_string() + rhs,
+                span: Span::unknown(),
+            }),
+
             _ => Ok(Value::Unknown),
         }
     }
@@ -87,56 +92,54 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
         }
         let block = state.parser_state.get_block(block_id);
         eval_block(state, stack, block)
-    } else {
-        if decl.signature.name == "let" {
-            let var_id = call.positional[0]
-                .as_var()
-                .expect("internal error: missing variable");
+    } else if decl.signature.name == "let" {
+        let var_id = call.positional[0]
+            .as_var()
+            .expect("internal error: missing variable");
 
-            let keyword_expr = call.positional[1]
-                .as_keyword()
-                .expect("internal error: missing keyword");
+        let keyword_expr = call.positional[1]
+            .as_keyword()
+            .expect("internal error: missing keyword");
 
-            let rhs = eval_expression(state, stack, keyword_expr)?;
+        let rhs = eval_expression(state, stack, keyword_expr)?;
 
-            println!("Adding: {:?} to {}", rhs, var_id);
+        println!("Adding: {:?} to {}", rhs, var_id);
 
-            stack.add_var(var_id, rhs);
-            Ok(Value::Unknown)
-        } else if decl.signature.name == "if" {
-            let cond = &call.positional[0];
-            let then_block = call.positional[1]
-                .as_block()
-                .expect("internal error: expected block");
-            let else_case = call.positional.get(2);
+        stack.add_var(var_id, rhs);
+        Ok(Value::Unknown)
+    } else if decl.signature.name == "if" {
+        let cond = &call.positional[0];
+        let then_block = call.positional[1]
+            .as_block()
+            .expect("internal error: expected block");
+        let else_case = call.positional.get(2);
 
-            let result = eval_expression(state, stack, cond)?;
-            match result {
-                Value::Bool { val, .. } => {
-                    if val {
-                        let block = state.parser_state.get_block(then_block);
-                        eval_block(state, stack, block)
-                    } else if let Some(else_case) = else_case {
-                        println!("{:?}", else_case);
-                        if let Some(else_expr) = else_case.as_keyword() {
-                            if let Some(block_id) = else_expr.as_block() {
-                                let block = state.parser_state.get_block(block_id);
-                                eval_block(state, stack, block)
-                            } else {
-                                eval_expression(state, stack, else_expr)
-                            }
+        let result = eval_expression(state, stack, cond)?;
+        match result {
+            Value::Bool { val, .. } => {
+                if val {
+                    let block = state.parser_state.get_block(then_block);
+                    eval_block(state, stack, block)
+                } else if let Some(else_case) = else_case {
+                    println!("{:?}", else_case);
+                    if let Some(else_expr) = else_case.as_keyword() {
+                        if let Some(block_id) = else_expr.as_block() {
+                            let block = state.parser_state.get_block(block_id);
+                            eval_block(state, stack, block)
                         } else {
-                            eval_expression(state, stack, else_case)
+                            eval_expression(state, stack, else_expr)
                         }
                     } else {
-                        Ok(Value::Unknown)
+                        eval_expression(state, stack, else_case)
                     }
+                } else {
+                    Ok(Value::Unknown)
                 }
-                _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
             }
-        } else {
-            Ok(Value::Unknown)
+            _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
         }
+    } else {
+        Ok(Value::Unknown)
     }
 }
 
@@ -159,9 +162,9 @@ pub fn eval_expression(
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Unknown),
         Expr::BinaryOp(lhs, op, rhs) => {
-            let lhs = eval_expression(state, stack, &lhs)?;
-            let op = eval_operator(state, stack, &op)?;
-            let rhs = eval_expression(state, stack, &rhs)?;
+            let lhs = eval_expression(state, stack, lhs)?;
+            let op = eval_operator(state, stack, op)?;
+            let rhs = eval_expression(state, stack, rhs)?;
 
             match op {
                 Operator::Plus => lhs.add(&rhs),
@@ -197,11 +200,8 @@ pub fn eval_block(state: &State, stack: &mut Stack, block: &Block) -> Result<Val
     let mut last = Ok(Value::Unknown);
 
     for stmt in &block.stmts {
-        match stmt {
-            Statement::Expression(expression) => {
-                last = Ok(eval_expression(state, stack, expression)?);
-            }
-            _ => {}
+        if let Statement::Expression(expression) = stmt {
+            last = Ok(eval_expression(state, stack, expression)?);
         }
     }
 
