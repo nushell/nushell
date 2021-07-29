@@ -34,7 +34,7 @@ toml = "0.5.8"
 [dependencies.polars]
 version = "0.14.8"
 optional = true
-features = ["serde", "rows", "strings", "checked_arithmetic"]
+features = ["default", "serde", "rows", "strings", "checked_arithmetic", "object"]
 
 [features]
 dataframe = ["polars"]

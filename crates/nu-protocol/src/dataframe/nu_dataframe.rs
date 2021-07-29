@@ -1,81 +1,39 @@
-use indexmap::{map::Entry, IndexMap};
+use indexmap::IndexMap;
 use std::cmp::Ordering;
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
 
-use bigdecimal::FromPrimitive;
-use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
-use num_bigint::BigInt;
-use polars::prelude::{AnyValue, DataFrame, DataType, NamedFrom, Series, TimeUnit};
+use polars::prelude::{DataFrame, DataType, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 
-use crate::{Dictionary, Primitive, UntaggedValue, Value};
+use super::conversion::{
+    add_separator, create_column, from_parsed_columns, insert_row, insert_table, insert_value,
+    Column, ColumnMap,
+};
+use crate::{Dictionary, Primitive, ShellTypeName, UntaggedValue, Value};
 
-const SECS_PER_DAY: i64 = 86_400;
-
-#[derive(Debug)]
-pub struct Column {
-    name: String,
-    values: Vec<Value>,
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.type_name())
+    }
 }
 
-impl Column {
-    pub fn new(name: String, values: Vec<Value>) -> Self {
-        Self { name, values }
-    }
-
-    pub fn new_empty(name: String) -> Self {
+impl Default for Value {
+    fn default() -> Self {
         Self {
-            name,
-            values: Vec::new(),
-        }
-    }
-
-    pub fn push(&mut self, value: Value) {
-        self.values.push(value)
-    }
-}
-
-#[derive(Debug)]
-enum InputType {
-    Integer,
-    Decimal,
-    String,
-    Boolean,
-}
-
-#[derive(Debug)]
-struct TypedColumn {
-    pub column: Column,
-    pub column_type: Option<InputType>,
-}
-
-impl TypedColumn {
-    fn new_empty(name: String) -> Self {
-        Self {
-            column: Column::new_empty(name),
-            column_type: None,
+            value: UntaggedValue::Primitive(Primitive::Nothing),
+            tag: Tag::default(),
         }
     }
 }
 
-impl Deref for TypedColumn {
-    type Target = Column;
-
-    fn deref(&self) -> &Self::Target {
-        &self.column
+impl PolarsObject for Value {
+    fn type_name() -> &'static str {
+        "object"
     }
 }
-
-impl DerefMut for TypedColumn {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.column
-    }
-}
-
-type ColumnMap = IndexMap<String, TypedColumn>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuDataFrame {
@@ -250,8 +208,9 @@ impl NuDataFrame {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
-            for value in column.values {
-                insert_value(value, column.name.clone(), &mut column_values)?;
+            let name = column.name().to_string();
+            for value in column.into_iter() {
+                insert_value(value, name.clone(), &mut column_values)?;
             }
         }
 
@@ -369,256 +328,46 @@ impl NuDataFrame {
         let df = self.as_ref();
         let upper_row = to_row.min(df.height());
 
-        let mut values: Vec<Value> = Vec::new();
-        for i in from_row..upper_row {
-            let mut dictionary_row = Dictionary::default();
-            for col in df.get_columns() {
-                let dict_val = Value {
-                    value: anyvalue_to_untagged(&col.get(i))?,
+        let mut size: usize = 0;
+        let columns = self
+            .as_ref()
+            .get_columns()
+            .iter()
+            .map(|col| match create_column(col, from_row, upper_row) {
+                Ok(col) => {
+                    size = col.len();
+                    Ok(col)
+                }
+                Err(e) => Err(e),
+            })
+            .collect::<Result<Vec<Column>, ShellError>>()?;
+
+        let values = (0..size)
+            .into_iter()
+            .map(|i| {
+                let mut dictionary_row = Dictionary::default();
+
+                for col in columns.iter() {
+                    let dict_val = match col.get(i) {
+                        Some(v) => v.clone(),
+                        None => {
+                            println!("index: {}", i);
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Nothing),
+                                tag: Tag::default(),
+                            }
+                        }
+                    };
+                    dictionary_row.insert(col.name().to_string(), dict_val);
+                }
+
+                Value {
+                    value: UntaggedValue::Row(dictionary_row),
                     tag: Tag::unknown(),
-                };
-                dictionary_row.insert(col.name().into(), dict_val);
-            }
-
-            let value = Value {
-                value: UntaggedValue::Row(dictionary_row),
-                tag: Tag::unknown(),
-            };
-
-            values.push(value)
-        }
+                }
+            })
+            .collect::<Vec<Value>>();
 
         Ok(values)
-    }
-}
-
-// Adds a separator to the vector of values using the column names from the
-// dataframe to create the Values Row
-fn add_separator(values: &mut Vec<Value>, df: &DataFrame) {
-    let column_names = df.get_column_names();
-
-    let mut dictionary = Dictionary::default();
-    for name in column_names {
-        let indicator = Value {
-            value: UntaggedValue::Primitive(Primitive::String("...".to_string())),
-            tag: Tag::unknown(),
-        };
-
-        dictionary.insert(name.to_string(), indicator);
-    }
-
-    let extra_column = Value {
-        value: UntaggedValue::Row(dictionary),
-        tag: Tag::unknown(),
-    };
-
-    values.push(extra_column);
-}
-
-// Converts a polars AnyValue to an UntaggedValue
-// This is used when printing values coming for polars dataframes
-fn anyvalue_to_untagged(anyvalue: &AnyValue) -> Result<UntaggedValue, ShellError> {
-    Ok(match anyvalue {
-        AnyValue::Null => UntaggedValue::Primitive(Primitive::Nothing),
-        AnyValue::Utf8(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Boolean(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Float32(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Float64(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Int32(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Int64(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::UInt8(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::UInt16(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Int8(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Int16(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::UInt32(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::UInt64(a) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Date32(a) => {
-            // elapsed time in day since 1970-01-01
-            let seconds = *a as i64 * SECS_PER_DAY;
-            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
-            // Zero length offset
-            let offset = FixedOffset::east(0);
-            let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-            UntaggedValue::Primitive(Primitive::Date(datetime))
-        }
-        AnyValue::Date64(a) => {
-            // elapsed time in milliseconds since 1970-01-01
-            let seconds = *a / 1000;
-            let naive_datetime = NaiveDateTime::from_timestamp(seconds, 0);
-
-            // Zero length offset
-            let offset = FixedOffset::east(0);
-            let datetime = DateTime::<FixedOffset>::from_utc(naive_datetime, offset);
-
-            UntaggedValue::Primitive(Primitive::Date(datetime))
-        }
-        AnyValue::Time64(a, _) => UntaggedValue::Primitive((*a).into()),
-        AnyValue::Duration(a, unit) => {
-            let nanoseconds = match unit {
-                TimeUnit::Second => *a / 1_000_000_000,
-                TimeUnit::Millisecond => *a / 1_000_000,
-                TimeUnit::Microsecond => *a / 1_000,
-                TimeUnit::Nanosecond => *a,
-            };
-
-            if let Some(bigint) = BigInt::from_i64(nanoseconds) {
-                UntaggedValue::Primitive(Primitive::Duration(bigint))
-            } else {
-                unreachable!("Internal error: protocol did not use compatible decimal")
-            }
-        }
-        AnyValue::List(_) => {
-            return Err(ShellError::labeled_error(
-                "Format not supported",
-                "Value not supported for conversion",
-                Tag::unknown(),
-            ));
-        }
-    })
-}
-
-// Inserting the values found in a UntaggedValue::Row
-// All the entries for the dictionary are checked in order to check if
-// the column values have the same type value.
-fn insert_row(column_values: &mut ColumnMap, dictionary: Dictionary) -> Result<(), ShellError> {
-    for (key, value) in dictionary.entries {
-        insert_value(value, key, column_values)?;
-    }
-
-    Ok(())
-}
-
-// Inserting the values found in a UntaggedValue::Table
-// All the entries for the table are checked in order to check if
-// the column values have the same type value.
-// The names for the columns are the enumerated numbers from the values
-fn insert_table(column_values: &mut ColumnMap, table: Vec<Value>) -> Result<(), ShellError> {
-    for (index, value) in table.into_iter().enumerate() {
-        let key = format!("{}", index);
-        insert_value(value, key, column_values)?;
-    }
-
-    Ok(())
-}
-
-fn insert_value(
-    value: Value,
-    key: String,
-    column_values: &mut ColumnMap,
-) -> Result<(), ShellError> {
-    let col_val = match column_values.entry(key.clone()) {
-        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
-        Entry::Occupied(entry) => entry.into_mut(),
-    };
-
-    // Checking that the type for the value is the same
-    // for the previous value in the column
-    if col_val.values.is_empty() {
-        match &value.value {
-            UntaggedValue::Primitive(Primitive::Int(_)) => {
-                col_val.column_type = Some(InputType::Integer);
-            }
-            UntaggedValue::Primitive(Primitive::Decimal(_)) => {
-                col_val.column_type = Some(InputType::Decimal);
-            }
-            UntaggedValue::Primitive(Primitive::String(_)) => {
-                col_val.column_type = Some(InputType::String);
-            }
-            UntaggedValue::Primitive(Primitive::Boolean(_)) => {
-                col_val.column_type = Some(InputType::Boolean);
-            }
-            _ => {
-                return Err(ShellError::labeled_error(
-                    "Only primitive values accepted",
-                    "Not a primitive value",
-                    &value.tag,
-                ));
-            }
-        }
-        col_val.values.push(value);
-    } else {
-        let prev_value = &col_val.values[col_val.values.len() - 1];
-
-        match (&prev_value.value, &value.value) {
-            (
-                UntaggedValue::Primitive(Primitive::Int(_)),
-                UntaggedValue::Primitive(Primitive::Int(_)),
-            )
-            | (
-                UntaggedValue::Primitive(Primitive::Decimal(_)),
-                UntaggedValue::Primitive(Primitive::Decimal(_)),
-            )
-            | (
-                UntaggedValue::Primitive(Primitive::String(_)),
-                UntaggedValue::Primitive(Primitive::String(_)),
-            )
-            | (
-                UntaggedValue::Primitive(Primitive::Boolean(_)),
-                UntaggedValue::Primitive(Primitive::Boolean(_)),
-            ) => col_val.values.push(value),
-            _ => {
-                return Err(ShellError::labeled_error_with_secondary(
-                    "Different values in column",
-                    "Value with different type",
-                    &value.tag,
-                    "Perhaps you want to change it to this value type",
-                    &prev_value.tag,
-                ));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-// The ColumnMap has the parsed data from the StreamInput
-// This data can be used to create a Series object that can initialize
-// the dataframe based on the type of data that is found
-fn from_parsed_columns(column_values: ColumnMap, span: &Span) -> Result<NuDataFrame, ShellError> {
-    let mut df_series: Vec<Series> = Vec::new();
-    for (name, column) in column_values {
-        if let Some(column_type) = &column.column_type {
-            match column_type {
-                InputType::Decimal => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_f64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Integer => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::String => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_string()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                InputType::Boolean => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_bool()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-            }
-        }
-    }
-
-    let df = DataFrame::new(df_series);
-
-    match df {
-        Ok(df) => Ok(NuDataFrame::new(df)),
-        Err(e) => {
-            return Err(ShellError::labeled_error(
-                "Error while creating dataframe",
-                format!("{}", e),
-                span,
-            ))
-        }
     }
 }
