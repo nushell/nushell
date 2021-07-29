@@ -1,34 +1,17 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
-use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::UntaggedValue;
 use sha2::Sha256;
 
-use super::generic_digest;
+use super::generic_digest::{self, HashDigest};
 
-pub struct SubCommand;
+pub type SubCommand = generic_digest::SubCommand<Sha256>;
 
-impl WholeStreamCommand for SubCommand {
-    fn name(&self) -> &str {
-        "hash sha256"
+impl HashDigest for Sha256 {
+    fn name() -> &'static str {
+        "sha256"
     }
 
-    fn signature(&self) -> Signature {
-        Signature::build("hash sha256").rest(
-            SyntaxShape::ColumnPath,
-            "optionally sha256 encode data by column paths",
-        )
-    }
-
-    fn usage(&self) -> &str {
-        "sha256 encode a value"
-    }
-
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        generic_digest::run::<Sha256>(args)
-    }
-
-    fn examples(&self) -> Vec<Example> {
+    fn examples() -> Vec<Example> {
         vec![
             Example {
                 description: "sha256 encode a string",
