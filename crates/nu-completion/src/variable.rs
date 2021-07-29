@@ -20,12 +20,12 @@ fn build_path(head: &str, members: &Path, entry: &str) -> String {
 
 fn collect_entries(value_fs: &ValueShell, head: &str, path: &Path) -> Vec<String> {
     value_fs
-        .members_under(&path)
+        .members_under(path)
         .iter()
         .flat_map(|entry| {
             entry
                 .row_entries()
-                .map(|(entry_name, _)| build_path(&head, &path, entry_name))
+                .map(|(entry_name, _)| build_path(head, path, entry_name))
         })
         .collect()
 }
@@ -62,7 +62,7 @@ where
                                     .or_else(|| {
                                         path.parent().map(|parent| {
                                             fs.find(parent)
-                                                .map(|fs| collect_entries(fs, &head, &parent))
+                                                .map(|fs| collect_entries(fs, &head, parent))
                                                 .unwrap_or_default()
                                         })
                                     })
@@ -72,7 +72,7 @@ where
                     })
                     .flatten()
                     .filter_map(|candidate| {
-                        if matcher.matches(&partial, &candidate) {
+                        if matcher.matches(partial, &candidate) {
                             Some(Suggestion::new(&candidate, &candidate))
                         } else {
                             None
@@ -107,7 +107,7 @@ mod tests {
         }
 
         fn source(&self) -> &nu_engine::EvaluationContext {
-            &self.0
+            self.0
         }
 
         fn scope(&self) -> &dyn nu_parser::ParserScope {

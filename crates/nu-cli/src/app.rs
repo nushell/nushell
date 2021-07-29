@@ -172,9 +172,9 @@ impl App {
         use logger::{configure, debug_filters, logger, trace_filters};
 
         logger(|builder| {
-            configure(&self, builder)?;
-            trace_filters(&self, builder)?;
-            debug_filters(&self, builder)?;
+            configure(self, builder)?;
+            trace_filters(self, builder)?;
+            debug_filters(self, builder)?;
 
             Ok(())
         })?;
@@ -405,7 +405,7 @@ impl App {
     }
 
     pub fn parse(&self, args: &str) -> Result<(), ShellError> {
-        self.parser.parse(&args).map(|options| {
+        self.parser.parse(args).map(|options| {
             self.options.swap(&options);
         })
     }
