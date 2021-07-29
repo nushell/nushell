@@ -99,6 +99,12 @@ pub fn cli(
         load_global_cfg(&context);
     }
 
+    // Store cmd duration in an env var
+    context.scope.add_env_var(
+        "CMD_DURATION_MS",
+        format!("{}", startup_commands_start_time.elapsed().as_millis()),
+    );
+
     if options.perf {
         eprintln!(
             "config loaded: {:?}",
@@ -112,16 +118,6 @@ pub fn cli(
             .expect("unable to lock the stopwatch")
             .start();
     }
-
-    // Store cmd duration in an env var
-    context.scope.add_env_var(
-        "CMD_DURATION_MS",
-        format!("{}", startup_commands_start_time.elapsed().as_millis()),
-    );
-    trace!(
-        "startup commands took {:?}",
-        startup_commands_start_time.elapsed()
-    );
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
@@ -182,7 +178,7 @@ pub fn cli(
 
     if options.perf {
         eprintln!(
-            "find custom prompt: {:?}",
+            "load custom prompt: {:?}",
             STOPWATCH
                 .lock()
                 .expect("unable to lock the stopwatch")
@@ -191,7 +187,7 @@ pub fn cli(
         STOPWATCH
             .lock()
             .expect("unable to lock the stopwatch")
-            .stop();
+            .start();
     }
 
     //Check whether dir we start in contains local cfg file and if so load it.
@@ -216,6 +212,20 @@ pub fn cli(
     }
 
     let mut ctrlcbreak = false;
+
+    if options.perf {
+        eprintln!(
+            "timing stopped. starting run loop: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .stop();
+    }
 
     loop {
         if context.ctrl_c().load(Ordering::SeqCst) {

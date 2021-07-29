@@ -198,7 +198,7 @@ impl App {
         if self.perf() {
             // start a new spit
             eprintln!(
-                "run_script_file commands 1: {:?}",
+                "commands using -c at launch: {:?}",
                 STOPWATCH
                     .lock()
                     .expect("unable to lock the stopwatch")
@@ -239,7 +239,7 @@ impl App {
         if self.perf() {
             // start a new split
             eprintln!(
-                "run_script_file commands 2: {:?}",
+                "script file(s) passed in: {:?}",
                 STOPWATCH
                     .lock()
                     .expect("unable to lock the stopwatch")
