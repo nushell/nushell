@@ -63,7 +63,7 @@ pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
         .expect("Internal error: type checker should require args");
 
     let var_name = positional[0].var_name()?;
-    let rhs_raw = evaluate_baseline_expr(&positional[2], &ctx)?;
+    let rhs_raw = evaluate_baseline_expr(&positional[2], ctx)?;
     let tag: Tag = positional[2].span.into();
 
     let rhs: CapturedBlock = FromValue::from_value(&rhs_raw)?;
@@ -98,7 +98,7 @@ pub fn letcmd(args: CommandArgs) -> Result<ActionStream, ShellError> {
     };
 
     ctx.scope.enter_scope();
-    let value = evaluate_baseline_expr(expr, &ctx);
+    let value = evaluate_baseline_expr(expr, ctx);
     ctx.scope.exit_scope();
 
     let value = value?;

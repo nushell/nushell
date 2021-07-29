@@ -42,7 +42,7 @@ impl ValueShell {
         let mut value_system = ValueStructure::new();
 
         if value_system.walk_decorate(&self.value).is_ok() {
-            value_system.exists(&path).then(|| self)
+            value_system.exists(path).then(|| self)
         } else {
             None
         }

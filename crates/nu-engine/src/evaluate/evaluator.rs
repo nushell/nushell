@@ -266,7 +266,7 @@ impl<'a> From<&'a Expression> for Variable<'a> {
                 "$true" => Self::True,
                 "$false" => Self::False,
                 "$nothing" => Self::Nothing,
-                _ => Self::Other(&name),
+                _ => Self::Other(name),
             },
             _ => unreachable!(),
         }

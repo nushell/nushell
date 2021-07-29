@@ -139,11 +139,11 @@ fn check_column_datatypes<T: AsRef<str>>(
         for w in cols.windows(2) {
             let l_series = df
                 .column(w[0].as_ref())
-                .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
+                .map_err(|e| parse_polars_error::<&str>(&e, col_span, None))?;
 
             let r_series = df
                 .column(w[1].as_ref())
-                .map_err(|e| parse_polars_error::<&str>(&e, &col_span, None))?;
+                .map_err(|e| parse_polars_error::<&str>(&e, col_span, None))?;
 
             if l_series.dtype() != r_series.dtype() {
                 return Err(ShellError::labeled_error_with_secondary(

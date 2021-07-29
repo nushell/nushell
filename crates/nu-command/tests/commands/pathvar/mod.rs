@@ -66,7 +66,7 @@ fn pathvar_correctly_reads_path_from_config() {
         let expected = "/Users/andresrobalino/.volta/bin-/Users/mosqueteros/bin";
         let actual = sandbox.pipeline(r#" pathvar | first 2 | str collect '-' "#);
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -78,7 +78,7 @@ fn pathvar_correctly_reads_env_var_from_env() {
         let expected = "bacon-spam";
         let actual = sandbox.pipeline(r#" pathvar -v BREAKFAST | str collect '-' "#);
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -103,7 +103,7 @@ fn pathvar_adds_to_path() {
         let expected = "spam";
         let actual = sandbox.pipeline(r#" pathvar add spam; pathvar | first "#);
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -145,7 +145,7 @@ fn pathvar_appends_to_path() {
         let expected = "spam";
         let actual = sandbox.pipeline(r#" pathvar append spam; pathvar | last "#);
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -187,7 +187,7 @@ fn pathvar_removes_from_path() {
         let expected = "/Users/mosquito/proboscis";
         let actual = sandbox.pipeline(r#" pathvar remove 1; pathvar | first "#);
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -241,7 +241,7 @@ fn pathvar_resets_path_from_config() {
             "#,
         );
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -273,7 +273,7 @@ fn pathvar_resets_env_var_from_config() {
             "#,
         );
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -304,7 +304,7 @@ fn pathvar_saves_path_to_config() {
             "#,
         );
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -333,7 +333,7 @@ fn pathvar_saves_env_var_to_config() {
             "#,
         );
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
@@ -360,7 +360,7 @@ fn pathvar_saves_new_env_var_to_config() {
             "#,
         );
 
-        assert_that!(actual, says().stdout(&expected));
+        assert_that!(actual, says().stdout(expected));
     })
 }
 
