@@ -121,14 +121,26 @@ fn convert_yaml_value_to_nu_value(
 
 pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
-    let v: serde_yaml::Value = serde_yaml::from_str(&s).map_err(|x| {
-        ShellError::labeled_error(
-            format!("Could not load yaml: {}", x),
-            "could not load yaml from text",
-            &tag,
-        )
-    })?;
-    convert_yaml_value_to_nu_value(&v, tag)
+
+    let mut documents = vec![];
+
+    for document in serde_yaml::Deserializer::from_str(&s) {
+        let v: serde_yaml::Value = serde_yaml::Value::deserialize(document).map_err(|x| {
+            ShellError::labeled_error(
+                format!("Could not load yaml: {}", x),
+                "could not load yaml from text",
+                &tag,
+            )
+        })?;
+
+        documents.push(convert_yaml_value_to_nu_value(&v, tag.clone())?);
+    }
+
+    match documents.len() {
+        0 => Ok(UntaggedValue::nothing().into_value(tag)),
+        1 => Ok(documents.remove(0)),
+        _ => Ok(UntaggedValue::Table(documents).into_value(tag)),
+    }
 }
 
 fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -160,6 +172,8 @@ mod tests {
     use super::ShellError;
     use super::*;
     use nu_protocol::row;
+    use nu_test_support::value::int;
+    use nu_test_support::value::row;
     use nu_test_support::value::string;
 
     #[test]
@@ -201,5 +215,44 @@ mod tests {
                 assert_eq!(actual, tc.expected, "{}", tc.description);
             }
         }
+    }
+
+    #[test]
+    fn test_empty_yaml() {
+        let input = "";
+
+        let expected = UntaggedValue::nothing().into_value(Tag::default());
+
+        let actual = from_yaml_string_to_value(input.to_owned(), Tag::default());
+
+        assert_eq!(Ok(expected), actual);
+    }
+
+    #[test]
+    fn test_single_doc_yaml() {
+        let input = "k: 107\nj: '106'\n";
+
+        let expected =
+            UntaggedValue::row(indexmap! {"k".into() => int(107), "j".into() => string("106") })
+                .into_value(Tag::default());
+
+        let actual = from_yaml_string_to_value(input.to_owned(), Tag::default());
+
+        assert_eq!(Ok(expected), actual);
+    }
+
+    #[test]
+    fn test_multidoc_yaml() {
+        let input = "---\nk: 107\n---\nj: '106'\n";
+
+        let expected = UntaggedValue::table(&[
+            row(indexmap! {"k".into() => int(107) }),
+            row(indexmap! {"j".into() => string("106") }),
+        ])
+        .into_value(Tag::default());
+
+        let actual = from_yaml_string_to_value(input.to_owned(), Tag::default());
+
+        assert_eq!(Ok(expected), actual);
     }
 }
