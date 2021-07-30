@@ -894,7 +894,141 @@ impl<'a> ParserWorkingSet<'a> {
     }
 
     pub(crate) fn parse_dollar_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {
-        self.parse_variable_expr(span)
+        let contents = self.get_span_contents(span);
+
+        if contents.starts_with(b"$\"") {
+            self.parse_string_interpolation(span)
+        } else {
+            self.parse_variable_expr(span)
+        }
+    }
+
+    pub fn parse_string_interpolation(&mut self, span: Span) -> (Expression, Option<ParseError>) {
+        #[derive(PartialEq, Eq, Debug)]
+        enum InterpolationMode {
+            String,
+            Expression,
+        }
+        let mut error = None;
+
+        let contents = self.get_span_contents(span);
+
+        let start = if contents.starts_with(b"$\"") {
+            span.start + 2
+        } else {
+            span.start
+        };
+
+        let end = if contents.ends_with(b"\"") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+
+        let inner_span = Span { start, end };
+        let contents = self.get_span_contents(inner_span).to_vec();
+
+        let mut output = vec![];
+        let mut mode = InterpolationMode::String;
+        let mut token_start = start;
+        let mut depth = 0;
+
+        let mut b = start;
+
+        #[allow(clippy::needless_range_loop)]
+        while b != end {
+            if contents[b - start] == b'(' && mode == InterpolationMode::String {
+                depth = 1;
+                mode = InterpolationMode::Expression;
+                if token_start < b {
+                    let span = Span {
+                        start: token_start,
+                        end: b,
+                    };
+                    let str_contents = self.get_span_contents(span);
+                    output.push(Expression {
+                        expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
+                        span,
+                        ty: Type::String,
+                    });
+                }
+                token_start = b;
+            } else if contents[b - start] == b'(' && mode == InterpolationMode::Expression {
+                depth += 1;
+            } else if contents[b - start] == b')' && mode == InterpolationMode::Expression {
+                match depth {
+                    0 => {}
+                    1 => {
+                        mode = InterpolationMode::String;
+
+                        if token_start < b {
+                            let span = Span {
+                                start: token_start,
+                                end: b + 1,
+                            };
+
+                            let (expr, err) = self.parse_full_column_path(span);
+                            error = error.or(err);
+                            output.push(expr);
+                        }
+
+                        token_start = b + 1;
+                    }
+                    _ => depth -= 1,
+                }
+            }
+            b += 1;
+        }
+
+        match mode {
+            InterpolationMode::String => {
+                if token_start < end {
+                    let span = Span {
+                        start: token_start,
+                        end,
+                    };
+                    let str_contents = self.get_span_contents(span);
+                    output.push(Expression {
+                        expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
+                        span,
+                        ty: Type::String,
+                    });
+                }
+            }
+            InterpolationMode::Expression => {
+                if token_start < end {
+                    let span = Span {
+                        start: token_start,
+                        end,
+                    };
+
+                    let (expr, err) = self.parse_full_column_path(span);
+                    error = error.or(err);
+                    output.push(expr);
+                }
+            }
+        }
+
+        if let Some(decl_id) = self.find_decl(b"build-string") {
+            (
+                Expression {
+                    expr: Expr::Call(Box::new(Call {
+                        head: span,
+                        named: vec![],
+                        positional: output,
+                        decl_id,
+                    })),
+                    span,
+                    ty: Type::String,
+                },
+                error,
+            )
+        } else {
+            (
+                Expression::garbage(span),
+                Some(ParseError::UnknownCommand(span)),
+            )
+        }
     }
 
     pub fn parse_variable_expr(&mut self, span: Span) -> (Expression, Option<ParseError>) {

@@ -49,6 +49,9 @@ fn main() -> std::io::Result<()> {
         );
         working_set.add_decl(sig.into());
 
+        let sig = Signature::build("build-string").rest(SyntaxShape::String, "list of string");
+        working_set.add_decl(sig.into());
+
         let sig = Signature::build("def")
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")

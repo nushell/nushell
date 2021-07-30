@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     parser::Operator, Block, BlockId, Call, Expr, Expression, ParserState, Span, Statement, VarId,
@@ -20,6 +20,24 @@ pub enum Value {
     Block(BlockId),
     Unknown,
 }
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Bool { val, .. } => {
+                write!(f, "{}", val)
+            }
+            Value::Int { val, .. } => {
+                write!(f, "{}", val)
+            }
+            Value::String { val, .. } => write!(f, "{}", val),
+            Value::List(..) => write!(f, "<list>"),
+            Value::Block(..) => write!(f, "<block>"),
+            Value::Unknown => write!(f, "<unknown>"),
+        }
+    }
+}
+
 impl Value {
     pub fn add(&self, rhs: &Value) -> Result<Value, ShellError> {
         match (self, rhs) {
@@ -138,6 +156,18 @@ fn eval_call(state: &State, stack: &mut Stack, call: &Call) -> Result<Value, She
             }
             _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
         }
+    } else if decl.signature.name == "build-string" {
+        let mut output = vec![];
+
+        for expr in &call.positional {
+            let val = eval_expression(state, stack, expr)?;
+
+            output.push(val.to_string());
+        }
+        Ok(Value::String {
+            val: output.join(""),
+            span: call.head,
+        })
     } else {
         Ok(Value::Unknown)
     }
