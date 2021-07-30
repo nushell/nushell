@@ -14,7 +14,7 @@ mod tests;
 mod type_check;
 
 pub use declaration::Declaration;
-pub use eval::{eval_block, eval_expression, Stack, State};
+pub use eval::{eval_block, eval_expression, Stack, StackFrame, State};
 pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock, LiteCommand, LiteStatement};
 pub use parse_error::ParseError;

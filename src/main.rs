@@ -1,7 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use engine_q::{
-    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, Stack, State, SyntaxShape,
+    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, StackFrame, State,
+    SyntaxShape,
 };
 
 fn main() -> std::io::Result<()> {
@@ -73,6 +74,8 @@ fn main() -> std::io::Result<()> {
         working_set.add_decl(sig.into());
         let sig = Signature::build("blocks");
         working_set.add_decl(sig.into());
+        let sig = Signature::build("stack");
+        working_set.add_decl(sig.into());
 
         let sig = Signature::build("add");
         working_set.add_decl(sig.into());
@@ -131,9 +134,10 @@ fn main() -> std::io::Result<()> {
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
-        let mut stack = Stack {
+        let stack = Rc::new(RefCell::new(StackFrame {
             vars: HashMap::new(),
-        };
+            parent: None,
+        }));
 
         loop {
             let input = line_editor.read_line(&prompt)?;
@@ -150,6 +154,8 @@ fn main() -> std::io::Result<()> {
                     } else if s.trim() == "blocks" {
                         parser_state.borrow().print_blocks();
                         continue;
+                    } else if s.trim() == "stack" {
+                        stack.borrow().print_stack();
                     }
                     // println!("input: '{}'", s);
 
@@ -176,7 +182,7 @@ fn main() -> std::io::Result<()> {
                         parser_state: &*parser_state.borrow(),
                     };
 
-                    let output = eval_block(&state, &mut stack, &block);
+                    let output = eval_block(&state, stack.clone(), &block);
                     println!("{:#?}", output);
                 }
                 Signal::CtrlC => {
