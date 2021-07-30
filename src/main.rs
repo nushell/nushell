@@ -1,8 +1,7 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use engine_q::{
-    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, StackFrame, State,
-    SyntaxShape,
+    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, Stack, State, SyntaxShape,
 };
 
 fn main() -> std::io::Result<()> {
@@ -152,10 +151,7 @@ fn main() -> std::io::Result<()> {
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
-        let stack = Rc::new(RefCell::new(StackFrame {
-            vars: HashMap::new(),
-            parent: None,
-        }));
+        let stack = Stack::new();
 
         loop {
             let input = line_editor.read_line(&prompt)?;
@@ -173,7 +169,7 @@ fn main() -> std::io::Result<()> {
                         parser_state.borrow().print_blocks();
                         continue;
                     } else if s.trim() == "stack" {
-                        stack.borrow().print_stack();
+                        stack.print_stack();
                     }
                     // println!("input: '{}'", s);
 

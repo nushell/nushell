@@ -77,11 +77,24 @@ pub struct StackFrame {
     pub parent: Option<Stack>,
 }
 
-pub type Stack = Rc<RefCell<StackFrame>>;
+#[derive(Clone)]
+pub struct Stack(Rc<RefCell<StackFrame>>);
 
-impl StackFrame {
-    pub fn get_var(this: Stack, var_id: VarId) -> Result<Value, ShellError> {
-        let this = this.borrow();
+impl Default for Stack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Stack {
+    pub fn new() -> Stack {
+        Stack(Rc::new(RefCell::new(StackFrame {
+            vars: HashMap::new(),
+            parent: None,
+        })))
+    }
+    pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
+        let this = self.0.borrow();
         match this.vars.get(&var_id) {
             Some(v) => Ok(v.clone()),
             _ => {
@@ -91,25 +104,25 @@ impl StackFrame {
         }
     }
 
-    pub fn add_var(this: Stack, var_id: VarId, value: Value) {
-        let mut this = this.borrow_mut();
+    pub fn add_var(&self, var_id: VarId, value: Value) {
+        let mut this = self.0.borrow_mut();
         this.vars.insert(var_id, value);
     }
 
-    pub fn enter_scope(this: Stack) -> Stack {
-        Rc::new(RefCell::new(StackFrame {
+    pub fn enter_scope(self) -> Stack {
+        Stack(Rc::new(RefCell::new(StackFrame {
             vars: HashMap::new(),
-            parent: Some(this),
-        }))
+            parent: Some(self),
+        })))
     }
 
     pub fn print_stack(&self) {
         println!("===frame===");
-        for (var, val) in &self.vars {
+        for (var, val) in &self.0.borrow().vars {
             println!("{}: {:?}", var, val);
         }
-        if let Some(parent) = &self.parent {
-            parent.borrow().print_stack()
+        if let Some(parent) = &self.0.borrow().parent {
+            parent.print_stack()
         }
     }
 }
@@ -131,6 +144,7 @@ pub fn eval_operator(
 fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellError> {
     let decl = state.parser_state.get_decl(call.decl_id);
     if let Some(block_id) = decl.body {
+        let stack = stack.enter_scope();
         for (arg, param) in call
             .positional
             .iter()
@@ -141,10 +155,9 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            StackFrame::add_var(stack.clone(), var_id, result);
+            stack.add_var(var_id, result);
         }
         let block = state.parser_state.get_block(block_id);
-        let stack = StackFrame::enter_scope(stack);
         eval_block(state, stack, block)
     } else if decl.signature.name == "let" {
         let var_id = call.positional[0]
@@ -159,7 +172,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 
-        StackFrame::add_var(stack, var_id, rhs);
+        stack.add_var(var_id, rhs);
         Ok(Value::Unknown)
     } else if decl.signature.name == "if" {
         let cond = &call.positional[0];
@@ -173,14 +186,13 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             Value::Bool { val, .. } => {
                 if val {
                     let block = state.parser_state.get_block(then_block);
-                    let stack = StackFrame::enter_scope(stack);
+                    let stack = stack.enter_scope();
                     eval_block(state, stack, block)
                 } else if let Some(else_case) = else_case {
-                    println!("{:?}", else_case);
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = state.parser_state.get_block(block_id);
-                            let stack = StackFrame::enter_scope(stack);
+                            let stack = stack.enter_scope();
                             eval_block(state, stack, block)
                         } else {
                             eval_expression(state, stack, else_expr)
@@ -212,7 +224,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             .expect("internal error: expected block");
         let block = state.parser_state.get_block(block);
 
-        let stack = StackFrame::enter_scope(stack);
+        let stack = stack.enter_scope();
         let start_time = Instant::now();
         eval_block(state, stack, block)?;
         let end_time = Instant::now();
@@ -233,7 +245,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             .expect("internal error: expected block");
         let block = state.parser_state.get_block(block);
 
-        let stack = StackFrame::enter_scope(stack);
+        let stack = stack.enter_scope();
 
         let mut x = Value::Int {
             val: 0,
@@ -244,7 +256,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             if x == end_val {
                 break;
             } else {
-                StackFrame::add_var(stack.clone(), var_id, x.clone());
+                stack.add_var(var_id, x.clone());
                 eval_block(state, stack.clone(), block)?;
             }
             if let Value::Int { ref mut val, .. } = x {
@@ -271,7 +283,7 @@ pub fn eval_expression(
             val: *i,
             span: expr.span,
         }),
-        Expr::Var(var_id) => StackFrame::get_var(stack, *var_id),
+        Expr::Var(var_id) => stack.get_var(*var_id),
         Expr::Call(call) => eval_call(state, stack, call),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Unknown),
@@ -289,7 +301,7 @@ pub fn eval_expression(
         Expr::Subexpression(block_id) => {
             let block = state.parser_state.get_block(*block_id);
 
-            let stack = StackFrame::enter_scope(stack);
+            let stack = stack.enter_scope();
             eval_block(state, stack, block)
         }
         Expr::Block(block_id) => Ok(Value::Block(*block_id)),
