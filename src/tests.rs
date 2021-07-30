@@ -61,3 +61,13 @@ fn add_simple2() -> TestResult {
 fn broken_math() -> TestResult {
     fail_test("3 + ", "Incomplete")
 }
+
+#[test]
+fn if_test1() -> TestResult {
+    run_test("if $true { 10 } else { 20 } ", "10")
+}
+
+#[test]
+fn if_test2() -> TestResult {
+    run_test("if $false { 10 } else { 20 } ", "20")
+}

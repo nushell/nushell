@@ -112,20 +112,25 @@ fn main() -> std::io::Result<()> {
     }
 
     if let Some(path) = std::env::args().nth(1) {
-        let parser_state = parser_state.borrow();
-        let mut working_set = ParserWorkingSet::new(&*parser_state);
+        let parser_state = parser_state;
 
         let file = std::fs::read(&path)?;
 
-        let (block, err) = working_set.parse_file(&path, &file, false);
+        let (block, delta) = {
+            let parser_state = parser_state.borrow();
+            let mut working_set = ParserWorkingSet::new(&*parser_state);
+            let (output, err) = working_set.parse_file(&path, &file, false);
+            if let Some(err) = err {
+                eprintln!("Error: {:?}", err);
+                std::process::exit(1);
+            }
+            (output, working_set.render())
+        };
 
-        if let Some(err) = err {
-            eprintln!("Error: {:?}", err);
-            std::process::exit(1);
-        }
+        ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
 
         let state = State {
-            parser_state: &*parser_state,
+            parser_state: &*parser_state.borrow(),
         };
 
         let stack = Stack::new();
