@@ -1212,21 +1212,19 @@ impl<'a> ParserWorkingSet<'a> {
                 let type_bytes = self.get_span_contents(spans[*spans_idx]);
 
                 let ty = self.parse_type(type_bytes);
-                *spans_idx += 1;
 
                 let id = self.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), ty.clone());
 
                 (
                     Expression {
                         expr: Expr::Var(id),
-                        span: span(&spans[*spans_idx - 2..*spans_idx]),
+                        span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
                         ty,
                     },
                     None,
                 )
             } else {
                 let id = self.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), Type::Unknown);
-                *spans_idx += 1;
                 (
                     Expression {
                         expr: Expr::Var(id),
@@ -1238,12 +1236,11 @@ impl<'a> ParserWorkingSet<'a> {
             }
         } else {
             let id = self.add_variable(bytes, Type::Unknown);
-            *spans_idx += 1;
 
             (
                 Expression {
                     expr: Expr::Var(id),
-                    span: span(&spans[*spans_idx - 1..*spans_idx]),
+                    span: span(&spans[*spans_idx..*spans_idx + 1]),
                     ty: Type::Unknown,
                 },
                 None,
@@ -2090,17 +2087,6 @@ impl<'a> ParserWorkingSet<'a> {
             }
         } else {
             (None, Some(ParseError::Mismatch("variable".into(), span)))
-        }
-    }
-
-    pub fn parse_keyword(&self, span: Span, keyword: &[u8]) -> Option<ParseError> {
-        if self.get_span_contents(span) == keyword {
-            None
-        } else {
-            Some(ParseError::Mismatch(
-                String::from_utf8_lossy(keyword).to_string(),
-                span,
-            ))
         }
     }
 

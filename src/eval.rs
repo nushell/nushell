@@ -157,7 +157,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
 
         let rhs = eval_expression(state, stack.clone(), keyword_expr)?;
 
-        println!("Adding: {:?} to {}", rhs, var_id);
+        //println!("Adding: {:?} to {}", rhs, var_id);
 
         StackFrame::add_var(stack, var_id, rhs);
         Ok(Value::Unknown)
@@ -250,8 +250,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             if curr == end_val {
                 break;
             } else {
-                let block_stack = StackFrame::enter_scope(stack.clone());
-                eval_block(state, block_stack, block)?;
+                eval_block(state, stack.clone(), block)?;
 
                 StackFrame::add_var(
                     stack.clone(),

@@ -26,7 +26,7 @@ fn main() -> std::io::Result<()> {
         working_set.add_decl(sig.into());
 
         let sig = Signature::build("let")
-            .required("var_name", SyntaxShape::Variable, "variable name")
+            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
