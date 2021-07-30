@@ -43,8 +43,19 @@ impl<'a> ParserWorkingSet<'a> {
             Expr::Block(block_id) => self.flatten_block(self.get_block(*block_id)),
             Expr::Call(call) => {
                 let mut output = vec![(call.head, FlatShape::InternalCall)];
+                let mut last_span = call.head.end;
                 for positional in &call.positional {
+                    last_span = positional.span.end;
                     output.extend(self.flatten_expression(positional));
+                }
+                if last_span < expr.span.end {
+                    output.push((
+                        Span {
+                            start: last_span,
+                            end: expr.span.end,
+                        },
+                        FlatShape::InternalCall,
+                    ));
                 }
                 output
             }
@@ -68,7 +79,11 @@ impl<'a> ParserWorkingSet<'a> {
                 }
                 output
             }
-            Expr::Keyword(_, expr) => self.flatten_expression(expr),
+            Expr::Keyword(_, span, expr) => {
+                let mut output = vec![(*span, FlatShape::Operator)];
+                output.extend(self.flatten_expression(expr));
+                output
+            }
             Expr::Operator(_) => {
                 vec![(expr.span, FlatShape::Operator)]
             }

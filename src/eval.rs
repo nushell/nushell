@@ -216,7 +216,7 @@ pub fn eval_expression(
             Ok(Value::List(output))
         }
         Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Keyword(_, expr) => eval_expression(state, stack, expr),
+        Expr::Keyword(_, _, expr) => eval_expression(state, stack, expr),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,

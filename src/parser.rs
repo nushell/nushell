@@ -171,7 +171,7 @@ pub enum Expr {
     Block(BlockId),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
-    Keyword(Vec<u8>, Box<Expression>),
+    Keyword(Vec<u8>, Span, Box<Expression>),
     String(String), // FIXME: improve this in the future?
     Signature(Box<Signature>),
     Garbage,
@@ -241,7 +241,7 @@ impl Expression {
 
     pub fn as_keyword(&self) -> Option<&Expression> {
         match &self.expr {
-            Expr::Keyword(_, expr) => Some(expr),
+            Expr::Keyword(_, _, expr) => Some(expr),
             _ => None,
         }
     }
@@ -646,6 +646,7 @@ impl<'a> ParserWorkingSet<'a> {
                         Expression {
                             expr: Expr::Keyword(
                                 keyword.clone(),
+                                spans[*spans_idx - 1],
                                 Box::new(Expression::garbage(arg_span)),
                             ),
                             span: arg_span,
@@ -660,7 +661,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                 (
                     Expression {
-                        expr: Expr::Keyword(keyword.clone(), Box::new(expr)),
+                        expr: Expr::Keyword(keyword.clone(), spans[*spans_idx - 1], Box::new(expr)),
                         span: arg_span,
                         ty,
                     },
