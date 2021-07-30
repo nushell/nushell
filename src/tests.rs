@@ -18,11 +18,15 @@ fn run_test(input: &str, expected: &str) -> TestResult {
 
     let output = cmd.output()?;
 
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+
+    println!("stdout: {}", stdout);
+    println!("stderr: {}", stderr);
+
     assert!(output.status.success());
 
-    let output = String::from_utf8_lossy(&output.stdout).to_string();
-
-    assert_eq!(output.trim(), expected);
+    assert_eq!(stdout.trim(), expected);
 
     Ok(())
 }
@@ -40,6 +44,7 @@ fn fail_test(input: &str, expected: &str) -> TestResult {
     let output = cmd.output()?;
 
     let output = String::from_utf8_lossy(&output.stderr).to_string();
+    println!("{}", output);
 
     assert!(output.contains("Error:"));
     assert!(output.contains(expected));
@@ -70,4 +75,41 @@ fn if_test1() -> TestResult {
 #[test]
 fn if_test2() -> TestResult {
     run_test("if $false { 10 } else { 20 } ", "20")
+}
+
+#[test]
+fn no_leak1() -> TestResult {
+    fail_test(
+        "if $false { let $x = 10 } else { let $x = 20 }; $x",
+        "VariableNotFound",
+    )
+}
+
+#[test]
+fn no_leak2() -> TestResult {
+    fail_test(
+        "def foo [] { $x }; def bar [] { let $x = 10; foo }; bar",
+        "VariableNotFound",
+    )
+}
+
+#[test]
+fn no_leak3() -> TestResult {
+    run_test(
+        "def foo [$x] { $x }; def bar [] { let $x = 10; foo 20}; bar",
+        "20",
+    )
+}
+
+#[test]
+fn no_leak4() -> TestResult {
+    run_test(
+        "def foo [$x] { $x }; def bar [] { let $x = 10; (foo 20) + $x}; bar",
+        "30",
+    )
+}
+
+#[test]
+fn simple_var_closing() -> TestResult {
+    run_test("let $x = 10; def foo [] { $x }; foo", "10")
 }

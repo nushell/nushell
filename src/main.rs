@@ -121,7 +121,7 @@ fn main() -> std::io::Result<()> {
             let mut working_set = ParserWorkingSet::new(&*parser_state);
             let (output, err) = working_set.parse_file(&path, &file, false);
             if let Some(err) = err {
-                eprintln!("Error: {:?}", err);
+                eprintln!("Parse Error: {:?}", err);
                 std::process::exit(1);
             }
             (output, working_set.render())
@@ -140,7 +140,7 @@ fn main() -> std::io::Result<()> {
                 println!("{}", value);
             }
             Err(err) => {
-                eprintln!("Error: {:?}", err);
+                eprintln!("Eval Error: {:?}", err);
                 std::process::exit(1);
             }
         }
@@ -191,7 +191,7 @@ fn main() -> std::io::Result<()> {
                             false,
                         );
                         if let Some(err) = err {
-                            println!("Error: {:?}", err);
+                            eprintln!("Parse Error: {:?}", err);
                             break;
                         }
                         (output, working_set.render())
@@ -208,7 +208,7 @@ fn main() -> std::io::Result<()> {
                             println!("{}", value);
                         }
                         Err(err) => {
-                            println!("Error: {:?}", err);
+                            eprintln!("Eval Error: {:?}", err);
                         }
                     }
                 }

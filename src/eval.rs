@@ -9,6 +9,7 @@ pub enum ShellError {
     Mismatch(String, Span),
     Unsupported(Span),
     InternalError(String),
+    VariableNotFound(Span),
 }
 
 #[derive(Debug, Clone)]
@@ -98,8 +99,11 @@ impl Stack {
         match this.vars.get(&var_id) {
             Some(v) => Ok(v.clone()),
             _ => {
-                println!("var_id: {}", var_id);
-                Err(ShellError::InternalError("variable not found".into()))
+                if let Some(parent) = &this.parent {
+                    parent.get_var(var_id)
+                } else {
+                    Err(ShellError::InternalError("variable not found".into()))
+                }
             }
         }
     }
@@ -283,7 +287,9 @@ pub fn eval_expression(
             val: *i,
             span: expr.span,
         }),
-        Expr::Var(var_id) => stack.get_var(*var_id),
+        Expr::Var(var_id) => stack
+            .get_var(*var_id)
+            .map_err(move |_| ShellError::VariableNotFound(expr.span)),
         Expr::Call(call) => eval_call(state, stack, call),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Unknown),
