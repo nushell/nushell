@@ -235,31 +235,20 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
 
         let stack = StackFrame::enter_scope(stack);
 
-        StackFrame::add_var(
-            stack.clone(),
-            var_id,
-            Value::Int {
-                val: 0,
-                span: Span::unknown(),
-            },
-        );
+        let mut x = Value::Int {
+            val: 0,
+            span: Span::unknown(),
+        };
 
         loop {
-            let curr = StackFrame::get_var(stack.clone(), var_id)?;
-
-            if curr == end_val {
+            if x == end_val {
                 break;
             } else {
+                StackFrame::add_var(stack.clone(), var_id, x.clone());
                 eval_block(state, stack.clone(), block)?;
-
-                StackFrame::add_var(
-                    stack.clone(),
-                    var_id,
-                    curr.add(&Value::Int {
-                        val: 1,
-                        span: Span::unknown(),
-                    })?,
-                );
+            }
+            if let Value::Int { ref mut val, .. } = x {
+                *val += 1
             }
         }
         Ok(Value::Unknown)
