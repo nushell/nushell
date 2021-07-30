@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, time::Instant};
 
 use crate::{
     parser::Operator, Block, BlockId, Call, Expr, Expression, ParserState, Span, Statement, VarId,
@@ -19,6 +19,19 @@ pub enum Value {
     List(Vec<Value>),
     Block(BlockId),
     Unknown,
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs == rhs,
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
+            (Value::List(l1), Value::List(l2)) => l1 == l2,
+            (Value::Block(b1), Value::Block(b2)) => b1 == b2,
+            _ => false,
+        }
+    }
 }
 
 impl Display for Value {
@@ -193,6 +206,64 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
             val: output.join(""),
             span: call.head,
         })
+    } else if decl.signature.name == "benchmark" {
+        let block = call.positional[0]
+            .as_block()
+            .expect("internal error: expected block");
+        let block = state.parser_state.get_block(block);
+
+        let stack = StackFrame::enter_scope(stack);
+        let start_time = Instant::now();
+        eval_block(state, stack, block)?;
+        let end_time = Instant::now();
+        println!("{} ms", (end_time - start_time).as_millis());
+        Ok(Value::Unknown)
+    } else if decl.signature.name == "for" {
+        let var_id = call.positional[0]
+            .as_var()
+            .expect("internal error: missing variable");
+
+        let keyword_expr = call.positional[1]
+            .as_keyword()
+            .expect("internal error: missing keyword");
+        let end_val = eval_expression(state, stack.clone(), keyword_expr)?;
+
+        let block = call.positional[2]
+            .as_block()
+            .expect("internal error: expected block");
+        let block = state.parser_state.get_block(block);
+
+        let stack = StackFrame::enter_scope(stack);
+
+        StackFrame::add_var(
+            stack.clone(),
+            var_id,
+            Value::Int {
+                val: 0,
+                span: Span::unknown(),
+            },
+        );
+
+        loop {
+            let curr = StackFrame::get_var(stack.clone(), var_id)?;
+
+            if curr == end_val {
+                break;
+            } else {
+                let block_stack = StackFrame::enter_scope(stack.clone());
+                eval_block(state, block_stack, block)?;
+
+                StackFrame::add_var(
+                    stack.clone(),
+                    var_id,
+                    curr.add(&Value::Int {
+                        val: 1,
+                        span: Span::unknown(),
+                    })?,
+                );
+            }
+        }
+        Ok(Value::Unknown)
     } else {
         Ok(Value::Unknown)
     }

@@ -59,6 +59,24 @@ fn main() -> std::io::Result<()> {
             .required("block", SyntaxShape::Block, "body of the definition");
         working_set.add_decl(sig.into());
 
+        let sig = Signature::build("for")
+            .required(
+                "var_name",
+                SyntaxShape::Variable,
+                "name of the looping variable",
+            )
+            .required(
+                "range",
+                SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Int)),
+                "range of the loop",
+            )
+            .required("block", SyntaxShape::Block, "the block to run");
+        working_set.add_decl(sig.into());
+
+        let sig =
+            Signature::build("benchmark").required("block", SyntaxShape::Block, "the block to run");
+        working_set.add_decl(sig.into());
+
         // let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
         // working_set.add_decl(sig.into());
 
