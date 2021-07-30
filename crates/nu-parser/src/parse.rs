@@ -1997,7 +1997,7 @@ fn expand_shorthand_forms(
         if lite_pipeline.commands[0].parts[0].contains('=')
             && !lite_pipeline.commands[0].parts[0].starts_with('$')
         {
-            let assignment: Vec<_> = lite_pipeline.commands[0].parts[0].split('=').collect();
+            let assignment: Vec<_> = lite_pipeline.commands[0].parts[0].splitn(2, '=').collect();
             if assignment.len() != 2 {
                 (
                     lite_pipeline.clone(),
