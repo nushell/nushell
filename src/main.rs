@@ -117,24 +117,28 @@ fn main() -> std::io::Result<()> {
 
         let file = std::fs::read(&path)?;
 
-        let (block, _err) = working_set.parse_file(&path, &file, false);
-        println!("{}", block.len());
-        // println!("{:#?}", output);
-        // println!("error: {:?}", err);
+        let (block, err) = working_set.parse_file(&path, &file, false);
 
-        //println!("working set: {:#?}", working_set);
+        if let Some(err) = err {
+            eprintln!("Error: {:?}", err);
+            std::process::exit(1);
+        }
 
-        // println!("{}", size_of::<Statement>());
+        let state = State {
+            parser_state: &*parser_state,
+        };
 
-        // let engine = Engine::new();
-        // let result = engine.eval_block(&output);
-        // println!("{:?}", result);
+        let stack = Stack::new();
 
-        // let mut buffer = String::new();
-        // let stdin = std::io::stdin();
-        // let mut handle = stdin.lock();
-
-        // handle.read_to_string(&mut buffer)?;
+        match eval_block(&state, stack, &block) {
+            Ok(value) => {
+                println!("{}", value);
+            }
+            Err(err) => {
+                eprintln!("Error: {:?}", err);
+                std::process::exit(1);
+            }
+        }
 
         Ok(())
     } else {
@@ -181,12 +185,10 @@ fn main() -> std::io::Result<()> {
                             s.as_bytes(),
                             false,
                         );
-                        println!("{:?}", output);
                         if let Some(err) = err {
                             println!("Error: {:?}", err);
-                            continue;
+                            break;
                         }
-                        println!("Error: {:?}", err);
                         (output, working_set.render())
                     };
 
@@ -196,8 +198,14 @@ fn main() -> std::io::Result<()> {
                         parser_state: &*parser_state.borrow(),
                     };
 
-                    let output = eval_block(&state, stack.clone(), &block);
-                    println!("{:#?}", output);
+                    match eval_block(&state, stack.clone(), &block) {
+                        Ok(value) => {
+                            println!("{}", value);
+                        }
+                        Err(err) => {
+                            println!("Error: {:?}", err);
+                        }
+                    }
                 }
                 Signal::CtrlC => {
                     println!("Ctrl-c");

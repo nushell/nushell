@@ -8,3 +8,9 @@ edition = "2018"
 [dependencies]
 reedline = {git = "https://github.com/jntrnr/reedline"}
 nu-ansi-term = "0.32.0"
+# mimalloc = { version = "*", default-features = false }
+
+[dev-dependencies]
+tempfile = "3.2.0"
+assert_cmd = "1.0.7"
+pretty_assertions = "0.7.2"
