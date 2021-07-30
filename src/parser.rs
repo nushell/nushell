@@ -1013,7 +1013,10 @@ impl<'a> ParserWorkingSet<'a> {
             (
                 Expression {
                     expr: Expr::Call(Box::new(Call {
-                        head: span,
+                        head: Span {
+                            start: span.start,
+                            end: span.start + 2,
+                        },
                         named: vec![],
                         positional: output,
                         decl_id,
