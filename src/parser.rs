@@ -655,13 +655,14 @@ impl<'a> ParserWorkingSet<'a> {
                         error,
                     );
                 }
+                let keyword_span = spans[*spans_idx - 1];
                 let (expr, err) = self.parse_multispan_value(spans, spans_idx, arg);
                 error = error.or(err);
                 let ty = expr.ty.clone();
 
                 (
                     Expression {
-                        expr: Expr::Keyword(keyword.clone(), spans[*spans_idx - 1], Box::new(expr)),
+                        expr: Expr::Keyword(keyword.clone(), keyword_span, Box::new(expr)),
                         span: arg_span,
                         ty,
                     },
