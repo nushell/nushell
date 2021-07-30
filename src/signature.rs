@@ -102,6 +102,17 @@ impl Signature {
         self
     }
 
+    pub fn rest(mut self, shape: impl Into<SyntaxShape>, desc: impl Into<String>) -> Signature {
+        self.rest_positional = Some(PositionalArg {
+            name: "rest".into(),
+            desc: desc.into(),
+            shape: shape.into(),
+            var_id: None,
+        });
+
+        self
+    }
+
     /// Add an optional named flag argument to the signature
     pub fn named(
         mut self,
