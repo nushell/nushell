@@ -2101,6 +2101,12 @@ impl<'a> ParserWorkingSet<'a> {
                 .expect("internal error: expected def name");
 
             self.enter_scope();
+            // FIXME: because parse_signature will update the scope with the variables it sees
+            // we end up parsing the signature twice per def. The first time is during the predecl
+            // so that we can see the types that are part of the signature, which we need for parsing.
+            // The second time is when we actually parse the body itself.
+            // We can't reuse the first time because the variables that are created during parse_signature
+            // are lost when we exit the scope below.
             let (sig, ..) = self.parse_signature(spans[2]);
             let mut signature = sig
                 .as_signature()
