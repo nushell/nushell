@@ -123,3 +123,8 @@ fn predecl_check() -> TestResult {
 fn def_with_no_dollar() -> TestResult {
     run_test("def bob [x] { $x + 3 }; bob 4", "7")
 }
+
+#[test]
+fn env_shorthand() -> TestResult {
+    run_test("FOO=BAR if $false { 3 } else { 4 }", "4")
+}

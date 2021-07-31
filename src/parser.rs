@@ -783,11 +783,32 @@ impl<'a> ParserWorkingSet<'a> {
 
     pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
         // assume spans.len() > 0?
-        let name = self.get_span_contents(spans[0]);
+        let mut pos = 0;
+        let mut shorthand = vec![];
+
+        while pos < spans.len() {
+            // First, check if there is any environment shorthand
+            let name = self.get_span_contents(spans[pos]);
+            let split: Vec<_> = name.splitn(2, |x| *x == b'=').collect();
+            if split.len() == 2 {
+                shorthand.push(split);
+                pos += 1;
+            } else {
+                break;
+            }
+        }
+
+        if pos == spans.len() {
+            return (
+                Expression::garbage(span(spans)),
+                Some(ParseError::UnknownCommand(spans[0])),
+            );
+        }
+        let name = self.get_span_contents(spans[pos]);
+        pos += 1;
 
         if let Some(mut decl_id) = self.find_decl(name) {
             let mut name = name.to_vec();
-            let mut pos = 1;
             while pos < spans.len() {
                 // look to see if it's a subcommand
                 let mut new_name = name.to_vec();

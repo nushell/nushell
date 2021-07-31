@@ -192,7 +192,7 @@ fn main() -> std::io::Result<()> {
                         );
                         if let Some(err) = err {
                             eprintln!("Parse Error: {:?}", err);
-                            break;
+                            continue;
                         }
                         (output, working_set.render())
                     };
