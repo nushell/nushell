@@ -37,7 +37,10 @@ impl WholeStreamCommand for Reverse {
     }
 }
 
+#[allow(clippy::needless_collect)]
 fn reverse(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    // Clippy warning should be ignored
+    // This collect is needed to apply rev
     let input = args.input.collect::<Vec<_>>();
     Ok((input.into_iter().rev().map(ReturnSuccess::value)).into_action_stream())
 }

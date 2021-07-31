@@ -23,6 +23,10 @@ impl NuGroupBy {
         }
     }
 
+    pub fn by(&self) -> &[String] {
+        &self.by
+    }
+
     pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuGroupBy, ShellError>
     where
         T: Iterator<Item = Value>,
