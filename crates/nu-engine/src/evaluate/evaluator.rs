@@ -187,7 +187,11 @@ pub fn evaluate_baseline_expr(
                             }
                         }
                         UnspannedPathMember::Int(_row) => {
-                            return Err(err);
+                            return Err(ShellError::labeled_error(
+                                "Unknown row",
+                                "unknown row",
+                                &member.span,
+                            ));
                         }
                     },
                     Ok(next) => {
