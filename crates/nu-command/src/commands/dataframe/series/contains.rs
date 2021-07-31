@@ -20,11 +20,10 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe contains").required_named(
+        Signature::build("dataframe contains").required(
             "pattern",
             SyntaxShape::String,
             "Regex pattern to be searched",
-            Some('p'),
         )
     }
 
@@ -35,7 +34,7 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns boolean indicating if patter was found",
-            example: "[abc acb acb] | dataframe to-df | dataframe contains -p ab",
+            example: "[abc acb acb] | dataframe to-df | dataframe contains ab",
             result: Some(vec![NuDataFrame::try_from_columns(
                 vec![Column::new(
                     "0".to_string(),
@@ -55,7 +54,7 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let pattern: Tagged<String> = args.req_named("pattern")?;
+    let pattern: Tagged<String> = args.req(0)?;
 
     let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
