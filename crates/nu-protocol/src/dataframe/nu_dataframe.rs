@@ -173,7 +173,8 @@ impl NuDataFrame {
                 UntaggedValue::Primitive(Primitive::Int(_))
                 | UntaggedValue::Primitive(Primitive::Decimal(_))
                 | UntaggedValue::Primitive(Primitive::String(_))
-                | UntaggedValue::Primitive(Primitive::Boolean(_)) => {
+                | UntaggedValue::Primitive(Primitive::Boolean(_))
+                | UntaggedValue::DataFrame(_) => {
                     let key = format!("{}", 0);
                     insert_value(value, key, &mut column_values)?
                 }
@@ -284,6 +285,27 @@ impl NuDataFrame {
             .expect("We have already checked that the width is 1");
 
         Ok(series.clone())
+    }
+
+    pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
+        let series = self.as_series(&Span::default())?;
+        let column = create_column(&series, row, row + 1)?;
+
+        if column.len() == 0 {
+            Err(ShellError::labeled_error_with_secondary(
+                "Not a valid row",
+                format!("No value found for index {}", row),
+                span,
+                format!("Note that the column size is {}", series.len()),
+                span,
+            ))
+        } else {
+            let value = column
+                .into_iter()
+                .next()
+                .expect("already checked there is a value");
+            Ok(value)
+        }
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail

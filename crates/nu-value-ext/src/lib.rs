@@ -214,11 +214,17 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
                     Tag::new(value.anchor(), name.span),
                 ))
             }
-            _ => Err(ShellError::labeled_error(
-                "Integer as column",
-                "Only string as column name",
-                &name.span,
-            )),
+            UnspannedPathMember::Int(int) => {
+                if df.is_series() {
+                    df.get_value(*int as usize, name.span)
+                } else {
+                    Err(ShellError::labeled_error(
+                        "Column not found",
+                        "Column name not found in the dataframe",
+                        name.span,
+                    ))
+                }
+            }
         },
         other => Err(ShellError::type_error(
             "row or table",

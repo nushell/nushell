@@ -13,6 +13,9 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use sys_locale::get_locale;
 
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::{FrameStruct, NuDataFrame};
+
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct InlineRange {
     from: (InlineShape, RangeInclusion),
@@ -45,9 +48,11 @@ pub enum InlineShape {
     // TODO: Error type
     Error,
 
-    // TODO: Dataframe type
     #[cfg(feature = "dataframe")]
-    DataFrame,
+    DataFrame(String),
+
+    #[cfg(feature = "dataframe")]
+    FrameStruct(String),
 
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
@@ -123,6 +128,24 @@ impl InlineShape {
         InlineShape::Table(vec)
     }
 
+    #[cfg(feature = "dataframe")]
+    pub fn from_df(df: &NuDataFrame) -> InlineShape {
+        let msg = format!("{} rows {} cols", df.as_ref().height(), df.as_ref().width());
+
+        InlineShape::DataFrame(msg)
+    }
+
+    #[cfg(feature = "dataframe")]
+    pub fn from_frame_struct(s: &FrameStruct) -> InlineShape {
+        match s {
+            FrameStruct::GroupBy(groupby) => {
+                let msg = groupby.by().join(",");
+                let msg = format!("groupby {}", msg);
+                InlineShape::DataFrame(msg)
+            }
+        }
+    }
+
     pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> InlineShape {
         match value.into() {
             UntaggedValue::Primitive(p) => InlineShape::from_primitive(p),
@@ -131,7 +154,9 @@ impl InlineShape {
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => InlineShape::DataFrame,
+            UntaggedValue::DataFrame(df) => InlineShape::from_df(df),
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::FrameStruct(s) => InlineShape::from_frame_struct(s),
         }
     }
 
@@ -344,7 +369,16 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Block => DbgDocBldr::opaque("block"),
             InlineShape::Error => DbgDocBldr::error("error"),
             #[cfg(feature = "dataframe")]
-            InlineShape::DataFrame => DbgDocBldr::error("dataframe_pretty_formatter"),
+            InlineShape::DataFrame(msg) => DbgDocBldr::delimit(
+                "[",
+                DbgDocBldr::kind("dataframe") + DbgDocBldr::space() + DbgDocBldr::primitive(msg),
+                "]",
+            )
+            .group(),
+            #[cfg(feature = "dataframe")]
+            InlineShape::FrameStruct(msg) => {
+                DbgDocBldr::delimit("[", DbgDocBldr::primitive(msg), "]").group()
+            }
             InlineShape::BeginningOfStream => DbgDocBldr::blank(),
             InlineShape::EndOfStream => DbgDocBldr::blank(),
         }
