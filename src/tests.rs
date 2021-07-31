@@ -78,7 +78,7 @@ fn if_test2() -> TestResult {
 }
 
 #[test]
-fn no_leak1() -> TestResult {
+fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",
         "VariableNotFound",
@@ -86,7 +86,7 @@ fn no_leak1() -> TestResult {
 }
 
 #[test]
-fn no_leak2() -> TestResult {
+fn no_scope_leak2() -> TestResult {
     fail_test(
         "def foo [] { $x }; def bar [] { let $x = 10; foo }; bar",
         "VariableNotFound",
@@ -94,7 +94,7 @@ fn no_leak2() -> TestResult {
 }
 
 #[test]
-fn no_leak3() -> TestResult {
+fn no_scope_leak3() -> TestResult {
     run_test(
         "def foo [$x] { $x }; def bar [] { let $x = 10; foo 20}; bar",
         "20",
@@ -102,7 +102,7 @@ fn no_leak3() -> TestResult {
 }
 
 #[test]
-fn no_leak4() -> TestResult {
+fn no_scope_leak4() -> TestResult {
     run_test(
         "def foo [$x] { $x }; def bar [] { let $x = 10; (foo 20) + $x}; bar",
         "30",
@@ -112,4 +112,9 @@ fn no_leak4() -> TestResult {
 #[test]
 fn simple_var_closing() -> TestResult {
     run_test("let $x = 10; def foo [] { $x }; foo", "10")
+}
+
+#[test]
+fn predecl_check() -> TestResult {
+    run_test("def bob [] { sam }; def sam [] { 3 }; bob", "3")
 }

@@ -2090,6 +2090,33 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
+    pub fn parse_def_predecl(&mut self, spans: &[Span]) {
+        let name = self.get_span_contents(spans[0]);
+
+        if name == b"def" && spans.len() >= 4 {
+            //FIXME: don't use expect here
+            let (name_expr, ..) = self.parse_string(spans[1]);
+            let name = name_expr
+                .as_string()
+                .expect("internal error: expected def name");
+
+            self.enter_scope();
+            let (sig, ..) = self.parse_signature(spans[2]);
+            let mut signature = sig
+                .as_signature()
+                .expect("internal error: expected param list");
+            self.exit_scope();
+
+            signature.name = name;
+            let decl = Declaration {
+                signature,
+                body: None,
+            };
+
+            self.add_decl(decl);
+        }
+    }
+
     pub fn parse_def(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         let mut error = None;
         let name = self.get_span_contents(spans[0]);
@@ -2102,11 +2129,16 @@ impl<'a> ParserWorkingSet<'a> {
                 .expect("internal error: expected def name");
             error = error.or(err);
 
+            let decl_id = self
+                .find_decl(name.as_bytes())
+                .expect("internal error: predeclaration failed to add definition");
+
             self.enter_scope();
             let (sig, err) = self.parse_signature(spans[2]);
             let mut signature = sig
                 .as_signature()
                 .expect("internal error: expected param list");
+            signature.name = name;
             error = error.or(err);
 
             let (block, err) = self.parse_block_expression(spans[3]);
@@ -2115,13 +2147,10 @@ impl<'a> ParserWorkingSet<'a> {
             let block_id = block.as_block().expect("internal error: expected block");
             error = error.or(err);
 
-            signature.name = name;
-            let decl = Declaration {
-                signature,
-                body: Some(block_id),
-            };
+            let declaration = self.get_decl_mut(decl_id);
+            declaration.signature = signature;
+            declaration.body = Some(block_id);
 
-            self.add_decl(decl);
             let def_decl_id = self
                 .find_decl(b"def")
                 .expect("internal error: missing def command");
@@ -2210,6 +2239,14 @@ impl<'a> ParserWorkingSet<'a> {
         }
 
         let mut block = Block::new();
+
+        // Pre-declare any definition so that definitions
+        // that share the same block can see each other
+        for pipeline in &lite_block.block {
+            if pipeline.commands.len() == 1 {
+                self.parse_def_predecl(&pipeline.commands[0].parts);
+            }
+        }
 
         for pipeline in &lite_block.block {
             if pipeline.commands.len() > 1 {

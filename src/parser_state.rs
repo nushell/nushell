@@ -306,6 +306,11 @@ impl<'a> ParserWorkingSet<'a> {
         None
     }
 
+    pub fn update_decl(&mut self, decl_id: usize, block: Option<BlockId>) {
+        let decl = self.get_decl_mut(decl_id);
+        decl.body = block;
+    }
+
     pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
         for scope in self.delta.scope.iter().rev() {
             for decl in &scope.decls {
@@ -397,6 +402,18 @@ impl<'a> ParserWorkingSet<'a> {
             self.delta
                 .decls
                 .get(decl_id - num_permanent_decls)
+                .expect("internal error: missing declaration")
+        }
+    }
+
+    pub fn get_decl_mut(&mut self, decl_id: DeclId) -> &mut Declaration {
+        let num_permanent_decls = self.permanent_state.num_decls();
+        if decl_id < num_permanent_decls {
+            panic!("internal error: can only mutate declarations in working set")
+        } else {
+            self.delta
+                .decls
+                .get_mut(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
         }
     }
