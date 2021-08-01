@@ -407,6 +407,12 @@ impl ParserScope for Scope {
         }
     }
 
+    fn remove_alias(&self, name: &str) {
+        for frame in self.frames.lock().iter_mut().rev() {
+            frame.aliases.remove(name);
+        }
+    }
+
     fn enter_scope(&self) {
         self.frames.lock().push(ScopeFrame::new());
     }

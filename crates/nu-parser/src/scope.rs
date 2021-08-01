@@ -13,6 +13,8 @@ pub trait ParserScope: Debug {
 
     fn get_alias(&self, name: &str) -> Option<Vec<Spanned<String>>>;
 
+    fn remove_alias(&self, name: &str);
+
     fn add_alias(&self, name: &str, replacement: Vec<Spanned<String>>);
 
     fn enter_scope(&self);

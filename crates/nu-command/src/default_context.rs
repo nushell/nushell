@@ -18,6 +18,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Def),
             whole_stream_command(Source),
             whole_stream_command(Alias),
+            whole_stream_command(Unalias),
             whole_stream_command(Ignore),
             // System/file operations
             whole_stream_command(Exec),

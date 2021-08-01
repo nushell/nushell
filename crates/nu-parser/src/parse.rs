@@ -1902,7 +1902,7 @@ fn parse_call(
                     )),
                 );
             }
-        } else if lite_cmd.parts[0].item == "alias" {
+        } else if lite_cmd.parts[0].item == "alias" || lite_cmd.parts[0].item == "unalias" {
             let error = parse_alias(&lite_cmd, scope);
             if error.is_none() {
                 return (Some(ClassifiedCommand::Internal(internal_command)), None);
@@ -2048,26 +2048,41 @@ fn expand_shorthand_forms(
 }
 
 fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError> {
-    if call.parts.len() == 2 && (call.parts[1].item == "--help" || (call.parts[1].item == "-h")) {
-        return None;
-    }
+    if call.parts[0].item == "alias" {
+        if (call.parts.len() == 1)
+            || (call.parts.len() == 2
+                && (call.parts[1].item == "--help" || (call.parts[1].item == "-h")))
+        {
+            return None;
+        }
+        if call.parts.len() < 4 {
+            return Some(ParseError::mismatch("alias", call.parts[0].clone()));
+        }
 
-    if call.parts.len() < 4 {
-        return Some(ParseError::mismatch("alias", call.parts[0].clone()));
-    }
+        if call.parts[0].item != "alias" {
+            return Some(ParseError::mismatch("alias", call.parts[0].clone()));
+        }
 
-    if call.parts[0].item != "alias" {
-        return Some(ParseError::mismatch("alias", call.parts[0].clone()));
-    }
-
-    if call.parts[2].item != "=" {
-        return Some(ParseError::mismatch("=", call.parts[2].clone()));
+        if call.parts[2].item != "=" {
+            return Some(ParseError::mismatch("=", call.parts[2].clone()));
+        }
+    } else {
+        // unalias
+        if call.parts.len() != 2 {
+            return Some(ParseError::mismatch("unalias", call.parts[0].clone()));
+        }
     }
 
     let name = call.parts[1].item.clone();
     let args: Vec<_> = call.parts.iter().skip(3).cloned().collect();
 
-    scope.add_alias(&name, args);
+    match call.parts[0].item.as_str() {
+        "alias" => scope.add_alias(&name, args),
+        "unalias" => {
+            scope.remove_alias(&name);
+        }
+        _ => unreachable!(),
+    };
 
     None
 }
