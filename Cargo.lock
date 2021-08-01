@@ -2510,6 +2510,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "insta"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4a1b21a2971cea49ca4613c0e9fe8225ecaf5de64090fddc6002284726e9244"
+dependencies = [
+ "console",
+ "lazy_static 1.4.0",
+ "serde 1.0.126",
+ "serde_json",
+ "serde_yaml",
+ "similar",
+ "uuid",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3536,6 +3551,18 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "toml",
+]
+
+[[package]]
+name = "nu-serde"
+version = "0.34.1"
+dependencies = [
+ "bigdecimal",
+ "insta",
+ "nu-protocol",
+ "nu-source",
+ "serde 1.0.126",
+ "thiserror",
 ]
 
 [[package]]
@@ -5615,6 +5642,12 @@ name = "simdutf8"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c970da16e7c682fa90a261cf0724dee241c9f7831635ecc4e988ae8f3b505559"
+
+[[package]]
+name = "similar"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ad1d488a557b235fc46dae55512ffbfc429d2482b08b4d9435ab07384ca8aec"
 
 [[package]]
 name = "siphasher"
