@@ -317,6 +317,10 @@ mod tests {
             todo!()
         }
 
+        fn remove_alias(&self, _name: &str) {
+            todo!()
+        }
+
         fn add_definition(&self, _block: Arc<Block>) {}
 
         fn get_definitions(&self) -> Vec<Arc<Block>> {
