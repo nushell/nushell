@@ -215,13 +215,13 @@ fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
 // Trace a relative path back to its root starting from current directory.
 // Returns error if not possible.
 // If path is absolute, just return it.
-fn absolutize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    if path.as_ref().is_absolute() {
-        Ok(path.as_ref().into())
-    } else {
-        Ok(current_dir()?.join(path))
-    }
-}
+// fn absolutize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+//     if path.as_ref().is_absolute() {
+//         Ok(path.as_ref().into())
+//     } else {
+//         Ok(current_dir()?.join(path))
+//     }
+// }
 
 // Trace a relative path back to its root starting from a custom directory.
 // Returns error if not possible.
@@ -253,20 +253,7 @@ pub fn trim_trailing_slash(s: &str) -> &str {
 // Full expansions
 
 pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
-    let absolutized = absolutize(&path)?;
-    let absolutized = expand_dots(Cow::Borrowed(&absolutized));
-    let path = match std::fs::read_link(&absolutized) {
-        Ok(resolved) => expand_dots(Cow::Owned(resolved)),
-        Err(e) => {
-            if absolutized.exists() {
-                absolutized
-            } else {
-                return Err(e);
-            }
-        }
-    };
-
-    Ok(dunce::simplified(&path).to_path_buf())
+    dunce::canonicalize(path)
 }
 
 pub fn canonicalize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
