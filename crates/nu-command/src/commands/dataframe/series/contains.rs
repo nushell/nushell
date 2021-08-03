@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "[Series] Checks if a patter is contained in a string"
+        "[Series] Checks if a pattern is contained in a string"
     }
 
     fn signature(&self) -> Signature {
@@ -33,7 +33,7 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns boolean indicating if patter was found",
+            description: "Returns boolean indicating if pattern was found",
             example: "[abc acb acb] | dataframe to-df | dataframe contains ab",
             result: Some(vec![NuDataFrame::try_from_columns(
                 vec![Column::new(
