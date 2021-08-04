@@ -1,8 +1,6 @@
 use indexmap::map::{Entry, IndexMap};
+use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
-use polars::{
-    chunked_array::object::builder::ObjectChunkedBuilder, prelude::PrimitiveChunkedBuilder,
-};
 
 use bigdecimal::{FromPrimitive, ToPrimitive};
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
@@ -10,8 +8,8 @@ use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
 use polars::prelude::{
-    ChunkedBuilder, DataFrame, DataType, Date64Type, DurationNanosecondType, IntoSeries, NamedFrom,
-    ObjectType, PolarsNumericType, Series, TimeUnit,
+    DataFrame, DataType, Date64Type, Int64Type, IntoSeries, NamedFrom, NewChunkedArray, ObjectType,
+    PolarsNumericType, Series, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -627,33 +625,29 @@ pub fn from_parsed_columns(
                     df_series.push(res.into_series())
                 }
                 InputType::Date => {
-                    let mut builder =
-                        PrimitiveChunkedBuilder::<Date64Type>::new(&name, column.values.len());
-
-                    for v in column.values.iter() {
+                    let it = column.values.iter().map(|v| {
                         if let UntaggedValue::Primitive(Primitive::Date(date)) = &v.value {
-                            builder.append_value(date.timestamp_millis());
+                            Some(date.timestamp_millis())
+                        } else {
+                            None
                         }
-                    }
+                    });
 
-                    let res = builder.finish();
+                    let res = ChunkedArray::<Date64Type>::new_from_opt_iter(&name, it);
+
                     df_series.push(res.into_series())
                 }
                 InputType::Duration => {
-                    let mut builder = PrimitiveChunkedBuilder::<DurationNanosecondType>::new(
-                        &name,
-                        column.values.len(),
-                    );
-
-                    for v in column.values.iter() {
+                    let it = column.values.iter().map(|v| {
                         if let UntaggedValue::Primitive(Primitive::Duration(duration)) = &v.value {
-                            builder.append_value(
-                                duration.to_i64().expect("Not expecting NAN in duration"),
-                            );
+                            Some(duration.to_i64().expect("Not expecting NAN in duration"))
+                        } else {
+                            None
                         }
-                    }
+                    });
 
-                    let res = builder.finish();
+                    let res = ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it);
+
                     df_series.push(res.into_series())
                 }
             }
