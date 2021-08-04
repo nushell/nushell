@@ -1,14 +1,17 @@
 use indexmap::map::{Entry, IndexMap};
-use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
+use polars::{
+    chunked_array::object::builder::ObjectChunkedBuilder, prelude::PrimitiveChunkedBuilder,
+};
 
-use bigdecimal::FromPrimitive;
+use bigdecimal::{FromPrimitive, ToPrimitive};
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
 use polars::prelude::{
-    DataFrame, DataType, IntoSeries, NamedFrom, ObjectType, PolarsNumericType, Series, TimeUnit,
+    ChunkedBuilder, DataFrame, DataType, Date64Type, DurationNanosecondType, IntoSeries, NamedFrom,
+    ObjectType, PolarsNumericType, Series, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -74,6 +77,8 @@ pub enum InputType {
     String,
     Boolean,
     Object,
+    Date,
+    Duration,
 }
 
 #[derive(Debug)]
@@ -528,6 +533,12 @@ pub fn insert_value(
             UntaggedValue::Primitive(Primitive::Boolean(_)) => {
                 col_val.column_type = Some(InputType::Boolean);
             }
+            UntaggedValue::Primitive(Primitive::Date(_)) => {
+                col_val.column_type = Some(InputType::Date);
+            }
+            UntaggedValue::Primitive(Primitive::Duration(_)) => {
+                col_val.column_type = Some(InputType::Duration);
+            }
             _ => col_val.column_type = Some(InputType::Object),
         }
         col_val.values.push(value);
@@ -550,6 +561,14 @@ pub fn insert_value(
             | (
                 UntaggedValue::Primitive(Primitive::Boolean(_)),
                 UntaggedValue::Primitive(Primitive::Boolean(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Date(_)),
+                UntaggedValue::Primitive(Primitive::Date(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Duration(_)),
+                UntaggedValue::Primitive(Primitive::Duration(_)),
             ) => col_val.values.push(value),
             _ => {
                 col_val.column_type = Some(InputType::Object);
@@ -602,6 +621,36 @@ pub fn from_parsed_columns(
 
                     for v in column.values.iter() {
                         builder.append_value(v.clone());
+                    }
+
+                    let res = builder.finish();
+                    df_series.push(res.into_series())
+                }
+                InputType::Date => {
+                    let mut builder =
+                        PrimitiveChunkedBuilder::<Date64Type>::new(&name, column.values.len());
+
+                    for v in column.values.iter() {
+                        if let UntaggedValue::Primitive(Primitive::Date(date)) = &v.value {
+                            builder.append_value(date.timestamp_millis());
+                        }
+                    }
+
+                    let res = builder.finish();
+                    df_series.push(res.into_series())
+                }
+                InputType::Duration => {
+                    let mut builder = PrimitiveChunkedBuilder::<DurationNanosecondType>::new(
+                        &name,
+                        column.values.len(),
+                    );
+
+                    for v in column.values.iter() {
+                        if let UntaggedValue::Primitive(Primitive::Duration(duration)) = &v.value {
+                            builder.append_value(
+                                duration.to_i64().expect("Not expecting NAN in duration"),
+                            );
+                        }
                     }
 
                     let res = builder.finish();
