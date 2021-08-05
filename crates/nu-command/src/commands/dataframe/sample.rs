@@ -41,7 +41,7 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -r 1",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -n 1",
                 result: None, // No expected value because sampling is random
             },
             Example {
