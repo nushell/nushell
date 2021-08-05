@@ -314,8 +314,11 @@ Nu is in heavy development and will naturally change as it matures and people us
 
 Please submit an issue or PR to be added to this list.
 
+###   Integrations
 -   [zoxide](https://github.com/ajeetdsouza/zoxide)
 -   [starship](https://github.com/starship/starship)
+###   Mentions
+-   [The Python Launcher for Unix](https://github.com/brettcannon/python-launcher#how-do-i-get-a-table-of-python-executables-in-nushell)
 
 ## Contributing
 
