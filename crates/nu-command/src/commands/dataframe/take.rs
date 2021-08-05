@@ -111,9 +111,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
     })?;
 
-    match value.value {
+    match &value.value {
         UntaggedValue::DataFrame(df) => {
-            let res = df.as_ref().take(indices);
+            let res = df
+                .as_ref()
+                .take(indices)
+                .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
