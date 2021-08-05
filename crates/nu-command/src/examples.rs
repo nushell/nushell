@@ -17,11 +17,12 @@ use nu_source::AnchorLocation;
 #[cfg(feature = "dataframe")]
 use crate::commands::{
     DataFrameGroupBy, DataFrameIsNull, DataFrameShift, DataFrameToDF, DataFrameWithColumn,
+    StrToDatetime,
 };
 
 use crate::commands::{
     Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
-    StrCollect, StrToDatetime, Wrap,
+    StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
