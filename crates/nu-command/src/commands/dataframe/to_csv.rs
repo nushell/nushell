@@ -45,7 +45,7 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to-csv test.csv",
                 result: None,
             },
             Example {
