@@ -55,8 +55,8 @@ pub fn apply_operator(
             )),
             _ => res,
         }),
-        Operator::In => table_contains(left, right).map(UntaggedValue::boolean),
-        Operator::NotIn => table_contains(left, right).map(|x| UntaggedValue::boolean(!x)),
+        Operator::In => inside_of(left, right).map(UntaggedValue::boolean),
+        Operator::NotIn => inside_of(left, right).map(|x| UntaggedValue::boolean(!x)),
         Operator::And => match (left.as_bool(), right.as_bool()) {
             (Ok(left), Ok(right)) => Ok(UntaggedValue::boolean(left && right)),
             _ => Err((left.type_name(), right.type_name())),
@@ -89,12 +89,12 @@ fn string_contains(
     }
 }
 
-fn table_contains(
+fn inside_of(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
-    match right {
-        UntaggedValue::Table(values) => {
+    match (left, right) {
+        (_, UntaggedValue::Table(values)) => {
             Ok(values
                 .iter()
                 .any(|x| match compare_values(Operator::Equal, left, &x.value) {
@@ -102,6 +102,10 @@ fn table_contains(
                     _ => false,
                 }))
         }
+        (
+            UntaggedValue::Primitive(Primitive::String(lhs)),
+            UntaggedValue::Primitive(Primitive::String(rhs)),
+        ) => Ok(rhs.contains(lhs)),
         _ => Err((left.type_name(), right.type_name())),
     }
 }

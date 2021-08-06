@@ -130,7 +130,8 @@ mod tests {
 
     #[test]
     fn return_value_can_be_used_in_assert_eq() {
-        let v: ReturnValue = ReturnSuccess::value(UntaggedValue::nothing());
-        assert_eq!(v, v);
+        let v1: ReturnValue = ReturnSuccess::value(UntaggedValue::nothing());
+        let v2: ReturnValue = ReturnSuccess::value(UntaggedValue::nothing());
+        assert_eq!(v1, v2);
     }
 }
