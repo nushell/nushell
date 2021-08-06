@@ -19,6 +19,7 @@ nu-path = { version = "0.35.0", path="../nu-path" }
 nu-parser = { version = "0.35.0", path="../nu-parser" }
 nu-plugin = { version = "0.35.0", path="../nu-plugin" }
 nu-protocol = { version = "0.35.0", path="../nu-protocol" }
+nu-serde = { version = "0.35.0", path="../nu-serde" }
 nu-source = { version = "0.35.0", path="../nu-source" }
 nu-stream = { version = "0.35.0", path="../nu-stream" }
 nu-table = { version = "0.35.0", path="../nu-table" }
@@ -84,6 +85,7 @@ sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
+thiserror = "1.0.26"
 tempfile = "3.2.0"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
