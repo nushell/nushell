@@ -1,7 +1,16 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
+
+#[derive(Debug, thiserror::Error)]
+pub enum DeserializationError {
+    #[error("Failed to parse input as TOML")]
+    Toml(#[from] toml::de::Error),
+
+    #[error("Failed to convert to a nushell value")]
+    Nu(#[from] Box<nu_serde::Error>),
+}
 
 pub struct FromToml;
 
@@ -23,41 +32,13 @@ impl WholeStreamCommand for FromToml {
     }
 }
 
-pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Value {
-    let tag = tag.into();
-    let span = tag.span;
-
-    match v {
-        toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
-        toml::Value::Integer(n) => UntaggedValue::int(*n).into_value(tag),
-        toml::Value::Float(n) => UntaggedValue::decimal_from_float(*n, span).into_value(tag),
-        toml::Value::String(s) => {
-            UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
-        }
-        toml::Value::Array(a) => UntaggedValue::Table(
-            a.iter()
-                .map(|x| convert_toml_value_to_nu_value(x, &tag))
-                .collect(),
-        )
-        .into_value(tag),
-        toml::Value::Datetime(dt) => {
-            UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(tag)
-        }
-        toml::Value::Table(t) => {
-            let mut collected = TaggedDictBuilder::new(&tag);
-
-            for (k, v) in t.iter() {
-                collected.insert_value(k.clone(), convert_toml_value_to_nu_value(v, &tag));
-            }
-
-            collected.into_value()
-        }
-    }
-}
-
-pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value, toml::de::Error> {
+pub fn from_toml_string_to_value(
+    s: String,
+    tag: impl Into<Tag>,
+) -> Result<Value, DeserializationError> {
     let v: toml::Value = s.parse::<toml::Value>()?;
-    Ok(convert_toml_value_to_nu_value(&v, tag))
+
+    Ok(nu_serde::to_value(v, tag).map_err(Box::new)?)
 }
 
 pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
