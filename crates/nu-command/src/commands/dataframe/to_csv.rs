@@ -45,7 +45,7 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to-csv test.csv",
                 result: None,
             },
             Example {
@@ -64,7 +64,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
 
-    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
         ShellError::labeled_error(

@@ -1,0 +1,65 @@
+name: Bug Report
+description: Create a report to help us improve
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: I expected nu to...
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Please add any relevant screenshots here, if any
+    validations:
+      required: false
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: "Please run `> version | pivot` and paste the output to show OS, features, etc"
+      placeholder: |
+        > version | pivot
+        ╭───┬────────────────────┬───────────────────────────────────────────────────────────────────────╮
+        │ # │ Column0            │ Column1                                                               │
+        ├───┼────────────────────┼───────────────────────────────────────────────────────────────────────┤
+        │ 0 │ version            │ 0.24.1                                                                │
+        │ 1 │ build_os           │ macos-x86_64                                                          │
+        │ 2 │ rust_version       │ rustc 1.48.0                                                          │
+        │ 3 │ cargo_version      │ cargo 1.48.0                                                          │
+        │ 4 │ pkg_version        │ 0.24.1                                                                │
+        │ 5 │ build_time         │ 2020-12-18 09:54:09                                                   │
+        │ 6 │ build_rust_channel │ release                                                               │
+        │ 7 │ features           │ ctrlc, default, directories, dirs, git, ichwh, rich-benchmark,        │
+        │   │                    │ rustyline, term, uuid, which, zip                                     │
+        ╰───┴────────────────────┴───────────────────────────────────────────────────────────────────────╯
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here.
+    validations:
+      required: false

@@ -12,7 +12,7 @@ use nu_source::{
 use num_traits::cast::ToPrimitive;
 
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::{NuSeries, PolarsData};
+use nu_protocol::dataframe::NuDataFrame;
 
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
@@ -203,22 +203,28 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
             }
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => match &name.unspanned {
+        UntaggedValue::DataFrame(df) => match &name.unspanned {
             UnspannedPathMember::String(string) => {
-                let column = df.as_ref().column(string.as_ref()).map_err(|e| {
+                let column = df.as_ref().select(string.as_str()).map_err(|e| {
                     ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
                 })?;
 
-                Ok(NuSeries::series_to_value(
-                    column.clone(),
+                Ok(NuDataFrame::dataframe_to_value(
+                    column,
                     Tag::new(value.anchor(), name.span),
                 ))
             }
-            _ => Err(ShellError::labeled_error(
-                "Integer as column",
-                "Only string as column name",
-                &name.span,
-            )),
+            UnspannedPathMember::Int(int) => {
+                if df.is_series() {
+                    df.get_value(*int as usize, name.span)
+                } else {
+                    Err(ShellError::labeled_error(
+                        "Column not found",
+                        "Column name not found in the dataframe",
+                        name.span,
+                    ))
+                }
+            }
         },
         other => Err(ShellError::type_error(
             "row or table",
@@ -746,7 +752,7 @@ pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, 
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => {
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
             MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
     }

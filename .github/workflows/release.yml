@@ -162,8 +162,6 @@ jobs:
       - linux
       - macos
       - windows
-    outputs:
-      version: ${{ steps.info.outputs.version }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -285,19 +283,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./nushell-windows.msi
           asset_name: ${{ steps.info.outputs.windowsdir }}.msi
-          asset_content_type: applictaion/x-msi
-
-  winget:
-    name: Publish winget package
-    runs-on: windows-latest
-    needs: release
-    steps:
-      - name: Submit package to Windows Package Manager Community Repository
-        run: |
-          iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          $nushellVersion="${{ needs.release.outputs.version }}"
-          $nushellInstallerName="nu_$($nushellVersion -replace '\.','_')_windows.msi"
-          $installerUrl = "https://github.com/nushell/nushell/releases/download/$nushellVersion/$nushellInstallerName"
-          .\wingetcreate.exe update Nushell.Nushell -v $nushellVersion -u $installerUrl -t ${{ secrets.NUSHELL_PAT }}
-    
-    
+          asset_content_type: application/x-msi

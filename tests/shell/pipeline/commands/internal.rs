@@ -216,6 +216,19 @@ fn string_interpolation_and_paren() {
 }
 
 #[test]
+fn string_interpolation_with_unicode() {
+    //カ = U+30AB : KATAKANA LETTER KA
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            $"カ"
+        "#
+    );
+
+    assert_eq!(actual.out, "カ");
+}
+
+#[test]
 fn bignum_large_integer() {
     let actual = nu!(
         cwd: ".",

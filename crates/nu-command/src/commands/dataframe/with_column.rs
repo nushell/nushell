@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::{Column, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::Tagged;
@@ -33,8 +33,35 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Adds a series to the dataframe",
             example:
-                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-series) --name c",
-            result: None,
+                "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe with-column ([5 6] | dataframe to-df) --name c",
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(3).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![
+                            UntaggedValue::int(2).into(),
+                            UntaggedValue::int(4).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "c".to_string(),
+                        vec![
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(6).into(),
+                        ],
+                    ),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -44,8 +71,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let value: Value = args.req(0)?;
     let name: Tagged<String> = args.req_named("name")?;
 
-    let mut series = match value.value {
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
+    let df = match value.value {
+        UntaggedValue::DataFrame(df) => Ok(df),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only add a series to a dataframe",
@@ -53,13 +80,28 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let series = series.as_mut().rename(name.item.as_ref()).clone();
+    let mut series = df.as_series(&value.tag.span)?;
 
-    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let series = series.rename(name.item.as_ref()).clone();
+
+    let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     df.as_mut()
         .with_column(series)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     Ok(OutputStream::one(df.into_value(tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

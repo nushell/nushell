@@ -10,6 +10,7 @@ pub struct Command;
 
 #[derive(Deserialize)]
 struct Arguments {
+    #[allow(unused)]
     pub rest: Vec<Value>,
 }
 

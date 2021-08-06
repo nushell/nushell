@@ -25,16 +25,21 @@ pub use conversions::*;
 pub use core_commands::*;
 #[cfg(feature = "dataframe")]
 pub use dataframe::{
-    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameArgMax,
-    DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique, DataFrameColumn,
-    DataFrameDTypes, DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies,
-    DataFrameFilter, DataFrameFirst, DataFrameGet, DataFrameGroupBy, DataFrameIsDuplicated,
-    DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
-    DataFrameLast, DataFrameList, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFrameNot,
-    DataFrameOpen, DataFramePivot, DataFrameSample, DataFrameSelect, DataFrameSeriesRename,
-    DataFrameSet, DataFrameSetWithIdx, DataFrameShift, DataFrameShow, DataFrameSlice,
-    DataFrameSort, DataFrameTake, DataFrameToCsv, DataFrameToDF, DataFrameToParquet,
-    DataFrameToSeries, DataFrameUnique, DataFrameValueCounts, DataFrameWhere, DataFrameWithColumn,
+    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameAppend,
+    DataFrameArgMax, DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique,
+    DataFrameColumn, DataFrameConcatenate, DataFrameContains, DataFrameDTypes, DataFrameDrop,
+    DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies, DataFrameFilter, DataFrameFirst,
+    DataFrameGet, DataFrameGetDay, DataFrameGetHour, DataFrameGetMinute, DataFrameGetMonth,
+    DataFrameGetNanoSecond, DataFrameGetOrdinal, DataFrameGetSecond, DataFrameGetWeek,
+    DataFrameGetWeekDay, DataFrameGetYear, DataFrameGroupBy, DataFrameIsDuplicated, DataFrameIsIn,
+    DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin, DataFrameLast,
+    DataFrameList, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFrameNot, DataFrameOpen,
+    DataFramePivot, DataFrameReplace, DataFrameReplaceAll, DataFrameSample, DataFrameSelect,
+    DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift,
+    DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameStrFTime, DataFrameStringLengths,
+    DataFrameStringSlice, DataFrameTake, DataFrameToCsv, DataFrameToDF, DataFrameToLowercase,
+    DataFrameToParquet, DataFrameToUppercase, DataFrameUnique, DataFrameValueCounts,
+    DataFrameWhere, DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;

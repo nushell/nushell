@@ -20,6 +20,7 @@ use nu_protocol::{
     Value,
 };
 use nu_source::{SpannedItem, Tag, TaggedItem};
+use std::env::var;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -117,7 +118,9 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => toml::Value::String("<DataFrame>".to_string()),
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
+            toml::Value::String("<DataFrame>".to_string())
+        }
         UntaggedValue::Primitive(Primitive::Range(_)) => toml::Value::String("<Range>".to_string()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -166,7 +169,9 @@ pub fn config_path() -> Result<PathBuf, ShellError> {
 
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
-    let path = ProjectDirs::config_dir(&dir).to_owned();
+    let path = var("NU_CONFIG_DIR").map_or(ProjectDirs::config_dir(&dir).to_owned(), |path| {
+        PathBuf::from(path)
+    });
     std::fs::create_dir_all(&path).map_err(|err| {
         ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", "config", err))
     })?;

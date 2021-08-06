@@ -71,7 +71,7 @@ impl From<&Value> for Config {
                 "line_ranges" => config.line_ranges = bat::line_range::LineRanges::all(),
                 "highlight_range" => config.highlight_range = "0,0".into(),
                 "theme" => {
-                    config.theme = value
+                    config.theme = entry
                         .as_string()
                         .unwrap_or_else(|_| "OneDarkHalf".to_string())
                 }

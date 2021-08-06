@@ -1,0 +1,19 @@
+[package]
+name = "nu-serde"
+version = "0.35.0"
+edition = "2018"
+authors = ["The Nu Project Contributors"]
+description = "Turn any value into a nu-protocol::Value with serde"
+license = "MIT"
+repository = "https://github.com/nushell/nushell"
+documentation = "https://docs.rs/nu-serde"
+
+[dependencies]
+bigdecimal = "0.2"
+nu-protocol = { version = "0.35.0", path = "../nu-protocol" }
+nu-source = { version = "0.35.0", path = "../nu-source" }
+serde = "1"
+thiserror = "1"
+
+[dev-dependencies]
+insta = "1"

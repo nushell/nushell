@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
+    dataframe::{Column, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
@@ -51,20 +51,50 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "inner join dataframe",
-                example: r#"let right = ([[a b c]; [1 2 5] [3 4 5] [5 6 6]] | dataframe to-df);
+        vec![Example {
+            description: "inner join dataframe",
+            example: r#"let right = ([[a b c]; [1 2 5] [3 4 5] [5 6 6]] | dataframe to-df);
     $right | dataframe join $right -l [a b] -r [a b]"#,
-                result: None,
-            },
-            Example {
-                description: "right join dataframe",
-                example: r#"let right = ([[a b c]; [1 2 3] [3 4 5] [5 6 7]] | dataframe to-df);
-    $right | dataframe join $right -l [a c] -r [a c] -t inner"#,
-                result: None,
-            },
-        ]
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(3).into(),
+                            UntaggedValue::int(5).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![
+                            UntaggedValue::int(2).into(),
+                            UntaggedValue::int(4).into(),
+                            UntaggedValue::int(6).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "c".to_string(),
+                        vec![
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(6).into(),
+                        ],
+                    ),
+                    Column::new(
+                        "c_right".to_string(),
+                        vec![
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(5).into(),
+                            UntaggedValue::int(6).into(),
+                        ],
+                    ),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
+        }]
     }
 }
 
@@ -97,13 +127,14 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (l_col_string, l_col_span) = convert_columns(&l_col, &tag)?;
     let (r_col_string, r_col_span) = convert_columns(&r_col, &tag)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = match r_df.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(r_df)) => {
+        UntaggedValue::DataFrame(r_df) => {
             // Checking the column types before performing the join
             check_column_datatypes(
                 df.as_ref(),
+                r_df.as_ref(),
                 &l_col_string,
                 &l_col_span,
                 &r_col_string,
@@ -125,7 +156,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 }
 
 fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
+    df_l: &polars::prelude::DataFrame,
+    df_r: &polars::prelude::DataFrame,
     l_cols: &[T],
     l_col_span: &Span,
     r_cols: &[T],
@@ -146,13 +178,13 @@ fn check_column_datatypes<T: AsRef<str>>(
     }
 
     for (l, r) in l_cols.iter().zip(r_cols.iter()) {
-        let l_series = df
+        let l_series = df_l
             .column(l.as_ref())
-            .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))?;
+            .map_err(|e| parse_polars_error::<&str>(&e, l_col_span, None))?;
 
-        let r_series = df
+        let r_series = df_r
             .column(r.as_ref())
-            .map_err(|e| parse_polars_error::<&str>(&e, &r_col_span, None))?;
+            .map_err(|e| parse_polars_error::<&str>(&e, r_col_span, None))?;
 
         if l_series.dtype() != r_series.dtype() {
             return Err(ShellError::labeled_error_with_secondary(
@@ -170,4 +202,17 @@ fn check_column_datatypes<T: AsRef<str>>(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

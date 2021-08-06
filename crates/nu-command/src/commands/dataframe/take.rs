@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, NuSeries, PolarsData},
+    dataframe::{Column, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 use polars::prelude::DataType;
@@ -37,16 +37,38 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Takes selected rows from dataframe",
                 example: r#"let df = ([[a b]; [4 1] [5 2] [4 3]] | dataframe to-df);
-    let indices = ([0 2] | dataframe to-series);
+    let indices = ([0 2] | dataframe to-df);
     $df | dataframe take $indices"#,
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![UntaggedValue::int(4).into(), UntaggedValue::int(4).into()],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(3).into()],
+                        ),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Takes selected rows from series",
-                example: r#"let series = ([4 1 5 2 4 3] | dataframe to-series);
-    let indices = ([0 2] | dataframe to-series);
+                example: r#"let series = ([4 1 5 2 4 3] | dataframe to-df);
+    let indices = ([0 2] | dataframe to-df);
     $series | dataframe take $indices"#,
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![UntaggedValue::int(4).into(), UntaggedValue::int(5).into()],
+                    )],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -56,8 +78,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let value: Value = args.req(0)?;
 
-    let series = match &value.value {
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => Ok(series),
+    let df = match &value.value {
+        UntaggedValue::DataFrame(df) => Ok(df),
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "can only use a series for take command",
@@ -65,7 +87,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         )),
     }?;
 
-    let casted = match series.as_ref().dtype() {
+    let series = df.as_series(&value.tag.span)?;
+
+    let casted = match series.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => series
             .as_ref()
             .cast_with_dtype(&DataType::UInt32)
@@ -87,21 +111,32 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
     })?;
 
-    match value.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
-            let res = df.as_ref().take(indices);
+    match &value.value {
+        UntaggedValue::DataFrame(df) => {
+            let res = df
+                .as_ref()
+                .take(indices)
+                .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None))?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
-        }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
-            let res = series.as_ref().take(indices);
-
-            Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
         }
         _ => Err(ShellError::labeled_error(
             "No dataframe or series in stream",
             "no dataframe or series found in input stream",
             &value.tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }

@@ -247,7 +247,7 @@ pub fn rustyline_hinter(
 ) -> Option<rustyline::hint::HistoryHinter> {
     if let Some(line_editor_vars) = config.var("line_editor") {
         for (idx, value) in line_editor_vars.row_entries() {
-            if idx == "show_hints" && value.expect_string() == "false" {
+            if idx == "show_hints" && value.as_bool() == Ok(false) {
                 return None;
             }
         }
