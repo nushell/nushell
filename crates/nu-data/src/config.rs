@@ -20,6 +20,7 @@ use nu_protocol::{
     Value,
 };
 use nu_source::{SpannedItem, Tag, TaggedItem};
+use std::env::var;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -168,7 +169,9 @@ pub fn config_path() -> Result<PathBuf, ShellError> {
 
     let dir = ProjectDirs::from("org", "nushell", "nu")
         .ok_or_else(|| ShellError::untagged_runtime_error("Couldn't find project directory"))?;
-    let path = ProjectDirs::config_dir(&dir).to_owned();
+    let path = var("NU_CONFIG_DIR").map_or(ProjectDirs::config_dir(&dir).to_owned(), |path| {
+        PathBuf::from(path)
+    });
     std::fs::create_dir_all(&path).map_err(|err| {
         ShellError::untagged_runtime_error(&format!("Couldn't create {} path:\n{}", "config", err))
     })?;
