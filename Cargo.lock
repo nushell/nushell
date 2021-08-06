@@ -3553,7 +3553,7 @@ dependencies = [
 name = "nu-serde"
 version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "insta",
  "nu-protocol",
  "nu-source",
