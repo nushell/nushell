@@ -448,10 +448,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bigdecimal"
-version = "0.2.0"
+name = "bigdecimal-rs"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc403c26e6b03005522e6e8053384c4e881dfe5b2bf041c0c2c49be33d64a539"
+checksum = "85375a908d633fa70ab5b8a217d3d0b6e5c4a9b03786f0c3c969e77f4016b10c"
 dependencies = [
  "num-bigint 0.3.2",
  "num-integer",
@@ -3197,7 +3197,7 @@ dependencies = [
  "Inflector",
  "arboard",
  "base64",
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "bytes 1.0.1",
  "calamine",
@@ -3310,7 +3310,7 @@ dependencies = [
 name = "nu-data"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "chrono",
  "common-path",
@@ -3346,7 +3346,7 @@ dependencies = [
  "ansi_term 0.12.1",
  "async-recursion",
  "async-trait",
- "bigdecimal",
+ "bigdecimal-rs",
  "bytes 0.5.6",
  "chrono",
  "codespan-reporting",
@@ -3398,7 +3398,7 @@ dependencies = [
 name = "nu-errors"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "codespan-reporting",
  "derive-new",
  "getset",
@@ -3431,7 +3431,7 @@ dependencies = [
 name = "nu-parser"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "codespan-reporting",
  "derive-new",
  "derive_is_enum_variant",
@@ -3462,7 +3462,7 @@ dependencies = [
 name = "nu-plugin"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "indexmap",
  "nu-errors",
  "nu-protocol",
@@ -3487,7 +3487,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "chrono",
  "derive-new",
@@ -3541,7 +3541,7 @@ dependencies = [
 name = "nu-test-support"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "chrono",
  "dunce",
  "getset",
@@ -3617,7 +3617,7 @@ dependencies = [
 name = "nu_plugin_from_bson"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "bson",
  "nu-errors",
  "nu-plugin",
@@ -3643,7 +3643,7 @@ dependencies = [
 name = "nu_plugin_from_sqlite"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -3832,7 +3832,7 @@ dependencies = [
 name = "nu_plugin_xpath"
 version = "0.33.1"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "indexmap",
  "nu-errors",
  "nu-plugin",

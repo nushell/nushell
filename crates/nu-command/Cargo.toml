@@ -30,7 +30,7 @@ nu-pretty-hex = { version="0.33.1", path="../nu-pretty-hex" }
 Inflector = "0.11"
 arboard = { version="1.1.0", optional=true }
 base64 = "0.13.0"
-bigdecimal = { version="0.2.0", features=["serde"] }
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 byte-unit = "4.0.9"
 bytes = "1.0.1"
 calamine = "0.18.0"

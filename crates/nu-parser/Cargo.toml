@@ -7,7 +7,7 @@ name = "nu-parser"
 version = "0.33.1"
 
 [dependencies]
-bigdecimal = { version="0.2.0", features=["serde"] }
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 codespan-reporting = "0.11.0"
 derive-new = "0.5.8"
 derive_is_enum_variant = "0.1.1"

@@ -26,7 +26,7 @@ dyn-clone = "1.0.4"
 ansi_term = "0.12.1"
 async-recursion = "0.3.2"
 async-trait = "0.1.42"
-bigdecimal = "0.2.0"
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 bytes = "0.5.6"
 chrono = { version="0.4.19", features=["serde"] }
 derive-new = "0.5.8"

@@ -10,7 +10,7 @@ version = "0.33.1"
 doctest = false
 
 [dependencies]
-bigdecimal = "0.2.0"
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 nu-errors = { path="../nu-errors", version="0.33.1" }
 nu-plugin = { path="../nu-plugin", version="0.33.1" }
 nu-protocol = { path="../nu-protocol", version="0.33.1" }
