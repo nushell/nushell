@@ -9,7 +9,7 @@ repository = "https://github.com/nushell/nushell"
 documentation = "https://docs.rs/nu-serde"
 
 [dependencies]
-bigdecimal = "0.2"
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 nu-protocol = { version = "0.35.0", path = "../nu-protocol" }
 nu-source = { version = "0.35.0", path = "../nu-source" }
 serde = "1"

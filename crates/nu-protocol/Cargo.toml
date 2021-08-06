@@ -10,7 +10,7 @@ version = "0.35.0"
 doctest = false
 
 [dependencies]
-bigdecimal = { version="0.2.0", features=["serde"] }
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 byte-unit = "4.0.9"
 chrono = { version="0.4.19", features=["serde"] }
 chrono-humanize = "0.2.1"
