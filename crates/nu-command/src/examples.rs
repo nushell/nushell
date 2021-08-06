@@ -17,6 +17,7 @@ use nu_source::AnchorLocation;
 #[cfg(feature = "dataframe")]
 use crate::commands::{
     DataFrameGroupBy, DataFrameIsNull, DataFrameShift, DataFrameToDF, DataFrameWithColumn,
+    StrToDatetime,
 };
 
 use crate::commands::{
@@ -182,6 +183,7 @@ pub fn test_dataframe(cmd: impl WholeStreamCommand + 'static) -> Result<(), Shel
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
         whole_stream_command(Wrap),
+        whole_stream_command(StrToDatetime),
     ]);
 
     for sample_pipeline in examples {

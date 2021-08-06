@@ -2,13 +2,14 @@ use indexmap::map::{Entry, IndexMap};
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 
-use bigdecimal::FromPrimitive;
+use bigdecimal::{FromPrimitive, ToPrimitive};
 use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
 use polars::prelude::{
-    DataFrame, DataType, IntoSeries, NamedFrom, ObjectType, PolarsNumericType, Series, TimeUnit,
+    DataFrame, DataType, Date64Type, Int64Type, IntoSeries, NamedFrom, NewChunkedArray, ObjectType,
+    PolarsNumericType, Series, TimeUnit,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -74,6 +75,8 @@ pub enum InputType {
     String,
     Boolean,
     Object,
+    Date,
+    Duration,
 }
 
 #[derive(Debug)]
@@ -528,6 +531,12 @@ pub fn insert_value(
             UntaggedValue::Primitive(Primitive::Boolean(_)) => {
                 col_val.column_type = Some(InputType::Boolean);
             }
+            UntaggedValue::Primitive(Primitive::Date(_)) => {
+                col_val.column_type = Some(InputType::Date);
+            }
+            UntaggedValue::Primitive(Primitive::Duration(_)) => {
+                col_val.column_type = Some(InputType::Duration);
+            }
             _ => col_val.column_type = Some(InputType::Object),
         }
         col_val.values.push(value);
@@ -550,6 +559,14 @@ pub fn insert_value(
             | (
                 UntaggedValue::Primitive(Primitive::Boolean(_)),
                 UntaggedValue::Primitive(Primitive::Boolean(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Date(_)),
+                UntaggedValue::Primitive(Primitive::Date(_)),
+            )
+            | (
+                UntaggedValue::Primitive(Primitive::Duration(_)),
+                UntaggedValue::Primitive(Primitive::Duration(_)),
             ) => col_val.values.push(value),
             _ => {
                 col_val.column_type = Some(InputType::Object);
@@ -605,6 +622,32 @@ pub fn from_parsed_columns(
                     }
 
                     let res = builder.finish();
+                    df_series.push(res.into_series())
+                }
+                InputType::Date => {
+                    let it = column.values.iter().map(|v| {
+                        if let UntaggedValue::Primitive(Primitive::Date(date)) = &v.value {
+                            Some(date.timestamp_millis())
+                        } else {
+                            None
+                        }
+                    });
+
+                    let res = ChunkedArray::<Date64Type>::new_from_opt_iter(&name, it);
+
+                    df_series.push(res.into_series())
+                }
+                InputType::Duration => {
+                    let it = column.values.iter().map(|v| {
+                        if let UntaggedValue::Primitive(Primitive::Duration(duration)) = &v.value {
+                            Some(duration.to_i64().expect("Not expecting NAN in duration"))
+                        } else {
+                            None
+                        }
+                    });
+
+                    let res = ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it);
+
                     df_series.push(res.into_series())
                 }
             }

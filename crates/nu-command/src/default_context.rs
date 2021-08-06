@@ -329,6 +329,17 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameStringSlice),
             whole_stream_command(DataFrameConcatenate),
             whole_stream_command(DataFrameAppend),
+            whole_stream_command(DataFrameGetHour),
+            whole_stream_command(DataFrameGetMinute),
+            whole_stream_command(DataFrameGetSecond),
+            whole_stream_command(DataFrameGetDay),
+            whole_stream_command(DataFrameGetMonth),
+            whole_stream_command(DataFrameGetYear),
+            whole_stream_command(DataFrameGetWeek),
+            whole_stream_command(DataFrameGetWeekDay),
+            whole_stream_command(DataFrameGetOrdinal),
+            whole_stream_command(DataFrameGetNanoSecond),
+            whole_stream_command(DataFrameStrFTime),
         ]);
 
         #[cfg(feature = "clipboard-cli")]

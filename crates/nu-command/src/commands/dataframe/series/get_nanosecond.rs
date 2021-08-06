@@ -3,28 +3,24 @@ use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
     dataframe::{Column, NuDataFrame},
-    Signature, SyntaxShape, UntaggedValue,
+    Signature, UntaggedValue,
 };
-use nu_source::Tagged;
+
 use polars::prelude::IntoSeries;
 
 pub struct DataFrame;
 
 impl WholeStreamCommand for DataFrame {
     fn name(&self) -> &str {
-        "dataframe contains"
+        "dataframe get-nanosecond"
     }
 
     fn usage(&self) -> &str {
-        "[Series] Checks if a pattern is contained in a string"
+        "[Series] Gets nanosecond from date"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe contains").required(
-            "pattern",
-            SyntaxShape::String,
-            "Regex pattern to be searched",
-        )
+        Signature::build("dataframe get-nanosecond")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -33,16 +29,14 @@ impl WholeStreamCommand for DataFrame {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns boolean indicating if pattern was found",
-            example: "[abc acb acb] | dataframe to-df | dataframe contains ab",
+            description: "Returns nanosecond from a date",
+            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | str to-datetime -z 'UTC');
+    let df = ([$dt $dt] | dataframe to-df);
+    $df | dataframe get-nanosecond"#,
             result: Some(vec![NuDataFrame::try_from_columns(
                 vec![Column::new(
                     "0".to_string(),
-                    vec![
-                        UntaggedValue::boolean(true).into(),
-                        UntaggedValue::boolean(false).into(),
-                        UntaggedValue::boolean(false).into(),
-                    ],
+                    vec![UntaggedValue::int(0).into(), UntaggedValue::int(0).into()],
                 )],
                 &Span::default(),
             )
@@ -54,24 +48,16 @@ impl WholeStreamCommand for DataFrame {
 
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
-    let pattern: Tagged<String> = args.req(0)?;
 
     let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
-
     let series = df.as_series(&df_tag.span)?;
-    let chunked = series.utf8().map_err(|e| {
-        parse_polars_error::<&str>(
-            &e,
-            &df_tag.span,
-            Some("The contains command can only be used with string columns"),
-        )
-    })?;
 
-    let res = chunked
-        .contains(pattern.as_str())
-        .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+    let casted = series
+        .date64()
+        .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
-    let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;
+    let res = casted.nanosecond().into_series();
+    let df = NuDataFrame::try_from_series(vec![res], &tag.span)?;
     Ok(OutputStream::one(df.into_value(df_tag)))
 }
 

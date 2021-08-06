@@ -174,6 +174,7 @@ impl NuDataFrame {
                 | UntaggedValue::Primitive(Primitive::Decimal(_))
                 | UntaggedValue::Primitive(Primitive::String(_))
                 | UntaggedValue::Primitive(Primitive::Boolean(_))
+                | UntaggedValue::Primitive(Primitive::Date(_))
                 | UntaggedValue::DataFrame(_) => {
                     let key = format!("{}", 0);
                     insert_value(value, key, &mut column_values)?
