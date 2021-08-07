@@ -340,6 +340,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameGetOrdinal),
             whole_stream_command(DataFrameGetNanoSecond),
             whole_stream_command(DataFrameStrFTime),
+            whole_stream_command(DataFrameDescribe),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
