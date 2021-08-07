@@ -97,9 +97,9 @@ impl DirInfo {
 
         match std::fs::metadata(&s.path) {
             Ok(d) => {
-                s.size = d.len();   // dir entry size
+                s.size = d.len(); // dir entry size
                 s.blocks = file_real_size_fast(&s.path, &d).ok().unwrap_or(0);
-            },
+            }
             Err(e) => s = s.add_error(e.into()),
         };
 
