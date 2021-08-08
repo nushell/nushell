@@ -9,7 +9,7 @@ pub struct ParserState {
     vars: Vec<Type>,
     decls: Vec<Declaration>,
     blocks: Vec<Block>,
-    scope: Vec<ScopeFrame>,
+    scope: Vec<ScopeFrame>, // REMOVE
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

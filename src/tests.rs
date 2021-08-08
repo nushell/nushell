@@ -128,3 +128,8 @@ fn def_with_no_dollar() -> TestResult {
 fn env_shorthand() -> TestResult {
     run_test("FOO=BAR if $false { 3 } else { 4 }", "4")
 }
+
+#[test]
+fn floating_add() -> TestResult {
+    run_test("10.1 + 0.8", "10.9")
+}

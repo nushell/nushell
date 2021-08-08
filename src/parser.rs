@@ -162,6 +162,7 @@ impl Call {
 pub enum Expr {
     Bool(bool),
     Int(i64),
+    Float(f64),
     Var(VarId),
     Call(Box<Call>),
     ExternalCall(Vec<u8>, Vec<Vec<u8>>),
@@ -905,8 +906,28 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
+    pub fn parse_float(&mut self, token: &str, span: Span) -> (Expression, Option<ParseError>) {
+        if let Ok(x) = token.parse::<f64>() {
+            (
+                Expression {
+                    expr: Expr::Float(x),
+                    span,
+                    ty: Type::Int,
+                },
+                None,
+            )
+        } else {
+            (
+                garbage(span),
+                Some(ParseError::Mismatch("int".into(), span)),
+            )
+        }
+    }
+
     pub fn parse_number(&mut self, token: &str, span: Span) -> (Expression, Option<ParseError>) {
         if let (x, None) = self.parse_int(token, span) {
+            (x, None)
+        } else if let (x, None) = self.parse_float(token, span) {
             (x, None)
         } else {
             (

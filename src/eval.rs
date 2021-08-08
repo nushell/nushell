@@ -16,6 +16,7 @@ pub enum ShellError {
 pub enum Value {
     Bool { val: bool, span: Span },
     Int { val: i64, span: Span },
+    Float { val: f64, span: Span },
     String { val: String, span: Span },
     List(Vec<Value>),
     Block(BlockId),
@@ -27,6 +28,7 @@ impl PartialEq for Value {
         match (self, other) {
             (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs == rhs,
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs == rhs,
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
             (Value::List(l1), Value::List(l2)) => l1 == l2,
             (Value::Block(b1), Value::Block(b2)) => b1 == b2,
@@ -44,6 +46,9 @@ impl Display for Value {
             Value::Int { val, .. } => {
                 write!(f, "{}", val)
             }
+            Value::Float { val, .. } => {
+                write!(f, "{}", val)
+            }
             Value::String { val, .. } => write!(f, "{}", val),
             Value::List(..) => write!(f, "<list>"),
             Value::Block(..) => write!(f, "<block>"),
@@ -56,6 +61,18 @@ impl Value {
     pub fn add(&self, rhs: &Value) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                val: lhs + rhs,
+                span: Span::unknown(),
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs as f64 + *rhs,
+                span: Span::unknown(),
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs + *rhs as f64,
+                span: Span::unknown(),
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: lhs + rhs,
                 span: Span::unknown(),
             }),
@@ -285,6 +302,10 @@ pub fn eval_expression(
         }),
         Expr::Int(i) => Ok(Value::Int {
             val: *i,
+            span: expr.span,
+        }),
+        Expr::Float(f) => Ok(Value::Float {
+            val: *f,
             span: expr.span,
         }),
         Expr::Var(var_id) => stack

@@ -5,6 +5,7 @@ pub enum FlatShape {
     Garbage,
     Bool,
     Int,
+    Float,
     InternalCall,
     External,
     Literal,
@@ -56,6 +57,9 @@ impl<'a> ParserWorkingSet<'a> {
             }
             Expr::Int(_) => {
                 vec![(expr.span, FlatShape::Int)]
+            }
+            Expr::Float(_) => {
+                vec![(expr.span, FlatShape::Float)]
             }
             Expr::Bool(_) => {
                 vec![(expr.span, FlatShape::Bool)]

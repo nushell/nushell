@@ -9,6 +9,7 @@ impl<'a> ParserWorkingSet<'a> {
     ) -> (Type, Option<ParseError>) {
         match &op.expr {
             Expr::Operator(operator) => match operator {
+                Operator::Equal => (Type::Bool, None),
                 Operator::Multiply => match (&lhs.ty, &rhs.ty) {
                     (Type::Int, Type::Int) => (Type::Int, None),
                     (Type::Unknown, _) => (Type::Unknown, None),
