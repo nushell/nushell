@@ -18,9 +18,30 @@ pub enum Value {
     Int { val: i64, span: Span },
     Float { val: f64, span: Span },
     String { val: String, span: Span },
-    List(Vec<Value>),
-    Block(BlockId),
-    Unknown,
+    List { val: Vec<Value>, span: Span },
+    Block { val: BlockId, span: Span },
+    Nothing { span: Span },
+}
+
+impl Value {
+    pub fn as_string(&self) -> Result<String, ShellError> {
+        match self {
+            Value::String { val, .. } => Ok(val.to_string()),
+            _ => Err(ShellError::Mismatch("string".into(), self.span())),
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            Value::Bool { span, .. } => *span,
+            Value::Int { span, .. } => *span,
+            Value::Float { span, .. } => *span,
+            Value::String { span, .. } => *span,
+            Value::List { span, .. } => *span,
+            Value::Block { span, .. } => *span,
+            Value::Nothing { span, .. } => *span,
+        }
+    }
 }
 
 impl PartialEq for Value {
@@ -30,8 +51,8 @@ impl PartialEq for Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs == rhs,
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
-            (Value::List(l1), Value::List(l2)) => l1 == l2,
-            (Value::Block(b1), Value::Block(b2)) => b1 == b2,
+            (Value::List { val: l1, .. }, Value::List { val: l2, .. }) => l1 == l2,
+            (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) => b1 == b2,
             _ => false,
         }
     }
@@ -50,9 +71,9 @@ impl Display for Value {
                 write!(f, "{}", val)
             }
             Value::String { val, .. } => write!(f, "{}", val),
-            Value::List(..) => write!(f, "<list>"),
-            Value::Block(..) => write!(f, "<block>"),
-            Value::Unknown => write!(f, "<unknown>"),
+            Value::List { .. } => write!(f, "<list>"),
+            Value::Block { .. } => write!(f, "<block>"),
+            Value::Nothing { .. } => write!(f, ""),
         }
     }
 }
@@ -81,7 +102,7 @@ impl Value {
                 span: Span::unknown(),
             }),
 
-            _ => Ok(Value::Unknown),
+            _ => Err(ShellError::Mismatch("addition".into(), self.span())),
         }
     }
 }
@@ -92,6 +113,7 @@ pub struct State<'a> {
 
 pub struct StackFrame {
     pub vars: HashMap<VarId, Value>,
+    pub env_vars: HashMap<String, String>,
     pub parent: Option<Stack>,
 }
 
@@ -108,6 +130,7 @@ impl Stack {
     pub fn new() -> Stack {
         Stack(Rc::new(RefCell::new(StackFrame {
             vars: HashMap::new(),
+            env_vars: HashMap::new(),
             parent: None,
         })))
     }
@@ -130,17 +153,28 @@ impl Stack {
         this.vars.insert(var_id, value);
     }
 
+    pub fn add_env_var(&self, var: String, value: String) {
+        let mut this = self.0.borrow_mut();
+        this.env_vars.insert(var, value);
+    }
+
     pub fn enter_scope(self) -> Stack {
         Stack(Rc::new(RefCell::new(StackFrame {
             vars: HashMap::new(),
+            env_vars: HashMap::new(),
             parent: Some(self),
         })))
     }
 
     pub fn print_stack(&self) {
         println!("===frame===");
+        println!("vars:");
         for (var, val) in &self.0.borrow().vars {
-            println!("{}: {:?}", var, val);
+            println!("  {}: {:?}", var, val);
+        }
+        println!("env vars:");
+        for (var, val) in &self.0.borrow().env_vars {
+            println!("  {}: {:?}", var, val);
         }
         if let Some(parent) = &self.0.borrow().parent {
             parent.print_stack()
@@ -194,7 +228,27 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
         //println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_var(var_id, rhs);
-        Ok(Value::Unknown)
+        Ok(Value::Nothing {
+            span: call.positional[0].span,
+        })
+    } else if decl.signature.name == "let-env" {
+        let env_var = call.positional[0]
+            .as_string()
+            .expect("internal error: missing variable");
+
+        let keyword_expr = call.positional[1]
+            .as_keyword()
+            .expect("internal error: missing keyword");
+
+        let rhs = eval_expression(state, stack.clone(), keyword_expr)?;
+        let rhs = rhs.as_string()?;
+
+        //println!("Adding: {:?} to {}", rhs, var_id);
+
+        stack.add_env_var(env_var, rhs);
+        Ok(Value::Nothing {
+            span: call.positional[0].span,
+        })
     } else if decl.signature.name == "if" {
         let cond = &call.positional[0];
         let then_block = call.positional[1]
@@ -204,7 +258,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
 
         let result = eval_expression(state, stack.clone(), cond)?;
         match result {
-            Value::Bool { val, .. } => {
+            Value::Bool { val, span } => {
                 if val {
                     let block = state.parser_state.get_block(then_block);
                     let stack = stack.enter_scope();
@@ -222,7 +276,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
                         eval_expression(state, stack, else_case)
                     }
                 } else {
-                    Ok(Value::Unknown)
+                    Ok(Value::Nothing { span })
                 }
             }
             _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
@@ -250,7 +304,9 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
         eval_block(state, stack, block)?;
         let end_time = Instant::now();
         println!("{} ms", (end_time - start_time).as_millis());
-        Ok(Value::Unknown)
+        Ok(Value::Nothing {
+            span: call.positional[0].span,
+        })
     } else if decl.signature.name == "for" {
         let var_id = call.positional[0]
             .as_var()
@@ -284,9 +340,11 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
                 *val += 1
             }
         }
-        Ok(Value::Unknown)
+        Ok(Value::Nothing {
+            span: call.positional[0].span,
+        })
     } else {
-        Ok(Value::Unknown)
+        Err(ShellError::Unsupported(call.head))
     }
 }
 
@@ -313,7 +371,7 @@ pub fn eval_expression(
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
         Expr::Call(call) => eval_call(state, stack, call),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
-        Expr::Operator(_) => Ok(Value::Unknown),
+        Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let lhs = eval_expression(state, stack.clone(), lhs)?;
             let op = eval_operator(state, stack.clone(), op)?;
@@ -321,7 +379,7 @@ pub fn eval_expression(
 
             match op {
                 Operator::Plus => lhs.add(&rhs),
-                _ => Ok(Value::Unknown),
+                _ => Ok(Value::Nothing { span: expr.span }),
             }
         }
 
@@ -331,13 +389,19 @@ pub fn eval_expression(
             let stack = stack.enter_scope();
             eval_block(state, stack, block)
         }
-        Expr::Block(block_id) => Ok(Value::Block(*block_id)),
+        Expr::Block(block_id) => Ok(Value::Block {
+            val: *block_id,
+            span: expr.span,
+        }),
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
                 output.push(eval_expression(state, stack.clone(), expr)?);
             }
-            Ok(Value::List(output))
+            Ok(Value::List {
+                val: output,
+                span: expr.span,
+            })
         }
         Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Keyword(_, _, expr) => eval_expression(state, stack, expr),
@@ -345,13 +409,15 @@ pub fn eval_expression(
             val: s.clone(),
             span: expr.span,
         }),
-        Expr::Signature(_) => Ok(Value::Unknown),
-        Expr::Garbage => Ok(Value::Unknown),
+        Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
     }
 }
 
 pub fn eval_block(state: &State, stack: Stack, block: &Block) -> Result<Value, ShellError> {
-    let mut last = Ok(Value::Unknown);
+    let mut last = Ok(Value::Nothing {
+        span: Span { start: 0, end: 0 },
+    });
 
     for stmt in &block.stmts {
         if let Statement::Expression(expression) = stmt {

@@ -33,6 +33,15 @@ fn main() -> std::io::Result<()> {
             );
         working_set.add_decl(sig.into());
 
+        let sig = Signature::build("let-env")
+            .required("var_name", SyntaxShape::String, "variable name")
+            .required(
+                "initial_value",
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::String)),
+                "equals sign followed by value",
+            );
+        working_set.add_decl(sig.into());
+
         let sig = Signature::build("alias")
             .required("var_name", SyntaxShape::Variable, "variable name")
             .required(
@@ -179,6 +188,7 @@ fn main() -> std::io::Result<()> {
                         continue;
                     } else if s.trim() == "stack" {
                         stack.print_stack();
+                        continue;
                     }
                     // println!("input: '{}'", s);
 
