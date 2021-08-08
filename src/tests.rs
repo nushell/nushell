@@ -133,3 +133,8 @@ fn env_shorthand() -> TestResult {
 fn floating_add() -> TestResult {
     run_test("10.1 + 0.8", "10.9")
 }
+
+#[test]
+fn subcommand() -> TestResult {
+    run_test("def foo [] {}; def \"foo bar\" [] {3}; foo bar", "3")
+}

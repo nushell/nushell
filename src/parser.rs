@@ -805,6 +805,7 @@ impl<'a> ParserWorkingSet<'a> {
                 Some(ParseError::UnknownCommand(spans[0])),
             );
         }
+
         let name = self.get_span_contents(spans[pos]);
         pos += 1;
 
