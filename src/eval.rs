@@ -343,6 +343,22 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
         Ok(Value::Nothing {
             span: call.positional[0].span,
         })
+    } else if decl.signature.name == "vars" {
+        state.parser_state.print_vars();
+        Ok(Value::Nothing {
+            span: call.positional[0].span,
+        })
+    } else if decl.signature.name == "decls" {
+        state.parser_state.print_decls();
+        Ok(Value::Nothing { span: call.head })
+    } else if decl.signature.name == "blocks" {
+        state.parser_state.print_blocks();
+        Ok(Value::Nothing { span: call.head })
+    } else if decl.signature.name == "stack" {
+        stack.print_stack();
+        Ok(Value::Nothing { span: call.head })
+    } else if decl.signature.name == "def" {
+        Ok(Value::Nothing { span: call.head })
     } else {
         Err(ShellError::Unsupported(call.head))
     }

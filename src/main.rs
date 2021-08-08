@@ -177,18 +177,6 @@ fn main() -> std::io::Result<()> {
                 Signal::Success(s) => {
                     if s.trim() == "exit" {
                         break;
-                    } else if s.trim() == "vars" {
-                        parser_state.borrow().print_vars();
-                        continue;
-                    } else if s.trim() == "decls" {
-                        parser_state.borrow().print_decls();
-                        continue;
-                    } else if s.trim() == "blocks" {
-                        parser_state.borrow().print_blocks();
-                        continue;
-                    } else if s.trim() == "stack" {
-                        stack.print_stack();
-                        continue;
                     }
                     // println!("input: '{}'", s);
 
