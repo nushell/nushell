@@ -9,7 +9,7 @@ pub struct ParserState {
     vars: Vec<Type>,
     decls: Vec<Declaration>,
     blocks: Vec<Block>,
-    scope: Vec<ScopeFrame>, // REMOVE
+    scope: Vec<ScopeFrame>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -82,6 +82,9 @@ impl ParserState {
             }
             for item in first.vars.into_iter() {
                 last.vars.insert(item.0, item.1);
+            }
+            for item in first.aliases.into_iter() {
+                last.aliases.insert(item.0, item.1);
             }
         }
     }

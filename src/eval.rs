@@ -111,13 +111,14 @@ pub struct State<'a> {
     pub parser_state: &'a ParserState,
 }
 
+#[derive(Debug)]
 pub struct StackFrame {
     pub vars: HashMap<VarId, Value>,
     pub env_vars: HashMap<String, String>,
     pub parent: Option<Stack>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Stack(Rc<RefCell<StackFrame>>);
 
 impl Default for Stack {

@@ -138,3 +138,8 @@ fn floating_add() -> TestResult {
 fn subcommand() -> TestResult {
     run_test("def foo [] {}; def \"foo bar\" [] {3}; foo bar", "3")
 }
+
+#[test]
+fn alias_1() -> TestResult {
+    run_test("def foo [$x] { $x + 10 }; alias f = foo; f 100", "110")
+}

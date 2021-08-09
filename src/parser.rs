@@ -2256,14 +2256,30 @@ impl<'a> ParserWorkingSet<'a> {
     pub fn parse_alias(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         let name = self.get_span_contents(spans[0]);
 
-        if name == b"alias" && spans.len() >= 4 {
-            let alias_name = self.get_span_contents(spans[1]).to_vec();
-            let _equals = self.get_span_contents(spans[2]);
+        if name == b"alias" {
+            if let Some(decl_id) = self.find_decl(b"alias") {
+                let (call, call_span, _) = self.parse_internal_call(spans[0], &spans[1..], decl_id);
 
-            let replacement = spans[3..].to_vec();
+                if spans.len() >= 4 {
+                    let alias_name = self.get_span_contents(spans[1]).to_vec();
+                    let _equals = self.get_span_contents(spans[2]);
 
-            self.add_alias(alias_name, replacement);
+                    let replacement = spans[3..].to_vec();
+
+                    self.add_alias(alias_name, replacement);
+                }
+
+                return (
+                    Statement::Expression(Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                    }),
+                    None,
+                );
+            }
         }
+
         (
             Statement::Expression(Expression {
                 expr: Expr::Garbage,
