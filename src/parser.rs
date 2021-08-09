@@ -814,6 +814,7 @@ impl<'a> ParserWorkingSet<'a> {
 
         if expand_aliases {
             if let Some(expansion) = self.find_alias(name) {
+                let orig_span = spans[pos];
                 //let mut spans = spans.to_vec();
                 let mut new_spans: Vec<Span> = vec![];
                 new_spans.extend(&spans[0..pos]);
@@ -822,7 +823,25 @@ impl<'a> ParserWorkingSet<'a> {
                     new_spans.extend(&spans[(pos + 1)..]);
                 }
 
-                return self.parse_call(&new_spans, false);
+                let (result, err) = self.parse_call(&new_spans, false);
+
+                let expression = match result {
+                    Expression {
+                        expr: Expr::Call(mut call),
+                        span,
+                        ty,
+                    } => {
+                        call.head = orig_span;
+                        Expression {
+                            expr: Expr::Call(call),
+                            span,
+                            ty,
+                        }
+                    }
+                    x => x,
+                };
+
+                return (expression, err);
             }
         }
 
