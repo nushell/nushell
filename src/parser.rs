@@ -782,13 +782,17 @@ impl<'a> ParserWorkingSet<'a> {
         (Box::new(call), span(spans), error)
     }
 
-    pub fn parse_call(&mut self, spans: &[Span]) -> (Expression, Option<ParseError>) {
+    pub fn parse_call(
+        &mut self,
+        spans: &[Span],
+        expand_aliases: bool,
+    ) -> (Expression, Option<ParseError>) {
         // assume spans.len() > 0?
         let mut pos = 0;
         let mut shorthand = vec![];
 
         while pos < spans.len() {
-            // First, check if there is any environment shorthand
+            // Check if there is any environment shorthand
             let name = self.get_span_contents(spans[pos]);
             let split: Vec<_> = name.splitn(2, |x| *x == b'=').collect();
             if split.len() == 2 {
@@ -807,6 +811,21 @@ impl<'a> ParserWorkingSet<'a> {
         }
 
         let name = self.get_span_contents(spans[pos]);
+
+        if expand_aliases {
+            if let Some(expansion) = self.find_alias(name) {
+                //let mut spans = spans.to_vec();
+                let mut new_spans: Vec<Span> = vec![];
+                new_spans.extend(&spans[0..pos]);
+                new_spans.extend(expansion);
+                if spans.len() > pos {
+                    new_spans.extend(&spans[(pos + 1)..]);
+                }
+
+                return self.parse_call(&new_spans, false);
+            }
+        }
+
         pos += 1;
 
         if let Some(mut decl_id) = self.find_decl(name) {
@@ -2115,7 +2134,7 @@ impl<'a> ParserWorkingSet<'a> {
         match bytes[0] {
             b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
             | b'[' | b'$' | b'"' | b'\'' => self.parse_math_expression(spans),
-            _ => self.parse_call(spans),
+            _ => self.parse_call(spans, true),
         }
     }
 
@@ -2234,6 +2253,30 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
+    pub fn parse_alias(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
+        let name = self.get_span_contents(spans[0]);
+
+        if name == b"alias" && spans.len() >= 4 {
+            let alias_name = self.get_span_contents(spans[1]).to_vec();
+            let _equals = self.get_span_contents(spans[2]);
+
+            let replacement = spans[3..].to_vec();
+
+            self.add_alias(alias_name, replacement);
+        }
+        (
+            Statement::Expression(Expression {
+                expr: Expr::Garbage,
+                span: span(spans),
+                ty: Type::Unknown,
+            }),
+            Some(ParseError::UnknownState(
+                "internal error: let statement unparseable".into(),
+                span(spans),
+            )),
+        )
+    }
+
     pub fn parse_let(&mut self, spans: &[Span]) -> (Statement, Option<ParseError>) {
         let name = self.get_span_contents(spans[0]);
 
@@ -2270,6 +2313,8 @@ impl<'a> ParserWorkingSet<'a> {
         if let (decl, None) = self.parse_def(spans) {
             (decl, None)
         } else if let (stmt, None) = self.parse_let(spans) {
+            (stmt, None)
+        } else if let (stmt, None) = self.parse_alias(spans) {
             (stmt, None)
         } else {
             let (expr, err) = self.parse_expression(spans);

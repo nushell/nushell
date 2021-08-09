@@ -36,6 +36,7 @@ pub type BlockId = usize;
 struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
+    aliases: HashMap<Vec<u8>, Vec<Span>>,
 }
 
 impl ScopeFrame {
@@ -43,6 +44,7 @@ impl ScopeFrame {
         Self {
             vars: HashMap::new(),
             decls: HashMap::new(),
+            aliases: HashMap::new(),
         }
     }
 }
@@ -352,6 +354,22 @@ impl<'a> ParserWorkingSet<'a> {
         None
     }
 
+    pub fn find_alias(&self, name: &[u8]) -> Option<&[Span]> {
+        for scope in self.delta.scope.iter().rev() {
+            if let Some(spans) = scope.aliases.get(name) {
+                return Some(spans);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(spans) = scope.aliases.get(name) {
+                return Some(spans);
+            }
+        }
+
+        None
+    }
+
     pub fn add_variable(&mut self, mut name: Vec<u8>, ty: Type) -> VarId {
         let next_id = self.next_var_id();
 
@@ -371,6 +389,16 @@ impl<'a> ParserWorkingSet<'a> {
         self.delta.vars.push(ty);
 
         next_id
+    }
+
+    pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>) {
+        let last = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing stack frame");
+
+        last.aliases.insert(name, replacement);
     }
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {

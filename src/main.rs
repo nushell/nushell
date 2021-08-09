@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
         working_set.add_decl(sig.into());
 
         let sig = Signature::build("alias")
-            .required("var_name", SyntaxShape::Variable, "variable name")
+            .required("name", SyntaxShape::String, "name of the alias")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
