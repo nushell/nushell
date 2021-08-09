@@ -143,3 +143,11 @@ fn subcommand() -> TestResult {
 fn alias_1() -> TestResult {
     run_test("def foo [$x] { $x + 10 }; alias f = foo; f 100", "110")
 }
+
+#[test]
+fn alias_2() -> TestResult {
+    run_test(
+        "def foo [$x $y] { $x + $y + 10 }; alias f = foo 33; f 100",
+        "143",
+    )
+}
