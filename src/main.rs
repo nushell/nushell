@@ -172,9 +172,9 @@ fn main() -> std::io::Result<()> {
         let stack = Stack::new();
 
         loop {
-            let input = line_editor.read_line(&prompt)?;
+            let input = line_editor.read_line(&prompt);
             match input {
-                Signal::Success(s) => {
+                Ok(Signal::Success(s)) => {
                     if s.trim() == "exit" {
                         break;
                     }
@@ -210,14 +210,17 @@ fn main() -> std::io::Result<()> {
                         }
                     }
                 }
-                Signal::CtrlC => {
+                Ok(Signal::CtrlC) => {
                     println!("Ctrl-c");
                 }
-                Signal::CtrlD => {
+                Ok(Signal::CtrlD) => {
                     break;
                 }
-                Signal::CtrlL => {
+                Ok(Signal::CtrlL) => {
                     line_editor.clear_screen()?;
+                }
+                Err(err) => {
+                    println!("Error: {:?}", err);
                 }
             }
             current_line += 1;
