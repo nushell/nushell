@@ -286,14 +286,22 @@ pub fn report_shell_error(
     let config = codespan_reporting::term::Config::default();
 
     let diagnostic = match error {
-        ShellError::OperatorMismatch(operator, ty1, span1, ty2, span2) => {
-            let (diag_file_id1, diag_range1) = convert_span_to_diag(working_set, span1)?;
-            let (diag_file_id2, diag_range2) = convert_span_to_diag(working_set, span2)?;
+        ShellError::OperatorMismatch {
+            op_span,
+            lhs_ty,
+            lhs_span,
+            rhs_ty,
+            rhs_span,
+        } => {
+            let (lhs_file_id, lhs_range) = convert_span_to_diag(working_set, lhs_span)?;
+            let (rhs_file_id, rhs_range) = convert_span_to_diag(working_set, rhs_span)?;
+            let (op_file_id, op_range) = convert_span_to_diag(working_set, op_span)?;
             Diagnostic::error()
-                .with_message(format!("Type mismatch during operation '{}'", operator))
+                .with_message("Type mismatch during operation")
                 .with_labels(vec![
-                    Label::primary(diag_file_id1, diag_range1).with_message(ty1.to_string()),
-                    Label::secondary(diag_file_id2, diag_range2).with_message(ty2.to_string()),
+                    Label::primary(op_file_id, op_range).with_message("type mismatch for operator"),
+                    Label::secondary(lhs_file_id, lhs_range).with_message(lhs_ty.to_string()),
+                    Label::secondary(rhs_file_id, rhs_range).with_message(rhs_ty.to_string()),
                 ])
         }
         ShellError::Unsupported(span) => {

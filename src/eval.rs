@@ -7,7 +7,13 @@ use crate::{
 
 #[derive(Debug)]
 pub enum ShellError {
-    OperatorMismatch(String, Type, Span, Type, Span),
+    OperatorMismatch {
+        op_span: Span,
+        lhs_ty: Type,
+        lhs_span: Span,
+        rhs_ty: Type,
+        rhs_span: Span,
+    },
     Unsupported(Span),
     InternalError(String),
     VariableNotFound(Span),
@@ -107,7 +113,7 @@ impl Display for Value {
 }
 
 impl Value {
-    pub fn add(&self, rhs: &Value) -> Result<Value, ShellError> {
+    pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = crate::parser::span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
@@ -132,13 +138,13 @@ impl Value {
                 span,
             }),
 
-            _ => Err(ShellError::OperatorMismatch(
-                "+".into(),
-                self.get_type(),
-                self.span(),
-                rhs.get_type(),
-                rhs.span(),
-            )),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
         }
     }
 }
@@ -421,18 +427,18 @@ pub fn eval_expression(
         }),
         Expr::Var(var_id) => stack
             .get_var(*var_id)
-            .map(|x| x.with_span(expr.span))
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
         Expr::Call(call) => eval_call(state, stack, call),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
+            let op_span = op.span;
             let lhs = eval_expression(state, stack.clone(), lhs)?;
             let op = eval_operator(state, stack.clone(), op)?;
             let rhs = eval_expression(state, stack, rhs)?;
 
             match op {
-                Operator::Plus => lhs.add(&rhs),
+                Operator::Plus => lhs.add(op_span, &rhs),
                 _ => Ok(Value::Nothing { span: expr.span }),
             }
         }
