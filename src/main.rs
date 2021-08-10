@@ -2,6 +2,9 @@ use nu_cli::{create_default_context, report_parsing_error, report_shell_error, N
 use nu_engine::eval_block;
 use nu_parser::{ParserState, ParserWorkingSet};
 
+#[cfg(test)]
+mod tests;
+
 fn main() -> std::io::Result<()> {
     let parser_state = create_default_context();
 
