@@ -1,15 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, time::Instant};
 
 use crate::{
-    parser::Operator, Block, BlockId, Call, Expr, Expression, ParserState, Span, Statement, VarId,
+    parser::Operator, parser_state::Type, Block, BlockId, Call, Expr, Expression, ParserState,
+    Span, Statement, VarId,
 };
 
 #[derive(Debug)]
 pub enum ShellError {
-    Mismatch(String, Span),
+    OperatorMismatch(String, Type, Span, Type, Span),
     Unsupported(Span),
     InternalError(String),
     VariableNotFound(Span),
+    CantConvert(String, Span),
 }
 
 #[derive(Debug, Clone)]
@@ -27,7 +29,7 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val.to_string()),
-            _ => Err(ShellError::Mismatch("string".into(), self.span())),
+            _ => Err(ShellError::CantConvert("string".into(), self.span())),
         }
     }
 
@@ -40,6 +42,32 @@ impl Value {
             Value::List { span, .. } => *span,
             Value::Block { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
+        }
+    }
+
+    pub fn with_span(mut self, new_span: Span) -> Value {
+        match &mut self {
+            Value::Bool { span, .. } => *span = new_span,
+            Value::Int { span, .. } => *span = new_span,
+            Value::Float { span, .. } => *span = new_span,
+            Value::String { span, .. } => *span = new_span,
+            Value::List { span, .. } => *span = new_span,
+            Value::Block { span, .. } => *span = new_span,
+            Value::Nothing { span, .. } => *span = new_span,
+        }
+
+        self
+    }
+
+    pub fn get_type(&self) -> Type {
+        match self {
+            Value::Bool { .. } => Type::Bool,
+            Value::Int { .. } => Type::Int,
+            Value::Float { .. } => Type::Float,
+            Value::String { .. } => Type::String,
+            Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
+            Value::Nothing { .. } => Type::Nothing,
+            Value::Block { .. } => Type::Block,
         }
     }
 }
@@ -80,29 +108,37 @@ impl Display for Value {
 
 impl Value {
     pub fn add(&self, rhs: &Value) -> Result<Value, ShellError> {
+        let span = crate::parser::span(&[self.span(), rhs.span()]);
+
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
                 val: lhs + rhs,
-                span: Span::unknown(),
+                span,
             }),
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs as f64 + *rhs,
-                span: Span::unknown(),
+                span,
             }),
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs + *rhs as f64,
-                span: Span::unknown(),
+                span,
             }),
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: lhs + rhs,
-                span: Span::unknown(),
+                span,
             }),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
                 val: lhs.to_string() + rhs,
-                span: Span::unknown(),
+                span,
             }),
 
-            _ => Err(ShellError::Mismatch("addition".into(), self.span())),
+            _ => Err(ShellError::OperatorMismatch(
+                "+".into(),
+                self.get_type(),
+                self.span(),
+                rhs.get_type(),
+                rhs.span(),
+            )),
         }
     }
 }
@@ -193,7 +229,7 @@ pub fn eval_operator(
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, .. } => Err(ShellError::Mismatch("operator".to_string(), *span)),
+        Expression { span, .. } => Err(ShellError::Unsupported(*span)),
     }
 }
 
@@ -280,7 +316,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
                     Ok(Value::Nothing { span })
                 }
             }
-            _ => Err(ShellError::Mismatch("bool".into(), Span::unknown())),
+            _ => Err(ShellError::CantConvert("bool".into(), result.span())),
         }
     } else if decl.signature.name == "build-string" {
         let mut output = vec![];
@@ -385,6 +421,7 @@ pub fn eval_expression(
         }),
         Expr::Var(var_id) => stack
             .get_var(*var_id)
+            .map(|x| x.with_span(expr.span))
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
         Expr::Call(call) => eval_call(state, stack, call),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),

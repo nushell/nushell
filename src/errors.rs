@@ -78,7 +78,7 @@ impl<'a> codespan_reporting::files::Files<'a> for ParserWorkingSet<'a> {
                 if count > line_index {
                     break;
                 } else if count == line_index {
-                    start = Some(byte.0);
+                    start = Some(byte.0 + 1);
                 }
             }
         }
@@ -286,12 +286,15 @@ pub fn report_shell_error(
     let config = codespan_reporting::term::Config::default();
 
     let diagnostic = match error {
-        ShellError::Mismatch(missing, span) => {
-            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+        ShellError::OperatorMismatch(operator, ty1, span1, ty2, span2) => {
+            let (diag_file_id1, diag_range1) = convert_span_to_diag(working_set, span1)?;
+            let (diag_file_id2, diag_range2) = convert_span_to_diag(working_set, span2)?;
             Diagnostic::error()
-                .with_message("Type mismatch during operation")
-                .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                    .with_message(format!("expected {}", missing))])
+                .with_message(format!("Type mismatch during operation '{}'", operator))
+                .with_labels(vec![
+                    Label::primary(diag_file_id1, diag_range1).with_message(ty1.to_string()),
+                    Label::secondary(diag_file_id2, diag_range2).with_message(ty2.to_string()),
+                ])
         }
         ShellError::Unsupported(span) => {
             let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
@@ -311,6 +314,13 @@ pub fn report_shell_error(
                 .with_labels(vec![
                     Label::primary(diag_file_id, diag_range).with_message("variable not found")
                 ])
+        }
+        ShellError::CantConvert(s, span) => {
+            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+            Diagnostic::error()
+                .with_message(format!("Can't convert to {}", s))
+                .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                    .with_message(format!("can't convert to {}", s))])
         }
     };
 
