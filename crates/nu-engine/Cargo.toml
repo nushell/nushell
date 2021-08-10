@@ -1,0 +1,7 @@
+[package]
+name = "nu-engine"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+nu-parser = { path = "../nu-parser" }

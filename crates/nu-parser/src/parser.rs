@@ -375,7 +375,7 @@ fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError>
     }
 }
 
-pub(crate) fn span(spans: &[Span]) -> Span {
+pub fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
     if length == 0 {

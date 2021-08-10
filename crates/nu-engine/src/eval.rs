@@ -1,8 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, time::Instant};
 
-use crate::{
-    parser::Operator, parser_state::Type, Block, BlockId, Call, Expr, Expression, ParserState,
-    Span, Statement, VarId,
+use nu_parser::{
+    Block, BlockId, Call, Expr, Expression, Operator, ParserState, Span, Statement, Type, VarId,
 };
 
 #[derive(Debug)]
@@ -114,7 +113,7 @@ impl Display for Value {
 
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = crate::parser::span(&[self.span(), rhs.span()]);
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {

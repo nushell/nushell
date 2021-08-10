@@ -1,0 +1,7 @@
+[package]
+name = "nu-parser"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+codespan-reporting = "0.11.1"

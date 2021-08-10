@@ -1,6 +1,5 @@
-use crate::flatten::FlatShape;
-use crate::{ParserState, ParserWorkingSet};
 use nu_ansi_term::Style;
+use nu_parser::{FlatShape, ParserState, ParserWorkingSet};
 use reedline::{Highlighter, StyledText};
 use std::{cell::RefCell, rc::Rc};
 
