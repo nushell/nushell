@@ -1,4 +1,5 @@
 mod declaration;
+mod errors;
 mod eval;
 mod flatten;
 mod lex;
@@ -14,7 +15,8 @@ mod tests;
 mod type_check;
 
 pub use declaration::Declaration;
-pub use eval::{eval_block, eval_expression, Stack, StackFrame, State};
+pub use errors::{report_parsing_error, report_shell_error};
+pub use eval::{eval_block, eval_expression, ShellError, Stack, StackFrame, State};
 pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock, LiteCommand, LiteStatement};
 pub use parse_error::ParseError;

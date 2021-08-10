@@ -1,7 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use engine_q::{
-    eval_block, NuHighlighter, ParserState, ParserWorkingSet, Signature, Stack, State, SyntaxShape,
+    eval_block, report_parsing_error, report_shell_error, NuHighlighter, ParserState,
+    ParserWorkingSet, Signature, Stack, State, SyntaxShape,
 };
 
 fn main() -> std::io::Result<()> {
@@ -130,7 +131,8 @@ fn main() -> std::io::Result<()> {
             let mut working_set = ParserWorkingSet::new(&*parser_state);
             let (output, err) = working_set.parse_file(&path, &file, false);
             if let Some(err) = err {
-                eprintln!("Parse Error: {:?}", err);
+                let _ = report_parsing_error(&working_set, &err);
+
                 std::process::exit(1);
             }
             (output, working_set.render())
@@ -149,7 +151,11 @@ fn main() -> std::io::Result<()> {
                 println!("{}", value);
             }
             Err(err) => {
-                eprintln!("Eval Error: {:?}", err);
+                let parser_state = parser_state.borrow();
+                let working_set = ParserWorkingSet::new(&*parser_state);
+
+                let _ = engine_q::report_shell_error(&working_set, &err);
+
                 std::process::exit(1);
             }
         }
@@ -189,7 +195,7 @@ fn main() -> std::io::Result<()> {
                             false,
                         );
                         if let Some(err) = err {
-                            eprintln!("Parse Error: {:?}", err);
+                            let _ = report_parsing_error(&working_set, &err);
                             continue;
                         }
                         (output, working_set.render())
@@ -206,7 +212,10 @@ fn main() -> std::io::Result<()> {
                             println!("{}", value);
                         }
                         Err(err) => {
-                            eprintln!("Eval Error: {:?}", err);
+                            let parser_state = parser_state.borrow();
+                            let working_set = ParserWorkingSet::new(&*parser_state);
+
+                            let _ = report_shell_error(&working_set, &err);
                         }
                     }
                 }

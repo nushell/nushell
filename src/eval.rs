@@ -358,9 +358,7 @@ fn eval_call(state: &State, stack: Stack, call: &Call) -> Result<Value, ShellErr
     } else if decl.signature.name == "stack" {
         stack.print_stack();
         Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "def" {
-        Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "alias" {
+    } else if decl.signature.name == "def" || decl.signature.name == "alias" {
         Ok(Value::Nothing { span: call.head })
     } else {
         Err(ShellError::Unsupported(call.head))

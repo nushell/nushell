@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
 nu-ansi-term = "0.32.0"
+codespan-reporting = "0.11.1"
 # mimalloc = { version = "*", default-features = false }
 
 [dev-dependencies]

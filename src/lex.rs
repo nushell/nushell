@@ -51,6 +51,7 @@ fn is_item_terminator(
         && (c == b' '
             || c == b'\t'
             || c == b'\n'
+            || c == b'\r'
             || c == b'|'
             || c == b';'
             || c == b'#'
@@ -269,7 +270,7 @@ pub fn lex(
 
             while let Some(input) = input.get(curr_offset) {
                 curr_offset += 1;
-                if *input == b'\n' {
+                if *input == b'\n' || *input == b'\r' {
                     output.push(Token::new(
                         TokenContents::Comment,
                         Span::new(start, curr_offset),

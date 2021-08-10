@@ -1,6 +1,6 @@
 use crate::{parser::Block, Declaration, Span};
 use core::panic;
-use std::collections::HashMap;
+use std::{collections::HashMap, slice::Iter};
 
 #[derive(Debug)]
 pub struct ParserState {
@@ -155,6 +155,33 @@ impl ParserState {
         self.file_contents.len()
     }
 
+    pub fn files(&self) -> Iter<(String, usize, usize)> {
+        self.files.iter()
+    }
+
+    pub fn get_filename(&self, file_id: usize) -> String {
+        for file in self.files.iter().enumerate() {
+            if file.0 == file_id {
+                return file.1 .0.clone();
+            }
+        }
+
+        "<unknown>".into()
+    }
+
+    pub fn get_file_source(&self, file_id: usize) -> String {
+        for file in self.files.iter().enumerate() {
+            if file.0 == file_id {
+                let output =
+                    String::from_utf8_lossy(&self.file_contents[file.1 .1..file.1 .2]).to_string();
+
+                return output;
+            }
+        }
+
+        "<unknown>".into()
+    }
+
     #[allow(unused)]
     pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
@@ -262,6 +289,36 @@ impl<'a> ParserWorkingSet<'a> {
 
     pub fn global_span_offset(&self) -> usize {
         self.permanent_state.next_span_start()
+    }
+
+    pub fn files(&'a self) -> impl Iterator<Item = &(String, usize, usize)> {
+        self.permanent_state.files().chain(self.delta.files.iter())
+    }
+
+    pub fn get_filename(&self, file_id: usize) -> String {
+        for file in self.files().enumerate() {
+            if file.0 == file_id {
+                return file.1 .0.clone();
+            }
+        }
+
+        "<unknown>".into()
+    }
+
+    pub fn get_file_source(&self, file_id: usize) -> String {
+        for file in self.files().enumerate() {
+            if file.0 == file_id {
+                let output = String::from_utf8_lossy(self.get_span_contents(Span {
+                    start: file.1 .1,
+                    end: file.1 .2,
+                }))
+                .to_string();
+
+                return output;
+            }
+        }
+
+        "<unknown>".into()
     }
 
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {

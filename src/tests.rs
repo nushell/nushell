@@ -43,11 +43,13 @@ fn fail_test(input: &str, expected: &str) -> TestResult {
 
     let output = cmd.output()?;
 
-    let output = String::from_utf8_lossy(&output.stderr).to_string();
-    println!("{}", output);
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
 
-    assert!(output.contains("Error:"));
-    assert!(output.contains(expected));
+    println!("stdout: {}", stdout);
+    println!("stderr: {}", stderr);
+
+    assert!(stderr.contains(expected));
 
     Ok(())
 }
@@ -64,7 +66,7 @@ fn add_simple2() -> TestResult {
 
 #[test]
 fn broken_math() -> TestResult {
-    fail_test("3 + ", "Incomplete")
+    fail_test("3 + ", "incomplete")
 }
 
 #[test]
@@ -81,7 +83,7 @@ fn if_test2() -> TestResult {
 fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",
-        "VariableNotFound",
+        "variable not found",
     )
 }
 
@@ -89,7 +91,7 @@ fn no_scope_leak1() -> TestResult {
 fn no_scope_leak2() -> TestResult {
     fail_test(
         "def foo [] { $x }; def bar [] { let $x = 10; foo }; bar",
-        "VariableNotFound",
+        "Variable not found",
     )
 }
 
