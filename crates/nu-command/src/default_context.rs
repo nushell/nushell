@@ -150,6 +150,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Every),
             whole_stream_command(Nth),
             whole_stream_command(Drop),
+            whole_stream_command(DropNth),
             whole_stream_command(Format),
             whole_stream_command(FileSize),
             whole_stream_command(Where),
