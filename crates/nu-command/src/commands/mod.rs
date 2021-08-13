@@ -65,12 +65,16 @@ mod tests {
 
     fn full_tests() -> Vec<Command> {
         vec![
+            whole_stream_command(Drop),
+            whole_stream_command(DropNth),
+            whole_stream_command(DropColumn),
             whole_stream_command(Append),
             whole_stream_command(GroupBy),
             whole_stream_command(Insert),
             whole_stream_command(MoveColumn),
             whole_stream_command(Update),
             whole_stream_command(Empty),
+            whole_stream_command(Nth),
             // whole_stream_command(Select),
             // whole_stream_command(Get),
             // Str Command Suite
