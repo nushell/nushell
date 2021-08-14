@@ -110,7 +110,7 @@ fn evaluate_prompt_string(prompt_line: &str, context: &EvaluationContext, cwd: &
     } else {
         let run_result = run_block(
             &prompt_block,
-            &context,
+            context,
             InputStream::empty(),
             ExternalRedirection::Stdout,
         );
@@ -120,7 +120,7 @@ fn evaluate_prompt_string(prompt_line: &str, context: &EvaluationContext, cwd: &
             Ok(result) => match result.collect_string(Tag::unknown()) {
                 Ok(string_result) => {
                     let errors = context.get_errors();
-                    maybe_print_errors(&context, Text::from(prompt_line));
+                    maybe_print_errors(context, Text::from(prompt_line));
                     context.clear_errors();
 
                     if !errors.is_empty() {
