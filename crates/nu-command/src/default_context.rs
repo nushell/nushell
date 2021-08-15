@@ -184,6 +184,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(RollUp),
             whole_stream_command(Rotate),
             whole_stream_command(RotateCounterClockwise),
+            whole_stream_command(Zip),
             whole_stream_command(Collect),
             // Data processing
             whole_stream_command(Histogram),

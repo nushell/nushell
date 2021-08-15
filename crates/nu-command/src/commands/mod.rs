@@ -108,7 +108,10 @@ mod tests {
 
     fn only_examples() -> Vec<Command> {
         let mut commands = full_tests();
-        commands.extend(vec![whole_stream_command(Flatten)]);
+        commands.extend(vec![
+            whole_stream_command(Zip),
+            whole_stream_command(Flatten),
+        ]);
         commands
     }
 

@@ -21,8 +21,8 @@ use crate::commands::{
 };
 
 use crate::commands::{
-    Append, BuildString, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth, Select,
-    StrCollect, Wrap,
+    Append, BuildString, Collect, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth,
+    Select, StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -48,6 +48,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Let {}),
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
+        whole_stream_command(Collect),
         whole_stream_command(Wrap),
         cmd,
     ]);
@@ -108,6 +109,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
         whole_stream_command(cmd),
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
+        whole_stream_command(Collect),
         whole_stream_command(Wrap),
     ]);
 
@@ -182,6 +184,7 @@ pub fn test_dataframe(cmd: impl WholeStreamCommand + 'static) -> Result<(), Shel
         whole_stream_command(Let {}),
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
+        whole_stream_command(Collect),
         whole_stream_command(Wrap),
         whole_stream_command(StrToDatetime),
     ]);
@@ -256,6 +259,7 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(Let {}),
         whole_stream_command(Select),
         whole_stream_command(StrCollect),
+        whole_stream_command(Collect),
         whole_stream_command(Wrap),
         cmd,
     ]);
