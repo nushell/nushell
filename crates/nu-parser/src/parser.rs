@@ -2280,10 +2280,21 @@ impl<'a> ParserWorkingSet<'a> {
                 let (call, call_span, _) = self.parse_internal_call(spans[0], &spans[1..], decl_id);
 
                 if spans.len() >= 4 {
-                    let alias_name = self.get_span_contents(spans[1]).to_vec();
+                    let alias_name = self.get_span_contents(spans[1]);
+
+                    let alias_name = if alias_name.starts_with(b"\"")
+                        && alias_name.ends_with(b"\"")
+                        && alias_name.len() > 1
+                    {
+                        alias_name[1..(alias_name.len() - 1)].to_vec()
+                    } else {
+                        alias_name.to_vec()
+                    };
                     let _equals = self.get_span_contents(spans[2]);
 
                     let replacement = spans[3..].to_vec();
+
+                    println!("{:?} {:?}", alias_name, replacement);
 
                     self.add_alias(alias_name, replacement);
                 }

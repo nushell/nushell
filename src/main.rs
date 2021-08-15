@@ -27,11 +27,10 @@ fn main() -> std::io::Result<()> {
 
         let state = nu_engine::State {
             parser_state: &*parser_state.borrow(),
+            stack: nu_engine::Stack::new(),
         };
 
-        let stack = nu_engine::Stack::new();
-
-        match eval_block(&state, stack, &block) {
+        match eval_block(&state, &block) {
             Ok(value) => {
                 println!("{}", value);
             }
@@ -90,9 +89,10 @@ fn main() -> std::io::Result<()> {
 
                     let state = nu_engine::State {
                         parser_state: &*parser_state.borrow(),
+                        stack: stack.clone(),
                     };
 
-                    match eval_block(&state, stack.clone(), &block) {
+                    match eval_block(&state, &block) {
                         Ok(value) => {
                             println!("{}", value);
                         }
