@@ -312,7 +312,7 @@ pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io;
+    // use std::io;
 
     #[test]
     fn expand_two_dots() {
@@ -331,32 +331,34 @@ mod tests {
         assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path.into()));
     }
 
-    #[test]
-    fn canonicalize_with_and_without_relative() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar");
-        let path = Path::new("../..");
-        let full_path = Path::new("/foo/bar/../..");
+    // TODO: Reformulate for expand_path
+    // #[test]
+    // fn canonicalize_with_and_without_relative() -> io::Result<()> {
+    //     let relative_to = Path::new("/foo/bar");
+    //     let path = Path::new("../..");
+    //     let full_path = Path::new("/foo/bar/../..");
 
-        assert_eq!(
-            canonicalize(full_path)?,
-            canonicalize_with(path, relative_to)?,
-        );
+    //     assert_eq!(
+    //         canonicalize(full_path)?,
+    //         canonicalize_with(path, relative_to)?,
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    fn canonicalize_should_succeed() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar");
-        let path = Path::new("../..");
+    // TODO: Reformulate for expand_path
+    // #[test]
+    // fn canonicalize_should_succeed() -> io::Result<()> {
+    //     let relative_to = Path::new("/foo/bar");
+    //     let path = Path::new("../..");
 
-        assert_eq!(
-            PathBuf::from("/"), // existing path
-            canonicalize_with(path, relative_to)?,
-        );
+    //     assert_eq!(
+    //         PathBuf::from("/"), // existing path
+    //         canonicalize_with(path, relative_to)?,
+    //     );
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     #[test]
     fn canonicalize_should_fail() {
