@@ -285,6 +285,26 @@ pub fn expand_path(path: Cow<'_, Path>) -> Cow<'_, Path> {
     expand_dots(path)
 }
 
+pub fn expand_path_with<P, Q>(path: P, relative_to: Q) -> PathBuf
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let path = if path.as_ref() == Path::new(".") {
+        // Joining a Path with '.' appends a '.' at the end, making the prompt
+        // more ugly - so we don't do anything, which should result in an equal
+        // path on all supported systems.
+        relative_to.as_ref().to_owned()
+    } else if path.as_ref().starts_with("~") {
+        // TODO: No need for this branch
+        expand_tilde(Cow::Borrowed(path.as_ref())).to_path_buf()
+    } else {
+        relative_to.as_ref().join(path)
+    };
+
+    expand_path(Cow::Owned(path)).into()
+}
+
 pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
     cow_map_str_path(path, expand_path)
 }

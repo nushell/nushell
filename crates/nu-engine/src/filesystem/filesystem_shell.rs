@@ -9,7 +9,7 @@ use crate::{
 };
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
-use nu_path::{canonicalize, canonicalize_with};
+use nu_path::{canonicalize, canonicalize_with, expand_path_with};
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
@@ -237,13 +237,20 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = canonicalize_with(target, self.path()).map_err(|_| {
-                        ShellError::labeled_error(
+                    // Extra expand attempt allows cd from /home/user/non-existent-dir/..
+                    // to /home/user
+                    let path = match canonicalize_with(&target, self.path()) {
+                        Ok(p) => p,
+                        _ => expand_path_with(&target, self.path()),
+                    };
+
+                    if !path.exists() {
+                        return Err(ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
                             &tag,
-                        )
-                    })?;
+                        ));
+                    }
 
                     if !path.is_dir() {
                         return Err(ShellError::labeled_error(
