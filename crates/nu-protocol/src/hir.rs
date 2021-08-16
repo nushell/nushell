@@ -47,6 +47,10 @@ impl InternalCommand {
         self.args.has_var_usage(var_name)
     }
 
+    pub fn has_in_usage(&self) -> bool {
+        self.args.has_in_usage()
+    }
+
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         self.args.get_free_variables(known_variables)
     }
@@ -95,6 +99,15 @@ impl ClassifiedCommand {
         }
     }
 
+    pub fn has_in_usage(&self) -> bool {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.has_in_usage(),
+            ClassifiedCommand::Dynamic(call) => call.has_in_usage(),
+            ClassifiedCommand::Internal(internal) => internal.has_in_usage(),
+            ClassifiedCommand::Error(_) => false,
+        }
+    }
+
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         match self {
             ClassifiedCommand::Expr(expr) => expr.get_free_variables(known_variables),
@@ -130,6 +143,13 @@ impl Pipeline {
     pub fn has_var_usage(&self, var_name: &str) -> bool {
         self.list.iter().any(|cc| cc.has_var_usage(var_name))
     }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.list
+            .first()
+            .map(|cmd| cmd.has_in_usage())
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -155,6 +175,10 @@ impl Group {
 
     pub fn has_var_usage(&self, var_name: &str) -> bool {
         self.pipelines.iter().any(|cc| cc.has_var_usage(var_name))
+    }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.pipelines.iter().any(|cc| cc.has_in_usage())
     }
 }
 
@@ -205,6 +229,10 @@ impl Block {
     pub fn push(&mut self, group: Group) {
         self.block.push(group);
         self.infer_params();
+    }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.block.iter().any(|x| x.has_in_usage())
     }
 
     pub fn has_var_usage(&self, var_name: &str) -> bool {
@@ -691,6 +719,10 @@ impl SpannedExpression {
 
     pub fn has_var_usage(&self, var_name: &str) -> bool {
         self.expr.has_var_usage(var_name)
+    }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.expr.has_in_usage()
     }
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
@@ -1218,6 +1250,33 @@ impl Expression {
         }
     }
 
+    pub fn has_in_usage(&self) -> bool {
+        match self {
+            Expression::Variable(name, _) if name == "$in" => true,
+            Expression::Table(headers, values) => {
+                headers.iter().any(|se| se.has_in_usage())
+                    || values.iter().any(|v| v.iter().any(|se| se.has_in_usage()))
+            }
+            Expression::List(list) => list.iter().any(|se| se.has_in_usage()),
+            Expression::Subexpression(block) => block.has_in_usage(),
+            Expression::Binary(binary) => binary.left.has_in_usage() || binary.right.has_in_usage(),
+            Expression::FullColumnPath(path) => path.head.has_in_usage(),
+            Expression::Range(range) => {
+                (if let Some(left) = &range.left {
+                    left.has_in_usage()
+                } else {
+                    false
+                }) || (if let Some(right) = &range.right {
+                    right.has_in_usage()
+                } else {
+                    false
+                })
+            }
+            Expression::Block(block) => block.has_in_usage(),
+            _ => false,
+        }
+    }
+
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         let mut output = vec![];
         match self {
@@ -1281,6 +1340,14 @@ impl NamedValue {
             false
         }
     }
+    fn has_in_usage(&self) -> bool {
+        if let NamedValue::Value(_, se) = self {
+            se.has_in_usage()
+        } else {
+            false
+        }
+    }
+
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         if let NamedValue::Value(_, se) = self {
             se.get_free_variables(known_variables)
@@ -1379,6 +1446,20 @@ impl Call {
             })
             || (if let Some(named) = &self.named {
                 named.has_var_usage(var_name)
+            } else {
+                false
+            })
+    }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.head.has_in_usage()
+            || (if let Some(pos) = &self.positional {
+                pos.iter().any(|x| x.has_in_usage())
+            } else {
+                false
+            })
+            || (if let Some(named) = &self.named {
+                named.has_in_usage()
             } else {
                 false
             })
@@ -1563,6 +1644,10 @@ impl NamedArguments {
 
     pub fn has_var_usage(&self, var_name: &str) -> bool {
         self.iter().any(|x| x.1.has_var_usage(var_name))
+    }
+
+    pub fn has_in_usage(&self) -> bool {
+        self.iter().any(|x| x.1.has_in_usage())
     }
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {

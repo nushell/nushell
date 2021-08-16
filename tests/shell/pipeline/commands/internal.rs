@@ -1181,6 +1181,78 @@ fn pipeline_params_inner() {
 }
 
 #[test]
+fn pipeline_params_if_cond() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $true | if $in { "yes" } { "no" }
+        "#)
+    );
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn pipeline_params_nested_ifs() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        "success" | if $true {
+            if $false {
+                "fail"
+            } {
+                $in
+            }
+        } {
+            "fail"
+        }
+        "#)
+    );
+
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
+fn pipeline_params_multiple_in() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $false | if $true {
+            if $in {
+                "fail"
+            } {
+                "success" | $in
+            }
+        } {
+            "fail"
+        }
+        "#)
+    );
+
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
+fn pipeline_params_inner_in() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        if $true {
+            if $false {
+                "fail"
+            } {
+                "success" | $in
+            }
+        } {
+            "fail"
+        }
+        "#)
+    );
+
+    assert_eq!(actual.out, "success");
+}
+
+#[test]
 fn better_table_lex() {
     let actual = nu!(
         cwd: ".", pipeline(

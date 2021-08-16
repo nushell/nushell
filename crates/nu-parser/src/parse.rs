@@ -1910,8 +1910,10 @@ fn parse_pipeline(
         if error.is_none() {
             error = err;
         }
+
         if let Some(call) = call {
-            if call.has_var_usage("$in") && lite_cmd.0 > 0 {
+            // Don't expand $in if it is the first position as it refers to a pipeline in a parent block that already has been expanded.
+            if call.has_in_usage() && lite_cmd.0 > 0 {
                 let call = wrap_with_collect(call, "$in");
                 commands.push(call);
             } else {
