@@ -113,7 +113,8 @@ async fn helper(
         _ => None,
     };
 
-    let mut response = surf::RequestBuilder::new(surf::http::Method::Get, url);
+    let mut response = surf::RequestBuilder::new(surf::http::Method::Get, url)
+        .middleware(surf::middleware::Redirect::default());
 
     if let Some(login) = login {
         response = surf::get(location).header("Authorization", format!("Basic {}", login));
