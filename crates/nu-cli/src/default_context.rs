@@ -49,13 +49,6 @@ pub fn create_default_context() -> Rc<RefCell<ParserState>> {
             );
         working_set.add_decl(sig.into());
 
-        let sig = Signature::build("sum").required(
-            "arg",
-            SyntaxShape::List(Box::new(SyntaxShape::Number)),
-            "list of numbers",
-        );
-        working_set.add_decl(sig.into());
-
         let sig = Signature::build("build-string").rest(SyntaxShape::String, "list of string");
         working_set.add_decl(sig.into());
 

@@ -1,4 +1,7 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    fmt::Display,
+    ops::{Index, IndexMut},
+};
 
 use crate::{
     lex, lite_parse,
@@ -130,6 +133,31 @@ pub enum Operator {
     And,
     Or,
     Pow,
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operator::Equal => write!(f, "=="),
+            Operator::NotEqual => write!(f, "!="),
+            Operator::LessThan => write!(f, "<"),
+            Operator::GreaterThan => write!(f, ">"),
+            Operator::Contains => write!(f, "=~"),
+            Operator::NotContains => write!(f, "!~"),
+            Operator::Plus => write!(f, "+"),
+            Operator::Minus => write!(f, "-"),
+            Operator::Multiply => write!(f, "*"),
+            Operator::Divide => write!(f, "/"),
+            Operator::In => write!(f, "in"),
+            Operator::NotIn => write!(f, "not-in"),
+            Operator::Modulo => write!(f, "mod"),
+            Operator::And => write!(f, "&&"),
+            Operator::Or => write!(f, "||"),
+            Operator::Pow => write!(f, "**"),
+            Operator::LessThanOrEqual => write!(f, "<="),
+            Operator::GreaterThanOrEqual => write!(f, ">="),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -629,7 +657,7 @@ impl<'a> ParserWorkingSet<'a> {
                     // We won't often override the current error, but as this is a strong indicator
                     // go ahead and override the current error and tell the user about the missing
                     // keyword/literal.
-                    error = Some(ParseError::Mismatch(
+                    error = Some(ParseError::ExpectedKeyword(
                         String::from_utf8_lossy(keyword).into(),
                         arg_span,
                     ))
@@ -753,12 +781,14 @@ impl<'a> ParserWorkingSet<'a> {
                     self.parse_multispan_value(&spans[..end], &mut spans_idx, &positional.shape);
                 error = error.or(err);
 
-                let arg = if positional.shape.to_type() != Type::Unknown
-                    && arg.ty != positional.shape.to_type()
-                {
+                let arg = if !Self::type_compatible(&positional.shape.to_type(), &arg.ty) {
                     let span = span(&spans[orig_idx..spans_idx]);
                     error = error.or_else(|| {
-                        Some(ParseError::TypeMismatch(positional.shape.to_type(), span))
+                        Some(ParseError::TypeMismatch(
+                            positional.shape.to_type(),
+                            arg.ty,
+                            arg.span,
+                        ))
                     });
                     Expression::garbage(span)
                 } else {
@@ -812,8 +842,10 @@ impl<'a> ParserWorkingSet<'a> {
 
         let name = self.get_span_contents(spans[pos]);
 
+        let cmd_start = pos;
+
         if expand_aliases {
-            if let Some(expansion) = self.find_alias(name) {
+            if let Some(expansion) = self.find_alias(&name) {
                 let orig_span = spans[pos];
                 //let mut spans = spans.to_vec();
                 let mut new_spans: Vec<Span> = vec![];
@@ -855,6 +887,39 @@ impl<'a> ParserWorkingSet<'a> {
                 new_name.push(b' ');
                 new_name.extend(self.get_span_contents(spans[pos]));
 
+                if expand_aliases {
+                    if let Some(expansion) = self.find_alias(&new_name) {
+                        let orig_span = spans[pos];
+                        //let mut spans = spans.to_vec();
+                        let mut new_spans: Vec<Span> = vec![];
+                        new_spans.extend(&spans[0..cmd_start]);
+                        new_spans.extend(expansion);
+                        if spans.len() > pos {
+                            new_spans.extend(&spans[(pos + 1)..]);
+                        }
+
+                        let (result, err) = self.parse_call(&new_spans, false);
+
+                        let expression = match result {
+                            Expression {
+                                expr: Expr::Call(mut call),
+                                span,
+                                ty,
+                            } => {
+                                call.head = orig_span;
+                                Expression {
+                                    expr: Expr::Call(call),
+                                    span,
+                                    ty,
+                                }
+                            }
+                            x => x,
+                        };
+
+                        return (expression, err);
+                    }
+                }
+
                 if let Some(did) = self.find_decl(&new_name) {
                     decl_id = did;
                 } else {
@@ -893,7 +958,11 @@ impl<'a> ParserWorkingSet<'a> {
             } else {
                 (
                     garbage(span),
-                    Some(ParseError::Mismatch("int".into(), span)),
+                    Some(ParseError::Mismatch(
+                        "int".into(),
+                        "incompatible int".into(),
+                        span,
+                    )),
                 )
             }
         } else if let Some(token) = token.strip_prefix("0b") {
@@ -909,7 +978,11 @@ impl<'a> ParserWorkingSet<'a> {
             } else {
                 (
                     garbage(span),
-                    Some(ParseError::Mismatch("int".into(), span)),
+                    Some(ParseError::Mismatch(
+                        "int".into(),
+                        "incompatible int".into(),
+                        span,
+                    )),
                 )
             }
         } else if let Some(token) = token.strip_prefix("0o") {
@@ -925,7 +998,11 @@ impl<'a> ParserWorkingSet<'a> {
             } else {
                 (
                     garbage(span),
-                    Some(ParseError::Mismatch("int".into(), span)),
+                    Some(ParseError::Mismatch(
+                        "int".into(),
+                        "incompatible int".into(),
+                        span,
+                    )),
                 )
             }
         } else if let Ok(x) = token.parse::<i64>() {
@@ -940,7 +1017,7 @@ impl<'a> ParserWorkingSet<'a> {
         } else {
             (
                 garbage(span),
-                Some(ParseError::Mismatch("int".into(), span)),
+                Some(ParseError::Expected("int".into(), span)),
             )
         }
     }
@@ -958,7 +1035,7 @@ impl<'a> ParserWorkingSet<'a> {
         } else {
             (
                 garbage(span),
-                Some(ParseError::Mismatch("int".into(), span)),
+                Some(ParseError::Expected("float".into(), span)),
             )
         }
     }
@@ -971,7 +1048,7 @@ impl<'a> ParserWorkingSet<'a> {
         } else {
             (
                 garbage(span),
-                Some(ParseError::Mismatch("number".into(), span)),
+                Some(ParseError::Expected("number".into(), span)),
             )
         }
     }
@@ -1242,7 +1319,7 @@ impl<'a> ParserWorkingSet<'a> {
         } else {
             (
                 garbage(span),
-                Some(ParseError::Mismatch("string".into(), span)),
+                Some(ParseError::Expected("string".into(), span)),
             )
         }
     }
@@ -1392,7 +1469,7 @@ impl<'a> ParserWorkingSet<'a> {
                             ParseMode::TypeMode => {
                                 // We're seeing two types for the same thing for some reason, error
                                 error = error
-                                    .or_else(|| Some(ParseError::Mismatch("type".into(), span)));
+                                    .or_else(|| Some(ParseError::Expected("type".into(), span)));
                             }
                         }
                     } else {
@@ -1424,7 +1501,7 @@ impl<'a> ParserWorkingSet<'a> {
                                             || !short_flag.ends_with(b")")
                                         {
                                             error = error.or_else(|| {
-                                                Some(ParseError::Mismatch(
+                                                Some(ParseError::Expected(
                                                     "short flag".into(),
                                                     span,
                                                 ))
@@ -1453,7 +1530,7 @@ impl<'a> ParserWorkingSet<'a> {
                                             }));
                                         } else {
                                             error = error.or_else(|| {
-                                                Some(ParseError::Mismatch(
+                                                Some(ParseError::Expected(
                                                     "short flag".into(),
                                                     span,
                                                 ))
@@ -1470,7 +1547,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                                     if chars.len() > 1 {
                                         error = error.or_else(|| {
-                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                            Some(ParseError::Expected("short flag".into(), span))
                                         });
 
                                         args.push(Arg::Flag(Flag {
@@ -1502,7 +1579,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                                     let short_flag = if !short_flag.ends_with(b")") {
                                         error = error.or_else(|| {
-                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                            Some(ParseError::Expected("short flag".into(), span))
                                         });
                                         short_flag
                                     } else {
@@ -1518,7 +1595,7 @@ impl<'a> ParserWorkingSet<'a> {
                                             Some(Arg::Flag(flag)) => {
                                                 if flag.short.is_some() {
                                                     error = error.or_else(|| {
-                                                        Some(ParseError::Mismatch(
+                                                        Some(ParseError::Expected(
                                                             "one short flag".into(),
                                                             span,
                                                         ))
@@ -1529,7 +1606,7 @@ impl<'a> ParserWorkingSet<'a> {
                                             }
                                             _ => {
                                                 error = error.or_else(|| {
-                                                    Some(ParseError::Mismatch(
+                                                    Some(ParseError::Expected(
                                                         "unknown flag".into(),
                                                         span,
                                                     ))
@@ -1538,7 +1615,7 @@ impl<'a> ParserWorkingSet<'a> {
                                         }
                                     } else {
                                         error = error.or_else(|| {
-                                            Some(ParseError::Mismatch("short flag".into(), span))
+                                            Some(ParseError::Expected("short flag".into(), span))
                                         });
                                     }
                                 } else if contents.ends_with(b"?") {
@@ -1832,7 +1909,7 @@ impl<'a> ParserWorkingSet<'a> {
         } else {
             return (
                 garbage(span),
-                Some(ParseError::Mismatch("block".into(), span)),
+                Some(ParseError::Expected("block".into(), span)),
             );
         }
         if bytes.ends_with(b"}") {
@@ -1902,7 +1979,7 @@ impl<'a> ParserWorkingSet<'a> {
                 _ => {
                     return (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("non-[] value".into(), span)),
+                        Some(ParseError::Expected("non-[] value".into(), span)),
                     );
                 }
             }
@@ -1915,7 +1992,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         garbage(span),
-                        Some(ParseError::Mismatch("number".into(), span)),
+                        Some(ParseError::Expected("number".into(), span)),
                     )
                 }
             }
@@ -1925,7 +2002,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         garbage(span),
-                        Some(ParseError::Mismatch("int".into(), span)),
+                        Some(ParseError::Expected("int".into(), span)),
                     )
                 }
             }
@@ -1938,7 +2015,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("table".into(), span)),
+                        Some(ParseError::Expected("block".into(), span)),
                     )
                 }
             }
@@ -1948,7 +2025,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("signature".into(), span)),
+                        Some(ParseError::Expected("signature".into(), span)),
                     )
                 }
             }
@@ -1958,7 +2035,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("list".into(), span)),
+                        Some(ParseError::Expected("list".into(), span)),
                     )
                 }
             }
@@ -1968,7 +2045,7 @@ impl<'a> ParserWorkingSet<'a> {
                 } else {
                     (
                         Expression::garbage(span),
-                        Some(ParseError::Mismatch("table".into(), span)),
+                        Some(ParseError::Expected("table".into(), span)),
                     )
                 }
             }
@@ -1991,13 +2068,10 @@ impl<'a> ParserWorkingSet<'a> {
                 }
                 (
                     garbage(span),
-                    Some(ParseError::Mismatch("any shape".into(), span)),
+                    Some(ParseError::Expected("any shape".into(), span)),
                 )
             }
-            _ => (
-                garbage(span),
-                Some(ParseError::Mismatch("incomplete parser".into(), span)),
-            ),
+            _ => (garbage(span), Some(ParseError::IncompleteParser(span))),
         }
     }
 
@@ -2026,7 +2100,7 @@ impl<'a> ParserWorkingSet<'a> {
             _ => {
                 return (
                     garbage(span),
-                    Some(ParseError::Mismatch("operator".into(), span)),
+                    Some(ParseError::Expected("operator".into(), span)),
                 );
             }
         };
@@ -2167,7 +2241,7 @@ impl<'a> ParserWorkingSet<'a> {
                 (None, None)
             }
         } else {
-            (None, Some(ParseError::Mismatch("variable".into(), span)))
+            (None, Some(ParseError::Expected("variable".into(), span)))
         }
     }
 
@@ -2175,11 +2249,8 @@ impl<'a> ParserWorkingSet<'a> {
         let name = self.get_span_contents(spans[0]);
 
         if name == b"def" && spans.len() >= 4 {
-            //FIXME: don't use expect here
             let (name_expr, ..) = self.parse_string(spans[1]);
-            let name = name_expr
-                .as_string()
-                .expect("internal error: expected def name");
+            let name = name_expr.as_string();
 
             self.enter_scope();
             // FIXME: because parse_signature will update the scope with the variables it sees
@@ -2189,18 +2260,21 @@ impl<'a> ParserWorkingSet<'a> {
             // We can't reuse the first time because the variables that are created during parse_signature
             // are lost when we exit the scope below.
             let (sig, ..) = self.parse_signature(spans[2]);
-            let mut signature = sig
-                .as_signature()
-                .expect("internal error: expected param list");
+            let signature = sig.as_signature();
             self.exit_scope();
 
-            signature.name = name;
-            let decl = Declaration {
-                signature,
-                body: None,
-            };
+            match (name, signature) {
+                (Some(name), Some(mut signature)) => {
+                    signature.name = name;
+                    let decl = Declaration {
+                        signature,
+                        body: None,
+                    };
 
-            self.add_decl(decl);
+                    self.add_decl(decl);
+                }
+                _ => {}
+            }
         }
     }
 
@@ -2211,52 +2285,63 @@ impl<'a> ParserWorkingSet<'a> {
         if name == b"def" && spans.len() >= 4 {
             //FIXME: don't use expect here
             let (name_expr, err) = self.parse_string(spans[1]);
-            let name = name_expr
-                .as_string()
-                .expect("internal error: expected def name");
             error = error.or(err);
-
-            let decl_id = self
-                .find_decl(name.as_bytes())
-                .expect("internal error: predeclaration failed to add definition");
 
             self.enter_scope();
             let (sig, err) = self.parse_signature(spans[2]);
-            let mut signature = sig
-                .as_signature()
-                .expect("internal error: expected param list");
-            signature.name = name;
             error = error.or(err);
 
             let (block, err) = self.parse_block_expression(spans[3]);
+            error = error.or(err);
             self.exit_scope();
 
-            let block_id = block.as_block().expect("internal error: expected block");
-            error = error.or(err);
+            let name = name_expr.as_string();
 
-            let declaration = self.get_decl_mut(decl_id);
-            declaration.signature = signature;
-            declaration.body = Some(block_id);
+            let signature = sig.as_signature();
 
-            let def_decl_id = self
-                .find_decl(b"def")
-                .expect("internal error: missing def command");
+            let block_id = block.as_block();
 
-            let call = Box::new(Call {
-                head: spans[0],
-                decl_id: def_decl_id,
-                positional: vec![name_expr, sig, block],
-                named: vec![],
-            });
+            match (name, signature, block_id) {
+                (Some(name), Some(mut signature), Some(block_id)) => {
+                    let decl_id = self
+                        .find_decl(name.as_bytes())
+                        .expect("internal error: predeclaration failed to add definition");
 
-            (
-                Statement::Expression(Expression {
-                    expr: Expr::Call(call),
-                    span: span(spans),
-                    ty: Type::Unknown,
-                }),
-                error,
-            )
+                    let declaration = self.get_decl_mut(decl_id);
+
+                    signature.name = name;
+                    declaration.signature = signature;
+                    declaration.body = Some(block_id);
+
+                    let def_decl_id = self
+                        .find_decl(b"def")
+                        .expect("internal error: missing def command");
+
+                    let call = Box::new(Call {
+                        head: spans[0],
+                        decl_id: def_decl_id,
+                        positional: vec![name_expr, sig, block],
+                        named: vec![],
+                    });
+
+                    (
+                        Statement::Expression(Expression {
+                            expr: Expr::Call(call),
+                            span: span(spans),
+                            ty: Type::Unknown,
+                        }),
+                        error,
+                    )
+                }
+                _ => (
+                    Statement::Expression(Expression {
+                        expr: Expr::Garbage,
+                        span: span(spans),
+                        ty: Type::Unknown,
+                    }),
+                    error,
+                ),
+            }
         } else {
             (
                 Statement::Expression(Expression {
@@ -2265,7 +2350,7 @@ impl<'a> ParserWorkingSet<'a> {
                     ty: Type::Unknown,
                 }),
                 Some(ParseError::UnknownState(
-                    "internal error: let statement unparseable".into(),
+                    "internal error: definition unparseable".into(),
                     span(spans),
                 )),
             )
@@ -2294,7 +2379,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                     let replacement = spans[3..].to_vec();
 
-                    println!("{:?} {:?}", alias_name, replacement);
+                    //println!("{:?} {:?}", alias_name, replacement);
 
                     self.add_alias(alias_name, replacement);
                 }

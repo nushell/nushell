@@ -30,12 +30,12 @@ pub fn report_parsing_error(
 
     let diagnostic =
         match error {
-            ParseError::Mismatch(missing, span) => {
+            ParseError::Mismatch(expected, found, span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
                     .with_message("Type mismatch during operation")
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                        .with_message(format!("expected {}", missing))])
+                        .with_message(format!("expected {}, found {}", expected, found))])
             }
             ParseError::ExtraTokens(span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
@@ -142,12 +142,12 @@ pub fn report_parsing_error(
                         Label::primary(diag_file_id, diag_range).with_message("expected type")
                     ])
             }
-            ParseError::TypeMismatch(ty, span) => {
+            ParseError::TypeMismatch(expected, found, span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
                     .with_message("Type mismatch")
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                        .with_message(format!("expected {:?}", ty))])
+                        .with_message(format!("expected {:?}, found {:?}", expected, found))])
             }
             ParseError::MissingRequiredFlag(name, span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
@@ -177,6 +177,40 @@ pub fn report_parsing_error(
                     .with_labels(vec![
                         Label::primary(diag_file_id, diag_range).with_message("non-UTF8 code")
                     ])
+            }
+            ParseError::Expected(expected, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Parse mismatch during operation")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("expected {}", expected))])
+            }
+            ParseError::UnsupportedOperation(op_span, lhs_span, lhs_ty, rhs_span, rhs_ty) => {
+                let (lhs_file_id, lhs_range) = convert_span_to_diag(working_set, lhs_span)?;
+                let (rhs_file_id, rhs_range) = convert_span_to_diag(working_set, rhs_span)?;
+                let (op_file_id, op_range) = convert_span_to_diag(working_set, op_span)?;
+                Diagnostic::error()
+                    .with_message("Unsupported operation")
+                    .with_labels(vec![
+                        Label::primary(op_file_id, op_range)
+                            .with_message("doesn't support these values"),
+                        Label::secondary(lhs_file_id, lhs_range).with_message(lhs_ty.to_string()),
+                        Label::secondary(rhs_file_id, rhs_range).with_message(rhs_ty.to_string()),
+                    ])
+            }
+            ParseError::ExpectedKeyword(expected, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Expected keyword")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("expected {}", expected))])
+            }
+            ParseError::IncompleteParser(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Parser incomplete")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("parser support missing for this expression")])
             }
         };
 

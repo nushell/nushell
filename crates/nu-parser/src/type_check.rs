@@ -1,6 +1,15 @@
 use crate::{parser::Operator, parser_state::Type, Expr, Expression, ParseError, ParserWorkingSet};
 
 impl<'a> ParserWorkingSet<'a> {
+    pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
+        match (lhs, rhs) {
+            (Type::List(c), Type::List(d)) => ParserWorkingSet::type_compatible(c, d),
+            (Type::Unknown, _) => true,
+            (_, Type::Unknown) => true,
+            (lhs, rhs) => lhs == rhs,
+        }
+    }
+
     pub fn math_result_type(
         &self,
         lhs: &mut Expression,
@@ -18,7 +27,13 @@ impl<'a> ParserWorkingSet<'a> {
                         *op = Expression::garbage(op.span);
                         (
                             Type::Unknown,
-                            Some(ParseError::Mismatch("math".into(), op.span)),
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
                         )
                     }
                 },
@@ -31,30 +46,50 @@ impl<'a> ParserWorkingSet<'a> {
                         *rhs = Expression::garbage(rhs.span);
                         (
                             Type::Unknown,
-                            Some(ParseError::Mismatch("int".into(), rhs.span)),
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
                         )
                     }
                     _ => {
                         *op = Expression::garbage(op.span);
                         (
                             Type::Unknown,
-                            Some(ParseError::Mismatch("math".into(), op.span)),
+                            Some(ParseError::UnsupportedOperation(
+                                op.span,
+                                lhs.span,
+                                lhs.ty.clone(),
+                                rhs.span,
+                                rhs.ty.clone(),
+                            )),
                         )
                     }
                 },
                 _ => {
                     *op = Expression::garbage(op.span);
+
                     (
                         Type::Unknown,
-                        Some(ParseError::Mismatch("math".into(), op.span)),
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
                     )
                 }
             },
             _ => {
                 *op = Expression::garbage(op.span);
+
                 (
                     Type::Unknown,
-                    Some(ParseError::Mismatch("operator".into(), op.span)),
+                    Some(ParseError::IncompleteMathExpression(op.span)),
                 )
             }
         }
