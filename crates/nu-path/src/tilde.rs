@@ -16,7 +16,7 @@ fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
                 // don't prepend extra `/`, just drop the tilde.
                 path.strip_prefix("~").unwrap_or(path).into()
             } else {
-                h.push(path.strip_prefix("~/").unwrap_or(Path::new("")));
+                h.push(path.strip_prefix("~/").unwrap_or_else(|_| Path::new("")));
                 h
             }
         }

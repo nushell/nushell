@@ -11,7 +11,7 @@ use super::tilde::expand_tilde;
 //     if path.as_ref().is_absolute() {
 //         Ok(path.as_ref().into())
 //     } else {
-//         Ok(current_dir()?.join(path))
+//         Ok(std::env::current_dir()?.join(path))
 //     }
 // }
 
