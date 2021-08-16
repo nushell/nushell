@@ -1,7 +1,4 @@
-use std::borrow::Cow;
 use std::path::{is_separator, Component, Path, PathBuf};
-
-use super::util::cow_map_path_str;
 
 const EXPAND_STR: &str = if cfg!(windows) { r"..\" } else { "../" };
 
@@ -25,11 +22,13 @@ fn handle_dots_push(string: &mut String, count: u8) {
 // Expands any occurence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.
 // ... into ../..
 // .... into ../../../
-fn expand_ndots_string(path: Cow<'_, str>) -> Cow<'_, str> {
+pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
+    let path_str = path.as_ref().to_string_lossy().to_string();
+
     // find if we need to expand any >2 dot paths and early exit if not
     let mut dots_count = 0u8;
     let ndots_present = {
-        for chr in path.chars() {
+        for chr in path_str.chars() {
             if chr == '.' {
                 dots_count += 1;
             } else {
@@ -46,12 +45,12 @@ fn expand_ndots_string(path: Cow<'_, str>) -> Cow<'_, str> {
     };
 
     if !ndots_present {
-        return path;
+        return path.as_ref().into();
     }
 
     let mut dots_count = 0u8;
     let mut expanded = String::new();
-    for chr in path.chars() {
+    for chr in path_str.chars() {
         if chr == '.' {
             dots_count += 1;
         } else {
@@ -75,24 +74,17 @@ fn expand_ndots_string(path: Cow<'_, str>) -> Cow<'_, str> {
     expanded.into()
 }
 
-// Expands any occurence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.
-// ... into ../..
-// .... into ../../../
-pub fn expand_ndots(path: Cow<'_, Path>) -> Cow<'_, Path> {
-    cow_map_path_str(path, expand_ndots_string)
-}
-
 // Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
 // current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
-pub fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
-    debug_assert!(!path.components().any(|c| std::matches!(c, Component::Normal(os_str) if os_str.to_string_lossy().starts_with("..."))), "Unexpected ndots!");
+pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
 
     // Early-exit if path does not contain '.' or '..'
     if !path
         .components()
         .any(|c| std::matches!(c, Component::CurDir | Component::ParentDir))
     {
-        return path;
+        return path.into();
     }
 
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
@@ -105,23 +97,20 @@ pub fn expand_dots(path: Cow<'_, Path>) -> Cow<'_, Path> {
             .unwrap_or(false)
     };
 
-    path.as_ref()
-        .components()
-        .for_each(|component| match component {
-            Component::ParentDir if prev_is_normal(&result) => {
-                result.pop();
-            }
-            Component::CurDir if prev_is_normal(&result) => {}
-            _ => result.push(component),
-        });
+    path.components().for_each(|component| match component {
+        Component::ParentDir if prev_is_normal(&result) => {
+            result.pop();
+        }
+        Component::CurDir if prev_is_normal(&result) => {}
+        _ => result.push(component),
+    });
 
-    Cow::Owned(dunce::simplified(&result).to_path_buf())
+    dunce::simplified(&result).to_path_buf()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use std::io;
 
     #[test]
     fn expand_two_dots() {
@@ -129,7 +118,7 @@ mod tests {
 
         assert_eq!(
             PathBuf::from("/foo"), // missing path
-            expand_dots(path.into())
+            expand_dots(path)
         );
     }
 
@@ -137,18 +126,11 @@ mod tests {
     fn expand_dots_with_curdir() {
         let path = Path::new("/foo/./bar/./baz");
 
-        assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path.into()));
+        assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path));
     }
 
     fn check_ndots_expansion(expected: &str, s: &str) {
-        let expanded = expand_ndots(Cow::Borrowed(Path::new(s)));
-        // If we don't expect expansion, verify that we get a borrow back and no PathBuf creation has been made
-        if expected == s {
-            assert!(
-                std::matches!(expanded, Cow::Borrowed(_)),
-                "No PathBuf should be needed here (unnecessary allocation)"
-            );
-        }
+        let expanded = expand_ndots(Path::new(s));
         assert_eq!(Path::new(expected), &expanded);
     }
 
@@ -176,26 +158,23 @@ mod tests {
     #[test]
     fn expand_dots_double_dots_no_change() {
         // Can't resolve this as we don't know our parent dir
-        assert_eq!(Path::new(".."), expand_dots(Path::new("..").into()));
+        assert_eq!(Path::new(".."), expand_dots(Path::new("..")));
     }
 
     #[test]
     fn expand_dots_single_dot_no_change() {
         // Can't resolve this as we don't know our current dir
-        assert_eq!(Path::new("."), expand_dots(Path::new(".").into()));
+        assert_eq!(Path::new("."), expand_dots(Path::new(".")));
     }
 
     #[test]
     fn expand_dots_multi_single_dots_no_change() {
-        assert_eq!(Path::new("././."), expand_dots(Path::new("././.").into()));
+        assert_eq!(Path::new("././."), expand_dots(Path::new("././.")));
     }
 
     #[test]
     fn expand_multi_double_dots_no_change() {
-        assert_eq!(
-            Path::new("../../../"),
-            expand_dots(Path::new("../../../").into())
-        );
+        assert_eq!(Path::new("../../../"), expand_dots(Path::new("../../../")));
     }
 
     #[test]
@@ -203,23 +182,20 @@ mod tests {
         // Can't resolve this as we don't know our parent dir
         assert_eq!(
             Path::new("../../../dir1/dir2/"),
-            expand_dots(Path::new("../../../dir1/dir2").into())
+            expand_dots(Path::new("../../../dir1/dir2"))
         );
     }
 
     #[test]
     fn expand_dots_simple() {
-        assert_eq!(
-            Path::new("/foo"),
-            expand_dots(Path::new("/foo/bar/..").into())
-        );
+        assert_eq!(Path::new("/foo"), expand_dots(Path::new("/foo/bar/..")));
     }
 
     #[test]
     fn expand_dots_complex() {
         assert_eq!(
             Path::new("/test"),
-            expand_dots(Path::new("/foo/./bar/../../test/././test2/../").into())
+            expand_dots(Path::new("/foo/./bar/../../test/././test2/../"))
         );
     }
 

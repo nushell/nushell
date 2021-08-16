@@ -1,37 +1,30 @@
-use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-use super::util::{cow_map_by_ref, cow_map_str_path};
-
 // Expansion logic lives here to enable testing without depending on dirs-next
-fn expand_tilde_with(path: Cow<'_, Path>, home: Option<PathBuf>) -> Cow<'_, Path> {
+fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
+    let path = path.as_ref();
+
     if !path.starts_with("~") {
-        return path;
+        return path.into();
     }
 
     match home {
-        None => path,
+        None => path.into(),
         Some(mut h) => {
             if h == Path::new("/") {
-                // Corner case: `h` root directory;
+                // Corner case: `h` is a root directory;
                 // don't prepend extra `/`, just drop the tilde.
-                cow_map_by_ref(path, |p: &Path| {
-                    p.strip_prefix("~").expect("cannot strip ~ prefix")
-                })
+                path.strip_prefix("~").unwrap_or(path).into()
             } else {
-                h.push(path.strip_prefix("~/").expect("cannot strip ~/ prefix"));
-                Cow::Owned(h)
+                h.push(path.strip_prefix("~/").unwrap_or(Path::new("")));
+                h
             }
         }
     }
 }
 
-pub fn expand_tilde(path: Cow<'_, Path>) -> Cow<'_, Path> {
+pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     expand_tilde_with(path, dirs_next::home_dir())
-}
-
-pub fn expand_tilde_string(path: Cow<'_, str>) -> Cow<'_, str> {
-    cow_map_str_path(path, expand_tilde)
 }
 
 #[cfg(test)]
@@ -41,21 +34,17 @@ mod tests {
     fn check_expanded(s: &str) {
         let home = Path::new("/home");
         let buf = Some(PathBuf::from(home));
-        assert!(expand_tilde_with(Cow::Borrowed(Path::new(s)), buf).starts_with(&home));
+        assert!(expand_tilde_with(Path::new(s), buf).starts_with(&home));
 
         // Tests the special case in expand_tilde for "/" as home
         let home = Path::new("/");
         let buf = Some(PathBuf::from(home));
-        assert!(!expand_tilde_with(Cow::Borrowed(Path::new(s)), buf).starts_with("//"));
+        assert!(!expand_tilde_with(Path::new(s), buf).starts_with("//"));
     }
 
     fn check_not_expanded(s: &str) {
         let home = PathBuf::from("/home");
-        let expanded = expand_tilde_with(Cow::Borrowed(Path::new(s)), Some(home));
-        assert!(
-            std::matches!(expanded, Cow::Borrowed(_)),
-            "No PathBuf should be needed here (unecessary allocation)"
-        );
+        let expanded = expand_tilde_with(Path::new(s), Some(home));
         assert!(expanded == Path::new(s));
     }
 

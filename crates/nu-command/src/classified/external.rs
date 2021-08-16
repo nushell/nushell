@@ -104,7 +104,7 @@ fn run_with_stdin(
     let process_args = command_args
         .iter()
         .map(|(arg, _is_literal)| {
-            let arg = nu_path::expand_tilde_string(Cow::Borrowed(arg));
+            let arg = nu_path::expand_tilde(arg).to_string_lossy().to_string();
 
             #[cfg(not(windows))]
             {

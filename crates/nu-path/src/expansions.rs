@@ -1,10 +1,8 @@
-use std::borrow::Cow;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use super::dots::{expand_dots, expand_ndots};
 use super::tilde::expand_tilde;
-use super::util::cow_map_str_path;
 
 // Trace a relative path back to its root starting from current directory.
 // Returns error if not possible.
@@ -45,16 +43,19 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = if path.as_ref() == Path::new(".") {
+    let path = path.as_ref();
+    let relative_to = relative_to.as_ref();
+
+    let path = if path == Path::new(".") {
         // Joining a Path with '.' appends a '.' at the end, making the prompt
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
-        relative_to.as_ref().to_owned()
-    } else if path.as_ref().starts_with("~") {
+        relative_to.to_owned()
+    } else if path.starts_with("~") {
         // TODO: No need for this branch
-        expand_tilde(Cow::Borrowed(path.as_ref())).to_path_buf()
+        expand_tilde(path)
     } else {
-        relative_to.as_ref().join(path)
+        relative_to.join(path)
     };
 
     canonicalize(path)
@@ -63,7 +64,7 @@ where
 // Expands ~ to home and shortens paths by removing unecessary ".." and "."
 // where possible. Also expands "...+" appropriately.
 // Does not convert to absolute form nor does it resolve symlinks.
-pub fn expand_path(path: Cow<'_, Path>) -> Cow<'_, Path> {
+pub fn expand_path(path: impl AsRef<Path>) -> PathBuf {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
     expand_dots(path)
@@ -74,23 +75,22 @@ where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = if path.as_ref() == Path::new(".") {
+    let path = path.as_ref();
+    let relative_to = relative_to.as_ref();
+
+    let path = if path == Path::new(".") {
         // Joining a Path with '.' appends a '.' at the end, making the prompt
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
-        relative_to.as_ref().to_owned()
-    } else if path.as_ref().starts_with("~") {
+        relative_to.into()
+    } else if path.starts_with("~") {
         // TODO: No need for this branch
-        expand_tilde(Cow::Borrowed(path.as_ref())).to_path_buf()
+        expand_tilde(path)
     } else {
-        relative_to.as_ref().join(path)
+        relative_to.join(path)
     };
 
-    expand_path(Cow::Owned(path)).into()
-}
-
-pub fn expand_path_string(path: Cow<'_, str>) -> Cow<'_, str> {
-    cow_map_str_path(path, expand_path)
+    expand_path(path)
 }
 
 #[cfg(test)]
