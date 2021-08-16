@@ -26,7 +26,7 @@ fn main() -> std::io::Result<()> {
         ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
 
         let state = nu_engine::State {
-            parser_state: &*parser_state.borrow(),
+            parser_state: parser_state.clone(),
             stack: nu_engine::Stack::new(),
         };
 
@@ -88,7 +88,7 @@ fn main() -> std::io::Result<()> {
                     ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
 
                     let state = nu_engine::State {
-                        parser_state: &*parser_state.borrow(),
+                        parser_state: parser_state.clone(),
                         stack: stack.clone(),
                     };
 

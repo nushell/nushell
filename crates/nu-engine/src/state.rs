@@ -3,19 +3,19 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{value::Value, ShellError};
 
-pub struct State<'a> {
-    pub parser_state: &'a ParserState,
+pub struct State {
+    pub parser_state: Rc<RefCell<ParserState>>,
     pub stack: Stack,
 }
 
-impl<'a> State<'a> {
+impl State {
     pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
         self.stack.get_var(var_id)
     }
 
-    pub fn enter_scope(&self) -> State<'a> {
+    pub fn enter_scope(&self) -> State {
         Self {
-            parser_state: self.parser_state,
+            parser_state: self.parser_state.clone(),
             stack: self.stack.clone().enter_scope(),
         }
     }
