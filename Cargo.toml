@@ -150,6 +150,9 @@ dataframe = [
     "nu_plugin_to_bson/dataframe",
 ]
 
+[profile.release]
+opt-level = "z"  # Optimize for size.
+
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
 # unless we use [[bin]], so we use this as a workaround
