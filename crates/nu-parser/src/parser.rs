@@ -889,7 +889,7 @@ impl<'a> ParserWorkingSet<'a> {
 
                 if expand_aliases {
                     if let Some(expansion) = self.find_alias(&new_name) {
-                        let orig_span = spans[pos];
+                        let orig_span = span(&spans[cmd_start..pos + 1]);
                         //let mut spans = spans.to_vec();
                         let mut new_spans: Vec<Span> = vec![];
                         new_spans.extend(&spans[0..cmd_start]);
