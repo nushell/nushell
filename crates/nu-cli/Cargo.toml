@@ -26,7 +26,7 @@ indexmap ="1.6.1"
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
 strip-ansi-escapes = "0.1.0"
-rustyline = { version="8.1.0", optional=true }
+rustyline = { version="9.0.0", optional=true }
 ctrlc = { version="3.1.7", optional=true }
 shadow-rs = { version="0.6", default-features=false, optional=true }
 serde = { version="1.0.123", features=["derive"] }
