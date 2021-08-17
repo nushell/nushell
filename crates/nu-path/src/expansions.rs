@@ -53,6 +53,8 @@ where
 /// The function works in a "best effort" mode: It does not fail but rather returns the unexpanded
 /// version if the expansion is not possible.
 ///
+/// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
+///
 /// Does not convert to absolute form nor does it resolve symlinks.
 pub fn expand_path(path: impl AsRef<Path>) -> PathBuf {
     let path = expand_tilde(path);
