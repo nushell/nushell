@@ -6,12 +6,11 @@
 - [x] Sub commands
 - [x] Floats
 - [x] Tests
-- [x] Decl requires $
+- [x] Decl requires $ but shouldn't
 - [x] alias highlighting at call site
 - [x] refactor into subcrates
 - [x] subcommand alias
-- [x] type inference from successful parse (eg not List<unknown> but List<int>)
-- [x] variable type mismatch 
+- [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
 - [ ] finish operator type-checking
 - [ ] Column path
 - [ ] Ranges
