@@ -1145,6 +1145,21 @@ fn nothing_string_2() {
     assert_eq!(actual.out, "true");
 }
 
+#[test]
+fn unalias_shadowing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        alias ll = ls -l
+        let xyz = { ll -a }
+        unalias ll
+        do $xyz
+        "#)
+    );
+
+    assert_eq!(actual.out, "");
+}
+
 mod parse {
     use nu_test_support::nu;
 
