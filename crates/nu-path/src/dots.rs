@@ -27,7 +27,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     // conversion.
     let path_str = match path.as_ref().to_str() {
         Some(s) => s,
-        None => return path.as_ref().into()
+        None => return path.as_ref().into(),
     };
 
     // find if we need to expand any >2 dot paths and early exit if not
