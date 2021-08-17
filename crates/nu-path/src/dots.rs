@@ -23,7 +23,12 @@ fn handle_dots_push(string: &mut String, count: u8) {
 // ... into ../..
 // .... into ../../../
 pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
-    let path_str = path.as_ref().to_string_lossy().to_string();
+    // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking it via string
+    // conversion.
+    let path_str = match path.as_ref().to_str() {
+        Some(s) => s,
+        None => return path.as_ref().into()
+    };
 
     // find if we need to expand any >2 dot paths and early exit if not
     let mut dots_count = 0u8;
