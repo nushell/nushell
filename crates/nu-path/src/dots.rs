@@ -19,9 +19,8 @@ fn handle_dots_push(string: &mut String, count: u8) {
     string.pop(); // remove last '/'
 }
 
-// Expands any occurence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.
-// ... into ../..
-// .... into ../../../
+/// Expands any occurence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.,
+/// "..." into "../..", "...." into "../../../", etc.
 pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking it via string
     // conversion.
@@ -79,8 +78,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     expanded.into()
 }
 
-// Remove "." and ".." in a path. Prefix ".." are not removed as we don't have access to the
-// current dir. This is merely 'string manipulation'. Does not handle "...+", see expand_ndots for that
+/// Expand "." and ".." into nothing and parent directory, respectively.
 pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
 

@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-// Expansion logic lives here to enable testing without depending on dirs-next
 fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
 
@@ -16,14 +15,18 @@ fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
                 // don't prepend extra `/`, just drop the tilde.
                 path.strip_prefix("~").unwrap_or(path).into()
             } else {
-                h.push(path.strip_prefix("~/").unwrap_or_else(|_| Path::new("")));
+                if let Ok(p) = path.strip_prefix("~/") {
+                    h.push(p)
+                }
                 h
             }
         }
     }
 }
 
+/// Expand tilde ("~") into a home directory if it it the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
+    // TODO: Extend this to work with "~user" style of home paths
     expand_tilde_with(path, dirs_next::home_dir())
 }
 
