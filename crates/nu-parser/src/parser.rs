@@ -1784,6 +1784,8 @@ impl<'a> ParserWorkingSet<'a> {
 
         let mut args = vec![];
 
+        let mut contained_type: Option<Type> = None;
+
         if !output.block.is_empty() {
             for arg in &output.block[0].commands {
                 let mut spans_idx = 0;
@@ -1792,6 +1794,14 @@ impl<'a> ParserWorkingSet<'a> {
                     let (arg, err) =
                         self.parse_multispan_value(&arg.parts, &mut spans_idx, element_shape);
                     error = error.or(err);
+
+                    if let Some(ref ctype) = contained_type {
+                        if *ctype != arg.ty {
+                            contained_type = Some(Type::Unknown);
+                        }
+                    } else {
+                        contained_type = Some(arg.ty.clone());
+                    }
 
                     args.push(arg);
 
@@ -1804,7 +1814,11 @@ impl<'a> ParserWorkingSet<'a> {
             Expression {
                 expr: Expr::List(args),
                 span,
-                ty: Type::List(Box::new(Type::Unknown)), // FIXME
+                ty: Type::List(Box::new(if let Some(ty) = contained_type {
+                    ty.clone()
+                } else {
+                    Type::Unknown
+                })),
             },
             error,
         )
@@ -2415,6 +2429,16 @@ impl<'a> ParserWorkingSet<'a> {
             if let Some(decl_id) = self.find_decl(b"let") {
                 let (call, call_span, err) =
                     self.parse_internal_call(spans[0], &spans[1..], decl_id);
+
+                // Update the variable to the known type if we can.
+                if err.is_none() {
+                    let var_id = call.positional[0]
+                        .as_var()
+                        .expect("internal error: expected variable");
+                    let rhs_type = call.positional[1].ty.clone();
+
+                    self.set_variable_type(var_id, rhs_type);
+                }
 
                 return (
                     Statement::Expression(Expression {

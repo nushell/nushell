@@ -182,9 +182,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         })
     } else if decl.signature.name == "vars" {
         state.parser_state.borrow().print_vars();
-        Ok(Value::Nothing {
-            span: call.positional[0].span,
-        })
+        Ok(Value::Nothing { span: call.head })
     } else if decl.signature.name == "decls" {
         state.parser_state.borrow().print_decls();
         Ok(Value::Nothing { span: call.head })
