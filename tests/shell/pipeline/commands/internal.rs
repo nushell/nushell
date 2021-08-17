@@ -1160,6 +1160,19 @@ fn unalias_shadowing() {
     assert_eq!(actual.out, "");
 }
 
+#[test]
+fn unalias_hides_alias() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"alias ll = ls -l
+        ll
+        unalias ll
+        ll
+        "#)
+    );
+
+    assert!(actual.err.contains("not found"));
+}
+
 mod parse {
     use nu_test_support::nu;
 
