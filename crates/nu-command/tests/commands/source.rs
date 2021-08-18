@@ -48,6 +48,7 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_1() {
     try_source_foo_without_quotes_in("🚒");
 }
 
+#[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_without_spaces_2() {
     try_source_foo_with_quotes_in(":fire_engine:");
@@ -59,6 +60,7 @@ fn sources_unicode_file_in_unicode_dir_with_spaces_1() {
     try_source_foo_with_quotes_in("e-$ èрт🚒♞中片-j");
 }
 
+#[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_2() {
     try_source_foo_with_quotes_in("e-$ èрт:fire_engine:♞中片-j");
