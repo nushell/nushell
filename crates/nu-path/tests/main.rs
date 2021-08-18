@@ -1,5 +1,8 @@
 use std::path::{Path, PathBuf};
 
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::playground::Playground;
+
 // TODO:
 // * non-unicode paths
 // * canonicalize(_with)
@@ -20,6 +23,40 @@ use std::path::{Path, PathBuf};
 //   * symlink loop
 
 use nu_path::{canonicalize, canonicalize_with, expand_path, expand_path_with};
+
+#[test]
+fn canonicalize_dot() {
+    let actual = canonicalize(".").expect("Failed to canonicalize");
+    let expected = std::env::current_dir().expect("Could not get current directory");
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn canonicalize_path_relative_to() {
+    Playground::setup("nu_path_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("spam.txt")]);
+
+        let actual = canonicalize_with("spam.txt", dirs.test()).expect("Failed to canonicalize");
+        let mut expected = dirs.test().clone();
+        expected.push("spam.txt");
+
+        assert!(actual.ends_with("spam.txt"));
+    });
+}
+
+#[test]
+fn canonicalize_path_with_dot_relative_to() {
+    Playground::setup("nu_path_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("spam.txt")]);
+
+        let actual = canonicalize_with("./spam.txt", dirs.test()).expect("Failed to canonicalize");
+        let mut expected = dirs.test().clone();
+        expected.push("spam.txt");
+
+        assert!(actual.ends_with("spam.txt"));
+    });
+}
 
 #[test]
 fn expand_path_with_and_without_relative() {
