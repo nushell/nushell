@@ -64,7 +64,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
         ),
         UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => Bson::Null,
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => Bson::Null,
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => Bson::Null,
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             Bson::Binary(BinarySubtype::Generic, b.clone())

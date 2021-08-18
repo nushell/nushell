@@ -67,6 +67,7 @@ impl Director {
                 config_file.to_str().expect("failed to convert."),
             ]);
         }
+        process.arg("--perf");
 
         director.executable = Some(process);
         director

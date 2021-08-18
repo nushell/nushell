@@ -10,6 +10,7 @@ pub struct CliOptions {
     pub stdin: bool,
     pub scripts: Vec<NuScript>,
     pub save_history: bool,
+    pub perf: bool,
 }
 
 impl Default for CliOptions {
@@ -25,6 +26,7 @@ impl CliOptions {
             stdin: false,
             scripts: vec![],
             save_history: true,
+            perf: false,
         }
     }
 }

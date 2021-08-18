@@ -14,6 +14,7 @@ impl WholeStreamCommand for Command {
             .switch("stdin", "redirect stdin", None)
             .switch("skip-plugins", "do not load plugins", None)
             .switch("no-history", "don't save history", None)
+            .switch("perf", "show startup performance metrics", None)
             .named(
                 "commands",
                 SyntaxShape::String,

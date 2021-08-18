@@ -26,7 +26,11 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        select(args)
+        let columns: Vec<ColumnPath> = args.rest(0)?;
+        let input = args.input;
+        let name = args.call_info.name_tag;
+
+        select(name, columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -45,11 +49,11 @@ impl WholeStreamCommand for Command {
     }
 }
 
-fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name = args.call_info.name_tag.clone();
-    let columns: Vec<ColumnPath> = args.rest(0)?;
-    let input = args.input;
-
+fn select(
+    name: Tag,
+    columns: Vec<ColumnPath>,
+    input: InputStream,
+) -> Result<OutputStream, ShellError> {
     if columns.is_empty() {
         return Err(ShellError::labeled_error(
             "Select requires columns to select",
@@ -119,7 +123,11 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(reason);
                     }
 
-                    bring_back.entry(key.clone()).or_insert(vec![]);
+                    // No value for column 'key' found, insert nothing to make sure all rows contain all keys.
+                    bring_back
+                        .entry(key.clone())
+                        .or_insert(vec![])
+                        .push(UntaggedValue::nothing().into());
                 }
             }
         }
@@ -153,4 +161,66 @@ fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         out.into_value()
     }))
     .into_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use nu_protocol::ColumnPath;
+    use nu_source::Span;
+    use nu_source::SpannedItem;
+    use nu_source::Tag;
+    use nu_stream::InputStream;
+    use nu_test_support::value::nothing;
+    use nu_test_support::value::row;
+    use nu_test_support::value::string;
+
+    use super::select;
+    use super::Command;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test as test_examples;
+
+        test_examples(Command {})
+    }
+
+    #[test]
+    fn select_using_sparse_table() {
+        // Create a sparse table with 3 rows:
+        //   col_foo | col_bar
+        //   -----------------
+        //   foo     |
+        //           | bar
+        //   foo     |
+        let input = vec![
+            row(indexmap! {"col_foo".into() => string("foo")}),
+            row(indexmap! {"col_bar".into() => string("bar")}),
+            row(indexmap! {"col_foo".into() => string("foo")}),
+        ];
+
+        let expected = vec![
+            row(
+                indexmap! {"col_none".into() => nothing(), "col_foo".into() => string("foo"), "col_bar".into() => nothing()},
+            ),
+            row(
+                indexmap! {"col_none".into() => nothing(), "col_foo".into() => nothing(), "col_bar".into() => string("bar")},
+            ),
+            row(
+                indexmap! {"col_none".into() => nothing(), "col_foo".into() => string("foo"), "col_bar".into() => nothing()},
+            ),
+        ];
+
+        let actual = select(
+            Tag::unknown(),
+            vec![
+                ColumnPath::build(&"col_none".to_string().spanned(Span::unknown())),
+                ColumnPath::build(&"col_foo".to_string().spanned(Span::unknown())),
+                ColumnPath::build(&"col_bar".to_string().spanned(Span::unknown())),
+            ],
+            input.into(),
+        );
+
+        assert_eq!(Ok(expected), actual.map(InputStream::into_vec));
+    }
 }

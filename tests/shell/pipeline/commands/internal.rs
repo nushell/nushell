@@ -216,6 +216,19 @@ fn string_interpolation_and_paren() {
 }
 
 #[test]
+fn string_interpolation_with_unicode() {
+    //カ = U+30AB : KATAKANA LETTER KA
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            $"カ"
+        "#
+    );
+
+    assert_eq!(actual.out, "カ");
+}
+
+#[test]
 fn bignum_large_integer() {
     let actual = nu!(
         cwd: ".",
@@ -666,6 +679,31 @@ fn negative_decimal_start() {
 
     assert_eq!(actual.out, "2.7");
 }
+
+#[test]
+fn string_inside_of() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            "bob" in "bobby"
+        "#
+    );
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn string_not_inside_of() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            "bob" not-in "bobby"
+        "#
+    );
+
+    assert_eq!(actual.out, "false");
+}
+
 #[test]
 fn index_row() {
     let actual = nu!(
@@ -1105,6 +1143,34 @@ fn nothing_string_2() {
     );
 
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn unalias_shadowing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        alias ll = ls -l
+        let xyz = { ll -a }
+        unalias ll
+        do $xyz
+        "#)
+    );
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn unalias_hides_alias() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"alias ll = ls -l
+        ll
+        unalias ll
+        ll
+        "#)
+    );
+
+    assert!(actual.err.contains("not found"));
 }
 
 mod parse {

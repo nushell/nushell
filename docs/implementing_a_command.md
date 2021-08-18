@@ -86,7 +86,7 @@ pub struct Command;
 
 Before registering it to the context you need to make it available by declaring the module and re-export it in `crates/nu-command/src/commands.rs`. The commands we write are modules already (`take_two.rs` is the `take_two` module). In case you are not familiar with rust modules [read this refresher](https://doc.rust-lang.org/book/ch07-02-defining-modules-to-control-scope-and-privacy.html). Let's go ahead and declare it and then re-export the command's `Command` struct as `TakeTwo`, like so:
 
-_nu-command/src/commands.rs_
+_nu-command/src/mod.rs_
 ```rust
 # ...
 pub(crate) mod take_two;

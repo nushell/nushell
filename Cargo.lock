@@ -199,11 +199,11 @@ checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
 name = "arrow"
-version = "4.4.0"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6f3334cea4f209440350d00ae1dab237ced49d80b664cc4b0e984893d583890"
+checksum = "ddf189dff0c7e0f40588fc25adbe5bb6837b82fc61bb7cadf5d76de030f710bb"
 dependencies = [
- "cfg_aliases",
+ "bitflags",
  "chrono",
  "csv",
  "flatbuffers",
@@ -213,7 +213,7 @@ dependencies = [
  "lexical-core",
  "multiversion",
  "num 0.4.0",
- "rand 0.7.3",
+ "rand 0.8.4",
  "regex",
  "serde 1.0.126",
  "serde_derive",
@@ -448,10 +448,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bigdecimal"
-version = "0.2.0"
+name = "bigdecimal-rs"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc403c26e6b03005522e6e8053384c4e881dfe5b2bf041c0c2c49be33d64a539"
+checksum = "85375a908d633fa70ab5b8a217d3d0b6e5c4a9b03786f0c3c969e77f4016b10c"
 dependencies = [
  "num-bigint 0.3.2",
  "num-integer",
@@ -727,12 +727,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "cfg_aliases"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
-
-[[package]]
 name = "chrono"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -744,6 +738,15 @@ dependencies = [
  "serde 1.0.126",
  "time 0.1.44",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "chrono-humanize"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eddc119501d583fd930cb92144e605f44e0252c38dd89d9247fffa1993375cb"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]
@@ -1145,7 +1148,7 @@ version = "3.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "232295399409a8b7ae41276757b5a1cc21032848d42bff2352261f958b3ca29a"
 dependencies = [
- "nix",
+ "nix 0.20.0",
  "winapi 0.3.9",
 ]
 
@@ -1623,10 +1626,11 @@ dependencies = [
 
 [[package]]
 name = "fd-lock"
-version = "2.0.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0010f02effd88c702318c5dde0463206be67495d0b4d906ba7c0a8f166cc7f06"
+checksum = "b8806dd91a06a7a403a8e596f9bfbfb34e469efbc363fc9c9713e79e26472e36"
 dependencies = [
+ "cfg-if 1.0.0",
  "libc",
  "winapi 0.3.9",
 ]
@@ -1648,9 +1652,9 @@ checksum = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
 
 [[package]]
 name = "flatbuffers"
-version = "0.8.4"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c502342b7d6d73beb1b8bab39dc01deba0c8ef66f4e6f1eba7c69ee6b38069"
+checksum = "ef4c5738bcd7fad10315029c50026f83c9da5e4a21f8ed66826f43e0e2bde5f6"
 dependencies = [
  "bitflags",
  "smallvec",
@@ -2501,6 +2505,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "insta"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4a1b21a2971cea49ca4613c0e9fe8225ecaf5de64090fddc6002284726e9244"
+dependencies = [
+ "console",
+ "lazy_static 1.4.0",
+ "serde 1.0.126",
+ "serde_json",
+ "serde_yaml",
+ "similar",
+ "uuid",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2663,9 +2682,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.97"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
+checksum = "a7f823d141fe0a24df1e23b4af4e3c7ba9e5966ec514ea068c93024aa7deb765"
 
 [[package]]
 name = "libgit2-sys"
@@ -2744,7 +2763,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
 dependencies = [
  "serde 1.0.126",
- "serde_test 1.0.126",
+ "serde_test 1.0.127",
 ]
 
 [[package]]
@@ -2820,6 +2839,17 @@ name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
+
+[[package]]
+name = "md-5"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5a279bb9607f9f53c22d496eade00d138d1bdcccd07d74650387cf94942a15"
+dependencies = [
+ "block-buffer 0.9.0",
+ "digest 0.9.0",
+ "opaque-debug",
+]
 
 [[package]]
 name = "md5"
@@ -3085,6 +3115,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7555d6c7164cc913be1ce7f95cbecdabda61eb2ccd89008524af306fb7f5031"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3118,7 +3161,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ctrlc",
  "dunce",
@@ -3163,7 +3206,7 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "doc-comment",
  "itertools",
@@ -3176,10 +3219,11 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ctrlc",
  "indexmap",
+ "lazy_static 1.4.0",
  "log",
  "nu-ansi-term",
  "nu-command",
@@ -3201,12 +3245,12 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "Inflector",
  "arboard",
  "base64",
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "bytes 1.0.1",
  "calamine",
@@ -3217,6 +3261,7 @@ dependencies = [
  "csv",
  "ctrlc",
  "derive-new",
+ "digest 0.9.0",
  "directories-next",
  "dirs-next",
  "dtparse",
@@ -3235,7 +3280,7 @@ dependencies = [
  "itertools",
  "lazy_static 1.4.0",
  "log",
- "md5 0.7.0",
+ "md-5",
  "meval",
  "minus",
  "nu-ansi-term",
@@ -3248,6 +3293,7 @@ dependencies = [
  "nu-plugin",
  "nu-pretty-hex",
  "nu-protocol",
+ "nu-serde",
  "nu-source",
  "nu-stream",
  "nu-table",
@@ -3285,6 +3331,7 @@ dependencies = [
  "term 0.7.0",
  "term_size",
  "termcolor",
+ "thiserror",
  "titlecase",
  "toml",
  "trash",
@@ -3299,7 +3346,7 @@ dependencies = [
 
 [[package]]
 name = "nu-completion"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "dirs-next",
  "indexmap",
@@ -3317,9 +3364,9 @@ dependencies = [
 
 [[package]]
 name = "nu-data"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "chrono",
  "common-path",
@@ -3339,7 +3386,6 @@ dependencies = [
  "num-bigint 0.3.2",
  "num-format",
  "num-traits 0.2.14",
- "polars",
  "query_interface",
  "serde 1.0.126",
  "sha2 0.9.5",
@@ -3350,12 +3396,12 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ansi_term 0.12.1",
  "async-recursion",
  "async-trait",
- "bigdecimal",
+ "bigdecimal-rs",
  "bytes 0.5.6",
  "chrono",
  "codespan-reporting",
@@ -3405,9 +3451,9 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "codespan-reporting",
  "derive-new",
  "getset",
@@ -3424,7 +3470,7 @@ dependencies = [
 
 [[package]]
 name = "nu-json"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "dunce",
  "lazy_static 1.4.0",
@@ -3438,9 +3484,9 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "codespan-reporting",
  "derive-new",
  "derive_is_enum_variant",
@@ -3461,7 +3507,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "dirs-next",
  "dunce",
@@ -3469,9 +3515,9 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "indexmap",
  "nu-errors",
  "nu-protocol",
@@ -3485,7 +3531,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -3494,11 +3540,12 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "byte-unit",
  "chrono",
+ "chrono-humanize",
  "derive-new",
  "getset",
  "indexmap",
@@ -3517,8 +3564,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-serde"
+version = "0.35.0"
+dependencies = [
+ "bigdecimal-rs",
+ "insta",
+ "nu-protocol",
+ "nu-source",
+ "serde 1.0.126",
+ "thiserror",
+]
+
+[[package]]
 name = "nu-source"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "derive-new",
  "getset",
@@ -3529,7 +3588,7 @@ dependencies = [
 
 [[package]]
 name = "nu-stream"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "futures 0.3.15",
  "nu-errors",
@@ -3539,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "nu-ansi-term",
  "regex",
@@ -3548,9 +3607,9 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "chrono",
  "dunce",
  "getset",
@@ -3567,7 +3626,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "indexmap",
  "itertools",
@@ -3579,7 +3638,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "crossterm",
  "image 0.22.5",
@@ -3595,7 +3654,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_chart"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "crossterm",
  "nu-data",
@@ -3609,7 +3668,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "base64",
  "futures 0.3.15",
@@ -3624,9 +3683,9 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_bson"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "bson",
  "nu-errors",
  "nu-plugin",
@@ -3650,9 +3709,9 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_from_sqlite"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
@@ -3665,7 +3724,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3678,7 +3737,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "nu-errors",
  "nu-plugin",
@@ -3689,7 +3748,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "base64",
  "futures 0.3.15",
@@ -3706,7 +3765,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "futures 0.3.15",
  "futures-timer",
@@ -3720,7 +3779,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query_json"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "gjson",
  "nu-errors",
@@ -3732,7 +3791,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_s3"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "futures 0.3.15",
  "nu-errors",
@@ -3744,7 +3803,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_selector"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "nipper",
  "nu-errors",
@@ -3756,7 +3815,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_start"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "glob",
  "nu-errors",
@@ -3770,7 +3829,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "futures 0.3.15",
  "futures-util",
@@ -3784,7 +3843,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "bat",
  "nu-ansi-term",
@@ -3799,7 +3858,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_bson"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "bson",
  "nu-errors",
@@ -3812,7 +3871,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_to_sqlite"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "hex 0.4.3",
  "nu-errors",
@@ -3827,7 +3886,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "derive-new",
  "nu-errors",
@@ -3839,9 +3898,9 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_xpath"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal-rs",
  "indexmap",
  "nu-errors",
  "nu-plugin",
@@ -4194,9 +4253,9 @@ dependencies = [
 
 [[package]]
 name = "parquet"
-version = "4.4.0"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "265044e41d674fad4c7860a3e245e53138e926fe83cad8d45193a7a354c56a54"
+checksum = "db54d10313f64ea22e1fe0332864abefb19aa1c322bfbc67999ff743aebf868d"
 dependencies = [
  "arrow",
  "base64",
@@ -4207,6 +4266,7 @@ dependencies = [
  "lz4",
  "num-bigint 0.4.0",
  "parquet-format",
+ "rand 0.8.4",
  "snap",
  "thrift",
  "zstd",
@@ -4428,9 +4488,9 @@ dependencies = [
 
 [[package]]
 name = "polars"
-version = "0.14.7"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c1bf71de63afed8a9262b61a2a7c3a463bf3b2b8dc28a91873621a86ddeb996"
+checksum = "008543a5972e0cc94e08cfbf1ec7c5904dc09256f31ffc2b04ab2f24032be69c"
 dependencies = [
  "polars-core",
  "polars-io",
@@ -4439,9 +4499,9 @@ dependencies = [
 
 [[package]]
 name = "polars-arrow"
-version = "0.14.7"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1d436b455a6ac76f09b7b8127d2c4b21e80e8b7579218edee91ce138281d178"
+checksum = "5b0b1c85210b633bc690e01a2b88ca8528af9a50d4a75d0e313ddec89ad2ed4a"
 dependencies = [
  "arrow",
  "num 0.4.0",
@@ -4450,9 +4510,9 @@ dependencies = [
 
 [[package]]
 name = "polars-core"
-version = "0.14.7"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e1a74ab0ddbb0cca4f9a79691cf419ec7af63fc1f72206fac6ab45508d6d85"
+checksum = "e1547583d662e51c3cf1871296874acacb53edb7e074e6f00fd537cd81237a6f"
 dependencies = [
  "ahash",
  "anyhow",
@@ -4471,20 +4531,20 @@ dependencies = [
  "rayon",
  "regex",
  "serde 1.0.126",
+ "serde_json",
  "thiserror",
  "unsafe_unwrap",
 ]
 
 [[package]]
 name = "polars-io"
-version = "0.14.7"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54f37bf032736512cc938000e937175b3bbfc27ea72abd07fc03d25145d709a0"
+checksum = "1048c30f9c85e12a2f2f65a2e4527c6cc0fc9ec1e7ff4ad98b2759a7e12ba699"
 dependencies = [
  "ahash",
  "anyhow",
  "arrow",
- "csv",
  "csv-core",
  "dirs 3.0.2",
  "fast-float",
@@ -4503,9 +4563,9 @@ dependencies = [
 
 [[package]]
 name = "polars-lazy"
-version = "0.14.7"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c7f767d152af32f2880c02d0e4ead23d5591e066bf92af462ef9d1e4149e7af"
+checksum = "ad98453f7bc530b5531c802aad6d4ea480d99a90a3a0318135aab9b501f562d0"
 dependencies = [
  "ahash",
  "itertools",
@@ -5173,9 +5233,9 @@ checksum = "61b3909d758bb75c79f23d4736fac9433868679d3ad2ea7a61e3c25cfda9a088"
 
 [[package]]
 name = "rustyline"
-version = "8.2.0"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbd4eaf7a7738f76c98e4f0395253ae853be3eb018f7b0bb57fe1b6c17e31874"
+checksum = "790487c3881a63489ae77126f57048b42d62d3b2bafbf37453ea19eedb6340d6"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -5185,7 +5245,7 @@ dependencies = [
  "libc",
  "log",
  "memchr",
- "nix",
+ "nix 0.22.1",
  "radix_trie",
  "scopeguard",
  "smallvec",
@@ -5444,9 +5504,9 @@ dependencies = [
 
 [[package]]
 name = "serde_test"
-version = "1.0.126"
+version = "1.0.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd1055d1c20532080b9da5040ec8e27425f4d4573d8e29eb19ba4ff1e4b9da2d"
+checksum = "de9e52f2f83e2608a121618b6d3885b514613aac702306232c4f035ff60fdb56"
 dependencies = [
  "serde 1.0.126",
 ]
@@ -5547,9 +5607,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.6.2"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20c8330d4ddbcc8552ba57c3058346c3fc1cafd4fea7e9fe201f32e84d4afa6a"
+checksum = "442a33cdfd55c916c7c9a3aff44a2612a7da95652dd9d09b0dca0571748af49e"
 dependencies = [
  "chrono",
  "git2",
@@ -5592,6 +5652,12 @@ name = "simdutf8"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c970da16e7c682fa90a261cf0724dee241c9f7831635ecc4e988ae8f3b505559"
+
+[[package]]
+name = "similar"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ad1d488a557b235fc46dae55512ffbfc429d2482b08b4d9435ab07384ca8aec"
 
 [[package]]
 name = "siphasher"
@@ -6055,18 +6121,18 @@ checksum = "8eaa81235c7058867fa8c0e7314f33dcce9c215f535d1913822a2b3f5e289f3c"
 
 [[package]]
 name = "thiserror"
-version = "1.0.25"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa6f76457f59514c7eeb4e59d891395fab0b2fd1d40723ae737d64153392e9c6"
+checksum = "93119e4feac1cbe6c798c34d3a53ea0026b0b1de6a120deef895137c0529bfe2"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.25"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a36768c0fbf1bb15eca10defa29526bda730a2376c2ab4393ccfa16fb1a318d"
+checksum = "060d69a0afe7796bf42e9e2ff91f5ee691fb15c53d38b4b62a9a53eb23164745"
 dependencies = [
  "proc-macro2",
  "quote 1.0.9",
@@ -6835,7 +6901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ffb080b3f2f616242a4eb8e7d325035312127901025b0052bc3154a282d0f19"
 dependencies = [
  "gethostname",
- "nix",
+ "nix 0.20.0",
  "winapi 0.3.9",
  "winapi-wsapoll",
 ]
@@ -6877,18 +6943,18 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.8.3+zstd.1.5.0"
+version = "0.9.0+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea7094c7b4a58fbd738eb0d4a2fc7684a0e6949a31597e074ffe20a07cbc2bf"
+checksum = "07749a5dc2cb6b36661290245e350f15ec3bbb304e493db54a1d354480522ccd"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "4.1.0+zstd.1.5.0"
+version = "4.1.1+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d30375f78e185ca4c91930f42ea2c0162f9aa29737032501f93b79266d985ae7"
+checksum = "c91c90f2c593b003603e5e0493c837088df4469da25aafff8bce42ba48caf079"
 dependencies = [
  "libc",
  "zstd-sys",
@@ -6896,9 +6962,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "1.6.0+zstd.1.5.0"
+version = "1.6.1+zstd.1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2141bed8922b427761470e6bbfeff255da94fa20b0bbeab0d9297fcaf71e3aa7"
+checksum = "615120c7a2431d16cf1cf979e7fc31ba7a5b5e5707b29c8a99e5dbf8a8392a33"
 dependencies = [
  "cc",
  "libc",

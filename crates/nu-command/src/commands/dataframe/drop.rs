@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue, Value,
+};
 
 use super::utils::{convert_columns, parse_polars_error};
 
@@ -28,7 +31,15 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "drop column a",
             example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe drop a",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![Column::new(
+                    "b".to_string(),
+                    vec![UntaggedValue::int(2).into(), UntaggedValue::int(4).into()],
+                )],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -39,7 +50,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let columns: Vec<Value> = args.rest(0)?;
     let (col_string, col_span) = convert_columns(&columns, &tag)?;
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let new_df = match col_string.get(0) {
         Some(col) => df
@@ -62,4 +73,17 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

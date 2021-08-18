@@ -111,7 +111,7 @@ impl OptionsParser for NuParser {
                                 .flatten();
 
                         if let Some(value) = value {
-                            options.put(&k, value);
+                            options.put(k, value);
                         }
                     });
                 }

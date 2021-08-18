@@ -625,7 +625,7 @@ impl ShellError {
             }
 
             ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::error().with_message(format!("Error: {}", reason)),
-            ProximateShellError::Unimplemented { reason } => Diagnostic::error().with_message(format!("Inimplemented: {}", reason)),
+            ProximateShellError::Unimplemented { reason } => Diagnostic::error().with_message(format!("Unimplemented: {}", reason)),
 
         };
 

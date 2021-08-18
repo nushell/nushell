@@ -206,7 +206,7 @@ impl Start {
         );
 
         if let Some(app_name) = &self.application {
-            exec_cmd(&app_name, &args, self.tag.clone())
+            exec_cmd(app_name, &args, self.tag.clone())
         } else {
             for cmd in &["xdg-open", "gnome-open", "kde-open", "wslview"] {
                 if exec_cmd(cmd, &args, self.tag.clone()).is_err() {

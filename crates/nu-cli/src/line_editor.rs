@@ -76,6 +76,8 @@ pub fn default_rustyline_editor_configuration() -> Editor<Helper> {
     let config = Config::builder()
         .check_cursor_position(true)
         .color_mode(ColorMode::Forced)
+        .history_ignore_dups(false)
+        .max_history_size(10_000)
         .build();
     let mut rl: Editor<_> = Editor::with_config(config);
 
