@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::playground::Playground;
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 fn try_source_foo_with_quotes_in(testdir: &str) {
     Playground::setup("source_test_1", |dirs, sandbox| {
@@ -9,12 +9,7 @@ fn try_source_foo_with_quotes_in(testdir: &str) {
         foo_file.push_str("/🚒.nu");
 
         sandbox.mkdir(&testdir);
-        sandbox.with_files(vec![
-            FileWithContent(
-                &foo_file,
-                "echo foo",
-            )
-        ]);
+        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
         let cmd = String::from("source ") + r#"""# + &foo_file + r#"""#;
 
@@ -31,12 +26,7 @@ fn try_source_foo_without_quotes_in(testdir: &str) {
         foo_file.push_str("/🚒.nu");
 
         sandbox.mkdir(&testdir);
-        sandbox.with_files(vec![
-            FileWithContent(
-                &foo_file,
-                "echo foo",
-            )
-        ]);
+        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
 
         let cmd = String::from("source ") + &foo_file;
 

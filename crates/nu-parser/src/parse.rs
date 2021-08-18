@@ -1900,9 +1900,9 @@ fn parse_call(
                 Path::new(&lite_cmd.parts[1].item)
             };
 
-            if let Ok(contents) = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(
-                script_path
-            )))) {
+            if let Ok(contents) =
+                std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(script_path))))
+            {
                 let _ = parse(&contents, 0, scope);
             } else {
                 return (
