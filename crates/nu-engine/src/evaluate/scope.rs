@@ -258,9 +258,10 @@ impl Scope {
         }
     }
 
-    pub fn remove_env_var(&self, name: impl Into<String>) -> Option<String> {
-        if let Some(frame) = self.frames.lock().last_mut() {
-            if let Some(val) = frame.env.remove_entry(&name.into()) {
+    pub fn remove_env_var_global(&self, name: impl Into<String>) -> Option<String> {
+        let name = name.into();
+        for frame in self.frames.lock().iter_mut().rev() {
+            if let Some(val) = frame.env.remove_entry(&name) {
                 return Some(val.1);
             }
         }

@@ -47,7 +47,7 @@ pub fn unlet_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let name: Tagged<String> = args.req(0)?;
 
-    if ctx.scope.remove_env_var(&name.item) == None {
+    if ctx.scope.remove_env_var_global(&name.item) == None {
         return Err(ShellError::labeled_error(
             "Not an environment variable. Run `echo $nu.env` to view the available variables.",
             "not an environment variable",
