@@ -5,9 +5,7 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 #[cfg(feature = "dataframe")]
-use nu_data::dataframe::{compute_between_series, compute_series_single_value};
-#[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::PolarsData;
+use nu_protocol::dataframe::{compute_between_dataframes, compute_series_single_value};
 
 pub fn apply_operator(
     op: Operator,
@@ -15,13 +13,10 @@ pub fn apply_operator(
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     #[cfg(feature = "dataframe")]
-    if let (
-        UntaggedValue::DataFrame(PolarsData::Series(_)),
-        UntaggedValue::DataFrame(PolarsData::Series(_)),
-    ) = (&left.value, &right.value)
+    if let (UntaggedValue::DataFrame(_), UntaggedValue::DataFrame(_)) = (&left.value, &right.value)
     {
-        return compute_between_series(op, left, right);
-    } else if let (UntaggedValue::DataFrame(PolarsData::Series(_)), UntaggedValue::Primitive(_)) =
+        return compute_between_dataframes(op, left, right);
+    } else if let (UntaggedValue::DataFrame(_), UntaggedValue::Primitive(_)) =
         (&left.value, &right.value)
     {
         return compute_series_single_value(op, left, right);
@@ -60,8 +55,8 @@ pub fn apply_operator(
             )),
             _ => res,
         }),
-        Operator::In => table_contains(left, right).map(UntaggedValue::boolean),
-        Operator::NotIn => table_contains(left, right).map(|x| UntaggedValue::boolean(!x)),
+        Operator::In => inside_of(left, right).map(UntaggedValue::boolean),
+        Operator::NotIn => inside_of(left, right).map(|x| UntaggedValue::boolean(!x)),
         Operator::And => match (left.as_bool(), right.as_bool()) {
             (Ok(left), Ok(right)) => Ok(UntaggedValue::boolean(left && right)),
             _ => Err((left.type_name(), right.type_name())),
@@ -94,12 +89,12 @@ fn string_contains(
     }
 }
 
-fn table_contains(
+fn inside_of(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
-    match right {
-        UntaggedValue::Table(values) => {
+    match (left, right) {
+        (_, UntaggedValue::Table(values)) => {
             Ok(values
                 .iter()
                 .any(|x| match compare_values(Operator::Equal, left, &x.value) {
@@ -107,6 +102,10 @@ fn table_contains(
                     _ => false,
                 }))
         }
+        (
+            UntaggedValue::Primitive(Primitive::String(lhs)),
+            UntaggedValue::Primitive(Primitive::String(rhs)),
+        ) => Ok(rhs.contains(lhs)),
         _ => Err((left.type_name(), right.type_name())),
     }
 }

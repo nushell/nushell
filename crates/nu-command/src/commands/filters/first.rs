@@ -126,11 +126,13 @@ fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 tag,
             )),
             #[cfg(all(not(target_arch = "wasm32"), feature = "dataframe"))]
-            UntaggedValue::DataFrame(_) => Err(ShellError::labeled_error(
-                "unsure how to handled UntaggedValue::DataFrame",
-                "found dataframe",
-                tag,
-            )),
+            UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
+                Err(ShellError::labeled_error(
+                    "unsure how to handled dataframe struct",
+                    "found dataframe",
+                    tag,
+                ))
+            }
         },
         None => Ok(input_peek.take(rows_desired).into_output_stream()),
     }

@@ -5,32 +5,33 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-command"
-version = "0.34.0"
+version = "0.35.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = { version = "0.34.0", path="../nu-data" }
-nu-engine = { version = "0.34.0", path="../nu-engine" }
-nu-errors = { version = "0.34.0", path="../nu-errors" }
-nu-json = { version = "0.34.0", path="../nu-json" }
-nu-path = { version = "0.34.0", path="../nu-path" }
-nu-parser = { version = "0.34.0", path="../nu-parser" }
-nu-plugin = { version = "0.34.0", path="../nu-plugin" }
-nu-protocol = { version = "0.34.0", path="../nu-protocol" }
-nu-source = { version = "0.34.0", path="../nu-source" }
-nu-stream = { version = "0.34.0", path="../nu-stream" }
-nu-table = { version = "0.34.0", path="../nu-table" }
-nu-test-support = { version = "0.34.0", path="../nu-test-support" }
-nu-value-ext = { version = "0.34.0", path="../nu-value-ext" }
-nu-ansi-term = { version = "0.34.0", path="../nu-ansi-term" }
-nu-pretty-hex = { version = "0.34.0", path="../nu-pretty-hex" }
+nu-data = { version = "0.35.0", path="../nu-data" }
+nu-engine = { version = "0.35.0", path="../nu-engine" }
+nu-errors = { version = "0.35.0", path="../nu-errors" }
+nu-json = { version = "0.35.0", path="../nu-json" }
+nu-path = { version = "0.35.0", path="../nu-path" }
+nu-parser = { version = "0.35.0", path="../nu-parser" }
+nu-plugin = { version = "0.35.0", path="../nu-plugin" }
+nu-protocol = { version = "0.35.0", path="../nu-protocol" }
+nu-serde = { version = "0.35.0", path="../nu-serde" }
+nu-source = { version = "0.35.0", path="../nu-source" }
+nu-stream = { version = "0.35.0", path="../nu-stream" }
+nu-table = { version = "0.35.0", path="../nu-table" }
+nu-test-support = { version = "0.35.0", path="../nu-test-support" }
+nu-value-ext = { version = "0.35.0", path="../nu-value-ext" }
+nu-ansi-term = { version = "0.35.0", path="../nu-ansi-term" }
+nu-pretty-hex = { version = "0.35.0", path="../nu-pretty-hex" }
 
 Inflector = "0.11"
 arboard = { version="1.1.0", optional=true }
 base64 = "0.13.0"
-bigdecimal = { version="0.2.0", features=["serde"] }
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 byte-unit = "4.0.9"
 bytes = "1.0.1"
 calamine = "0.18.0"
@@ -58,7 +59,7 @@ indexmap = { version="1.7", features=["serde-1"] }
 itertools = "0.10.0"
 lazy_static = "1.*"
 log = "0.4.14"
-md5 = "0.7.0"
+md-5 = "0.9.1"
 meval = "0.2.0"
 minus = { version="3.4.0", optional=true, features=["async_std_lib", "search"] }
 num-bigint = { version="0.3.1", features=["serde"] }
@@ -73,7 +74,7 @@ rayon = "1.5.0"
 regex = "1.4.3"
 roxmltree = "0.14.0"
 rust-embed = "5.9.0"
-rustyline = { version="8.1.0", optional=true }
+rustyline = { version="9.0.0", optional=true }
 serde = { version="1.0.123", features=["derive"] }
 serde_bytes = "0.11.5"
 serde_ini = "0.2.0"
@@ -84,6 +85,7 @@ sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
+thiserror = "1.0.26"
 tempfile = "3.2.0"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
@@ -96,11 +98,12 @@ url = "2.2.0"
 uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
 which = { version="4.1.0", optional=true }
 zip = { version="0.5.9", optional=true }
+digest = "0.9.0"
 
 [dependencies.polars]
-version = "0.14.7"
+version = "0.15"
 optional = true
-features = ["parquet", "json", "random", "pivot", "strings", "is_in"]
+features = ["parquet", "json", "random", "pivot", "strings", "is_in", "temporal"]
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

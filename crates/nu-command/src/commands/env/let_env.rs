@@ -86,7 +86,7 @@ pub fn set_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     ctx.scope.enter_scope();
     ctx.scope.add_vars(&captured.entries);
 
-    let value = evaluate_baseline_expr(&expr, &ctx);
+    let value = evaluate_baseline_expr(&expr, ctx);
 
     ctx.scope.exit_scope();
 

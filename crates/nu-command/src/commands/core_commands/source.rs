@@ -51,7 +51,7 @@ pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(&filename.item))));
     match contents {
         Ok(contents) => {
-            let result = script::run_script_standalone(contents, true, &ctx, false);
+            let result = script::run_script_standalone(contents, true, ctx, false);
 
             if let Err(err) = result {
                 ctx.error(err);

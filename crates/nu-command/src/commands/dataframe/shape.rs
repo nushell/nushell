@@ -1,7 +1,10 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{dataframe::NuDataFrame, Signature, TaggedDictBuilder};
+use nu_protocol::{
+    dataframe::{Column, NuDataFrame},
+    Signature, UntaggedValue, Value,
+};
 
 pub struct DataFrame;
 
@@ -26,7 +29,15 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Shows row and column shape",
             example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe shape",
-            result: None,
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![
+                    Column::new("rows".to_string(), vec![UntaggedValue::int(2).into()]),
+                    Column::new("columns".to_string(), vec![UntaggedValue::int(2).into()]),
+                ],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -34,14 +45,34 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
-    let rows = df.as_ref().height();
-    let cols = df.as_ref().width();
+    let rows = Value {
+        value: (df.as_ref().height() as i64).into(),
+        tag: Tag::default(),
+    };
 
-    let mut data = TaggedDictBuilder::new(&tag);
-    data.insert_value("rows", format!("{}", rows));
-    data.insert_value("columns", format!("{}", cols));
+    let cols = Value {
+        value: (df.as_ref().width() as i64).into(),
+        tag: Tag::default(),
+    };
 
-    Ok(OutputStream::one(data.into_value()))
+    let rows_col = Column::new("rows".to_string(), vec![rows]);
+    let cols_col = Column::new("columns".to_string(), vec![cols]);
+
+    let df = NuDataFrame::try_from_columns(vec![rows_col, cols_col], &tag.span)?;
+    Ok(OutputStream::one(df.into_value(tag)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

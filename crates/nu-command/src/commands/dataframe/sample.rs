@@ -41,14 +41,14 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Sample rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -r 1",
-                result: None,
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe sample -n 1",
+                result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using fraction and replace",
                 example:
                     "[[a b]; [1 2] [3 4] [5 6]] | dataframe to-df | dataframe sample -f 0.5 -e",
-                result: None,
+                result: None, // No expected value because sampling is random
             },
         ]
     }
@@ -61,7 +61,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let fraction: Option<Tagged<f64>> = args.get_flag("fraction")?;
     let replace: bool = args.has_flag("replace");
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let res = match (rows, fraction) {
         (Some(rows), None) => df

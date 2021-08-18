@@ -38,6 +38,7 @@ mod uniq;
 mod update;
 mod where_;
 mod wrap;
+mod zip_;
 
 pub use all::Command as All;
 pub use any::Command as Any;
@@ -79,3 +80,4 @@ pub use uniq::Uniq;
 pub use update::Command as Update;
 pub use where_::Command as Where;
 pub use wrap::Wrap;
+pub use zip_::Command as Zip;

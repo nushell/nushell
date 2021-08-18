@@ -13,6 +13,7 @@ mod nu_plugin;
 mod nu_signature;
 mod source;
 mod tags;
+mod unalias;
 mod version;
 
 pub use self::nu_plugin::SubCommand as NuPlugin;
@@ -32,4 +33,5 @@ pub use ignore::Ignore;
 pub use let_::Let;
 pub use source::Source;
 pub use tags::Tags;
+pub use unalias::Unalias;
 pub use version::{version, Version};

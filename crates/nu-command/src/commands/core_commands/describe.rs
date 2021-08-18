@@ -31,7 +31,7 @@ pub fn describe(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Ok(args
         .input
         .map(|row| {
-            let name = value::format_type(&row, 100);
+            let name = value::plain_type(&row, 100);
             ReturnSuccess::value(
                 UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)),
             )
