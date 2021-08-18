@@ -1,5 +1,24 @@
 use std::path::{Path, PathBuf};
 
+// TODO:
+// * non-unicode paths
+// * canonicalize(_with)
+//   * .
+//   * ..
+//   * ...+
+//   * ~
+//   * symlink
+//   * symlink multiple depths
+//   * symlink loop
+// * expand_path(_with)
+//   * .
+//   * ..
+//   * ...+
+//   * ~
+//   * symlink
+//   * symlink multiple depths
+//   * symlink loop
+
 use nu_path::{canonicalize, canonicalize_with, expand_path, expand_path_with};
 
 #[test]
