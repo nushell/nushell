@@ -1889,9 +1889,20 @@ fn parse_call(
                     )),
                 );
             }
-            if let Ok(contents) = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(
-                &lite_cmd.parts[1].item,
-            )))) {
+
+            let script_path = if let Some(ref positional_args) = internal_command.args.positional {
+                if let Expression::FilePath(ref p) = positional_args[0].expr {
+                    p
+                } else {
+                    Path::new(&lite_cmd.parts[1].item)
+                }
+            } else {
+                Path::new(&lite_cmd.parts[1].item)
+            };
+
+            if let Ok(contents) =
+                std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(script_path))))
+            {
                 let _ = parse(&contents, 0, scope);
             } else {
                 return (

@@ -52,6 +52,7 @@ mod select;
 mod semicolon;
 mod skip;
 mod sort_by;
+mod source;
 mod split_by;
 mod split_column;
 mod split_row;
