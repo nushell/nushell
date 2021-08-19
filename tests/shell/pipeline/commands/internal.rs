@@ -535,6 +535,54 @@ fn proper_shadow_load_env_aliases() {
 }
 
 #[test]
+fn load_env_removes_with_nothing() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        load-env [[name, value]; [DEBUG true]]
+        echo $nu.env.DEBUG
+        load-env [[name, value]; [DEBUG $nothing]]
+        echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "true");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn load_env_removes_and_adds_with_nothing() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        load-env [[name, value]; [DEBUG1 "1"] [DEBUG2 "2"]]
+        echo $nu.env.DEBUG1
+        echo $nu.env.DEBUG2
+        load-env [[name, value]; [DEBUG1 "3"] [DEBUG2 $nothing]]
+        echo $nu.env.DEBUG1
+        echo $nu.env.DEBUG2
+        "#
+    );
+    assert_eq!(actual.out, "124");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn load_env_error_when_removing_non_existent() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = true
+        load-env [[name, value]; [DEBUG $nothing]]
+        load-env [[name, value]; [DEBUG $nothing]]
+        "#
+    );
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Not an environment variable"));
+}
+
+#[test]
 fn proper_shadow_let_aliases() {
     let actual = nu!(
         cwd: ".",

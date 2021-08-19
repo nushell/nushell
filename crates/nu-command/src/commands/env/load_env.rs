@@ -60,14 +60,25 @@ fn load_env_from_table(
 
         for (key, value) in value.row_entries() {
             if key == "name" {
-                var_name = Some(value.as_string()?);
+                var_name = Some(value);
             } else if key == "value" {
-                var_value = Some(value.as_string()?);
+                var_value = Some(value);
             }
         }
 
         match (var_name, var_value) {
-            (Some(name), Some(value)) => ctx.scope.add_env_var(name, value),
+            (Some(name), Some(value)) if value.value.is_none() => {
+                if ctx.scope.remove_env_var(name.as_string()?) == None {
+                    return Err(ShellError::labeled_error(
+                        "Not an environment variable. Run `echo $nu.env` to view the available variables.",
+                        "not an environment variable",
+                        &name.tag,
+                    ));
+                };
+            }
+            (Some(name), Some(value)) => {
+                ctx.scope.add_env_var(name.as_string()?, value.as_string()?);
+            }
             _ => {
                 return Err(ShellError::labeled_error(
                     r#"Expected each row in the table to have a "name" and "value" field."#,
