@@ -563,7 +563,7 @@ fn load_env_removes_and_adds_with_nothing() {
         echo $nu.env.DEBUG2
         "#
     );
-    assert_eq!(actual.out, "124");
+    assert_eq!(actual.out, "123");
     assert!(actual.err.contains("error"));
     assert!(actual.err.contains("Unknown column"));
 }
