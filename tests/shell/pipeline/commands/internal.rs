@@ -1150,23 +1150,44 @@ fn unalias_shadowing() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        alias ll = ls -l
-        let xyz = { ll -a }
-        unalias ll
-        do $xyz
+        def test-shadowing [] {
+            alias greet = echo hello;
+            let xyz = { greet };
+            unalias greet;
+            do $xyz
+        };
+        test-shadowing
         "#)
     );
+    assert_eq!(actual.out, "hello");
+}
 
-    assert_eq!(actual.out, "");
+#[test]
+fn unalias_does_not_escape_scope() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-alias [] {
+            alias greet = echo hello;
+            (unalias greet);
+            greet
+        };
+        test-alias
+        "#)
+    );
+    assert_eq!(actual.out, "hello");
 }
 
 #[test]
 fn unalias_hides_alias() {
     let actual = nu!(cwd: ".", pipeline(
-        r#"alias ll = ls -l
-        ll
-        unalias ll
-        ll
+        r#"
+        def test-alias [] {
+            alias ll = ls -l;
+            unalias ll;
+            ll
+        };
+        test-alias
         "#)
     );
 

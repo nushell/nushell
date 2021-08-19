@@ -408,7 +408,7 @@ impl ParserScope for Scope {
     }
 
     fn remove_alias(&self, name: &str) {
-        for frame in self.frames.lock().iter_mut().rev() {
+        if let Some(frame) = self.frames.lock().last_mut() {
             frame.aliases.remove(name);
         }
     }
