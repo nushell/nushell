@@ -1,6 +1,57 @@
-use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::fs::{AbsolutePath, DisplayPath, Stub::FileWithContent};
 use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::pipeline as input;
+use nu_test_support::playground::{says, Playground};
+
+use hamcrest2::assert_that;
+use hamcrest2::prelude::*;
+
+#[should_panic]
+#[test]
+fn sources_also_files_under_custom_lib_dirs_path() {
+    Playground::setup("source_test_1", |dirs, nu| {
+        let file = AbsolutePath::new(dirs.test().join("config.toml"));
+        let library_path = AbsolutePath::new(dirs.test().join("lib"));
+
+        nu.with_config(&file);
+        nu.with_files(vec![FileWithContent(
+            "config.toml",
+            &format!(
+                r#"
+                lib_dirs = ["{}"]
+                skip_welcome_message = true
+            "#,
+                library_path.display_path()
+            ),
+        )]);
+
+        nu.within("lib").with_files(vec![FileWithContent(
+            "my_library.nu",
+            r#"
+                source my_library/main.nu
+            "#,
+        )]);
+        nu.within("lib/my_library").with_files(vec![FileWithContent(
+            "main.nu",
+            r#"
+            def hello [] {
+                echo "hello nu"
+            }
+            "#,
+        )]);
+
+        assert_that!(
+            nu.pipeline(&input(
+                r#"
+                source my_library.nu ;
+
+                hello
+                "#,
+            )),
+            says().stdout("hello nu")
+        );
+    })
+}
 
 fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
     Playground::setup(playdir, |dirs, sandbox| {

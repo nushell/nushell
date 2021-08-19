@@ -1,8 +1,5 @@
 use std::borrow::Cow;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
@@ -18,6 +15,7 @@ use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPa
 use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
+use crate::parse::source::parse_source_internal;
 use crate::{lex::lexer::NewlineMode, parse::def::parse_parameter};
 use crate::{
     lex::lexer::{lex, parse_block},
@@ -38,6 +36,7 @@ use self::{
 };
 
 mod def;
+mod source;
 mod util;
 
 pub use self::util::garbage;
@@ -1871,48 +1870,9 @@ fn parse_call(
         let (mut internal_command, err) = parse_internal_command(&lite_cmd, scope, &signature, 0);
 
         if internal_command.name == "source" {
-            if lite_cmd.parts.len() != 2 {
-                return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
-                    Some(ParseError::argument_error(
-                        lite_cmd.parts[0].clone(),
-                        ArgumentError::MissingMandatoryPositional("a path for sourcing".into()),
-                    )),
-                );
-            }
-            if lite_cmd.parts[1].item.starts_with('$') {
-                return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
-                    Some(ParseError::mismatch(
-                        "a filepath constant",
-                        lite_cmd.parts[1].clone(),
-                    )),
-                );
-            }
+            let err = parse_source_internal(&lite_cmd, &internal_command, scope).err();
 
-            let script_path = if let Some(ref positional_args) = internal_command.args.positional {
-                if let Expression::FilePath(ref p) = positional_args[0].expr {
-                    p
-                } else {
-                    Path::new(&lite_cmd.parts[1].item)
-                }
-            } else {
-                Path::new(&lite_cmd.parts[1].item)
-            };
-
-            if let Ok(contents) =
-                std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(script_path))))
-            {
-                let _ = parse(&contents, 0, scope);
-            } else {
-                return (
-                    Some(ClassifiedCommand::Internal(internal_command)),
-                    Some(ParseError::argument_error(
-                        lite_cmd.parts[1].clone(),
-                        ArgumentError::BadValue("can't load source file".into()),
-                    )),
-                );
-            }
+            return (Some(ClassifiedCommand::Internal(internal_command)), err);
         } else if lite_cmd.parts[0].item == "alias" || lite_cmd.parts[0].item == "unalias" {
             let error = parse_alias(&lite_cmd, scope);
             if error.is_none() {

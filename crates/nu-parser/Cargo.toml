@@ -20,7 +20,9 @@ itertools = "0.10.0"
 smart-default = "0.6.0"
 
 dunce = "1.0.1"
+
 nu-errors = { version = "0.36.0", path="../nu-errors" }
+nu-data = { version = "0.36.0", path="../nu-data" }
 nu-path = { version = "0.36.0", path="../nu-path" }
 nu-protocol = { version = "0.36.0", path="../nu-protocol" }
 nu-source = { version = "0.36.0", path="../nu-source" }
