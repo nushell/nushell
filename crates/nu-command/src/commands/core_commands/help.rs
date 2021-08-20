@@ -106,32 +106,7 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
             }
         }
 
-        // this should be all we need but let's do further testing
-        //return Ok(found_cmds_vec.into_iter().into_action_stream());
-
-        return Ok(found_cmds_vec
-            .into_iter()
-            .map(move |r| {
-                // even though this is supposed to always be a Row, it's probably best to match
-                // on it and look for problems.
-                match &r.value {
-                    UntaggedValue::Row(d) => {
-                        let mut entries = IndexMap::new();
-                        let rows = d.entries.clone();
-                        for (k, v) in rows {
-                            entries.insert(k, v);
-                        }
-                        Ok(ReturnSuccess::Value(
-                            UntaggedValue::Row(Dictionary { entries }).into_value(r.tag.clone()),
-                        ))
-                    }
-                    _ => Err(ShellError::unexpected_eof(
-                        "Couldn't iterate through rows, was the input a properly formatted table?",
-                        r.tag.span,
-                    )),
-                }
-            })
-            .into_action_stream());
+        return Ok(found_cmds_vec.into_iter().into_action_stream());
     }
 
     if !rest.is_empty() {
