@@ -1,14 +1,12 @@
 use crate::prelude::*;
 use crate::TaggedListBuilder;
-use nu_engine::documentation::generate_docs;
-use nu_engine::{Command, WholeStreamCommand};
+use nu_engine::{documentation::generate_docs, Command, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
-    UntaggedValue, Value,
+    Dictionary, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::Tag;
-use nu_source::{SpannedItem, Tagged};
+use nu_source::{SpannedItem, Tag, Tagged};
 use nu_value_ext::ValueExt;
 
 pub struct Help;
@@ -19,7 +17,14 @@ impl WholeStreamCommand for Help {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help").rest(SyntaxShape::String, "the name of command to get help on")
+        Signature::build("help")
+            .rest(SyntaxShape::String, "the name of command to get help on")
+            .named(
+                "find",
+                SyntaxShape::String,
+                "string to find in command usage",
+                Some('f'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -29,13 +34,105 @@ impl WholeStreamCommand for Help {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         help(args)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "show all commands and sub-commands",
+                example: "help commands",
+                result: None,
+            },
+            Example {
+                description: "generate documentation",
+                example: "help generate_docs",
+                result: None,
+            },
+            Example {
+                description: "show help for single command",
+                example: "help match",
+                result: None,
+            },
+            Example {
+                description: "show help for single sub-command",
+                example: "help str lpad",
+                result: None,
+            },
+            Example {
+                description: "search for string in command usage",
+                example: "help --find char",
+                result: None,
+            },
+        ]
+    }
 }
 
 fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope().clone();
-
+    let find: Option<Tagged<String>> = args.get_flag("find")?;
     let rest: Vec<Tagged<String>> = args.rest(0)?;
+
+    if let Some(f) = find {
+        let search_string = f.item;
+        let full_commands = scope.get_commands_info();
+        let mut found_cmds_vec = Vec::new();
+
+        for (key, cmd) in full_commands {
+            let mut indexmap = IndexMap::new();
+
+            let c = cmd.usage().to_string();
+            let e = cmd.extra_usage().to_string();
+            if key.to_lowercase().contains(&search_string)
+                || c.to_lowercase().contains(&search_string)
+                || e.to_lowercase().contains(&search_string)
+            {
+                indexmap.insert(
+                    "name".to_string(),
+                    UntaggedValue::string(key).into_value(&name),
+                );
+
+                indexmap.insert(
+                    "usage".to_string(),
+                    UntaggedValue::string(cmd.usage().to_string()).into_value(&name),
+                );
+
+                indexmap.insert(
+                    "extra_usage".to_string(),
+                    UntaggedValue::string(cmd.extra_usage().to_string()).into_value(&name),
+                );
+
+                found_cmds_vec
+                    .push(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&name));
+            }
+        }
+
+        // this should be all we need but let's do further testing
+        //return Ok(found_cmds_vec.into_iter().into_action_stream());
+
+        return Ok(found_cmds_vec
+            .into_iter()
+            .map(move |r| {
+                // even though this is supposed to always be a Row, it's probably best to match
+                // on it and look for problems.
+                match &r.value {
+                    UntaggedValue::Row(d) => {
+                        let mut entries = IndexMap::new();
+                        let rows = d.entries.clone();
+                        for (k, v) in rows {
+                            entries.insert(k, v);
+                        }
+                        Ok(ReturnSuccess::Value(
+                            UntaggedValue::Row(Dictionary { entries }).into_value(r.tag.clone()),
+                        ))
+                    }
+                    _ => Err(ShellError::unexpected_eof(
+                        "Couldn't iterate through rows, was the input a properly formatted table?",
+                        r.tag.span,
+                    )),
+                }
+            })
+            .into_action_stream());
+    }
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
