@@ -1,5 +1,8 @@
+use std::convert::TryInto;
+
 use crate::prelude::*;
 use nu_engine::run_block;
+use nu_engine::EnvVar;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -73,20 +76,20 @@ fn with_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let variable: Value = args.req(0)?;
     let block: CapturedBlock = args.req(1)?;
 
-    let mut env = IndexMap::new();
+    let mut env: IndexMap<String, EnvVar> = IndexMap::new();
 
     match &variable.value {
         UntaggedValue::Table(table) => {
             if table.len() == 1 {
                 // single row([[X W]; [Y Z]])
                 for (k, v) in table[0].row_entries() {
-                    env.insert(k.clone(), v.convert_to_string());
+                    env.insert(k.clone(), v.try_into()?);
                 }
             } else {
                 // primitive values([X Y W Z])
                 for row in table.chunks(2) {
                     if row.len() == 2 && row[0].is_primitive() && row[1].is_primitive() {
-                        env.insert(row[0].convert_to_string(), row[1].convert_to_string());
+                        env.insert(row[0].convert_to_string(), (&row[1]).try_into()?);
                     }
                 }
             }
@@ -94,7 +97,7 @@ fn with_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
         // when get object by `open x.json` or `from json`
         UntaggedValue::Row(row) => {
             for (k, v) in &row.entries {
-                env.insert(k.clone(), v.convert_to_string());
+                env.insert(k.clone(), v.try_into()?);
             }
         }
         _ => {

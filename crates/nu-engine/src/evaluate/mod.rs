@@ -1,4 +1,5 @@
 pub(crate) mod block;
+pub(crate) mod envvar;
 pub(crate) mod evaluate_args;
 pub mod evaluator;
 pub(crate) mod expr;

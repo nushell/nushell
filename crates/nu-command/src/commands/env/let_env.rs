@@ -1,5 +1,7 @@
+use std::convert::TryInto;
+
 use crate::prelude::*;
-use nu_engine::{evaluate_baseline_expr, WholeStreamCommand};
+use nu_engine::{evaluate_baseline_expr, EnvVar, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_protocol::{hir::CapturedBlock, hir::ClassifiedCommand, Signature, SyntaxShape};
@@ -90,9 +92,7 @@ pub fn set_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     ctx.scope.exit_scope();
 
-    let value = value?;
-    let value = value.as_string()?;
-
+    let value: EnvVar = value?.try_into()?;
     let name = name.item;
 
     // Note: this is a special case for setting the context from a command
