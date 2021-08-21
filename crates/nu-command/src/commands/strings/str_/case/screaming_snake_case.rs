@@ -14,6 +14,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str screaming-snake-case").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally convert text to SCREAMING_SNAKE_CASE by column paths",
         )

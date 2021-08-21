@@ -356,7 +356,8 @@ mod tests {
         #[test]
         fn completes_internal_command_names() {
             let registry: VecRegistry =
-                vec![Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")].into();
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
             let line = "echo 1 | echo 2";
 
             assert_eq!(
@@ -402,7 +403,7 @@ mod tests {
         fn completes_flags() {
             let registry: VecRegistry = vec![Signature::build("du")
                 .switch("recursive", "the values to echo", None)
-                .rest(SyntaxShape::Any, "blah")]
+                .rest("rest", SyntaxShape::Any, "blah")]
             .into();
 
             let line = "du --recurs";
@@ -442,7 +443,7 @@ mod tests {
         fn completes_flags_with_just_a_single_hyphen() {
             let registry: VecRegistry = vec![Signature::build("du")
                 .switch("recursive", "the values to echo", None)
-                .rest(SyntaxShape::Any, "blah")]
+                .rest("rest", SyntaxShape::Any, "blah")]
             .into();
 
             let line = "du -";
@@ -459,7 +460,8 @@ mod tests {
         #[test]
         fn completes_arguments() {
             let registry: VecRegistry =
-                vec![Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")].into();
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
             let line = "echo 1 | echo 2";
 
             assert_eq!(

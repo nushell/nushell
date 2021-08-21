@@ -21,7 +21,7 @@ impl WholeStreamCommand for SortBy {
                 Some('i'),
             )
             .switch("reverse", "Sort in reverse order", Some('r'))
-            .rest(SyntaxShape::String, "the column(s) to sort by")
+            .rest("rest", SyntaxShape::String, "the column(s) to sort by")
     }
 
     fn usage(&self) -> &str {

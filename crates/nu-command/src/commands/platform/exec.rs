@@ -25,6 +25,7 @@ impl WholeStreamCommand for Exec {
         Signature::build("exec")
             .required("command", SyntaxShape::FilePath, "the command to execute")
             .rest(
+                "rest",
                 SyntaxShape::GlobPattern,
                 "any additional arguments for the command",
             )

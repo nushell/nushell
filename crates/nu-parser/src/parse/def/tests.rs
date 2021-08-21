@@ -332,7 +332,7 @@ fn simple_def_with_rest_arg() {
     assert!(err.is_none());
     assert_eq!(
         sign.rest_positional,
-        Some((SyntaxShape::Any, "".to_string()))
+        Some(("rest".to_string(), SyntaxShape::Any, "".to_string()))
     );
 }
 
@@ -344,7 +344,11 @@ fn simple_def_with_rest_arg_with_type_and_comment() {
     assert!(err.is_none());
     assert_eq!(
         sign.rest_positional,
-        Some((SyntaxShape::FilePath, "My super cool rest arg".to_string()))
+        Some((
+            "rest".to_string(),
+            SyntaxShape::FilePath,
+            "My super cool rest arg".to_string()
+        ))
     );
 }
 
@@ -380,6 +384,10 @@ fn simple_def_with_param_flag_and_rest() {
     );
     assert_eq!(
         sign.rest_positional,
-        Some((SyntaxShape::Table, "Another rest".to_string()))
+        Some((
+            "rest".to_string(),
+            SyntaxShape::Table,
+            "Another rest".to_string()
+        ))
     );
 }

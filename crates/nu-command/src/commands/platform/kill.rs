@@ -19,7 +19,7 @@ impl WholeStreamCommand for Kill {
                 SyntaxShape::Int,
                 "process id of process that is to be killed",
             )
-            .rest(SyntaxShape::Int, "rest of processes to kill")
+            .rest("rest", SyntaxShape::Int, "rest of processes to kill")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'));
 

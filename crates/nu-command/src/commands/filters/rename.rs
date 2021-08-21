@@ -19,7 +19,11 @@ impl WholeStreamCommand for Rename {
                 SyntaxShape::String,
                 "the new name for the first column",
             )
-            .rest(SyntaxShape::String, "the new name for additional columns")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "the new name for additional columns",
+            )
     }
 
     fn usage(&self) -> &str {

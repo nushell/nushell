@@ -16,6 +16,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("select").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "the columns to select from the table",
         )

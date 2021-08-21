@@ -21,7 +21,7 @@ impl WholeStreamCommand for DataFrame {
     fn signature(&self) -> Signature {
         Signature::build("dataframe sort")
             .switch("reverse", "invert sort", Some('r'))
-            .rest(SyntaxShape::Any, "column names to sort dataframe")
+            .rest("rest", SyntaxShape::Any, "column names to sort dataframe")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

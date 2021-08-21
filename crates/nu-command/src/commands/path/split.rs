@@ -23,8 +23,11 @@ impl WholeStreamCommand for PathSplit {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path split")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path split").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "Optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {

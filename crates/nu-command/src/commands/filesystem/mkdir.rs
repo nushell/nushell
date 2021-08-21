@@ -12,6 +12,7 @@ impl WholeStreamCommand for Mkdir {
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
             .rest(
+                "rest",
                 SyntaxShape::FilePath,
                 "the name(s) of the path(s) to create",
             )

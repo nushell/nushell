@@ -28,7 +28,11 @@ impl WholeStreamCommand for PathParse {
 
     fn signature(&self) -> Signature {
         Signature::build("path parse")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "Optionally operate by column path",
+            )
             .named(
                 "extension",
                 SyntaxShape::String,

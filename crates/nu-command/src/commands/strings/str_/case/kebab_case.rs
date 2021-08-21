@@ -14,6 +14,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str kebab-case").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally convert text to kebab-case by column paths",
         )

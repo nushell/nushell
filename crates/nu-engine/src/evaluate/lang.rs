@@ -125,7 +125,7 @@ fn get_signature(sig: &mut Signature, tag: Tag) -> Vec<Value> {
     }
 
     match r {
-        Some((shape, desc)) => {
+        Some((rest_name, shape, desc)) => {
             let mut indexmap = IndexMap::new();
             // let output = format!("Rest|{}|{}|{}\n", name, shape.syntax_shape_name(), desc);
             // eprintln!("{}", output);
@@ -136,7 +136,7 @@ fn get_signature(sig: &mut Signature, tag: Tag) -> Vec<Value> {
             );
             indexmap.insert(
                 "parameter_name".to_string(),
-                UntaggedValue::string("".to_string()).into_value(&tag),
+                UntaggedValue::string(rest_name.to_string()).into_value(&tag),
             );
             indexmap.insert(
                 "parameter_type".to_string(),

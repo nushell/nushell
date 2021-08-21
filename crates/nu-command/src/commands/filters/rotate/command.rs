@@ -17,6 +17,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("rotate").rest(
+            "rest",
             SyntaxShape::String,
             "the names to give columns once rotated",
         )

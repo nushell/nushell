@@ -1602,7 +1602,7 @@ fn parse_internal_command(
 
             positional.push(arg);
             current_positional += 1;
-        } else if let Some((rest_type, _)) = &signature.rest_positional {
+        } else if let Some((_, rest_type, _)) = &signature.rest_positional {
             let (arg, err) = parse_arg(*rest_type, scope, &lite_cmd.parts[idx]);
             if error.is_none() {
                 error = err;

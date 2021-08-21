@@ -32,7 +32,11 @@ impl WholeStreamCommand for PathExpand {
                 "Throw an error if the path could not be expanded",
                 Some('s'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "Optionally operate by column path",
+            )
     }
 
     fn usage(&self) -> &str {

@@ -185,20 +185,20 @@ pub fn parse_type_token(type_: &Token) -> (SyntaxShape, Option<ParseError>) {
     }
 }
 
-pub(crate) fn parse_rest_name(name_token: &Token) -> Option<ParseError> {
+pub(crate) fn parse_rest_name(name_token: &Token) -> (Spanned<String>, Option<ParseError>) {
     return if let TokenContents::Baseline(name) = &name_token.contents {
-        if !name.starts_with("...") {
-            Some(parse_rest_name_err(name_token))
-        } else if !name.starts_with("...rest") {
-            Some(ParseError::mismatch(
-                "rest argument name to be 'rest'",
-                token_to_spanned_string(name_token),
-            ))
-        } else {
-            None
+        match name.strip_prefix("...") {
+            Some(var_name) => (var_name.to_string().spanned(name_token.span), None),
+            None => (
+                "InternalError".to_string().spanned(name_token.span),
+                Some(parse_rest_name_err(name_token)),
+            ),
         }
     } else {
-        Some(parse_rest_name_err(name_token))
+        (
+            "InternalError".to_string().spanned(name_token.span),
+            Some(parse_rest_name_err(name_token)),
+        )
     };
 
     fn parse_rest_name_err(token: &Token) -> ParseError {

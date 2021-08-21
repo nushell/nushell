@@ -28,6 +28,7 @@ impl WholeStreamCommand for SubCommand {
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement pattern")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally find and replace text by column paths",
             )

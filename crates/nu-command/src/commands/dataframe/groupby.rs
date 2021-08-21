@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe group-by").rest(SyntaxShape::Any, "groupby columns")
+        Signature::build("dataframe group-by").rest("rest", SyntaxShape::Any, "groupby columns")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

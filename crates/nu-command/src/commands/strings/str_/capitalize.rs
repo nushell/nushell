@@ -19,6 +19,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str capitalize").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally capitalize text by column paths",
         )

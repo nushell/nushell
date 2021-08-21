@@ -20,7 +20,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe select").rest(SyntaxShape::Any, "selected column names")
+        Signature::build("dataframe select").rest("rest", SyntaxShape::Any, "selected column names")
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
