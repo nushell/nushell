@@ -12,6 +12,7 @@ pub struct Arguments {
     pretty: bool,
     #[serde(rename = "per-element")]
     per_element: bool,
+    number_rows: bool,
 }
 
 impl WholeStreamCommand for Command {
@@ -31,6 +32,7 @@ impl WholeStreamCommand for Command {
                 "treat each row as markdown syntax element",
                 Some('e'),
             )
+            .switch("number-rows", "number each table row", Some('n'))
     }
 
     fn usage(&self) -> &str {
@@ -87,6 +89,7 @@ fn to_md(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let arguments = Arguments {
         per_element: args.has_flag("per-element"),
         pretty: args.has_flag("pretty"),
+        number_rows: true, //args.has_flag("number-rows"),
     };
 
     let input: Vec<Value> = args.input.collect();
@@ -105,22 +108,23 @@ fn process(
     Arguments {
         pretty,
         per_element,
+        number_rows,
     }: Arguments,
 ) -> String {
     if per_element {
         input
             .iter()
             .map(|v| match &v.value {
-                UntaggedValue::Table(values) => table(values, pretty),
-                _ => fragment(v, pretty),
+                UntaggedValue::Table(values) => table(values, pretty, number_rows),
+                _ => fragment(v, pretty, number_rows),
             })
             .collect::<String>()
     } else {
-        table(input, pretty)
+        table(input, pretty, number_rows)
     }
 }
 
-fn fragment(input: &Value, pretty: bool) -> String {
+fn fragment(input: &Value, pretty: bool, number_rows: bool) -> String {
     let headers = input.data_descriptors();
     let mut out = String::new();
 
@@ -131,7 +135,7 @@ fn fragment(input: &Value, pretty: bool) -> String {
             "h3" => "### ".to_string(),
             "blockquote" => "> ".to_string(),
 
-            _ => return table(&[input.clone()], pretty),
+            _ => return table(&[input.clone()], pretty, number_rows),
         };
 
         out.push_str(&markup);
@@ -168,10 +172,10 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
     (escaped_headers, column_widths)
 }
 
-fn table(input: &[Value], pretty: bool) -> String {
+fn table(input: &[Value], pretty: bool, number_rows: bool) -> String {
     let headers = nu_protocol::merge_descriptors(input);
 
-    let (escaped_headers, mut column_widths) = collect_headers(&headers);
+    let (mut escaped_headers, mut column_widths) = collect_headers(&headers);
 
     let mut escaped_rows: Vec<Vec<String>> = Vec::new();
 
@@ -202,6 +206,16 @@ fn table(input: &[Value], pretty: bool) -> String {
         escaped_rows.push(escaped_row);
     }
 
+    if number_rows {
+        escaped_headers.insert(0, String::new());
+
+        let mut column = 0;
+        for row in escaped_rows.iter_mut() {
+            row.insert(0, format!("**{}**", column));
+            column += 1;
+        }
+    }
+
     let output_string = if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
         && escaped_rows.is_empty()
     {
@@ -224,8 +238,10 @@ fn get_output_string(
     let mut output_string = String::new();
 
     if !headers.is_empty() {
-        output_string.push('|');
-
+        for i in 0..headers.len() {
+            output_string.push_str("|:-:")
+        }
+        output_string.push_str("\n|");
         for i in 0..headers.len() {
             if pretty {
                 output_string.push(' ');
@@ -236,7 +252,7 @@ fn get_output_string(
                 ));
                 output_string.push(' ');
             } else {
-                output_string.push_str(headers[i].as_str());
+                output_string.push_str(&format!("**{}**", headers[i].as_str()));
             }
 
             output_string.push('|');
@@ -285,6 +301,7 @@ fn get_output_string(
 
         output_string.push('\n');
     }
+    output_string.push_str("|-|");
 
     output_string
 }
@@ -323,28 +340,28 @@ mod tests {
     fn render_h1() {
         let value = row! {"H1".into() => Value::from("Ecuador")};
 
-        assert_eq!(fragment(&value, false), "# Ecuador\n");
+        assert_eq!(fragment(&value, false, false), "# Ecuador\n");
     }
 
     #[test]
     fn render_h2() {
         let value = row! {"H2".into() => Value::from("Ecuador")};
 
-        assert_eq!(fragment(&value, false), "## Ecuador\n");
+        assert_eq!(fragment(&value, false, false), "## Ecuador\n");
     }
 
     #[test]
     fn render_h3() {
         let value = row! {"H3".into() => Value::from("Ecuador")};
 
-        assert_eq!(fragment(&value, false), "### Ecuador\n");
+        assert_eq!(fragment(&value, false, false), "### Ecuador\n");
     }
 
     #[test]
     fn render_blockquote() {
         let value = row! {"BLOCKQUOTE".into() => Value::from("Ecuador")};
 
-        assert_eq!(fragment(&value, false), "> Ecuador\n");
+        assert_eq!(fragment(&value, false, false), "> Ecuador\n");
     }
 
     #[test]
@@ -356,7 +373,7 @@ mod tests {
         ];
 
         assert_eq!(
-            table(&value, false),
+            table(&value, false, false),
             one(r#"
             |country|
             |-|
@@ -367,7 +384,7 @@ mod tests {
         );
 
         assert_eq!(
-            table(&value, true),
+            table(&value, true, false),
             one(r#"
             | country     |
             | ----------- |

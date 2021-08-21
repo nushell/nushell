@@ -236,11 +236,6 @@ fn features_enabled() -> Vec<String> {
         names.push("dataframe".to_string());
     }
 
-    #[cfg(feature = "table-pager")]
-    {
-        names.push("table-pager".to_string());
-    }
-
     // #[cfg(feature = "binaryview")]
     // {
     //     names.push("binaryview".to_string());

@@ -50,6 +50,34 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let configuration = args.configs().lock().global_config();
     let tag = args.call_info.name_tag.clone();
 
+    let to_md = args.scope().get_command("to md");
+
+    if let Some(to_md) = to_md {
+        let context = args.context;
+        let input_stream = args.input;
+
+        let command_args = create_default_command_args(&context, input_stream, tag.clone());
+        let result = to_md.run(command_args)?;
+        let output = result.collect_string(tag)?;
+
+        {
+            use crossterm::style::Color::*;
+            use termimad::*;
+
+            let mut skin = MadSkin::default();
+            skin.set_headers_fg(Green);
+            skin.bold.set_fg(Green);
+            skin.italic.set_fgbg(Magenta, rgb(30, 30, 40));
+            skin.paragraph.align = Alignment::Center;
+            skin.table.align = Alignment::Left;
+            // let (width, _) = terminal_size();
+            print!("{}", skin.term_text(&output.item));
+        }
+    } else {
+        let _: Vec<_> = args.input.collect();
+    }
+
+    /*
     let binary = args.scope().get_command("binaryview");
     let text = args.scope().get_command("textview");
     let table = args.scope().get_command("table");
@@ -287,6 +315,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
         }
     }
+    */
 
     Ok(InputStream::empty())
 }
