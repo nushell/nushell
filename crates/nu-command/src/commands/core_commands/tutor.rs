@@ -30,7 +30,7 @@ impl WholeStreamCommand for Tutor {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        Ok(tutor(args)?)
+        tutor(args)
     }
 
     fn examples(&self) -> Vec<Example> {
