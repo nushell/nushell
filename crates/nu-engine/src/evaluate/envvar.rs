@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use nu_errors::ShellError;
-use nu_protocol::Value;
+use nu_protocol::{SpannedTypeName, Value};
 
 #[derive(Debug, Clone)]
 pub enum EnvVar {
@@ -15,8 +15,13 @@ impl TryFrom<Value> for EnvVar {
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         if value.value.is_none() {
             Ok(EnvVar::Nothing)
+        } else if value.is_primitive() {
+            Ok(EnvVar::Proper(value.convert_to_string()))
         } else {
-            Ok(EnvVar::Proper(value.as_string()?))
+            Err(ShellError::type_error(
+                "primitive",
+                value.spanned_type_name(),
+            ))
         }
     }
 }
@@ -27,8 +32,13 @@ impl TryFrom<&Value> for EnvVar {
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         if value.value.is_none() {
             Ok(EnvVar::Nothing)
+        } else if value.is_primitive() {
+            Ok(EnvVar::Proper(value.convert_to_string()))
         } else {
-            Ok(EnvVar::Proper(value.as_string()?))
+            Err(ShellError::type_error(
+                "primitive",
+                value.spanned_type_name(),
+            ))
         }
     }
 }
