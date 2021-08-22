@@ -268,7 +268,7 @@ fn parse_rest(
         comment = parsed_comment.unwrap_or_else(|| "".to_string());
     }
 
-    (Some((name.item.to_string(), type_, comment)), i, err)
+    (Some((name.item, type_, comment)), i, err)
 }
 
 fn parse_optional_type(tokens: &[Token]) -> (Option<SyntaxShape>, usize, Option<ParseError>) {
