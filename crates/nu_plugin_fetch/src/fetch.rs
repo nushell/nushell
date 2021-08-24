@@ -113,14 +113,14 @@ async fn helper(
         _ => None,
     };
 
-    let mut response = surf::RequestBuilder::new(surf::http::Method::Get, url)
-        .middleware(surf::middleware::Redirect::default());
+    let client = reqwest::Client::new();
+    let mut request = client.get(url);
 
     if let Some(login) = login {
-        response = surf::get(location).header("Authorization", format!("Basic {}", login));
+        request = request.header("Authorization", format!("Basic {}", login));
     }
 
-    let generate_error = |t: &str, e: surf::Error, span: &Span| {
+    let generate_error = |t: &str, e: reqwest::Error, span: &Span| {
         ShellError::labeled_error(
             format!("Could not load {} from remote url: {:?}", t, e),
             "could not load",
@@ -132,33 +132,24 @@ async fn helper(
         anchor: Some(AnchorLocation::Url(location.to_string())),
     };
 
-    match response.await {
-        Ok(mut r) => match r.header("content-type") {
+    match request.send().await {
+        Ok(r) => match r.headers().get("content-type") {
             Some(content_type) => {
-                let content_type_header_value = content_type.get(0);
-                let content_type_header_value = match content_type_header_value {
-                    Some(h) => h,
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "no content type found",
-                            "no content type found",
-                            span,
-                        ))
-                    }
-                };
-                let content_type = mime::Mime::from_str(content_type_header_value.as_str())
-                    .map_err(|_| {
-                        ShellError::labeled_error(
-                            format!("MIME type unknown: {}", content_type_header_value),
-                            "given unknown MIME type",
-                            span,
-                        )
-                    })?;
+                let content_type = content_type.to_str().map_err(|e| {
+                    ShellError::labeled_error(e.to_string(), "MIME type were invalid", &tag)
+                })?;
+                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
+                    ShellError::labeled_error(
+                        format!("MIME type unknown: {}", content_type),
+                        "given unknown MIME type",
+                        span,
+                    )
+                })?;
                 match (content_type.type_(), content_type.subtype()) {
                     (mime::APPLICATION, mime::XML) => Ok((
                         Some("xml".to_string()),
                         UntaggedValue::string(
-                            r.body_string()
+                            r.text()
                                 .await
                                 .map_err(|e| generate_error("text", e, &span))?,
                         )
@@ -167,7 +158,7 @@ async fn helper(
                     (mime::APPLICATION, mime::JSON) => Ok((
                         Some("json".to_string()),
                         UntaggedValue::string(
-                            r.body_string()
+                            r.text()
                                 .await
                                 .map_err(|e| generate_error("text", e, &span))?,
                         )
@@ -175,15 +166,16 @@ async fn helper(
                     )),
                     (mime::APPLICATION, mime::OCTET_STREAM) => {
                         let buf: Vec<u8> = r
-                            .body_bytes()
+                            .bytes()
                             .await
-                            .map_err(|e| generate_error("binary", e, &span))?;
+                            .map_err(|e| generate_error("binary", e, &span))?
+                            .to_vec();
                         Ok((None, UntaggedValue::binary(buf).into_value(tag)))
                     }
                     (mime::IMAGE, mime::SVG) => Ok((
                         Some("svg".to_string()),
                         UntaggedValue::string(
-                            r.body_string()
+                            r.text()
                                 .await
                                 .map_err(|e| generate_error("svg", e, &span))?,
                         )
@@ -191,9 +183,10 @@ async fn helper(
                     )),
                     (mime::IMAGE, image_ty) => {
                         let buf: Vec<u8> = r
-                            .body_bytes()
+                            .bytes()
                             .await
-                            .map_err(|e| generate_error("image", e, &span))?;
+                            .map_err(|e| generate_error("image", e, &span))?
+                            .to_vec();
                         Ok((
                             Some(image_ty.to_string()),
                             UntaggedValue::binary(buf).into_value(tag),
@@ -202,7 +195,7 @@ async fn helper(
                     (mime::TEXT, mime::HTML) => Ok((
                         Some("html".to_string()),
                         UntaggedValue::string(
-                            r.body_string()
+                            r.text()
                                 .await
                                 .map_err(|e| generate_error("text", e, &span))?,
                         )
@@ -211,7 +204,7 @@ async fn helper(
                     (mime::TEXT, mime::CSV) => Ok((
                         Some("csv".to_string()),
                         UntaggedValue::string(
-                            r.body_string()
+                            r.text()
                                 .await
                                 .map_err(|e| generate_error("text", e, &span))?,
                         )
@@ -238,7 +231,7 @@ async fn helper(
                         Ok((
                             path_extension,
                             UntaggedValue::string(
-                                r.body_string()
+                                r.text()
                                     .await
                                     .map_err(|e| generate_error("text", e, &span))?,
                             )
@@ -246,7 +239,7 @@ async fn helper(
                         ))
                     }
                     (_ty, _sub_ty) if has_raw => {
-                        let raw_bytes = r.body_bytes().await;
+                        let raw_bytes = r.bytes().await;
                         let raw_bytes = match raw_bytes {
                             Ok(r) => r,
                             Err(e) => {
@@ -264,7 +257,10 @@ async fn helper(
                             Ok(response_str) => {
                                 Ok((None, UntaggedValue::string(response_str).into_value(tag)))
                             }
-                            Err(_) => Ok((None, UntaggedValue::binary(raw_bytes).into_value(tag))),
+                            Err(_) => Ok((
+                                None,
+                                UntaggedValue::binary(raw_bytes.to_vec()).into_value(tag),
+                            )),
                         }
                     }
                     (ty, sub_ty) => Err(ShellError::unimplemented(format!(
