@@ -30,7 +30,7 @@ impl CumType {
         }
     }
 
-    fn to_str(self) -> &'static str {
+    fn to_str(&self) -> &'static str {
         match self {
             CumType::Min => "cum_min",
             CumType::Max => "cum_max",

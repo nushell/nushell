@@ -32,7 +32,7 @@ impl RollType {
         }
     }
 
-    fn to_str(self) -> &'static str {
+    fn to_str(&self) -> &'static str {
         match self {
             RollType::Min => "rolling_min",
             RollType::Max => "rolling_max",
