@@ -6,7 +6,7 @@ use nu_source::{HasSpan, Span, Spanned, SpannedItem};
 
 use super::token_group::TokenBuilder;
 
-#[derive(Debug, Clone, PartialEq, is_enum_variant)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenContents {
     /// A baseline token is an atomic chunk of source code. This means that the
     /// token contains the entirety of string literals, as well as the entirety
@@ -31,6 +31,12 @@ impl fmt::Display for TokenContents {
             TokenContents::Semicolon => write!(f, ";"),
             TokenContents::Eol => write!(f, "\\n"),
         }
+    }
+}
+
+impl TokenContents {
+    pub fn is_eol(&self) -> bool {
+        matches!(self, Self::Eol)
     }
 }
 
