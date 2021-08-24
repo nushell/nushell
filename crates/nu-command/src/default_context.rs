@@ -345,6 +345,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameGetNanoSecond),
             whole_stream_command(DataFrameStrFTime),
             whole_stream_command(DataFrameDescribe),
+            whole_stream_command(DataFrameRolling),
+            whole_stream_command(DataFrameCumulative),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
