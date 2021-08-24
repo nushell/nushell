@@ -40,9 +40,9 @@ body:
       label: Configuration
       description: "Please run `> version | pivot` and paste the output to show OS, features, etc"
       placeholder: |
-        > version | pivot
+        > version | pivot key value | to md
         ╭───┬────────────────────┬───────────────────────────────────────────────────────────────────────╮
-        │ # │ Column0            │ Column1                                                               │
+        │ # │ key                │ value                                                                 │
         ├───┼────────────────────┼───────────────────────────────────────────────────────────────────────┤
         │ 0 │ version            │ 0.24.1                                                                │
         │ 1 │ build_os           │ macos-x86_64                                                          │
