@@ -337,6 +337,22 @@ fn simple_def_with_rest_arg() {
 }
 
 #[test]
+fn simple_def_with_rest_arg_other_name() {
+    let name = "my_func";
+    let sign = "[ ...paths:path # A pathological test]";
+    let (sign, err) = parse_signature(name, &sign.to_string().spanned_unknown());
+    assert!(err.is_none());
+    assert_eq!(
+        sign.rest_positional,
+        Some((
+            "paths".to_string(),
+            SyntaxShape::FilePath,
+            "A pathological test".to_string()
+        ))
+    );
+}
+
+#[test]
 fn simple_def_with_rest_arg_with_type_and_comment() {
     let name = "my_func";
     let sign = "[ ...rest:path # My super cool rest arg]";

@@ -374,6 +374,25 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
+fn run_custom_command_with_rest_other_name() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def say-hello [
+                greeting:string,
+                ...names:string # All of the names
+                ] {
+                    echo $"($greeting), ($names | sort-by | str collect ' ')"
+                }
+            say-hello Salutations E D C A B
+        "#
+    );
+
+    assert_eq!(actual.out, r#"Salutations, A B C D E"#);
+    assert_eq!(actual.err, r#""#);
+}
+
+#[test]
 fn alias_a_load_env() {
     let actual = nu!(
         cwd: ".",
