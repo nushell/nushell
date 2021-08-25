@@ -8,6 +8,7 @@ use crate::{
     parser_state::{Type, VarId},
     signature::{Flag, PositionalArg},
     BlockId, DeclId, Declaration, LiteBlock, ParseError, ParserWorkingSet, Signature, Span, Token,
+    TokenContents,
 };
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
@@ -1028,7 +1029,7 @@ impl<'a> ParserWorkingSet<'a> {
                 Expression {
                     expr: Expr::Float(x),
                     span,
-                    ty: Type::Int,
+                    ty: Type::Float,
                 },
                 None,
             )
@@ -1450,6 +1451,7 @@ impl<'a> ParserWorkingSet<'a> {
         error = error.or(err);
 
         let mut args: Vec<Arg> = vec![];
+        let mut rest: Option<Arg> = None;
         let mut parse_mode = ParseMode::ArgMode;
 
         for token in &output {
@@ -1946,6 +1948,32 @@ impl<'a> ParserWorkingSet<'a> {
 
         let (output, err) = lex(source, start, &[], &[]);
         error = error.or(err);
+
+        // Check to see if we have parameters
+        let params = if matches!(
+            output.first(),
+            Some(Token {
+                contents: TokenContents::Pipe,
+                ..
+            })
+        ) {
+            // We've found a parameter list
+            let mut param_tokens = vec![];
+            let mut token_iter = output.iter().skip(1);
+            for token in &mut token_iter {
+                if matches!(
+                    token,
+                    Token {
+                        contents: TokenContents::Pipe,
+                        ..
+                    }
+                ) {
+                    break;
+                } else {
+                    param_tokens.push(token);
+                }
+            }
+        };
 
         let (output, err) = lite_parse(&output);
         error = error.or(err);

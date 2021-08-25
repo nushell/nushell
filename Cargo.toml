@@ -5,6 +5,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = ["crates/nu-cli", "crates/nu-engine", "crates/nu-parser"]
+
 [dependencies]
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
 codespan-reporting = "0.11.1"

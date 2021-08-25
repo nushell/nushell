@@ -131,4 +131,306 @@ impl Value {
             }),
         }
     }
+    pub fn sub(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                val: lhs - rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs as f64 - *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs - *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: lhs - rhs,
+                span,
+            }),
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn mul(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                val: lhs * rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs as f64 * *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
+                val: *lhs * *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: lhs * rhs,
+                span,
+            }),
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn div(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Float {
+                        val: *lhs as f64 / *rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Float {
+                        val: *lhs / *rhs as f64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Float {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs < rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) < *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs < *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs < rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs <= rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) <= *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs <= *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs <= rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs > rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) > *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs > *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs > rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs >= rhs,
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) >= *rhs,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs >= *rhs as f64,
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs >= rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs == rhs,
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs == rhs,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) == *rhs,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs == *rhs as f64,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs == rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+    pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = nu_parser::span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs != rhs,
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs != rhs,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: (*lhs as f64) != *rhs,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs != *rhs as f64,
+                span,
+            }),
+            // FIXME: these should consider machine epsilon
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs != rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
 }

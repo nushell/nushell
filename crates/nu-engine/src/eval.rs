@@ -16,6 +16,7 @@ pub enum ShellError {
     InternalError(String),
     VariableNotFound(Span),
     CantConvert(String, Span),
+    DivisionByZero(Span),
 }
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
@@ -227,7 +228,16 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
 
             match op {
                 Operator::Plus => lhs.add(op_span, &rhs),
-                _ => Ok(Value::Nothing { span: expr.span }),
+                Operator::Minus => lhs.sub(op_span, &rhs),
+                Operator::Multiply => lhs.mul(op_span, &rhs),
+                Operator::Divide => lhs.div(op_span, &rhs),
+                Operator::LessThan => lhs.lt(op_span, &rhs),
+                Operator::LessThanOrEqual => lhs.lte(op_span, &rhs),
+                Operator::GreaterThan => lhs.gt(op_span, &rhs),
+                Operator::GreaterThanOrEqual => lhs.gte(op_span, &rhs),
+                Operator::Equal => lhs.eq(op_span, &rhs),
+                Operator::NotEqual => lhs.ne(op_span, &rhs),
+                _ => Err(ShellError::Unsupported(op_span)),
             }
         }
 

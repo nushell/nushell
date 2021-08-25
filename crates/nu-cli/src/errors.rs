@@ -273,6 +273,15 @@ pub fn report_shell_error(
                 .with_labels(vec![Label::primary(diag_file_id, diag_range)
                     .with_message(format!("can't convert to {}", s))])
         }
+        ShellError::DivisionByZero(span) => {
+            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+            Diagnostic::error()
+                .with_message("Division by zero")
+                .with_labels(vec![
+                    Label::primary(diag_file_id, diag_range).with_message("division by zero")
+                ])
+        }
     };
 
     // println!("DIAG");
