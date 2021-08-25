@@ -16,8 +16,8 @@ use nu_source::AnchorLocation;
 
 #[cfg(feature = "dataframe")]
 use crate::commands::{
-    DataFrameGroupBy, DataFrameIsNull, DataFrameShift, DataFrameToDF, DataFrameWithColumn,
-    StrToDatetime,
+    DataFrameDropNulls, DataFrameGroupBy, DataFrameIsNull, DataFrameShift, DataFrameToDF,
+    DataFrameWithColumn, StrToDatetime,
 };
 
 use crate::commands::{
@@ -173,6 +173,7 @@ pub fn test_dataframe(cmd: impl WholeStreamCommand + 'static) -> Result<(), Shel
         whole_stream_command(DataFrameIsNull),
         whole_stream_command(DataFrameGroupBy),
         whole_stream_command(DataFrameWithColumn),
+        whole_stream_command(DataFrameDropNulls),
         // Base commands for context
         whole_stream_command(Math),
         whole_stream_command(MathMode {}),
