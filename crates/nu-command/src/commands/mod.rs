@@ -34,7 +34,7 @@ pub use dataframe::{
     DataFrameGetOrdinal, DataFrameGetSecond, DataFrameGetWeek, DataFrameGetWeekDay,
     DataFrameGetYear, DataFrameGroupBy, DataFrameIsDuplicated, DataFrameIsIn, DataFrameIsNotNull,
     DataFrameIsNull, DataFrameIsUnique, DataFrameJoin, DataFrameLast, DataFrameList, DataFrameMelt,
-    DataFrameNNull, DataFrameNUnique, DataFrameNot, DataFrameOpen, DataFramePivot,
+    DataFrameNNull, DataFrameNUnique, DataFrameNot, DataFrameOpen, DataFramePivot, DataFrameRename,
     DataFrameReplace, DataFrameReplaceAll, DataFrameRolling, DataFrameSample, DataFrameSelect,
     DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift,
     DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameStrFTime, DataFrameStringLengths,
