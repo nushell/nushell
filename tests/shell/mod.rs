@@ -34,15 +34,15 @@ fn plugins_are_declared_with_wix() {
             | sort-by
             | wrap cargo | merge {
                 open wix/main.wxs --raw | from xml
-                | get Wix.children.Product.children.0.Directory.children.0
-                | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
-                | get Directory.children.Directory.children.0 | last
-                | get Directory.children.Component.children
+                | get Wix.Product.0.Directory.0
+                | where Directory.Id == "$(var.PlatformProgramFilesFolder)"
+                | get Directory.Directory.0 | last
+                | get Directory.Component
                 | each { echo $it | first }
                 | skip
-                | where File.attributes.Name =~ "nu_plugin"
-                | str substring [_, -4] File.attributes.Name
-                | get File.attributes.Name
+                | where File.Name =~ "nu_plugin"
+                | str substring [_, -4] File.Name
+                | get File.Name
                 | sort-by
                 | wrap wix
             }
