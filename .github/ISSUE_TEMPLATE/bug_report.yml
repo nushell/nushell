@@ -38,7 +38,7 @@ body:
     id: config
     attributes:
       label: Configuration
-      description: "Please run `> version | pivot` and paste the output to show OS, features, etc"
+      description: "Please run `> version | pivot key value | to md` and paste the output to show OS, features, etc"
       placeholder: |
         > version | pivot key value | to md
         ╭───┬────────────────────┬───────────────────────────────────────────────────────────────────────╮
