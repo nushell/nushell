@@ -2939,6 +2939,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "reqwest",
+ "tokio",
  "url",
 ]
 
@@ -3021,6 +3022,7 @@ dependencies = [
  "num-traits",
  "reqwest",
  "serde_json",
+ "tokio",
  "url",
 ]
 
