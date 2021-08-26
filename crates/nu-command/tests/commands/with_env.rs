@@ -64,3 +64,37 @@ fn with_env_shorthand_nested_quotes() {
 
     assert_eq!(actual.out, "-arg \"hello world\"");
 }
+
+#[test]
+fn with_env_hides_variables_in_parent_scope() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"
+        let-env FOO = "1"
+        echo $nu.env.FOO
+        with-env [FOO $nothing] {
+            echo $nu.env.FOO
+        }
+        echo $nu.env.FOO
+        "#
+    );
+
+    assert_eq!(actual.out, "11");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn with_env_shorthand_can_not_hide_variables() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"
+        let-env FOO = "1"
+        echo $nu.env.FOO
+        FOO=$nothing echo $nu.env.FOO
+        echo $nu.env.FOO
+        "#
+    );
+
+    assert_eq!(actual.out, "1$nothing1");
+}

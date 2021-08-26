@@ -89,7 +89,7 @@ mod tests {
     use super::{Completer, Suggestion as S, VariableCompleter};
     use crate::matchers::case_insensitive::Matcher as CaseInsensitiveMatcher;
 
-    use indexmap::IndexMap;
+    use nu_engine::EnvVar;
     use nu_engine::{
         evaluation_context::EngineState, ConfigHolder, EvaluationContext, FakeHost, Host, Scope,
         ShellManager,
@@ -121,7 +121,12 @@ mod tests {
 
     fn create_context_with_host(host: Box<dyn Host>) -> EvaluationContext {
         let scope = Scope::new();
-        let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
+        let env_vars = host
+            .vars()
+            .iter()
+            .cloned()
+            .map(|(k, v)| (k, EnvVar::from(v)))
+            .collect();
         scope.add_env(env_vars);
 
         EvaluationContext {
