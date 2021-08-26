@@ -1,4 +1,5 @@
-use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -155,4 +156,16 @@ fn from_table() {
 
     assert!(actual.out.contains("32.38"));
     assert!(actual.out.contains("15.20"));
+}
+
+#[test]
+fn from_nothing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $nothing | into string
+        "#
+    ));
+
+    assert!(actual.out == "");
 }
