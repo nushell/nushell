@@ -110,6 +110,26 @@ fn if_cond4() -> TestResult {
 }
 
 #[test]
+fn if_elseif1() -> TestResult {
+    run_test("if 2 > 3 { 5 } else if 6 < 7 { 4 } ", "4")
+}
+
+#[test]
+fn if_elseif2() -> TestResult {
+    run_test("if 2 < 3 { 5 } else if 6 < 7 { 4 } else { 8 } ", "5")
+}
+
+#[test]
+fn if_elseif3() -> TestResult {
+    run_test("if 2 > 3 { 5 } else if 6 > 7 { 4 } else { 8 } ", "8")
+}
+
+#[test]
+fn if_elseif4() -> TestResult {
+    run_test("if 2 > 3 { 5 } else if 6 < 7 { 4 } else { 8 } ", "4")
+}
+
+#[test]
 fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",

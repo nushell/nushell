@@ -24,12 +24,14 @@ pub enum ParseError {
     MissingFlagParam(Span),
     ShortFlagBatchCantTakeArg(Span),
     MissingPositional(String, Span),
+    KeywordMissingArgument(String, Span),
     MissingType(Span),
     TypeMismatch(Type, Type, Span), // expected, found, span
     MissingRequiredFlag(String, Span),
     IncompleteMathExpression(Span),
     UnknownState(String, Span),
     IncompleteParser(Span),
+    RestNeedsName(Span),
 }
 
 impl<'a> codespan_reporting::files::Files<'a> for ParserWorkingSet<'a> {

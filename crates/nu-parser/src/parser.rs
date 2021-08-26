@@ -607,82 +607,19 @@ impl<'a> ParserWorkingSet<'a> {
             } else {
                 // Make space for the remaining require positionals, if we can
                 if positional_idx < decl.signature.required_positional.len()
-                    && spans.len() > (decl.signature.required_positional.len() - positional_idx - 1)
+                    && spans.len() > (decl.signature.required_positional.len() - positional_idx)
                 {
                     spans.len() - (decl.signature.required_positional.len() - positional_idx - 1)
                 } else {
-                    spans.len()
-                }
-            }
-        }
-    }
-
-    /*
-    fn calculate_end_span(
-        &self,
-        decl: &Declaration,
-        spans: &[Span],
-        spans_idx: usize,
-        positional_idx: usize,
-    ) -> usize {
-        if decl.signature.rest_positional.is_some() {
-            spans.len()
-        } else {
-            // println!("num_positionals: {}", decl.signature.num_positionals());
-            // println!("positional_idx: {}", positional_idx);
-            // println!("spans.len(): {}", spans.len());
-            // println!("spans_idx: {}", spans_idx);
-
-            // check to see if a keyword follows the current position.
-
-            let mut next_keyword_idx = spans.len();
-            for idx in (positional_idx + 1)..decl.signature.num_positionals() {
-                if let Some(PositionalArg {
-                    shape: SyntaxShape::Keyword(kw, ..),
-                    ..
-                }) = decl.signature.get_positional(idx)
-                {
-                    #[allow(clippy::needless_range_loop)]
-                    for span_idx in spans_idx..spans.len() {
-                        let contents = self.get_span_contents(spans[span_idx]);
-
-                        if contents == kw {
-                            next_keyword_idx = span_idx - (idx - (positional_idx + 1));
-                            break;
-                        }
+                    if decl.signature.num_positionals_after(positional_idx) == 0 {
+                        spans.len()
+                    } else {
+                        spans_idx + 1
                     }
                 }
             }
-
-            let remainder = decl.signature.num_positionals_after(positional_idx);
-            let remainder_idx = if remainder < spans.len() {
-                spans.len() - remainder + 1
-            } else {
-                spans_idx + 1
-            };
-
-            let end = [next_keyword_idx, remainder_idx, spans.len()]
-                .iter()
-                .min()
-                .copied()
-                .expect("internal error: can't find min");
-
-            println!(
-                "{:?}",
-                [
-                    next_keyword_idx,
-                    remainder_idx,
-                    spans.len(),
-                    spans_idx,
-                    remainder,
-                    positional_idx,
-                    end,
-                ]
-            );
-            end
         }
     }
-    */
 
     fn parse_multispan_value(
         &mut self,
@@ -732,7 +669,7 @@ impl<'a> ParserWorkingSet<'a> {
                 *spans_idx += 1;
                 if *spans_idx >= spans.len() {
                     error = error.or_else(|| {
-                        Some(ParseError::MissingPositional(
+                        Some(ParseError::KeywordMissingArgument(
                             String::from_utf8_lossy(keyword).into(),
                             spans[*spans_idx - 1],
                         ))
@@ -841,6 +778,11 @@ impl<'a> ParserWorkingSet<'a> {
                 //Make sure we leave enough spans for the remaining positionals
 
                 let end = self.calculate_end_span(&decl, spans, spans_idx, positional_idx);
+
+                // println!(
+                //     "start: {} end: {} positional_idx: {}",
+                //     spans_idx, end, positional_idx
+                // );
 
                 let orig_idx = spans_idx;
                 let (arg, err) =
@@ -1516,7 +1458,6 @@ impl<'a> ParserWorkingSet<'a> {
         error = error.or(err);
 
         let mut args: Vec<Arg> = vec![];
-        let mut rest: Option<Arg> = None;
         let mut parse_mode = ParseMode::ArgMode;
 
         for token in &output {
@@ -1781,12 +1722,12 @@ impl<'a> ParserWorkingSet<'a> {
         for arg in args {
             match arg {
                 Arg::Positional(positional, required) => {
-                    if positional.name == "...rest" {
-                        if sig.rest_positional.is_none() {
-                            sig.rest_positional = Some(PositionalArg {
-                                name: "rest".into(),
-                                ..positional
-                            })
+                    if positional.name.starts_with("...") {
+                        let name = positional.name[3..].to_string();
+                        if name.is_empty() {
+                            error = error.or(Some(ParseError::RestNeedsName(span)))
+                        } else if sig.rest_positional.is_none() {
+                            sig.rest_positional = Some(PositionalArg { name, ..positional })
                         } else {
                             // Too many rest params
                             error = error.or(Some(ParseError::MultipleRestParams(span)))

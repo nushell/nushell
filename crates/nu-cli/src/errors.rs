@@ -127,6 +127,13 @@ pub fn report_parsing_error(
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
                         .with_message("short flag batches can't take args")])
             }
+            ParseError::KeywordMissingArgument(name, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message(format!("Missing argument to {}", name))
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("missing value that follows {}", name))])
+            }
             ParseError::MissingPositional(name, span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
@@ -211,6 +218,13 @@ pub fn report_parsing_error(
                     .with_message("Parser incomplete")
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
                         .with_message("parser support missing for this expression")])
+            }
+            ParseError::RestNeedsName(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Rest parameter needs a name")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("needs a parameter name")])
             }
         };
 
