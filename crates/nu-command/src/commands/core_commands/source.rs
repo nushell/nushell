@@ -6,7 +6,7 @@ use nu_path::expand_path;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, path::Path, path::PathBuf};
 
 pub struct Source;
 
@@ -32,7 +32,7 @@ impl WholeStreamCommand for Source {
         "Runs a script file in the current context."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         source(args)
     }
 
@@ -41,14 +41,58 @@ impl WholeStreamCommand for Source {
     }
 }
 
-pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
+pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let ctx = &args.context;
     let filename: Tagged<String> = args.req(0)?;
+
+    let source_file = Path::new(&filename.item);
 
     // Note: this is a special case for setting the context from a command
     // In this case, if we don't set it now, we'll lose the scope that this
     // variable should be set into.
-    let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(Path::new(&filename.item))));
+
+    let lib_dirs = &ctx
+        .configs()
+        .lock()
+        .global_config
+        .as_ref()
+        .map(|configuration| match configuration.var("lib_dirs") {
+            Some(paths) => paths
+                .table_entries()
+                .cloned()
+                .map(|path| path.as_string())
+                .collect(),
+            None => vec![],
+        });
+
+    if let Some(dir) = lib_dirs {
+        for lib_path in dir {
+            match lib_path {
+                Ok(name) => {
+                    let path = PathBuf::from(name).join(source_file);
+
+                    if let Ok(contents) =
+                        std::fs::read_to_string(&expand_path(Cow::Borrowed(path.as_path())))
+                    {
+                        let result = script::run_script_standalone(contents, true, ctx, false);
+
+                        if let Err(err) = result {
+                            ctx.error(err);
+                        }
+                        return Ok(OutputStream::empty());
+                    }
+                }
+                Err(reason) => {
+                    ctx.error(reason.clone());
+                }
+            }
+        }
+    }
+
+    let path = Path::new(source_file);
+
+    let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(path)));
+
     match contents {
         Ok(contents) => {
             let result = script::run_script_standalone(contents, true, ctx, false);
@@ -56,7 +100,7 @@ pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
             if let Err(err) = result {
                 ctx.error(err);
             }
-            Ok(ActionStream::empty())
+            Ok(OutputStream::empty())
         }
         Err(_) => {
             ctx.error(ShellError::labeled_error(
@@ -65,7 +109,7 @@ pub fn source(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 filename.span(),
             ));
 
-            Ok(ActionStream::empty())
+            Ok(OutputStream::empty())
         }
     }
 }

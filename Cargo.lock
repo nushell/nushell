@@ -3494,6 +3494,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "log",
+ "nu-data",
  "nu-errors",
  "nu-path",
  "nu-protocol",
