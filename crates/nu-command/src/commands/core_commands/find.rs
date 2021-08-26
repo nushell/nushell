@@ -11,7 +11,7 @@ impl WholeStreamCommand for Find {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("find").rest(SyntaxShape::String, "search term")
+        Signature::build("find").rest("rest", SyntaxShape::String, "search term")
     }
 
     fn usage(&self) -> &str {
