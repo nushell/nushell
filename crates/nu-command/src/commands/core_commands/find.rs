@@ -37,7 +37,7 @@ impl WholeStreamCommand for Find {
             Example {
                 description: "Search a number list for term(s)",
                 example: r#"[1 2 3 4 5] | find 5"#,
-                result: Some(vec![Value::from("5")]),
+                result: Some(vec![UntaggedValue::int(5).into()]),
             },
             Example {
                 description: "Search string list for term(s)",
