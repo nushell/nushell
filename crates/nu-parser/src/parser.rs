@@ -555,6 +555,69 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
+    fn first_kw_idx(
+        &self,
+        decl: &Declaration,
+        spans: &[Span],
+        spans_idx: usize,
+        positional_idx: usize,
+    ) -> (Option<usize>, usize) {
+        for idx in (positional_idx + 1)..decl.signature.num_positionals() {
+            if let Some(PositionalArg {
+                shape: SyntaxShape::Keyword(kw, ..),
+                ..
+            }) = decl.signature.get_positional(idx)
+            {
+                #[allow(clippy::needless_range_loop)]
+                for span_idx in spans_idx..spans.len() {
+                    let contents = self.get_span_contents(spans[span_idx]);
+
+                    if contents == kw {
+                        return (Some(idx), span_idx);
+                    }
+                }
+            }
+        }
+        (None, spans.len())
+    }
+
+    fn calculate_end_span(
+        &self,
+        decl: &Declaration,
+        spans: &[Span],
+        spans_idx: usize,
+        positional_idx: usize,
+    ) -> usize {
+        if decl.signature.rest_positional.is_some() {
+            spans.len()
+        } else {
+            let (kw_pos, kw_idx) = self.first_kw_idx(decl, spans, spans_idx, positional_idx);
+
+            if let Some(kw_pos) = kw_pos {
+                // We found a keyword. Keywords, once found, create a guidepost to
+                // show us where the positionals will lay into the arguments. Because they're
+                // keywords, they get to set this by being present
+
+                let positionals_between = kw_pos - positional_idx - 1;
+                if positionals_between > (kw_idx - spans_idx) {
+                    kw_idx
+                } else {
+                    kw_idx - positionals_between
+                }
+            } else {
+                // Make space for the remaining require positionals, if we can
+                if positional_idx < decl.signature.required_positional.len()
+                    && spans.len() > (decl.signature.required_positional.len() - positional_idx - 1)
+                {
+                    spans.len() - (decl.signature.required_positional.len() - positional_idx - 1)
+                } else {
+                    spans.len()
+                }
+            }
+        }
+    }
+
+    /*
     fn calculate_end_span(
         &self,
         decl: &Declaration,
@@ -604,20 +667,22 @@ impl<'a> ParserWorkingSet<'a> {
                 .copied()
                 .expect("internal error: can't find min");
 
-            // println!(
-            //     "{:?}",
-            //     [
-            //         next_keyword_idx,
-            //         remainder_idx,
-            //         spans.len(),
-            //         spans_idx,
-            //         remainder,
-            //         positional_idx,
-            //     ]
-            // );
+            println!(
+                "{:?}",
+                [
+                    next_keyword_idx,
+                    remainder_idx,
+                    spans.len(),
+                    spans_idx,
+                    remainder,
+                    positional_idx,
+                    end,
+                ]
+            );
             end
         }
     }
+    */
 
     fn parse_multispan_value(
         &mut self,

@@ -80,6 +80,36 @@ fn if_test2() -> TestResult {
 }
 
 #[test]
+fn simple_if() -> TestResult {
+    run_test("if $true { 10 } ", "10")
+}
+
+#[test]
+fn simple_if2() -> TestResult {
+    run_test("if $false { 10 } ", "")
+}
+
+#[test]
+fn if_cond() -> TestResult {
+    run_test("if 2 < 3 { 3 } ", "3")
+}
+
+#[test]
+fn if_cond2() -> TestResult {
+    run_test("if 2 > 3 { 3 } ", "")
+}
+
+#[test]
+fn if_cond3() -> TestResult {
+    run_test("if 2 < 3 { 5 } else { 4 } ", "5")
+}
+
+#[test]
+fn if_cond4() -> TestResult {
+    run_test("if 2 > 3 { 5 } else { 4 } ", "4")
+}
+
+#[test]
 fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",

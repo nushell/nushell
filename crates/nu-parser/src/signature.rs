@@ -248,22 +248,22 @@ impl Signature {
             }
             curr += 1;
         }
-        for positional in &self.optional_positional {
-            match positional.shape {
-                SyntaxShape::Keyword(..) => {
-                    // Keywords have a required argument, so account for that
-                    if curr > idx {
-                        total += 2;
-                    }
-                }
-                _ => {
-                    if curr > idx {
-                        total += 1;
-                    }
-                }
-            }
-            curr += 1;
-        }
+        // for positional in &self.optional_positional {
+        //     match positional.shape {
+        //         SyntaxShape::Keyword(..) => {
+        //             // Keywords have a required argument, so account for that
+        //             if curr > idx {
+        //                 total += 2;
+        //             }
+        //         }
+        //         _ => {
+        //             if curr > idx {
+        //                 total += 1;
+        //             }
+        //         }
+        //     }
+        //     curr += 1;
+        // }
         total
     }
 
