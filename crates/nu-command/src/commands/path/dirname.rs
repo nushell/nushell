@@ -27,7 +27,11 @@ impl WholeStreamCommand for PathDirname {
 
     fn signature(&self) -> Signature {
         Signature::build("path dirname")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "Optionally operate by column path",
+            )
             .named(
                 "replace",
                 SyntaxShape::String,

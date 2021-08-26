@@ -18,7 +18,7 @@ impl WholeStreamCommand for SubCommand {
                 SyntaxShape::Int,
                 "the number of the row to drop",
             )
-            .rest(SyntaxShape::Any, "Optionally drop more rows")
+            .rest("rest", SyntaxShape::Any, "Optionally drop more rows")
     }
 
     fn usage(&self) -> &str {

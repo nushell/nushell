@@ -27,7 +27,7 @@ impl WholeStreamCommand for Do {
                 "ignore errors as the block runs",
                 Some('i'),
             )
-            .rest(SyntaxShape::Any, "the parameter(s) for the block")
+            .rest("rest", SyntaxShape::Any, "the parameter(s) for the block")
     }
 
     fn usage(&self) -> &str {

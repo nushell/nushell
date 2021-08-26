@@ -31,6 +31,7 @@ impl WholeStreamCommand for SubCommand {
                 Some('c'),
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally check if string contains pattern by column paths",
             )

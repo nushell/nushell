@@ -41,7 +41,7 @@ impl WholeStreamCommand for Command {
                 "custom configuration source file",
                 None,
             )
-            .rest(SyntaxShape::String, "source file(s) to run")
+            .rest("rest", SyntaxShape::String, "source file(s) to run")
     }
 
     fn usage(&self) -> &str {

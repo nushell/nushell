@@ -31,7 +31,11 @@ impl WholeStreamCommand for PathRelativeTo {
                 SyntaxShape::FilePath,
                 "Parent shared with the input path",
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "Optionally operate by column path",
+            )
     }
 
     fn usage(&self) -> &str {

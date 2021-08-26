@@ -19,6 +19,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("get").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally return additional data by path",
         )

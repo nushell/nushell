@@ -21,6 +21,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str upcase").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally upcase text by column paths",
         )

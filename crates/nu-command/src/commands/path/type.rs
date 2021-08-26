@@ -24,8 +24,11 @@ impl WholeStreamCommand for PathType {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path type")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path type").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "Optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {

@@ -15,7 +15,7 @@ impl WholeStreamCommand for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build("seq")
-            .rest(SyntaxShape::Number, "sequence values")
+            .rest("rest", SyntaxShape::Number, "sequence values")
             .named(
                 "separator",
                 SyntaxShape::String,

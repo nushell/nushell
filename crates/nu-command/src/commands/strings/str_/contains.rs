@@ -25,6 +25,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str contains")
             .required("pattern", SyntaxShape::String, "the pattern to find")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally check if string contains pattern by column paths",
             )

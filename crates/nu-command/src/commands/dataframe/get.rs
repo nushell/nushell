@@ -19,7 +19,11 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe get").rest(SyntaxShape::Any, "column names to sort dataframe")
+        Signature::build("dataframe get").rest(
+            "rest",
+            SyntaxShape::Any,
+            "column names to sort dataframe",
+        )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

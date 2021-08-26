@@ -15,6 +15,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi strip").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally, remove ansi sequences by column paths",
         )

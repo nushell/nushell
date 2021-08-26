@@ -38,6 +38,7 @@ where
 
     fn signature(&self) -> Signature {
         Signature::build(self.name()).rest(
+            "rest",
             SyntaxShape::ColumnPath,
             format!("optionally {} encode data by column paths", D::name()),
         )

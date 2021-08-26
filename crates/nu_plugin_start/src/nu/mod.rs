@@ -8,7 +8,11 @@ impl Plugin for Start {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("start")
             .desc("Opens each file/directory/URL using the default application")
-            .rest(SyntaxShape::String, "files/urls/directories to open")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "files/urls/directories to open",
+            )
             .named(
                 "application",
                 SyntaxShape::String,

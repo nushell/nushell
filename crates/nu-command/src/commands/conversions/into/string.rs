@@ -20,6 +20,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into string")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "column paths to convert to string (for table input)",
             )

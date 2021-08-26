@@ -22,7 +22,11 @@ impl WholeStreamCommand for SubCommand {
                 "the character that denotes what separates columns",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
-            .rest(SyntaxShape::String, "column names to give the new columns")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "column names to give the new columns",
+            )
     }
 
     fn usage(&self) -> &str {
