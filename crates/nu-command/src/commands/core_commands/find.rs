@@ -25,11 +25,6 @@ impl WholeStreamCommand for Find {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Search pipeline output for term",
-                example: r#"ls | find toml"#,
-                result: None,
-            },
-            Example {
                 description: "Search pipeline output for multiple terms",
                 example: r#"ls | find toml md sh"#,
                 result: None,
@@ -39,6 +34,16 @@ impl WholeStreamCommand for Find {
                 example: r#"echo Cargo.toml | find toml"#,
                 result: Some(vec![Value::from("Cargo.toml")]),
             },
+            Example {
+                description: "Search a number list for term(s)",
+                example: r#"[1 2 3 4 5] | find 5"#,
+                result: Some(vec![Value::from("5")]),
+            },
+            Example {
+                description: "Search string list for term(s)",
+                example: r#"[moe larry curly] | find l"#,
+                result: Some(vec![Value::from("larry"), Value::from("curly")]),
+            },
         ]
     }
 }
@@ -46,8 +51,8 @@ impl WholeStreamCommand for Find {
 fn row_contains(row: &Dictionary, search_terms: Vec<String>) -> bool {
     for term in search_terms {
         for (k, v) in row.entries.iter() {
-            let key = k.to_string().to_lowercase();
-            let value = v.convert_to_string().to_lowercase();
+            let key = k.to_string().trim().to_lowercase();
+            let value = v.convert_to_string().trim().to_lowercase();
             if key.contains(&term) || value.contains(&term) {
                 return true;
             }
@@ -66,19 +71,20 @@ fn find(args: CommandArgs) -> Result<OutputStream, ShellError> {
             UntaggedValue::Row(row) => {
                 let sterms: Vec<String> = rest
                     .iter()
-                    .map(|t| t.convert_to_string().to_lowercase())
+                    .map(|t| t.convert_to_string().trim().to_lowercase())
                     .collect();
                 row_contains(row, sterms)
             }
-            UntaggedValue::Primitive(p) => {
+            UntaggedValue::Primitive(_p) => {
+                // eprint!("prim {}", p.type_name());
                 let sterms: Vec<String> = rest
                     .iter()
-                    .map(|t| t.convert_to_string().to_lowercase())
+                    .map(|t| t.convert_to_string().trim().to_lowercase())
                     .collect();
 
-                let prim_string = p.to_string().to_lowercase();
-                for t in sterms {
-                    if prim_string.contains(&t) {
+                let prim_string = &row.convert_to_string().trim().to_lowercase();
+                for term in sterms {
+                    if prim_string.contains(&term) {
                         return true;
                     }
                 }
