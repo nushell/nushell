@@ -20,7 +20,11 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("dataframe drop").rest(SyntaxShape::Any, "column names to be dropped")
+        Signature::build("dataframe drop").rest(
+            "rest",
+            SyntaxShape::Any,
+            "column names to be dropped",
+        )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {

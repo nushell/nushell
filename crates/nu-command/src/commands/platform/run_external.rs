@@ -43,7 +43,7 @@ impl WholeStreamCommand for RunExternalCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).rest(SyntaxShape::Any, "external command arguments")
+        Signature::build(self.name()).rest("rest", SyntaxShape::Any, "external command arguments")
     }
 
     fn usage(&self) -> &str {

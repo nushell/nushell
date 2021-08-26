@@ -17,7 +17,11 @@ impl WholeStreamCommand for Compact {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("compact").rest(SyntaxShape::Any, "the columns to compact from the table")
+        Signature::build("compact").rest(
+            "rest",
+            SyntaxShape::Any,
+            "the columns to compact from the table",
+        )
     }
 
     fn usage(&self) -> &str {

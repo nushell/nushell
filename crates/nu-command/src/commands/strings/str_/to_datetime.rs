@@ -77,6 +77,7 @@ impl WholeStreamCommand for SubCommand {
                 Some('f'),
             )
             .rest(
+"rest",
                 SyntaxShape::Any,
                 "optionally convert text into datetime by column paths",
             )

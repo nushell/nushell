@@ -135,7 +135,7 @@ impl WholeStreamCommand for Char {
                 SyntaxShape::Any,
                 "the name of the character to output",
             )
-            .rest(SyntaxShape::String, "multiple Unicode bytes")
+            .rest("rest", SyntaxShape::String, "multiple Unicode bytes")
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
     }

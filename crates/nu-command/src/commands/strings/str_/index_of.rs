@@ -33,6 +33,7 @@ impl WholeStreamCommand for SubCommand {
                 "the pattern to find index of",
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally returns index of pattern in string by column paths",
             )

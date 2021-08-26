@@ -31,7 +31,7 @@ impl Plugin for Inc {
                 "increment the patch version (eg 1.2.1 -> 1.2.2)",
                 Some('p'),
             )
-            .rest(SyntaxShape::ColumnPath, "the column(s) to update")
+            .rest("rest", SyntaxShape::ColumnPath, "the column(s) to update")
             .filter())
     }
 

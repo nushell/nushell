@@ -14,7 +14,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("move")
-            .rest(SyntaxShape::ColumnPath, "the columns to move")
+            .rest("rest", SyntaxShape::ColumnPath, "the columns to move")
             .named(
                 "after",
                 SyntaxShape::ColumnPath,

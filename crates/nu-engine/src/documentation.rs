@@ -205,7 +205,7 @@ pub fn get_documentation(
         }
 
         if let Some(rest_positional) = &signature.rest_positional {
-            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
+            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.2));
         }
     }
     if !signature.named.is_empty() {

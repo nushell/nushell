@@ -18,7 +18,11 @@ impl WholeStreamCommand for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .rest(SyntaxShape::String, "the name of command to get help on")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "the name of command to get help on",
+            )
             .named(
                 "find",
                 SyntaxShape::String,

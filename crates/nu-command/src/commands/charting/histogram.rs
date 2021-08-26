@@ -22,6 +22,7 @@ impl WholeStreamCommand for Histogram {
                 None,
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "column name to give the histogram's frequency column",
             )

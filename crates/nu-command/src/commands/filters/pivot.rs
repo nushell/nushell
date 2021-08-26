@@ -36,6 +36,7 @@ impl WholeStreamCommand for Pivot {
                 Some('i'),
             )
             .rest(
+                "rest",
                 SyntaxShape::String,
                 "the names to give columns once pivoted",
             )

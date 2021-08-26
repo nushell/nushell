@@ -14,7 +14,11 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("flatten").rest(SyntaxShape::String, "optionally flatten data by column")
+        Signature::build("flatten").rest(
+            "rest",
+            SyntaxShape::String,
+            "optionally flatten data by column",
+        )
     }
 
     fn usage(&self) -> &str {

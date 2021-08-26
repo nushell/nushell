@@ -15,7 +15,7 @@ impl WholeStreamCommand for Alias {
         Signature::build("alias")
             .required("name", SyntaxShape::String, "the name of the alias")
             .required("equals", SyntaxShape::String, "the equals sign")
-            .rest(SyntaxShape::Any, "the expansion for the alias")
+            .rest("rest", SyntaxShape::Any, "the expansion for the alias")
     }
 
     fn usage(&self) -> &str {

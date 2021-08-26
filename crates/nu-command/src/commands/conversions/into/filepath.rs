@@ -14,6 +14,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into path").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "column paths to convert to filepath (for table input)",
         )

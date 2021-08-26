@@ -12,7 +12,7 @@ impl WholeStreamCommand for Echo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")
+        Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")
     }
 
     fn usage(&self) -> &str {

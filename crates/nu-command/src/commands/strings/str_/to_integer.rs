@@ -24,6 +24,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str to-int")
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally convert text into integer by column paths",
             )

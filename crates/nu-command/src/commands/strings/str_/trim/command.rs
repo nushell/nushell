@@ -14,6 +14,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str trim")
             .rest(
+"rest",
                 SyntaxShape::ColumnPath,
                 "optionally trim text by column paths",
             )

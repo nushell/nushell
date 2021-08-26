@@ -18,7 +18,7 @@ impl WholeStreamCommand for Nth {
                 SyntaxShape::Int,
                 "the number of the row to return",
             )
-            .rest(SyntaxShape::Any, "Optionally return more rows")
+            .rest("rest", SyntaxShape::Any, "Optionally return more rows")
             .switch("skip", "Skip the rows instead of selecting them", Some('s'))
     }
 
