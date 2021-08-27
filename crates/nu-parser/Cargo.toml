@@ -4,7 +4,7 @@ description = "Nushell parser"
 edition = "2018"
 license = "MIT"
 name = "nu-parser"
-version = "0.36.0"
+version = "0.36.1"
 
 [dependencies]
 bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
@@ -21,12 +21,12 @@ smart-default = "0.6.0"
 
 dunce = "1.0.1"
 
-nu-errors = { version = "0.36.0", path="../nu-errors" }
-nu-data = { version = "0.36.0", path="../nu-data" }
-nu-path = { version = "0.36.0", path="../nu-path" }
-nu-protocol = { version = "0.36.0", path="../nu-protocol" }
-nu-source = { version = "0.36.0", path="../nu-source" }
-nu-test-support = { version = "0.36.0", path="../nu-test-support" }
+nu-errors = { version = "0.36.1", path="../nu-errors" }
+nu-data = { version = "0.36.1", path="../nu-data" }
+nu-path = { version = "0.36.1", path="../nu-path" }
+nu-protocol = { version = "0.36.1", path="../nu-protocol" }
+nu-source = { version = "0.36.1", path="../nu-source" }
+nu-test-support = { version = "0.36.1", path="../nu-test-support" }
 
 [features]
 stable = []
