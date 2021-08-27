@@ -14,6 +14,7 @@ mod echo;
 mod empty;
 mod enter;
 mod every;
+mod find;
 mod first;
 mod flatten;
 mod format;

@@ -21,6 +21,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Unalias),
             whole_stream_command(Ignore),
             whole_stream_command(Tutor),
+            whole_stream_command(Find),
             // System/file operations
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
