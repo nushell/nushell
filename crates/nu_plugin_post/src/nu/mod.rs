@@ -45,19 +45,18 @@ impl Plugin for Post {
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(call_info)?;
-        Ok(vec![tokio::runtime::Runtime::new().unwrap().block_on(
-            post_helper(
-                &self.path.clone().ok_or_else(|| {
-                    ShellError::labeled_error("expected a 'path'", "expected a 'path'", &self.tag)
-                })?,
-                self.has_raw,
-                &self.body.clone().ok_or_else(|| {
-                    ShellError::labeled_error("expected a 'body'", "expected a 'body'", &self.tag)
-                })?,
-                self.user.clone(),
-                self.password.clone(),
-                &self.headers.clone(),
-            ),
-        )])
+        let runtime = tokio::runtime::Runtime::new()?;
+        Ok(vec![runtime.block_on(post_helper(
+            &self.path.clone().ok_or_else(|| {
+                ShellError::labeled_error("expected a 'path'", "expected a 'path'", &self.tag)
+            })?,
+            self.has_raw,
+            &self.body.clone().ok_or_else(|| {
+                ShellError::labeled_error("expected a 'body'", "expected a 'body'", &self.tag)
+            })?,
+            self.user.clone(),
+            self.password.clone(),
+            &self.headers.clone(),
+        ))])
     }
 }

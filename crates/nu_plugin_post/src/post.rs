@@ -132,9 +132,7 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::String(body_str)),
                 ..
             } => {
-                let mut s = reqwest::Client::new()
-                    .post(location)
-                    .body(body_str.to_string());
+                let mut s = http_client().post(location).body(body_str.to_string());
                 if let Some(login) = login {
                     s = s.header("Authorization", format!("Basic {}", login));
                 }
@@ -152,9 +150,7 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::Binary(b)),
                 ..
             } => {
-                let mut s = reqwest::Client::new()
-                    .post(location)
-                    .body(Vec::from(&b[..]));
+                let mut s = http_client().post(location).body(Vec::from(&b[..]));
                 if let Some(login) = login {
                     s = s.header("Authorization", format!("Basic {}", login));
                 }
@@ -164,7 +160,7 @@ pub async fn post(
                 match value_to_json_value(&value.clone().into_untagged_value()) {
                     Ok(json_value) => match serde_json::to_string(&json_value) {
                         Ok(result_string) => {
-                            let mut s = reqwest::Client::new().post(location).body(result_string);
+                            let mut s = http_client().post(location).body(result_string);
 
                             if let Some(login) = login {
                                 s = s.header("Authorization", format!("Basic {}", login));
@@ -524,4 +520,14 @@ fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String
     }
 
     Ok(None)
+}
+
+// Only panics if the user agent is invalid but we define it statically so either
+// it always or never fails
+#[allow(clippy::unwrap_used)]
+fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent("nushell")
+        .build()
+        .unwrap()
 }

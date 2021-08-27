@@ -32,19 +32,14 @@ impl Plugin for Fetch {
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(callinfo)?;
-        Ok(vec![tokio::runtime::Runtime::new().unwrap().block_on(
-            fetch(
-                &self.path.clone().ok_or_else(|| {
-                    ShellError::labeled_error(
-                        "internal error: path not set",
-                        "path not set",
-                        &self.tag,
-                    )
-                })?,
-                self.has_raw,
-                self.user.clone(),
-                self.password.clone(),
-            ),
-        )])
+        let runtime = tokio::runtime::Runtime::new()?;
+        Ok(vec![runtime.block_on(fetch(
+            &self.path.clone().ok_or_else(|| {
+                ShellError::labeled_error("internal error: path not set", "path not set", &self.tag)
+            })?,
+            self.has_raw,
+            self.user.clone(),
+            self.password.clone(),
+        ))])
     }
 }
