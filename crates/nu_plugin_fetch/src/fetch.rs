@@ -113,7 +113,7 @@ async fn helper(
         _ => None,
     };
 
-    let client = reqwest::Client::new();
+    let client = http_client();
     let mut request = client.get(url);
 
     if let Some(login) = login {
@@ -281,4 +281,14 @@ async fn helper(
             span,
         )),
     }
+}
+
+// Only panics if the user agent is invalid but we define it statically so either
+// it always or never fails
+#[allow(clippy::unwrap_used)]
+fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent("nushell")
+        .build()
+        .unwrap()
 }
