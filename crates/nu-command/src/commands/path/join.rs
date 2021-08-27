@@ -26,7 +26,11 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "Optionally operate by column path",
+            )
             .named(
                 "append",
                 SyntaxShape::FilePath,

@@ -31,6 +31,7 @@ impl WholeStreamCommand for SubCommand {
                 "the indexes to substring [start end]",
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally substring text by column paths",
             )

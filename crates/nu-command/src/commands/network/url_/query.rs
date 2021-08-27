@@ -14,8 +14,11 @@ impl WholeStreamCommand for UrlQuery {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url query")
-            .rest(SyntaxShape::ColumnPath, "optionally operate by column path")
+        Signature::build("url query").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {

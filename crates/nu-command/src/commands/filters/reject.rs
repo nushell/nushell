@@ -13,7 +13,11 @@ impl WholeStreamCommand for Reject {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reject").rest(SyntaxShape::String, "the names of columns to remove")
+        Signature::build("reject").rest(
+            "rest",
+            SyntaxShape::String,
+            "the names of columns to remove",
+        )
     }
 
     fn usage(&self) -> &str {

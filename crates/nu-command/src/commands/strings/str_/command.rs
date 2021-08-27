@@ -12,6 +12,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("str").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally convert by column paths",
         )

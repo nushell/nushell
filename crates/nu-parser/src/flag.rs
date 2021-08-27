@@ -88,7 +88,7 @@ mod tests {
         Signature::build("bundle add")
             .switch("skip-install", "Adds the gem to the Gemfile but does not install it.", None)
             .named("group", SyntaxShape::String, "Specify the group(s) for the added gem. Multiple groups should be separated by commas.", Some('g'))
-            .rest(SyntaxShape::Any, "options")
+            .rest("rest", SyntaxShape::Any, "options")
     }
 
     #[test]

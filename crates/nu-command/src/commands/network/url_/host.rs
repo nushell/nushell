@@ -14,8 +14,11 @@ impl WholeStreamCommand for UrlHost {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url host")
-            .rest(SyntaxShape::ColumnPath, "optionally operate by column path")
+        Signature::build("url host").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {

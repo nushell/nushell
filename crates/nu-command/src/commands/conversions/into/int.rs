@@ -13,6 +13,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into int").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "column paths to convert to int (for table input)",
         )

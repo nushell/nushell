@@ -21,6 +21,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str downcase").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally downcase text by column paths",
         )

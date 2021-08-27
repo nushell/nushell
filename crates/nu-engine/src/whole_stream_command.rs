@@ -139,7 +139,7 @@ impl WholeStreamCommand for Arc<Block> {
                     _ => break,
                 }
             }
-            if block.params.rest_positional.is_some() {
+            if let Some(rest_pos) = &block.params.rest_positional {
                 let elements: Vec<_> = args_iter.collect();
                 let start = if let Some(first) = elements.first() {
                     first.tag.span.start()
@@ -153,15 +153,15 @@ impl WholeStreamCommand for Arc<Block> {
                 };
 
                 ctx.scope.add_var(
-                    "$rest",
+                    format!("${}", rest_pos.0),
                     UntaggedValue::Table(elements).into_value(Span::new(start, end)),
                 );
             }
-        } else if block.params.rest_positional.is_some() {
+        } else if let Some(rest_pos) = &block.params.rest_positional {
             //If there is a rest arg, but no args were provided,
             //we have to set $rest to an empty table
             ctx.scope.add_var(
-                "$rest",
+                format!("${}", rest_pos.0),
                 UntaggedValue::Table(Vec::new()).into_value(Span::new(0, 0)),
             );
         }

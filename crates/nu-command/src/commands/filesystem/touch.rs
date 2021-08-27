@@ -19,7 +19,7 @@ impl WholeStreamCommand for Touch {
                 SyntaxShape::FilePath,
                 "the path of the file you want to create",
             )
-            .rest(SyntaxShape::FilePath, "additional files to create")
+            .rest("rest", SyntaxShape::FilePath, "additional files to create")
     }
     fn usage(&self) -> &str {
         "Creates one or more files."

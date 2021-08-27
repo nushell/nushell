@@ -14,7 +14,11 @@ impl WholeStreamCommand for UrlScheme {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url scheme").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("url scheme").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "optionally operate by path",
+        )
     }
 
     fn usage(&self) -> &str {

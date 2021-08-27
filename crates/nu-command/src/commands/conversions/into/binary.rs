@@ -13,6 +13,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into binary").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "column paths to convert to binary (for table input)",
         )

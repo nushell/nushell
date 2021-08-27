@@ -24,6 +24,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str to-decimal").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally convert text into decimal by column paths",
         )

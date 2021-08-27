@@ -5,6 +5,7 @@ use nu_protocol::{
     dataframe::{Column, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::Tagged;
 
 use super::utils::convert_columns;
 
@@ -32,6 +33,18 @@ impl WholeStreamCommand for DataFrame {
                 SyntaxShape::Table,
                 "column names used as value columns",
                 Some('v'),
+            )
+            .named(
+                "variable_name",
+                SyntaxShape::String,
+                "optional name for variable column",
+                Some('r'),
+            )
+            .named(
+                "value_name",
+                SyntaxShape::String,
+                "optional name for value column",
+                Some('l'),
             )
     }
 
@@ -105,6 +118,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let id_col: Vec<Value> = args.req_named("columns")?;
     let val_col: Vec<Value> = args.req_named("values")?;
 
+    let value_name: Option<Tagged<String>> = args.get_flag("value_name")?;
+    let variable_name: Option<Tagged<String>> = args.get_flag("variable_name")?;
+
     let (id_col_string, id_col_span) = convert_columns(&id_col, &tag)?;
     let (val_col_string, val_col_span) = convert_columns(&val_col, &tag)?;
 
@@ -113,10 +129,20 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     check_column_datatypes(df.as_ref(), &id_col_string, &id_col_span)?;
     check_column_datatypes(df.as_ref(), &val_col_string, &val_col_span)?;
 
-    let res = df
+    let mut res = df
         .as_ref()
         .melt(&id_col_string, &val_col_string)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
+
+    if let Some(name) = &variable_name {
+        res.rename("variable", name.item.as_str())
+            .map_err(|e| parse_polars_error::<&str>(&e, &name.tag.span, None))?;
+    }
+
+    if let Some(name) = &value_name {
+        res.rename("value", name.item.as_str())
+            .map_err(|e| parse_polars_error::<&str>(&e, &name.tag.span, None))?;
+    }
 
     Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
 }

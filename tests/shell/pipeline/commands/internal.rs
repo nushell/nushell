@@ -374,6 +374,25 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
+fn run_custom_command_with_rest_other_name() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def say-hello [
+                greeting:string,
+                ...names:string # All of the names
+                ] {
+                    echo $"($greeting), ($names | sort-by | str collect ' ')"
+                }
+            say-hello Salutations E D C A B
+        "#
+    );
+
+    assert_eq!(actual.out, r#"Salutations, A B C D E"#);
+    assert_eq!(actual.err, r#""#);
+}
+
+#[test]
 fn alias_a_load_env() {
     let actual = nu!(
         cwd: ".",
@@ -425,6 +444,43 @@ fn let_env_variable() {
 }
 
 #[test]
+fn let_env_hides_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TESTENVVAR = "hello world"
+            echo $nu.env.TESTENVVAR
+            let-env TESTENVVAR = $nothing
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn let_env_hides_variable_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TESTENVVAR = "hello world"
+            echo $nu.env.TESTENVVAR
+            do {
+                let-env TESTENVVAR = $nothing
+                echo $nu.env.TESTENVVAR
+            }
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello worldhello world");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
 fn unlet_env_variable() {
     let actual = nu!(
         cwd: ".",
@@ -443,10 +499,31 @@ fn unlet_nonexistent_variable() {
         cwd: ".",
         r#"
             unlet-env NONEXISTENT_VARIABLE
-        "
+        "#
     );
 
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Not an environment variable"));
+}
+
+#[test]
+fn unlet_variable_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env DEBUG = "1"
+            echo $nu.env.DEBUG
+            do {
+                let-env DEBUG = "2"
+                echo $nu.env.DEBUG
+                unlet-env DEBUG
+                echo $nu.env.DEBUG
+            }
+            echo $nu.env.DEBUG
+        "#
+    );
+
+    assert_eq!(actual.out, "1211");
 }
 
 #[test]
@@ -532,6 +609,41 @@ fn proper_shadow_load_env_aliases() {
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn load_env_can_hide_var_envs() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = "1"
+        echo $nu.env.DEBUG
+        load-env [[name, value]; [DEBUG $nothing]]
+        echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "1");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn load_env_can_hide_var_envs_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = "1"
+        echo $nu.env.DEBUG
+        do {
+            load-env [[name, value]; [DEBUG $nothing]]
+            echo $nu.env.DEBUG
+        }
+        echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "11");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
 }
 
 #[test]

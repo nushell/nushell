@@ -19,6 +19,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str reverse").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally reverse text by column paths",
         )

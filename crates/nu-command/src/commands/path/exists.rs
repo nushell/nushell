@@ -23,8 +23,11 @@ impl WholeStreamCommand for PathExists {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path exists")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path exists").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "Optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {

@@ -23,6 +23,7 @@ pub use crate::documentation::{generate_docs, get_brief_help, get_documentation,
 pub use crate::env::host::FakeHost;
 pub use crate::env::host::Host;
 pub use crate::evaluate::block::run_block;
+pub use crate::evaluate::envvar::EnvVar;
 pub use crate::evaluate::scope::Scope;
 pub use crate::evaluate::{evaluator, evaluator::evaluate_baseline_expr};
 pub use crate::evaluation_context::EvaluationContext;

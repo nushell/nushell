@@ -19,6 +19,7 @@ impl WholeStreamCommand for Command {
     fn signature(&self) -> Signature {
         Signature::build("empty?")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "the names of the columns to check emptiness",
             )
