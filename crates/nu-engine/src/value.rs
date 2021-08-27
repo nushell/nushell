@@ -89,7 +89,16 @@ impl Display for Value {
                 write!(f, "{}", val)
             }
             Value::String { val, .. } => write!(f, "{}", val),
-            Value::List { .. } => write!(f, "<list>"),
+            Value::List { val, .. } => {
+                write!(
+                    f,
+                    "[{}]",
+                    val.iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ".into())
+                )
+            }
             Value::Block { .. } => write!(f, "<block>"),
             Value::Nothing { .. } => write!(f, ""),
         }

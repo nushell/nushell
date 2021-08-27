@@ -34,11 +34,12 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
     let decl = parser_state.get_decl(call.decl_id);
     if let Some(block_id) = decl.body {
         let state = state.enter_scope();
-        for (arg, param) in call
-            .positional
-            .iter()
-            .zip(decl.signature.required_positional.iter())
-        {
+        for (arg, param) in call.positional.iter().zip(
+            decl.signature
+                .required_positional
+                .iter()
+                .chain(decl.signature.optional_positional.iter()),
+        ) {
             let result = eval_expression(&state, arg)?;
             let var_id = param
                 .var_id

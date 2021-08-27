@@ -11,12 +11,16 @@
 - [x] refactor into subcrates
 - [x] subcommand alias
 - [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
+- [ ] parsing tables
+- [ ] ...rest without calling it rest
+- [ ] operator overflow
 - [ ] finish operator type-checking
 - [ ] Column path
 - [ ] Ranges
 - [ ] Source
 - [ ] Autoenv
 - [ ] Block params
+- [ ] let [first, rest] = [1, 2, 3]
   
 ## Maybe: 
 - [ ] default param values?
