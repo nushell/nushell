@@ -18,6 +18,7 @@ use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
+#[cfg(feature = "which-support")]
 use which::which;
 
 pub(crate) fn run_external_command(
@@ -145,11 +146,10 @@ fn run_with_stdin(
 }
 
 /// A function to resolve the executable name if it is spawnable directly
+#[cfg(feature = "which-support")]
 fn which_command(command: &ExternalCommand) -> Option<PathBuf> {
     let which_result = which(&command.name);
-    if which_result.is_ok() {
-        let full_path = which_result.unwrap();
-
+    if let Result::Ok(full_path) = which_result {
         return match full_path.extension() {
             // TODO implement special care for various executable types such as .bat, .ps1, .cmd, etc
             // https://github.com/mklement0/Native/blob/e0e0b8785cad39a73053e35084d1f60d87fbac58/Native.psm1#L749
@@ -158,19 +158,25 @@ fn which_command(command: &ExternalCommand) -> Option<PathBuf> {
                 if extension == "EXE" {
                     return Some(full_path);
                 }
-                return None;
+                None
             }
             #[cfg(not(windows))]
             Some(extension) => {
-                if extension != "SH" || extension != "BASH" {
+                if extension != "SH" && extension != "BASH" {
                     return Some(full_path);
                 }
-                return None;
+                None;
             }
             _ => None,
         };
     }
-    return None;
+    None
+}
+
+#[cfg(not(feature = "which-support"))]
+fn which_command(_: &ExternalCommand) -> Option<PathBuf> {
+    // wasm doesn't support the which dependency
+    None
 }
 
 fn spawn(
@@ -187,10 +193,8 @@ fn spawn(
     let mut process = {
         #[cfg(windows)]
         {
-            if full_path_option.is_some() {
+            if let Some(full_path) = full_path_option {
                 // if the full path is resolved, spawn it directly
-                let full_path = full_path_option.unwrap();
-
                 let mut process = Command::new(full_path);
                 for arg in args {
                     process.arg(&arg);
@@ -214,10 +218,8 @@ fn spawn(
 
         #[cfg(not(windows))]
         {
-            if full_path_option.is_some() {
+            if let Some(full_path) = full_path_option {
                 // if the full path is resolved, spawn it directly
-                let full_path = full_path_option.unwrap();
-
                 let mut process = Command::new(full_path);
                 for arg in args {
                     process.arg(&arg);
