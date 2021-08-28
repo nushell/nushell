@@ -1,4 +1,3 @@
-use futures::executor::block_on;
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape};
@@ -46,7 +45,8 @@ impl Plugin for Post {
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(call_info)?;
-        Ok(vec![block_on(post_helper(
+        let runtime = tokio::runtime::Runtime::new()?;
+        Ok(vec![runtime.block_on(post_helper(
             &self.path.clone().ok_or_else(|| {
                 ShellError::labeled_error("expected a 'path'", "expected a 'path'", &self.tag)
             })?,

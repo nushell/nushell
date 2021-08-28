@@ -10,7 +10,6 @@ version = "0.36.1"
 bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 codespan-reporting = "0.11.0"
 derive-new = "0.5.8"
-derive_is_enum_variant = "0.1.1"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4"
 num-bigint = { version="0.3.1", features=["serde"] }

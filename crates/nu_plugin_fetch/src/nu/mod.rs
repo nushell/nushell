@@ -1,4 +1,3 @@
-use futures::executor::block_on;
 use nu_errors::ShellError;
 use nu_plugin::Plugin;
 use nu_protocol::{CallInfo, ReturnValue, Signature, SyntaxShape};
@@ -33,7 +32,8 @@ impl Plugin for Fetch {
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         self.setup(callinfo)?;
-        Ok(vec![block_on(fetch(
+        let runtime = tokio::runtime::Runtime::new()?;
+        Ok(vec![runtime.block_on(fetch(
             &self.path.clone().ok_or_else(|| {
                 ShellError::labeled_error("internal error: path not set", "path not set", &self.tag)
             })?,
