@@ -263,7 +263,26 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
                 span: expr.span,
             })
         }
-        Expr::Table(_, _) => Err(ShellError::Unsupported(expr.span)),
+        Expr::Table(headers, vals) => {
+            let mut output_headers = vec![];
+            for expr in headers {
+                output_headers.push(eval_expression(state, expr)?.as_string()?);
+            }
+
+            let mut output_rows = vec![];
+            for val in vals {
+                let mut row = vec![];
+                for expr in val {
+                    row.push(eval_expression(state, expr)?);
+                }
+                output_rows.push(row);
+            }
+            Ok(Value::Table {
+                headers: output_headers,
+                val: output_rows,
+                span: expr.span,
+            })
+        }
         Expr::Keyword(_, _, expr) => eval_expression(state, expr),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),

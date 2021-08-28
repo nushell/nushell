@@ -6,13 +6,38 @@ use crate::ShellError;
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Bool { val: bool, span: Span },
-    Int { val: i64, span: Span },
-    Float { val: f64, span: Span },
-    String { val: String, span: Span },
-    List { val: Vec<Value>, span: Span },
-    Block { val: BlockId, span: Span },
-    Nothing { span: Span },
+    Bool {
+        val: bool,
+        span: Span,
+    },
+    Int {
+        val: i64,
+        span: Span,
+    },
+    Float {
+        val: f64,
+        span: Span,
+    },
+    String {
+        val: String,
+        span: Span,
+    },
+    List {
+        val: Vec<Value>,
+        span: Span,
+    },
+    Table {
+        headers: Vec<String>,
+        val: Vec<Vec<Value>>,
+        span: Span,
+    },
+    Block {
+        val: BlockId,
+        span: Span,
+    },
+    Nothing {
+        span: Span,
+    },
 }
 
 impl Value {
@@ -30,6 +55,7 @@ impl Value {
             Value::Float { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::List { span, .. } => *span,
+            Value::Table { span, .. } => *span,
             Value::Block { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
         }
@@ -42,6 +68,7 @@ impl Value {
             Value::Float { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
+            Value::Table { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
         }
@@ -56,6 +83,7 @@ impl Value {
             Value::Float { .. } => Type::Float,
             Value::String { .. } => Type::String,
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
+            Value::Table { .. } => Type::Table,                        // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
         }
@@ -97,6 +125,26 @@ impl Display for Value {
                         .map(|x| x.to_string())
                         .collect::<Vec<String>>()
                         .join(", ".into())
+                )
+            }
+            Value::Table { headers, val, .. } => {
+                write!(
+                    f,
+                    "[{}]\n[{}]",
+                    headers
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ".into()),
+                    val.iter()
+                        .map(|x| {
+                            x.iter()
+                                .map(|x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", ".into())
+                        })
+                        .collect::<Vec<String>>()
+                        .join("\n")
                 )
             }
             Value::Block { .. } => write!(f, "<block>"),

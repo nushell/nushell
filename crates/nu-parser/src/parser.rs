@@ -1882,8 +1882,10 @@ impl<'a> ParserWorkingSet<'a> {
             _ => {
                 let mut table_headers = vec![];
 
-                let (headers, err) =
-                    self.parse_value(output.block[0].commands[0].parts[0], &SyntaxShape::Table);
+                let (headers, err) = self.parse_value(
+                    output.block[0].commands[0].parts[0],
+                    &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                );
                 error = error.or(err);
 
                 if let Expression {
@@ -1896,7 +1898,8 @@ impl<'a> ParserWorkingSet<'a> {
 
                 let mut rows = vec![];
                 for part in &output.block[1].commands[0].parts {
-                    let (values, err) = self.parse_value(*part, &SyntaxShape::Table);
+                    let (values, err) =
+                        self.parse_value(*part, &SyntaxShape::List(Box::new(SyntaxShape::Any)));
                     error = error.or(err);
                     if let Expression {
                         expr: Expr::List(values),
