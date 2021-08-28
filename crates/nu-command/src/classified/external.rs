@@ -145,38 +145,71 @@ fn run_with_stdin(
     )
 }
 
-/// A function to resolve the executable name if it is spawnable directly
-#[cfg(feature = "which-support")]
-fn which_command(command: &ExternalCommand) -> Option<PathBuf> {
-    let which_result = which(&command.name);
-    if let Result::Ok(full_path) = which_result {
-        return match full_path.extension() {
-            // TODO implement special care for various executable types such as .bat, .ps1, .cmd, etc
-            // https://github.com/mklement0/Native/blob/e0e0b8785cad39a73053e35084d1f60d87fbac58/Native.psm1#L749
-            #[cfg(windows)]
-            Some(extension) => {
-                if extension == "EXE" {
-                    return Some(full_path);
-                }
-                None
-            }
-            #[cfg(not(windows))]
-            Some(extension) => {
-                if extension != "SH" && extension != "BASH" {
-                    return Some(full_path);
-                }
-                None;
-            }
-            _ => None,
-        };
+/// Spawn a direct exe
+#[allow(unused)]
+fn spawn_exe(full_path: PathBuf, args: &[String]) -> Command {
+    let mut process = Command::new(full_path);
+    for arg in args {
+        process.arg(&arg);
     }
-    None
+    process
 }
 
-#[cfg(not(feature = "which-support"))]
-fn which_command(_: &ExternalCommand) -> Option<PathBuf> {
-    // wasm doesn't support the which dependency
-    None
+/// Spawn a cmd command with `cmd /c args...`
+fn spawn_cmd_command(command: &ExternalCommand, args: &[String]) -> Command {
+    let mut process = Command::new("cmd");
+    process.arg("/c");
+    process.arg(&command.name);
+    for arg in args {
+        // Clean the args before we use them:
+        // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
+        // cmd.exe needs to have a caret to escape a pipe
+        let arg = arg.replace("|", "^|");
+        process.arg(&arg);
+    }
+    process
+}
+
+/// Spawn a sh command with `sh -c args...`
+fn spawn_sh_command(command: &ExternalCommand, args: &[String]) -> Command {
+    let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
+    let mut process = Command::new("sh");
+    process.arg("-c").arg(cmd_with_args);
+    process
+}
+
+/// a function to spawn any external command
+fn spawn_any(command: &ExternalCommand, args: &[String]) -> Command {
+    // resolve the executable name if it is spawnable directly
+    #[cfg(feature = "which-support")]
+    if let Result::Ok(full_path) = which(&command.name) {
+        if let Some(extension) = full_path.extension() {
+            #[cfg(windows)]
+            if extension == "EXE" {
+                // if exe spawn it directly
+                return spawn_exe(full_path, args);
+            } else {
+                // TODO implement special care for various executable types such as .bat, .ps1, .cmd, etc
+                // https://github.com/mklement0/Native/blob/e0e0b8785cad39a73053e35084d1f60d87fbac58/Native.psm1#L749
+                // otherwise shell out to cmd
+                return spawn_cmd_command(command, args);
+            }
+            #[cfg(not(windows))]
+            if extension != "SH" && extension != "BASH" {
+                // if exe spawn it directly
+                return spawn_exe(full_path, args);
+            } else {
+                // otherwise shell out to sh
+                return spawn_sh_command(command, args);
+            }
+        }
+    }
+    // in all the other cases shell out
+    if cfg!(windows) {
+        spawn_cmd_command(command, args)
+    } else {
+        spawn_sh_command(command, args)
+    }
 }
 
 fn spawn(
@@ -189,52 +222,7 @@ fn spawn(
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
-    let full_path_option = which_command(&command);
-    let mut process = {
-        #[cfg(windows)]
-        {
-            if let Some(full_path) = full_path_option {
-                // if the full path is resolved, spawn it directly
-                let mut process = Command::new(full_path);
-                for arg in args {
-                    process.arg(&arg);
-                }
-                process
-            } else {
-                // otherwise shell out to cmd
-                let mut process = Command::new("cmd");
-                process.arg("/c");
-                process.arg(&command.name);
-                for arg in args {
-                    // Clean the args before we use them:
-                    // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
-                    // cmd.exe needs to have a caret to escape a pipe
-                    let arg = arg.replace("|", "^|");
-                    process.arg(&arg);
-                }
-                process
-            }
-        }
-
-        #[cfg(not(windows))]
-        {
-            if let Some(full_path) = full_path_option {
-                // if the full path is resolved, spawn it directly
-                let mut process = Command::new(full_path);
-                for arg in args {
-                    process.arg(&arg);
-                }
-                process
-            } else {
-                // otherwise shell out to sh
-                let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
-                let mut process = Command::new("sh");
-                process.arg("-c").arg(cmd_with_args);
-                process
-            }
-        }
-    };
-
+    let mut process = spawn_any(&command, args);
     process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
