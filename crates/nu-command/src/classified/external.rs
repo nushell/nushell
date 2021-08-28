@@ -5,6 +5,7 @@ use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::{borrow::Cow, io::BufReader};
@@ -16,6 +17,8 @@ use nu_protocol::hir::Expression;
 use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
+
+use which::which;
 
 pub(crate) fn run_external_command(
     command: ExternalCommand,
@@ -141,6 +144,35 @@ fn run_with_stdin(
     )
 }
 
+/// A function to resolve the executable name if it is spawnable directly
+fn which_command(command: &ExternalCommand) -> Option<PathBuf> {
+    let which_result = which(&command.name);
+    if which_result.is_ok() {
+        let full_path = which_result.unwrap();
+
+        return match full_path.extension() {
+            // TODO implement special care for various executable types such as .bat, .ps1, .cmd, etc
+            // https://github.com/mklement0/Native/blob/e0e0b8785cad39a73053e35084d1f60d87fbac58/Native.psm1#L749
+            #[cfg(windows)]
+            Some(extension) => {
+                if extension == "EXE" {
+                    return Some(full_path);
+                }
+                return None;
+            }
+            #[cfg(not(windows))]
+            Some(extension) => {
+                if extension != "SH" || extension != "BASH" {
+                    return Some(full_path);
+                }
+                return None;
+            }
+            _ => None,
+        };
+    }
+    return None;
+}
+
 fn spawn(
     command: &ExternalCommand,
     path: &str,
@@ -151,28 +183,53 @@ fn spawn(
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
+    let full_path_option = which_command(&command);
     let mut process = {
         #[cfg(windows)]
         {
-            let mut process = Command::new("cmd");
-            process.arg("/c");
-            process.arg(&command.name);
-            for arg in args {
-                // Clean the args before we use them:
-                // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
-                // cmd.exe needs to have a caret to escape a pipe
-                let arg = arg.replace("|", "^|");
-                process.arg(&arg);
+            if full_path_option.is_some() {
+                // if the full path is resolved, spawn it directly
+                let full_path = full_path_option.unwrap();
+
+                let mut process = Command::new(full_path);
+                for arg in args {
+                    process.arg(&arg);
+                }
+                process
+            } else {
+                // otherwise shell out to cmd
+                let mut process = Command::new("cmd");
+                process.arg("/c");
+                process.arg(&command.name);
+                for arg in args {
+                    // Clean the args before we use them:
+                    // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
+                    // cmd.exe needs to have a caret to escape a pipe
+                    let arg = arg.replace("|", "^|");
+                    process.arg(&arg);
+                }
+                process
             }
-            process
         }
 
         #[cfg(not(windows))]
         {
-            let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
-            let mut process = Command::new("sh");
-            process.arg("-c").arg(cmd_with_args);
-            process
+            if full_path_option.is_some() {
+                // if the full path is resolved, spawn it directly
+                let full_path = full_path_option.unwrap();
+
+                let mut process = Command::new(full_path);
+                for arg in args {
+                    process.arg(&arg);
+                }
+                process
+            } else {
+                // otherwise shell out to sh
+                let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
+                let mut process = Command::new("sh");
+                process.arg("-c").arg(cmd_with_args);
+                process
+            }
         }
     };
 
