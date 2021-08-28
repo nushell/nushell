@@ -89,11 +89,11 @@ lazy_static! {
         "and" => '&'.to_string(), // & and, ampersand
         "ampersand" => '&'.to_string(),
         "equal" => '='.to_string(), // = equal
-        "eq" => '='.to_string(), 
-        "double_equal" => '=='.to_string(), // == double_equal
-        "fat_arrow" => '=>'.to_string(), // => fat_arrow
-        "right_arrow" => '->'.to_string(), // -> right_arrow
-        "left_arrow" => '<-'.to_string(), // <- left_arrow
+        "eq" => '='.to_string(),
+        "double_equal" => "==".to_string(), // == double_equal
+        "fat_arrow" => "=>".to_string(), // => fat_arrow
+        "right_arrow" => "->".to_string(), // -> right_arrow
+        "left_arrow" => "<-".to_string(), // <- left_arrow
         "question" => '?'.to_string(), // ? question, q
         "q" => '?'.to_string(),
         "colon" => ':'.to_string(), // : colon
