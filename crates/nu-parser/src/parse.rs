@@ -1,11 +1,10 @@
-use std::borrow::Cow;
 use std::{path::PathBuf, sync::Arc};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
-use nu_path::{expand_path, expand_path_string};
+use nu_path::expand_path;
 use nu_protocol::hir::{
     self, Binary, Block, Call, ClassifiedCommand, Expression, ExternalRedirection, Flag, FlagKind,
     Group, InternalCommand, Member, NamedArguments, Operator, Pipeline, RangeOperator,
@@ -954,8 +953,8 @@ fn parse_arg(
             )
         }
         SyntaxShape::GlobPattern => {
-            let trimmed = Cow::Owned(trim_quotes(&lite_arg.item));
-            let expanded = expand_path_string(trimmed).to_string();
+            let trimmed = trim_quotes(&lite_arg.item);
+            let expanded = expand_path(trimmed).to_string_lossy().to_string();
             (
                 SpannedExpression::new(Expression::glob_pattern(expanded), lite_arg.span),
                 None,
@@ -972,7 +971,7 @@ fn parse_arg(
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let path = PathBuf::from(trimmed);
-            let expanded = expand_path(Cow::Owned(path)).to_path_buf();
+            let expanded = expand_path(path);
             (
                 SpannedExpression::new(Expression::FilePath(expanded), lite_arg.span),
                 None,
@@ -1659,8 +1658,8 @@ fn parse_external_call(
 ) -> (Option<ClassifiedCommand>, Option<ParseError>) {
     let mut error = None;
     let name = lite_cmd.parts[0].clone().map(|v| {
-        let trimmed = Cow::Owned(trim_quotes(&v));
-        expand_path_string(trimmed).to_string()
+        let trimmed = trim_quotes(&v);
+        expand_path(trimmed).to_string_lossy().to_string()
     });
 
     let mut args = vec![];

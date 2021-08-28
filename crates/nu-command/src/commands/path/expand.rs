@@ -2,7 +2,7 @@ use super::{operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_path::expand_path;
+use nu_path::{canonicalize, expand_path};
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Span;
 use std::{borrow::Cow, path::Path};
@@ -95,7 +95,7 @@ impl WholeStreamCommand for PathExpand {
 }
 
 fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
-    if let Ok(p) = dunce::canonicalize(path) {
+    if let Ok(p) = canonicalize(path) {
         UntaggedValue::filepath(p).into_value(tag)
     } else if args.strict {
         Value::error(ShellError::labeled_error(

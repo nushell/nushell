@@ -78,7 +78,7 @@ impl<'a> Playground<'a> {
         std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
 
         let fixtures = fs::fixtures();
-        let fixtures = dunce::canonicalize(fixtures.clone()).unwrap_or_else(|e| {
+        let fixtures = nu_path::canonicalize(fixtures.clone()).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize fixtures path {}: {:?}",
                 fixtures.display(),
@@ -97,7 +97,7 @@ impl<'a> Playground<'a> {
 
         let playground_root = playground.root.path();
 
-        let test = dunce::canonicalize(playground_root.join(topic)).unwrap_or_else(|e| {
+        let test = nu_path::canonicalize(playground_root.join(topic)).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize test path {}: {:?}",
                 playground_root.join(topic).display(),
@@ -105,7 +105,7 @@ impl<'a> Playground<'a> {
             )
         });
 
-        let root = dunce::canonicalize(playground_root).unwrap_or_else(|e| {
+        let root = nu_path::canonicalize(playground_root).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize tests root path {}: {:?}",
                 playground_root.display(),
