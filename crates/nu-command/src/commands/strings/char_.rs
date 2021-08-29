@@ -41,8 +41,10 @@ lazy_static! {
         "right_brace" => '}'.to_string(),
         "rbrace" => '}'.to_string(),
         "left_paren" => '('.to_string(),
+        "lp" => '('.to_string(),
         "lparen" => '('.to_string(),
         "right_paren" => ')'.to_string(),
+        "rp" => ')'.to_string(),
         "rparen" => ')'.to_string(),
         "left_bracket" => '['.to_string(),
         "lbracket" => '['.to_string(),
@@ -97,6 +99,8 @@ lazy_static! {
         "question" => '?'.to_string(), // ? question, q
         "q" => '?'.to_string(),
         "colon" => ':'.to_string(), // : colon
+        "underscore" => '_'.to_string(),
+        "u" => '_'.to_string(),
 
         // This is the unicode section
         // Unicode names came from https://www.compart.com/en/unicode
