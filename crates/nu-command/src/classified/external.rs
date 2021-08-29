@@ -4,6 +4,8 @@ use nu_engine::{MaybeTextCodec, StringOrBinary};
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 use parking_lot::Mutex;
 
+#[allow(unused)]
+use std::env;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -19,7 +21,7 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
 #[cfg(feature = "which")]
-use which::which;
+use which::which_in;
 
 pub(crate) fn run_external_command(
     command: ExternalCommand,
@@ -179,10 +181,12 @@ fn spawn_sh_command(command: &ExternalCommand, args: &[String]) -> Command {
 }
 
 /// a function to spawn any external command
-fn spawn_any(command: &ExternalCommand, args: &[String]) -> Command {
+#[allow(unused)] // for minimal builds cwd is unused
+fn spawn_any(command: &ExternalCommand, args: &[String], cwd: &str) -> Command {
     // resolve the executable name if it is spawnable directly
     #[cfg(feature = "which")]
-    if let Result::Ok(full_path) = which(&command.name) {
+    // TODO add more available paths to `env::var_os("PATH")`?
+    if let Result::Ok(full_path) = which_in(&command.name, env::var_os("PATH"), cwd) {
         if let Some(extension) = full_path.extension() {
             #[cfg(windows)]
             if extension == "EXE" {
@@ -222,7 +226,7 @@ fn spawn(
 ) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
-    let mut process = spawn_any(&command, args);
+    let mut process = spawn_any(&command, args, path);
     process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
