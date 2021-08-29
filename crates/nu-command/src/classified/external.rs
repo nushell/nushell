@@ -189,7 +189,7 @@ fn spawn_any(command: &ExternalCommand, args: &[String], cwd: &str) -> Command {
     if let Result::Ok(full_path) = which_in(&command.name, env::var_os("PATH"), cwd) {
         if let Some(extension) = full_path.extension() {
             #[cfg(windows)]
-            if extension == "EXE" {
+            if extension.eq_ignore_ascii_case("exe") {
                 // if exe spawn it directly
                 return spawn_exe(full_path, args);
             } else {
@@ -199,7 +199,10 @@ fn spawn_any(command: &ExternalCommand, args: &[String], cwd: &str) -> Command {
                 return spawn_cmd_command(command, args);
             }
             #[cfg(not(windows))]
-            if extension != "SH" && extension != "BASH" {
+            if !["sh", "bash"]
+                .iter()
+                .any(|ext| extension.eq_ignore_ascii_case(ext))
+            {
                 // if exe spawn it directly
                 return spawn_exe(full_path, args);
             } else {
@@ -212,6 +215,7 @@ fn spawn_any(command: &ExternalCommand, args: &[String], cwd: &str) -> Command {
     if cfg!(windows) {
         spawn_cmd_command(command, args)
     } else {
+        // TODO what happens if that os doesn't support spawning sh?
         spawn_sh_command(command, args)
     }
 }
