@@ -18,7 +18,7 @@ use nu_protocol::hir::{ExternalCommand, ExternalRedirection};
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tag;
 
-#[cfg(feature = "which-support")]
+#[cfg(feature = "which")]
 use which::which;
 
 pub(crate) fn run_external_command(
@@ -181,7 +181,7 @@ fn spawn_sh_command(command: &ExternalCommand, args: &[String]) -> Command {
 /// a function to spawn any external command
 fn spawn_any(command: &ExternalCommand, args: &[String]) -> Command {
     // resolve the executable name if it is spawnable directly
-    #[cfg(feature = "which-support")]
+    #[cfg(feature = "which")]
     if let Result::Ok(full_path) = which(&command.name) {
         if let Some(extension) = full_path.extension() {
             #[cfg(windows)]
