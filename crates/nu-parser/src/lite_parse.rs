@@ -27,6 +27,10 @@ impl LiteCommand {
     pub fn is_empty(&self) -> bool {
         self.parts.is_empty()
     }
+
+    pub fn is_empty_comments(&self) -> bool {
+        self.comments.is_empty()
+    }
 }
 
 #[derive(Debug)]
@@ -94,7 +98,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 }
             }
             TokenContents::Eol | TokenContents::Semicolon => {
-                if !curr_command.is_empty() {
+                if !curr_command.is_empty() || !curr_command.is_empty_comments() {
                     curr_pipeline.push(curr_command);
                 }
                 curr_command = LiteCommand::new();

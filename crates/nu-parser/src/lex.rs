@@ -273,7 +273,15 @@ pub fn lex(
                 if *input == b'\n' || *input == b'\r' {
                     output.push(Token::new(
                         TokenContents::Comment,
-                        Span::new(start, curr_offset),
+                        Span::new(start, curr_offset - 1),
+                    ));
+
+                    // Adding an end of line token after a comment
+                    // This helps during lite_parser to avoid losing a command
+                    // in a statement
+                    output.push(Token::new(
+                        TokenContents::Eol,
+                        Span::new(curr_offset - 1, curr_offset),
                     ));
                     start = curr_offset;
 
