@@ -23,10 +23,15 @@ fn comment_before() -> Result<(), ParseError> {
 
     let lite_block = lite_parse_helper(input)?;
 
-    assert_eq!(lite_block.block.len(), 2);
+    assert_eq!(lite_block.block.len(), 1);
     assert_eq!(lite_block.block[0].commands.len(), 1);
     assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
+
+    assert_eq!(
+        lite_block.block[0].commands[0].comments[0],
+        Span { start: 0, end: 19 }
+    );
 
     Ok(())
 }
@@ -44,6 +49,11 @@ fn comment_beside() -> Result<(), ParseError> {
     assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
     assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
+    assert_eq!(
+        lite_block.block[0].commands[0].comments[0],
+        Span { start: 12, end: 31 }
+    );
+
     Ok(())
 }
 
@@ -57,15 +67,19 @@ fn comments_stack() -> Result<(), ParseError> {
 
     let lite_block = lite_parse_helper(input)?;
 
-    assert_eq!(lite_block.block.len(), 3);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 0);
+    assert_eq!(lite_block.block.len(), 1);
+    assert_eq!(lite_block.block[0].commands[0].comments.len(), 2);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 0);
+    assert_eq!(
+        lite_block.block[0].commands[0].comments[0],
+        Span { start: 0, end: 19 }
+    );
 
-    assert_eq!(lite_block.block[2].commands[0].comments.len(), 0);
-    assert_eq!(lite_block.block[2].commands[0].parts.len(), 3);
+    assert_eq!(
+        lite_block.block[0].commands[0].comments[1],
+        Span { start: 20, end: 37 }
+    );
 
     Ok(())
 }
@@ -81,22 +95,17 @@ fn separated_comments_dont_stack() -> Result<(), ParseError> {
 
     let lite_block = lite_parse_helper(input)?;
 
-    assert_eq!(lite_block.block.len(), 3);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].parts.len(), 0);
-
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[1].commands[0].parts.len(), 0);
-
-    assert_eq!(lite_block.block[2].commands[0].comments.len(), 0);
-    assert_eq!(lite_block.block[2].commands[0].parts.len(), 3);
+    assert_eq!(lite_block.block.len(), 1);
+    assert_eq!(lite_block.block[0].commands[0].comments.len(), 2);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
     assert_eq!(
         lite_block.block[0].commands[0].comments[0],
         Span { start: 0, end: 19 }
     );
+
     assert_eq!(
-        lite_block.block[1].commands[0].comments[0],
+        lite_block.block[0].commands[0].comments[1],
         Span { start: 21, end: 38 }
     );
 
@@ -115,20 +124,18 @@ fn multiple_statements() -> Result<(), ParseError> {
 
     let lite_block = lite_parse_helper(input)?;
 
-    assert_eq!(lite_block.block.len(), 3);
+    assert_eq!(lite_block.block.len(), 2);
     assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
     assert_eq!(
         lite_block.block[0].commands[0].comments[0],
         Span { start: 0, end: 10 }
     );
 
-    assert_eq!(lite_block.block[1].commands[0].comments.len(), 0);
+    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
     assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
-
-    assert_eq!(lite_block.block[2].commands[0].comments.len(), 1);
-    assert_eq!(lite_block.block[2].commands[0].parts.len(), 4);
     assert_eq!(
-        lite_block.block[2].commands[0].comments[0],
+        lite_block.block[1].commands[0].comments[0],
         Span { start: 52, end: 61 }
     );
 
@@ -176,6 +183,63 @@ fn multiple_commands_with_comment() -> Result<(), ParseError> {
     assert_eq!(
         lite_block.block[0].commands[1].comments[0],
         Span { start: 29, end: 38 }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn multiple_commands_with_pipes() -> Result<(), ParseError> {
+    // The comments inside () get encapsulated in the whole item
+    // Code:
+    // # comment 1
+    // # comment 2
+    // let a = ( ls
+    // | where name =~ some    # another comment
+    // | each { |file| rm file.name } # final comment
+    // )
+    // # comment A
+    // let b = 0;
+    let input = b"# comment 1
+# comment 2
+let a = ( ls
+| where name =~ some # another comment
+| each { |file| rm file.name }) # final comment
+# comment A
+let b = 0
+";
+
+    let lite_block = lite_parse_helper(input)?;
+
+    assert_eq!(lite_block.block.len(), 2);
+    assert_eq!(lite_block.block[0].commands[0].comments.len(), 3);
+    assert_eq!(lite_block.block[0].commands[0].parts.len(), 4);
+
+    assert_eq!(
+        lite_block.block[0].commands[0].parts[3],
+        Span {
+            start: 32,
+            end: 107
+        }
+    );
+
+    assert_eq!(
+        lite_block.block[0].commands[0].comments[2],
+        Span {
+            start: 108,
+            end: 123
+        }
+    );
+
+    assert_eq!(lite_block.block[1].commands[0].comments.len(), 1);
+    assert_eq!(lite_block.block[1].commands[0].parts.len(), 4);
+
+    assert_eq!(
+        lite_block.block[1].commands[0].comments[0],
+        Span {
+            start: 124,
+            end: 135
+        }
     );
 
     Ok(())

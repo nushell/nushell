@@ -98,15 +98,17 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 }
             }
             TokenContents::Eol | TokenContents::Semicolon => {
-                if !curr_command.is_empty() || !curr_command.is_empty_comments() {
+                if !curr_command.is_empty() {
                     curr_pipeline.push(curr_command);
+
+                    curr_command = LiteCommand::new();
                 }
-                curr_command = LiteCommand::new();
 
                 if !curr_pipeline.is_empty() {
                     block.push(curr_pipeline);
+
+                    curr_pipeline = LiteStatement::new();
                 }
-                curr_pipeline = LiteStatement::new();
             }
             TokenContents::Comment => {
                 curr_command.comments.push(token.span);
