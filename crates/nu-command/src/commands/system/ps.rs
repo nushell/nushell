@@ -1,28 +1,55 @@
+use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
-use nu_source::Tag;
+use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
 use sysinfo::{ProcessExt, System, SystemExt};
 
-#[derive(Default)]
-pub struct Ps;
+pub struct Command;
 
-impl Ps {
-    pub fn new() -> Ps {
-        Ps
+impl WholeStreamCommand for Command {
+    fn name(&self) -> &str {
+        "ps"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("ps")
+            .desc("View information about system processes.")
+            .switch(
+                "long",
+                "list all available columns for each entry",
+                Some('l'),
+            )
+            .filter()
+    }
+
+    fn usage(&self) -> &str {
+        "View information about system processes."
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        run_ps(args)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "List the system processes",
+            example: "ps",
+            result: None,
+        }]
     }
 }
 
-pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
+fn run_ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let long = args.has_flag("long");
     let mut sys = System::new_all();
     sys.refresh_all();
 
     let mut output = vec![];
 
-    let result: Vec<_> = sys.get_processes().iter().map(|x| *x.0).collect();
+    let result: Vec<_> = sys.processes().iter().map(|x| *x.0).collect();
 
     for pid in result.into_iter() {
-        if let Some(result) = sys.get_process(pid) {
-            let mut dict = TaggedDictBuilder::new(&tag);
+        if let Some(result) = sys.process(pid) {
+            let mut dict = TaggedDictBuilder::new(args.name_tag());
             dict.insert_untagged("pid", UntaggedValue::int(pid as i64));
             dict.insert_untagged("name", UntaggedValue::string(result.name()));
             dict.insert_untagged(
@@ -31,7 +58,7 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
             );
             dict.insert_untagged(
                 "cpu",
-                UntaggedValue::decimal_from_float(result.cpu_usage() as f64, tag.span),
+                UntaggedValue::decimal_from_float(result.cpu_usage() as f64, args.name_tag().span),
             );
             dict.insert_untagged("mem", UntaggedValue::filesize(result.memory() * 1000));
             dict.insert_untagged(
@@ -53,5 +80,5 @@ pub async fn ps(tag: Tag, long: bool) -> Result<Vec<Value>, ShellError> {
         }
     }
 
-    Ok(output)
+    Ok(output.into_iter().into_output_stream())
 }

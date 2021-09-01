@@ -17,6 +17,7 @@ mod platform;
 mod random;
 mod shells;
 mod strings;
+mod system;
 mod viewers;
 
 pub use charting::*;
@@ -55,6 +56,7 @@ pub use platform::*;
 pub use random::*;
 pub use shells::*;
 pub use strings::*;
+pub use system::*;
 pub use viewers::*;
 
 #[cfg(test)]

@@ -1,9 +1,91 @@
+use crate::prelude::*;
 use base64::encode;
+use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, CommandAction, ReturnSuccess, ReturnValue, UntaggedValue, Value};
+use nu_protocol::{CommandAction, ReturnSuccess, ReturnValue, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue};
 use nu_source::{AnchorLocation, Span, Tag};
 use std::path::PathBuf;
 use std::str::FromStr;
+
+pub struct Command;
+
+impl WholeStreamCommand for Command {
+    fn name(&self) -> &str {
+        "fetch"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("fetch")
+            .desc("Load from a URL into a cell, convert to table if possible (avoid by appending '--raw').")
+            .required(
+                "URL",
+                SyntaxShape::String,
+                "the URL to fetch the contents from",
+            )
+            .named(
+                "user",
+                SyntaxShape::Any,
+                "the username when authenticating",
+                Some('u'),
+            )
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "the password when authenticating",
+                Some('p'),
+            )
+            .switch("raw", "fetch contents as text rather than a table", Some('r'))
+            .filter()
+    }
+
+    fn usage(&self) -> &str {
+        "Fetch the contents from a URL (HTTP GET operation)."
+    }
+
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        run_fetch(args)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Fetch content from url.com",
+                example: "fetch url.com",
+                result: None,
+            },
+            Example {
+                description: "Fetch content from url.com, with username and password",
+                example: "fetch -u myuser -p mypass url.com",
+                result: None,
+            },
+        ]
+    }
+}
+
+fn run_fetch(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let mut fetch_helper = Fetch::new();
+
+    fetch_helper.setup(args)?;
+
+    let runtime = tokio::runtime::Runtime::new()?;
+    Ok(vec![runtime.block_on(fetch(
+        &fetch_helper.path.clone().ok_or_else(|| {
+            ShellError::labeled_error(
+                "internal error: path not set",
+                "path not set",
+                &fetch_helper.tag,
+            )
+        })?,
+        fetch_helper.has_raw,
+        fetch_helper.user.clone(),
+        fetch_helper.password,
+    ))]
+    .into_iter()
+    .into_action_stream())
+
+    //fetch.setup(callinfo)?;
+}
 
 #[derive(Default)]
 pub struct Fetch {
@@ -25,32 +107,25 @@ impl Fetch {
         }
     }
 
-    pub fn setup(&mut self, call_info: CallInfo) -> ReturnValue {
+    pub fn setup(&mut self, args: CommandArgs) -> Result<(), ShellError> {
         self.path = Some({
-            let file = call_info.args.nth(0).ok_or_else(|| {
+            args.req(0).map_err(|_| {
                 ShellError::labeled_error(
                     "No file or directory specified",
                     "for command",
-                    &call_info.name_tag,
+                    &args.name_tag(),
                 )
-            })?;
-            file.clone()
+            })?
         });
-        self.tag = call_info.name_tag.clone();
+        self.tag = args.name_tag();
 
-        self.has_raw = call_info.args.has("raw");
+        self.has_raw = args.has_flag("raw");
 
-        self.user = match call_info.args.get("user") {
-            Some(user) => Some(user.as_string()?),
-            None => None,
-        };
+        self.user = args.get_flag("user")?;
 
-        self.password = match call_info.args.get("password") {
-            Some(password) => Some(password.as_string()?),
-            None => None,
-        };
+        self.password = args.get_flag("password")?;
 
-        ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value())
+        Ok(())
     }
 }
 

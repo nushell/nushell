@@ -1,14 +1,108 @@
+use crate::prelude::*;
 use base64::encode;
 use mime::Mime;
+use nu_engine::WholeStreamCommand;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    CallInfo, CommandAction, Primitive, ReturnSuccess, ReturnValue, UnspannedPathMember,
-    UntaggedValue, Value,
+    CommandAction, Primitive, ReturnSuccess, ReturnValue, UnspannedPathMember, UntaggedValue, Value,
 };
+use nu_protocol::{Signature, SyntaxShape};
 use nu_source::{AnchorLocation, Tag, TaggedItem};
 use num_traits::cast::ToPrimitive;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+pub struct Command;
+
+impl WholeStreamCommand for Command {
+    fn name(&self) -> &str {
+        "post"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("post")
+            .desc("Post content to a URL and retrieve data as a table if possible.")
+            .required("path", SyntaxShape::Any, "the URL to post to")
+            .required("body", SyntaxShape::Any, "the contents of the post body")
+            .named(
+                "user",
+                SyntaxShape::Any,
+                "the username when authenticating",
+                Some('u'),
+            )
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "the password when authenticating",
+                Some('p'),
+            )
+            .named(
+                "content-type",
+                SyntaxShape::Any,
+                "the MIME type of content to post",
+                Some('t'),
+            )
+            .named(
+                "content-length",
+                SyntaxShape::Any,
+                "the length of the content being posted",
+                Some('l'),
+            )
+            .switch(
+                "raw",
+                "return values as a string instead of a table",
+                Some('r'),
+            )
+            .filter()
+    }
+
+    fn usage(&self) -> &str {
+        "Post a body to a URL (HTTP POST operation)."
+    }
+
+    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+        run_post(args)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Post content to url.com",
+                example: "post url.com 'body'",
+                result: None,
+            },
+            Example {
+                description: "Post content to url.com, with username and password",
+                example: "post -u myuser -p mypass url.com 'body'",
+                result: None,
+            },
+        ]
+    }
+}
+
+fn run_post(args: CommandArgs) -> Result<ActionStream, ShellError> {
+    let mut helper = Post::new();
+
+    helper.setup(args)?;
+
+    let runtime = tokio::runtime::Runtime::new()?;
+    Ok(vec![runtime.block_on(post_helper(
+        &helper.path.clone().ok_or_else(|| {
+            ShellError::labeled_error("expected a 'path'", "expected a 'path'", &helper.tag)
+        })?,
+        helper.has_raw,
+        &helper.body.clone().ok_or_else(|| {
+            ShellError::labeled_error("expected a 'body'", "expected a 'body'", &helper.tag)
+        })?,
+        helper.user.clone(),
+        helper.password.clone(),
+        &helper.headers,
+    ))]
+    .into_iter()
+    .into_action_stream())
+
+    //fetch.setup(callinfo)?;
+}
 
 #[derive(Clone)]
 pub enum HeaderKind {
@@ -40,42 +134,35 @@ impl Post {
         }
     }
 
-    pub fn setup(&mut self, call_info: CallInfo) -> ReturnValue {
+    pub fn setup(&mut self, args: CommandArgs) -> Result<(), ShellError> {
         self.path = Some({
-            let file = call_info.args.nth(0).ok_or_else(|| {
+            args.req(0).map_err(|_| {
                 ShellError::labeled_error(
                     "No file or directory specified",
                     "for command",
-                    &call_info.name_tag,
+                    &args.name_tag(),
                 )
-            })?;
-            file.clone()
+            })?
         });
 
-        self.has_raw = call_info.args.has("raw");
-
         self.body = {
-            let file = call_info.args.nth(1).ok_or_else(|| {
-                ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
+            let file = args.req(1).map_err(|_| {
+                ShellError::labeled_error("No body specified", "for command", &args.name_tag())
             })?;
-            Some(file.clone())
+            Some(file)
         };
 
-        self.user = match call_info.args.get("user") {
-            Some(user) => Some(user.as_string()?),
-            None => None,
-        };
+        self.tag = args.name_tag();
 
-        self.password = match call_info.args.get("password") {
-            Some(password) => Some(password.as_string()?),
-            None => None,
-        };
+        self.has_raw = args.has_flag("raw");
 
-        self.headers = get_headers(&call_info)?;
+        self.user = args.get_flag("user")?;
 
-        self.tag = call_info.name_tag;
+        self.password = args.get_flag("password")?;
 
-        ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value())
+        self.headers = get_headers(&args)?;
+
+        Ok(())
     }
 }
 
@@ -465,10 +552,10 @@ fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     Ok(out)
 }
 
-fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
+fn get_headers(args: &CommandArgs) -> Result<Vec<HeaderKind>, ShellError> {
     let mut headers = vec![];
 
-    match extract_header_value(call_info, "content-type") {
+    match extract_header_value(args, "content-type") {
         Ok(h) => {
             if let Some(ct) = h {
                 headers.push(HeaderKind::ContentType(ct))
@@ -479,7 +566,7 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
         }
     };
 
-    match extract_header_value(call_info, "content-length") {
+    match extract_header_value(args, "content-length") {
         Ok(h) => {
             if let Some(cl) = h {
                 headers.push(HeaderKind::ContentLength(cl))
@@ -493,14 +580,14 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
     Ok(headers)
 }
 
-fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String>, ShellError> {
-    if call_info.args.has(key) {
-        let tagged = call_info.args.get(key);
+fn extract_header_value(args: &CommandArgs, key: &str) -> Result<Option<String>, ShellError> {
+    if args.has_flag(key) {
+        let tagged = args.get_flag(key)?;
         let val = match tagged {
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            }) => s.clone(),
+            }) => s,
             Some(Value { tag, .. }) => {
                 return Err(ShellError::labeled_error(
                     format!("{} not in expected format.  Expected string.", key),

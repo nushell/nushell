@@ -28,6 +28,8 @@ nu-value-ext = { version = "0.36.1", path="../nu-value-ext" }
 nu-ansi-term = { version = "0.36.1", path="../nu-ansi-term" }
 nu-pretty-hex = { version = "0.36.1", path="../nu-pretty-hex" }
 
+url = "2.2.1"
+mime = "0.3.16"
 Inflector = "0.11"
 arboard = { version="1.1.0", optional=true }
 base64 = "0.13.0"
@@ -71,6 +73,7 @@ quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.0"
 regex = "1.4.3"
+reqwest = {version = "0.11", optional = true }
 roxmltree = "0.14.0"
 rust-embed = "5.9.0"
 rustyline = { version="9.0.0", optional=true }
@@ -84,16 +87,17 @@ sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
 sxd-document = "0.3.2"
 sxd-xpath = "0.4.2"
+sysinfo = { version = "0.20.2", optional = true }
 thiserror = "1.0.26"
 tempfile = "3.2.0"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
 termcolor = "1.1.2"
 titlecase = "1.1.0"
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 toml = "0.5.8"
 trash = { version="1.3.0", optional=true }
 unicode-segmentation = "1.8"
-url = "2.2.0"
 uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
 which = { version="4.1.0", optional=true }
 zip = { version="0.5.9", optional=true }
@@ -134,3 +138,7 @@ stable = []
 trash-support = ["trash"]
 table-pager = ["minus", "crossterm"]
 dataframe = ["nu-protocol/dataframe", "polars"]
+fetch = ["reqwest", "tokio"]
+post = ["reqwest", "tokio"]
+sys = ["sysinfo"]
+ps = ["sysinfo"]
