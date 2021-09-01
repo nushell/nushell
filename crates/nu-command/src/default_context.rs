@@ -269,6 +269,16 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
+            // Network
+            #[cfg(feature = "fetch")]
+            whole_stream_command(Fetch),
+            #[cfg(feature = "post")]
+            whole_stream_command(Post),
+            // System
+            #[cfg(feature = "ps")]
+            whole_stream_command(Ps),
+            #[cfg(feature = "sys")]
+            whole_stream_command(Sys),
         ]);
 
         //Dataframe commands

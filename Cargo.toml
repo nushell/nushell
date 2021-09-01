@@ -33,18 +33,14 @@ nu-value-ext = { version = "0.36.1", path="./crates/nu-value-ext" }
 
 nu_plugin_binaryview = { version = "0.36.1", path="./crates/nu_plugin_binaryview", optional=true }
 nu_plugin_chart = { version = "0.36.1", path="./crates/nu_plugin_chart", optional=true }
-nu_plugin_fetch = { version = "0.36.1", path="./crates/nu_plugin_fetch", optional=true }
 nu_plugin_from_bson = { version = "0.36.1", path="./crates/nu_plugin_from_bson", optional=true }
 nu_plugin_from_sqlite = { version = "0.36.1", path="./crates/nu_plugin_from_sqlite", optional=true }
 nu_plugin_inc = { version = "0.36.1", path="./crates/nu_plugin_inc", optional=true }
 nu_plugin_match = { version = "0.36.1", path="./crates/nu_plugin_match", optional=true }
-nu_plugin_post = { version = "0.36.1", path="./crates/nu_plugin_post", optional=true }
-nu_plugin_ps = { version = "0.36.1", path="./crates/nu_plugin_ps", optional=true }
 nu_plugin_query_json = { version = "0.36.1", path="./crates/nu_plugin_query_json", optional=true }
 nu_plugin_s3 = { version = "0.36.1", path="./crates/nu_plugin_s3", optional=true }
 nu_plugin_selector = { version = "0.36.1", path="./crates/nu_plugin_selector", optional=true }
 nu_plugin_start = { version = "0.36.1", path="./crates/nu_plugin_start", optional=true }
-nu_plugin_sys = { version = "0.36.1", path="./crates/nu_plugin_sys", optional=true }
 nu_plugin_textview = { version = "0.36.1", path="./crates/nu_plugin_textview", optional=true }
 nu_plugin_to_bson = { version = "0.36.1", path="./crates/nu_plugin_to_bson", optional=true }
 nu_plugin_to_sqlite = { version = "0.36.1", path="./crates/nu_plugin_to_sqlite", optional=true }
@@ -65,6 +61,8 @@ rstest = "0.10.0"
 [build-dependencies]
 
 [features]
+fetch-support = ["nu-command/fetch", "nu-command/post"]
+sys-support = ["nu-command/sys", "nu-command/ps"]
 ctrlc-support = ["nu-cli/ctrlc", "nu-command/ctrlc"]
 rustyline-support = ["nu-cli/rustyline-support", "nu-command/rustyline-support"]
 term-support = ["nu-command/term"]
@@ -73,15 +71,13 @@ which-support = ["nu-command/which", "nu-engine/which"]
 
 default = [
     "nu-cli/shadow-rs",
-    "sys",
-    "ps",
+    "sys-support",
     "ctrlc-support",
     "which-support",
     "term-support",
     "rustyline-support",
     "match",
-    "post",
-    "fetch",
+    "fetch-support",
     "zip-support",
     "dataframe",
 ]
@@ -109,12 +105,8 @@ extra = [
 wasi = ["inc", "match", "match", "tree", "rustyline-support"]
 
 # Stable (Default)
-fetch = ["nu_plugin_fetch"]
 inc = ["nu_plugin_inc"]
 match = ["nu_plugin_match"]
-post = ["nu_plugin_post"]
-ps = ["nu_plugin_ps"]
-sys = ["nu_plugin_sys"]
 textview = ["nu_plugin_textview"]
 
 # Extra
@@ -145,7 +137,6 @@ dataframe = [
     "nu-command/dataframe",
     "nu-value-ext/dataframe",
     "nu-data/dataframe",
-    "nu_plugin_post/dataframe",
     "nu_plugin_to_bson/dataframe",
 ]
 
@@ -166,29 +157,9 @@ path = "src/plugins/nu_plugin_core_inc.rs"
 required-features = ["inc"]
 
 [[bin]]
-name = "nu_plugin_core_ps"
-path = "src/plugins/nu_plugin_core_ps.rs"
-required-features = ["ps"]
-
-[[bin]]
-name = "nu_plugin_core_sys"
-path = "src/plugins/nu_plugin_core_sys.rs"
-required-features = ["sys"]
-
-[[bin]]
-name = "nu_plugin_core_fetch"
-path = "src/plugins/nu_plugin_core_fetch.rs"
-required-features = ["fetch"]
-
-[[bin]]
 name = "nu_plugin_core_match"
 path = "src/plugins/nu_plugin_core_match.rs"
 required-features = ["match"]
-
-[[bin]]
-name = "nu_plugin_core_post"
-path = "src/plugins/nu_plugin_core_post.rs"
-required-features = ["post"]
 
 # Extra plugins
 
