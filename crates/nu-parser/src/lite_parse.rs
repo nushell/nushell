@@ -27,10 +27,6 @@ impl LiteCommand {
     pub fn is_empty(&self) -> bool {
         self.parts.is_empty()
     }
-
-    pub fn is_empty_comments(&self) -> bool {
-        self.comments.is_empty()
-    }
 }
 
 #[derive(Debug)]
