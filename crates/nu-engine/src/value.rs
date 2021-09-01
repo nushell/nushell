@@ -1,8 +1,104 @@
-use std::fmt::Display;
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use nu_parser::{BlockId, Span, Type};
 
 use crate::ShellError;
+
+#[derive(Clone)]
+pub struct ValueStream(Rc<RefCell<dyn Iterator<Item = Value>>>);
+
+impl ValueStream {
+    pub fn into_string(self) -> String {
+        let val: Vec<Value> = self.collect();
+        format!(
+            "[{}]",
+            val.into_iter()
+                .map(|x| x.into_string())
+                .collect::<Vec<String>>()
+                .join(", ".into())
+        )
+    }
+}
+
+impl Debug for ValueStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValueStream").finish()
+    }
+}
+
+impl Iterator for ValueStream {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        {
+            let mut iter = self.0.borrow_mut();
+            iter.next()
+        }
+    }
+}
+
+pub trait IntoValueStream {
+    fn into_value_stream(self) -> ValueStream;
+}
+
+impl IntoValueStream for Vec<Value> {
+    fn into_value_stream(self) -> ValueStream {
+        ValueStream(Rc::new(RefCell::new(self.into_iter())))
+    }
+}
+
+#[derive(Clone)]
+pub struct RowStream(Rc<RefCell<dyn Iterator<Item = Vec<Value>>>>);
+
+impl RowStream {
+    pub fn into_string(self, headers: Vec<String>) -> String {
+        let val: Vec<Vec<Value>> = self.collect();
+        format!(
+            "[{}]\n[{}]",
+            headers
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
+                .join(", ".into()),
+            val.into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .map(|x| x.into_string())
+                        .collect::<Vec<String>>()
+                        .join(", ".into())
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        )
+    }
+}
+
+impl Debug for RowStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ValueStream").finish()
+    }
+}
+
+impl Iterator for RowStream {
+    type Item = Vec<Value>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        {
+            let mut iter = self.0.borrow_mut();
+            iter.next()
+        }
+    }
+}
+
+pub trait IntoRowStream {
+    fn into_row_stream(self) -> RowStream;
+}
+
+impl IntoRowStream for Vec<Vec<Value>> {
+    fn into_row_stream(self) -> RowStream {
+        RowStream(Rc::new(RefCell::new(self.into_iter())))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -23,12 +119,12 @@ pub enum Value {
         span: Span,
     },
     List {
-        val: Vec<Value>,
+        val: ValueStream,
         span: Span,
     },
     Table {
         headers: Vec<String>,
-        val: Vec<Vec<Value>>,
+        val: RowStream,
         span: Span,
     },
     Block {
@@ -88,6 +184,19 @@ impl Value {
             Value::Block { .. } => Type::Block,
         }
     }
+
+    pub fn into_string(self) -> String {
+        match self {
+            Value::Bool { val, .. } => val.to_string(),
+            Value::Int { val, .. } => val.to_string(),
+            Value::Float { val, .. } => val.to_string(),
+            Value::String { val, .. } => val,
+            Value::List { val, .. } => val.into_string(),
+            Value::Table { headers, val, .. } => val.into_string(headers),
+            Value::Block { val, .. } => format!("<Block {}>", val),
+            Value::Nothing { .. } => format!("<Nothing>"),
+        }
+    }
 }
 
 impl PartialEq for Value {
@@ -97,58 +206,8 @@ impl PartialEq for Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs == rhs,
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
-            (Value::List { val: l1, .. }, Value::List { val: l2, .. }) => l1 == l2,
             (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) => b1 == b2,
             _ => false,
-        }
-    }
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Bool { val, .. } => {
-                write!(f, "{}", val)
-            }
-            Value::Int { val, .. } => {
-                write!(f, "{}", val)
-            }
-            Value::Float { val, .. } => {
-                write!(f, "{}", val)
-            }
-            Value::String { val, .. } => write!(f, "{}", val),
-            Value::List { val, .. } => {
-                write!(
-                    f,
-                    "[{}]",
-                    val.iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ".into())
-                )
-            }
-            Value::Table { headers, val, .. } => {
-                write!(
-                    f,
-                    "[{}]\n[{}]",
-                    headers
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ".into()),
-                    val.iter()
-                        .map(|x| {
-                            x.iter()
-                                .map(|x| x.to_string())
-                                .collect::<Vec<String>>()
-                                .join(", ".into())
-                        })
-                        .collect::<Vec<String>>()
-                        .join("\n")
-                )
-            }
-            Value::Block { .. } => write!(f, "<block>"),
-            Value::Nothing { .. } => write!(f, ""),
         }
     }
 }

@@ -32,7 +32,7 @@ fn main() -> std::io::Result<()> {
 
         match eval_block(&state, &block) {
             Ok(value) => {
-                println!("{}", value);
+                println!("{}", value.into_string());
             }
             Err(err) => {
                 let parser_state = parser_state.borrow();
@@ -94,7 +94,7 @@ fn main() -> std::io::Result<()> {
 
                     match eval_block(&state, &block) {
                         Ok(value) => {
-                            println!("{}", value);
+                            println!("{}", value.into_string());
                         }
                         Err(err) => {
                             let parser_state = parser_state.borrow();

@@ -1,6 +1,9 @@
 use std::time::Instant;
 
-use crate::{state::State, value::Value};
+use crate::{
+    state::State,
+    value::{IntoRowStream, IntoValueStream, Value},
+};
 use nu_parser::{Block, Call, Expr, Expression, Operator, Span, Statement, Type};
 
 #[derive(Debug)]
@@ -124,7 +127,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         for expr in &call.positional {
             let val = eval_expression(state, expr)?;
 
-            output.push(val.to_string());
+            output.push(val.into_string());
         }
         Ok(Value::String {
             val: output.join(""),
@@ -259,7 +262,7 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
                 output.push(eval_expression(state, expr)?);
             }
             Ok(Value::List {
-                val: output,
+                val: output.into_value_stream(),
                 span: expr.span,
             })
         }
@@ -279,7 +282,7 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
             }
             Ok(Value::Table {
                 headers: output_headers,
-                val: output_rows,
+                val: output_rows.into_row_stream(),
                 span: expr.span,
             })
         }
