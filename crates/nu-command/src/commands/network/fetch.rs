@@ -79,7 +79,7 @@ fn run_fetch(args: CommandArgs) -> Result<ActionStream, ShellError> {
         })?,
         fetch_helper.has_raw,
         fetch_helper.user.clone(),
-        fetch_helper.password.clone(),
+        fetch_helper.password,
     ))]
     .into_iter()
     .into_action_stream())

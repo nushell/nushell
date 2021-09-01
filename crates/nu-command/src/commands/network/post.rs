@@ -96,7 +96,7 @@ fn run_post(args: CommandArgs) -> Result<ActionStream, ShellError> {
         })?,
         helper.user.clone(),
         helper.password.clone(),
-        &helper.headers.clone(),
+        &helper.headers,
     ))]
     .into_iter()
     .into_action_stream())
@@ -587,7 +587,7 @@ fn extract_header_value(args: &CommandArgs, key: &str) -> Result<Option<String>,
             Some(Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            }) => s.clone(),
+            }) => s,
             Some(Value { tag, .. }) => {
                 return Err(ShellError::labeled_error(
                     format!("{} not in expected format.  Expected string.", key),
