@@ -11,7 +11,7 @@
 - [x] refactor into subcrates
 - [x] subcommand alias
 - [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
-- [ ] parsing tables
+- [x] parsing tables
 - [ ] ...rest without calling it rest
 - [ ] operator overflow
 - [ ] finish operator type-checking
