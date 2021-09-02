@@ -10,6 +10,10 @@ pub fn big_int(s: impl Into<BigInt>) -> Value {
     UntaggedValue::big_int(s).into_untagged_value()
 }
 
+pub fn bytes(s: u64) -> Value {
+    UntaggedValue::filesize(s).into_untagged_value()
+}
+
 pub fn int(s: impl Into<i64>) -> Value {
     UntaggedValue::int(s).into_untagged_value()
 }

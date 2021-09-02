@@ -97,6 +97,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Echo),
             whole_stream_command(Parse),
             whole_stream_command(Str),
+            whole_stream_command(StrToBytes),
             whole_stream_command(StrToDecimal),
             whole_stream_command(StrToInteger),
             whole_stream_command(StrDowncase),

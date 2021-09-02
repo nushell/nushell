@@ -82,6 +82,7 @@ mod tests {
             // whole_stream_command(Get),
             // Str Command Suite
             whole_stream_command(Str),
+            whole_stream_command(StrToBytes),
             whole_stream_command(StrToDecimal),
             whole_stream_command(StrToInteger),
             whole_stream_command(StrDowncase),
