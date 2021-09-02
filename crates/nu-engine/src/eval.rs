@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::state::State;
-use nu_parser::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Span, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
@@ -15,8 +15,8 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
 }
 
 fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
-    let parser_state = state.parser_state.borrow();
-    let decl = parser_state.get_decl(call.decl_id);
+    let engine_state = state.engine_state.borrow();
+    let decl = engine_state.get_decl(call.decl_id);
     if let Some(block_id) = decl.body {
         let state = state.enter_scope();
         for (arg, param) in call.positional.iter().zip(
@@ -32,8 +32,8 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
 
             state.add_var(var_id, result);
         }
-        let parser_state = state.parser_state.borrow();
-        let block = parser_state.get_block(block_id);
+        let engine_state = state.engine_state.borrow();
+        let block = engine_state.get_block(block_id);
         eval_block(&state, block)
     } else if decl.signature.name == "let" {
         let var_id = call.positional[0]
@@ -80,15 +80,15 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         let result = eval_expression(state, cond)?;
         match result {
             Value::Bool { val, span } => {
-                let parser_state = state.parser_state.borrow();
+                let engine_state = state.engine_state.borrow();
                 if val {
-                    let block = parser_state.get_block(then_block);
+                    let block = engine_state.get_block(then_block);
                     let state = state.enter_scope();
                     eval_block(&state, block)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
-                            let block = parser_state.get_block(block_id);
+                            let block = engine_state.get_block(block_id);
                             let state = state.enter_scope();
                             eval_block(&state, block)
                         } else {
@@ -119,8 +119,8 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         let block = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
-        let parser_state = state.parser_state.borrow();
-        let block = parser_state.get_block(block);
+        let engine_state = state.engine_state.borrow();
+        let block = engine_state.get_block(block);
 
         let state = state.enter_scope();
         let start_time = Instant::now();
@@ -143,8 +143,8 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         let block = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
-        let parser_state = state.parser_state.borrow();
-        let block = parser_state.get_block(block);
+        let engine_state = state.engine_state.borrow();
+        let block = engine_state.get_block(block);
 
         let state = state.enter_scope();
 
@@ -168,13 +168,13 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
             span: call.positional[0].span,
         })
     } else if decl.signature.name == "vars" {
-        state.parser_state.borrow().print_vars();
+        state.engine_state.borrow().print_vars();
         Ok(Value::Nothing { span: call.head })
     } else if decl.signature.name == "decls" {
-        state.parser_state.borrow().print_decls();
+        state.engine_state.borrow().print_decls();
         Ok(Value::Nothing { span: call.head })
     } else if decl.signature.name == "blocks" {
-        state.parser_state.borrow().print_blocks();
+        state.engine_state.borrow().print_blocks();
         Ok(Value::Nothing { span: call.head })
     } else if decl.signature.name == "stack" {
         state.print_stack();
@@ -228,8 +228,8 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
         }
 
         Expr::Subexpression(block_id) => {
-            let parser_state = state.parser_state.borrow();
-            let block = parser_state.get_block(*block_id);
+            let engine_state = state.engine_state.borrow();
+            let block = engine_state.get_block(*block_id);
 
             let state = state.enter_scope();
             eval_block(&state, block)

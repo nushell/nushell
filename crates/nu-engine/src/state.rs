@@ -1,10 +1,10 @@
-use nu_parser::ParserState;
+use nu_protocol::EngineState;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use nu_protocol::{ShellError, Value, VarId};
 
 pub struct State {
-    pub parser_state: Rc<RefCell<ParserState>>,
+    pub engine_state: Rc<RefCell<EngineState>>,
     pub stack: Stack,
 }
 
@@ -15,7 +15,7 @@ impl State {
 
     pub fn enter_scope(&self) -> State {
         Self {
-            parser_state: self.parser_state.clone(),
+            engine_state: self.engine_state.clone(),
             stack: self.stack.clone().enter_scope(),
         }
     }

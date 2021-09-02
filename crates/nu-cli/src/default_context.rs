@@ -1,13 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nu_parser::{ParserState, ParserWorkingSet};
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{EngineState, Signature, StateWorkingSet, SyntaxShape};
 
-pub fn create_default_context() -> Rc<RefCell<ParserState>> {
-    let parser_state = Rc::new(RefCell::new(ParserState::new()));
+pub fn create_default_context() -> Rc<RefCell<EngineState>> {
+    let engine_state = Rc::new(RefCell::new(EngineState::new()));
     let delta = {
-        let parser_state = parser_state.borrow();
-        let mut working_set = ParserWorkingSet::new(&*parser_state);
+        let engine_state = engine_state.borrow();
+        let mut working_set = StateWorkingSet::new(&*engine_state);
 
         let sig =
             Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
@@ -109,8 +108,8 @@ pub fn create_default_context() -> Rc<RefCell<ParserState>> {
     };
 
     {
-        ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
+        EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
     }
 
-    parser_state
+    engine_state
 }

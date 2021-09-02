@@ -164,6 +164,7 @@ dependencies = [
  "nu-cli",
  "nu-engine",
  "nu-parser",
+ "nu-protocol",
  "pretty_assertions",
  "reedline",
  "tempfile",
@@ -332,6 +333,9 @@ dependencies = [
 [[package]]
 name = "nu-protocol"
 version = "0.1.0"
+dependencies = [
+ "codespan-reporting",
+]
 
 [[package]]
 name = "num-integer"

@@ -1,13 +1,12 @@
-use crate::parser::Block;
+use crate::{Block, BlockId, Command, DeclId, Span, Type, VarId};
 use core::panic;
-use nu_protocol::{BlockId, DeclId, Declaration, Span, Type, VarId};
-use std::{collections::HashMap, slice::Iter};
+use std::{collections::HashMap, ops::Range, slice::Iter};
 
-pub struct ParserState {
+pub struct EngineState {
     files: Vec<(String, usize, usize)>,
     file_contents: Vec<u8>,
     vars: Vec<Type>,
-    decls: Vec<Declaration>,
+    decls: Vec<Box<dyn Command>>,
     blocks: Vec<Block>,
     scope: Vec<ScopeFrame>,
 }
@@ -29,13 +28,13 @@ impl ScopeFrame {
     }
 }
 
-impl Default for ParserState {
+impl Default for EngineState {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ParserState {
+impl EngineState {
     pub fn new() -> Self {
         Self {
             files: vec![],
@@ -47,7 +46,7 @@ impl ParserState {
         }
     }
 
-    pub fn merge_delta(this: &mut ParserState, mut delta: ParserDelta) {
+    pub fn merge_delta(this: &mut EngineState, mut delta: StateDelta) {
         // Take the mutable reference and extend the permanent state from the working set
         this.files.extend(delta.files);
         this.file_contents.extend(delta.file_contents);
@@ -93,7 +92,7 @@ impl ParserState {
 
     pub fn print_decls(&self) {
         for decl in self.decls.iter().enumerate() {
-            println!("decl{}: {:?}", decl.0, decl.1.signature);
+            println!("decl{}: {:?}", decl.0, decl.1.signature());
         }
     }
 
@@ -119,7 +118,7 @@ impl ParserState {
             .expect("internal error: missing variable")
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> &Declaration {
+    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
@@ -176,21 +175,21 @@ impl ParserState {
     }
 }
 
-pub struct ParserWorkingSet<'a> {
-    permanent_state: &'a ParserState,
-    pub delta: ParserDelta,
+pub struct StateWorkingSet<'a> {
+    pub permanent_state: &'a EngineState,
+    pub delta: StateDelta,
 }
 
-pub struct ParserDelta {
+pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
-    vars: Vec<Type>,         // indexed by VarId
-    decls: Vec<Declaration>, // indexed by DeclId
-    blocks: Vec<Block>,      // indexed by BlockId
+    vars: Vec<Type>,              // indexed by VarId
+    decls: Vec<Box<dyn Command>>, // indexed by DeclId
+    blocks: Vec<Block>,           // indexed by BlockId
     scope: Vec<ScopeFrame>,
 }
 
-impl ParserDelta {
+impl StateDelta {
     pub fn num_files(&self) -> usize {
         self.files.len()
     }
@@ -212,10 +211,10 @@ impl ParserDelta {
     }
 }
 
-impl<'a> ParserWorkingSet<'a> {
-    pub fn new(permanent_state: &'a ParserState) -> Self {
+impl<'a> StateWorkingSet<'a> {
+    pub fn new(permanent_state: &'a EngineState) -> Self {
         Self {
-            delta: ParserDelta {
+            delta: StateDelta {
                 files: vec![],
                 file_contents: vec![],
                 vars: vec![],
@@ -239,8 +238,8 @@ impl<'a> ParserWorkingSet<'a> {
         self.delta.num_blocks() + self.permanent_state.num_blocks()
     }
 
-    pub fn add_decl(&mut self, decl: Declaration) -> DeclId {
-        let name = decl.signature.name.as_bytes().to_vec();
+    pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
+        let name = decl.name().as_bytes().to_vec();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
@@ -346,10 +345,10 @@ impl<'a> ParserWorkingSet<'a> {
         None
     }
 
-    pub fn update_decl(&mut self, decl_id: usize, block: Option<BlockId>) {
-        let decl = self.get_decl_mut(decl_id);
-        decl.body = block;
-    }
+    // pub fn update_decl(&mut self, decl_id: usize, block: Option<BlockId>) {
+    //     let decl = self.get_decl_mut(decl_id);
+    //     decl.body = block;
+    // }
 
     pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
         for scope in self.delta.scope.iter().rev() {
@@ -460,7 +459,7 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
-    pub fn get_decl(&self, decl_id: DeclId) -> &Declaration {
+    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
             self.permanent_state.get_decl(decl_id)
@@ -472,7 +471,7 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
-    pub fn get_decl_mut(&mut self, decl_id: DeclId) -> &mut Declaration {
+    pub fn get_decl_mut(&mut self, decl_id: DeclId) -> &mut Box<dyn Command> {
         let num_permanent_decls = self.permanent_state.num_decls();
         if decl_id < num_permanent_decls {
             panic!("internal error: can only mutate declarations in working set")
@@ -496,30 +495,122 @@ impl<'a> ParserWorkingSet<'a> {
         }
     }
 
-    pub fn render(self) -> ParserDelta {
+    pub fn render(self) -> StateDelta {
         self.delta
     }
 }
 
+impl<'a> codespan_reporting::files::Files<'a> for StateWorkingSet<'a> {
+    type FileId = usize;
+
+    type Name = String;
+
+    type Source = String;
+
+    fn name(&'a self, id: Self::FileId) -> Result<Self::Name, codespan_reporting::files::Error> {
+        Ok(self.get_filename(id))
+    }
+
+    fn source(
+        &'a self,
+        id: Self::FileId,
+    ) -> Result<Self::Source, codespan_reporting::files::Error> {
+        Ok(self.get_file_source(id))
+    }
+
+    fn line_index(
+        &'a self,
+        id: Self::FileId,
+        byte_index: usize,
+    ) -> Result<usize, codespan_reporting::files::Error> {
+        let source = self.get_file_source(id);
+
+        let mut count = 0;
+
+        for byte in source.bytes().enumerate() {
+            if byte.0 == byte_index {
+                // println!("count: {} for file: {} index: {}", count, id, byte_index);
+                return Ok(count);
+            }
+            if byte.1 == b'\n' {
+                count += 1;
+            }
+        }
+
+        // println!("count: {} for file: {} index: {}", count, id, byte_index);
+        Ok(count)
+    }
+
+    fn line_range(
+        &'a self,
+        id: Self::FileId,
+        line_index: usize,
+    ) -> Result<Range<usize>, codespan_reporting::files::Error> {
+        let source = self.get_file_source(id);
+
+        let mut count = 0;
+
+        let mut start = Some(0);
+        let mut end = None;
+
+        for byte in source.bytes().enumerate() {
+            #[allow(clippy::comparison_chain)]
+            if count > line_index {
+                let start = start.expect("internal error: couldn't find line");
+                let end = end.expect("internal error: couldn't find line");
+
+                // println!(
+                //     "Span: {}..{} for fileid: {} index: {}",
+                //     start, end, id, line_index
+                // );
+                return Ok(start..end);
+            } else if count == line_index {
+                end = Some(byte.0 + 1);
+            }
+
+            #[allow(clippy::comparison_chain)]
+            if byte.1 == b'\n' {
+                count += 1;
+                if count > line_index {
+                    break;
+                } else if count == line_index {
+                    start = Some(byte.0 + 1);
+                }
+            }
+        }
+
+        match (start, end) {
+            (Some(start), Some(end)) => {
+                // println!(
+                //     "Span: {}..{} for fileid: {} index: {}",
+                //     start, end, id, line_index
+                // );
+                Ok(start..end)
+            }
+            _ => Err(codespan_reporting::files::Error::FileMissing),
+        }
+    }
+}
+
 #[cfg(test)]
-mod parser_state_tests {
+mod engine_state_tests {
     use super::*;
 
     #[test]
     fn add_file_gives_id() {
-        let parser_state = ParserState::new();
-        let mut parser_state = ParserWorkingSet::new(&parser_state);
-        let id = parser_state.add_file("test.nu".into(), &[]);
+        let engine_state = EngineState::new();
+        let mut engine_state = StateWorkingSet::new(&engine_state);
+        let id = engine_state.add_file("test.nu".into(), &[]);
 
         assert_eq!(id, 0);
     }
 
     #[test]
     fn add_file_gives_id_including_parent() {
-        let mut parser_state = ParserState::new();
-        let parent_id = parser_state.add_file("test.nu".into(), vec![]);
+        let mut engine_state = EngineState::new();
+        let parent_id = engine_state.add_file("test.nu".into(), vec![]);
 
-        let mut working_set = ParserWorkingSet::new(&parser_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
 
         assert_eq!(parent_id, 0);
@@ -528,19 +619,19 @@ mod parser_state_tests {
 
     #[test]
     fn merge_states() {
-        let mut parser_state = ParserState::new();
-        parser_state.add_file("test.nu".into(), vec![]);
+        let mut engine_state = EngineState::new();
+        engine_state.add_file("test.nu".into(), vec![]);
 
         let delta = {
-            let mut working_set = ParserWorkingSet::new(&parser_state);
+            let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_file("child.nu".into(), &[]);
             working_set.render()
         };
 
-        ParserState::merge_delta(&mut parser_state, delta);
+        EngineState::merge_delta(&mut engine_state, delta);
 
-        assert_eq!(parser_state.num_files(), 2);
-        assert_eq!(&parser_state.files[0].0, "test.nu");
-        assert_eq!(&parser_state.files[1].0, "child.nu");
+        assert_eq!(engine_state.num_files(), 2);
+        assert_eq!(&engine_state.files[0].0, "test.nu");
+        assert_eq!(&engine_state.files[1].0, "child.nu");
     }
 }

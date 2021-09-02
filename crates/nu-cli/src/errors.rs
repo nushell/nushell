@@ -2,11 +2,11 @@ use core::ops::Range;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use nu_parser::{ParseError, ParserWorkingSet};
-use nu_protocol::{ShellError, Span};
+use nu_parser::ParseError;
+use nu_protocol::{ShellError, Span, StateWorkingSet};
 
 fn convert_span_to_diag(
-    working_set: &ParserWorkingSet,
+    working_set: &StateWorkingSet,
     span: &Span,
 ) -> Result<(usize, Range<usize>), Box<dyn std::error::Error>> {
     for (file_id, (_, start, end)) in working_set.files().enumerate() {
@@ -22,7 +22,7 @@ fn convert_span_to_diag(
 }
 
 pub fn report_parsing_error(
-    working_set: &ParserWorkingSet,
+    working_set: &StateWorkingSet,
     error: &ParseError,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let writer = StandardStream::stderr(ColorChoice::Always);
@@ -236,7 +236,7 @@ pub fn report_parsing_error(
 }
 
 pub fn report_shell_error(
-    working_set: &ParserWorkingSet,
+    working_set: &StateWorkingSet,
     error: &ShellError,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let writer = StandardStream::stderr(ColorChoice::Always);

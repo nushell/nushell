@@ -1,19 +1,19 @@
 use nu_cli::{create_default_context, report_parsing_error, report_shell_error, NuHighlighter};
 use nu_engine::eval_block;
-use nu_parser::{ParserState, ParserWorkingSet};
+use nu_protocol::{EngineState, StateWorkingSet};
 
 #[cfg(test)]
 mod tests;
 
 fn main() -> std::io::Result<()> {
-    let parser_state = create_default_context();
+    let engine_state = create_default_context();
 
     if let Some(path) = std::env::args().nth(1) {
         let file = std::fs::read(&path)?;
 
         let (block, delta) = {
-            let parser_state = parser_state.borrow();
-            let mut working_set = ParserWorkingSet::new(&*parser_state);
+            let engine_state = engine_state.borrow();
+            let mut working_set = StateWorkingSet::new(&*engine_state);
             let (output, err) = working_set.parse_file(&path, &file, false);
             if let Some(err) = err {
                 let _ = report_parsing_error(&working_set, &err);
@@ -23,10 +23,10 @@ fn main() -> std::io::Result<()> {
             (output, working_set.render())
         };
 
-        ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
+        EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
 
         let state = nu_engine::State {
-            parser_state: parser_state.clone(),
+            engine_state: engine_state.clone(),
             stack: nu_engine::Stack::new(),
         };
 
@@ -35,8 +35,8 @@ fn main() -> std::io::Result<()> {
                 println!("{}", value.into_string());
             }
             Err(err) => {
-                let parser_state = parser_state.borrow();
-                let working_set = ParserWorkingSet::new(&*parser_state);
+                let engine_state = engine_state.borrow();
+                let working_set = StateWorkingSet::new(&*engine_state);
 
                 let _ = report_shell_error(&working_set, &err);
 
@@ -54,7 +54,7 @@ fn main() -> std::io::Result<()> {
                 "history.txt".into(),
             )?))?
             .with_highlighter(Box::new(NuHighlighter {
-                parser_state: parser_state.clone(),
+                engine_state: engine_state.clone(),
             }));
 
         let prompt = DefaultPrompt::new(1);
@@ -71,8 +71,8 @@ fn main() -> std::io::Result<()> {
                     // println!("input: '{}'", s);
 
                     let (block, delta) = {
-                        let parser_state = parser_state.borrow();
-                        let mut working_set = ParserWorkingSet::new(&*parser_state);
+                        let engine_state = engine_state.borrow();
+                        let mut working_set = StateWorkingSet::new(&*engine_state);
                         let (output, err) = working_set.parse_file(
                             &format!("line_{}", current_line),
                             s.as_bytes(),
@@ -85,10 +85,10 @@ fn main() -> std::io::Result<()> {
                         (output, working_set.render())
                     };
 
-                    ParserState::merge_delta(&mut *parser_state.borrow_mut(), delta);
+                    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
 
                     let state = nu_engine::State {
-                        parser_state: parser_state.clone(),
+                        engine_state: engine_state.clone(),
                         stack: stack.clone(),
                     };
 
@@ -97,8 +97,8 @@ fn main() -> std::io::Result<()> {
                             println!("{}", value.into_string());
                         }
                         Err(err) => {
-                            let parser_state = parser_state.borrow();
-                            let working_set = ParserWorkingSet::new(&*parser_state);
+                            let engine_state = engine_state.borrow();
+                            let working_set = StateWorkingSet::new(&*engine_state);
 
                             let _ = report_shell_error(&working_set, &err);
                         }

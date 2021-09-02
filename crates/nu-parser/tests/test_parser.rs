@@ -1,11 +1,11 @@
+use nu_parser::ParseError;
 use nu_parser::*;
-use nu_parser::{ParseError, ParserState};
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{EngineState, Signature, SyntaxShape};
 
 #[test]
 pub fn parse_int() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let (block, err) = working_set.parse_source(b"3", true);
 
@@ -22,8 +22,8 @@ pub fn parse_int() {
 
 #[test]
 pub fn parse_call() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.into());
@@ -46,8 +46,8 @@ pub fn parse_call() {
 
 #[test]
 pub fn parse_call_missing_flag_arg() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.into());
@@ -58,8 +58,8 @@ pub fn parse_call_missing_flag_arg() {
 
 #[test]
 pub fn parse_call_missing_short_flag_arg() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.into());
@@ -70,8 +70,8 @@ pub fn parse_call_missing_short_flag_arg() {
 
 #[test]
 pub fn parse_call_too_many_shortflag_args() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo")
         .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
@@ -86,8 +86,8 @@ pub fn parse_call_too_many_shortflag_args() {
 
 #[test]
 pub fn parse_call_unknown_shorthand() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.into());
@@ -97,8 +97,8 @@ pub fn parse_call_unknown_shorthand() {
 
 #[test]
 pub fn parse_call_extra_positional() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.into());
@@ -108,8 +108,8 @@ pub fn parse_call_extra_positional() {
 
 #[test]
 pub fn parse_call_missing_req_positional() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
     working_set.add_decl(sig.into());
@@ -119,8 +119,8 @@ pub fn parse_call_missing_req_positional() {
 
 #[test]
 pub fn parse_call_missing_req_flag() {
-    let parser_state = ParserState::new();
-    let mut working_set = ParserWorkingSet::new(&parser_state);
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
     working_set.add_decl(sig.into());
