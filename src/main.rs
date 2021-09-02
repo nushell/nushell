@@ -1,6 +1,7 @@
 use nu_cli::{create_default_context, report_parsing_error, report_shell_error, NuHighlighter};
 use nu_engine::eval_block;
-use nu_protocol::{EngineState, StateWorkingSet};
+use nu_parser::parse_file;
+use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
 
 #[cfg(test)]
 mod tests;
@@ -14,7 +15,7 @@ fn main() -> std::io::Result<()> {
         let (block, delta) = {
             let engine_state = engine_state.borrow();
             let mut working_set = StateWorkingSet::new(&*engine_state);
-            let (output, err) = working_set.parse_file(&path, &file, false);
+            let (output, err) = parse_file(&mut working_set, &path, &file, false);
             if let Some(err) = err {
                 let _ = report_parsing_error(&working_set, &err);
 
@@ -25,9 +26,9 @@ fn main() -> std::io::Result<()> {
 
         EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
 
-        let state = nu_engine::State {
+        let state = EvaluationContext {
             engine_state: engine_state.clone(),
-            stack: nu_engine::Stack::new(),
+            stack: nu_protocol::engine::Stack::new(),
         };
 
         match eval_block(&state, &block) {
@@ -59,7 +60,7 @@ fn main() -> std::io::Result<()> {
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
-        let stack = nu_engine::Stack::new();
+        let stack = nu_protocol::engine::Stack::new();
 
         loop {
             let input = line_editor.read_line(&prompt);
@@ -73,7 +74,8 @@ fn main() -> std::io::Result<()> {
                     let (block, delta) = {
                         let engine_state = engine_state.borrow();
                         let mut working_set = StateWorkingSet::new(&*engine_state);
-                        let (output, err) = working_set.parse_file(
+                        let (output, err) = parse_file(
+                            &mut working_set,
                             &format!("line_{}", current_line),
                             s.as_bytes(),
                             false,
@@ -87,7 +89,7 @@ fn main() -> std::io::Result<()> {
 
                     EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
 
-                    let state = nu_engine::State {
+                    let state = nu_protocol::engine::EvaluationContext {
                         engine_state: engine_state.clone(),
                         stack: stack.clone(),
                     };

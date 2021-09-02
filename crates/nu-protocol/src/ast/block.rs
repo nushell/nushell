@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::Statement;
+use super::Statement;
 
 #[derive(Debug, Clone)]
 pub struct Block {

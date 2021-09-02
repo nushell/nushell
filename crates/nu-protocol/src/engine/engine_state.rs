@@ -1,4 +1,5 @@
-use crate::{Block, BlockId, Command, DeclId, Span, Type, VarId};
+use super::Command;
+use crate::{ast::Block, BlockId, DeclId, Span, Type, VarId};
 use core::panic;
 use std::{collections::HashMap, ops::Range, slice::Iter};
 

@@ -1,4 +1,5 @@
-use crate::{DeclId, Expression, Span};
+use super::Expression;
+use crate::{DeclId, Span};
 
 #[derive(Debug, Clone)]
 pub struct Call {

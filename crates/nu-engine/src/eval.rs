@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use crate::state::State;
-use nu_protocol::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Span, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
@@ -14,16 +14,16 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     }
 }
 
-fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
+fn eval_call(state: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let engine_state = state.engine_state.borrow();
     let decl = engine_state.get_decl(call.decl_id);
-    if let Some(block_id) = decl.body {
+    if let Some(block_id) = decl.get_custom_command() {
         let state = state.enter_scope();
         for (arg, param) in call.positional.iter().zip(
-            decl.signature
+            decl.signature()
                 .required_positional
                 .iter()
-                .chain(decl.signature.optional_positional.iter()),
+                .chain(decl.signature().optional_positional.iter()),
         ) {
             let result = eval_expression(&state, arg)?;
             let var_id = param
@@ -35,7 +35,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         let engine_state = state.engine_state.borrow();
         let block = engine_state.get_block(block_id);
         eval_block(&state, block)
-    } else if decl.signature.name == "let" {
+    } else if decl.signature().name == "let" {
         let var_id = call.positional[0]
             .as_var()
             .expect("internal error: missing variable");
@@ -52,7 +52,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         Ok(Value::Nothing {
             span: call.positional[0].span,
         })
-    } else if decl.signature.name == "let-env" {
+    } else if decl.signature().name == "let-env" {
         let env_var = call.positional[0]
             .as_string()
             .expect("internal error: missing variable");
@@ -70,7 +70,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         Ok(Value::Nothing {
             span: call.positional[0].span,
         })
-    } else if decl.signature.name == "if" {
+    } else if decl.signature().name == "if" {
         let cond = &call.positional[0];
         let then_block = call.positional[1]
             .as_block()
@@ -103,7 +103,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
             }
             _ => Err(ShellError::CantConvert("bool".into(), result.span())),
         }
-    } else if decl.signature.name == "build-string" {
+    } else if decl.signature().name == "build-string" {
         let mut output = vec![];
 
         for expr in &call.positional {
@@ -115,7 +115,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
             val: output.join(""),
             span: call.head,
         })
-    } else if decl.signature.name == "benchmark" {
+    } else if decl.signature().name == "benchmark" {
         let block = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
@@ -130,7 +130,7 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         Ok(Value::Nothing {
             span: call.positional[0].span,
         })
-    } else if decl.signature.name == "for" {
+    } else if decl.signature().name == "for" {
         let var_id = call.positional[0]
             .as_var()
             .expect("internal error: missing variable");
@@ -167,26 +167,26 @@ fn eval_call(state: &State, call: &Call) -> Result<Value, ShellError> {
         Ok(Value::Nothing {
             span: call.positional[0].span,
         })
-    } else if decl.signature.name == "vars" {
+    } else if decl.signature().name == "vars" {
         state.engine_state.borrow().print_vars();
         Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "decls" {
+    } else if decl.signature().name == "decls" {
         state.engine_state.borrow().print_decls();
         Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "blocks" {
+    } else if decl.signature().name == "blocks" {
         state.engine_state.borrow().print_blocks();
         Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "stack" {
+    } else if decl.signature().name == "stack" {
         state.print_stack();
         Ok(Value::Nothing { span: call.head })
-    } else if decl.signature.name == "def" || decl.signature.name == "alias" {
+    } else if decl.signature().name == "def" || decl.signature().name == "alias" {
         Ok(Value::Nothing { span: call.head })
     } else {
         Err(ShellError::Unsupported(call.head))
     }
 }
 
-pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellError> {
+pub fn eval_expression(state: &EvaluationContext, expr: &Expression) -> Result<Value, ShellError> {
     match &expr.expr {
         Expr::Bool(b) => Ok(Value::Bool {
             val: *b,
@@ -278,7 +278,7 @@ pub fn eval_expression(state: &State, expr: &Expression) -> Result<Value, ShellE
     }
 }
 
-pub fn eval_block(state: &State, block: &Block) -> Result<Value, ShellError> {
+pub fn eval_block(state: &EvaluationContext, block: &Block) -> Result<Value, ShellError> {
     let mut last = Ok(Value::Nothing {
         span: Span { start: 0, end: 0 },
     });

@@ -1,5 +1,5 @@
-use nu_protocol::Span;
-use nu_protocol::{Block, Expr, Expression, Pipeline, StateWorkingSet, Statement};
+use nu_protocol::ast::{Block, Expr, Expression, Pipeline, Statement};
+use nu_protocol::{engine::StateWorkingSet, Span};
 
 #[derive(Debug)]
 pub enum FlatShape {

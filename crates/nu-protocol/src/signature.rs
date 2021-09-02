@@ -1,5 +1,5 @@
+use crate::engine::Command;
 use crate::BlockId;
-use crate::Command;
 use crate::SyntaxShape;
 use crate::VarId;
 
@@ -314,6 +314,10 @@ impl Command for Predeclaration {
     fn usage(&self) -> &str {
         &self.signature.usage
     }
+
+    fn run(&self, _args: crate::engine::CommandArgs) -> Result<crate::Value, crate::ShellError> {
+        panic!("Internal error: can't run a predeclaration without a body")
+    }
 }
 
 struct BlockCommand {
@@ -332,5 +336,13 @@ impl Command for BlockCommand {
 
     fn usage(&self) -> &str {
         &self.signature.usage
+    }
+
+    fn run(&self, _args: crate::engine::CommandArgs) -> Result<crate::Value, crate::ShellError> {
+        panic!("Internal error: can't run custom command with 'run', use block_id");
+    }
+
+    fn get_custom_command(&self) -> Option<BlockId> {
+        Some(self.block_id)
     }
 }

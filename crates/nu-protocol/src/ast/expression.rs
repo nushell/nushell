@@ -1,4 +1,5 @@
-use crate::{BlockId, Expr, Operator, Signature, Span, Type, VarId};
+use super::{Expr, Operator};
+use crate::{BlockId, Signature, Span, Type, VarId};
 
 #[derive(Debug, Clone)]
 pub struct Expression {

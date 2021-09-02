@@ -1,4 +1,5 @@
-use crate::{BlockId, Call, Expression, Operator, Signature, Span, VarId};
+use super::{Call, Expression, Operator};
+use crate::{BlockId, Signature, Span, VarId};
 
 #[derive(Debug, Clone)]
 pub enum Expr {

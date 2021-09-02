@@ -1,5 +1,9 @@
 use crate::ParseError;
-use nu_protocol::{Expr, Expression, Operator, StateWorkingSet, Type};
+use nu_protocol::{
+    ast::{Expr, Expression, Operator},
+    engine::StateWorkingSet,
+    Type,
+};
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     match (lhs, rhs) {

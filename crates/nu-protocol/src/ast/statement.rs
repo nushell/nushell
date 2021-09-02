@@ -1,4 +1,5 @@
-use crate::{DeclId, Expression, Pipeline};
+use super::{Expression, Pipeline};
+use crate::DeclId;
 
 #[derive(Debug, Clone)]
 pub enum Statement {

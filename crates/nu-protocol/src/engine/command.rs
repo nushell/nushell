@@ -1,4 +1,6 @@
-use crate::{Example, Signature};
+use crate::{BlockId, Example, ShellError, Signature, Value};
+
+use super::CommandArgs;
 
 pub trait Command {
     fn name(&self) -> &str;
@@ -12,6 +14,8 @@ pub trait Command {
     fn extra_usage(&self) -> &str {
         ""
     }
+
+    fn run(&self, args: CommandArgs) -> Result<Value, ShellError>;
 
     // fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
     //     let context = args.context.clone();
@@ -53,8 +57,8 @@ pub trait Command {
         false
     }
 
-    // Is a custom command i.e. def blah [] { }
-    fn is_custom(&self) -> bool {
-        false
+    // If command is a custom command i.e. def blah [] { }, get the block id
+    fn get_custom_command(&self) -> Option<BlockId> {
+        None
     }
 }

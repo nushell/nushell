@@ -5,8 +5,9 @@ use crate::{
 };
 
 use nu_protocol::{
-    span, Block, BlockId, Call, DeclId, Expr, Expression, Flag, Operator, Pipeline, PositionalArg,
-    Signature, Span, StateWorkingSet, Statement, SyntaxShape, Type, VarId,
+    ast::{Block, Call, Expr, Expression, Operator, Pipeline, Statement},
+    engine::StateWorkingSet,
+    span, BlockId, DeclId, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
 };
 
 #[derive(Debug, Clone)]

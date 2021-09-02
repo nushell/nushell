@@ -1,6 +1,6 @@
 use nu_ansi_term::Style;
-use nu_parser::FlatShape;
-use nu_protocol::{EngineState, StateWorkingSet};
+use nu_parser::{flatten_block, parse_source, FlatShape};
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 use reedline::{Highlighter, StyledText};
 use std::{cell::RefCell, rc::Rc};
 
@@ -13,9 +13,9 @@ impl Highlighter for NuHighlighter {
         let (shapes, global_span_offset) = {
             let engine_state = self.engine_state.borrow();
             let mut working_set = StateWorkingSet::new(&*engine_state);
-            let (block, _) = working_set.parse_source(line.as_bytes(), false);
+            let (block, _) = parse_source(&mut working_set, line.as_bytes(), false);
 
-            let shapes = working_set.flatten_block(&block);
+            let shapes = flatten_block(&working_set, &block);
             (shapes, engine_state.next_span_start())
         };
 

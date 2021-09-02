@@ -1,4 +1,4 @@
-use crate::Expression;
+use crate::ast::Expression;
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {

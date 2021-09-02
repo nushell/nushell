@@ -1,19 +1,19 @@
-use nu_protocol::EngineState;
+use super::EngineState;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use nu_protocol::{ShellError, Value, VarId};
+use crate::{ShellError, Value, VarId};
 
-pub struct State {
+pub struct EvaluationContext {
     pub engine_state: Rc<RefCell<EngineState>>,
     pub stack: Stack,
 }
 
-impl State {
+impl EvaluationContext {
     pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
         self.stack.get_var(var_id)
     }
 
-    pub fn enter_scope(&self) -> State {
+    pub fn enter_scope(&self) -> EvaluationContext {
         Self {
             engine_state: self.engine_state.clone(),
             stack: self.stack.clone().enter_scope(),

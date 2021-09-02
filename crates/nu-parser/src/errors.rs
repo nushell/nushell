@@ -1,4 +1,4 @@
-use nu_protocol::{Span, StateWorkingSet, Type};
+use nu_protocol::{engine::StateWorkingSet, Span, Type};
 use std::ops::Range;
 
 #[derive(Debug)]
