@@ -6,6 +6,7 @@ edition = "2018"
 [dependencies]
 nu-engine = { path = "../nu-engine" }
 nu-parser = { path = "../nu-parser" }
+nu-protocol = { path = "../nu-protocol" }
 codespan-reporting = "0.11.1"
 nu-ansi-term = "0.32.0"
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }

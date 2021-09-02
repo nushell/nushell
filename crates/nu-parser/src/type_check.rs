@@ -1,4 +1,5 @@
-use crate::{parser::Operator, parser_state::Type, Expr, Expression, ParseError, ParserWorkingSet};
+use crate::{parser::Operator, Expr, Expression, ParseError, ParserWorkingSet};
+use nu_protocol::Type;
 
 impl<'a> ParserWorkingSet<'a> {
     pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {

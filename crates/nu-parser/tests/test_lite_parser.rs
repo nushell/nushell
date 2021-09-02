@@ -1,4 +1,5 @@
-use nu_parser::{lex, lite_parse, LiteBlock, ParseError, Span};
+use nu_parser::{lex, lite_parse, LiteBlock, ParseError};
+use nu_protocol::Span;
 
 fn lite_parse_helper(input: &[u8]) -> Result<LiteBlock, ParseError> {
     let (output, err) = lex(input, 0, &[], &[]);

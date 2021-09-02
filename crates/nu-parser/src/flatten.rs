@@ -1,4 +1,5 @@
-use crate::{Block, Expr, Expression, ParserWorkingSet, Pipeline, Span, Statement};
+use crate::{Block, Expr, Expression, ParserWorkingSet, Pipeline, Statement};
+use nu_protocol::Span;
 
 #[derive(Debug)]
 pub enum FlatShape {

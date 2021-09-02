@@ -1,6 +1,6 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
-use nu_parser::{BlockId, Span, Type};
+use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
 
@@ -194,7 +194,7 @@ impl Value {
             Value::List { val, .. } => val.into_string(),
             Value::Table { headers, val, .. } => val.into_string(headers),
             Value::Block { val, .. } => format!("<Block {}>", val),
-            Value::Nothing { .. } => format!("<Nothing>"),
+            Value::Nothing { .. } => String::new(),
         }
     }
 }
@@ -214,7 +214,7 @@ impl PartialEq for Value {
 
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -248,7 +248,7 @@ impl Value {
         }
     }
     pub fn sub(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -278,7 +278,7 @@ impl Value {
         }
     }
     pub fn mul(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -308,7 +308,7 @@ impl Value {
         }
     }
     pub fn div(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -362,7 +362,7 @@ impl Value {
         }
     }
     pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
@@ -391,7 +391,7 @@ impl Value {
         }
     }
     pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
@@ -420,7 +420,7 @@ impl Value {
         }
     }
     pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
@@ -449,7 +449,7 @@ impl Value {
         }
     }
     pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
@@ -478,7 +478,7 @@ impl Value {
         }
     }
     pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
@@ -514,7 +514,7 @@ impl Value {
         }
     }
     pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = nu_parser::span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span(), rhs.span()]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {

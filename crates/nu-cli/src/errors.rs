@@ -2,8 +2,8 @@ use core::ops::Range;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use nu_engine::ShellError;
-use nu_parser::{ParseError, ParserWorkingSet, Span};
+use nu_parser::{ParseError, ParserWorkingSet};
+use nu_protocol::{ShellError, Span};
 
 fn convert_span_to_diag(
     working_set: &ParserWorkingSet,

@@ -1,4 +1,5 @@
-use crate::{parser::SyntaxShape, Declaration, VarId};
+use crate::VarId;
+use crate::{Declaration, SyntaxShape};
 
 #[derive(Debug, Clone)]
 pub struct Flag {

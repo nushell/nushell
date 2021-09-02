@@ -1,26 +1,8 @@
 use std::time::Instant;
 
-use crate::{
-    state::State,
-    value::{IntoRowStream, IntoValueStream, Value},
-};
-use nu_parser::{Block, Call, Expr, Expression, Operator, Span, Statement, Type};
-
-#[derive(Debug)]
-pub enum ShellError {
-    OperatorMismatch {
-        op_span: Span,
-        lhs_ty: Type,
-        lhs_span: Span,
-        rhs_ty: Type,
-        rhs_span: Span,
-    },
-    Unsupported(Span),
-    InternalError(String),
-    VariableNotFound(Span),
-    CantConvert(String, Span),
-    DivisionByZero(Span),
-}
+use crate::state::State;
+use nu_parser::{Block, Call, Expr, Expression, Operator, Statement};
+use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Span, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {

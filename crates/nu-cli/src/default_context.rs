@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nu_parser::{ParserState, ParserWorkingSet, Signature, SyntaxShape};
+use nu_parser::{ParserState, ParserWorkingSet};
+use nu_protocol::{Signature, SyntaxShape};
 
 pub fn create_default_context() -> Rc<RefCell<ParserState>> {
     let parser_state = Rc::new(RefCell::new(ParserState::new()));

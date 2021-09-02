@@ -1,5 +1,6 @@
 use nu_parser::*;
-use nu_parser::{ParseError, ParserState, Signature};
+use nu_parser::{ParseError, ParserState};
+use nu_protocol::{Signature, SyntaxShape};
 
 #[test]
 pub fn parse_int() {

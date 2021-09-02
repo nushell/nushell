@@ -1,8 +1,6 @@
-use crate::parser_state::Type;
 use crate::ParserWorkingSet;
+use nu_protocol::{Span, Type};
 use std::ops::Range;
-
-pub use crate::Span;
 
 #[derive(Debug)]
 pub enum ParseError {

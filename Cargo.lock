@@ -292,14 +292,20 @@ dependencies = [
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
+ "nu-protocol",
  "reedline",
 ]
+
+[[package]]
+name = "nu-command"
+version = "0.1.0"
 
 [[package]]
 name = "nu-engine"
 version = "0.1.0"
 dependencies = [
  "nu-parser",
+ "nu-protocol",
 ]
 
 [[package]]
@@ -320,7 +326,12 @@ name = "nu-parser"
 version = "0.1.0"
 dependencies = [
  "codespan-reporting",
+ "nu-protocol",
 ]
+
+[[package]]
+name = "nu-protocol"
+version = "0.1.0"
 
 [[package]]
 name = "num-integer"

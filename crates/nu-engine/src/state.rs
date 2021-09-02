@@ -1,7 +1,7 @@
-use nu_parser::{ParserState, VarId};
+use nu_parser::ParserState;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{value::Value, ShellError};
+use nu_protocol::{ShellError, Value, VarId};
 
 pub struct State {
     pub parser_state: Rc<RefCell<ParserState>>,
