@@ -23,7 +23,7 @@ pub struct RangeType {
     to: (Type, RangeInclusion),
 }
 
-/// Representation of for the type of a value in Nu
+/// Representation for the type of a value in Nu
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Type {
     /// A value which has no value
@@ -189,8 +189,8 @@ impl Type {
     /// Convert a value into its corresponding Type
     pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> Type {
         match value.into() {
-            UntaggedValue::Primitive(p) => Type::from_primitive(p),
-            UntaggedValue::Row(row) => Type::from_dictionary(row),
+            UntaggedValue::Primitive(p) => Type::from_primitive(&p),
+            UntaggedValue::Row(row) => Type::from_dictionary(&row),
             UntaggedValue::Table(table) => Type::from_table(table.iter()),
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,

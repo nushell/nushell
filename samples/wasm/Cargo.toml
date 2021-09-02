@@ -5,6 +5,7 @@ name = "wasm"
 version = "0.1.0"
 
 [lib]
+path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [features]

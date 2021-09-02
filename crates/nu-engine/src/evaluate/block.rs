@@ -10,6 +10,7 @@ use nu_protocol::hir::{
 use nu_protocol::{UntaggedValue, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{InputStream, OutputStream};
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 
 pub fn run_block(
@@ -18,7 +19,7 @@ pub fn run_block(
     mut input: InputStream,
     external_redirection: ExternalRedirection,
 ) -> Result<OutputStream, ShellError> {
-    let mut output: Result<InputStream, ShellError> = Ok(OutputStream::empty());
+    let mut output: Result<InputStream, ShellError> = Ok(Value::empty());
     for (_, definition) in block.definitions.iter() {
         ctx.scope.add_definition(definition.clone());
     }
@@ -50,31 +51,32 @@ pub fn run_block(
                                 return Err(e);
                             }
                         };
-                        match output_stream.next() {
-                            Some(Value {
-                                value: UntaggedValue::Error(e),
-                                ..
-                            }) => {
-                                return Err(e);
-                            }
-                            Some(_item) => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                                if ctx.ctrl_c().load(Ordering::SeqCst) {
-                                    return Ok(InputStream::empty());
-                                }
-                            }
-                            None => {
-                                if let Some(err) = ctx.get_errors().get(0) {
-                                    ctx.clear_errors();
-                                    return Err(err.clone());
-                                }
-                            }
-                        }
+                        // match output_stream.next() {
+                        //     Some(Value {
+                        //         value: UntaggedValue::Error(e),
+                        //         ..
+                        //     }) => {
+                        //         return Err(e);
+                        //     }
+                        //     Some(_item) => {
+                        //         if let Some(err) = ctx.get_errors().get(0) {
+                        //             ctx.clear_errors();
+                        //             return Err(err.clone());
+                        //         }
+                        //         if ctx.ctrl_c().load(Ordering::SeqCst) {
+                        //             return Ok(InputStream::empty());
+                        //         }
+                        //     }
+                        //     None => {
+                        //         if let Some(err) = ctx.get_errors().get(0) {
+                        //             ctx.clear_errors();
+                        //             return Err(err.clone());
+                        //         }
+                        //     }
+                        // }
                     } else {
-                        let _: Vec<_> = inp.collect();
+                        // No autoview command found
+                        // let _: Vec<_> = inp.collect();
                     }
                 }
                 Err(e) => {
@@ -86,14 +88,15 @@ pub fn run_block(
             match output {
                 Ok(inp) if inp.is_empty() => {}
                 Ok(mut output_stream) => {
-                    match output_stream.next() {
-                        Some(Value {
+                    match output_stream {
+                        // Output stream passed an error
+                        Value {
                             value: UntaggedValue::Error(e),
                             ..
-                        }) => {
+                        } => {
                             return Err(e);
                         }
-                        Some(_item) => {
+                        _item => {
                             if let Some(err) = ctx.get_errors().get(0) {
                                 ctx.clear_errors();
                                 return Err(err.clone());
@@ -107,12 +110,12 @@ pub fn run_block(
                                 return Ok(InputStream::empty());
                             }
                         }
-                        None => {
-                            if let Some(err) = ctx.get_errors().get(0) {
-                                ctx.clear_errors();
-                                return Err(err.clone());
-                            }
-                        }
+                        // None => {
+                        //     if let Some(err) = ctx.get_errors().get(0) {
+                        //         ctx.clear_errors();
+                        //         return Err(err.clone());
+                        //     }
+                        // }
                     }
                 }
                 Err(e) => {
@@ -147,22 +150,22 @@ fn run_pipeline(
                 let mut args = vec![];
                 if let Some(positional) = &call.positional {
                     for pos in positional {
-                        let result = run_expression_block(pos, ctx)?.into_vec();
+                        let result = run_expression_block(pos, ctx)?;
                         args.push(result);
                     }
                 }
 
-                let block = run_expression_block(&call.head, ctx)?.into_vec();
+                let block = run_expression_block(&call.head, ctx)?;
 
-                if block.len() != 1 {
-                    return Err(ShellError::labeled_error(
-                        "Dynamic commands must start with a block",
-                        "needs to be a block",
-                        call.head.span,
-                    ));
-                }
+                // if block.len() != 1 {
+                //     return Err(ShellError::labeled_error(
+                //         "Dynamic commands must start with a block",
+                //         "needs to be a block",
+                //         call.head.span,
+                //     ));
+                // }
 
-                match &block[0].value {
+                match &block.value {
                     UntaggedValue::Block(captured_block) => {
                         ctx.scope.enter_scope();
                         ctx.scope.add_vars(&captured_block.captured.entries);
@@ -173,7 +176,7 @@ fn run_pipeline(
                             .iter()
                             .zip(args.iter())
                         {
-                            ctx.scope.add_var(param.0.name(), value[0].clone());
+                            ctx.scope.add_var(param.0.name(), value.clone());
                         }
 
                         let result =

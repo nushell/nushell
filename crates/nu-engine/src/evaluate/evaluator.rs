@@ -305,24 +305,24 @@ fn evaluate_subexpression(
 ) -> Result<Value, ShellError> {
     // FIXME: we should use a real context here
     let input = match ctx.scope.get_var("$it") {
-        Some(it) => InputStream::one(it),
+        Some(it) => it,
         None => InputStream::empty(),
     };
 
     let result = run_block(block, ctx, input, hir::ExternalRedirection::Stdout)?;
 
-    let output = result.into_vec();
+    let output = result;
 
     if let Some(e) = ctx.get_errors().get(0) {
         return Err(e.clone());
     }
-
-    match output.len() {
-        x if x > 1 => {
-            let tag = output[0].tag.clone();
-            Ok(UntaggedValue::Table(output).into_value(tag))
-        }
-        1 => Ok(output[0].clone()),
-        _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
-    }
+    Ok(output)
+    // match output.len() {
+    //     x if x > 1 => {
+    //         let tag = output[0].tag.clone();
+    //         Ok(UntaggedValue::Table(output).into_value(tag))
+    //     }
+    //     1 => Ok(output.clone()),
+    //     _ => Ok(UntaggedValue::nothing().into_value(Tag::unknown())),
+    // }
 }

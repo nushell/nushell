@@ -108,6 +108,7 @@ fn is_empty(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     Ok(input
         .map(move |input| {
+            println!("VALUE: {:?}\n", input.value);
             let columns = columns.clone();
 
             match process_row(&context, input, &block, columns) {

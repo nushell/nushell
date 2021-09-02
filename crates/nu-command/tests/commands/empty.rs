@@ -1,6 +1,43 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
+fn emptiness_for_nothing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            $nothing | empty?
+        "#
+    ));
+
+    assert_eq!(actual.out, "false");
+}
+
+
+#[test]
+fn emptiness_for_non_table() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            echo true | empty?
+        "#
+    ));
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn emptiness_for_list() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+            [] | empty?
+        "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn reports_emptiness() {
     let actual = nu!(
         cwd: ".", pipeline(

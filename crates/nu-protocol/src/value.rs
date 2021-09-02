@@ -309,6 +309,15 @@ impl std::ops::Deref for Value {
 }
 
 impl Value {
+    /// Helper to create an empty Value
+    pub fn empty() -> Self {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Nothing),
+            tag: Tag::unknown(),
+        }
+    }
+
+
     /// Helper to create a Value
     pub fn new(untagged_value: UntaggedValue, the_tag: Tag) -> Self {
         Value {

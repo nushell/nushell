@@ -33,33 +33,42 @@ pub(crate) fn run_internal_command(
         command.args.clone(), // FIXME: this is inefficient
         objects,
     )?;
-    Ok(InputStream::from_stream(InternalIteratorSimple {
-        context: context.clone(),
-        input: result,
-    }))
+    Ok(result)
+    // match result {
+    //     Value {
+    //         value: UntaggedValue::Error(err),
+    //         ..
+    //     } => {
+
+    //     }
+    // }
+    // Ok(InputStream::from_stream(InternalIteratorSimple {
+    //     context: context.clone(),
+    //     input: result,
+    // }))
 }
 
-struct InternalIteratorSimple {
+struct InternalInputSimple {
     context: EvaluationContext,
     input: InputStream,
 }
 
-impl Iterator for InternalIteratorSimple {
-    type Item = Value;
+// impl Iterator for InternalIteratorSimple {
+//     type Item = Value;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.input.next() {
-            Some(Value {
-                value: UntaggedValue::Error(err),
-                ..
-            }) => {
-                self.context.error(err);
-                None
-            }
-            x => x,
-        }
-    }
-}
+//     fn next(&mut self) -> Option<Self::Item> {
+//         match self.input.next() {
+//             Some(Value {
+//                 value: UntaggedValue::Error(err),
+//                 ..
+//             }) => {
+//                 self.context.error(err);
+//                 None
+//             }
+//             x => x,
+//         }
+//     }
+// }
 
 pub struct InternalIterator {
     pub context: EvaluationContext,

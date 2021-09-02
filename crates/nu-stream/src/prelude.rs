@@ -42,27 +42,27 @@ pub trait IntoOutputStream {
     fn into_output_stream(self) -> OutputStream;
 }
 
-impl<T> IntoOutputStream for T
-where
-    T: Iterator<Item = Value> + Send + Sync + 'static,
-{
-    fn into_output_stream(self) -> OutputStream {
-        OutputStream::from_stream(self)
-    }
-}
+// impl<T> IntoOutputStream for T
+// where
+//     T: Iterator<Item = Value> + Send + Sync + 'static,
+// {
+//     fn into_output_stream(self) -> OutputStream {
+//         OutputStream::from_stream(self)
+//     }
+// }
 
-pub trait IntoActionStream {
-    fn into_action_stream(self) -> ActionStream;
-}
+// pub trait IntoActionStream {
+//     fn into_action_stream(self) -> ActionStream;
+// }
 
-impl<T, U> IntoActionStream for T
-where
-    T: Iterator<Item = U> + Send + Sync + 'static,
-    U: Into<nu_protocol::ReturnValue>,
-{
-    fn into_action_stream(self) -> ActionStream {
-        ActionStream {
-            values: Box::new(self.map(|item| item.into())),
-        }
-    }
-}
+// impl<T, U> IntoActionStream for T
+// where
+//     T: Iterator<Item = U> + Send + Sync + 'static,
+//     U: Into<nu_protocol::ReturnValue>,
+// {
+//     fn into_action_stream(self) -> ActionStream {
+//         ActionStream {
+//             values: Box::new(self.map(|item| item.into())),
+//         }
+//     }
+// }

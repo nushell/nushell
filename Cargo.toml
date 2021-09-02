@@ -72,18 +72,18 @@ uuid-support = ["nu-command/uuid_crate"]
 which-support = ["nu-command/which", "nu-engine/which"]
 
 default = [
-    "nu-cli/shadow-rs",
-    "sys",
-    "ps",
-    "ctrlc-support",
-    "which-support",
-    "term-support",
-    "rustyline-support",
-    "match",
-    "post",
-    "fetch",
-    "zip-support",
-    "dataframe",
+    # "nu-cli/shadow-rs",
+    # "sys",
+    # "ps",
+    # "ctrlc-support",
+    # "which-support",
+    # "term-support",
+    # "rustyline-support",
+    # "match",
+    # "post",
+    # "fetch",
+    # "zip-support",
+    # "dataframe",
 ]
 
 stable = ["default"]
