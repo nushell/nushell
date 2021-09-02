@@ -37,6 +37,33 @@ fn into_filesize_str() {
 }
 
 #[test]
+fn into_filesize_str_newline() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        '2000
+' | into filesize
+        "#
+    ));
+
+    assert!(actual.out.contains("2.0 KB"));
+}
+
+#[test]
+fn into_filesize_str_many_newlines() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        '2000
+
+' | into filesize
+        "#
+    ));
+
+    assert!(actual.out.contains("2.0 KB"));
+}
+
+#[test]
 fn into_filesize_filesize() {
     let actual = nu!(
         cwd: ".", pipeline(

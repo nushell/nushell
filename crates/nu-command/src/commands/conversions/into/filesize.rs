@@ -104,7 +104,7 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
     match &input.value {
         UntaggedValue::Primitive(prim) => Ok(UntaggedValue::filesize(match prim {
-            Primitive::String(a_string) => match int_from_string(a_string, &tag) {
+            Primitive::String(a_string) => match int_from_string(a_string.trim(), &tag) {
                 Ok(n) => n,
                 Err(e) => {
                     return Err(e);
