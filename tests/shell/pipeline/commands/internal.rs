@@ -79,6 +79,7 @@ fn tags_dont_persist_through_column_path() {
             cd temp;
             let x = (open ../nu_times.csv).name;
             $x | tags | get anchor | autoview;
+            cd ..;
             rmdir temp
             "#
         ));
@@ -105,7 +106,8 @@ fn tags_persist_through_vars() {
             mkdir temp;
             cd temp;
             let x = (open ../nu_times.csv);
-            $x | tags | get anchor | autoview;
+            $x | tags | get anchor.file | autoview;
+            cd ..;
             rmdir temp
             "#
         ));

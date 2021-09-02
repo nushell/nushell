@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
+use nu_protocol::{Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct Tags;
 
@@ -26,29 +26,47 @@ impl WholeStreamCommand for Tags {
 fn tags(args: CommandArgs) -> ActionStream {
     args.input
         .map(move |v| {
-            let mut tags = TaggedDictBuilder::new(v.tag());
-            {
-                let anchor = v.anchor();
-                let span = v.tag.span;
-                let mut dict = TaggedDictBuilder::new(v.tag());
-                dict.insert_untagged("start", UntaggedValue::int(span.start() as i64));
-                dict.insert_untagged("end", UntaggedValue::int(span.end() as i64));
-                tags.insert_value("span", dict.into_value());
-
-                match anchor {
-                    Some(AnchorLocation::File(source)) => {
-                        tags.insert_untagged("anchor", UntaggedValue::string(source));
-                    }
-                    Some(AnchorLocation::Url(source)) => {
-                        tags.insert_untagged("anchor", UntaggedValue::string(source));
-                    }
-                    _ => {}
+            TaggedDictBuilder::build(v.tag(), |tags| {
+                if let Some(anchor) = anchor_as_value(&v) {
+                    tags.insert_value("anchor", anchor);
                 }
-            }
 
-            tags.into_value()
+                tags.insert_value(
+                    "span",
+                    TaggedDictBuilder::build(v.tag(), |span_dict| {
+                        let span = v.tag().span;
+                        span_dict.insert_untagged("start", UntaggedValue::int(span.start() as i64));
+                        span_dict.insert_untagged("end", UntaggedValue::int(span.end() as i64));
+                    }),
+                );
+            })
         })
         .into_action_stream()
+}
+
+fn anchor_as_value(value: &Value) -> Option<Value> {
+    let tag = value.tag();
+    let anchor = tag.anchor;
+
+    anchor.as_ref()?;
+
+    Some(TaggedDictBuilder::build(value.tag(), |table| {
+        let value = match anchor {
+            Some(AnchorLocation::File(path)) => Some(("file", UntaggedValue::from(path))),
+            Some(AnchorLocation::Url(destination)) => {
+                Some(("url", UntaggedValue::from(destination)))
+            }
+            Some(AnchorLocation::Source(text)) => Some((
+                "source",
+                UntaggedValue::Primitive(Primitive::String(text.to_string())),
+            )),
+            None => None,
+        };
+
+        if let Some((key, value)) = value {
+            table.insert_untagged(key, value);
+        }
+    }))
 }
 
 #[cfg(test)]
