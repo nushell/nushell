@@ -1,4 +1,5 @@
-use nu_cli::{create_default_context, report_parsing_error, report_shell_error, NuHighlighter};
+use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
+use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse_file;
 use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
@@ -68,8 +69,19 @@ fn main() -> std::io::Result<()> {
                 Ok(Signal::Success(s)) => {
                     if s.trim() == "exit" {
                         break;
+                    } else if s.trim() == "vars" {
+                        engine_state.borrow().print_vars();
+                        continue;
+                    } else if s.trim() == "decls" {
+                        engine_state.borrow().print_decls();
+                        continue;
+                    } else if s.trim() == "blocks" {
+                        engine_state.borrow().print_blocks();
+                        continue;
+                    } else if s.trim() == "stack" {
+                        stack.print_stack();
+                        continue;
                     }
-                    // println!("input: '{}'", s);
 
                     let (block, delta) = {
                         let engine_state = engine_state.borrow();

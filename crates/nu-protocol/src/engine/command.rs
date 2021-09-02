@@ -1,6 +1,6 @@
-use crate::{BlockId, Example, ShellError, Signature, Value};
+use crate::{ast::Call, BlockId, Example, ShellError, Signature, Value};
 
-use super::CommandArgs;
+use super::EvaluationContext;
 
 pub trait Command {
     fn name(&self) -> &str;
@@ -15,19 +15,12 @@ pub trait Command {
         ""
     }
 
-    fn run(&self, args: CommandArgs) -> Result<Value, ShellError>;
-
-    // fn run(&self, args: CommandArgs) -> Result<InputStream, ShellError> {
-    //     let context = args.context.clone();
-    //     let stream = self.run_with_actions(args)?;
-
-    //     Ok(Box::new(crate::evaluate::internal::InternalIterator {
-    //         context,
-    //         input: stream,
-    //         leftovers: InputStream::empty(),
-    //     })
-    //     .into_output_stream())
-    // }
+    fn run(
+        &self,
+        context: &EvaluationContext,
+        call: &Call,
+        input: Value,
+    ) -> Result<Value, ShellError>;
 
     fn is_binary(&self) -> bool {
         false

@@ -1,6 +1,9 @@
+use crate::ast::Call;
 use crate::engine::Command;
+use crate::engine::EvaluationContext;
 use crate::BlockId;
 use crate::SyntaxShape;
+use crate::Value;
 use crate::VarId;
 
 #[derive(Debug, Clone)]
@@ -315,7 +318,12 @@ impl Command for Predeclaration {
         &self.signature.usage
     }
 
-    fn run(&self, _args: crate::engine::CommandArgs) -> Result<crate::Value, crate::ShellError> {
+    fn run(
+        &self,
+        _context: &EvaluationContext,
+        _call: &Call,
+        _input: Value,
+    ) -> Result<crate::Value, crate::ShellError> {
         panic!("Internal error: can't run a predeclaration without a body")
     }
 }
@@ -338,7 +346,12 @@ impl Command for BlockCommand {
         &self.signature.usage
     }
 
-    fn run(&self, _args: crate::engine::CommandArgs) -> Result<crate::Value, crate::ShellError> {
+    fn run(
+        &self,
+        _context: &EvaluationContext,
+        _call: &Call,
+        _input: Value,
+    ) -> Result<crate::Value, crate::ShellError> {
         panic!("Internal error: can't run custom command with 'run', use block_id");
     }
 

@@ -1,5 +1,4 @@
-use nu_protocol::{engine::StateWorkingSet, Span, Type};
-use std::ops::Range;
+use nu_protocol::{Span, Type};
 
 #[derive(Debug)]
 pub enum ParseError {

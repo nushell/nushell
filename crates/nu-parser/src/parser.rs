@@ -7,7 +7,7 @@ use crate::{
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, Operator, Pipeline, Statement},
     engine::StateWorkingSet,
-    span, BlockId, DeclId, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
 };
 
 #[derive(Debug, Clone)]
@@ -416,9 +416,6 @@ pub fn parse_internal_call(
 
         // Parse a positional arg if there is one
         if let Some(positional) = signature.get_positional(positional_idx) {
-            //Make sure we leave enough spans for the remaining positionals
-            let decl = working_set.get_decl(decl_id);
-
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
             // println!(
