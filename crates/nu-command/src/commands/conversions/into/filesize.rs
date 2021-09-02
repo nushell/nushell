@@ -33,7 +33,7 @@ impl WholeStreamCommand for SubCommand {
         vec![
             Example {
                 description: "Convert string to filesize in table",
-                example: "echo [[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize num",
+                example: "echo [[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
                 result: Some(vec![
                     UntaggedValue::row(indexmap! {
                         "bytes".to_string() => UntaggedValue::filesize(5).into(),
