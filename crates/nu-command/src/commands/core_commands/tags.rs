@@ -18,43 +18,52 @@ impl WholeStreamCommand for Tags {
         "Read the tags (metadata) for values."
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         Ok(tags(args))
     }
 }
 
-fn tags(args: CommandArgs) -> ActionStream {
-    args.input
-        .map(move |v| {
-            TaggedDictBuilder::build(v.tag(), |tags| {
-                if let Some(anchor) = anchor_as_value(&v) {
-                    tags.insert_value("anchor", anchor);
-                }
+fn build_tag_table(tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+    let span = tag.span;
 
-                tags.insert_value(
-                    "span",
-                    TaggedDictBuilder::build(v.tag(), |span_dict| {
-                        let span = v.tag().span;
-                        span_dict.insert_untagged("start", UntaggedValue::int(span.start() as i64));
-                        span_dict.insert_untagged("end", UntaggedValue::int(span.end() as i64));
-                    }),
-                );
-            })
-        })
-        .into_action_stream()
+    TaggedDictBuilder::build(tag.clone(), |tags| {
+        if let Some(anchor) = anchor_as_value(&tag) {
+            tags.insert_value("anchor", anchor);
+        }
+
+        tags.insert_value(
+            "span",
+            TaggedDictBuilder::build(tag.clone(), |span_dict| {
+                span_dict.insert_untagged("start", UntaggedValue::int(span.start() as i64));
+                span_dict.insert_untagged("end", UntaggedValue::int(span.end() as i64));
+            }),
+        );
+    })
 }
 
-fn anchor_as_value(value: &Value) -> Option<Value> {
-    let tag = value.tag();
-    let anchor = tag.anchor;
+fn tags(args: CommandArgs) -> OutputStream {
+    if args.input.is_empty() {
+        OutputStream::one(build_tag_table(&args.name_tag()))
+    } else {
+        args.input
+            .map(move |v| build_tag_table(v.tag()))
+            .into_output_stream()
+    }
+}
+
+fn anchor_as_value(tag: &Tag) -> Option<Value> {
+    let anchor = tag.anchor.as_ref();
 
     anchor.as_ref()?;
 
-    Some(TaggedDictBuilder::build(value.tag(), |table| {
+    Some(TaggedDictBuilder::build(tag, |table| {
         let value = match anchor {
-            Some(AnchorLocation::File(path)) => Some(("file", UntaggedValue::from(path))),
+            Some(AnchorLocation::File(path)) => {
+                Some(("file", UntaggedValue::from(path.to_string())))
+            }
             Some(AnchorLocation::Url(destination)) => {
-                Some(("url", UntaggedValue::from(destination)))
+                Some(("url", UntaggedValue::from(destination.to_string())))
             }
             Some(AnchorLocation::Source(text)) => Some((
                 "source",
