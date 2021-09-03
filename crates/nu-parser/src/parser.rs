@@ -1687,6 +1687,8 @@ pub fn parse_value(
         return parse_dollar_expr(working_set, span);
     } else if bytes.starts_with(b"(") {
         return parse_full_column_path(working_set, span);
+    } else if bytes.starts_with(b"{") {
+        return parse_block_expression(working_set, span);
     } else if bytes.starts_with(b"[") {
         match shape {
             SyntaxShape::Any
