@@ -68,6 +68,7 @@ mod tests {
 
     fn full_tests() -> Vec<Command> {
         vec![
+            whole_stream_command(ErrorMake),
             whole_stream_command(Drop),
             whole_stream_command(DropNth),
             whole_stream_command(DropColumn),
