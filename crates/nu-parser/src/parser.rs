@@ -595,11 +595,7 @@ pub fn parse_call(
     }
 }
 
-pub fn parse_int(
-    working_set: &mut StateWorkingSet,
-    token: &str,
-    span: Span,
-) -> (Expression, Option<ParseError>) {
+pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
     if let Some(token) = token.strip_prefix("0x") {
         if let Ok(v) = i64::from_str_radix(token, 16) {
             (
@@ -677,11 +673,7 @@ pub fn parse_int(
     }
 }
 
-pub fn parse_float(
-    working_set: &mut StateWorkingSet,
-    token: &str,
-    span: Span,
-) -> (Expression, Option<ParseError>) {
+pub fn parse_float(token: &str, span: Span) -> (Expression, Option<ParseError>) {
     if let Ok(x) = token.parse::<f64>() {
         (
             Expression {
@@ -699,14 +691,10 @@ pub fn parse_float(
     }
 }
 
-pub fn parse_number(
-    working_set: &mut StateWorkingSet,
-    token: &str,
-    span: Span,
-) -> (Expression, Option<ParseError>) {
-    if let (x, None) = parse_int(working_set, token, span) {
+pub fn parse_number(token: &str, span: Span) -> (Expression, Option<ParseError>) {
+    if let (x, None) = parse_int(token, span) {
         (x, None)
-    } else if let (x, None) = parse_float(working_set, token, span) {
+    } else if let (x, None) = parse_float(token, span) {
         (x, None)
     } else {
         (
@@ -951,7 +939,7 @@ pub fn parse_full_column_path(
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, start, &[], &[]);
+    let (output, err) = lex(source, start, &[b'\n'], &[]);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -1717,7 +1705,7 @@ pub fn parse_value(
     match shape {
         SyntaxShape::Number => {
             if let Ok(token) = String::from_utf8(bytes.into()) {
-                parse_number(working_set, &token, span)
+                parse_number(&token, span)
             } else {
                 (
                     garbage(span),
@@ -1727,7 +1715,7 @@ pub fn parse_value(
         }
         SyntaxShape::Int => {
             if let Ok(token) = String::from_utf8(bytes.into()) {
-                parse_int(working_set, &token, span)
+                parse_int(&token, span)
             } else {
                 (
                     garbage(span),

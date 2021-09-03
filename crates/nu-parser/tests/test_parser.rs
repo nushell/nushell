@@ -16,9 +16,7 @@ pub fn parse_int() {
     assert!(err.is_none());
     assert!(block.len() == 1);
     match &block[0] {
-        Statement::Pipeline(Pipeline {
-            expressions: expressions,
-        }) => {
+        Statement::Pipeline(Pipeline { expressions }) => {
             assert!(expressions.len() == 1);
             assert!(matches!(
                 expressions[0],

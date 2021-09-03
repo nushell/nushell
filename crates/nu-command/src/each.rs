@@ -1,7 +1,7 @@
-use nu_engine::{eval_block, eval_expression};
+use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{IntoValueStream, Signature, SyntaxShape, Value};
 
 pub struct Each;
 
