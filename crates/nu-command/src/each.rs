@@ -3,31 +3,23 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{IntoValueStream, Signature, Span, SyntaxShape, Value};
 
-pub struct For;
+pub struct Each;
 
-impl Command for For {
+impl Command for Each {
     fn name(&self) -> &str {
-        "for"
+        "each"
     }
 
     fn usage(&self) -> &str {
-        "Loop over a range"
+        "Run a block on each element of input"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("for")
+        Signature::build("each")
             .required(
                 "var_name",
                 SyntaxShape::Variable,
                 "name of the looping variable",
-            )
-            .required(
-                "range",
-                SyntaxShape::Keyword(
-                    b"in".to_vec(),
-                    Box::new(SyntaxShape::List(Box::new(SyntaxShape::Int))),
-                ),
-                "range of the loop",
             )
             .required("block", SyntaxShape::Block, "the block to run")
     }
@@ -42,17 +34,12 @@ impl Command for For {
             .as_var()
             .expect("internal error: missing variable");
 
-        let keyword_expr = call.positional[1]
-            .as_keyword()
-            .expect("internal error: missing keyword");
-        let values = eval_expression(context, keyword_expr)?;
-
-        let block = call.positional[2]
+        let block = call.positional[1]
             .as_block()
             .expect("internal error: expected block");
         let context = context.clone();
 
-        match values {
+        match input {
             Value::List { val, .. } => Ok(Value::List {
                 val: val
                     .map(move |x| {
