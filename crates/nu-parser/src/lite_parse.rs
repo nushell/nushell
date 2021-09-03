@@ -1,4 +1,5 @@
-use crate::{ParseError, Span, Token, TokenContents};
+use crate::{ParseError, Token, TokenContents};
+use nu_protocol::Span;
 
 #[derive(Debug)]
 pub struct LiteCommand {

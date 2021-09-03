@@ -1,4 +1,10 @@
-use crate::{parser::SyntaxShape, Declaration, VarId};
+use crate::ast::Call;
+use crate::engine::Command;
+use crate::engine::EvaluationContext;
+use crate::BlockId;
+use crate::SyntaxShape;
+use crate::Value;
+use crate::VarId;
 
 #[derive(Debug, Clone)]
 pub struct Flag {
@@ -272,22 +278,84 @@ impl Signature {
         }
         None
     }
-}
 
-impl From<Box<Signature>> for Declaration {
-    fn from(val: Box<Signature>) -> Self {
-        Declaration {
-            signature: val,
-            body: None,
-        }
+    /// Set the filter flag for the signature
+    pub fn filter(mut self) -> Signature {
+        self.is_filter = true;
+        self
+    }
+
+    /// Create a placeholder implementation of Command as a way to predeclare a definition's
+    /// signature so other definitions can see it. This placeholder is later replaced with the
+    /// full definition in a second pass of the parser.
+    pub fn predeclare(self) -> Box<dyn Command> {
+        Box::new(Predeclaration { signature: self })
+    }
+
+    /// Combines a signature and a block into a runnable block
+    pub fn into_block_command(self, block_id: BlockId) -> Box<dyn Command> {
+        Box::new(BlockCommand {
+            signature: self,
+            block_id,
+        })
     }
 }
 
-impl From<Signature> for Declaration {
-    fn from(val: Signature) -> Self {
-        Declaration {
-            signature: Box::new(val),
-            body: None,
-        }
+struct Predeclaration {
+    signature: Signature,
+}
+
+impl Command for Predeclaration {
+    fn name(&self) -> &str {
+        &self.signature.name
+    }
+
+    fn signature(&self) -> Signature {
+        self.signature.clone()
+    }
+
+    fn usage(&self) -> &str {
+        &self.signature.usage
+    }
+
+    fn run(
+        &self,
+        _context: &EvaluationContext,
+        _call: &Call,
+        _input: Value,
+    ) -> Result<crate::Value, crate::ShellError> {
+        panic!("Internal error: can't run a predeclaration without a body")
+    }
+}
+
+struct BlockCommand {
+    signature: Signature,
+    block_id: BlockId,
+}
+
+impl Command for BlockCommand {
+    fn name(&self) -> &str {
+        &self.signature.name
+    }
+
+    fn signature(&self) -> Signature {
+        self.signature.clone()
+    }
+
+    fn usage(&self) -> &str {
+        &self.signature.usage
+    }
+
+    fn run(
+        &self,
+        _context: &EvaluationContext,
+        _call: &Call,
+        _input: Value,
+    ) -> Result<crate::Value, crate::ShellError> {
+        panic!("Internal error: can't run custom command with 'run', use block_id");
+    }
+
+    fn get_custom_command(&self) -> Option<BlockId> {
+        Some(self.block_id)
     }
 }

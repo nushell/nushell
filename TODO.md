@@ -12,10 +12,10 @@
 - [x] subcommand alias
 - [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
 - [x] parsing tables
+- [ ] Column path
 - [ ] ...rest without calling it rest
 - [ ] operator overflow
 - [ ] finish operator type-checking
-- [ ] Column path
 - [ ] Ranges
 - [ ] Source
 - [ ] Autoenv
