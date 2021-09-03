@@ -34,7 +34,7 @@ impl Command for Benchmark {
 
         let state = context.enter_scope();
         let start_time = Instant::now();
-        eval_block(&state, block)?;
+        eval_block(&state, block, Value::nothing())?;
         let end_time = Instant::now();
         println!("{} ms", (end_time - start_time).as_millis());
         Ok(Value::Nothing {

@@ -1,7 +1,7 @@
 use nu_parser::ParseError;
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Expr, Expression, Statement},
+    ast::{Expr, Expression, Pipeline, Statement},
     engine::{EngineState, StateWorkingSet},
     Signature, SyntaxShape,
 };
@@ -15,13 +15,21 @@ pub fn parse_int() {
 
     assert!(err.is_none());
     assert!(block.len() == 1);
-    assert!(matches!(
-        block[0],
-        Statement::Expression(Expression {
-            expr: Expr::Int(3),
-            ..
-        })
-    ));
+    match &block[0] {
+        Statement::Pipeline(Pipeline {
+            expressions: expressions,
+        }) => {
+            assert!(expressions.len() == 1);
+            assert!(matches!(
+                expressions[0],
+                Expression {
+                    expr: Expr::Int(3),
+                    ..
+                }
+            ))
+        }
+        _ => panic!("No match"),
+    }
 }
 
 #[test]
@@ -38,11 +46,16 @@ pub fn parse_call() {
     assert!(block.len() == 1);
 
     match &block[0] {
-        Statement::Expression(Expression {
-            expr: Expr::Call(call),
-            ..
-        }) => {
-            assert_eq!(call.decl_id, 0);
+        Statement::Pipeline(Pipeline { expressions }) => {
+            assert_eq!(expressions.len(), 1);
+
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = &expressions[0]
+            {
+                assert_eq!(call.decl_id, 0);
+            }
         }
         _ => panic!("not a call"),
     }

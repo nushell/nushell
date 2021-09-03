@@ -17,4 +17,8 @@ impl Pipeline {
             expressions: vec![],
         }
     }
+
+    pub fn from_vec(expressions: Vec<Expression>) -> Pipeline {
+        Self { expressions }
+    }
 }

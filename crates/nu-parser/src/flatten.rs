@@ -29,7 +29,6 @@ pub fn flatten_statement(
     stmt: &Statement,
 ) -> Vec<(Span, FlatShape)> {
     match stmt {
-        Statement::Expression(expr) => flatten_expression(working_set, expr),
         Statement::Pipeline(pipeline) => flatten_pipeline(working_set, pipeline),
         _ => vec![],
     }

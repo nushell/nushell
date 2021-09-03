@@ -2,7 +2,10 @@ use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse_file;
-use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
+use nu_protocol::{
+    engine::{EngineState, EvaluationContext, StateWorkingSet},
+    Value,
+};
 
 #[cfg(test)]
 mod tests;
@@ -32,7 +35,7 @@ fn main() -> std::io::Result<()> {
             stack: nu_protocol::engine::Stack::new(),
         };
 
-        match eval_block(&state, &block) {
+        match eval_block(&state, &block, Value::nothing()) {
             Ok(value) => {
                 println!("{}", value.into_string());
             }
@@ -106,7 +109,7 @@ fn main() -> std::io::Result<()> {
                         stack: stack.clone(),
                     };
 
-                    match eval_block(&state, &block) {
+                    match eval_block(&state, &block, Value::nothing()) {
                         Ok(value) => {
                             println!("{}", value.into_string());
                         }

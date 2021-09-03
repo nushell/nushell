@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Span, Value};
+use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -12,7 +12,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     }
 }
 
-fn eval_call(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
+fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
     let engine_state = context.engine_state.borrow();
     let decl = engine_state.get_decl(call.decl_id);
     if let Some(block_id) = decl.get_custom_command() {
@@ -32,15 +32,9 @@ fn eval_call(context: &EvaluationContext, call: &Call) -> Result<Value, ShellErr
         }
         let engine_state = state.engine_state.borrow();
         let block = engine_state.get_block(block_id);
-        eval_block(&state, block)
+        eval_block(&state, block, input)
     } else {
-        decl.run(
-            context,
-            call,
-            Value::Nothing {
-                span: Span::unknown(),
-            },
-        )
+        decl.run(context, call, input)
     }
 }
 
@@ -64,7 +58,7 @@ pub fn eval_expression(
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
-        Expr::Call(call) => eval_call(context, call),
+        Expr::Call(_) => panic!("Internal error: calls should be handled by eval_block"),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -93,7 +87,7 @@ pub fn eval_expression(
             let block = engine_state.get_block(*block_id);
 
             let state = context.enter_scope();
-            eval_block(&state, block)
+            eval_block(&state, block, Value::nothing())
         }
         Expr::Block(block_id) => Ok(Value::Block {
             val: *block_id,
@@ -139,16 +133,29 @@ pub fn eval_expression(
     }
 }
 
-pub fn eval_block(state: &EvaluationContext, block: &Block) -> Result<Value, ShellError> {
-    let mut last = Ok(Value::Nothing {
-        span: Span { start: 0, end: 0 },
-    });
-
+pub fn eval_block(
+    context: &EvaluationContext,
+    block: &Block,
+    mut input: Value,
+) -> Result<Value, ShellError> {
     for stmt in &block.stmts {
-        if let Statement::Expression(expression) = stmt {
-            last = Ok(eval_expression(state, expression)?);
+        if let Statement::Pipeline(pipeline) = stmt {
+            for elem in &pipeline.expressions {
+                match elem {
+                    Expression {
+                        expr: Expr::Call(call),
+                        ..
+                    } => {
+                        input = eval_call(context, call, input)?;
+                    }
+
+                    elem => {
+                        input = eval_expression(context, elem)?;
+                    }
+                }
+            }
         }
     }
 
-    last
+    Ok(input)
 }

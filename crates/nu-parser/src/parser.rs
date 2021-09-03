@@ -2066,30 +2066,30 @@ pub fn parse_def(
                 });
 
                 (
-                    Statement::Expression(Expression {
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Unknown,
-                    }),
+                    }])),
                     error,
                 )
             }
             _ => (
-                Statement::Expression(Expression {
+                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                     expr: Expr::Garbage,
                     span: span(spans),
                     ty: Type::Unknown,
-                }),
+                }])),
                 error,
             ),
         }
     } else {
         (
-            Statement::Expression(Expression {
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                 expr: Expr::Garbage,
                 span: span(spans),
                 ty: Type::Unknown,
-            }),
+            }])),
             Some(ParseError::UnknownState(
                 "internal error: definition unparseable".into(),
                 span(spans),
@@ -2130,22 +2130,22 @@ pub fn parse_alias(
             }
 
             return (
-                Statement::Expression(Expression {
+                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
-                }),
+                }])),
                 None,
             );
         }
     }
 
     (
-        Statement::Expression(Expression {
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
             expr: Expr::Garbage,
             span: span(spans),
             ty: Type::Unknown,
-        }),
+        }])),
         Some(ParseError::UnknownState(
             "internal error: let statement unparseable".into(),
             span(spans),
@@ -2175,21 +2175,21 @@ pub fn parse_let(
             }
 
             return (
-                Statement::Expression(Expression {
+                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
-                }),
+                }])),
                 err,
             );
         }
     }
     (
-        Statement::Expression(Expression {
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
             expr: Expr::Garbage,
             span: span(spans),
             ty: Type::Unknown,
-        }),
+        }])),
         Some(ParseError::UnknownState(
             "internal error: let statement unparseable".into(),
             span(spans),
@@ -2210,7 +2210,7 @@ pub fn parse_statement(
         (stmt, None)
     } else {
         let (expr, err) = parse_expression(working_set, spans);
-        (Statement::Expression(expr), err)
+        (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
     }
 }
 

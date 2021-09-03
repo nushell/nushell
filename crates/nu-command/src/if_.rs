@@ -29,7 +29,7 @@ impl Command for If {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
+        input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let cond = &call.positional[0];
         let then_block = call.positional[1]
@@ -44,13 +44,13 @@ impl Command for If {
                 if val {
                     let block = engine_state.get_block(then_block);
                     let state = context.enter_scope();
-                    eval_block(&state, block)
+                    eval_block(&state, block, input)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = engine_state.get_block(block_id);
                             let state = context.enter_scope();
-                            eval_block(&state, block)
+                            eval_block(&state, block, input)
                         } else {
                             eval_expression(context, else_expr)
                         }

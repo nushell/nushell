@@ -197,6 +197,12 @@ impl Value {
             Value::Nothing { .. } => String::new(),
         }
     }
+
+    pub fn nothing() -> Value {
+        Value::Nothing {
+            span: Span::unknown(),
+        }
+    }
 }
 
 impl PartialEq for Value {

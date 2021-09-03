@@ -33,7 +33,7 @@ impl Command for For {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
+        input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let var_id = call.positional[0]
             .as_var()
@@ -62,7 +62,7 @@ impl Command for For {
                 break;
             } else {
                 state.add_var(var_id, x.clone());
-                eval_block(&state, block)?;
+                eval_block(&state, block, input.clone())?;
             }
             if let Value::Int { ref mut val, .. } = x {
                 *val += 1
