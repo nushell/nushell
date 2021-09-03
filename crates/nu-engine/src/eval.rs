@@ -58,7 +58,7 @@ pub fn eval_expression(
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
-        Expr::Call(_) => panic!("Internal error: calls should be handled by eval_block"),
+        Expr::Call(call) => eval_call(context, call, Value::nothing()),
         Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
