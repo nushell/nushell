@@ -5,7 +5,7 @@ use crate::{span, BlockId, Span, Type};
 use crate::ShellError;
 
 #[derive(Clone)]
-pub struct ValueStream(Rc<RefCell<dyn Iterator<Item = Value>>>);
+pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
 
 impl ValueStream {
     pub fn into_string(self) -> String {
@@ -17,6 +17,10 @@ impl ValueStream {
                 .collect::<Vec<String>>()
                 .join(", ".into())
         )
+    }
+
+    pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
+        ValueStream(Rc::new(RefCell::new(input)))
     }
 }
 
@@ -41,9 +45,12 @@ pub trait IntoValueStream {
     fn into_value_stream(self) -> ValueStream;
 }
 
-impl IntoValueStream for Vec<Value> {
+impl<T> IntoValueStream for T
+where
+    T: Iterator<Item = Value> + 'static,
+{
     fn into_value_stream(self) -> ValueStream {
-        ValueStream(Rc::new(RefCell::new(self.into_iter())))
+        ValueStream::from_stream(self)
     }
 }
 

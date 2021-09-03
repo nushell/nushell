@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{ShellError, Value, VarId};
 
+#[derive(Clone)]
 pub struct EvaluationContext {
     pub engine_state: Rc<RefCell<EngineState>>,
     pub stack: Stack,

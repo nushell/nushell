@@ -40,6 +40,10 @@ impl Command for Length {
                     span: call.head,
                 })
             }
+            Value::Nothing { .. } => Ok(Value::Int {
+                val: 0,
+                span: call.head,
+            }),
             _ => Ok(Value::Int {
                 val: 1,
                 span: call.head,

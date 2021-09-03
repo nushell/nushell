@@ -99,7 +99,7 @@ pub fn eval_expression(
                 output.push(eval_expression(context, expr)?);
             }
             Ok(Value::List {
-                val: output.into_value_stream(),
+                val: output.into_iter().into_value_stream(),
                 span: expr.span,
             })
         }

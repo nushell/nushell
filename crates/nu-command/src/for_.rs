@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, Span, SyntaxShape, Value};
+use nu_protocol::{IntoValueStream, Signature, Span, SyntaxShape, Value};
 
 pub struct For;
 
@@ -23,7 +23,10 @@ impl Command for For {
             )
             .required(
                 "range",
-                SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Int)),
+                SyntaxShape::Keyword(
+                    b"in".to_vec(),
+                    Box::new(SyntaxShape::List(Box::new(SyntaxShape::Int))),
+                ),
                 "range of the loop",
             )
             .required("block", SyntaxShape::Block, "the block to run")
@@ -42,34 +45,30 @@ impl Command for For {
         let keyword_expr = call.positional[1]
             .as_keyword()
             .expect("internal error: missing keyword");
-        let end_val = eval_expression(context, keyword_expr)?;
+        let values = eval_expression(context, keyword_expr)?;
 
         let block = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
-        let engine_state = context.engine_state.borrow();
-        let block = engine_state.get_block(block);
+        let context = context.clone();
 
-        let state = context.enter_scope();
+        match values {
+            Value::List { val, .. } => Ok(Value::List {
+                val: val
+                    .map(move |x| {
+                        let engine_state = context.engine_state.borrow();
+                        let block = engine_state.get_block(block);
 
-        let mut x = Value::Int {
-            val: 0,
-            span: Span::unknown(),
-        };
+                        let state = context.enter_scope();
+                        state.add_var(var_id, x.clone());
 
-        loop {
-            if x == end_val {
-                break;
-            } else {
-                state.add_var(var_id, x.clone());
-                eval_block(&state, block, input.clone())?;
-            }
-            if let Value::Int { ref mut val, .. } = x {
-                *val += 1
-            }
+                        //FIXME: DON'T UNWRAP
+                        eval_block(&state, block, input.clone()).unwrap()
+                    })
+                    .into_value_stream(),
+                span: call.head,
+            }),
+            _ => Ok(Value::nothing()),
         }
-        Ok(Value::Nothing {
-            span: call.positional[0].span,
-        })
     }
 }
