@@ -190,8 +190,8 @@ impl Signature {
     }
 
     /// Get list of the long-hand flags
-    pub fn get_names(&self) -> Vec<String> {
-        self.named.iter().map(|f| f.long.clone()).collect()
+    pub fn get_names(&self) -> Vec<&str> {
+        self.named.iter().map(|f| f.long.as_str()).collect()
     }
 
     /// Checks if short or long are already present
@@ -206,9 +206,9 @@ impl Signature {
         });
 
         let name = {
-            let name = name.into();
+            let name: String = name.into();
             debug_assert!(
-                !self.get_names().contains(&name),
+                !self.get_names().contains(&name.as_str()),
                 "There may be duplicate name flags, such as --help"
             );
             name

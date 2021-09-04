@@ -1,4 +1,4 @@
-use nu_parser::{Flag, PositionalArg, Signature, SyntaxShape};
+use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
 
 #[test]
 fn test_signature() {
