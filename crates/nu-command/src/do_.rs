@@ -26,7 +26,7 @@ impl Command for Do {
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let block = &call.positional[0];
 
-        let out = eval_expression(context, &block)?;
+        let out = eval_expression(context, block)?;
 
         match out {
             Value::Block { val: block_id, .. } => {
