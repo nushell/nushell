@@ -14,7 +14,8 @@ use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
 use std::collections::VecDeque;
-use std::io::ErrorKind;
+use std::fs::OpenOptions;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -873,8 +874,19 @@ impl Shell for FilesystemShell {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
+        append: bool,
     ) -> Result<OutputStream, ShellError> {
-        match std::fs::write(full_path, save_data) {
+        let mut options = OpenOptions::new();
+        if append {
+            options.append(true)
+        } else {
+            options.write(true).create(true).truncate(true)
+        };
+
+        match options
+            .open(full_path)
+            .and_then(|ref mut file| file.write_all(save_data))
+        {
             Ok(_) => Ok(OutputStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),

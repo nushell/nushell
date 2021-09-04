@@ -105,8 +105,9 @@ impl ShellManager {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
+        append: bool,
     ) -> Result<OutputStream, ShellError> {
-        self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
+        self.shells.lock()[self.current_shell()].save(full_path, save_data, name, append)
     }
 
     pub fn next(&self) {

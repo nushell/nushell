@@ -49,5 +49,6 @@ pub trait Shell: std::fmt::Debug {
         path: &Path,
         contents: &[u8],
         name: Span,
+        append: bool,
     ) -> Result<OutputStream, ShellError>;
 }

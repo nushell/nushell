@@ -248,6 +248,7 @@ impl Shell for ValueShell {
         _path: &Path,
         _contents: &[u8],
         _name: Span,
+        _append: bool,
     ) -> Result<OutputStream, ShellError> {
         Err(ShellError::unimplemented(
             "save on help shell is not supported",
