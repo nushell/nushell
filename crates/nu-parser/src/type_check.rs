@@ -15,7 +15,7 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
 }
 
 pub fn math_result_type(
-    working_set: &StateWorkingSet,
+    _working_set: &StateWorkingSet,
     lhs: &mut Expression,
     op: &mut Expression,
     rhs: &mut Expression,

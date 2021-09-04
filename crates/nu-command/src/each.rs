@@ -48,7 +48,7 @@ impl Command for Each {
                         let block = engine_state.get_block(block);
 
                         let state = context.enter_scope();
-                        state.add_var(var_id, x.clone());
+                        state.add_var(var_id, x);
 
                         //FIXME: DON'T UNWRAP
                         eval_block(&state, block, Value::nothing()).unwrap()
@@ -63,7 +63,7 @@ impl Command for Each {
                         let block = engine_state.get_block(block);
 
                         let state = context.enter_scope();
-                        state.add_var(var_id, x.clone());
+                        state.add_var(var_id, x);
 
                         //FIXME: DON'T UNWRAP
                         eval_block(&state, block, Value::nothing()).unwrap()
