@@ -1,6 +1,6 @@
 use crate::{parser::SyntaxShape, Declaration, VarId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Flag {
     pub long: String,
     pub short: Option<char>,
@@ -121,10 +121,8 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map(|c| {
-            debug_assert!(!self.get_shorts().contains(&c));
-            c
-        });
+        let (name, s) = self.check_names(name, short);
+
         self.named.push(Flag {
             long: name.into(),
             short: s,
@@ -145,10 +143,8 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map(|c| {
-            debug_assert!(!self.get_shorts().contains(&c));
-            c
-        });
+        let (name, s) = self.check_names(name, short);
+
         self.named.push(Flag {
             long: name.into(),
             short: s,
@@ -168,13 +164,7 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map(|c| {
-            debug_assert!(
-                !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
-            );
-            c
-        });
+        let (name, s) = self.check_names(name, short);
 
         self.named.push(Flag {
             long: name.into(),
@@ -184,18 +174,41 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
         });
+
         self
     }
 
     /// Get list of the short-hand flags
     pub fn get_shorts(&self) -> Vec<char> {
-        let mut shorts = Vec::new();
-        for Flag { short, .. } in &self.named {
-            if let Some(c) = short {
-                shorts.push(*c);
-            }
-        }
-        shorts
+        self.named.iter().filter_map(|f| f.short).collect()
+    }
+
+    /// Get list of the long-hand flags
+    pub fn get_names(&self) -> Vec<String> {
+        self.named.iter().map(|f| f.long.clone()).collect()
+    }
+
+    /// Checks if short or long are already present
+    /// Panics if one of them is found
+    fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
+        let s = short.map(|c| {
+            debug_assert!(
+                !self.get_shorts().contains(&c),
+                "There may be duplicate short flags, such as -h"
+            );
+            c
+        });
+
+        let name = {
+            let name = name.into();
+            debug_assert!(
+                !self.get_names().contains(&name),
+                "There may be duplicate name flags, such as --help"
+            );
+            name
+        };
+
+        (name, s)
     }
 
     pub fn get_positional(&self, position: usize) -> Option<PositionalArg> {
