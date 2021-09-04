@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{IntoRowStream, IntoValueStream, ShellError, Value};
+use nu_protocol::{ShellError, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -99,7 +99,7 @@ pub fn eval_expression(
                 output.push(eval_expression(context, expr)?);
             }
             Ok(Value::List {
-                val: output.into_iter().into_value_stream(),
+                val: output,
                 span: expr.span,
             })
         }
@@ -119,7 +119,7 @@ pub fn eval_expression(
             }
             Ok(Value::Table {
                 headers: output_headers,
-                val: output_rows.into_row_stream(),
+                val: output_rows,
                 span: expr.span,
             })
         }

@@ -1688,7 +1688,14 @@ pub fn parse_value(
     } else if bytes.starts_with(b"(") {
         return parse_full_column_path(working_set, span);
     } else if bytes.starts_with(b"{") {
-        return parse_block_expression(working_set, span);
+        if matches!(shape, SyntaxShape::Block) || matches!(shape, SyntaxShape::Any) {
+            return parse_block_expression(working_set, span);
+        } else {
+            return (
+                Expression::garbage(span),
+                Some(ParseError::Expected("non-block value".into(), span)),
+            );
+        }
     } else if bytes.starts_with(b"[") {
         match shape {
             SyntaxShape::Any

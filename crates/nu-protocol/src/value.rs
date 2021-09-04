@@ -125,13 +125,22 @@ pub enum Value {
         val: String,
         span: Span,
     },
+    ValueStream {
+        stream: ValueStream,
+        span: Span,
+    },
+    RowStream {
+        headers: Vec<String>,
+        stream: RowStream,
+        span: Span,
+    },
     List {
-        val: ValueStream,
+        val: Vec<Value>,
         span: Span,
     },
     Table {
         headers: Vec<String>,
-        val: RowStream,
+        val: Vec<Vec<Value>>,
         span: Span,
     },
     Block {
@@ -160,6 +169,8 @@ impl Value {
             Value::List { span, .. } => *span,
             Value::Table { span, .. } => *span,
             Value::Block { span, .. } => *span,
+            Value::RowStream { span, .. } => *span,
+            Value::ValueStream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
         }
     }
@@ -170,6 +181,8 @@ impl Value {
             Value::Int { span, .. } => *span = new_span,
             Value::Float { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
+            Value::RowStream { span, .. } => *span = new_span,
+            Value::ValueStream { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Table { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
@@ -189,6 +202,8 @@ impl Value {
             Value::Table { .. } => Type::Table,                        // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
+            Value::ValueStream { .. } => Type::ValueStream,
+            Value::RowStream { .. } => Type::RowStream,
         }
     }
 
@@ -198,8 +213,25 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::String { val, .. } => val,
-            Value::List { val, .. } => val.into_string(),
-            Value::Table { headers, val, .. } => val.into_string(headers),
+            Value::ValueStream { stream, .. } => stream.into_string(),
+            Value::List { val, .. } => val
+                .into_iter()
+                .map(|x| x.into_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            Value::Table { val, .. } => val
+                .into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .map(|x| x.into_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Value::RowStream {
+                headers, stream, ..
+            } => stream.into_string(headers),
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
         }
@@ -517,6 +549,25 @@ impl Value {
                 val: lhs == rhs,
                 span,
             }),
+            (Value::List { val: lhs, .. }, Value::List { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs == rhs,
+                span,
+            }),
+            (
+                Value::Table {
+                    val: lhs,
+                    headers: lhs_headers,
+                    ..
+                },
+                Value::Table {
+                    val: rhs,
+                    headers: rhs_headers,
+                    ..
+                },
+            ) => Ok(Value::Bool {
+                val: lhs_headers == rhs_headers && lhs == rhs,
+                span,
+            }),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -553,6 +604,26 @@ impl Value {
                 val: lhs != rhs,
                 span,
             }),
+            (Value::List { val: lhs, .. }, Value::List { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs != rhs,
+                span,
+            }),
+            (
+                Value::Table {
+                    val: lhs,
+                    headers: lhs_headers,
+                    ..
+                },
+                Value::Table {
+                    val: rhs,
+                    headers: rhs_headers,
+                    ..
+                },
+            ) => Ok(Value::Bool {
+                val: lhs_headers != rhs_headers || lhs != rhs,
+                span,
+            }),
+
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),

@@ -53,8 +53,8 @@ impl Command for For {
         let context = context.clone();
 
         match values {
-            Value::List { val, .. } => Ok(Value::List {
-                val: val
+            Value::ValueStream { stream, .. } => Ok(Value::ValueStream {
+                stream: stream
                     .map(move |x| {
                         let engine_state = context.engine_state.borrow();
                         let block = engine_state.get_block(block);
@@ -66,6 +66,22 @@ impl Command for For {
                         eval_block(&state, block, Value::nothing()).unwrap()
                     })
                     .into_value_stream(),
+                span: call.head,
+            }),
+            Value::List { val, .. } => Ok(Value::List {
+                val: val
+                    .into_iter()
+                    .map(move |x| {
+                        let engine_state = context.engine_state.borrow();
+                        let block = engine_state.get_block(block);
+
+                        let state = context.enter_scope();
+                        state.add_var(var_id, x.clone());
+
+                        //FIXME: DON'T UNWRAP
+                        eval_block(&state, block, Value::nothing()).unwrap()
+                    })
+                    .collect(),
                 span: call.head,
             }),
             _ => Ok(Value::nothing()),

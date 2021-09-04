@@ -15,6 +15,8 @@ pub enum Type {
     Number,
     Nothing,
     Table,
+    RowStream,
+    ValueStream,
     Unknown,
 }
 
@@ -34,6 +36,8 @@ impl Display for Type {
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
             Type::Table => write!(f, "table"),
+            Type::ValueStream => write!(f, "value stream"),
+            Type::RowStream => write!(f, "row stream"),
             Type::Unknown => write!(f, "unknown"),
         }
     }
