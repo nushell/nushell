@@ -6,14 +6,16 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["crates/nu-cli", "crates/nu-engine", "crates/nu-parser"]
+members = ["crates/nu-cli", "crates/nu-engine", "crates/nu-parser", "crates/nu-command", "crates/nu-protocol"]
 
 [dependencies]
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
 codespan-reporting = "0.11.1"
 nu-cli = { path="./crates/nu-cli" }
+nu-command = { path="./crates/nu-command" }
 nu-engine = { path="./crates/nu-engine" }
 nu-parser = { path="./crates/nu-parser" }
+nu-protocol = { path = "./crates/nu-protocol" }
 
 # mimalloc = { version = "*", default-features = false }
 

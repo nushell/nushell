@@ -20,3 +20,18 @@ impl Span {
         }
     }
 }
+
+pub fn span(spans: &[Span]) -> Span {
+    let length = spans.len();
+
+    if length == 0 {
+        Span::unknown()
+    } else if length == 1 {
+        spans[0]
+    } else {
+        Span {
+            start: spans[0].start,
+            end: spans[length - 1].end,
+        }
+    }
+}

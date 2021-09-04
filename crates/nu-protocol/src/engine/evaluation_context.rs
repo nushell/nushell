@@ -1,21 +1,22 @@
-use nu_parser::{ParserState, VarId};
+use super::EngineState;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{value::Value, ShellError};
+use crate::{ShellError, Value, VarId};
 
-pub struct State {
-    pub parser_state: Rc<RefCell<ParserState>>,
+#[derive(Clone)]
+pub struct EvaluationContext {
+    pub engine_state: Rc<RefCell<EngineState>>,
     pub stack: Stack,
 }
 
-impl State {
+impl EvaluationContext {
     pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
         self.stack.get_var(var_id)
     }
 
-    pub fn enter_scope(&self) -> State {
+    pub fn enter_scope(&self) -> EvaluationContext {
         Self {
-            parser_state: self.parser_state.clone(),
+            engine_state: self.engine_state.clone(),
             stack: self.stack.clone().enter_scope(),
         }
     }

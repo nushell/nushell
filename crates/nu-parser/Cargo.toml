@@ -5,3 +5,4 @@ edition = "2018"
 
 [dependencies]
 codespan-reporting = "0.11.1"
+nu-protocol = { path = "../nu-protocol"}
