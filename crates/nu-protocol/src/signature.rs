@@ -130,7 +130,7 @@ impl Signature {
         let (name, s) = self.check_names(name, short);
 
         self.named.push(Flag {
-            long: name.into(),
+            long: name,
             short: s,
             arg: Some(shape.into()),
             required: false,
@@ -152,7 +152,7 @@ impl Signature {
         let (name, s) = self.check_names(name, short);
 
         self.named.push(Flag {
-            long: name.into(),
+            long: name,
             short: s,
             arg: Some(shape.into()),
             required: true,
@@ -173,7 +173,7 @@ impl Signature {
         let (name, s) = self.check_names(name, short);
 
         self.named.push(Flag {
-            long: name.into(),
+            long: name,
             short: s,
             arg: None,
             required: false,
