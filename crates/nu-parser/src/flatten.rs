@@ -67,7 +67,7 @@ pub fn flatten_expression(
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
         }
-		Expr::Range(from, to, op) => {
+        Expr::Range(from, to, op) => {
             let mut output = vec![];
             if let Some(f) = from {
                 output.extend(flatten_expression(working_set, f));

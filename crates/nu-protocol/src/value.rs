@@ -241,7 +241,7 @@ impl Value {
                         .collect::<Vec<String>>()
                         .join(", ".into())
                 )
-            },
+            }
             Value::String { val, .. } => val,
             Value::ValueStream { stream, .. } => stream.into_string(),
             Value::List { val, .. } => val
