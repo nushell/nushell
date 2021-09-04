@@ -1,5 +1,6 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
+use crate::ast::RangeInclusion;
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -103,6 +104,13 @@ impl IntoRowStream for Vec<Vec<Value>> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Range {
+    pub from: Value,
+    pub to: Value,
+    pub inclusion: RangeInclusion,
+}
+
 #[derive(Debug, Clone)]
 pub enum Value {
     Bool {
@@ -111,6 +119,10 @@ pub enum Value {
     },
     Int {
         val: i64,
+        span: Span,
+    },
+    Range {
+        val: Box<Range>,
         span: Span,
     },
     Float {
@@ -161,6 +173,7 @@ impl Value {
             Value::Bool { span, .. } => *span,
             Value::Int { span, .. } => *span,
             Value::Float { span, .. } => *span,
+            Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::List { span, .. } => *span,
             Value::Table { span, .. } => *span,
@@ -176,6 +189,7 @@ impl Value {
             Value::Bool { span, .. } => *span = new_span,
             Value::Int { span, .. } => *span = new_span,
             Value::Float { span, .. } => *span = new_span,
+            Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::RowStream { span, .. } => *span = new_span,
             Value::ValueStream { span, .. } => *span = new_span,
@@ -193,6 +207,7 @@ impl Value {
             Value::Bool { .. } => Type::Bool,
             Value::Int { .. } => Type::Int,
             Value::Float { .. } => Type::Float,
+            Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
             Value::Table { .. } => Type::Table,                        // FIXME
@@ -208,6 +223,25 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
+            Value::Range { val, .. } => {
+                let vals: Vec<i64> = match (&val.from, &val.to) {
+                    (Value::Int { val: from, .. }, Value::Int { val: to, .. }) => {
+                        match val.inclusion {
+                            RangeInclusion::Inclusive => (*from..=*to).collect(),
+                            RangeInclusion::RightExclusive => (*from..*to).collect(),
+                        }
+                    }
+                    _ => Vec::new(),
+                };
+
+                format!(
+                    "range: [{}]",
+                    vals.iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ".into())
+                )
+            },
             Value::String { val, .. } => val,
             Value::ValueStream { stream, .. } => stream.into_string(),
             Value::List { val, .. } => val

@@ -4,6 +4,7 @@ use std::fmt::Display;
 pub enum Type {
     Int,
     Float,
+    Range,
     Bool,
     String,
     Block,
@@ -31,6 +32,7 @@ impl Display for Type {
             Type::Filesize => write!(f, "filesize"),
             Type::Float => write!(f, "float"),
             Type::Int => write!(f, "int"),
+            Type::Range => write!(f, "range"),
             Type::List(l) => write!(f, "list<{}>", l),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
