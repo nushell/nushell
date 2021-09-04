@@ -58,7 +58,7 @@ pub fn eval_expression(
         Expr::Range(from, to, operator) => {
             // TODO: Embed the min/max into Range and set max to be the true max
             let from = if let Some(f) = from {
-                eval_expression(context, &f)?
+                eval_expression(context, f)?
             } else {
                 Value::Int {
                     val: 0i64,
@@ -67,7 +67,7 @@ pub fn eval_expression(
             };
 
             let to = if let Some(t) = to {
-                eval_expression(context, &t)?
+                eval_expression(context, t)?
             } else {
                 Value::Int {
                     val: 100i64,

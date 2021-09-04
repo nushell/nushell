@@ -738,14 +738,12 @@ pub fn parse_range(
             ),
         };
 
-    let step_op_span = if let Some(pos) = step_op_pos {
-        Some(Span::new(
+    let step_op_span = step_op_pos.map(|pos| {
+        Span::new(
             span.start + pos,
             span.start + pos + "..".len(), // Only ".." is allowed for step operator
-        ))
-    } else {
-        None
-    };
+        )
+    });
 
     let (range_op, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
@@ -849,12 +847,10 @@ pub(crate) fn parse_dollar_expr(
 
     if contents.starts_with(b"$\"") {
         parse_string_interpolation(working_set, span)
+    } else if let (expr, None) = parse_range(working_set, span) {
+        (expr, None)
     } else {
-        if let (expr, None) = parse_range(working_set, span) {
-            (expr, None)
-        } else {
-            parse_variable_expr(working_set, span)
-        }
+        parse_variable_expr(working_set, span)
     }
 }
 

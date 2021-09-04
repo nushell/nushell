@@ -239,7 +239,7 @@ impl Value {
                     vals.iter()
                         .map(|x| x.to_string())
                         .collect::<Vec<String>>()
-                        .join(", ".into())
+                        .join(", ")
                 )
             }
             Value::String { val, .. } => val,
