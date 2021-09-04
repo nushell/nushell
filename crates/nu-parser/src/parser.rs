@@ -247,12 +247,10 @@ fn calculate_end_span(
                 && spans.len() > (signature.required_positional.len() - positional_idx)
             {
                 spans.len() - (signature.required_positional.len() - positional_idx - 1)
+            } else if signature.num_positionals_after(positional_idx) == 0 {
+                spans.len()
             } else {
-                if signature.num_positionals_after(positional_idx) == 0 {
-                    spans.len()
-                } else {
-                    spans_idx + 1
-                }
+                spans_idx + 1
             }
         }
     }
@@ -496,7 +494,7 @@ pub fn parse_call(
     let cmd_start = pos;
 
     if expand_aliases {
-        if let Some(expansion) = working_set.find_alias(&name) {
+        if let Some(expansion) = working_set.find_alias(name) {
             let orig_span = spans[pos];
             //let mut spans = spans.to_vec();
             let mut new_spans: Vec<Span> = vec![];
@@ -992,7 +990,7 @@ pub fn parse_string(
 
 //TODO: Handle error case
 pub fn parse_shape_name(
-    working_set: &StateWorkingSet,
+    _working_set: &StateWorkingSet,
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
@@ -1018,7 +1016,7 @@ pub fn parse_shape_name(
     (result, None)
 }
 
-pub fn parse_type(working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
+pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
     if bytes == b"int" {
         Type::Int
     } else {
@@ -1479,7 +1477,7 @@ pub fn parse_list_expression(
             expr: Expr::List(args),
             span,
             ty: Type::List(Box::new(if let Some(ty) = contained_type {
-                ty.clone()
+                ty
             } else {
                 Type::Unknown
             })),
@@ -2001,14 +1999,11 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         let signature = sig.as_signature();
         working_set.exit_scope();
 
-        match (name, signature) {
-            (Some(name), Some(mut signature)) => {
-                signature.name = name;
-                let decl = signature.predeclare();
+        if let (Some(name), Some(mut signature)) = (name, signature) {
+            signature.name = name;
+            let decl = signature.predeclare();
 
-                working_set.add_decl(decl);
-            }
-            _ => {}
+            working_set.add_decl(decl);
         }
     }
 }

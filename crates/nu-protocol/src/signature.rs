@@ -236,9 +236,8 @@ impl Signature {
 
     pub fn num_positionals_after(&self, idx: usize) -> usize {
         let mut total = 0;
-        let mut curr = 0;
 
-        for positional in &self.required_positional {
+        for (curr, positional) in self.required_positional.iter().enumerate() {
             match positional.shape {
                 SyntaxShape::Keyword(..) => {
                     // Keywords have a required argument, so account for that
@@ -252,7 +251,6 @@ impl Signature {
                     }
                 }
             }
-            curr += 1;
         }
         total
     }

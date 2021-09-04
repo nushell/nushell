@@ -9,13 +9,11 @@ pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
 
 impl ValueStream {
     pub fn into_string(self) -> String {
-        let val: Vec<Value> = self.collect();
         format!(
             "[{}]",
-            val.into_iter()
-                .map(|x| x.into_string())
+            self.map(|x| x.into_string())
                 .collect::<Vec<String>>()
-                .join(", ".into())
+                .join(", ")
         )
     }
 
@@ -59,23 +57,21 @@ pub struct RowStream(Rc<RefCell<dyn Iterator<Item = Vec<Value>>>>);
 
 impl RowStream {
     pub fn into_string(self, headers: Vec<String>) -> String {
-        let val: Vec<Vec<Value>> = self.collect();
         format!(
             "[{}]\n[{}]",
             headers
                 .iter()
                 .map(|x| x.to_string())
                 .collect::<Vec<String>>()
-                .join(", ".into()),
-            val.into_iter()
-                .map(|x| {
-                    x.into_iter()
-                        .map(|x| x.into_string())
-                        .collect::<Vec<String>>()
-                        .join(", ".into())
-                })
-                .collect::<Vec<String>>()
-                .join("\n")
+                .join(", "),
+            self.map(|x| {
+                x.into_iter()
+                    .map(|x| x.into_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
         )
     }
 }
