@@ -8,14 +8,16 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
             expr: Expr::Operator(operator),
             ..
         } => Ok(operator.clone()),
-        Expression { span, .. } => Err(ShellError::Unsupported(*span)),
+        Expression { span, expr, .. } => {
+            Err(ShellError::UnknownOperator(format!("{:?}", expr), *span))
+        }
     }
 }
 
 fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
     let engine_state = context.engine_state.borrow();
     let decl = engine_state.get_decl(call.decl_id);
-    if let Some(block_id) = decl.get_custom_command() {
+    if let Some(block_id) = decl.get_block_id() {
         let state = context.enter_scope();
         for (arg, param) in call.positional.iter().zip(
             decl.signature()
@@ -101,7 +103,7 @@ pub fn eval_expression(
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(_, _) => Err(ShellError::Unsupported(expr.span)),
+        Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
@@ -120,7 +122,7 @@ pub fn eval_expression(
                 Operator::GreaterThanOrEqual => lhs.gte(op_span, &rhs),
                 Operator::Equal => lhs.eq(op_span, &rhs),
                 Operator::NotEqual => lhs.ne(op_span, &rhs),
-                _ => Err(ShellError::Unsupported(op_span)),
+                x => Err(ShellError::UnsupportedOperator(x, op_span)),
             }
         }
 

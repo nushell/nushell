@@ -350,7 +350,7 @@ impl Command for BlockCommand {
     }
 
     fn signature(&self) -> Signature {
-        self.signature.clone()
+        panic!("Internal error: can't get signature with 'signature', use block_id");
     }
 
     fn usage(&self) -> &str {
@@ -366,7 +366,7 @@ impl Command for BlockCommand {
         panic!("Internal error: can't run custom command with 'run', use block_id");
     }
 
-    fn get_custom_command(&self) -> Option<BlockId> {
+    fn get_block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
     }
 }

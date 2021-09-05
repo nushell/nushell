@@ -50,8 +50,8 @@ pub trait Command {
         false
     }
 
-    // If command is a custom command i.e. def blah [] { }, get the block id
-    fn get_custom_command(&self) -> Option<BlockId> {
+    // If command is a block i.e. def blah [] { }, get the block id
+    fn get_block_id(&self) -> Option<BlockId> {
         None
     }
 }

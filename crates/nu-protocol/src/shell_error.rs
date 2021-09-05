@@ -1,6 +1,6 @@
-use crate::{Span, Type};
+use crate::{ast::Operator, Span, Type};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ShellError {
     OperatorMismatch {
         op_span: Span,
@@ -9,7 +9,9 @@ pub enum ShellError {
         rhs_ty: Type,
         rhs_span: Span,
     },
-    Unsupported(Span),
+    UnsupportedOperator(Operator, Span),
+    UnknownOperator(String, Span),
+    ExternalNotSupported(Span),
     InternalError(String),
     VariableNotFound(Span),
     CantConvert(String, Span),

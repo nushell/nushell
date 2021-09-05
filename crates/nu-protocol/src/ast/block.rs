@@ -1,9 +1,12 @@
 use std::ops::{Index, IndexMut};
 
+use crate::Signature;
+
 use super::Statement;
 
 #[derive(Debug, Clone)]
 pub struct Block {
+    pub signature: Box<Signature>,
     pub stmts: Vec<Statement>,
 }
 
@@ -39,6 +42,9 @@ impl Default for Block {
 
 impl Block {
     pub fn new() -> Self {
-        Self { stmts: vec![] }
+        Self {
+            signature: Box::new(Signature::new("")),
+            stmts: vec![],
+        }
     }
 }
