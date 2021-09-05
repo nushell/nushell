@@ -302,7 +302,6 @@ mod range {
         }
     }
 
-    #[ignore]
     #[test]
     fn parse_left_unbounded_range() {
         let engine_state = EngineState::new();
@@ -352,6 +351,37 @@ mod range {
                         expr: Expr::Range(
                             Some(_),
                             None,
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_negative_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"-10..-3", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
                             RangeOperator {
                                 inclusion: RangeInclusion::Inclusive,
                                 ..

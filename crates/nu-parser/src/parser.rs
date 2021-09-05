@@ -2103,7 +2103,7 @@ pub fn parse_expression(
 
     match bytes[0] {
         b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-        | b'[' | b'$' | b'"' | b'\'' => parse_math_expression(working_set, spans),
+        | b'[' | b'$' | b'"' | b'\'' | b'.' | b'-' => parse_math_expression(working_set, spans),
         _ => parse_call(working_set, spans, true),
     }
 }
