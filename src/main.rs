@@ -53,7 +53,7 @@ fn main() -> std::io::Result<()> {
     } else {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
-        let mut line_editor = Reedline::new()
+        let mut line_editor = Reedline::create()?
             .with_history(Box::new(FileBackedHistory::with_file(
                 1000,
                 "history.txt".into(),
