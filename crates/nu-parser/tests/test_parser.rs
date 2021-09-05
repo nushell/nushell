@@ -303,37 +303,6 @@ mod range {
     }
 
     #[test]
-    fn parse_left_unbounded_range() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let (block, err) = parse_source(&mut working_set, b"..10", true);
-
-        assert!(err.is_none());
-        assert!(block.len() == 1);
-        match &block[0] {
-            Statement::Pipeline(Pipeline { expressions }) => {
-                assert!(expressions.len() == 1);
-                assert!(matches!(
-                    expressions[0],
-                    Expression {
-                        expr: Expr::Range(
-                            None,
-                            Some(_),
-                            RangeOperator {
-                                inclusion: RangeInclusion::Inclusive,
-                                ..
-                            }
-                        ),
-                        ..
-                    }
-                ))
-            }
-            _ => panic!("No match"),
-        }
-    }
-
-    #[test]
     fn parse_right_unbounded_range() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -393,5 +362,15 @@ mod range {
             }
             _ => panic!("No match"),
         }
+    }
+
+    #[test]
+    fn bad_parse_does_crash() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (_, err) = parse_source(&mut working_set, b"(0)..\"a\"", true);
+
+        assert!(err.is_some());
     }
 }

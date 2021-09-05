@@ -18,7 +18,17 @@ fn convert_span_to_diag(
         }
     }
 
-    panic!("internal error: can't find span in parser state")
+    if span.start == working_set.next_span_start() {
+        // We're trying to highlight the space after the end
+        if let Some((file_id, (_, _, end))) = working_set.files().enumerate().last() {
+            return Ok((file_id, *end..(*end + 1)));
+        }
+    }
+
+    panic!(
+        "internal error: can't find span in parser state: {:?}",
+        span
+    )
 }
 
 pub fn report_parsing_error(
