@@ -7,6 +7,7 @@ pub struct Expression {
     pub span: Span,
     pub ty: Type,
 }
+
 impl Expression {
     pub fn garbage(span: Span) -> Expression {
         Expression {
@@ -15,6 +16,7 @@ impl Expression {
             ty: Type::Unknown,
         }
     }
+
     pub fn precedence(&self) -> usize {
         match &self.expr {
             Expr::Operator(operator) => {

@@ -1,4 +1,4 @@
-use super::{Call, Expression, Operator};
+use super::{Call, Expression, Operator, RangeOperator};
 use crate::{BlockId, Signature, Span, VarId};
 
 #[derive(Debug, Clone)]
@@ -6,6 +6,11 @@ pub enum Expr {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Range(
+        Option<Box<Expression>>,
+        Option<Box<Expression>>,
+        RangeOperator,
+    ),
     Var(VarId),
     Call(Box<Call>),
     ExternalCall(Vec<u8>, Vec<Vec<u8>>),

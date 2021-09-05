@@ -57,6 +57,10 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Float => {
                     output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
                 }
+                FlatShape::Range => output.push((
+                    Style::new().fg(nu_ansi_term::Color::LightPurple),
+                    next_token,
+                )),
                 FlatShape::Bool => {
                     output.push((Style::new().fg(nu_ansi_term::Color::LightCyan), next_token))
                 }

@@ -5,7 +5,9 @@ use crate::{
 };
 
 use nu_protocol::{
-    ast::{Block, Call, Expr, Expression, Operator, Pipeline, Statement},
+    ast::{
+        Block, Call, Expr, Expression, Operator, Pipeline, RangeInclusion, RangeOperator, Statement,
+    },
     engine::StateWorkingSet,
     span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
 };
@@ -702,6 +704,141 @@ pub fn parse_number(token: &str, span: Span) -> (Expression, Option<ParseError>)
     }
 }
 
+pub fn parse_range(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    // Range follows the following syntax: [<from>][<step_operator><step>]<range_operator>[<to>]
+    //   where <step_operator> is ".."
+    //   and  <range_operator> is ".." or "..<"
+    //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
+    //     looks like parent directory)
+
+    let contents = working_set.get_span_contents(span);
+    let token = if let Ok(s) = String::from_utf8(contents.into()) {
+        s
+    } else {
+        return (garbage(span), Some(ParseError::NonUtf8(span)));
+    };
+
+    // First, figure out what exact operators are used and determine their positions
+    let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
+
+    let (step_op_pos, range_op_pos) =
+        match dotdot_pos.len() {
+            1 => (None, dotdot_pos[0]),
+            2 => (Some(dotdot_pos[0]), dotdot_pos[1]),
+            _ => return (
+                garbage(span),
+                Some(ParseError::Expected(
+                    "one range operator ('..' or '..<') and optionally one step operator ('..')"
+                        .into(),
+                    span,
+                )),
+            ),
+        };
+
+    let _step_op_span = step_op_pos.map(|pos| {
+        Span::new(
+            span.start + pos,
+            span.start + pos + "..".len(), // Only ".." is allowed for step operator
+        )
+    });
+
+    let (range_op, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
+        if pos == range_op_pos {
+            let op_str = "..<";
+            let op_span = Span::new(
+                span.start + range_op_pos,
+                span.start + range_op_pos + op_str.len(),
+            );
+            (
+                RangeOperator {
+                    inclusion: RangeInclusion::RightExclusive,
+                    span: op_span,
+                },
+                "..<",
+                op_span,
+            )
+        } else {
+            return (
+                garbage(span),
+                Some(ParseError::Expected(
+                    "inclusive operator preceding second range bound".into(),
+                    span,
+                )),
+            );
+        }
+    } else {
+        let op_str = "..";
+        let op_span = Span::new(
+            span.start + range_op_pos,
+            span.start + range_op_pos + op_str.len(),
+        );
+        (
+            RangeOperator {
+                inclusion: RangeInclusion::Inclusive,
+                span: op_span,
+            },
+            "..",
+            op_span,
+        )
+    };
+
+    // Now, based on the operator positions, figure out where the bounds & step are located and
+    // parse them
+    // TODO: Actually parse the step number
+    let from = if token.starts_with("..") {
+        // token starts with either step operator, or range operator -- we don't care which one
+        None
+    } else {
+        let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
+        match parse_value(working_set, from_span, &SyntaxShape::Number) {
+            (expression, None) => Some(Box::new(expression)),
+            _ => {
+                return (
+                    garbage(span),
+                    Some(ParseError::Expected("number".into(), span)),
+                )
+            }
+        }
+    };
+
+    let to = if token.ends_with(range_op_str) {
+        None
+    } else {
+        let to_span = Span::new(range_op_span.end, span.end);
+        match parse_value(working_set, to_span, &SyntaxShape::Number) {
+            (expression, None) => Some(Box::new(expression)),
+            _ => {
+                return (
+                    garbage(span),
+                    Some(ParseError::Expected("number".into(), span)),
+                )
+            }
+        }
+    };
+
+    if let (None, None) = (&from, &to) {
+        return (
+            garbage(span),
+            Some(ParseError::Expected(
+                "at least one range bound set".into(),
+                span,
+            )),
+        );
+    }
+
+    (
+        Expression {
+            expr: Expr::Range(from, to, range_op),
+            span,
+            ty: Type::Range,
+        },
+        None,
+    )
+}
+
 pub(crate) fn parse_dollar_expr(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -710,6 +847,8 @@ pub(crate) fn parse_dollar_expr(
 
     if contents.starts_with(b"$\"") {
         parse_string_interpolation(working_set, span)
+    } else if let (expr, None) = parse_range(working_set, span) {
+        (expr, None)
     } else {
         parse_variable_expr(working_set, span)
     }
@@ -1684,7 +1823,11 @@ pub fn parse_value(
     } else if bytes.starts_with(b"$") {
         return parse_dollar_expr(working_set, span);
     } else if bytes.starts_with(b"(") {
-        return parse_full_column_path(working_set, span);
+        if let (expr, None) = parse_range(working_set, span) {
+            return (expr, None);
+        } else {
+            return parse_full_column_path(working_set, span);
+        }
     } else if bytes.starts_with(b"{") {
         if matches!(shape, SyntaxShape::Block) || matches!(shape, SyntaxShape::Any) {
             return parse_block_expression(working_set, span);
@@ -1730,6 +1873,7 @@ pub fn parse_value(
                 )
             }
         }
+        SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
             parse_string(working_set, span)
         }
@@ -1959,7 +2103,7 @@ pub fn parse_expression(
 
     match bytes[0] {
         b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-        | b'[' | b'$' | b'"' | b'\'' => parse_math_expression(working_set, spans),
+        | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans),
         _ => parse_call(working_set, spans, true),
     }
 }

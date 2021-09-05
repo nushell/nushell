@@ -7,6 +7,7 @@ pub enum FlatShape {
     Bool,
     Int,
     Float,
+    Range,
     InternalCall,
     External,
     Literal,
@@ -65,6 +66,17 @@ pub fn flatten_expression(
         }
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
+        }
+        Expr::Range(from, to, op) => {
+            let mut output = vec![];
+            if let Some(f) = from {
+                output.extend(flatten_expression(working_set, f));
+            }
+            if let Some(t) = to {
+                output.extend(flatten_expression(working_set, t));
+            }
+            output.extend(vec![(op.span, FlatShape::Operator)]);
+            output
         }
         Expr::Bool(_) => {
             vec![(expr.span, FlatShape::Bool)]

@@ -142,3 +142,256 @@ pub fn parse_call_missing_req_flag() {
     let (_, err) = parse_source(&mut working_set, b"foo", true);
     assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
 }
+
+mod range {
+    use super::*;
+    use nu_protocol::ast::{RangeInclusion, RangeOperator};
+
+    #[test]
+    fn parse_inclusive_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"0..10", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_exclusive_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"0..<10", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::RightExclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_subexpression_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"(3 - 3)..<(8 + 2)", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::RightExclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_variable_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"let a = 2; $a..10", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 2);
+        match &block[1] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_subexpression_variable_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"let a = 2; $a..<($a + 10)", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 2);
+        match &block[1] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::RightExclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_left_unbounded_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"..10", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            None,
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_right_unbounded_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"0..", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            None,
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
+    fn parse_negative_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse_source(&mut working_set, b"-10..-3", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+}

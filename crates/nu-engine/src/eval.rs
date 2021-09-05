@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{ShellError, Value};
+use nu_protocol::{Range, ShellError, Span, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -55,6 +55,48 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
+        Expr::Range(from, to, operator) => {
+            // TODO: Embed the min/max into Range and set max to be the true max
+            let from = if let Some(f) = from {
+                eval_expression(context, f)?
+            } else {
+                Value::Int {
+                    val: 0i64,
+                    span: Span::unknown(),
+                }
+            };
+
+            let to = if let Some(t) = to {
+                eval_expression(context, t)?
+            } else {
+                Value::Int {
+                    val: 100i64,
+                    span: Span::unknown(),
+                }
+            };
+
+            let range = match (&from, &to) {
+                (&Value::Int { .. }, &Value::Int { .. }) => Range {
+                    from: from.clone(),
+                    to: to.clone(),
+                    inclusion: operator.inclusion,
+                },
+                (lhs, rhs) => {
+                    return Err(ShellError::OperatorMismatch {
+                        op_span: operator.span,
+                        lhs_ty: lhs.get_type(),
+                        lhs_span: lhs.span(),
+                        rhs_ty: rhs.get_type(),
+                        rhs_span: rhs.span(),
+                    })
+                }
+            };
+
+            Ok(Value::Range {
+                val: Box::new(range),
+                span: expr.span,
+            })
+        }
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFound(expr.span)),

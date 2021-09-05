@@ -1,3 +1,5 @@
+use crate::Span;
+
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +45,27 @@ impl Display for Operator {
             Operator::Pow => write!(f, "**"),
             Operator::LessThanOrEqual => write!(f, "<="),
             Operator::GreaterThanOrEqual => write!(f, ">="),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum RangeInclusion {
+    Inclusive,
+    RightExclusive,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct RangeOperator {
+    pub inclusion: RangeInclusion,
+    pub span: Span,
+}
+
+impl Display for RangeOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.inclusion {
+            RangeInclusion::Inclusive => write!(f, ".."),
+            RangeInclusion::RightExclusive => write!(f, "..<"),
         }
     }
 }
