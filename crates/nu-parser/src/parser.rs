@@ -738,7 +738,7 @@ pub fn parse_range(
             ),
         };
 
-    let step_op_span = step_op_pos.map(|pos| {
+    let _step_op_span = step_op_pos.map(|pos| {
         Span::new(
             span.start + pos,
             span.start + pos + "..".len(), // Only ".." is allowed for step operator
