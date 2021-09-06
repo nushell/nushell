@@ -16,4 +16,5 @@ pub enum ShellError {
     VariableNotFoundAtRuntime(Span),
     CantConvert(String, Span),
     DivisionByZero(Span),
+    CannotCreateRange(Span),
 }

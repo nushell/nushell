@@ -206,10 +206,20 @@ fn alias_2() -> TestResult {
 
 #[test]
 fn block_param1() -> TestResult {
-    run_test("[3] | each { $it + 10 }", "13")
+    run_test("[3] | each { $it + 10 }", "[13]")
 }
 
 #[test]
 fn block_param2() -> TestResult {
-    run_test("[3] | each { |y| $y + 10 }", "13")
+    run_test("[3] | each { |y| $y + 10 }", "[13]")
+}
+
+#[test]
+fn range_iteration1() -> TestResult {
+    run_test("1..4 | each { |y| $y + 10 }", "[11, 12, 13, 14]")
+}
+
+#[test]
+fn range_iteration2() -> TestResult {
+    run_test("4..1 | each { |y| $y + 100 }", "[104, 103, 102, 101]")
 }
