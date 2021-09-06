@@ -22,6 +22,29 @@ impl EvaluationContext {
     }
 
     pub fn add_var(&self, var_id: VarId, value: Value) {
+        // We need to make values concreate before we assign them to variables, as stream values
+        // will drain and remain drained.
+        //
+        // TODO: find a good home for this
+        // TODO: add ctrl-c support
+
+        let value = match value {
+            Value::RowStream {
+                headers,
+                stream,
+                span,
+            } => Value::Table {
+                headers,
+                val: stream.collect(),
+                span,
+            },
+            Value::ValueStream { stream, span } => Value::List {
+                val: stream.collect(),
+                span,
+            },
+            x => x,
+        };
+
         self.stack.add_var(var_id, value);
     }
 
