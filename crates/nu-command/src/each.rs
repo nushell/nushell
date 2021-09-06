@@ -30,8 +30,8 @@ impl Command for Each {
         let context = context.clone();
 
         match input {
-            Value::List { val, .. } => Ok(Value::List {
-                val: val
+            Value::Range { val, .. } => Ok(Value::ValueStream {
+                stream: val
                     .into_iter()
                     .map(move |x| {
                         let engine_state = context.engine_state.borrow();
@@ -46,10 +46,32 @@ impl Command for Each {
 
                         match eval_block(&state, block, Value::nothing()) {
                             Ok(v) => v,
-                            Err(err) => Value::Error { err },
+                            Err(error) => Value::Error { error },
                         }
                     })
-                    .collect(),
+                    .into_value_stream(),
+                span: call.head,
+            }),
+            Value::List { val, .. } => Ok(Value::ValueStream {
+                stream: val
+                    .into_iter()
+                    .map(move |x| {
+                        let engine_state = context.engine_state.borrow();
+                        let block = engine_state.get_block(block_id);
+
+                        let state = context.enter_scope();
+                        if let Some(var) = block.signature.required_positional.first() {
+                            if let Some(var_id) = &var.var_id {
+                                state.add_var(*var_id, x);
+                            }
+                        }
+
+                        match eval_block(&state, block, Value::nothing()) {
+                            Ok(v) => v,
+                            Err(error) => Value::Error { error },
+                        }
+                    })
+                    .into_value_stream(),
                 span: call.head,
             }),
             Value::ValueStream { stream, .. } => Ok(Value::ValueStream {
@@ -67,7 +89,7 @@ impl Command for Each {
 
                         match eval_block(&state, block, Value::nothing()) {
                             Ok(v) => v,
-                            Err(err) => Value::Error { err },
+                            Err(error) => Value::Error { error },
                         }
                     })
                     .into_value_stream(),
