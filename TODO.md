@@ -13,11 +13,11 @@
 - [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
 - [x] parsing tables
 - [x] Block params
+- [x] Ranges
 - [ ] Column path
 - [ ] ...rest without calling it rest
 - [ ] operator overflow
 - [ ] finish operator type-checking
-- [ ] Ranges
 - [ ] Source
 - [ ] Autoenv
 - [ ] let [first, rest] = [1, 2, 3]
