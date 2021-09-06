@@ -6,7 +6,8 @@ use crate::{
 
 use nu_protocol::{
     ast::{
-        Block, Call, Expr, Expression, Operator, Pipeline, RangeInclusion, RangeOperator, Statement,
+        Block, Call, Expr, Expression, FullCellPath, Operator, PathMember, Pipeline,
+        RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
     span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
@@ -595,9 +596,9 @@ pub fn parse_call(
     }
 }
 
-pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
-    if let Some(token) = token.strip_prefix("0x") {
-        if let Ok(v) = i64::from_str_radix(token, 16) {
+pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
+    if let Some(token) = token.strip_prefix(b"0x") {
+        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 16) {
             (
                 Expression {
                     expr: Expr::Int(v),
@@ -616,8 +617,8 @@ pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Some(token) = token.strip_prefix("0b") {
-        if let Ok(v) = i64::from_str_radix(token, 2) {
+    } else if let Some(token) = token.strip_prefix(b"0b") {
+        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 2) {
             (
                 Expression {
                     expr: Expr::Int(v),
@@ -636,8 +637,8 @@ pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Some(token) = token.strip_prefix("0o") {
-        if let Ok(v) = i64::from_str_radix(token, 8) {
+    } else if let Some(token) = token.strip_prefix(b"0o") {
+        if let Ok(v) = i64::from_str_radix(&String::from_utf8_lossy(token), 8) {
             (
                 Expression {
                     expr: Expr::Int(v),
@@ -656,7 +657,7 @@ pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
                 )),
             )
         }
-    } else if let Ok(x) = token.parse::<i64>() {
+    } else if let Ok(x) = String::from_utf8_lossy(token).parse::<i64>() {
         (
             Expression {
                 expr: Expr::Int(x),
@@ -673,8 +674,8 @@ pub fn parse_int(token: &str, span: Span) -> (Expression, Option<ParseError>) {
     }
 }
 
-pub fn parse_float(token: &str, span: Span) -> (Expression, Option<ParseError>) {
-    if let Ok(x) = token.parse::<f64>() {
+pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
+    if let Ok(x) = String::from_utf8_lossy(token).parse::<f64>() {
         (
             Expression {
                 expr: Expr::Float(x),
@@ -691,7 +692,7 @@ pub fn parse_float(token: &str, span: Span) -> (Expression, Option<ParseError>) 
     }
 }
 
-pub fn parse_number(token: &str, span: Span) -> (Expression, Option<ParseError>) {
+pub fn parse_number(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
     if let (x, None) = parse_int(token, span) {
         (x, None)
     } else if let (x, None) = parse_float(token, span) {
@@ -850,7 +851,7 @@ pub(crate) fn parse_dollar_expr(
     } else if let (expr, None) = parse_range(working_set, span) {
         (expr, None)
     } else {
-        parse_variable_expr(working_set, span)
+        parse_full_column_path(working_set, span)
     }
 }
 
@@ -1049,52 +1050,132 @@ pub fn parse_full_column_path(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     // FIXME: assume for now a paren expr, but needs more
-    let bytes = working_set.get_span_contents(span);
+    let full_column_span = span;
+    let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let mut start = span.start;
-    let mut end = span.end;
+    let (tokens, err) = lex(source, span.start, &[b'\n'], &[b'.']);
+    error = error.or(err);
 
-    if bytes.starts_with(b"(") {
-        start += 1;
-    }
-    if bytes.ends_with(b")") {
-        end -= 1;
+    let mut tokens = tokens.into_iter();
+    if let Some(head) = tokens.next() {
+        let bytes = working_set.get_span_contents(head.span);
+        let head = if bytes.starts_with(b"(") {
+            let mut start = head.span.start;
+            let mut end = head.span.end;
+
+            if bytes.starts_with(b"(") {
+                start += 1;
+            }
+            if bytes.ends_with(b")") {
+                end -= 1;
+            } else {
+                error = error.or_else(|| {
+                    Some(ParseError::Unclosed(
+                        ")".into(),
+                        Span {
+                            start: end,
+                            end: end + 1,
+                        },
+                    ))
+                });
+            }
+
+            let span = Span { start, end };
+
+            let source = working_set.get_span_contents(span);
+
+            let (tokens, err) = lex(source, span.start, &[b'\n'], &[]);
+            error = error.or(err);
+
+            let (output, err) = lite_parse(&tokens);
+            error = error.or(err);
+
+            let (output, err) = parse_block(working_set, &output, true);
+            error = error.or(err);
+
+            let block_id = working_set.add_block(output);
+
+            Expression {
+                expr: Expr::Subexpression(block_id),
+                span,
+                ty: Type::Unknown, // FIXME
+            }
+        } else if bytes.starts_with(b"$") {
+            let (out, err) = parse_variable_expr(working_set, head.span);
+            error = error.or(err);
+
+            out
+        } else {
+            return (
+                garbage(span),
+                Some(ParseError::Mismatch(
+                    "variable or subexpression".into(),
+                    String::from_utf8_lossy(bytes).to_string(),
+                    span,
+                )),
+            );
+        };
+
+        let mut tail = vec![];
+
+        let mut expect_dot = true;
+        for path_element in tokens {
+            let bytes = working_set.get_span_contents(path_element.span);
+
+            if expect_dot {
+                expect_dot = false;
+                if bytes.len() != 1 || bytes[0] != b'.' {
+                    error =
+                        error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
+                }
+            } else {
+                expect_dot = true;
+
+                match parse_int(bytes, path_element.span) {
+                    (
+                        Expression {
+                            expr: Expr::Int(val),
+                            span,
+                            ..
+                        },
+                        None,
+                    ) => tail.push(PathMember::Int {
+                        val: val as usize,
+                        span,
+                    }),
+                    _ => {
+                        let (result, err) = parse_string(working_set, path_element.span);
+                        error = error.or(err);
+                        match result {
+                            Expression {
+                                expr: Expr::String(string),
+                                span,
+                                ..
+                            } => {
+                                tail.push(PathMember::String { val: string, span });
+                            }
+                            _ => {
+                                error = error
+                                    .or_else(|| Some(ParseError::Expected("string".into(), span)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        (
+            Expression {
+                expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                ty: Type::Unknown,
+                span: full_column_span,
+            },
+            error,
+        )
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                ")".into(),
-                Span {
-                    start: end,
-                    end: end + 1,
-                },
-            ))
-        });
+        (garbage(span), error)
     }
-
-    let span = Span { start, end };
-
-    let source = working_set.get_span_contents(span);
-
-    let (output, err) = lex(source, start, &[b'\n'], &[]);
-    error = error.or(err);
-
-    let (output, err) = lite_parse(&output);
-    error = error.or(err);
-
-    let (output, err) = parse_block(working_set, &output, true);
-    error = error.or(err);
-
-    let block_id = working_set.add_block(output);
-
-    (
-        Expression {
-            expr: Expr::Subexpression(block_id),
-            span,
-            ty: Type::Unknown, // FIXME
-        },
-        error,
-    )
 }
 
 pub fn parse_string(
@@ -1136,7 +1217,7 @@ pub fn parse_shape_name(
     let result = match bytes {
         b"any" => SyntaxShape::Any,
         b"string" => SyntaxShape::String,
-        b"column-path" => SyntaxShape::ColumnPath,
+        b"cell-path" => SyntaxShape::CellPath,
         b"number" => SyntaxShape::Number,
         b"range" => SyntaxShape::Range,
         b"int" => SyntaxShape::Int,
@@ -1899,26 +1980,8 @@ pub fn parse_value(
     }
 
     match shape {
-        SyntaxShape::Number => {
-            if let Ok(token) = String::from_utf8(bytes.into()) {
-                parse_number(&token, span)
-            } else {
-                (
-                    garbage(span),
-                    Some(ParseError::Expected("number".into(), span)),
-                )
-            }
-        }
-        SyntaxShape::Int => {
-            if let Ok(token) = String::from_utf8(bytes.into()) {
-                parse_int(&token, span)
-            } else {
-                (
-                    garbage(span),
-                    Some(ParseError::Expected("int".into(), span)),
-                )
-            }
-        }
+        SyntaxShape::Number => parse_number(bytes, span),
+        SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
             parse_string(working_set, span)

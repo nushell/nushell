@@ -1,6 +1,6 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
-use crate::ast::RangeInclusion;
+use crate::ast::{PathMember, RangeInclusion};
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -364,21 +364,26 @@ impl Value {
             }
             Value::String { val, .. } => val,
             Value::ValueStream { stream, .. } => stream.into_string(),
-            Value::List { val, .. } => val
-                .into_iter()
-                .map(|x| x.into_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-            Value::Table { val, .. } => val
-                .into_iter()
-                .map(|x| {
-                    x.into_iter()
-                        .map(|x| x.into_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
-                .collect::<Vec<_>>()
-                .join("\n"),
+            Value::List { val, .. } => format!(
+                "[{}]",
+                val.into_iter()
+                    .map(|x| x.into_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Value::Table { val, headers, .. } => format!(
+                "[= {} =\n {}]",
+                headers.join(", "),
+                val.into_iter()
+                    .map(|x| {
+                        x.into_iter()
+                            .map(|x| x.into_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
             Value::RowStream {
                 headers, stream, ..
             } => stream.into_string(headers),
@@ -392,6 +397,138 @@ impl Value {
         Value::Nothing {
             span: Span::unknown(),
         }
+    }
+
+    pub fn follow_column_path(self, column_path: &[PathMember]) -> Result<Value, ShellError> {
+        let mut current = self;
+        for member in column_path {
+            // FIXME: this uses a few extra clones for simplicity, but there may be a way
+            // to traverse the path without them
+            match member {
+                PathMember::Int {
+                    val: count,
+                    span: origin_span,
+                } => {
+                    // Treat a numeric path member as `nth <val>`
+                    match &mut current {
+                        Value::List { val, .. } => {
+                            if let Some(item) = val.get(*count) {
+                                current = item.clone();
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
+                            }
+                        }
+                        Value::ValueStream { stream, .. } => {
+                            if let Some(item) = stream.nth(*count) {
+                                current = item;
+                            } else {
+                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
+                            }
+                        }
+                        Value::Table { headers, val, span } => {
+                            if let Some(row) = val.get(*count) {
+                                current = Value::Table {
+                                    headers: headers.clone(),
+                                    val: vec![row.clone()],
+                                    span: *span,
+                                }
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
+                            }
+                        }
+                        Value::RowStream {
+                            headers,
+                            stream,
+                            span,
+                        } => {
+                            if let Some(row) = stream.nth(*count) {
+                                current = Value::Table {
+                                    headers: headers.clone(),
+                                    val: vec![row.clone()],
+                                    span: *span,
+                                }
+                            } else {
+                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
+                            }
+                        }
+                        x => {
+                            return Err(ShellError::IncompatiblePathAccess(
+                                format!("{}", x.get_type()),
+                                *origin_span,
+                            ))
+                        }
+                    }
+                }
+                PathMember::String {
+                    val,
+                    span: origin_span,
+                } => match &mut current {
+                    Value::Table {
+                        headers,
+                        val: cells,
+                        span,
+                    } => {
+                        let mut found = false;
+                        for header in headers.iter().enumerate() {
+                            if header.1 == val {
+                                found = true;
+
+                                let mut column = vec![];
+                                for row in cells {
+                                    column.push(row[header.0].clone())
+                                }
+
+                                current = Value::List {
+                                    val: column,
+                                    span: *span,
+                                };
+                                break;
+                            }
+                        }
+
+                        if !found {
+                            return Err(ShellError::CantFindColumn(*origin_span));
+                        }
+                    }
+                    Value::RowStream {
+                        headers,
+                        stream,
+                        span,
+                    } => {
+                        let mut found = false;
+                        for header in headers.iter().enumerate() {
+                            if header.1 == val {
+                                found = true;
+
+                                let mut column = vec![];
+                                for row in stream {
+                                    column.push(row[header.0].clone())
+                                }
+
+                                current = Value::List {
+                                    val: column,
+                                    span: *span,
+                                };
+                                break;
+                            }
+                        }
+
+                        if !found {
+                            //FIXME: add "did you mean"
+                            return Err(ShellError::CantFindColumn(*origin_span));
+                        }
+                    }
+                    x => {
+                        return Err(ShellError::IncompatiblePathAccess(
+                            format!("{}", x.get_type()),
+                            *origin_span,
+                        ))
+                    }
+                },
+            }
+        }
+
+        Ok(current)
     }
 }
 

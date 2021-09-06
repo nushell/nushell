@@ -14,9 +14,9 @@
 - [x] parsing tables
 - [x] Block params
 - [x] Ranges
+- [x] Column path
 - [ ] Iteration (`each`) over tables
 - [ ] ctrl-c support
-- [ ] Column path
 - [ ] ...rest without calling it rest
 - [ ] operator overflow
 - [ ] finish operator type-checking

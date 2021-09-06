@@ -254,3 +254,23 @@ fn build_string3() -> TestResult {
         "nushell rocks",
     )
 }
+
+#[test]
+fn cell_path_subexpr1() -> TestResult {
+    run_test("([[lang, gems]; [nu, 100]]).lang", "[nu]")
+}
+
+#[test]
+fn cell_path_subexpr2() -> TestResult {
+    run_test("([[lang, gems]; [nu, 100]]).lang.0", "nu")
+}
+
+#[test]
+fn cell_path_var1() -> TestResult {
+    run_test("let x = [[lang, gems]; [nu, 100]]; $x.lang", "[nu]")
+}
+
+#[test]
+fn cell_path_var2() -> TestResult {
+    run_test("let x = [[lang, gems]; [nu, 100]]; $x.lang.0", "nu")
+}

@@ -13,10 +13,10 @@ pub enum SyntaxShape {
     String,
 
     /// A dotted path to navigate the table
-    ColumnPath,
+    CellPath,
 
     /// A dotted path to navigate the table (including variable)
-    FullColumnPath,
+    FullCellPath,
 
     /// Only a numeric (integer or decimal) value is allowed
     Number,
@@ -76,12 +76,12 @@ impl SyntaxShape {
         match self {
             SyntaxShape::Any => Type::Unknown,
             SyntaxShape::Block => Type::Block,
-            SyntaxShape::ColumnPath => Type::Unknown,
+            SyntaxShape::CellPath => Type::Unknown,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
             SyntaxShape::FilePath => Type::FilePath,
             SyntaxShape::Filesize => Type::Filesize,
-            SyntaxShape::FullColumnPath => Type::Unknown,
+            SyntaxShape::FullCellPath => Type::Unknown,
             SyntaxShape::GlobPattern => Type::String,
             SyntaxShape::Int => Type::Int,
             SyntaxShape::List(x) => {

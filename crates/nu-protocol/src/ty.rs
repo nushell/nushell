@@ -8,7 +8,7 @@ pub enum Type {
     Bool,
     String,
     Block,
-    ColumnPath,
+    CellPath,
     Duration,
     FilePath,
     Filesize,
@@ -27,7 +27,7 @@ impl Display for Type {
         match self {
             Type::Block => write!(f, "block"),
             Type::Bool => write!(f, "bool"),
-            Type::ColumnPath => write!(f, "column path"),
+            Type::CellPath => write!(f, "cell path"),
             Type::Duration => write!(f, "duration"),
             Type::FilePath => write!(f, "filepath"),
             Type::Filesize => write!(f, "filesize"),

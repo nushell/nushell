@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Block, Expr, Expression, Pipeline, Statement};
+use nu_protocol::ast::{Block, Expr, Expression, PathMember, Pipeline, Statement};
 use nu_protocol::{engine::StateWorkingSet, Span};
 
 #[derive(Debug)]
@@ -66,6 +66,17 @@ pub fn flatten_expression(
         }
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
+        }
+        Expr::FullCellPath(column_path) => {
+            let mut output = vec![];
+            output.extend(flatten_expression(working_set, &column_path.head));
+            for path_element in &column_path.tail {
+                match path_element {
+                    PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
+                    PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
+                }
+            }
+            output
         }
         Expr::Range(from, to, op) => {
             let mut output = vec![];
