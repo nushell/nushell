@@ -11,7 +11,7 @@ pub fn parse_int() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let (block, err) = parse_source(&mut working_set, b"3", true);
+    let (block, err) = parse(&mut working_set, None, b"3", true);
 
     assert!(err.is_none());
     assert!(block.len() == 1);
@@ -38,7 +38,7 @@ pub fn parse_call() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    let (block, err) = parse_source(&mut working_set, b"foo", true);
+    let (block, err) = parse(&mut working_set, None, b"foo", true);
 
     assert!(err.is_none());
     assert!(block.len() == 1);
@@ -67,7 +67,7 @@ pub fn parse_call_missing_flag_arg() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    let (_, err) = parse_source(&mut working_set, b"foo --jazz", true);
+    let (_, err) = parse(&mut working_set, None, b"foo --jazz", true);
     assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
 }
 
@@ -79,7 +79,7 @@ pub fn parse_call_missing_short_flag_arg() {
     let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
-    let (_, err) = parse_source(&mut working_set, b"foo -j", true);
+    let (_, err) = parse(&mut working_set, None, b"foo -j", true);
     assert!(matches!(err, Some(ParseError::MissingFlagParam(..))));
 }
 
@@ -92,7 +92,7 @@ pub fn parse_call_too_many_shortflag_args() {
         .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
         .named("--math", SyntaxShape::Int, "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
-    let (_, err) = parse_source(&mut working_set, b"foo -mj", true);
+    let (_, err) = parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
         err,
         Some(ParseError::ShortFlagBatchCantTakeArg(..))
@@ -106,7 +106,7 @@ pub fn parse_call_unknown_shorthand() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    let (_, err) = parse_source(&mut working_set, b"foo -mj", true);
+    let (_, err) = parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(err, Some(ParseError::UnknownFlag(..))));
 }
 
@@ -117,7 +117,7 @@ pub fn parse_call_extra_positional() {
 
     let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
-    let (_, err) = parse_source(&mut working_set, b"foo -j 100", true);
+    let (_, err) = parse(&mut working_set, None, b"foo -j 100", true);
     assert!(matches!(err, Some(ParseError::ExtraPositional(..))));
 }
 
@@ -128,7 +128,7 @@ pub fn parse_call_missing_req_positional() {
 
     let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
     working_set.add_decl(sig.predeclare());
-    let (_, err) = parse_source(&mut working_set, b"foo", true);
+    let (_, err) = parse(&mut working_set, None, b"foo", true);
     assert!(matches!(err, Some(ParseError::MissingPositional(..))));
 }
 
@@ -139,7 +139,7 @@ pub fn parse_call_missing_req_flag() {
 
     let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
     working_set.add_decl(sig.predeclare());
-    let (_, err) = parse_source(&mut working_set, b"foo", true);
+    let (_, err) = parse(&mut working_set, None, b"foo", true);
     assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
 }
 
@@ -152,7 +152,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"0..10", true);
+        let (block, err) = parse(&mut working_set, None, b"0..10", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -183,7 +183,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"0..<10", true);
+        let (block, err) = parse(&mut working_set, None, b"0..<10", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -214,7 +214,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"(3 - 3)..<(8 + 2)", true);
+        let (block, err) = parse(&mut working_set, None, b"(3 - 3)..<(8 + 2)", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -245,7 +245,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"let a = 2; $a..10", true);
+        let (block, err) = parse(&mut working_set, None, b"let a = 2; $a..10", true);
 
         assert!(err.is_none());
         assert!(block.len() == 2);
@@ -276,7 +276,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"let a = 2; $a..<($a + 10)", true);
+        let (block, err) = parse(&mut working_set, None, b"let a = 2; $a..<($a + 10)", true);
 
         assert!(err.is_none());
         assert!(block.len() == 2);
@@ -307,7 +307,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"0..", true);
+        let (block, err) = parse(&mut working_set, None, b"0..", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -338,7 +338,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (block, err) = parse_source(&mut working_set, b"-10..-3", true);
+        let (block, err) = parse(&mut working_set, None, b"-10..-3", true);
 
         assert!(err.is_none());
         assert!(block.len() == 1);
@@ -369,7 +369,7 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
-        let (_, err) = parse_source(&mut working_set, b"(0)..\"a\"", true);
+        let (_, err) = parse(&mut working_set, None, b"(0)..\"a\"", true);
 
         assert!(err.is_some());
     }
