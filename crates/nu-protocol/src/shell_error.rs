@@ -17,4 +17,8 @@ pub enum ShellError {
     CantConvert(String, Span),
     DivisionByZero(Span),
     CannotCreateRange(Span),
+    AccessBeyondEnd(usize, Span),
+    AccessBeyondEndOfStream(Span),
+    IncompatiblePathAccess(String, Span),
+    CantFindColumn(Span),
 }

@@ -328,6 +328,40 @@ pub fn report_shell_error(
                         Label::primary(diag_file_id, diag_range).with_message("division by zero")
                     ])
             }
+            ShellError::AccessBeyondEnd(len, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+                Diagnostic::error()
+                    .with_message("Row number too large")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("row number too large (max: {})", *len))])
+            }
+            ShellError::AccessBeyondEndOfStream(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+                Diagnostic::error()
+                    .with_message("Row number too large")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("row number too large")])
+            }
+            ShellError::IncompatiblePathAccess(name, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+                Diagnostic::error()
+                    .with_message("Data cannot be accessed with a column path")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("{} doesn't support column paths", name))])
+            }
+            ShellError::CantFindColumn(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+                //FIXME: add "did you mean"
+                Diagnostic::error()
+                    .with_message("Cannot find column")
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message("cannot find column")
+                    ])
+            }
         };
 
     // println!("DIAG");
