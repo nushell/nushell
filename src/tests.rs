@@ -223,3 +223,8 @@ fn range_iteration1() -> TestResult {
 fn range_iteration2() -> TestResult {
     run_test("4..1 | each { |y| $y + 100 }", "[104, 103, 102, 101]")
 }
+
+#[test]
+fn simple_value_iteration() -> TestResult {
+    run_test("4 | each { $it + 10 }", "14")
+}

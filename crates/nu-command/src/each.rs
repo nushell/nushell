@@ -95,7 +95,22 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
-            _ => Ok(Value::nothing()),
+            Value::RowStream { .. } => panic!("iterating row streams is not yet supported"),
+            Value::Table { .. } => panic!("table iteration not yet supported"),
+            x => {
+                //TODO: we need to watch to make sure this is okay
+                let engine_state = context.engine_state.borrow();
+                let block = engine_state.get_block(block_id);
+
+                let state = context.enter_scope();
+                if let Some(var) = block.signature.required_positional.first() {
+                    if let Some(var_id) = &var.var_id {
+                        state.add_var(*var_id, x);
+                    }
+                }
+
+                eval_block(&state, block, Value::nothing())
+            }
         }
     }
 }
