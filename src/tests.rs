@@ -203,3 +203,13 @@ fn alias_2() -> TestResult {
         "143",
     )
 }
+
+#[test]
+fn block_param1() -> TestResult {
+    run_test("[3] | each { $it + 10 }", "13")
+}
+
+#[test]
+fn block_param2() -> TestResult {
+    run_test("[3] | each { |y| $y + 10 }", "13")
+}

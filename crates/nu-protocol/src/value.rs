@@ -158,6 +158,9 @@ pub enum Value {
     Nothing {
         span: Span,
     },
+    Error {
+        err: ShellError,
+    },
 }
 
 impl Value {
@@ -181,6 +184,7 @@ impl Value {
             Value::RowStream { span, .. } => *span,
             Value::ValueStream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
+            Value::Error { .. } => Span::unknown(),
         }
     }
 
@@ -197,6 +201,7 @@ impl Value {
             Value::Table { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
+            Value::Error { .. } => {}
         }
 
         self
@@ -215,6 +220,7 @@ impl Value {
             Value::Block { .. } => Type::Block,
             Value::ValueStream { .. } => Type::ValueStream,
             Value::RowStream { .. } => Type::RowStream,
+            Value::Error { .. } => Type::Error,
         }
     }
 
@@ -264,6 +270,7 @@ impl Value {
             } => stream.into_string(headers),
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
+            Value::Error { err } => format!("{:?}", err),
         }
     }
 

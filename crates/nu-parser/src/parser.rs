@@ -1223,16 +1223,6 @@ pub fn parse_signature(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    enum ParseMode {
-        ArgMode,
-        TypeMode,
-    }
-
-    enum Arg {
-        Positional(PositionalArg, bool), // bool - required
-        Flag(Flag),
-    }
-
     let bytes = working_set.get_span_contents(span);
 
     let mut error = None;
@@ -1256,7 +1246,34 @@ pub fn parse_signature(
         });
     }
 
-    let span = Span { start, end };
+    let (sig, err) = parse_signature_helper(working_set, Span { start, end });
+    error = error.or(err);
+
+    (
+        Expression {
+            expr: Expr::Signature(sig),
+            span,
+            ty: Type::Unknown,
+        },
+        error,
+    )
+}
+
+pub fn parse_signature_helper(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Box<Signature>, Option<ParseError>) {
+    enum ParseMode {
+        ArgMode,
+        TypeMode,
+    }
+
+    enum Arg {
+        Positional(PositionalArg, bool), // bool - required
+        Flag(Flag),
+    }
+
+    let mut error = None;
     let source = working_set.get_span_contents(span);
 
     let (output, err) = lex(source, span.start, &[b'\n', b','], &[b':']);
@@ -1535,14 +1552,7 @@ pub fn parse_signature(
         }
     }
 
-    (
-        Expression {
-            expr: Expr::Signature(Box::new(sig)),
-            span,
-            ty: Type::Unknown,
-        },
-        error,
-    )
+    (Box::new(sig), error)
 }
 
 pub fn parse_list_expression(
@@ -1761,37 +1771,73 @@ pub fn parse_block_expression(
     let (output, err) = lex(source, start, &[], &[]);
     error = error.or(err);
 
+    working_set.enter_scope();
     // Check to see if we have parameters
-    let _params = if matches!(
-        output.first(),
+    let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
             contents: TokenContents::Pipe,
-            ..
-        })
-    ) {
-        // We've found a parameter list
-        let mut param_tokens = vec![];
-        let mut token_iter = output.iter().skip(1);
-        for token in &mut token_iter {
-            if matches!(
-                token,
-                Token {
+            span,
+        }) => {
+            // We've found a parameter list
+            let start_point = span.start;
+            let mut token_iter = output.iter().enumerate().skip(1);
+            let mut end_span = None;
+            let mut amt_to_skip = 1;
+
+            for token in &mut token_iter {
+                if let Token {
                     contents: TokenContents::Pipe,
-                    ..
+                    span,
+                } = token.1
+                {
+                    end_span = Some(span);
+                    amt_to_skip = token.0;
+                    break;
                 }
-            ) {
-                break;
-            } else {
-                param_tokens.push(token);
             }
+
+            let end_point = if let Some(span) = end_span {
+                span.end
+            } else {
+                end
+            };
+
+            let (signature, err) = parse_signature_helper(
+                working_set,
+                Span {
+                    start: start_point,
+                    end: end_point,
+                },
+            );
+            error = error.or(err);
+
+            (Some(signature), amt_to_skip)
         }
+        _ => (None, 0),
     };
 
-    let (output, err) = lite_parse(&output);
+    let (output, err) = lite_parse(&output[amt_to_skip..]);
     error = error.or(err);
 
-    let (output, err) = parse_block(working_set, &output, true);
+    let (mut output, err) = parse_block(working_set, &output, false);
     error = error.or(err);
+
+    if let Some(signature) = signature {
+        output.signature = signature;
+    } else if let Some(last) = working_set.delta.scope.last() {
+        if let Some(var_id) = last.get_var(b"$it") {
+            let mut signature = Signature::new("");
+            signature.required_positional.push(PositionalArg {
+                var_id: Some(*var_id),
+                name: "$it".into(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+            });
+            output.signature = Box::new(signature);
+        }
+    }
+
+    working_set.exit_scope();
 
     let block_id = working_set.add_block(output);
 

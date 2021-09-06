@@ -13,7 +13,7 @@ pub struct EngineState {
 }
 
 #[derive(Debug)]
-struct ScopeFrame {
+pub struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
@@ -26,6 +26,16 @@ impl ScopeFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
         }
+    }
+
+    pub fn get_var(&self, var_name: &[u8]) -> Option<&VarId> {
+        self.vars.get(var_name)
+    }
+}
+
+impl Default for ScopeFrame {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -188,7 +198,7 @@ pub struct StateDelta {
     vars: Vec<Type>,              // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     blocks: Vec<Block>,           // indexed by BlockId
-    scope: Vec<ScopeFrame>,
+    pub scope: Vec<ScopeFrame>,
 }
 
 impl StateDelta {

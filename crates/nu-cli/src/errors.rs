@@ -252,61 +252,76 @@ pub fn report_shell_error(
     let writer = StandardStream::stderr(ColorChoice::Always);
     let config = codespan_reporting::term::Config::default();
 
-    let diagnostic = match error {
-        ShellError::OperatorMismatch {
-            op_span,
-            lhs_ty,
-            lhs_span,
-            rhs_ty,
-            rhs_span,
-        } => {
-            let (lhs_file_id, lhs_range) = convert_span_to_diag(working_set, lhs_span)?;
-            let (rhs_file_id, rhs_range) = convert_span_to_diag(working_set, rhs_span)?;
-            let (op_file_id, op_range) = convert_span_to_diag(working_set, op_span)?;
-            Diagnostic::error()
-                .with_message("Type mismatch during operation")
-                .with_labels(vec![
-                    Label::primary(op_file_id, op_range).with_message("type mismatch for operator"),
-                    Label::secondary(lhs_file_id, lhs_range).with_message(lhs_ty.to_string()),
-                    Label::secondary(rhs_file_id, rhs_range).with_message(rhs_ty.to_string()),
-                ])
-        }
-        ShellError::Unsupported(span) => {
-            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
-            Diagnostic::error()
-                .with_message("Unsupported operation")
-                .with_labels(vec![
-                    Label::primary(diag_file_id, diag_range).with_message("unsupported operation")
-                ])
-        }
-        ShellError::InternalError(s) => {
-            Diagnostic::error().with_message(format!("Internal error: {}", s))
-        }
-        ShellError::VariableNotFound(span) => {
-            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
-            Diagnostic::error()
-                .with_message("Variable not found")
-                .with_labels(vec![
-                    Label::primary(diag_file_id, diag_range).with_message("variable not found")
-                ])
-        }
-        ShellError::CantConvert(s, span) => {
-            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
-            Diagnostic::error()
-                .with_message(format!("Can't convert to {}", s))
-                .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                    .with_message(format!("can't convert to {}", s))])
-        }
-        ShellError::DivisionByZero(span) => {
-            let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+    let diagnostic =
+        match error {
+            ShellError::OperatorMismatch {
+                op_span,
+                lhs_ty,
+                lhs_span,
+                rhs_ty,
+                rhs_span,
+            } => {
+                let (lhs_file_id, lhs_range) = convert_span_to_diag(working_set, lhs_span)?;
+                let (rhs_file_id, rhs_range) = convert_span_to_diag(working_set, rhs_span)?;
+                let (op_file_id, op_range) = convert_span_to_diag(working_set, op_span)?;
+                Diagnostic::error()
+                    .with_message("Type mismatch during operation")
+                    .with_labels(vec![
+                        Label::primary(op_file_id, op_range)
+                            .with_message("type mismatch for operator"),
+                        Label::secondary(lhs_file_id, lhs_range).with_message(lhs_ty.to_string()),
+                        Label::secondary(rhs_file_id, rhs_range).with_message(rhs_ty.to_string()),
+                    ])
+            }
+            ShellError::UnsupportedOperator(op, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message(format!("Unsupported operator: {}", op))
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("unsupported operator")])
+            }
+            ShellError::UnknownOperator(op, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message(format!("Unsupported operator: {}", op))
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("unsupported operator")])
+            }
+            ShellError::ExternalNotSupported(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("External commands not yet supported")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message("external not supported")])
+            }
+            ShellError::InternalError(s) => {
+                Diagnostic::error().with_message(format!("Internal error: {}", s))
+            }
+            ShellError::VariableNotFoundAtRuntime(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Variable not found")
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message("variable not found")
+                    ])
+            }
+            ShellError::CantConvert(s, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message(format!("Can't convert to {}", s))
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
+                        .with_message(format!("can't convert to {}", s))])
+            }
+            ShellError::DivisionByZero(span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
 
-            Diagnostic::error()
-                .with_message("Division by zero")
-                .with_labels(vec![
-                    Label::primary(diag_file_id, diag_range).with_message("division by zero")
-                ])
-        }
-    };
+                Diagnostic::error()
+                    .with_message("Division by zero")
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message("division by zero")
+                    ])
+            }
+        };
 
     // println!("DIAG");
     // println!("{:?}", diagnostic);
