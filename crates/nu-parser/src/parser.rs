@@ -2443,9 +2443,12 @@ pub fn parse_block(
     (block, error)
 }
 
-pub fn parse_file(
+// Parses a vector of u8 to create an AST Block. If a file name is given, then
+// the name is stored in the working set. When parsing a source without a file
+// name, the source of bytes is stored as "source"
+pub fn parse(
     working_set: &mut StateWorkingSet,
-    fname: &str,
+    fname: Option<&str>,
     contents: &[u8],
     scoped: bool,
 ) -> (Block, Option<ParseError>) {
@@ -2453,32 +2456,14 @@ pub fn parse_file(
 
     let span_offset = working_set.next_span_start();
 
-    working_set.add_file(fname.into(), contents);
+    let name = match fname {
+        Some(fname) => fname.to_string(),
+        None => "source".to_string(),
+    };
+
+    working_set.add_file(name, contents);
 
     let (output, err) = lex(contents, span_offset, &[], &[]);
-    error = error.or(err);
-
-    let (output, err) = lite_parse(&output);
-    error = error.or(err);
-
-    let (output, err) = parse_block(working_set, &output, scoped);
-    error = error.or(err);
-
-    (output, error)
-}
-
-pub fn parse_source(
-    working_set: &mut StateWorkingSet,
-    source: &[u8],
-    scoped: bool,
-) -> (Block, Option<ParseError>) {
-    let mut error = None;
-
-    let span_offset = working_set.next_span_start();
-
-    working_set.add_file("source".into(), source);
-
-    let (output, err) = lex(source, span_offset, &[], &[]);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);

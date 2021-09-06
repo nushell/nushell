@@ -1,7 +1,7 @@
 use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
-use nu_parser::parse_file;
+use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, EvaluationContext, StateWorkingSet},
     Value,
@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
         let (block, delta) = {
             let engine_state = engine_state.borrow();
             let mut working_set = StateWorkingSet::new(&*engine_state);
-            let (output, err) = parse_file(&mut working_set, &path, &file, false);
+            let (output, err) = parse(&mut working_set, Some(&path), &file, false);
             if let Some(err) = err {
                 let _ = report_parsing_error(&working_set, &err);
 
@@ -89,9 +89,9 @@ fn main() -> std::io::Result<()> {
                     let (block, delta) = {
                         let engine_state = engine_state.borrow();
                         let mut working_set = StateWorkingSet::new(&*engine_state);
-                        let (output, err) = parse_file(
+                        let (output, err) = parse(
                             &mut working_set,
-                            &format!("line_{}", current_line),
+                            Some(&format!("line_{}", current_line)),
                             s.as_bytes(),
                             false,
                         );
