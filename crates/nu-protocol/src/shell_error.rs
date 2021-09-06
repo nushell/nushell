@@ -13,7 +13,7 @@ pub enum ShellError {
     UnknownOperator(String, Span),
     ExternalNotSupported(Span),
     InternalError(String),
-    VariableNotFound(Span),
+    VariableNotFoundAtRuntime(Span),
     CantConvert(String, Span),
     DivisionByZero(Span),
 }

@@ -297,7 +297,7 @@ pub fn report_shell_error(
             ShellError::InternalError(s) => {
                 Diagnostic::error().with_message(format!("Internal error: {}", s))
             }
-            ShellError::VariableNotFound(span) => {
+            ShellError::VariableNotFoundAtRuntime(span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
                     .with_message("Variable not found")

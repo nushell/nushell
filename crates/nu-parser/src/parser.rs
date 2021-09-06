@@ -1771,6 +1771,7 @@ pub fn parse_block_expression(
     let (output, err) = lex(source, start, &[], &[]);
     error = error.or(err);
 
+    working_set.enter_scope();
     // Check to see if we have parameters
     let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
@@ -1818,12 +1819,25 @@ pub fn parse_block_expression(
     let (output, err) = lite_parse(&output[amt_to_skip..]);
     error = error.or(err);
 
-    let (mut output, err) = parse_block(working_set, &output, true);
+    let (mut output, err) = parse_block(working_set, &output, false);
     error = error.or(err);
 
     if let Some(signature) = signature {
         output.signature = signature;
+    } else if let Some(last) = working_set.delta.scope.last() {
+        if let Some(var_id) = last.get_var(b"$it") {
+            let mut signature = Signature::new("");
+            signature.required_positional.push(PositionalArg {
+                var_id: Some(*var_id),
+                name: "$it".into(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+            });
+            output.signature = Box::new(signature);
+        }
     }
+
+    working_set.exit_scope();
 
     let block_id = working_set.add_block(output);
 

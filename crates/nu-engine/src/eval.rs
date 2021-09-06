@@ -101,7 +101,7 @@ pub fn eval_expression(
         }
         Expr::Var(var_id) => context
             .get_var(*var_id)
-            .map_err(move |_| ShellError::VariableNotFound(expr.span)),
+            .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
         Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
