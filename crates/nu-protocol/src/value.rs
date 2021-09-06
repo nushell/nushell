@@ -509,10 +509,17 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: lhs / rhs,
-                        span,
-                    })
+                    if lhs % rhs == 0 {
+                        Ok(Value::Int {
+                            val: lhs / rhs,
+                            span,
+                        })
+                    } else {
+                        Ok(Value::Float {
+                            val: (*lhs as f64) / (*rhs as f64),
+                            span,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero(op))
                 }
