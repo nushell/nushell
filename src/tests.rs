@@ -236,3 +236,21 @@ fn concrete_variable_assignment() -> TestResult {
         "100",
     )
 }
+
+#[test]
+fn build_string1() -> TestResult {
+    run_test("build-string 'nu' 'shell'", "nushell")
+}
+
+#[test]
+fn build_string2() -> TestResult {
+    run_test("'nu' | each {build-string $it 'shell'}", "nushell")
+}
+
+#[test]
+fn build_string3() -> TestResult {
+    run_test(
+        "build-string 'nu' 'shell' | each {build-string $it ' rocks'}",
+        "nushell rocks",
+    )
+}
