@@ -230,6 +230,14 @@ fn simple_value_iteration() -> TestResult {
 }
 
 #[test]
+fn concrete_variable_assignment() -> TestResult {
+    run_test(
+        "let x = (1..100 | each { |y| $y + 100 }); $x | length; $x | length",
+        "100",
+    )
+}
+
+#[test]
 fn build_string1() -> TestResult {
     run_test("build-string 'nu' 'shell'", "nushell")
 }
