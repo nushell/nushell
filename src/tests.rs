@@ -228,3 +228,21 @@ fn range_iteration2() -> TestResult {
 fn simple_value_iteration() -> TestResult {
     run_test("4 | each { $it + 10 }", "14")
 }
+
+#[test]
+fn build_string1() -> TestResult {
+    run_test("build-string 'nu' 'shell'", "nushell")
+}
+
+#[test]
+fn build_string2() -> TestResult {
+    run_test("'nu' | each {build-string $it 'shell'}", "nushell")
+}
+
+#[test]
+fn build_string3() -> TestResult {
+    run_test(
+        "build-string 'nu' 'shell' | each {build-string $it ' rocks'}",
+        "nushell rocks",
+    )
+}
