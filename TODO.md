@@ -12,6 +12,7 @@
 - [x] subcommand alias
 - [x] type inference from successful parse (eg not `List<unknown>` but `List<int>`)
 - [x] parsing tables
+- [x] Block params
 - [ ] Column path
 - [ ] ...rest without calling it rest
 - [ ] operator overflow
@@ -19,7 +20,6 @@
 - [ ] Ranges
 - [ ] Source
 - [ ] Autoenv
-- [ ] Block params
 - [ ] let [first, rest] = [1, 2, 3]
   
 ## Maybe: 
