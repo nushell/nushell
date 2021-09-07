@@ -30,7 +30,7 @@ impl Command for Each {
         let context = context.clone();
 
         match input {
-            Value::Range { val, .. } => Ok(Value::ValueStream {
+            Value::Range { val, .. } => Ok(Value::Stream {
                 stream: val
                     .into_iter()
                     .map(move |x| {
@@ -52,7 +52,7 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
-            Value::List { vals: val, .. } => Ok(Value::ValueStream {
+            Value::List { vals: val, .. } => Ok(Value::Stream {
                 stream: val
                     .into_iter()
                     .map(move |x| {
@@ -74,7 +74,7 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
-            Value::ValueStream { stream, .. } => Ok(Value::ValueStream {
+            Value::Stream { stream, .. } => Ok(Value::Stream {
                 stream: stream
                     .map(move |x| {
                         let engine_state = context.engine_state.borrow();

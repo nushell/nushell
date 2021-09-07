@@ -53,7 +53,7 @@ impl Command for For {
         let context = context.clone();
 
         match values {
-            Value::ValueStream { stream, .. } => Ok(Value::ValueStream {
+            Value::Stream { stream, .. } => Ok(Value::Stream {
                 stream: stream
                     .map(move |x| {
                         let engine_state = context.engine_state.borrow();
