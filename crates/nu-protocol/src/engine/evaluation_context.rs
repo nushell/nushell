@@ -29,7 +29,7 @@ impl EvaluationContext {
         // TODO: add ctrl-c support
 
         let value = match value {
-            Value::ValueStream { stream, span } => Value::List {
+            Value::Stream { stream, span } => Value::List {
                 vals: stream.collect(),
                 span,
             },

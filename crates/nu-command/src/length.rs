@@ -32,7 +32,7 @@ impl Command for Length {
                     span: call.head,
                 })
             }
-            Value::ValueStream { stream, .. } => {
+            Value::Stream { stream, .. } => {
                 let length = stream.count();
 
                 Ok(Value::Int {

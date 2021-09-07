@@ -252,7 +252,7 @@ pub enum Value {
         vals: Vec<Value>,
         span: Span,
     },
-    ValueStream {
+    Stream {
         stream: ValueStream,
         span: Span,
     },
@@ -290,7 +290,7 @@ impl Value {
             Value::Record { span, .. } => *span,
             Value::List { span, .. } => *span,
             Value::Block { span, .. } => *span,
-            Value::ValueStream { span, .. } => *span,
+            Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
             Value::Error { .. } => Span::unknown(),
         }
@@ -304,7 +304,7 @@ impl Value {
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
-            Value::ValueStream { span, .. } => *span = new_span,
+            Value::Stream { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
@@ -327,7 +327,7 @@ impl Value {
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
-            Value::ValueStream { .. } => Type::ValueStream,
+            Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
         }
     }
@@ -357,7 +357,7 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val,
-            Value::ValueStream { stream, .. } => stream.into_string(),
+            Value::Stream { stream, .. } => stream.into_string(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.into_iter()
@@ -404,7 +404,7 @@ impl Value {
                                 return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
                             }
                         }
-                        Value::ValueStream { stream, .. } => {
+                        Value::Stream { stream, .. } => {
                             if let Some(item) = stream.nth(*count) {
                                 current = item;
                             } else {
@@ -440,6 +440,23 @@ impl Value {
                     Value::List { vals, span } => {
                         let mut output = vec![];
                         for val in vals {
+                            if let Value::Record { cols, vals, .. } = val {
+                                for col in cols.iter().enumerate() {
+                                    if col.1 == column_name {
+                                        output.push(vals[col.0].clone());
+                                    }
+                                }
+                            }
+                        }
+
+                        current = Value::List {
+                            vals: output,
+                            span: *span,
+                        };
+                    }
+                    Value::Stream { stream, span } => {
+                        let mut output = vec![];
+                        for val in stream {
                             if let Value::Record { cols, vals, .. } = val {
                                 for col in cols.iter().enumerate() {
                                     if col.1 == column_name {
