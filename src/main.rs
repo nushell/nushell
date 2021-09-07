@@ -131,7 +131,10 @@ fn main() -> std::io::Result<()> {
                     line_editor.clear_screen()?;
                 }
                 Err(err) => {
-                    println!("Error: {:?}", err);
+                    let message = err.to_string();
+                    if !message.contains("duration") {
+                        println!("Error: {:?}", err);
+                    }
                 }
             }
             current_line += 1;
