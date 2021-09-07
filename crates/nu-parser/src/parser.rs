@@ -1876,6 +1876,7 @@ pub fn parse_block_expression(
     error = error.or(err);
 
     working_set.enter_scope();
+
     // Check to see if we have parameters
     let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
