@@ -161,15 +161,14 @@ pub fn lex_item(
 
     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
-    // If there is still unclosed opening delimiters, close them and add
-    // synthetic closing characters to the accumulated token.
+    // If there is still unclosed opening delimiters, remember they were missing
     if let Some(block) = block_level.last() {
         let delim = block.closing();
         let cause = ParseError::UnexpectedEof(
             (delim as char).to_string(),
             Span {
-                start: span.end - 1,
-                end: span.end,
+                start: span.end,
+                end: span.end + 1,
             },
         );
 

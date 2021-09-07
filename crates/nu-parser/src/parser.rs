@@ -2050,26 +2050,40 @@ pub fn parse_value(
             }
         }
         SyntaxShape::Any => {
-            let shapes = [
-                SyntaxShape::Int,
-                SyntaxShape::Number,
-                SyntaxShape::Range,
-                SyntaxShape::Filesize,
-                SyntaxShape::Duration,
-                SyntaxShape::Block,
-                SyntaxShape::Table,
-                SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                SyntaxShape::String,
-            ];
-            for shape in shapes.iter() {
-                if let (s, None) = parse_value(working_set, span, shape) {
-                    return (s, None);
+            if bytes.starts_with(b"[") {
+                let shapes = [SyntaxShape::Table];
+                for shape in shapes.iter() {
+                    if let (s, None) = parse_value(working_set, span, shape) {
+                        return (s, None);
+                    }
                 }
+                parse_value(
+                    working_set,
+                    span,
+                    &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                )
+            } else {
+                let shapes = [
+                    SyntaxShape::Int,
+                    SyntaxShape::Number,
+                    SyntaxShape::Range,
+                    SyntaxShape::Filesize,
+                    SyntaxShape::Duration,
+                    SyntaxShape::Block,
+                    SyntaxShape::Table,
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    SyntaxShape::String,
+                ];
+                for shape in shapes.iter() {
+                    if let (s, None) = parse_value(working_set, span, shape) {
+                        return (s, None);
+                    }
+                }
+                (
+                    garbage(span),
+                    Some(ParseError::Expected("any shape".into(), span)),
+                )
             }
-            (
-                garbage(span),
-                Some(ParseError::Expected("any shape".into(), span)),
-            )
         }
         _ => (garbage(span), Some(ParseError::IncompleteParser(span))),
     }
