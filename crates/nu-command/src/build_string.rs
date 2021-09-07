@@ -15,7 +15,7 @@ impl Command for BuildString {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("build-string").rest(SyntaxShape::String, "list of string")
+        Signature::build("build-string").rest("rest", SyntaxShape::String, "list of string")
     }
 
     fn run(

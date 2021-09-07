@@ -27,7 +27,7 @@ fn test_signature_chained() {
         )
         .named("named", SyntaxShape::String, "named description", Some('n'))
         .switch("switch", "switch description", None)
-        .rest(SyntaxShape::String, "rest description");
+        .rest("rest", SyntaxShape::String, "rest description");
 
     assert_eq!(signature.required_positional.len(), 1);
     assert_eq!(signature.optional_positional.len(), 1);
