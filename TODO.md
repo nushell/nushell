@@ -17,6 +17,7 @@
 - [x] Column path
 - [x] ...rest without calling it rest
 - [x] Iteration (`each`) over tables
+- [ ] Error shortcircuit (stopping on first error)
 - [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] finish operator type-checking
