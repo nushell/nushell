@@ -279,3 +279,11 @@ fn cell_path_var2() -> TestResult {
 fn custom_rest_var() -> TestResult {
     run_test("def foo [...x] { $x.0 + $x.1 }; foo 10 80", "90")
 }
+
+#[test]
+fn row_iteration() -> TestResult {
+    run_test(
+        "[[name, size]; [tj, 100], [rl, 200]] | each { $it.size * 8 }",
+        "[800, 1600]",
+    )
+}
