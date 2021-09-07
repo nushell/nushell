@@ -287,3 +287,8 @@ fn row_iteration() -> TestResult {
         "[800, 1600]",
     )
 }
+
+#[test]
+fn record_iteration() -> TestResult {
+    run_test("([[name, level]; [aa, 100], [bb, 200]] | each { $it | each { |x| if $x.column == \"level\" { $x.value + 100 } else { $x.value } } }).level", "[200, 300]")
+}

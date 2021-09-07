@@ -38,7 +38,7 @@ impl Command for Each {
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
-                        if let Some(var) = block.signature.required_positional.first() {
+                        if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 state.add_var(*var_id, x);
                             }
@@ -60,7 +60,7 @@ impl Command for Each {
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
-                        if let Some(var) = block.signature.required_positional.first() {
+                        if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 state.add_var(*var_id, x);
                             }
@@ -81,7 +81,7 @@ impl Command for Each {
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
-                        if let Some(var) = block.signature.required_positional.first() {
+                        if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
                                 state.add_var(*var_id, x);
                             }
@@ -95,13 +95,62 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
+            Value::Record { cols, vals, .. } => {
+                let mut output_cols = vec![];
+                let mut output_vals = vec![];
+
+                for (col, val) in cols.into_iter().zip(vals.into_iter()) {
+                    let engine_state = context.engine_state.borrow();
+                    let block = engine_state.get_block(block_id);
+
+                    let state = context.enter_scope();
+                    if let Some(var) = block.signature.get_positional(0) {
+                        if let Some(var_id) = &var.var_id {
+                            state.add_var(
+                                *var_id,
+                                Value::Record {
+                                    cols: vec!["column".into(), "value".into()],
+                                    vals: vec![
+                                        Value::String {
+                                            val: col.clone(),
+                                            span: call.head,
+                                        },
+                                        val,
+                                    ],
+                                    span: call.head,
+                                },
+                            );
+                        }
+                    }
+
+                    match eval_block(&state, block, Value::nothing())? {
+                        Value::Record {
+                            mut cols, mut vals, ..
+                        } => {
+                            // TODO check that the lengths match
+                            output_cols.append(&mut cols);
+                            output_vals.append(&mut vals);
+                        }
+                        x => {
+                            output_cols.push(col);
+                            output_vals.push(x);
+                        }
+                    }
+                }
+
+                Ok(Value::Record {
+                    cols: output_cols,
+                    vals: output_vals,
+                    span: call.head,
+                })
+            }
             x => {
                 //TODO: we need to watch to make sure this is okay
                 let engine_state = context.engine_state.borrow();
                 let block = engine_state.get_block(block_id);
 
                 let state = context.enter_scope();
-                if let Some(var) = block.signature.required_positional.first() {
+                if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         state.add_var(*var_id, x);
                     }
