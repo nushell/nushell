@@ -32,6 +32,34 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
 
             state.add_var(var_id, result);
         }
+
+        if let Some(rest_positional) = decl.signature().rest_positional {
+            let mut rest_items = vec![];
+
+            for arg in call.positional.iter().skip(
+                decl.signature().required_positional.len()
+                    + decl.signature().optional_positional.len(),
+            ) {
+                let result = eval_expression(&state, arg)?;
+                rest_items.push(result);
+            }
+
+            let span = if let Some(rest_item) = rest_items.first() {
+                rest_item.span()
+            } else {
+                Span::unknown()
+            };
+
+            state.add_var(
+                rest_positional
+                    .var_id
+                    .expect("Internal error: rest positional parameter lacks var_id"),
+                Value::List {
+                    val: rest_items,
+                    span,
+                },
+            )
+        }
         let engine_state = state.engine_state.borrow();
         let block = engine_state.get_block(block_id);
         eval_block(&state, block, input)

@@ -108,9 +108,14 @@ impl Signature {
         self
     }
 
-    pub fn rest(mut self, shape: impl Into<SyntaxShape>, desc: impl Into<String>) -> Signature {
+    pub fn rest(
+        mut self,
+        name: &str,
+        shape: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
+    ) -> Signature {
         self.rest_positional = Some(PositionalArg {
-            name: "rest".into(),
+            name: name.into(),
             desc: desc.into(),
             shape: shape.into(),
             var_id: None,

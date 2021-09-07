@@ -1361,6 +1361,7 @@ pub fn parse_signature_helper(
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];
+    let mut rest_arg = None;
     let mut parse_mode = ParseMode::ArgMode;
 
     for token in &output {
@@ -1535,6 +1536,25 @@ pub fn parse_signature_helper(
                                     },
                                     false,
                                 ))
+                            } else if let Some(contents) = contents.strip_prefix(b"...") {
+                                let name = String::from_utf8_lossy(contents).to_string();
+                                let contents_vec: Vec<u8> = contents.to_vec();
+
+                                let var_id = working_set.add_variable(contents_vec, Type::Unknown);
+
+                                if rest_arg.is_none() {
+                                    rest_arg = Some(Arg::Positional(
+                                        PositionalArg {
+                                            desc: String::new(),
+                                            name,
+                                            shape: SyntaxShape::Any,
+                                            var_id: Some(var_id),
+                                        },
+                                        false,
+                                    ));
+                                } else {
+                                    error = error.or(Some(ParseError::MultipleRestParams(span)))
+                                }
                             } else {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
@@ -1610,20 +1630,23 @@ pub fn parse_signature_helper(
 
     let mut sig = Signature::new(String::new());
 
+    if let Some(Arg::Positional(positional, ..)) = rest_arg {
+        if positional.name.is_empty() {
+            error = error.or(Some(ParseError::RestNeedsName(span)))
+        } else if sig.rest_positional.is_none() {
+            sig.rest_positional = Some(PositionalArg {
+                name: positional.name,
+                ..positional
+            })
+        } else {
+            // Too many rest params
+            error = error.or(Some(ParseError::MultipleRestParams(span)))
+        }
+    }
     for arg in args {
         match arg {
             Arg::Positional(positional, required) => {
-                if positional.name.starts_with("...") {
-                    let name = positional.name[3..].to_string();
-                    if name.is_empty() {
-                        error = error.or(Some(ParseError::RestNeedsName(span)))
-                    } else if sig.rest_positional.is_none() {
-                        sig.rest_positional = Some(PositionalArg { name, ..positional })
-                    } else {
-                        // Too many rest params
-                        error = error.or(Some(ParseError::MultipleRestParams(span)))
-                    }
-                } else if required {
+                if required {
                     sig.required_positional.push(positional)
                 } else {
                     sig.optional_positional.push(positional)

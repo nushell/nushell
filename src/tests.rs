@@ -274,3 +274,8 @@ fn cell_path_var1() -> TestResult {
 fn cell_path_var2() -> TestResult {
     run_test("let x = [[lang, gems]; [nu, 100]]; $x.lang.0", "nu")
 }
+
+#[test]
+fn custom_rest_var() -> TestResult {
+    run_test("def foo [...x] { $x.0 + $x.1 }; foo 10 80", "90")
+}
