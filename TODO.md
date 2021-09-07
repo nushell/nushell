@@ -16,14 +16,14 @@
 - [x] Ranges
 - [x] Column path
 - [x] ...rest without calling it rest
-- [ ] Iteration (`each`) over tables
+- [x] Iteration (`each`) over tables
 - [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] finish operator type-checking
 - [ ] Source
 - [ ] Autoenv
 - [ ] Externals
-- [ ] let [first, rest] = [1, 2, 3]
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
   
 ## Maybe: 
 - [ ] default param values?

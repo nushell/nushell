@@ -247,22 +247,17 @@ pub enum Value {
         val: String,
         span: Span,
     },
+    Record {
+        cols: Vec<String>,
+        vals: Vec<Value>,
+        span: Span,
+    },
     ValueStream {
         stream: ValueStream,
         span: Span,
     },
-    RowStream {
-        headers: Vec<String>,
-        stream: RowStream,
-        span: Span,
-    },
     List {
-        val: Vec<Value>,
-        span: Span,
-    },
-    Table {
-        headers: Vec<String>,
-        val: Vec<Vec<Value>>,
+        vals: Vec<Value>,
         span: Span,
     },
     Block {
@@ -292,10 +287,9 @@ impl Value {
             Value::Float { span, .. } => *span,
             Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
+            Value::Record { span, .. } => *span,
             Value::List { span, .. } => *span,
-            Value::Table { span, .. } => *span,
             Value::Block { span, .. } => *span,
-            Value::RowStream { span, .. } => *span,
             Value::ValueStream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
             Value::Error { .. } => Span::unknown(),
@@ -309,10 +303,9 @@ impl Value {
             Value::Float { span, .. } => *span = new_span,
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
-            Value::RowStream { span, .. } => *span = new_span,
+            Value::Record { span, .. } => *span = new_span,
             Value::ValueStream { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
-            Value::Table { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
@@ -328,12 +321,13 @@ impl Value {
             Value::Float { .. } => Type::Float,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
+            Value::Record { cols, vals, .. } => {
+                Type::Record(cols.clone(), vals.iter().map(|x| x.get_type()).collect())
+            }
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
-            Value::Table { .. } => Type::Table,                        // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
             Value::ValueStream { .. } => Type::ValueStream,
-            Value::RowStream { .. } => Type::RowStream,
             Value::Error { .. } => Type::Error,
         }
     }
@@ -364,29 +358,21 @@ impl Value {
             }
             Value::String { val, .. } => val,
             Value::ValueStream { stream, .. } => stream.into_string(),
-            Value::List { val, .. } => format!(
+            Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.into_iter()
                     .map(|x| x.into_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Value::Table { val, headers, .. } => format!(
-                "[= {} =\n {}]",
-                headers.join(", "),
-                val.into_iter()
-                    .map(|x| {
-                        x.into_iter()
-                            .map(|x| x.into_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    })
+            Value::Record { cols, vals, .. } => format!(
+                "{{{}}}",
+                cols.iter()
+                    .zip(vals.iter())
+                    .map(|(x, y)| format!("{}: {}", x, y.clone().into_string()))
                     .collect::<Vec<_>>()
-                    .join("\n")
+                    .join(", ")
             ),
-            Value::RowStream {
-                headers, stream, ..
-            } => stream.into_string(headers),
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
@@ -399,7 +385,7 @@ impl Value {
         }
     }
 
-    pub fn follow_column_path(self, column_path: &[PathMember]) -> Result<Value, ShellError> {
+    pub fn follow_cell_path(self, column_path: &[PathMember]) -> Result<Value, ShellError> {
         let mut current = self;
         for member in column_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
@@ -411,7 +397,7 @@ impl Value {
                 } => {
                     // Treat a numeric path member as `nth <val>`
                     match &mut current {
-                        Value::List { val, .. } => {
+                        Value::List { vals: val, .. } => {
                             if let Some(item) = val.get(*count) {
                                 current = item.clone();
                             } else {
@@ -425,32 +411,6 @@ impl Value {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
                             }
                         }
-                        Value::Table { headers, val, span } => {
-                            if let Some(row) = val.get(*count) {
-                                current = Value::Table {
-                                    headers: headers.clone(),
-                                    val: vec![row.clone()],
-                                    span: *span,
-                                }
-                            } else {
-                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
-                            }
-                        }
-                        Value::RowStream {
-                            headers,
-                            stream,
-                            span,
-                        } => {
-                            if let Some(row) = stream.nth(*count) {
-                                current = Value::Table {
-                                    headers: headers.clone(),
-                                    val: vec![row.clone()],
-                                    span: *span,
-                                }
-                            } else {
-                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
-                            }
-                        }
                         x => {
                             return Err(ShellError::IncompatiblePathAccess(
                                 format!("{}", x.get_type()),
@@ -460,28 +420,15 @@ impl Value {
                     }
                 }
                 PathMember::String {
-                    val,
+                    val: column_name,
                     span: origin_span,
                 } => match &mut current {
-                    Value::Table {
-                        headers,
-                        val: cells,
-                        span,
-                    } => {
+                    Value::Record { cols, vals, .. } => {
                         let mut found = false;
-                        for header in headers.iter().enumerate() {
-                            if header.1 == val {
+                        for col in cols.iter().zip(vals.iter()) {
+                            if col.0 == column_name {
+                                current = col.1.clone();
                                 found = true;
-
-                                let mut column = vec![];
-                                for row in cells {
-                                    column.push(row[header.0].clone())
-                                }
-
-                                current = Value::List {
-                                    val: column,
-                                    span: *span,
-                                };
                                 break;
                             }
                         }
@@ -490,33 +437,22 @@ impl Value {
                             return Err(ShellError::CantFindColumn(*origin_span));
                         }
                     }
-                    Value::RowStream {
-                        headers,
-                        stream,
-                        span,
-                    } => {
-                        let mut found = false;
-                        for header in headers.iter().enumerate() {
-                            if header.1 == val {
-                                found = true;
-
-                                let mut column = vec![];
-                                for row in stream {
-                                    column.push(row[header.0].clone())
+                    Value::List { vals, span } => {
+                        let mut output = vec![];
+                        for val in vals {
+                            if let Value::Record { cols, vals, .. } = val {
+                                for col in cols.iter().enumerate() {
+                                    if col.1 == column_name {
+                                        output.push(vals[col.0].clone());
+                                    }
                                 }
-
-                                current = Value::List {
-                                    val: column,
-                                    span: *span,
-                                };
-                                break;
                             }
                         }
 
-                        if !found {
-                            //FIXME: add "did you mean"
-                            return Err(ShellError::CantFindColumn(*origin_span));
-                        }
+                        current = Value::List {
+                            vals: output,
+                            span: *span,
+                        };
                     }
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(
@@ -844,19 +780,19 @@ impl Value {
                 val: lhs == rhs,
                 span,
             }),
-            (Value::List { val: lhs, .. }, Value::List { val: rhs, .. }) => Ok(Value::Bool {
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
                 val: lhs == rhs,
                 span,
             }),
             (
-                Value::Table {
-                    val: lhs,
-                    headers: lhs_headers,
+                Value::Record {
+                    vals: lhs,
+                    cols: lhs_headers,
                     ..
                 },
-                Value::Table {
-                    val: rhs,
-                    headers: rhs_headers,
+                Value::Record {
+                    vals: rhs,
+                    cols: rhs_headers,
                     ..
                 },
             ) => Ok(Value::Bool {
@@ -899,19 +835,19 @@ impl Value {
                 val: lhs != rhs,
                 span,
             }),
-            (Value::List { val: lhs, .. }, Value::List { val: rhs, .. }) => Ok(Value::Bool {
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
                 val: lhs != rhs,
                 span,
             }),
             (
-                Value::Table {
-                    val: lhs,
-                    headers: lhs_headers,
+                Value::Record {
+                    vals: lhs,
+                    cols: lhs_headers,
                     ..
                 },
-                Value::Table {
-                    val: rhs,
-                    headers: rhs_headers,
+                Value::Record {
+                    vals: rhs,
+                    cols: rhs_headers,
                     ..
                 },
             ) => Ok(Value::Bool {

@@ -68,8 +68,8 @@ impl Command for For {
                     .into_value_stream(),
                 span: call.head,
             }),
-            Value::List { val, .. } => Ok(Value::List {
-                val: val
+            Value::List { vals: val, .. } => Ok(Value::List {
+                vals: val
                     .into_iter()
                     .map(move |x| {
                         let engine_state = context.engine_state.borrow();

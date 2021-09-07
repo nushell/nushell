@@ -1781,7 +1781,7 @@ pub fn parse_table_expression(
             Expression {
                 expr: Expr::List(vec![]),
                 span,
-                ty: Type::Table,
+                ty: Type::List(Box::new(Type::Unknown)),
             },
             None,
         ),
@@ -1828,7 +1828,7 @@ pub fn parse_table_expression(
                 Expression {
                     expr: Expr::Table(table_headers, rows),
                     span,
-                    ty: Type::Table,
+                    ty: Type::List(Box::new(Type::Unknown)),
                 },
                 error,
             )
@@ -1965,7 +1965,7 @@ pub fn parse_value(
     // First, check the special-cases. These will likely represent specific values as expressions
     // and may fit a variety of shapes.
     //
-    // We check variable first because immediately following we check for variables with column paths
+    // We check variable first because immediately following we check for variables with cell paths
     // which might result in a value that fits other shapes (and require the variable to already be
     // declared)
     if shape == &SyntaxShape::Variable {

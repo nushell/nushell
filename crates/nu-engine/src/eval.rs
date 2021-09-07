@@ -55,7 +55,7 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
                 Value::List {
-                    val: rest_items,
+                    vals: rest_items,
                     span,
                 },
             )
@@ -133,7 +133,7 @@ pub fn eval_expression(
         Expr::FullCellPath(column_path) => {
             let value = eval_expression(context, &column_path.head)?;
 
-            value.follow_column_path(&column_path.tail)
+            value.follow_cell_path(&column_path.tail)
         }
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
         Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
@@ -176,7 +176,7 @@ pub fn eval_expression(
                 output.push(eval_expression(context, expr)?);
             }
             Ok(Value::List {
-                val: output,
+                vals: output,
                 span: expr.span,
             })
         }
@@ -192,11 +192,14 @@ pub fn eval_expression(
                 for expr in val {
                     row.push(eval_expression(context, expr)?);
                 }
-                output_rows.push(row);
+                output_rows.push(Value::Record {
+                    cols: output_headers.clone(),
+                    vals: row,
+                    span: expr.span,
+                });
             }
-            Ok(Value::Table {
-                headers: output_headers,
-                val: output_rows,
+            Ok(Value::List {
+                vals: output_rows,
                 span: expr.span,
             })
         }
