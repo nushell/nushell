@@ -29,17 +29,8 @@ impl EvaluationContext {
         // TODO: add ctrl-c support
 
         let value = match value {
-            Value::RowStream {
-                headers,
-                stream,
-                span,
-            } => Value::Table {
-                headers,
-                val: stream.collect(),
-                span,
-            },
             Value::ValueStream { stream, span } => Value::List {
-                val: stream.collect(),
+                vals: stream.collect(),
                 span,
             },
             x => x,

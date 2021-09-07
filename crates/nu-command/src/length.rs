@@ -24,15 +24,7 @@ impl Command for Length {
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         match input {
-            Value::List { val, .. } => {
-                let length = val.len();
-
-                Ok(Value::Int {
-                    val: length as i64,
-                    span: call.head,
-                })
-            }
-            Value::Table { val, .. } => {
+            Value::List { vals: val, .. } => {
                 let length = val.len();
 
                 Ok(Value::Int {
@@ -41,14 +33,6 @@ impl Command for Length {
                 })
             }
             Value::ValueStream { stream, .. } => {
-                let length = stream.count();
-
-                Ok(Value::Int {
-                    val: length as i64,
-                    span: call.head,
-                })
-            }
-            Value::RowStream { stream, .. } => {
                 let length = stream.count();
 
                 Ok(Value::Int {

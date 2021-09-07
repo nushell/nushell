@@ -23,7 +23,7 @@
 - [ ] Source
 - [ ] Autoenv
 - [ ] Externals
-- [ ] let [first, rest] = [1, 2, 3]
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
   
 ## Maybe: 
 - [ ] default param values?

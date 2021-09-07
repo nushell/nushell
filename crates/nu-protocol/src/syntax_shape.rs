@@ -96,7 +96,7 @@ impl SyntaxShape {
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Signature => Type::Unknown,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::Table,
+            SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME
             SyntaxShape::VarWithOptType => Type::Unknown,
             SyntaxShape::Variable => Type::Unknown,
         }

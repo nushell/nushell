@@ -348,9 +348,9 @@ pub fn report_shell_error(
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
 
                 Diagnostic::error()
-                    .with_message("Data cannot be accessed with a column path")
+                    .with_message("Data cannot be accessed with a cell path")
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                        .with_message(format!("{} doesn't support column paths", name))])
+                        .with_message(format!("{} doesn't support cell paths", name))])
             }
             ShellError::CantFindColumn(span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;

@@ -52,7 +52,7 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
-            Value::List { val, .. } => Ok(Value::ValueStream {
+            Value::List { vals: val, .. } => Ok(Value::ValueStream {
                 stream: val
                     .into_iter()
                     .map(move |x| {
@@ -95,8 +95,6 @@ impl Command for Each {
                     .into_value_stream(),
                 span: call.head,
             }),
-            Value::RowStream { .. } => panic!("iterating row streams is not yet supported"),
-            Value::Table { .. } => panic!("table iteration not yet supported"),
             x => {
                 //TODO: we need to watch to make sure this is okay
                 let engine_state = context.engine_state.borrow();
