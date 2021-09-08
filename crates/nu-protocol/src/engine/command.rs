@@ -1,4 +1,4 @@
-use crate::{ast::Call, BlockId, Example, ShellError, Signature, Value};
+use crate::{ast::Call, value::Value, BlockId, Example, ShellError, Signature};
 
 use super::EvaluationContext;
 
