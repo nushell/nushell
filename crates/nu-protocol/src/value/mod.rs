@@ -1,3 +1,11 @@
+mod range;
+mod row;
+mod stream;
+
+pub use range::*;
+pub use row::*;
+pub use stream::*;
+
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
 use crate::ast::{PathMember, RangeInclusion};
@@ -5,226 +13,7 @@ use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
 
-#[derive(Clone)]
-pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
-
-impl ValueStream {
-    pub fn into_string(self) -> String {
-        format!(
-            "[{}]",
-            self.map(|x| x.into_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
-    }
-
-    pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
-        ValueStream(Rc::new(RefCell::new(input)))
-    }
-}
-
-impl Debug for ValueStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ValueStream").finish()
-    }
-}
-
-impl Iterator for ValueStream {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        {
-            let mut iter = self.0.borrow_mut();
-            iter.next()
-        }
-    }
-}
-
-pub trait IntoValueStream {
-    fn into_value_stream(self) -> ValueStream;
-}
-
-impl<T> IntoValueStream for T
-where
-    T: Iterator<Item = Value> + 'static,
-{
-    fn into_value_stream(self) -> ValueStream {
-        ValueStream::from_stream(self)
-    }
-}
-
-#[derive(Clone)]
-pub struct RowStream(Rc<RefCell<dyn Iterator<Item = Vec<Value>>>>);
-
-impl RowStream {
-    pub fn into_string(self, headers: Vec<String>) -> String {
-        format!(
-            "[{}]\n[{}]",
-            headers
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            self.map(|x| {
-                x.into_iter()
-                    .map(|x| x.into_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-        )
-    }
-}
-
-impl Debug for RowStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ValueStream").finish()
-    }
-}
-
-impl Iterator for RowStream {
-    type Item = Vec<Value>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        {
-            let mut iter = self.0.borrow_mut();
-            iter.next()
-        }
-    }
-}
-
-pub trait IntoRowStream {
-    fn into_row_stream(self) -> RowStream;
-}
-
-impl IntoRowStream for Vec<Vec<Value>> {
-    fn into_row_stream(self) -> RowStream {
-        RowStream(Rc::new(RefCell::new(self.into_iter())))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Range {
-    pub from: Value,
-    pub to: Value,
-    pub inclusion: RangeInclusion,
-}
-
-impl IntoIterator for Range {
-    type Item = Value;
-
-    type IntoIter = RangeIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        let span = self.from.span();
-
-        RangeIterator::new(self, span)
-    }
-}
-
-pub struct RangeIterator {
-    curr: Value,
-    end: Value,
-    span: Span,
-    is_end_inclusive: bool,
-    moves_up: bool,
-    one: Value,
-    negative_one: Value,
-    done: bool,
-}
-
-impl RangeIterator {
-    pub fn new(range: Range, span: Span) -> RangeIterator {
-        let start = match range.from {
-            Value::Nothing { .. } => Value::Int { val: 0, span },
-            x => x,
-        };
-
-        let end = match range.to {
-            Value::Nothing { .. } => Value::Int {
-                val: i64::MAX,
-                span,
-            },
-            x => x,
-        };
-
-        RangeIterator {
-            moves_up: matches!(start.lte(span, &end), Ok(Value::Bool { val: true, .. })),
-            curr: start,
-            end,
-            span,
-            is_end_inclusive: matches!(range.inclusion, RangeInclusion::Inclusive),
-            done: false,
-            one: Value::Int { val: 1, span },
-            negative_one: Value::Int { val: -1, span },
-        }
-    }
-}
-
-impl Iterator for RangeIterator {
-    type Item = Value;
-    fn next(&mut self) -> Option<Self::Item> {
-        use std::cmp::Ordering;
-        if self.done {
-            return None;
-        }
-
-        let ordering = if matches!(self.end, Value::Nothing { .. }) {
-            Ordering::Less
-        } else {
-            match (&self.curr, &self.end) {
-                (Value::Int { val: x, .. }, Value::Int { val: y, .. }) => x.cmp(y),
-                // (Value::Float { val: x, .. }, Value::Float { val: y, .. }) => x.cmp(y),
-                // (Value::Float { val: x, .. }, Value::Int { val: y, .. }) => x.cmp(y),
-                // (Value::Int { val: x, .. }, Value::Float { val: y, .. }) => x.cmp(y),
-                _ => {
-                    self.done = true;
-                    return Some(Value::Error {
-                        error: ShellError::CannotCreateRange(self.span),
-                    });
-                }
-            }
-        };
-
-        if self.moves_up
-            && (ordering == Ordering::Less || self.is_end_inclusive && ordering == Ordering::Equal)
-        {
-            let next_value = self.curr.add(self.span, &self.one);
-
-            let mut next = match next_value {
-                Ok(result) => result,
-
-                Err(error) => {
-                    self.done = true;
-                    return Some(Value::Error { error });
-                }
-            };
-            std::mem::swap(&mut self.curr, &mut next);
-
-            Some(next)
-        } else if !self.moves_up
-            && (ordering == Ordering::Greater
-                || self.is_end_inclusive && ordering == Ordering::Equal)
-        {
-            let next_value = self.curr.add(self.span, &self.negative_one);
-
-            let mut next = match next_value {
-                Ok(result) => result,
-                Err(error) => {
-                    self.done = true;
-                    return Some(Value::Error { error });
-                }
-            };
-            std::mem::swap(&mut self.curr, &mut next);
-
-            Some(next)
-        } else {
-            None
-        }
-    }
-}
-
+/// Core structured values that pass through the pipeline in engine-q
 #[derive(Debug, Clone)]
 pub enum Value {
     Bool {
@@ -280,8 +69,10 @@ impl Value {
         }
     }
 
+    /// Get the span for the current value
     pub fn span(&self) -> Span {
         match self {
+            Value::Error { .. } => Span::unknown(),
             Value::Bool { span, .. } => *span,
             Value::Int { span, .. } => *span,
             Value::Float { span, .. } => *span,
@@ -292,10 +83,10 @@ impl Value {
             Value::Block { span, .. } => *span,
             Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
-            Value::Error { .. } => Span::unknown(),
         }
     }
 
+    /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {
             Value::Bool { span, .. } => *span = new_span,
@@ -314,6 +105,7 @@ impl Value {
         self
     }
 
+    /// Get the type of the current Value
     pub fn get_type(&self) -> Type {
         match self {
             Value::Bool { .. } => Type::Bool,
@@ -332,6 +124,7 @@ impl Value {
         }
     }
 
+    /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_string(self) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
@@ -379,6 +172,7 @@ impl Value {
         }
     }
 
+    /// Create a new `Nothing` value
     pub fn nothing() -> Value {
         Value::Nothing {
             span: Span::unknown(),

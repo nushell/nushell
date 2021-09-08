@@ -8,6 +8,7 @@ mod span;
 mod syntax_shape;
 mod ty;
 mod value;
+pub use value::Value;
 
 pub use example::*;
 pub use id::*;
