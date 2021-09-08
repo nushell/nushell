@@ -28,4 +28,6 @@ pub enum ParseError {
     UnknownState(String, Span),
     IncompleteParser(Span),
     RestNeedsName(Span),
+    ExtraColumns(usize, Span),
+    MissingColumns(usize, Span),
 }
