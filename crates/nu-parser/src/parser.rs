@@ -1741,13 +1741,13 @@ pub fn parse_list_expression(
 
 pub fn parse_table_expression(
     working_set: &mut StateWorkingSet,
-    span: Span,
+    original_span: Span,
 ) -> (Expression, Option<ParseError>) {
-    let bytes = working_set.get_span_contents(span);
+    let bytes = working_set.get_span_contents(original_span);
     let mut error = None;
 
-    let mut start = span.start;
-    let mut end = span.end;
+    let mut start = original_span.start;
+    let mut end = original_span.end;
 
     if bytes.starts_with(b"[") {
         start += 1;
@@ -1787,7 +1787,7 @@ pub fn parse_table_expression(
         ),
         1 => {
             // List
-            parse_list_expression(working_set, span, &SyntaxShape::Any)
+            parse_list_expression(working_set, original_span, &SyntaxShape::Any)
         }
         _ => {
             let mut table_headers = vec![];
@@ -1817,9 +1817,27 @@ pub fn parse_table_expression(
                 error = error.or(err);
                 if let Expression {
                     expr: Expr::List(values),
+                    span,
                     ..
                 } = values
                 {
+                    match values.len().cmp(&table_headers.len()) {
+                        std::cmp::Ordering::Less => {
+                            error = error.or_else(|| {
+                                Some(ParseError::MissingColumns(table_headers.len(), span))
+                            })
+                        }
+                        std::cmp::Ordering::Equal => {}
+                        std::cmp::Ordering::Greater => {
+                            error = error.or_else(|| {
+                                Some(ParseError::ExtraColumns(
+                                    table_headers.len(),
+                                    values[table_headers.len()].span,
+                                ))
+                            })
+                        }
+                    }
+
                     rows.push(values);
                 }
             }
@@ -1828,7 +1846,7 @@ pub fn parse_table_expression(
                 Expression {
                     expr: Expr::Table(table_headers, rows),
                     span,
-                    ty: Type::List(Box::new(Type::Unknown)),
+                    ty: Type::Table,
                 },
                 error,
             )
@@ -2052,17 +2070,7 @@ pub fn parse_value(
         }
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
-                let shapes = [SyntaxShape::Table];
-                for shape in shapes.iter() {
-                    if let (s, None) = parse_value(working_set, span, shape) {
-                        return (s, None);
-                    }
-                }
-                parse_value(
-                    working_set,
-                    span,
-                    &SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                )
+                parse_value(working_set, span, &SyntaxShape::Table)
             } else {
                 let shapes = [
                     SyntaxShape::Int,
@@ -2071,8 +2079,6 @@ pub fn parse_value(
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
                     SyntaxShape::Block,
-                    SyntaxShape::Table,
-                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {

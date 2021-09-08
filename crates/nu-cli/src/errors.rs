@@ -159,6 +159,30 @@ pub fn report_parsing_error(
                         Label::primary(diag_file_id, diag_range).with_message("expected type")
                     ])
             }
+            ParseError::MissingColumns(count, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Missing columns")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range).with_message(
+                        format!(
+                            "expected {} column{}",
+                            count,
+                            if *count == 1 { "" } else { "s" }
+                        ),
+                    )])
+            }
+            ParseError::ExtraColumns(count, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message("Extra columns")
+                    .with_labels(vec![Label::primary(diag_file_id, diag_range).with_message(
+                        format!(
+                            "expected {} column{}",
+                            count,
+                            if *count == 1 { "" } else { "s" }
+                        ),
+                    )])
+            }
             ParseError::TypeMismatch(expected, found, span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
