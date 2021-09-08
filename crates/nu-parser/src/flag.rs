@@ -47,7 +47,7 @@ pub fn get_flag_signature_spec(
             let mut starting_pos = arg.span.start() + 1;
             for c in remainder.chars() {
                 let mut found = false;
-                for (full_name, named_arg) in signature.named.iter() {
+                for (full_name, named_arg) in &signature.named {
                     if Some(c) == named_arg.0.get_short() {
                         found = true;
                         output.push((full_name.clone(), named_arg.0.clone()));

@@ -110,7 +110,7 @@ impl InlineShape {
     pub fn from_dictionary(dictionary: &Dictionary) -> InlineShape {
         let mut map = IndexMap::new();
 
-        for (key, value) in dictionary.entries.iter() {
+        for (key, value) in &dictionary.entries {
             let column = Column::String(key.clone());
             map.insert(column, InlineShape::from_value(value));
         }
@@ -119,11 +119,7 @@ impl InlineShape {
     }
 
     pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> InlineShape {
-        let mut vec = vec![];
-
-        for item in table.into_iter() {
-            vec.push(InlineShape::from_value(item))
-        }
+        let vec = table.into_iter().map(InlineShape::from_value).collect();
 
         InlineShape::Table(vec)
     }
@@ -150,7 +146,7 @@ impl InlineShape {
         match value.into() {
             UntaggedValue::Primitive(p) => InlineShape::from_primitive(p),
             UntaggedValue::Row(row) => InlineShape::from_dictionary(row),
-            UntaggedValue::Table(table) => InlineShape::from_table(table.iter()),
+            UntaggedValue::Table(table) => InlineShape::from_table(table),
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
             #[cfg(feature = "dataframe")]
@@ -261,10 +257,9 @@ impl InlineShape {
                 }
             }
         } else {
-            let doc = (DbgDocBldr::primitive(format!("{}", bytesize))
-                + DbgDocBldr::space()
-                + DbgDocBldr::kind("B"))
-            .group();
+            let doc =
+                (DbgDocBldr::primitive(bytesize) + DbgDocBldr::space() + DbgDocBldr::kind("B"))
+                    .group();
             (doc.clone(), InlineShape::render_doc(&doc))
         }
     }
@@ -284,8 +279,8 @@ impl PrettyDebug for FormatInlineShape {
 
         match &self.shape {
             InlineShape::Nothing => DbgDocBldr::blank(),
-            InlineShape::Int(int) => DbgDocBldr::primitive(format!("{}", int)),
-            InlineShape::BigInt(int) => DbgDocBldr::primitive(format!("{}", int)),
+            InlineShape::Int(int) => DbgDocBldr::primitive(int),
+            InlineShape::BigInt(int) => DbgDocBldr::primitive(int),
             InlineShape::Decimal(decimal) => DbgDocBldr::description(format_primitive(
                 &Primitive::Decimal(decimal.clone()),
                 None,

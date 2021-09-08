@@ -90,14 +90,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_usize().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into an unsigned 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_usize().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into an unsigned 64-bit integer",
                 )
             }),
@@ -114,14 +114,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_u64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into an unsigned 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into an unsigned 64-bit integer",
                 )
             }),
@@ -138,14 +138,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_f64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a 64-bit floating point",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_f64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a 64-bit floating point",
                 )
             }),
@@ -162,21 +162,21 @@ impl Primitive {
             Primitive::Int(int) => int.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 64-bit integer",
                 )
             }),
             Primitive::Duration(duration) => duration.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", duration).spanned(span),
+                    &duration.to_string().spanned(span),
                     "converting a duration into a signed 64-bit integer",
                 )
             }),
@@ -193,14 +193,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_u32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a unsigned 32-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_u32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a unsigned 32-bit integer",
                 )
             }),
@@ -216,14 +216,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_i32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 32-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 32-bit integer",
                 )
             }),
@@ -239,14 +239,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_i16().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I16,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 16-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i16().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I16,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 16-bit integer",
                 )
             }),
@@ -262,14 +262,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_f32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 32-bit float",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_f32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 32-bit float",
                 )
             }),
@@ -460,7 +460,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Nothing => String::new(),
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
-        Primitive::FilePath(p) => format!("{}", p.display()),
+        Primitive::FilePath(p) => p.display().to_string(),
         Primitive::Filesize(num_bytes) => {
             if let Some(value) = num_bytes.to_u128() {
                 let byte = byte_unit::Byte::from_bytes(value);
@@ -489,7 +489,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             if decimal_places.len() == 2 && decimal_places[1].len() > 4 {
                 format!("{:.4}", decimal)
             } else {
-                format!("{}", decimal)
+                decimal.to_string()
             }
         }
         Primitive::Range(range) => format!(
@@ -595,5 +595,5 @@ pub fn format_duration(duration: &BigInt) -> String {
 
 /// Format a date value into a humanized string (eg "1 week ago" instead of a formal date string)
 pub fn format_date(d: &DateTime<FixedOffset>) -> String {
-    format!("{}", HumanTime::from(*d))
+    HumanTime::from(*d).to_string()
 }

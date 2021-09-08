@@ -35,7 +35,7 @@ fn execute_json_query(
     let tag = tag.into();
 
     // Validate the json before trying to query it
-    let is_valid_json = gjson::valid(input_string.as_str());
+    let is_valid_json = gjson::valid(&input_string);
     if !is_valid_json {
         return Err(ShellError::labeled_error(
             "invalid json",
@@ -45,9 +45,9 @@ fn execute_json_query(
     }
 
     let mut ret: Vec<Value> = vec![];
-    let val: gjValue = gjson::get(input_string.as_str(), &query_string);
+    let val: gjValue = gjson::get(&input_string, &query_string);
 
-    if query_contains_modifiers(query_string.as_str()) {
+    if query_contains_modifiers(&query_string) {
         let json_str = val.json();
         let json_val = Value::from(json_str);
         ret.push(json_val);
@@ -59,7 +59,7 @@ fn execute_json_query(
             UntaggedValue::Row(_) => ret.push(gjv),
             UntaggedValue::Table(t) => {
                 // Unravel the table so it's not a table inside of a table in the output
-                for v in t.iter() {
+                for v in &t {
                     let c = v.clone();
                     ret.push(c)
                 }

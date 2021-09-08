@@ -93,12 +93,12 @@ impl<'a> Line<'a> {
 
             let y_labels = vec![
                 Span::styled(
-                    format!("{}", self.y_range[0]),
+                    self.y_range[0].to_string(),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(format!("{}", (self.y_range[0] + self.y_range[1]) / 2.0)),
+                Span::raw(((self.y_range[0] + self.y_range[1]) / 2.0).to_string()),
                 Span::styled(
-                    format!("{}", self.y_range[1]),
+                    self.y_range[1].to_string(),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
             ];

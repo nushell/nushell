@@ -55,17 +55,18 @@ fn make_error(value: &Value) -> Option<ShellError> {
     {
         let msg = dict.get_data_by_key("msg".spanned_unknown());
 
-        let labels = dict
-            .get_data_by_key("labels".spanned_unknown())
-            .map(|table| match &table.value {
-                UntaggedValue::Table(_) => table
-                    .table_entries()
-                    .map(|value| value.as_string().ok())
-                    .collect(),
-                UntaggedValue::Primitive(Primitive::String(label)) => Some(vec![label.to_string()]),
-                _ => None,
-            })
-            .flatten();
+        let labels =
+            dict.get_data_by_key("labels".spanned_unknown())
+                .and_then(|table| match &table.value {
+                    UntaggedValue::Table(_) => table
+                        .table_entries()
+                        .map(|value| value.as_string().ok())
+                        .collect(),
+                    UntaggedValue::Primitive(Primitive::String(label)) => {
+                        Some(vec![label.to_string()])
+                    }
+                    _ => None,
+                });
 
         let _anchor = dict.get_data_by_key("tag".spanned_unknown());
         let span = dict.get_data_by_key("span".spanned_unknown());
@@ -74,7 +75,7 @@ fn make_error(value: &Value) -> Option<ShellError> {
             return None;
         }
 
-        let msg = msg.map(|msg| msg.as_string().ok()).flatten();
+        let msg = msg.and_then(|msg| msg.as_string().ok());
 
         if let Some(labels) = labels {
             if labels.is_empty() {

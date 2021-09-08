@@ -45,7 +45,7 @@ impl WholeStreamCommand for Command {
 
         Ok(prepend
             .into_iter()
-            .chain(args.input.into_iter().chain(vec![value]))
+            .chain(args.input.into_iter().chain([value]))
             .into_output_stream())
     }
 

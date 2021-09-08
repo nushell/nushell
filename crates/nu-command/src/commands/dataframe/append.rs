@@ -107,7 +107,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let other: Value = args.req_named("other")?;
     let axis: Tagged<String> = args.req_named("axis")?;
 
-    let axis = Axis::try_from_str(axis.item.as_str(), &axis.tag.span)?;
+    let axis = Axis::try_from_str(&axis.item, &axis.tag.span)?;
 
     let df_other = match other.value {
         UntaggedValue::DataFrame(df) => Ok(df),

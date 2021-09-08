@@ -11,14 +11,14 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::Garbage => vec![FlatShape::Garbage.spanned(e.span)],
         Expression::List(exprs) => {
             let mut output = vec![];
-            for expr in exprs.iter() {
+            for expr in exprs {
                 output.append(&mut expression_to_flat_shape(expr));
             }
             output
         }
         Expression::Table(headers, cells) => {
             let mut output = vec![];
-            for header in headers.iter() {
+            for header in headers {
                 output.append(&mut expression_to_flat_shape(header));
             }
             for row in cells {
@@ -31,7 +31,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::FullColumnPath(exprs) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&exprs.head));
-            for member in exprs.tail.iter() {
+            for member in &exprs.tail {
                 if let UnspannedPathMember::String(_) = &member.unspanned {
                     output.push(FlatShape::StringMember.spanned(member.span));
                 }
@@ -102,7 +102,7 @@ pub fn shapes(commands: &Block) -> Vec<Spanned<FlatShape>> {
                         }
 
                         if let Some(named) = &internal.args.named {
-                            for (_, named_arg) in named.iter() {
+                            for (_, named_arg) in named {
                                 match named_arg {
                                     NamedValue::PresentSwitch(span) => {
                                         output.push(FlatShape::Flag.spanned(*span));
@@ -129,7 +129,7 @@ pub fn shapes(commands: &Block) -> Vec<Spanned<FlatShape>> {
                         }
 
                         if let Some(named) = &call.named {
-                            for (_, named_arg) in named.iter() {
+                            for (_, named_arg) in named {
                                 match named_arg {
                                     NamedValue::PresentSwitch(span) => {
                                         output.push(FlatShape::Flag.spanned(*span));

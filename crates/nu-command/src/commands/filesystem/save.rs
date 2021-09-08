@@ -241,7 +241,7 @@ fn string_from(input: &[Value]) -> String {
 
     if !input.is_empty() {
         let mut first = true;
-        for i in input.iter() {
+        for i in input {
             if !first {
                 save_data.push('\n');
             } else {

@@ -44,7 +44,7 @@ impl Options {
     }
 
     pub fn get(&self, key: &str) -> Option<Value> {
-        self.inner.borrow().get(key).map(Clone::clone)
+        self.inner.borrow().get(key).cloned()
     }
 
     pub fn put(&self, key: &str, value: Value) {

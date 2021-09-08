@@ -103,7 +103,7 @@ impl Executable for Director {
                 if let Some(pipelines) = &self.pipeline {
                     let child = process.stdin.as_mut().expect("Failed to open stdin");
 
-                    for pipeline in pipelines.iter() {
+                    for pipeline in pipelines {
                         child
                             .write_all(format!("{}\n", pipeline).as_bytes())
                             .expect("Could not write to");

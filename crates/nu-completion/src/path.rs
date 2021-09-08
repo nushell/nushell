@@ -39,8 +39,8 @@ impl PathCompleter {
                 .filter_map(|entry| {
                     entry.ok().and_then(|entry| {
                         let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                        if matcher.matches(partial, file_name.as_str()) {
-                            let mut path = format!("{}{}", &base_dir_name, file_name);
+                        if matcher.matches(partial, &file_name) {
+                            let mut path = format!("{}{}", base_dir_name, file_name);
                             if entry.path().is_dir() {
                                 path.push(SEP);
                                 file_name.push(SEP);

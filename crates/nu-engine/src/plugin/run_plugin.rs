@@ -133,8 +133,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
 
     let bos = vec![UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value()]
         .into_iter();
-    let eos =
-        vec![UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()].into_iter();
+    let eos = [UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value()];
 
     let (call_info, input) = evaluate_once(args)?;
 
@@ -149,7 +148,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
         Command::new("pwsh")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .args(&[
+            .args([
                 "-NoLogo",
                 "-NoProfile",
                 "-ExecutionPolicy",
@@ -172,7 +171,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
     Ok(bos
         .chain(input)
         .chain(eos)
-        .map(move |item| {
+        .flat_map(move |item| {
             match item {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::BeginningOfStream),
@@ -201,7 +200,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                                 Ok(_) => {}
                                 Err(err) => {
                                     return ActionStream::one(Err(ShellError::unexpected(
-                                        format!("{}", err),
+                                        err.to_string(),
                                     )));
                                 }
                             }
@@ -262,7 +261,7 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                                 Ok(_) => {}
                                 Err(err) => {
                                     return ActionStream::one(Err(ShellError::unexpected(
-                                        format!("{}", err),
+                                        err.to_string(),
                                     )));
                                 }
                             }
@@ -371,7 +370,6 @@ fn run_filter(path: String, args: CommandArgs) -> Result<ActionStream, ShellErro
                 }
             }
         })
-        .flatten()
         .into_action_stream())
 }
 
@@ -435,7 +433,7 @@ fn run_sink(path: String, args: CommandArgs) -> Result<ActionStream, ShellError>
             // an example of what CallInfo would look like in this temp file
             let child = if ps1_file {
                 Command::new("pwsh")
-                    .args(&[
+                    .args([
                         "-NoLogo",
                         "-NoProfile",
                         "-ExecutionPolicy",
@@ -528,7 +526,7 @@ fn evaluate_args(call: &hir::Call, ctx: &EvaluationContext) -> Result<EvaluatedA
     let mut named_args = IndexMap::new();
 
     if let Some(named) = &call.named {
-        for (name, value) in named.iter() {
+        for (name, value) in named {
             match value {
                 hir::NamedValue::PresentSwitch(tag) => {
                     named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));

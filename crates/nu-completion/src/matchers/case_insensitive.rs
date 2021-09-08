@@ -5,7 +5,7 @@ pub struct Matcher;
 impl matchers::Matcher for Matcher {
     fn matches(&self, partial: &str, from: &str) -> bool {
         from.to_ascii_lowercase()
-            .starts_with(partial.to_ascii_lowercase().as_str())
+            .starts_with(&partial.to_ascii_lowercase())
     }
 }
 

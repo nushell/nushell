@@ -176,15 +176,14 @@ fn parse_regex_error(e: regex::Error, base_span: Span) -> ShellError {
                 .map(|l| l.replace(':', ""))
                 .expect("invalid regex pattern");
 
-            let span = lines.nth(1).map(|l| l.find('^')).flatten().map(|space| {
+            let span = lines.nth(1).and_then(|l| l.find('^')).map(|space| {
                 let start = base_span.start() + space - 3;
                 Span::for_char(start)
             });
 
             let msg = lines
                 .next()
-                .map(|l| l.split(':').nth(1))
-                .flatten()
+                .and_then(|l| l.split(':').nth(1))
                 .map(|s| s.trim().to_string());
 
             match (msg, span) {

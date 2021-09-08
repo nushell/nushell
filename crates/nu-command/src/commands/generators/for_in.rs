@@ -90,7 +90,7 @@ pub fn process_row(
 
     let result = run_block(
         &captured_block.block,
-        &*context,
+        context,
         input_stream,
         external_redirection,
     );
@@ -130,7 +130,7 @@ fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if numbered {
         Ok(input
             .enumerate()
-            .map(move |input| {
+            .flat_map(move |input| {
                 let row = make_indexed_item(input.0, input.1);
 
                 match process_row(&block, &context, row, &var_name, external_redirection) {
@@ -138,11 +138,10 @@ fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
-            .flatten()
             .into_output_stream())
     } else {
         Ok(input
-            .map(move |input| {
+            .flat_map(move |input| {
                 let block = block.clone();
 
                 match process_row(&block, &context, input, &var_name, external_redirection) {
@@ -150,7 +149,6 @@ fn for_in(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
-            .flatten()
             .into_output_stream())
     }
 }

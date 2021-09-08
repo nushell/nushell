@@ -821,7 +821,7 @@ pub fn from_slice<T>(v: &[u8]) -> Result<T>
 where
     T: de::DeserializeOwned,
 {
-    from_iter(v.iter().map(|byte| Ok(*byte)))
+    from_iter(v.iter().map(|&byte| Ok(byte)))
 }
 
 /// Decodes a Hjson value from a `&str`.

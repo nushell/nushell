@@ -972,7 +972,7 @@ fn fmt_small<N>(value: N) -> String
 where
     N: Display + LowerExp,
 {
-    let f1 = format!("{}", value);
+    let f1 = value.to_string();
     let f2 = format!("{:e}", value);
     if f1.len() <= f2.len() + 1 {
         f1

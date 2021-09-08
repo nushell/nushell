@@ -27,7 +27,7 @@ pub(crate) fn evaluate_args(
     let mut named_args = IndexMap::new();
 
     if let Some(named) = &call.named {
-        for (name, value) in named.iter() {
+        for (name, value) in named {
             match value {
                 hir::NamedValue::PresentSwitch(tag) => {
                     named_args.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));

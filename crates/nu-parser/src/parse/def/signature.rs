@@ -356,13 +356,13 @@ fn to_signature(
 ) -> Signature {
     let mut sign = Signature::new(name);
 
-    for param in params.into_iter() {
+    for param in params {
         // pub positional: Vec<(PositionalType, Description)>,
         sign.positional
             .push((param.pos_type, param.desc.unwrap_or_else(|| "".to_string())));
     }
 
-    for flag in flags.into_iter() {
+    for flag in flags {
         sign.named.insert(
             flag.long_name,
             (flag.named_type, flag.desc.unwrap_or_else(|| "".to_string())),

@@ -72,7 +72,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
                 .expect("using name from list of names from dataframe")
                 .dtype();
 
-            let dtype_str = format!("{}", dtype);
+            let dtype_str = dtype.to_string();
             dtypes.push(Value {
                 value: dtype_str.into(),
                 tag: Tag::default(),

@@ -509,7 +509,7 @@ fn spawn(
             Ok(stream.into_input_stream())
         }
         Err(e) => Err(ShellError::labeled_error(
-            format!("{}", e),
+            e.to_string(),
             "failed to spawn",
             &command.name_tag,
         )),

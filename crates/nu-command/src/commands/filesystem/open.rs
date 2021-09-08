@@ -173,9 +173,9 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Ok(StringOrBinary::String(s)) => {
                 ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
             }
-            Ok(StringOrBinary::Binary(b)) => ReturnSuccess::value(
-                UntaggedValue::binary(b.into_iter().collect()).into_value(file_tag),
-            ),
+            Ok(StringOrBinary::Binary(b)) => {
+                ReturnSuccess::value(UntaggedValue::binary(b).into_value(file_tag))
+            }
             Err(se) => Err(se),
         }
     });

@@ -54,7 +54,7 @@ impl ValueShell {
         let mut viewed = self.value.clone();
         let sep_string = std::path::MAIN_SEPARATOR.to_string();
         let sep = OsStr::new(&sep_string);
-        for p in full_path.iter() {
+        for p in &full_path {
             match p {
                 x if x == sep => {}
                 step => {
@@ -107,7 +107,7 @@ impl Shell for ValueShell {
         let mut full_path = PathBuf::from(self.path());
 
         if let Some(value) = &path {
-            full_path.push(value.as_ref());
+            full_path.push(&value.item);
         }
 
         if self.find(&full_path).is_none() {

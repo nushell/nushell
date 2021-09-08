@@ -140,7 +140,7 @@ fn process_row(
 
         let stream = run_block(
             &default_block.block,
-            &*context,
+            context,
             input_stream,
             ExternalRedirection::Stdout,
         );

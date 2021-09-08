@@ -69,14 +69,14 @@ fn split_column(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     }
 
                     let mut dict = TaggedDictBuilder::new(&v.tag);
-                    for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
+                    for (&k, v) in split_result.iter().zip(&gen_columns) {
                         dict.insert_untagged(v.clone(), Primitive::String(k.into()));
                     }
 
                     ReturnSuccess::value(dict.into_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(&v.tag);
-                    for (&k, v) in split_result.iter().zip(positional.iter()) {
+                    for (&k, v) in split_result.iter().zip(&positional) {
                         dict.insert_untagged(
                             v,
                             UntaggedValue::Primitive(Primitive::String(k.into())),

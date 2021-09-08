@@ -66,7 +66,7 @@ fn format_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                         ctx.scope.enter_scope();
                         ctx.scope.add_var("$it", value.clone());
-                        let result = evaluate_baseline_expr(&full_column_path.0, &*ctx);
+                        let result = evaluate_baseline_expr(&full_column_path.0, &ctx);
                         ctx.scope.exit_scope();
 
                         if let Ok(c) = result {

@@ -25,7 +25,7 @@ where
         let path_executables = find_path_executables().unwrap_or_default();
 
         // TODO quote these, if necessary
-        commands.extend(path_executables.into_iter());
+        commands.extend(path_executables);
 
         let mut suggestions: Vec<_> = commands
             .into_iter()

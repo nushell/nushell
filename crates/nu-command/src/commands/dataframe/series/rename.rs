@@ -60,7 +60,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut series = df.as_series(&df_tag.span)?;
 
-    series.rename(name.item.as_ref());
+    series.rename(&name.item);
 
     let df = NuDataFrame::try_from_series(vec![series], &tag.span)?;
     Ok(OutputStream::one(df.into_value(df_tag)))

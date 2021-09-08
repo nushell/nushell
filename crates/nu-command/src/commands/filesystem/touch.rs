@@ -48,7 +48,7 @@ fn touch(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let target: Tagged<PathBuf> = args.req(0)?;
     let rest: Vec<Tagged<PathBuf>> = args.rest(1)?;
 
-    for item in vec![target].into_iter().chain(rest.into_iter()) {
+    for item in vec![target].into_iter().chain(rest) {
         match OpenOptions::new().write(true).create(true).open(&item) {
             Ok(_) => continue,
             Err(err) => {

@@ -108,7 +108,7 @@ pub fn max(data: Vec<Value>) -> Result<Value, ShellError> {
         .value
         .clone();
 
-    for value in data.iter() {
+    for value in &data {
         if let Ok(greater_than) = compare_values(Operator::GreaterThan, &value.value, &biggest) {
             if greater_than {
                 biggest = value.value.clone();
@@ -133,7 +133,7 @@ pub fn min(data: Vec<Value>) -> Result<Value, ShellError> {
         .value
         .clone();
 
-    for value in data.iter() {
+    for value in &data {
         if let Ok(greater_than) = compare_values(Operator::LessThan, &value.value, &smallest) {
             if greater_than {
                 smallest = value.value.clone();

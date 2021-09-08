@@ -461,7 +461,7 @@ pub(crate) fn load_keybindings(
     if let Ok(contents) = contents {
         let keybindings: Keybindings = serde_yaml::from_str(&contents)?;
         // eprintln!("{:#?}", keybindings);
-        for keybinding in keybindings.into_iter() {
+        for keybinding in keybindings {
             let (k, b) = convert_keybinding(keybinding);
             // eprintln!("{:?} {:?}", k, b);
 

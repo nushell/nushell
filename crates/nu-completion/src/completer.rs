@@ -37,7 +37,7 @@ impl NuCompleter {
             .and_then(|cfg| cfg.get("line_editor").cloned())
             .and_then(|le| {
                 le.row_entries()
-                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .find(|&(idx, _value)| idx == "completion_match_method")
                     .and_then(|(_idx, value)| value.as_string().ok())
             })
             .unwrap_or_else(String::new);

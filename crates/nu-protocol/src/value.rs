@@ -401,11 +401,11 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
             UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%m-%d").to_string(),
-            UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::FilePath(x)) => format!("{}", x.display()),
+            UntaggedValue::Primitive(Primitive::Boolean(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Decimal(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Int(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Filesize(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::FilePath(x)) => x.display().to_string(),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 let joined: String = path
                     .iter()

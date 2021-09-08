@@ -51,7 +51,7 @@ impl Start {
                             .push(path.to_string_lossy().to_string().tagged(value.tag.clone())),
                         Err(glob_error) => {
                             return Err(ShellError::labeled_error(
-                                format!("{}", glob_error),
+                                glob_error.to_string(),
                                 "glob error",
                                 value.tag.clone(),
                             ));
@@ -61,7 +61,7 @@ impl Start {
             }
             Err(pattern_error) => {
                 return Err(ShellError::labeled_error(
-                    format!("{}", pattern_error),
+                    pattern_error.to_string(),
                     "invalid pattern",
                     value.tag.clone(),
                 ))
@@ -76,7 +76,7 @@ impl Start {
             Some(values) => {
                 let mut result = vec![];
 
-                for value in values.iter() {
+                for value in values {
                     let val_str = value.as_string();
                     match val_str {
                         Ok(s) => {
@@ -208,7 +208,7 @@ impl Start {
         if let Some(app_name) = &self.application {
             exec_cmd(app_name, &args, self.tag.clone())
         } else {
-            for cmd in &["xdg-open", "gnome-open", "kde-open", "wslview"] {
+            for cmd in ["xdg-open", "gnome-open", "kde-open", "wslview"] {
                 if exec_cmd(cmd, &args, self.tag.clone()).is_err() {
                     continue;
                 } else {

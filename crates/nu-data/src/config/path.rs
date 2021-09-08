@@ -17,11 +17,7 @@ pub fn default_history_path() -> PathBuf {
 pub fn history_path(config: &NuConfig) -> Option<PathBuf> {
     config
         .var("history-path")
-        .map(|custom_path| match custom_path.as_string() {
-            Ok(path) => Some(PathBuf::from(path)),
-            Err(_) => None,
-        })
-        .flatten()
+        .and_then(|custom_path| custom_path.as_string().map(PathBuf::from).ok())
 }
 
 /// Get history path in config or default

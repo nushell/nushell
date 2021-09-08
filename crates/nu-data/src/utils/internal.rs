@@ -138,7 +138,7 @@ pub fn inner_max(data: &[Value]) -> Result<Value, ShellError> {
         .value
         .clone();
 
-    for value in data.iter() {
+    for value in data {
         if let Ok(greater_than) =
             crate::value::compare_values(Operator::GreaterThan, &value.value, &biggest)
         {
@@ -245,7 +245,7 @@ pub fn evaluate(
                 if let Some(ref evaluator) = evaluator {
                     let mut evaluations = vec![];
 
-                    for set in values.iter() {
+                    for set in values {
                         evaluations.push(evaluator(idx, set)?);
                     }
 

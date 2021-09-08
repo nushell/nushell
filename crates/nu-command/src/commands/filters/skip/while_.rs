@@ -77,7 +77,7 @@ impl WholeStreamCommand for SubCommand {
                 }
                 trace!("ITEM = {:?}", item);
 
-                let result = evaluate_baseline_expr(&*condition, &*ctx);
+                let result = evaluate_baseline_expr(&condition, &ctx);
                 ctx.scope.exit_scope();
                 trace!("RESULT = {:?}", result);
 

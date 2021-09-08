@@ -51,7 +51,7 @@ pub fn split(
 
     let mut out = TaggedDictBuilder::new(&tag);
 
-    for (k, v) in splits.into_iter() {
+    for (k, v) in splits {
         out.insert_untagged(k, UntaggedValue::row(v));
     }
 

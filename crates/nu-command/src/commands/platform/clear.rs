@@ -22,12 +22,12 @@ impl WholeStreamCommand for Clear {
     fn run(&self, _: CommandArgs) -> Result<InputStream, ShellError> {
         if cfg!(windows) {
             Command::new("cmd")
-                .args(&["/C", "cls"])
+                .args(["/C", "cls"])
                 .status()
                 .expect("failed to execute process");
         } else if cfg!(unix) {
             Command::new("/bin/sh")
-                .args(&["-c", "clear"])
+                .args(["-c", "clear"])
                 .status()
                 .expect("failed to execute process");
         }

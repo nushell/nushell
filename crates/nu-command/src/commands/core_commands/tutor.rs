@@ -56,7 +56,7 @@ fn tutor(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let search: Option<String> = args.opt(0).unwrap_or(None);
     let find: Option<String> = args.get_flag("find")?;
 
-    let search_space = vec![
+    let search_space = [
         (vec!["begin"], begin_tutor()),
         (
             vec!["table", "tables", "row", "rows", "column", "columns"],
@@ -88,7 +88,7 @@ fn tutor(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if let Some(find) = find {
         let mut results = vec![];
         for search_group in search_space {
-            if search_group.1.contains(&find.as_str()) {
+            if search_group.1.contains(&find) {
                 results.push(search_group.0[0].to_string())
             }
         }
@@ -383,7 +383,7 @@ fn display(tag: Tag, scope: &Scope, help: &str) -> OutputStream {
 
             //TODO: support no-color mode
             let colored_example = nu_engine::Painter::paint_string(item, scope, &palette);
-            build.push_str(&format!("{}", colored_example));
+            build.push_str(&colored_example);
         } else {
             code_mode = true;
             build.push_str(item);

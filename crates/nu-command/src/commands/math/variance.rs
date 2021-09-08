@@ -39,7 +39,7 @@ impl WholeStreamCommand for SubCommand {
             let mut column_values = IndexMap::new();
             for value in values {
                 if let UntaggedValue::Row(row_dict) = &value.value {
-                    for (key, value) in row_dict.entries.iter() {
+                    for (key, value) in &row_dict.entries {
                         column_values
                             .entry(key.clone())
                             .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))

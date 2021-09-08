@@ -82,7 +82,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut series = df.as_series(&value.tag.span)?;
 
-    let series = series.rename(name.item.as_ref()).clone();
+    let series = series.rename(&name.item).clone();
 
     let (mut df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 

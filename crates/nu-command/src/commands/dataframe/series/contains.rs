@@ -68,7 +68,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     let res = chunked
-        .contains(pattern.as_str())
+        .contains(&pattern.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     let df = NuDataFrame::try_from_series(vec![res.into_series()], &tag.span)?;

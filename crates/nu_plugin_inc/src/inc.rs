@@ -45,7 +45,7 @@ impl Inc {
                 UntaggedValue::string(ver.to_string())
             }
             Some(Action::Default) | None => match input.parse::<u64>() {
-                Ok(v) => UntaggedValue::string(format!("{}", v + 1)),
+                Ok(v) => UntaggedValue::string((v + 1).to_string()),
                 Err(_) => UntaggedValue::string(input),
             },
         }

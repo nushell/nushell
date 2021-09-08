@@ -77,7 +77,7 @@ fn to_table(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let tz = dt.offset();
                 indexmap.insert(
                     "timezone".to_string(),
-                    UntaggedValue::string(format!("{}", tz)).into_value(&tag),
+                    UntaggedValue::string(tz.to_string()).into_value(&tag),
                 );
 
                 let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);

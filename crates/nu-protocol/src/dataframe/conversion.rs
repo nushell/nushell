@@ -498,7 +498,7 @@ pub fn insert_row(column_values: &mut ColumnMap, dictionary: Dictionary) -> Resu
 // The names for the columns are the enumerated numbers from the values
 pub fn insert_table(column_values: &mut ColumnMap, table: Vec<Value>) -> Result<(), ShellError> {
     for (index, value) in table.into_iter().enumerate() {
-        let key = format!("{}", index);
+        let key = index.to_string();
         insert_value(value, key, column_values)?;
     }
 
@@ -617,7 +617,7 @@ pub fn from_parsed_columns(
                     let mut builder =
                         ObjectChunkedBuilder::<Value>::new(&name, column.values.len());
 
-                    for v in column.values.iter() {
+                    for v in &column.values {
                         builder.append_value(v.clone());
                     }
 
@@ -658,12 +658,10 @@ pub fn from_parsed_columns(
 
     match df {
         Ok(df) => Ok(NuDataFrame::new(df)),
-        Err(e) => {
-            return Err(ShellError::labeled_error(
-                "Error while creating dataframe",
-                format!("{}", e),
-                span,
-            ))
-        }
+        Err(e) => Err(ShellError::labeled_error(
+            "Error while creating dataframe",
+            e.to_string(),
+            span,
+        )),
     }
 }

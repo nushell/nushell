@@ -20,14 +20,14 @@ impl TreeView {
                 let _ = builder.add_empty_child(format_primitive(p, None));
             }
             UntaggedValue::Row(o) => {
-                for (k, v) in o.entries.iter() {
+                for (k, v) in &o.entries {
                     builder = builder.begin_child(k.clone());
                     Self::from_value_helper(v, builder);
                     builder = builder.end_child();
                 }
             }
             UntaggedValue::Table(l) => {
-                for elem in l.iter() {
+                for elem in l {
                     Self::from_value_helper(elem, builder);
                 }
             }

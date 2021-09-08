@@ -508,14 +508,14 @@ mod tests {
 
     #[test]
     fn can_use_loglevels() -> Result<(), ShellError> {
-        for level in &["error", "warn", "info", "debug", "trace"] {
+        for level in ["error", "warn", "info", "debug", "trace"] {
             let ui = cli_app();
-            let args = format!("nu --loglevel={}", *level);
+            let args = format!("nu --loglevel={}", level);
             ui.parse(&args)?;
             assert_eq!(ui.loglevel().unwrap(), Ok(level.to_string()));
 
             let ui = cli_app();
-            let args = format!("nu -l {}", *level);
+            let args = format!("nu -l {}", level);
             ui.parse(&args)?;
             assert_eq!(ui.loglevel().unwrap(), Ok(level.to_string()));
         }
@@ -541,11 +541,11 @@ mod tests {
 
     #[test]
     fn can_use_test_binaries() -> Result<(), ShellError> {
-        for binarie_name in &[
+        for binarie_name in [
             "echo_env", "cococo", "iecho", "fail", "nonu", "chop", "repeater", "meow",
         ] {
             let ui = cli_app();
-            let args = format!("nu --testbin={}", *binarie_name);
+            let args = format!("nu --testbin={}", binarie_name);
             ui.parse(&args)?;
             assert_eq!(ui.testbin().unwrap(), Ok(binarie_name.to_string()));
         }

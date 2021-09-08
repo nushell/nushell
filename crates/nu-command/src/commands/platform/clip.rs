@@ -51,7 +51,7 @@ pub fn clip(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
         if !values.is_empty() {
             let mut first = true;
-            for i in values.iter() {
+            for i in &values {
                 if !first {
                     new_copy_data.push('\n');
                 } else {

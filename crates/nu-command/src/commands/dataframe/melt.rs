@@ -135,12 +135,12 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     if let Some(name) = &variable_name {
-        res.rename("variable", name.item.as_str())
+        res.rename("variable", &name.item)
             .map_err(|e| parse_polars_error::<&str>(&e, &name.tag.span, None))?;
     }
 
     if let Some(name) = &value_name {
-        res.rename("value", name.item.as_str())
+        res.rename("value", &name.item)
             .map_err(|e| parse_polars_error::<&str>(&e, &name.tag.span, None))?;
     }
 
