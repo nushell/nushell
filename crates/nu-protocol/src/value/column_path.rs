@@ -38,7 +38,7 @@ impl PrettyDebug for &PathMember {
     fn pretty(&self) -> DebugDocBuilder {
         match &self.unspanned {
             UnspannedPathMember::String(string) => DbgDocBldr::primitive(format!("{:?}", string)),
-            UnspannedPathMember::Int(int) => DbgDocBldr::primitive(format!("{}", int)),
+            UnspannedPathMember::Int(int) => DbgDocBldr::primitive(int),
         }
     }
 }
@@ -170,6 +170,16 @@ impl HasFallibleSpan for ColumnPath {
     }
 }
 
+impl<'a> IntoIterator for &'a ColumnPath {
+    type Item = &'a PathMember;
+
+    type IntoIter = std::slice::Iter<'a, PathMember>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.members.iter()
+    }
+}
+
 impl PathMember {
     /// Create a string path member
     pub fn string(string: impl Into<String>, span: impl Into<Span>) -> PathMember {
@@ -184,7 +194,7 @@ impl PathMember {
     pub fn as_string(&self) -> String {
         match &self.unspanned {
             UnspannedPathMember::String(string) => string.clone(),
-            UnspannedPathMember::Int(int) => format!("{}", int),
+            UnspannedPathMember::Int(int) => int.to_string(),
         }
     }
 }

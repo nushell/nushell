@@ -306,7 +306,7 @@ mod tests {
         }
 
         fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
-            self.0.iter().find(|v| v.name == name).map(Clone::clone)
+            self.0.iter().find(|v| v.name == name).cloned()
         }
 
         fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {

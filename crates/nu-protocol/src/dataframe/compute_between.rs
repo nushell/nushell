@@ -88,7 +88,7 @@ pub fn between_dataframes(
             Ok(df) => Ok(df.into_untagged()),
             Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
                 "Appending error",
-                format!("{}", e),
+                e.to_string(),
                 operation_span,
             ))),
         },
@@ -110,19 +110,19 @@ pub fn compute_between_series(
         Operator::Plus => {
             let mut res = lhs + rhs;
             let name = format!("sum_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::Minus => {
             let mut res = lhs - rhs;
             let name = format!("sub_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::Multiply => {
             let mut res = lhs * rhs;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::Divide => {
@@ -130,12 +130,12 @@ pub fn compute_between_series(
             match res {
                 Ok(mut res) => {
                     let name = format!("div_{}_{}", lhs.name(), rhs.name());
-                    res.rename(name.as_ref());
+                    res.rename(&name);
                     Ok(NuDataFrame::series_to_untagged(res, operation_span))
                 }
                 Err(e) => Ok(UntaggedValue::Error(ShellError::labeled_error(
                     "Division error",
-                    format!("{}", e),
+                    e.to_string(),
                     operation_span,
                 ))),
             }
@@ -143,37 +143,37 @@ pub fn compute_between_series(
         Operator::Equal => {
             let mut res = Series::eq(lhs, rhs).into_series();
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::NotEqual => {
             let mut res = Series::neq(lhs, rhs).into_series();
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::LessThan => {
             let mut res = Series::lt(lhs, rhs).into_series();
             let name = format!("lt_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::LessThanOrEqual => {
             let mut res = Series::lt_eq(lhs, rhs).into_series();
             let name = format!("lte_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::GreaterThan => {
             let mut res = Series::gt(lhs, rhs).into_series();
             let name = format!("gt_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::GreaterThanOrEqual => {
             let mut res = Series::gt_eq(lhs, rhs).into_series();
             let name = format!("gte_{}_{}", lhs.name(), rhs.name());
-            res.rename(name.as_ref());
+            res.rename(&name);
             Ok(NuDataFrame::series_to_untagged(res, operation_span))
         }
         Operator::And => match lhs.dtype() {
@@ -185,7 +185,7 @@ pub fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitand(r).into_series();
                         let name = format!("and_{}_{}", lhs.name(), rhs.name());
-                        res.rename(name.as_ref());
+                        res.rename(&name);
                         Ok(NuDataFrame::series_to_untagged(res, operation_span))
                     }
                     _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
@@ -210,7 +210,7 @@ pub fn compute_between_series(
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitor(r).into_series();
                         let name = format!("or_{}_{}", lhs.name(), rhs.name());
-                        res.rename(name.as_ref());
+                        res.rename(&name);
                         Ok(NuDataFrame::series_to_untagged(res, operation_span))
                     }
                     _ => Ok(UntaggedValue::Error(ShellError::labeled_error(
@@ -612,7 +612,7 @@ where
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
                     "Casting error",
-                    format!("{}", e),
+                    e.to_string(),
                     span,
                 )),
             }
@@ -649,7 +649,7 @@ where
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            e.to_string(),
             span,
         )),
     }
@@ -676,7 +676,7 @@ where
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
                     "Casting error",
-                    format!("{}", e),
+                    e.to_string(),
                     span,
                 )),
             }
@@ -719,7 +719,7 @@ where
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            e.to_string(),
             span,
         )),
     }
@@ -740,7 +740,7 @@ where
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
                     "Casting error",
-                    format!("{}", e),
+                    e.to_string(),
                     span,
                 )),
             }
@@ -777,7 +777,7 @@ where
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            e.to_string(),
             span,
         )),
     }
@@ -804,7 +804,7 @@ where
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
                     "Casting error",
-                    format!("{}", e),
+                    e.to_string(),
                     span,
                 )),
             }
@@ -847,7 +847,7 @@ where
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            e.to_string(),
             span,
         )),
     }
@@ -866,14 +866,14 @@ fn contains_series_pat(series: &Series, pat: &str, span: &Span) -> UntaggedValue
                 }
                 Err(e) => UntaggedValue::Error(ShellError::labeled_error(
                     "Search error",
-                    format!("{}", e),
+                    e.to_string(),
                     span,
                 )),
             }
         }
         Err(e) => UntaggedValue::Error(ShellError::labeled_error(
             "Casting error",
-            format!("{}", e),
+            e.to_string(),
             span,
         )),
     }

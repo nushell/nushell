@@ -41,7 +41,7 @@ impl Scope {
         let mut output: IndexMap<String, Vec<Spanned<String>>> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.aliases.iter() {
+            for v in &frame.aliases {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }
@@ -55,7 +55,7 @@ impl Scope {
         let mut output: IndexMap<String, Signature> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for (name, command) in frame.commands.iter() {
+            for (name, command) in &frame.commands {
                 if !output.contains_key(name) {
                     let mut sig = command.signature();
                     // don't show --help and -h in the command arguments for $scope.commands
@@ -72,7 +72,7 @@ impl Scope {
         let mut output: IndexMap<String, Command> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for (name, command) in frame.commands.iter() {
+            for (name, command) in &frame.commands {
                 if !output.contains_key(name) {
                     output.insert(name.clone(), command.clone());
                 }
@@ -91,7 +91,7 @@ impl Scope {
         let mut output: IndexMap<String, Value> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.vars.iter() {
+            for v in &frame.vars {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }
@@ -212,7 +212,7 @@ impl Scope {
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.env.iter() {
+            for v in &frame.env {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }

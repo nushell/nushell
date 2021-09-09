@@ -47,7 +47,7 @@ fn run_ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let result: Vec<_> = sys.processes().iter().map(|x| *x.0).collect();
 
-    for pid in result.into_iter() {
+    for pid in result {
         if let Some(result) = sys.process(pid) {
             let mut dict = TaggedDictBuilder::new(args.name_tag());
             dict.insert_untagged("pid", UntaggedValue::int(pid as i64));

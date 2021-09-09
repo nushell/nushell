@@ -100,14 +100,14 @@ fn if_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     context.scope.add_vars(&condition.captured.entries);
 
     //FIXME: should we use the scope that's brought in as well?
-    let condition = evaluate_baseline_expr(cond, &*context);
+    let condition = evaluate_baseline_expr(cond, &context);
     match condition {
         Ok(condition) => match condition.as_bool() {
             Ok(b) => {
                 let result = if b {
-                    run_block(&then_case.block, &*context, input, external_redirection)
+                    run_block(&then_case.block, &context, input, external_redirection)
                 } else {
-                    run_block(&else_case.block, &*context, input, external_redirection)
+                    run_block(&else_case.block, &context, input, external_redirection)
                 };
                 context.scope.exit_scope();
 

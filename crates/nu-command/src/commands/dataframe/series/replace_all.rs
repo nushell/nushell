@@ -77,7 +77,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     let mut res = chunked
-        .replace_all(pattern.as_str(), replace.as_str())
+        .replace_all(&pattern.item, &replace.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &tag.span, None))?;
 
     res.rename(series.name());

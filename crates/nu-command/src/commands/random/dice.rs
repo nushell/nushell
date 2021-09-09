@@ -82,7 +82,7 @@ pub fn dice(args: CommandArgs) -> Result<OutputStream, ShellError> {
         UntaggedValue::int(thread_rng.gen_range(1..sides + 1)).into_value(tag.clone())
     });
 
-    Ok((iter).into_output_stream())
+    Ok(iter.into_output_stream())
 }
 
 #[cfg(test)]

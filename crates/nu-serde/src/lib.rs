@@ -73,7 +73,7 @@ impl serde::ser::Error for Error {
     where
         T: std::fmt::Display,
     {
-        Self::SerdeCustom(format!("{}", msg))
+        Self::SerdeCustom(msg.to_string())
     }
 }
 

@@ -39,6 +39,6 @@ pub fn read_trusted() -> Result<Trusted, ShellError> {
     let mut doc = String::new();
     file.read_to_string(&mut doc)?;
 
-    let allowed = toml::de::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
+    let allowed = toml::de::from_str(&doc).unwrap_or_else(|_| Trusted::new());
     Ok(allowed)
 }

@@ -134,7 +134,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         ),
         UntaggedValue::Row(o) => {
             let mut m = serde_json::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             serde_json::Value::Object(m)
@@ -184,9 +184,7 @@ fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                             if let Ok(pretty_u64) = pretty_value.as_u64() {
                                 if let Ok(serde_json_value) =
-                                    serde_json::from_str::<serde_json::Value>(
-                                        serde_json_string.as_str(),
-                                    )
+                                    serde_json::from_str::<serde_json::Value>(&serde_json_string)
                                 {
                                     let indentation_string = " ".repeat(pretty_u64 as usize);
                                     let serde_formatter =

@@ -75,6 +75,6 @@ mod test {
         assert_eq!(unstyled_len(&a), 18);
 
         let l2 = [Black.paint("st"), Red.paint("-second"), White.paint("-t")];
-        assert_eq!(sub_string(3, 11, &a).as_slice(), &l2);
+        assert_eq!(sub_string(3, 11, &a), l2);
     }
 }

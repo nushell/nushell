@@ -47,7 +47,7 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> V
         toml::Value::Table(t) => {
             let mut collected = TaggedDictBuilder::new(&tag);
 
-            for (k, v) in t.iter() {
+            for (k, v) in t {
                 collected.insert_value(k.clone(), convert_toml_value_to_nu_value(v, &tag));
             }
 
@@ -127,7 +127,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         }
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             toml::Value::Table(m)
@@ -141,7 +141,7 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     match &v.value {
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             Ok(toml::Value::Table(m))
@@ -185,10 +185,7 @@ pub fn default_path() -> Result<PathBuf, ShellError> {
 
 pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     let mut filename = config_path()?;
-    let file: &Path = file
-        .as_ref()
-        .map(AsRef::as_ref)
-        .unwrap_or_else(|| "config.toml".as_ref());
+    let file: &Path = file.as_deref().unwrap_or_else(|| "config.toml".as_ref());
     filename.push(file);
 
     Ok(filename)

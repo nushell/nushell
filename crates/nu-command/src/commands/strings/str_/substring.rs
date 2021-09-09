@@ -343,7 +343,7 @@ mod tests {
             expectation("", (6, -6)),
         ];
 
-        for expectation in cases.iter() {
+        for expectation in &cases {
             let expected = expectation.expected;
             let actual = action(&word, &expectation.options(), Tag::unknown()).unwrap();
 

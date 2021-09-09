@@ -80,7 +80,7 @@ fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Err(ShellError::labeled_error(
         "Error on exec",
-        format!("{}", err),
+        err.to_string(),
         &name,
     ))
 }

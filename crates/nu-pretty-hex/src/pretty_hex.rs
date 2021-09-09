@@ -169,7 +169,7 @@ where
         .iter()
         .skip(skip)
         .take(amount)
-        .map(|x| *x as u8)
+        .map(|&x| x as u8)
         .collect();
 
     if cfg.title {

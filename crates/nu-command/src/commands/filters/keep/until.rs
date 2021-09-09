@@ -74,7 +74,7 @@ impl WholeStreamCommand for SubCommand {
                     ctx.scope.add_var(arg.name(), item.clone());
                 }
 
-                let result = evaluate_baseline_expr(&*condition, &*ctx);
+                let result = evaluate_baseline_expr(&condition, &ctx);
                 ctx.scope.exit_scope();
 
                 !matches!(result, Ok(ref v) if v.is_true())

@@ -41,11 +41,11 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
     match &v.value {
         UntaggedValue::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
-            Primitive::BigInt(i) => format!("{}", i),
-            Primitive::Int(i) => format!("{}", i),
-            Primitive::Duration(i) => format!("{}", i),
-            Primitive::Decimal(f) => format!("{}", f),
-            Primitive::Filesize(u) => format!("{}", u),
+            Primitive::BigInt(i) => i.to_string(),
+            Primitive::Int(i) => i.to_string(),
+            Primitive::Duration(i) => i.to_string(),
+            Primitive::Decimal(f) => f.to_string(),
+            Primitive::Filesize(u) => u.to_string(),
             Primitive::GlobPattern(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Boolean(true) => "1".into(),
@@ -130,7 +130,7 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
         Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
     };
     let tag = values[0].tag.clone();
-    for value in values.into_iter() {
+    for value in values {
         match &value.value {
             UntaggedValue::Row(d) => {
                 let (create, insert) = generate_statements(d.to_owned())?;

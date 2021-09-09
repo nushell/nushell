@@ -321,7 +321,7 @@ pub fn run_seq_dates(
 
     let mut ret_str = String::from("");
     loop {
-        ret_str.push_str(&format!("{}", next.format(&out_format)));
+        ret_str.push_str(&next.format(&out_format).to_string());
         // TODO: check this value is good
         next += Duration::days(step_size);
 

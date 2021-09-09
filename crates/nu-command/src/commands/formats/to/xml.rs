@@ -37,7 +37,7 @@ pub fn add_attributes<'a>(
     element: &mut quick_xml::events::BytesStart<'a>,
     attributes: &'a IndexMap<String, String>,
 ) {
-    for (k, v) in attributes.iter() {
+    for (k, v) in attributes {
         element.push_attribute((k.as_str(), v.as_str()));
     }
 }
@@ -47,7 +47,7 @@ pub fn get_attributes(row: &Value) -> Option<IndexMap<String, String>> {
         if let Some(v) = r.entries.get("attributes") {
             if let UntaggedValue::Row(a) = &v.value {
                 let mut h = IndexMap::new();
-                for (k, v) in a.entries.iter() {
+                for (k, v) in &a.entries {
                     h.insert(k.clone(), v.convert_to_string());
                 }
                 return Some(h);
@@ -84,7 +84,7 @@ pub fn write_xml_events<W: Write>(
 ) -> Result<(), ShellError> {
     match &current.value {
         UntaggedValue::Row(o) => {
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 let mut e = BytesStart::owned(k.as_bytes(), k.len());
                 if !is_xml_row(v) {
                     return Err(ShellError::labeled_error(

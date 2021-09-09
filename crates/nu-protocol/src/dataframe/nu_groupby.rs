@@ -50,7 +50,7 @@ impl NuGroupBy {
         let df = self.dataframe.as_ref();
 
         let by = df.select_series(&self.by).map_err(|e| {
-            ShellError::labeled_error("Error creating groupby", format!("{}", e), Tag::unknown())
+            ShellError::labeled_error("Error creating groupby", e.to_string(), Tag::unknown())
         })?;
 
         Ok(GroupBy::new(df, by, self.groups.clone(), None))

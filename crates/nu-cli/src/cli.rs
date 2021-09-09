@@ -165,7 +165,10 @@ pub fn cli(
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION_MS",
-        format!("{}", startup_commands_start_time.elapsed().as_millis()),
+        startup_commands_start_time
+            .elapsed()
+            .as_millis()
+            .to_string(),
     );
 
     if options.perf {
@@ -353,7 +356,7 @@ pub fn cli(
         // Store cmd duration in an env var
         context.scope.add_env_var(
             "CMD_DURATION_MS",
-            format!("{}", cmd_start_time.elapsed().as_millis()),
+            cmd_start_time.elapsed().as_millis().to_string(),
         );
 
         match line {
@@ -397,8 +400,7 @@ pub fn cli(
                     .lock()
                     .global_config
                     .as_ref()
-                    .map(|cfg| cfg.var("ctrlc_exit"))
-                    .flatten()
+                    .and_then(|cfg| cfg.var("ctrlc_exit"))
                     .map(|ctrl_c| ctrl_c.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 

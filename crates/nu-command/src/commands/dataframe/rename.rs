@@ -61,7 +61,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (mut df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     df.as_mut()
-        .rename(from.item.as_str(), to.item.as_str())
+        .rename(&from.item, &to.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
     Ok(OutputStream::one(df.into_value(tag)))

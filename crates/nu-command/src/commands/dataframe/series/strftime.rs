@@ -61,7 +61,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         .date64()
         .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
-    let res = casted.strftime(fmt.item.as_str()).into_series();
+    let res = casted.strftime(&fmt.item).into_series();
     let df = NuDataFrame::try_from_series(vec![res], &tag.span)?;
     Ok(OutputStream::one(df.into_value(df_tag)))
 }

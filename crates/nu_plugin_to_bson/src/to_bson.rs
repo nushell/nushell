@@ -197,7 +197,7 @@ fn get_binary_subtype(tagged_value: &Value) -> Result<BinarySubtype, ShellError>
 // correspond to a special bson type (things like regex or javascript code).
 fn generic_object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     let mut doc = Document::new();
-    for (k, v) in o.entries.iter() {
+    for (k, v) in &o.entries {
         doc.insert(k.clone(), value_to_bson_value(v)?);
     }
     Ok(Bson::Document(doc))
@@ -218,7 +218,7 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
     let mut out = Vec::new();
     match bson {
         Bson::Array(a) => {
-            for v in a.into_iter() {
+            for v in a {
                 match v {
                     Bson::Document(d) => shell_encode_document(&mut out, d, tag.clone())?,
                     _ => {

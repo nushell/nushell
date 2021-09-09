@@ -66,7 +66,6 @@ fn process_row(
     field: Arc<ColumnPath>,
     tag: Arc<Tag>,
 ) -> Result<ActionStream, ShellError> {
-    let tag = &*tag;
     let replacement = Arc::make_mut(&mut replacement);
 
     Ok(match replacement {
@@ -86,7 +85,7 @@ fn process_row(
 
             let result = run_block(
                 &captured_block.block,
-                &*context,
+                &context,
                 input_stream,
                 ExternalRedirection::Stdout,
             );
@@ -184,7 +183,7 @@ fn update(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let field = Arc::new(field);
 
     Ok(input
-        .map(move |input| {
+        .flat_map(move |input| {
             let tag = name_tag.clone();
             let context = context.clone();
             let replacement = replacement.clone();
@@ -195,6 +194,5 @@ fn update(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Err(e) => ActionStream::one(Err(e)),
             }
         })
-        .flatten()
         .into_action_stream())
 }

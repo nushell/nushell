@@ -100,7 +100,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut groupby = nu_groupby.to_groupby()?;
 
-    let pivot = groupby.pivot(pivot_col.item.as_ref(), value_col.item.as_ref());
+    let pivot = groupby.pivot(&pivot_col.item, &value_col.item);
 
     let res = match op {
         Operation::Mean => pivot.mean(),
@@ -120,7 +120,7 @@ fn check_pivot_column(
     col: &Tagged<String>,
 ) -> Result<(), ShellError> {
     let series = df
-        .column(col.item.as_ref())
+        .column(&col.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {
@@ -146,7 +146,7 @@ fn check_value_column(
     col: &Tagged<String>,
 ) -> Result<(), ShellError> {
     let series = df
-        .column(col.item.as_ref())
+        .column(&col.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {

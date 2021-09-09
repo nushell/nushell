@@ -302,7 +302,7 @@ pub fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
     let mut sig = TaggedListBuilder::new(&tag);
 
-    for arg in signature.positional.iter() {
+    for arg in &signature.positional {
         let is_required = matches!(arg.0, PositionalType::Mandatory(_, _));
 
         sig.push_value(for_spec(arg.0.name(), "argument", is_required, &tag));
@@ -313,7 +313,7 @@ pub fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
         sig.push_value(for_spec("rest", "argument", is_required, &tag));
     }
 
-    for (name, ty) in signature.named.iter() {
+    for (name, ty) in &signature.named {
         match ty.0 {
             NamedType::Mandatory(_, _) => sig.push_value(for_spec(name, "flag", true, &tag)),
             NamedType::Optional(_, _) => sig.push_value(for_spec(name, "flag", false, &tag)),

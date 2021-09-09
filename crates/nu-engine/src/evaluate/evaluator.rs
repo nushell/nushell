@@ -127,7 +127,7 @@ pub fn evaluate_baseline_expr(
                 }
 
                 let mut row_output = IndexMap::new();
-                for cell in output_headers.iter().zip(row.iter()) {
+                for cell in output_headers.iter().zip(row) {
                     let val = evaluate_baseline_expr(cell.1, ctx)?;
                     row_output.insert(cell.0.clone(), val);
                 }

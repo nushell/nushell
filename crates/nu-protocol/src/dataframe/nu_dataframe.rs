@@ -176,7 +176,7 @@ impl NuDataFrame {
                 | UntaggedValue::Primitive(Primitive::Boolean(_))
                 | UntaggedValue::Primitive(Primitive::Date(_))
                 | UntaggedValue::DataFrame(_) => {
-                    let key = format!("{}", 0);
+                    let key = "0".to_string();
                     insert_value(value, key, &mut column_values)?
                 }
                 _ => {
@@ -211,7 +211,7 @@ impl NuDataFrame {
 
         for column in columns {
             let name = column.name().to_string();
-            for value in column.into_iter() {
+            for value in column {
                 insert_value(value, name.clone(), &mut column_values)?;
             }
         }
@@ -253,13 +253,13 @@ impl NuDataFrame {
     }
 
     pub fn column(&self, column: &str, tag: &Tag) -> Result<Self, ShellError> {
-        let s = self.as_ref().column(column).map_err(|e| {
-            ShellError::labeled_error("Column not found", format!("{}", e), tag.span)
-        })?;
+        let s = self
+            .as_ref()
+            .column(column)
+            .map_err(|e| ShellError::labeled_error("Column not found", e.to_string(), tag.span))?;
 
-        let dataframe = DataFrame::new(vec![s.clone()]).map_err(|e| {
-            ShellError::labeled_error("DataFrame error", format!("{}", e), tag.span)
-        })?;
+        let dataframe = DataFrame::new(vec![s.clone()])
+            .map_err(|e| ShellError::labeled_error("DataFrame error", e.to_string(), tag.span))?;
 
         Ok(Self { dataframe })
     }
@@ -375,7 +375,7 @@ impl NuDataFrame {
             .map(|i| {
                 let mut dictionary_row = Dictionary::default();
 
-                for (name, col) in iterators.iter_mut() {
+                for (name, col) in &mut iterators {
                     let dict_val = match col.next() {
                         Some(v) => v,
                         None => {

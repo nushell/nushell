@@ -45,7 +45,7 @@ pub fn mode(values: &[Value], name: &Tag) -> Result<Value, ShellError> {
 
     let mut max_freq = -1;
     let mut modes = Vec::<Value>::new();
-    for (value, frequency) in frequency_map.iter() {
+    for (value, frequency) in &frequency_map {
         match max_freq.cmp(frequency) {
             Ordering::Less => {
                 max_freq = *frequency;

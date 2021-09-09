@@ -12,7 +12,7 @@ where
     fn complete(&self, ctx: &Context, partial: &str, matcher: &dyn Matcher) -> Vec<Suggestion> {
         if let Some(sig) = ctx.signature_registry().get(&self.cmd) {
             let mut suggestions = Vec::new();
-            for (name, (named_type, _desc)) in sig.named.iter() {
+            for (name, (named_type, _desc)) in &sig.named {
                 suggestions.push(format!("--{}", name));
 
                 if let Some(c) = named_type.get_short() {

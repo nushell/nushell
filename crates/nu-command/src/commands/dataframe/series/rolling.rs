@@ -125,7 +125,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let roll_type = RollType::from_str(roll_type.item.as_str(), &roll_type.tag.span)?;
+    let roll_type = RollType::from_str(&roll_type.item, &roll_type.tag.span)?;
     let res = match roll_type {
         RollType::Max => series.rolling_max(
             window_size.item as u32,

@@ -25,16 +25,10 @@ impl<'a> Bar<'a> {
             .table_entries()
             .cloned()
             .collect::<Vec<_>>()
-            .into_iter()
         {
             let mut percentages_collected = vec![];
 
-            for percentage in percentages
-                .table_entries()
-                .cloned()
-                .collect::<Vec<_>>()
-                .into_iter()
-            {
+            for percentage in percentages.table_entries().cloned().collect::<Vec<_>>() {
                 percentages_collected.push(percentage.as_u64()?);
             }
 

@@ -40,7 +40,7 @@ impl NuDataFrame {
                     .as_ref()
                     .get_columns()
                     .iter()
-                    .chain(other.as_ref().get_columns().iter())
+                    .chain(other.as_ref().get_columns())
                     .map(|s| {
                         let name = if columns.contains(&s.name()) {
                             format!("{}_{}", s.name(), "x")
@@ -50,13 +50,13 @@ impl NuDataFrame {
                         };
 
                         let mut series = s.clone();
-                        series.rename(name.as_str());
+                        series.rename(&name);
                         series
                     })
                     .collect::<Vec<Series>>();
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::labeled_error("Appending error", format!("{}", e), span)
+                    ShellError::labeled_error("Appending error", e.to_string(), span)
                 })?;
 
                 Ok(NuDataFrame::new(df_new))
@@ -110,7 +110,7 @@ impl NuDataFrame {
                     .collect::<Result<Vec<Series>, ShellError>>()?;
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::labeled_error("Appending error", format!("{}", e), span)
+                    ShellError::labeled_error("Appending error", e.to_string(), span)
                 })?;
 
                 Ok(NuDataFrame::new(df_new))

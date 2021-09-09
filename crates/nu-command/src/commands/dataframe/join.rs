@@ -177,7 +177,7 @@ fn check_column_datatypes<T: AsRef<str>>(
         ));
     }
 
-    for (l, r) in l_cols.iter().zip(r_cols.iter()) {
+    for (l, r) in l_cols.iter().zip(r_cols) {
         let l_series = df_l
             .column(l.as_ref())
             .map_err(|e| parse_polars_error::<&str>(&e, l_col_span, None))?;

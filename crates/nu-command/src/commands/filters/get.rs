@@ -65,14 +65,12 @@ pub fn get(args: CommandArgs) -> Result<ActionStream, ShellError> {
     } else {
         trace!("get {:?}", column_paths);
         let output_stream = input
-            .map(move |item| {
+            .flat_map(move |item| {
                 column_paths
                     .iter()
-                    .map(move |path| get_output(&item, path))
-                    .flatten()
+                    .flat_map(move |path| get_output(&item, path))
                     .collect::<Vec<_>>()
             })
-            .flatten()
             .into_action_stream();
         Ok(output_stream)
     }

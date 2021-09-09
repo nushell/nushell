@@ -53,7 +53,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let res = df
         .as_ref()
-        .column(column.item.as_ref())
+        .column(&column.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &column.tag.span, None))?;
 
     let df = NuDataFrame::try_from_series(vec![res.clone()], &tag.span)?;

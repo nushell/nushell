@@ -22,7 +22,7 @@ pub fn build_plugin_command(
         Command::new("pwsh")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .args(&[
+            .args([
                 "-NoLogo",
                 "-NoProfile",
                 "-ExecutionPolicy",

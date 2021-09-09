@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::Write;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HtmlThemes {
@@ -124,8 +125,8 @@ fn get_theme_from_asset_file(
     theme_tag: &Tag,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
-        Some(s) => s.to_string(),
-        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
+        Some(s) => s.as_str(),
+        None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
     // 228 themes come from
@@ -143,7 +144,7 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .iter()
-        .find(|&n| n.name.to_lowercase() == *theme_name.to_lowercase().as_str()); // case insensitive search
+        .find(|&n| n.name.to_lowercase() == theme_name.to_lowercase()); // case insensitive search
 
     // If no theme is found by the name provided, ensure we return the default theme
     let default_theme = HtmlTheme::default();
@@ -248,11 +249,7 @@ fn get_list_of_theme_names() -> Vec<String> {
         _ => HtmlThemes::default(),
     };
 
-    let theme_names: Vec<String> = html_themes
-        .themes
-        .iter()
-        .map(|n| n.name[..].to_string())
-        .collect();
+    let theme_names: Vec<String> = html_themes.themes.iter().map(|n| n.name.clone()).collect();
 
     theme_names
 }
@@ -278,8 +275,8 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
         let theme_names = get_list_of_theme_names();
 
         // Put that list into the output string
-        for s in theme_names.iter() {
-            output_string.push_str(&format!("{}\n", s));
+        for s in &theme_names {
+            writeln!(&mut output_string, "{}", s).unwrap();
         }
 
         output_string.push_str("\nScreenshots of themes can be found here:\n");
@@ -304,7 +301,8 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         // change the color of the page
         if !partial {
-            output_string.push_str(&format!(
+            write!(
+                &mut output_string,
                 r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
                 color_hm
                     .get("background")
@@ -312,9 +310,11 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 color_hm
                     .get("foreground")
                     .expect("Error getting foreground color")
-            ));
+            )
+            .unwrap();
         } else {
-            output_string.push_str(&format!(
+            write!(
+                &mut output_string,
                 "<div style=\"background-color:{};color:{};\">",
                 color_hm
                     .get("background")
@@ -322,7 +322,8 @@ fn to_html(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 color_hm
                     .get("foreground")
                     .expect("Error getting foreground color")
-            ));
+            )
+            .unwrap();
         }
 
         let inner_value = match input.len() {

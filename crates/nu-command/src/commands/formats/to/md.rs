@@ -236,7 +236,7 @@ fn get_output_string(
                 ));
                 output_string.push(' ');
             } else {
-                output_string.push_str(headers[i].as_str());
+                output_string.push_str(&headers[i]);
             }
 
             output_string.push('|');
@@ -275,7 +275,7 @@ fn get_output_string(
                 output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
                 output_string.push(' ');
             } else {
-                output_string.push_str(row[i].as_str());
+                output_string.push_str(&row[i]);
             }
 
             if !headers.is_empty() {

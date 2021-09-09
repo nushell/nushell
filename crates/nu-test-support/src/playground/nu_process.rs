@@ -94,7 +94,7 @@ impl NuProcess {
 
         let paths = vec![test_bins_path()];
 
-        let paths_joined = match std::env::join_paths(paths.iter()) {
+        let paths_joined = match std::env::join_paths(&paths) {
             Ok(all) => all,
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };

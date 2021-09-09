@@ -63,7 +63,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
         curr_track_dict.insert_untagged(
             "sample freq index",
             match track.sample_freq_index() {
-                Ok(sfi) => UntaggedValue::string(format!("{}", sfi.freq())), // this is a string for formatting reasons
+                Ok(sfi) => UntaggedValue::string(sfi.freq().to_string()), // this is a string for formatting reasons
                 Err(_) => UntaggedValue::from("Unknown"),
             },
         );

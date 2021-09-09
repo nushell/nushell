@@ -297,7 +297,7 @@ mod tests {
     fn no_control_codes_for_plain() {
         let one = Style::default().paint("one");
         let two = Style::default().paint("two");
-        let output = format!("{}", AnsiStrings(&[one, two]));
-        assert_eq!(&*output, "onetwo");
+        let output = AnsiStrings(&[one, two]).to_string();
+        assert_eq!(output, "onetwo");
     }
 }

@@ -45,7 +45,7 @@ pub fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Val
     let descs = obj.data_descriptors();
 
     for column_name in fields {
-        match descs.iter().find(|d| *d == column_name) {
+        match descs.iter().find(|&d| d == column_name) {
             None => out.insert_untagged(column_name, UntaggedValue::nothing()),
             Some(desc) => out.insert_value(desc.clone(), obj.get_data(desc).borrow().clone()),
         }

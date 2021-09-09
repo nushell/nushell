@@ -206,7 +206,7 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
         UntaggedValue::DataFrame(df) => match &name.unspanned {
             UnspannedPathMember::String(string) => {
                 let column = df.as_ref().select(string.as_str()).map_err(|e| {
-                    ShellError::labeled_error("Dataframe error", format!("{}", e), &name.span)
+                    ShellError::labeled_error("Dataframe error", e.to_string(), &name.span)
                 })?;
 
                 Ok(NuDataFrame::dataframe_to_value(
@@ -243,7 +243,7 @@ where
 {
     let mut current = value.clone();
 
-    for p in path.iter() {
+    for p in path {
         let value = get_data_by_member(&current, p);
 
         match value {
@@ -526,7 +526,7 @@ pub fn forgiving_insert_data_at_column_path(
 
         let mut candidate = new_value;
 
-        for member in paths.iter() {
+        for member in &paths {
             match &member.unspanned {
                 UnspannedPathMember::String(column_name) => {
                     candidate =
@@ -693,16 +693,16 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
     match &value.value {
         UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
         UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format("%Y-%m-%d").to_string()),
-        UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
-        UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
-        UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
-        UntaggedValue::Primitive(Primitive::Filesize(x)) => Ok(format!("{}", x)),
-        UntaggedValue::Primitive(Primitive::FilePath(x)) => Ok(format!("{}", x.display())),
+        UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(x.to_string()),
+        UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(x.to_string()),
+        UntaggedValue::Primitive(Primitive::Int(x)) => Ok(x.to_string()),
+        UntaggedValue::Primitive(Primitive::Filesize(x)) => Ok(x.to_string()),
+        UntaggedValue::Primitive(Primitive::FilePath(x)) => Ok(x.display().to_string()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Ok(path
             .iter()
             .map(|member| match &member.unspanned {
                 UnspannedPathMember::String(name) => name.to_string(),
-                UnspannedPathMember::Int(n) => format!("{}", n),
+                UnspannedPathMember::Int(n) => n.to_string(),
             })
             .join(".")),
 

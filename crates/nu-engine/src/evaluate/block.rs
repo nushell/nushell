@@ -19,7 +19,7 @@ pub fn run_block(
     external_redirection: ExternalRedirection,
 ) -> Result<OutputStream, ShellError> {
     let mut output: Result<InputStream, ShellError> = Ok(OutputStream::empty());
-    for (_, definition) in block.definitions.iter() {
+    for definition in block.definitions.values() {
         ctx.scope.add_definition(definition.clone());
     }
 
@@ -166,12 +166,8 @@ fn run_pipeline(
                     UntaggedValue::Block(captured_block) => {
                         ctx.scope.enter_scope();
                         ctx.scope.add_vars(&captured_block.captured.entries);
-                        for (param, value) in captured_block
-                            .block
-                            .params
-                            .positional
-                            .iter()
-                            .zip(args.iter())
+                        for (param, value) in
+                            captured_block.block.params.positional.iter().zip(&args)
                         {
                             ctx.scope.add_var(param.0.name(), value[0].clone());
                         }
@@ -188,7 +184,7 @@ fn run_pipeline(
                 }
             }
 
-            ClassifiedCommand::Expr(expr) => run_expression_block(&*expr, ctx)?,
+            ClassifiedCommand::Expr(expr) => run_expression_block(expr, ctx)?,
 
             ClassifiedCommand::Error(err) => return Err(err.clone().into()),
 

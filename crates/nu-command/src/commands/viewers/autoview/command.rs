@@ -206,7 +206,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     > term_width)
                         {
                             let mut entries = vec![];
-                            for (key, value) in row.entries.iter() {
+                            for (key, value) in &row.entries {
                                 entries.push(vec![
                                     nu_table::StyledString::new(
                                         key.to_string(),

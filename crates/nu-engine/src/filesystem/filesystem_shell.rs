@@ -491,7 +491,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        for dir in directories.iter() {
+        for dir in &directories {
             let create_at = path.join(&dir.item);
 
             let dir_res = std::fs::create_dir_all(&create_at);
@@ -660,7 +660,7 @@ impl Shell for FilesystemShell {
                                 // It is not appropriate to try and remove the
                                 // current directory or its parent when using
                                 // glob patterns.
-                                let name = format!("{}", f.display());
+                                let name = f.display().to_string();
                                 if name.ends_with("/.") || name.ends_with("/..") {
                                     continue;
                                 }
@@ -1056,10 +1056,8 @@ pub(crate) fn dir_entry_dict(
         {
             for column in [
                 "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
-            ]
-            .iter()
-            {
-                dict.insert_untagged(*column, UntaggedValue::nothing());
+            ] {
+                dict.insert_untagged(column, UntaggedValue::nothing());
             }
         }
 
@@ -1079,18 +1077,16 @@ pub(crate) fn dir_entry_dict(
                 "created",
                 "accessed",
                 "modified",
-            ]
-            .iter()
-            {
-                dict.insert_untagged(&(*column.to_owned()), UntaggedValue::nothing());
+            ] {
+                dict.insert_untagged(column, UntaggedValue::nothing());
             }
         }
     } else {
-        for column in ["name", "type", "target", "size", "modified"].iter() {
-            if *column == "target" {
+        for column in ["name", "type", "target", "size", "modified"] {
+            if column == "target" {
                 continue;
             }
-            dict.insert_untagged(*column, UntaggedValue::nothing());
+            dict.insert_untagged(column, UntaggedValue::nothing());
         }
     }
 

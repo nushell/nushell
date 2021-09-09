@@ -167,7 +167,7 @@ impl Type {
     pub fn from_dictionary(dictionary: &Dictionary) -> Type {
         let mut map = IndexMap::new();
 
-        for (key, value) in dictionary.entries.iter() {
+        for (key, value) in &dictionary.entries {
             let column = Column::String(key.clone());
             map.insert(column, Type::from_value(value));
         }
@@ -179,7 +179,7 @@ impl Type {
     pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> Type {
         let mut vec = vec![];
 
-        for item in table.into_iter() {
+        for item in table {
             vec.push(Type::from_value(item))
         }
 
@@ -191,7 +191,7 @@ impl Type {
         match value.into() {
             UntaggedValue::Primitive(p) => Type::from_primitive(p),
             UntaggedValue::Row(row) => Type::from_dictionary(row),
-            UntaggedValue::Table(table) => Type::from_table(table.iter()),
+            UntaggedValue::Table(table) => Type::from_table(table),
             UntaggedValue::Error(_) => Type::Error,
             UntaggedValue::Block(_) => Type::Block,
             #[cfg(feature = "dataframe")]
@@ -328,7 +328,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
 
 /// Helper to create a pretty-print for the type
 fn ty(name: impl std::fmt::Display) -> DebugDocBuilder {
-    DbgDocBldr::kind(format!("{}", name))
+    DbgDocBldr::kind(name)
 }
 
 pub trait GroupedValue: Debug + Clone {

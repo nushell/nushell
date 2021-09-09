@@ -61,7 +61,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         if let Some(expected) = &sample_pipeline.result {
             let result = evaluate_block(block, &mut ctx)?;
 
-            ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+            ctx.with_errors(|reasons| reasons.iter().cloned().next())
                 .map_or(Ok(()), Err)?;
 
             if expected.len() != result.len() {
@@ -75,7 +75,7 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
                 );
             }
 
-            for (e, a) in expected.iter().zip(result.iter()) {
+            for (e, a) in expected.iter().zip(&result) {
                 if !values_equal(e, a) {
                     let row_errored = format!("expected: {:#?}\nactual: {:#?}", e, a);
                     let failed_call = format!("command: {}\n", sample_pipeline.example);
@@ -140,7 +140,7 @@ pub fn test(cmd: impl WholeStreamCommand + 'static) -> Result<(), ShellError> {
                 );
             }
 
-            for (e, a) in expected.iter().zip(result.iter()) {
+            for (e, a) in expected.iter().zip(&result) {
                 if !values_equal(e, a) {
                     let row_errored = format!("expected: {:#?}\nactual: {:#?}", e, a);
                     let failed_call = format!("command: {}\n", sample_pipeline.example);
@@ -275,10 +275,10 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         if sample_pipeline.result.is_some() {
             let result = evaluate_block(block, &mut ctx)?;
 
-            ctx.with_errors(|reasons| reasons.iter().cloned().take(1).next())
+            ctx.with_errors(|reasons| reasons.iter().cloned().next())
                 .map_or(Ok(()), Err)?;
 
-            for actual in result.iter() {
+            for actual in &result {
                 if !is_anchor_carried(actual, mock_path()) {
                     let failed_call = format!("command: {}\n", pipeline_with_anchor);
 
@@ -351,10 +351,10 @@ fn values_equal(expected: &Value, actual: &Value) -> bool {
 
             e.entries
                 .iter()
-                .zip(a.entries.iter())
+                .zip(&a.entries)
                 .all(|((ek, ev), (ak, av))| ek == ak && values_equal(ev, av))
         }
-        (Table(e), Table(a)) => e.iter().zip(a.iter()).all(|(e, a)| values_equal(e, a)),
+        (Table(e), Table(a)) => e.iter().zip(a).all(|(e, a)| values_equal(e, a)),
         (e, a) => unimplemented!("{} {}", e.type_name(), a.type_name()),
     }
 }

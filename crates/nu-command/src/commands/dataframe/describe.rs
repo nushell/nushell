@@ -195,7 +195,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         let name = format!("{} ({})", col.name(), col.dtype());
         ChunkedArray::<Float64Type>::new_from_opt_slice(
-            name.as_str(),
+            &name,
             &[
                 Some(count),
                 sum,

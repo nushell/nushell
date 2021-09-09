@@ -83,7 +83,7 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         }
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             toml::Value::Table(m)
@@ -97,7 +97,7 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     match &v.value {
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             Ok(toml::Value::Table(m))

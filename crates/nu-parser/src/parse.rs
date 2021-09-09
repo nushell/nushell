@@ -990,7 +990,7 @@ fn parse_arg(
                 SyntaxShape::Table,
                 SyntaxShape::String,
             ];
-            for shape in shapes.iter() {
+            for shape in &shapes {
                 if let (s, None) = parse_arg(*shape, scope, lite_arg) {
                     return (s, None);
                 }
@@ -1740,7 +1740,7 @@ fn expand_aliases_in_call(call: &mut LiteCommand, scope: &dyn ParserScope) {
     if let Some(name) = call.parts.get(0) {
         if let Some(mut expansion) = scope.get_alias(name) {
             // set the expansion's spans to point to the alias itself
-            for item in expansion.iter_mut() {
+            for item in &mut expansion {
                 item.span = name.span;
             }
 
@@ -2065,7 +2065,7 @@ pub fn classify_block(
     let mut error = None;
 
     // Check for custom commands first
-    for group in lite_block.block.iter() {
+    for group in &lite_block.block {
         for pipeline in &group.pipelines {
             for call in &pipeline.commands {
                 if let Some(first) = call.parts.first() {
@@ -2165,7 +2165,7 @@ pub fn classify_block(
     }
 
     let definitions = scope.get_definitions();
-    for definition in definitions.into_iter() {
+    for definition in definitions {
         let name = definition.params.name.clone();
         if !output.definitions.contains_key(&name) {
             output.definitions.insert(name, definition.clone());
@@ -2335,7 +2335,7 @@ fn unit_parse_byte_units() {
         },
     ];
 
-    for case in cases.iter() {
+    for case in &cases {
         let input_len = case.string.len();
         let value_len = case.value.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));
@@ -2423,7 +2423,7 @@ fn unit_parse_byte_units_decimal() {
         },
     ];
 
-    for case in cases.iter() {
+    for case in &cases {
         let input_len = case.string.len();
         let value_len = case.value_str.to_string().len();
         let input = case.string.clone().spanned(Span::new(0, input_len));

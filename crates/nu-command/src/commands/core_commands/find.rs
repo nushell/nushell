@@ -50,7 +50,7 @@ impl WholeStreamCommand for Find {
 
 fn row_contains(row: &Dictionary, search_terms: Vec<String>) -> bool {
     for term in search_terms {
-        for (k, v) in row.entries.iter() {
+        for (k, v) in &row.entries {
             let key = k.to_string().trim().to_lowercase();
             let value = v.convert_to_string().trim().to_lowercase();
             if key.contains(&term) || value.contains(&term) {

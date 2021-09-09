@@ -75,7 +75,7 @@ fn convert_yaml_value_to_nu_value(
         serde_yaml::Value::Mapping(t) => {
             let mut collected = TaggedDictBuilder::new(&tag);
 
-            for (k, v) in t.iter() {
+            for (k, v) in t {
                 // A ShellError that we re-use multiple times in the Mapping scenario
                 let err_unexpected_map = ShellError::labeled_error(
                     format!("Unexpected YAML:\nKey: {:?}\nValue: {:?}", k, v),
@@ -202,7 +202,7 @@ mod tests {
                 expected: Ok(row!["value".to_owned() => string("{{ something }}")]),
             },
         ];
-        for tc in tt.into_iter() {
+        for tc in tt {
             let actual = from_yaml_string_to_value(tc.input.to_owned(), Tag::default());
             if actual.is_err() {
                 assert!(

@@ -432,7 +432,7 @@ impl VariableRegistry for EvaluationContext {
     fn variables(&self) -> Vec<String> {
         Variable::list()
             .into_iter()
-            .chain(self.scope.get_variable_names().into_iter())
+            .chain(self.scope.get_variable_names())
             .unique()
             .collect()
     }

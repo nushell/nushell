@@ -519,7 +519,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             let mut output = vec![];
 
-            for item in b.iter() {
+            for item in b {
                 output.push(serde_json::Value::Number(
                     serde_json::Number::from_f64(*item as f64).ok_or_else(|| {
                         ShellError::labeled_error(
@@ -534,7 +534,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         }
         UntaggedValue::Row(o) => {
             let mut m = serde_json::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             serde_json::Value::Object(m)
