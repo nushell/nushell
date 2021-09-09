@@ -135,6 +135,7 @@ pub fn eval_expression(
 
             value.follow_cell_path(&column_path.tail)
         }
+        Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
         Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),

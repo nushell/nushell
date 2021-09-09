@@ -1,4 +1,4 @@
-use std::{arch::x86_64::_CMP_EQ_OQ, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
 use nu_command::create_default_context;
@@ -164,7 +164,7 @@ impl Completer for EQCompleter {
         let mut working_set = StateWorkingSet::new(&*engine_state);
         let offset = working_set.next_span_start();
         let pos = offset + pos;
-        let (output, err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+        let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
         let flattened = flatten_block(&working_set, &output);
 

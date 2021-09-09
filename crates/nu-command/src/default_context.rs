@@ -5,7 +5,9 @@ use nu_protocol::{
     Signature, SyntaxShape,
 };
 
-use crate::{Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv};
+use crate::{
+    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv,
+};
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
     let engine_state = Rc::new(RefCell::new(EngineState::new()));
@@ -32,6 +34,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(For));
 
         working_set.add_decl(Box::new(Each));
+
+        working_set.add_decl(Box::new(Where));
 
         working_set.add_decl(Box::new(Do));
 
