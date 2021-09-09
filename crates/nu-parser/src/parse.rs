@@ -2025,6 +2025,24 @@ fn parse_alias(call: &LiteCommand, scope: &dyn ParserScope) -> Option<ParseError
         {
             return None;
         }
+
+        if call.parts.get(2).map(|part| part.item.as_str()) != Some("=") {
+            if let Some(equals_span) = [call.parts.get(1), call.parts.get(2)]
+                .iter()
+                .flatten()
+                .filter_map(|part| {
+                    part.find('=')
+                        .map(|offset| Span::for_char(part.span.start() + offset))
+                })
+                .next()
+            {
+                return Some(ParseError::general_error(
+                    "Invalid alias syntax",
+                    "Expected space on both sides of =".spanned(equals_span),
+                ));
+            }
+        }
+
         if call.parts.len() < 4 {
             return Some(ParseError::mismatch("alias", call.parts[0].clone()));
         }
