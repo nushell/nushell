@@ -1,11 +1,14 @@
+use std::{arch::x86_64::_CMP_EQ_OQ, cell::RefCell, rc::Rc};
+
 use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
-use nu_parser::parse;
+use nu_parser::{flatten_block, parse};
 use nu_protocol::{
     engine::{EngineState, EvaluationContext, StateWorkingSet},
     Value,
 };
+use reedline::{Completer, DefaultCompletionActionHandler};
 
 #[cfg(test)]
 mod tests;
@@ -53,6 +56,10 @@ fn main() -> std::io::Result<()> {
     } else {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
+        let completer = EQCompleter {
+            engine_state: engine_state.clone(),
+        };
+
         let mut line_editor = Reedline::create()?
             .with_history(Box::new(FileBackedHistory::with_file(
                 1000,
@@ -60,7 +67,10 @@ fn main() -> std::io::Result<()> {
             )?))?
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
-            }));
+            }))
+            .with_completion_action_handler(Box::new(
+                DefaultCompletionActionHandler::default().with_completer(Box::new(completer)),
+            ));
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;
@@ -141,5 +151,40 @@ fn main() -> std::io::Result<()> {
         }
 
         Ok(())
+    }
+}
+
+struct EQCompleter {
+    engine_state: Rc<RefCell<EngineState>>,
+}
+
+impl Completer for EQCompleter {
+    fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
+        let engine_state = self.engine_state.borrow();
+        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let offset = working_set.next_span_start();
+        let pos = offset + pos;
+        let (output, err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
+
+        let flattened = flatten_block(&working_set, &output);
+
+        for flat in flattened {
+            if pos >= flat.0.start && pos <= flat.0.end {
+                match flat.1 {
+                    nu_parser::FlatShape::External | nu_parser::FlatShape::InternalCall => {
+                        return vec![(
+                            reedline::Span {
+                                start: flat.0.start - offset,
+                                end: flat.0.end - offset,
+                            },
+                            "hello".into(),
+                        )]
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        vec![]
     }
 }
