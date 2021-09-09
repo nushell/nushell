@@ -17,6 +17,7 @@
 - [x] Column path
 - [x] ...rest without calling it rest
 - [x] Iteration (`each`) over tables
+- [ ] Row conditions
 - [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
 - [ ] Error shortcircuit (stopping on first error)
