@@ -123,6 +123,24 @@ impl EngineState {
         None
     }
 
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        let mut output = vec![];
+
+        for scope in self.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    output.push(decl.0.clone());
+                }
+            }
+        }
+
+        output
+    }
+
+    pub fn get_span_contents(&self, span: Span) -> &[u8] {
+        &self.file_contents[span.start..span.end]
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Type {
         self.vars
             .get(var_id)
@@ -494,6 +512,24 @@ impl<'a> StateWorkingSet<'a> {
                 .get_mut(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
         }
+    }
+
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        let mut output = vec![];
+
+        for scope in self.delta.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    output.push(decl.0.clone());
+                }
+            }
+        }
+
+        let mut permanent = self.permanent_state.find_commands_by_prefix(name);
+
+        output.append(&mut permanent);
+
+        output
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {

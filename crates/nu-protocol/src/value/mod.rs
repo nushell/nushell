@@ -277,6 +277,10 @@ impl Value {
 
         Ok(current)
     }
+
+    pub fn is_true(&self) -> bool {
+        matches!(self, Value::Bool { val: true, .. })
+    }
 }
 
 impl PartialEq for Value {

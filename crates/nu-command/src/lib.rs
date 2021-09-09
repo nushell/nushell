@@ -10,6 +10,7 @@ mod if_;
 mod length;
 mod let_;
 mod let_env;
+mod where_;
 
 pub use alias::Alias;
 pub use benchmark::Benchmark;

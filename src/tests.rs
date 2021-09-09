@@ -292,3 +292,19 @@ fn row_iteration() -> TestResult {
 fn record_iteration() -> TestResult {
     run_test("([[name, level]; [aa, 100], [bb, 200]] | each { $it | each { |x| if $x.column == \"level\" { $x.value + 100 } else { $x.value } } }).level", "[200, 300]")
 }
+
+#[test]
+fn row_condition1() -> TestResult {
+    run_test(
+        "([[name, size]; [a, 1], [b, 2], [c, 3]] | where size < 3).name",
+        "[a, b]",
+    )
+}
+
+#[test]
+fn row_condition2() -> TestResult {
+    run_test(
+        "[[name, size]; [a, 1], [b, 2], [c, 3]] | where $it.size > 2 | length",
+        "1",
+    )
+}
