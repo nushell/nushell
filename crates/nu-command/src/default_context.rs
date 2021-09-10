@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv,
+    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv, Ls,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -42,6 +42,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Benchmark));
 
         working_set.add_decl(Box::new(Length));
+
+        working_set.add_decl(Box::new(Ls));
 
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());
