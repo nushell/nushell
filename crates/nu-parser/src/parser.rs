@@ -871,7 +871,7 @@ pub(crate) fn parse_dollar_expr(
     } else if let (expr, None) = parse_range(working_set, span) {
         (expr, None)
     } else {
-        parse_full_column_path(working_set, span)
+        parse_full_column_path(working_set, None, span)
     }
 }
 
@@ -942,7 +942,7 @@ pub fn parse_string_interpolation(
                             end: b + 1,
                         };
 
-                        let (expr, err) = parse_full_column_path(working_set, span);
+                        let (expr, err) = parse_full_column_path(working_set, None, span);
                         error = error.or(err);
                         output.push(expr);
                     }
@@ -977,7 +977,7 @@ pub fn parse_string_interpolation(
                     end,
                 };
 
-                let (expr, err) = parse_full_column_path(working_set, span);
+                let (expr, err) = parse_full_column_path(working_set, None, span);
                 error = error.or(err);
                 output.push(expr);
             }
@@ -1067,6 +1067,7 @@ pub fn parse_variable_expr(
 
 pub fn parse_full_column_path(
     working_set: &mut StateWorkingSet,
+    implicit_head: Option<VarId>,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     // FIXME: assume for now a paren expr, but needs more
@@ -1077,10 +1078,10 @@ pub fn parse_full_column_path(
     let (tokens, err) = lex(source, span.start, &[b'\n'], &[b'.']);
     error = error.or(err);
 
-    let mut tokens = tokens.into_iter();
-    if let Some(head) = tokens.next() {
+    let mut tokens = tokens.into_iter().peekable();
+    if let Some(head) = tokens.peek() {
         let bytes = working_set.get_span_contents(head.span);
-        let head = if bytes.starts_with(b"(") {
+        let (head, mut expect_dot) = if bytes.starts_with(b"(") {
             let mut start = head.span.start;
             let mut end = head.span.end;
 
@@ -1105,27 +1106,42 @@ pub fn parse_full_column_path(
 
             let source = working_set.get_span_contents(span);
 
-            let (tokens, err) = lex(source, span.start, &[b'\n'], &[]);
+            let (output, err) = lex(source, span.start, &[b'\n'], &[]);
             error = error.or(err);
 
-            let (output, err) = lite_parse(&tokens);
+            let (output, err) = lite_parse(&output);
             error = error.or(err);
 
             let (output, err) = parse_block(working_set, &output, true);
             error = error.or(err);
 
             let block_id = working_set.add_block(output);
+            tokens.next();
 
-            Expression {
-                expr: Expr::Subexpression(block_id),
-                span,
-                ty: Type::Unknown, // FIXME
-            }
+            (
+                Expression {
+                    expr: Expr::Subexpression(block_id),
+                    span,
+                    ty: Type::Unknown, // FIXME
+                },
+                true,
+            )
         } else if bytes.starts_with(b"$") {
             let (out, err) = parse_variable_expr(working_set, head.span);
             error = error.or(err);
 
-            out
+            tokens.next();
+
+            (out, true)
+        } else if let Some(var_id) = implicit_head {
+            (
+                Expression {
+                    expr: Expr::Var(var_id),
+                    span: Span::unknown(),
+                    ty: Type::Unknown,
+                },
+                false,
+            )
         } else {
             return (
                 garbage(span),
@@ -1139,7 +1155,6 @@ pub fn parse_full_column_path(
 
         let mut tail = vec![];
 
-        let mut expect_dot = true;
         for path_element in tokens {
             let bytes = working_set.get_span_contents(path_element.span);
 
@@ -1313,11 +1328,40 @@ pub fn parse_var_with_opt_type(
         )
     }
 }
+
+pub fn expand_to_cell_path(
+    working_set: &mut StateWorkingSet,
+    expression: &mut Expression,
+    var_id: VarId,
+) {
+    if let Expression {
+        expr: Expr::String(_),
+        span,
+        ..
+    } = expression
+    {
+        // Re-parse the string as if it were a cell-path
+        let (new_expression, _err) = parse_full_column_path(working_set, Some(var_id), *span);
+
+        *expression = new_expression;
+    }
+}
+
 pub fn parse_row_condition(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
-    parse_math_expression(working_set, spans)
+    let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+    let (expression, err) = parse_math_expression(working_set, spans, Some(var_id));
+    let span = span(spans);
+    (
+        Expression {
+            ty: Type::Bool,
+            span,
+            expr: Expr::RowCondition(var_id, Box::new(expression)),
+        },
+        err,
+    )
 }
 
 pub fn parse_signature(
@@ -2015,7 +2059,7 @@ pub fn parse_value(
         if let (expr, None) = parse_range(working_set, span) {
             return (expr, None);
         } else {
-            return parse_full_column_path(working_set, span);
+            return parse_full_column_path(working_set, None, span);
         }
     } else if bytes.starts_with(b"{") {
         if matches!(shape, SyntaxShape::Block) || matches!(shape, SyntaxShape::Any) {
@@ -2162,6 +2206,7 @@ pub fn parse_operator(
 pub fn parse_math_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    lhs_row_var_id: Option<VarId>,
 ) -> (Expression, Option<ParseError>) {
     // As the expr_stack grows, we increase the required precedence to grow larger
     // If, at any time, the operator we're looking at is the same or lower precedence
@@ -2220,6 +2265,10 @@ pub fn parse_math_expression(
                     .pop()
                     .expect("internal error: expression stack empty");
 
+                if let Some(row_var_id) = lhs_row_var_id {
+                    expand_to_cell_path(working_set, &mut lhs, row_var_id);
+                }
+
                 let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
                 error = error.or(err);
 
@@ -2250,6 +2299,10 @@ pub fn parse_math_expression(
             .pop()
             .expect("internal error: expression stack empty");
 
+        if let Some(row_var_id) = lhs_row_var_id {
+            expand_to_cell_path(working_set, &mut lhs, row_var_id);
+        }
+
         let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
         error = error.or(err);
 
@@ -2276,7 +2329,7 @@ pub fn parse_expression(
 
     match bytes[0] {
         b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-        | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans),
+        | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans, None),
         _ => parse_call(working_set, spans, true),
     }
 }

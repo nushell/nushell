@@ -277,6 +277,24 @@ impl Value {
 
         Ok(current)
     }
+
+    pub fn string(s: &str, span: Span) -> Value {
+        Value::String {
+            val: s.into(),
+            span,
+        }
+    }
+
+    pub fn is_true(&self) -> bool {
+        matches!(self, Value::Bool { val: true, .. })
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        match self {
+            Value::Record { cols, .. } => cols.clone(),
+            _ => vec![],
+        }
+    }
 }
 
 impl PartialEq for Value {

@@ -10,6 +10,9 @@ mod if_;
 mod length;
 mod let_;
 mod let_env;
+mod ls;
+mod table;
+mod where_;
 
 pub use alias::Alias;
 pub use benchmark::Benchmark;
@@ -23,3 +26,5 @@ pub use if_::If;
 pub use length::Length;
 pub use let_::Let;
 pub use let_env::LetEnv;
+pub use ls::Ls;
+pub use table::Table;

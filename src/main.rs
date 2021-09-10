@@ -1,4 +1,4 @@
-use nu_cli::{report_parsing_error, report_shell_error, NuHighlighter};
+use nu_cli::{report_parsing_error, report_shell_error, NuCompleter, NuHighlighter};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{EngineState, EvaluationContext, StateWorkingSet},
     Value,
 };
+use reedline::DefaultCompletionActionHandler;
 
 #[cfg(test)]
 mod tests;
@@ -53,6 +54,8 @@ fn main() -> std::io::Result<()> {
     } else {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
+        let completer = NuCompleter::new(engine_state.clone());
+
         let mut line_editor = Reedline::create()?
             .with_history(Box::new(FileBackedHistory::with_file(
                 1000,
@@ -60,7 +63,10 @@ fn main() -> std::io::Result<()> {
             )?))?
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
-            }));
+            }))
+            .with_completion_action_handler(Box::new(
+                DefaultCompletionActionHandler::default().with_completer(Box::new(completer)),
+            ));
 
         let prompt = DefaultPrompt::new(1);
         let mut current_line = 1;

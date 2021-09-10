@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "aho-corasick"
+version = "0.7.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -148,6 +157,7 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-protocol",
+ "nu-table",
  "pretty_assertions",
  "reedline",
  "tempfile",
@@ -163,6 +173,12 @@ dependencies = [
  "libc",
  "wasi",
 ]
+
+[[package]]
+name = "glob"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "instant"
@@ -276,8 +292,10 @@ dependencies = [
 name = "nu-command"
 version = "0.1.0"
 dependencies = [
+ "glob",
  "nu-engine",
  "nu-protocol",
+ "nu-table",
 ]
 
 [[package]]
@@ -301,6 +319,15 @@ name = "nu-protocol"
 version = "0.1.0"
 dependencies = [
  "codespan-reporting",
+]
+
+[[package]]
+name = "nu-table"
+version = "0.36.0"
+dependencies = [
+ "nu-ansi-term",
+ "regex",
+ "unicode-width",
 ]
 
 [[package]]
@@ -488,10 +515,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex"
+version = "1.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d07a8629359eb56f1e2fb1652bb04212c072a87ba68546a04065d525673ac461"
+dependencies = [
+ "aho-corasick",
+ "memchr",
+ "regex-syntax",
+]
+
+[[package]]
 name = "regex-automata"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
+
+[[package]]
+name = "regex-syntax"
+version = "0.6.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
 name = "remove_dir_all"

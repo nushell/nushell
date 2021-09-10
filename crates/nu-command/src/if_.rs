@@ -11,7 +11,7 @@ impl Command for If {
     }
 
     fn usage(&self) -> &str {
-        "Create a variable and give it a value."
+        "Conditionally run a block."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
