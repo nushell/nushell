@@ -10,6 +10,7 @@ pub enum FlatShape {
     Range,
     InternalCall,
     External,
+    ExternalArg,
     Literal,
     Operator,
     Signature,
@@ -55,8 +56,14 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::ExternalCall(..) => {
-            vec![(expr.span, FlatShape::External)]
+        Expr::ExternalCall(name, args) => {
+            let mut output = vec![(*name, FlatShape::External)];
+
+            for arg in args {
+                output.push((*arg, FlatShape::ExternalArg));
+            }
+
+            output
         }
         Expr::Garbage => {
             vec![(expr.span, FlatShape::Garbage)]
