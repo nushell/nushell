@@ -137,7 +137,7 @@ pub fn group_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
             value: UntaggedValue::Block(block_given),
             ..
         }) => {
-            let block = Arc::new(block_given);
+            let block = Arc::new(*block_given);
             let error_key = "error";
 
             for value in &values {

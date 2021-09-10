@@ -69,7 +69,7 @@ impl WholeStreamCommand for Each {
 }
 
 pub fn process_row(
-    captured_block: Arc<Box<CapturedBlock>>,
+    captured_block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
     input: Value,
     external_redirection: ExternalRedirection,
@@ -121,7 +121,7 @@ fn each(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block: CapturedBlock = args.req(0)?;
     let numbered: bool = args.has_flag("numbered");
 
-    let block = Arc::new(Box::new(block));
+    let block = Arc::new(block);
 
     if numbered {
         Ok(args

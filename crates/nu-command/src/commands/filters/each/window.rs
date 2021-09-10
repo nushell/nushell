@@ -49,7 +49,7 @@ impl WholeStreamCommand for EachWindow {
         let block: CapturedBlock = args.req(1)?;
         let stride: Option<Tagged<usize>> = args.get_flag("stride")?;
 
-        let block = Arc::new(Box::new(block));
+        let block = Arc::new(block);
 
         let mut window: Vec<_> = args
             .input
