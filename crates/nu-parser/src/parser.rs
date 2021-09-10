@@ -2610,7 +2610,10 @@ pub fn parse_block(
                     .iter()
                     .map(|command| {
                         let (expr, err) = parse_expression(working_set, &command.parts);
-                        error = err.map(|err| err);
+
+                        if error.is_none() {
+                            error = err;
+                        }
 
                         expr
                     })
@@ -2621,7 +2624,10 @@ pub fn parse_block(
                 })
             } else {
                 let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
-                error = err.map(|err| err);
+
+                if error.is_none() {
+                    error = err;
+                }
 
                 stmt
             }
