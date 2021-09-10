@@ -8,3 +8,6 @@ edition = "2018"
 [dependencies]
 nu-protocol = { path = "../nu-protocol" }
 nu-engine = { path = "../nu-engine" }
+
+# Potential dependencies for extras
+glob = "0.3.0"
