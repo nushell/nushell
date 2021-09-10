@@ -685,6 +685,7 @@ impl WrappedTable {
                         );
                     }
                 }
+                output.push('\n');
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
@@ -728,6 +729,7 @@ impl WrappedTable {
                             .push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
                     }
                 }
+                output.push('\n');
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
@@ -774,7 +776,6 @@ impl WrappedTable {
                 }
             }
         }
-        output.push('\n');
         output
     }
 
