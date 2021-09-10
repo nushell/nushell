@@ -43,7 +43,7 @@ impl WholeStreamCommand for EachGroup {
 
         let group_size: Tagged<usize> = args.req(0)?;
         let block: CapturedBlock = args.req(1)?;
-        let block = Arc::new(Box::new(block));
+        let block = Arc::new(block);
 
         let each_group_iterator = EachGroupIterator {
             block,
@@ -58,7 +58,7 @@ impl WholeStreamCommand for EachGroup {
 }
 
 struct EachGroupIterator {
-    block: Arc<Box<CapturedBlock>>,
+    block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
     group_size: usize,
     input: InputStream,
@@ -96,7 +96,7 @@ impl Iterator for EachGroupIterator {
 
 pub(crate) fn run_block_on_vec(
     input: Vec<Value>,
-    block: Arc<Box<CapturedBlock>>,
+    block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
     external_redirection: ExternalRedirection,
 ) -> OutputStream {
