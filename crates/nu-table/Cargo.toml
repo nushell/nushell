@@ -1,0 +1,18 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Nushell table printing"
+edition = "2018"
+license = "MIT"
+name = "nu-table"
+version = "0.36.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "table"
+path = "src/main.rs"
+
+[dependencies]
+nu-ansi-term = "0.36.0"
+
+regex = "1.4"
+unicode-width = "0.1.8"
