@@ -2511,7 +2511,7 @@ pub fn parse_alias(
     (
         garbage_statement(spans),
         Some(ParseError::UnknownState(
-            "internal error: let statement unparseable".into(),
+            "internal error: alias statement unparseable".into(),
             span(spans),
         )),
     )
