@@ -1,10 +1,104 @@
-use crate::{ast::RangeInclusion, *};
+use crate::{
+    ast::{RangeInclusion, RangeOperator},
+    *,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Range {
     pub from: Value,
+    pub incr: Value,
     pub to: Value,
     pub inclusion: RangeInclusion,
+}
+
+impl Range {
+    pub fn new(
+        expr_span: Span,
+        from: Value,
+        next: Value,
+        to: Value,
+        operator: &RangeOperator,
+    ) -> Result<Range, ShellError> {
+        // Select from & to values if they're not specified
+        // TODO: Replace the placeholder values with proper min/max based on data type
+        let from = if let Value::Nothing { .. } = from {
+            Value::Int {
+                val: 0i64,
+                span: Span::unknown(),
+            }
+        } else {
+            from
+        };
+
+        let to = if let Value::Nothing { .. } = to {
+            if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from) {
+                Value::Int {
+                    val: -100i64,
+                    span: Span::unknown(),
+                }
+            } else {
+                Value::Int {
+                    val: 100i64,
+                    span: Span::unknown(),
+                }
+            }
+        } else {
+            to
+        };
+
+        // Check if the range counts up or down
+        let moves_up = matches!(from.lte(expr_span, &to), Ok(Value::Bool { val: true, .. }));
+
+        // Convert the next value into the inctement
+        let incr = if let Value::Nothing { .. } = next {
+            if moves_up {
+                Value::Int {
+                    val: 1i64,
+                    span: Span::unknown(),
+                }
+            } else {
+                Value::Int {
+                    val: -1i64,
+                    span: Span::unknown(),
+                }
+            }
+        } else {
+            next.sub(operator.next_op_span, &from)?
+        };
+
+        let zero = Value::Int {
+            val: 0i64,
+            span: Span::unknown(),
+        };
+
+        // Increment must be non-zero, otherwise we iterate forever
+        if matches!(incr.eq(expr_span, &zero), Ok(Value::Bool { val: true, .. })) {
+            return Err(ShellError::CannotCreateRange(expr_span));
+        }
+
+        // If to > from, then incr > 0, otherwise we iterate forever
+        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+            to.gt(operator.span, &from)?,
+            incr.gt(operator.next_op_span, &zero)?,
+        ) {
+            return Err(ShellError::CannotCreateRange(expr_span));
+        }
+
+        // If to < from, then incr < 0, otherwise we iterate forever
+        if let (Value::Bool { val: true, .. }, Value::Bool { val: false, .. }) = (
+            to.lt(operator.span, &from)?,
+            incr.lt(operator.next_op_span, &zero)?,
+        ) {
+            return Err(ShellError::CannotCreateRange(expr_span));
+        }
+
+        Ok(Range {
+            from,
+            incr,
+            to,
+            inclusion: operator.inclusion,
+        })
+    }
 }
 
 impl IntoIterator for Range {
@@ -25,8 +119,7 @@ pub struct RangeIterator {
     span: Span,
     is_end_inclusive: bool,
     moves_up: bool,
-    one: Value,
-    negative_one: Value,
+    incr: Value,
     done: bool,
 }
 
@@ -52,8 +145,7 @@ impl RangeIterator {
             span,
             is_end_inclusive: matches!(range.inclusion, RangeInclusion::Inclusive),
             done: false,
-            one: Value::Int { val: 1, span },
-            negative_one: Value::Int { val: -1, span },
+            incr: range.incr,
         }
     }
 }
@@ -70,10 +162,10 @@ impl Iterator for RangeIterator {
             Ordering::Less
         } else {
             match (&self.curr, &self.end) {
-                (Value::Int { val: x, .. }, Value::Int { val: y, .. }) => x.cmp(y),
-                // (Value::Float { val: x, .. }, Value::Float { val: y, .. }) => x.cmp(y),
-                // (Value::Float { val: x, .. }, Value::Int { val: y, .. }) => x.cmp(y),
-                // (Value::Int { val: x, .. }, Value::Float { val: y, .. }) => x.cmp(y),
+                (Value::Int { val: curr, .. }, Value::Int { val: end, .. }) => curr.cmp(end),
+                // (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) => curr.cmp(end),
+                // (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => curr.cmp(end),
+                // (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => curr.cmp(end),
                 _ => {
                     self.done = true;
                     return Some(Value::Error {
@@ -83,30 +175,19 @@ impl Iterator for RangeIterator {
             }
         };
 
-        if self.moves_up
-            && (ordering == Ordering::Less || self.is_end_inclusive && ordering == Ordering::Equal)
+        let desired_ordering = if self.moves_up {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        };
+
+        if (ordering == desired_ordering) || (self.is_end_inclusive && ordering == Ordering::Equal)
         {
-            let next_value = self.curr.add(self.span, &self.one);
+            let next_value = self.curr.add(self.span, &self.incr);
 
             let mut next = match next_value {
                 Ok(result) => result,
 
-                Err(error) => {
-                    self.done = true;
-                    return Some(Value::Error { error });
-                }
-            };
-            std::mem::swap(&mut self.curr, &mut next);
-
-            Some(next)
-        } else if !self.moves_up
-            && (ordering == Ordering::Greater
-                || self.is_end_inclusive && ordering == Ordering::Equal)
-        {
-            let next_value = self.curr.add(self.span, &self.negative_one);
-
-            let mut next = match next_value {
-                Ok(result) => result,
                 Err(error) => {
                     self.done = true;
                     return Some(Value::Error { error });

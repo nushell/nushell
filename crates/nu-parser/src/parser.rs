@@ -709,8 +709,8 @@ pub fn parse_range(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    // Range follows the following syntax: [<from>][<step_operator><step>]<range_operator>[<to>]
-    //   where <step_operator> is ".."
+    // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
+    //   where <next_operator> is ".."
     //   and  <range_operator> is ".." or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
@@ -725,42 +725,28 @@ pub fn parse_range(
     // First, figure out what exact operators are used and determine their positions
     let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
 
-    let (step_op_pos, range_op_pos) =
+    let (next_op_pos, range_op_pos) =
         match dotdot_pos.len() {
             1 => (None, dotdot_pos[0]),
             2 => (Some(dotdot_pos[0]), dotdot_pos[1]),
             _ => return (
                 garbage(span),
                 Some(ParseError::Expected(
-                    "one range operator ('..' or '..<') and optionally one step operator ('..')"
+                    "one range operator ('..' or '..<') and optionally one next operator ('..')"
                         .into(),
                     span,
                 )),
             ),
         };
 
-    let _step_op_span = step_op_pos.map(|pos| {
-        Span::new(
-            span.start + pos,
-            span.start + pos + "..".len(), // Only ".." is allowed for step operator
-        )
-    });
-
-    let (range_op, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
+    let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
             let op_str = "..<";
             let op_span = Span::new(
                 span.start + range_op_pos,
                 span.start + range_op_pos + op_str.len(),
             );
-            (
-                RangeOperator {
-                    inclusion: RangeInclusion::RightExclusive,
-                    span: op_span,
-                },
-                "..<",
-                op_span,
-            )
+            (RangeInclusion::RightExclusive, "..<", op_span)
         } else {
             return (
                 garbage(span),
@@ -776,21 +762,14 @@ pub fn parse_range(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
         );
-        (
-            RangeOperator {
-                inclusion: RangeInclusion::Inclusive,
-                span: op_span,
-            },
-            "..",
-            op_span,
-        )
+        (RangeInclusion::Inclusive, "..", op_span)
     };
 
-    // Now, based on the operator positions, figure out where the bounds & step are located and
+    // Now, based on the operator positions, figure out where the bounds & next are located and
     // parse them
-    // TODO: Actually parse the step number
+    // TODO: Actually parse the next number
     let from = if token.starts_with("..") {
-        // token starts with either step operator, or range operator -- we don't care which one
+        // token starts with either next operator, or range operator -- we don't care which one
         None
     } else {
         let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
@@ -830,9 +809,32 @@ pub fn parse_range(
         );
     }
 
+    let (next, next_op_span) = if let Some(pos) = next_op_pos {
+        let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
+        let next_span = Span::new(next_op_span.end, range_op_span.start);
+
+        match parse_value(working_set, next_span, &SyntaxShape::Number) {
+            (expression, None) => (Some(Box::new(expression)), next_op_span),
+            _ => {
+                return (
+                    garbage(span),
+                    Some(ParseError::Expected("number".into(), span)),
+                )
+            }
+        }
+    } else {
+        (None, Span::unknown())
+    };
+
+    let range_op = RangeOperator {
+        inclusion,
+        span: range_op_span,
+        next_op_span,
+    };
+
     (
         Expression {
-            expr: Expr::Range(from, to, range_op),
+            expr: Expr::Range(from, next, to, range_op),
             span,
             ty: Type::Range,
         },

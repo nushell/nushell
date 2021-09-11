@@ -59,6 +59,7 @@ pub enum RangeInclusion {
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,
+    pub next_op_span: Span,
 }
 
 impl Display for RangeOperator {
