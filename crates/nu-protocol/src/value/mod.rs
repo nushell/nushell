@@ -8,7 +8,7 @@ pub use stream::*;
 
 use std::fmt::Debug;
 
-use crate::ast::{PathMember, RangeInclusion};
+use crate::ast::PathMember;
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -131,20 +131,10 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Range { val, .. } => {
-                let vals: Vec<i64> = match (&val.from, &val.to) {
-                    (Value::Int { val: from, .. }, Value::Int { val: to, .. }) => {
-                        match val.inclusion {
-                            RangeInclusion::Inclusive => (*from..=*to).collect(),
-                            RangeInclusion::RightExclusive => (*from..*to).collect(),
-                        }
-                    }
-                    _ => Vec::new(),
-                };
-
                 format!(
                     "range: [{}]",
-                    vals.iter()
-                        .map(|x| x.to_string())
+                    val.into_iter()
+                        .map(|x| x.into_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 )

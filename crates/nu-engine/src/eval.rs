@@ -85,13 +85,19 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
-        Expr::Range(from, to, operator) => {
-            // TODO: Embed the min/max into Range and set max to be the true max
+        Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
                 eval_expression(context, f)?
             } else {
-                Value::Int {
-                    val: 0i64,
+                Value::Nothing {
+                    span: Span::unknown(),
+                }
+            };
+
+            let next = if let Some(s) = next {
+                eval_expression(context, s)?
+            } else {
+                Value::Nothing {
                     span: Span::unknown(),
                 }
             };
@@ -99,31 +105,13 @@ pub fn eval_expression(
             let to = if let Some(t) = to {
                 eval_expression(context, t)?
             } else {
-                Value::Int {
-                    val: 100i64,
+                Value::Nothing {
                     span: Span::unknown(),
                 }
             };
 
-            let range = match (&from, &to) {
-                (&Value::Int { .. }, &Value::Int { .. }) => Range {
-                    from: from.clone(),
-                    to: to.clone(),
-                    inclusion: operator.inclusion,
-                },
-                (lhs, rhs) => {
-                    return Err(ShellError::OperatorMismatch {
-                        op_span: operator.span,
-                        lhs_ty: lhs.get_type(),
-                        lhs_span: lhs.span(),
-                        rhs_ty: rhs.get_type(),
-                        rhs_span: rhs.span(),
-                    })
-                }
-            };
-
             Ok(Value::Range {
-                val: Box::new(range),
+                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
                 span: expr.span,
             })
         }
@@ -159,7 +147,6 @@ pub fn eval_expression(
                 x => Err(ShellError::UnsupportedOperator(x, op_span)),
             }
         }
-
         Expr::Subexpression(block_id) => {
             let engine_state = context.engine_state.borrow();
             let block = engine_state.get_block(*block_id);
