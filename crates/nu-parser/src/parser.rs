@@ -72,7 +72,7 @@ fn check_name(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Parse
     } else if working_set.get_span_contents(spans[2]) != b"=" {
         Some(ParseError::UnknownState(
             "missing equal sign in definition".into(),
-            spans[2],
+            span(spans),
         ))
     } else {
         None
@@ -600,6 +600,23 @@ pub fn parse_call(
             name = new_name;
             pos += 1;
         }
+
+        // Before the internal parsing we check if there is no let or alias declarations
+        // that are missing their name, e.g.: let = 1 or alias = 2
+        if spans.len() > 1 {
+            let test_equal = working_set.get_span_contents(spans[1]);
+
+            if test_equal == &[b'='] {
+                return (
+                    garbage(Span::new(0, 0)),
+                    Some(ParseError::UnknownState(
+                        "internal error: incomplete statement".into(),
+                        span(spans),
+                    )),
+                );
+            }
+        }
+
         // parse internal command
         let (call, _, err) =
             parse_internal_call(working_set, span(&spans[0..pos]), &spans[pos..], decl_id);
@@ -2568,16 +2585,16 @@ pub fn parse_statement(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    let name = working_set.get_span_contents(spans[0]);
-
-    match name {
-        b"def" => parse_def(working_set, spans),
-        b"let" => parse_let(working_set, spans),
-        b"alias" => parse_alias(working_set, spans),
-        _ => {
-            let (expr, err) = parse_expression(working_set, spans);
-            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
-        }
+    // FIXME: improve errors by checking keyword first
+    if let (decl, None) = parse_def(working_set, spans) {
+        (decl, None)
+    } else if let (stmt, None) = parse_let(working_set, spans) {
+        (stmt, None)
+    } else if let (stmt, None) = parse_alias(working_set, spans) {
+        (stmt, None)
+    } else {
+        let (expr, err) = parse_expression(working_set, spans);
+        (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
     }
 }
 
