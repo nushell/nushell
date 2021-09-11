@@ -7,8 +7,9 @@ pub enum Expr {
     Int(i64),
     Float(f64),
     Range(
-        Option<Box<Expression>>,
-        Option<Box<Expression>>,
+        Option<Box<Expression>>, // from
+        Option<Box<Expression>>, // next value after "from"
+        Option<Box<Expression>>, // to
         RangeOperator,
     ),
     Var(VarId),
