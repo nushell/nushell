@@ -209,7 +209,7 @@ pub fn report_parsing_error(
                 Diagnostic::error()
                     .with_message("Unknown state")
                     .with_labels(vec![
-                        Label::primary(diag_file_id, diag_range).with_message(format!("{}", name))
+                        Label::primary(diag_file_id, diag_range).with_message(name.to_string())
                     ])
             }
             ParseError::NonUtf8(span) => {

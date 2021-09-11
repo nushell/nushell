@@ -606,7 +606,7 @@ pub fn parse_call(
         if spans.len() > 1 {
             let test_equal = working_set.get_span_contents(spans[1]);
 
-            if test_equal == &[b'='] {
+            if test_equal == [b'='] {
                 return (
                     garbage(Span::new(0, 0)),
                     Some(ParseError::UnknownState(
