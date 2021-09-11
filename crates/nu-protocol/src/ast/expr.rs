@@ -13,7 +13,7 @@ pub enum Expr {
     ),
     Var(VarId),
     Call(Box<Call>),
-    ExternalCall(Vec<u8>, Vec<Vec<u8>>),
+    ExternalCall(Span, Vec<Span>),
     Operator(Operator),
     RowCondition(VarId, Box<Expression>),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs

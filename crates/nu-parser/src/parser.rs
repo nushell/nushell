@@ -80,14 +80,14 @@ fn check_name(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<Parse
 }
 
 pub fn parse_external_call(
-    working_set: &mut StateWorkingSet,
+    _working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
     // TODO: add external parsing
     let mut args = vec![];
-    let name = working_set.get_span_contents(spans[0]).to_vec();
+    let name = spans[0];
     for span in &spans[1..] {
-        args.push(working_set.get_span_contents(*span).to_vec());
+        args.push(*span);
     }
     (
         Expression {
