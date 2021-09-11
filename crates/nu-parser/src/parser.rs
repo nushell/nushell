@@ -1992,6 +1992,7 @@ pub fn parse_block_expression(
     if let Some(signature) = signature {
         output.signature = signature;
     } else if let Some(last) = working_set.delta.scope.last() {
+        // FIXME: this only supports the top $it. Instead, we should look for a free $it in the expression.
         if let Some(var_id) = last.get_var(b"$it") {
             let mut signature = Signature::new("");
             signature.required_positional.push(PositionalArg {
