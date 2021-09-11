@@ -3,7 +3,6 @@ use nu_errors::{ArgumentError, ParseError};
 use nu_path::expand_path;
 use nu_protocol::hir::{Expression, InternalCommand};
 
-use std::borrow::Cow;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -63,9 +62,7 @@ fn find_source_file(
         for lib_path in dir.into_iter().flatten() {
             let path = PathBuf::from(lib_path).join(&file);
 
-            if let Ok(contents) =
-                std::fs::read_to_string(&expand_path(Cow::Borrowed(path.as_path())))
-            {
+            if let Ok(contents) = std::fs::read_to_string(&expand_path(path)) {
                 return parse(&contents, 0, scope);
             }
         }
@@ -73,7 +70,7 @@ fn find_source_file(
 
     let path = Path::new(&file);
 
-    let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(path)));
+    let contents = std::fs::read_to_string(&expand_path(path));
 
     match contents {
         Ok(contents) => parse(&contents, 0, scope),

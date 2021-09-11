@@ -6,7 +6,7 @@ use nu_path::expand_path;
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
-use std::{borrow::Cow, path::Path, path::PathBuf};
+use std::{path::Path, path::PathBuf};
 
 pub struct Source;
 
@@ -71,9 +71,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(name) => {
                     let path = PathBuf::from(name).join(source_file);
 
-                    if let Ok(contents) =
-                        std::fs::read_to_string(&expand_path(Cow::Borrowed(path.as_path())))
-                    {
+                    if let Ok(contents) = std::fs::read_to_string(&expand_path(path)) {
                         let result = script::run_script_standalone(contents, true, ctx, false);
 
                         if let Err(err) = result {
@@ -91,7 +89,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let path = Path::new(source_file);
 
-    let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(path)));
+    let contents = std::fs::read_to_string(&expand_path(path));
 
     match contents {
         Ok(contents) => {
