@@ -2,11 +2,11 @@ use crate::prelude::*;
 use nu_engine::{script, WholeStreamCommand};
 
 use nu_errors::ShellError;
-use nu_path::expand_path;
+use nu_path::{canonicalize, canonicalize_with};
 use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 
-use std::{path::Path, path::PathBuf};
+use std::path::Path;
 
 pub struct Source;
 
@@ -69,9 +69,15 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
         for lib_path in dir {
             match lib_path {
                 Ok(name) => {
-                    let path = PathBuf::from(name).join(source_file);
+                    let path = canonicalize_with(&source_file, name).map_err(|e| {
+                        ShellError::labeled_error(
+                            format!("Can't load source file. Reason: {}", e.to_string()),
+                            "Can't load this file",
+                            filename.span(),
+                        )
+                    })?;
 
-                    if let Ok(contents) = std::fs::read_to_string(&expand_path(path)) {
+                    if let Ok(contents) = std::fs::read_to_string(path) {
                         let result = script::run_script_standalone(contents, true, ctx, false);
 
                         if let Err(err) = result {
@@ -87,9 +93,15 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let path = Path::new(source_file);
+    let path = canonicalize(source_file).map_err(|e| {
+        ShellError::labeled_error(
+            format!("Can't load source file. Reason: {}", e.to_string()),
+            "Can't load this file",
+            filename.span(),
+        )
+    })?;
 
-    let contents = std::fs::read_to_string(&expand_path(path));
+    let contents = std::fs::read_to_string(path);
 
     match contents {
         Ok(contents) => {
@@ -100,10 +112,10 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
             Ok(OutputStream::empty())
         }
-        Err(_) => {
+        Err(e) => {
             ctx.error(ShellError::labeled_error(
-                "Can't load file to source",
-                "can't load file",
+                format!("Can't load source file. Reason: {}", e.to_string()),
+                "Can't load this file",
                 filename.span(),
             ));
 
