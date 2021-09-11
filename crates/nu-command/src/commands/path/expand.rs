@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_path::{canonicalize, expand_path};
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Span;
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
 pub struct PathExpand;
 
@@ -105,7 +105,7 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
             tag.span,
         ))
     } else {
-        UntaggedValue::filepath(expand_path(Cow::Borrowed(path))).into_value(tag)
+        UntaggedValue::filepath(expand_path(path)).into_value(tag)
     }
 }
 

@@ -1,11 +1,11 @@
 use crate::{lex::tokens::LiteCommand, ParserScope};
 use nu_errors::{ArgumentError, ParseError};
-use nu_path::expand_path;
+use nu_path::{canonicalize, canonicalize_with};
 use nu_protocol::hir::{Expression, InternalCommand};
 
-use std::borrow::Cow;
 use std::path::Path;
-use std::path::PathBuf;
+
+use nu_source::SpannedItem;
 
 pub fn parse_source_internal(
     lite_cmd: &LiteCommand,
@@ -37,14 +37,14 @@ fn find_source_file(
     command: &InternalCommand,
     scope: &dyn ParserScope,
 ) -> Result<(), ParseError> {
-    let file = if let Some(ref positional_args) = command.args.positional {
+    let (file, file_span) = if let Some(ref positional_args) = command.args.positional {
         if let Expression::FilePath(ref p) = positional_args[0].expr {
-            p
+            (p.as_path(), &positional_args[0].span)
         } else {
-            Path::new(&lite_cmd.parts[1].item)
+            (Path::new(&lite_cmd.parts[1].item), &lite_cmd.parts[1].span)
         }
     } else {
-        Path::new(&lite_cmd.parts[1].item)
+        (Path::new(&lite_cmd.parts[1].item), &lite_cmd.parts[1].span)
     };
 
     let lib_dirs = nu_data::config::config(nu_source::Tag::unknown())
@@ -61,25 +61,33 @@ fn find_source_file(
 
     if let Some(dir) = lib_dirs {
         for lib_path in dir.into_iter().flatten() {
-            let path = PathBuf::from(lib_path).join(&file);
+            let path = canonicalize_with(&file, lib_path).map_err(|e| {
+                ParseError::general_error(
+                    format!("Can't load source file. Reason: {}", e.to_string()),
+                    "Can't load this file".spanned(file_span),
+                )
+            })?;
 
-            if let Ok(contents) =
-                std::fs::read_to_string(&expand_path(Cow::Borrowed(path.as_path())))
-            {
+            if let Ok(contents) = std::fs::read_to_string(&path) {
                 return parse(&contents, 0, scope);
             }
         }
     }
 
-    let path = Path::new(&file);
+    let path = canonicalize(&file).map_err(|e| {
+        ParseError::general_error(
+            format!("Can't load source file. Reason: {}", e.to_string()),
+            "Can't load this file".spanned(file_span),
+        )
+    })?;
 
-    let contents = std::fs::read_to_string(&expand_path(Cow::Borrowed(path)));
+    let contents = std::fs::read_to_string(&path);
 
     match contents {
         Ok(contents) => parse(&contents, 0, scope),
-        Err(_) => Err(ParseError::argument_error(
-            lite_cmd.parts[1].clone(),
-            ArgumentError::BadValue("can't load source file".into()),
+        Err(e) => Err(ParseError::general_error(
+            format!("Can't load source file. Reason: {}", e.to_string()),
+            "Can't load this file".spanned(file_span),
         )),
     }
 }

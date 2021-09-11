@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use bigdecimal::{BigDecimal, ToPrimitive};
 use chrono::{DateTime, FixedOffset};
 use nu_errors::ShellError;
+use nu_path::expand_path;
 use nu_protocol::{
     hir::CapturedBlock, ColumnPath, Dictionary, Primitive, Range, SpannedTypeName, UntaggedValue,
     Value,
@@ -239,11 +240,11 @@ impl FromValue for PathBuf {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
-            } => Ok(PathBuf::from(s)),
+            } => Ok(expand_path(s)),
             Value {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 ..
-            } => Ok(p.clone()),
+            } => Ok(expand_path(p)),
             Value {
                 value: UntaggedValue::Row(_),
                 ..
@@ -265,11 +266,11 @@ impl FromValue for Tagged<PathBuf> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 tag,
-            } => Ok(PathBuf::from(s).tagged(tag)),
+            } => Ok(expand_path(s).tagged(tag)),
             Value {
                 value: UntaggedValue::Primitive(Primitive::FilePath(p)),
                 tag,
-            } => Ok(p.clone().tagged(tag)),
+            } => Ok(expand_path(p).tagged(tag)),
             Value {
                 value: UntaggedValue::Row(_),
                 ..
