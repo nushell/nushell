@@ -10,6 +10,7 @@ use crate::{env::basic_host::BasicHost, Host};
 
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
+use nu_path::expand_path;
 use nu_protocol::{hir, ConfigPath, VariableRegistry};
 use nu_source::Spanned;
 use nu_source::{Span, Tag};
@@ -157,7 +158,7 @@ impl EvaluationContext {
 
         for (var, val) in env_vars {
             if var == NATIVE_PATH_ENV_VAR {
-                std::env::set_var(var, val);
+                std::env::set_var(var, expand_path(val));
                 break;
             }
         }
