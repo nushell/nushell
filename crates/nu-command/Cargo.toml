@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 nu-protocol = { path = "../nu-protocol" }
 nu-engine = { path = "../nu-engine" }
+nu-parser = {path = "../nu-parser"}
