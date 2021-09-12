@@ -469,6 +469,15 @@ pub fn parse_call(
     spans: &[Span],
     expand_aliases: bool,
 ) -> (Expression, Option<ParseError>) {
+    // We might be parsing left-unbounded range ("..10")
+    let bytes = working_set.get_span_contents(spans[0]);
+    if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+        let (range_expr, range_err) = parse_range(working_set, spans[0]);
+        if range_err.is_none() {
+            return (range_expr, range_err);
+        }
+    }
+
     // assume spans.len() > 0?
     let mut pos = 0;
     let mut shorthand = vec![];
