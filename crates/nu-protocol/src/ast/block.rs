@@ -48,3 +48,15 @@ impl Block {
         }
     }
 }
+
+impl<T> From<T> for Block
+where
+    T: Iterator<Item = Statement>,
+{
+    fn from(stmts: T) -> Self {
+        Self {
+            signature: Box::new(Signature::new("")),
+            stmts: stmts.collect(),
+        }
+    }
+}

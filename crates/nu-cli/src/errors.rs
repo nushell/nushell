@@ -208,8 +208,9 @@ pub fn report_parsing_error(
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
                 Diagnostic::error()
                     .with_message("Unknown state")
-                    .with_labels(vec![Label::primary(diag_file_id, diag_range)
-                        .with_message(format!("unknown state {}", name))])
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message(name.to_string())
+                    ])
             }
             ParseError::NonUtf8(span) => {
                 let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
