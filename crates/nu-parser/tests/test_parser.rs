@@ -388,6 +388,7 @@ mod range {
                     Expression {
                         expr: Expr::Range(
                             None,
+                            None,
                             Some(_),
                             RangeOperator {
                                 inclusion: RangeInclusion::Inclusive,
