@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{Range, ShellError, Span, Value};
@@ -66,6 +68,33 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
     } else {
         decl.run(context, call, input)
     }
+}
+
+pub fn eval_external(
+    context: &EvaluationContext,
+    command_span: &Span,
+    spans: &Vec<Span>,
+    expr: &Expression,
+) -> Result<Value, ShellError> {
+    let state = context.engine_state.borrow();
+    let name = state.get_span_contents(command_span);
+    let cmd = std::str::from_utf8(name).unwrap();
+
+    let args = spans
+        .iter()
+        .map(|span| {
+            let val = state.get_span_contents(span);
+            std::str::from_utf8(val).unwrap()
+        })
+        .collect::<Vec<&str>>();
+
+    let output = Command::new(cmd).args(args).output().unwrap();
+
+    println!("{:?}", output);
+    let test = output.stdout;
+    println!("{:?}", test);
+
+    Err(ShellError::ExternalNotSupported(expr.span))
 }
 
 pub fn eval_expression(
@@ -137,7 +166,9 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
+        Expr::ExternalCall(command_span, spans) => {
+            eval_external(context, command_span, spans, expr)
+        }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
