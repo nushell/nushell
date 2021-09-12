@@ -629,6 +629,14 @@ pub fn parse_call(
             err,
         )
     } else {
+        // We might be parsing left-unbounded range ("..10")
+        let bytes = working_set.get_span_contents(spans[0]);
+        if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+            let (range_expr, range_err) = parse_range(working_set, spans[0]);
+            if range_err.is_none() {
+                return (range_expr, range_err);
+            }
+        }
         parse_external_call(working_set, spans)
     }
 }
