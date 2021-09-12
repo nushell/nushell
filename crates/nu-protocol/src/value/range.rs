@@ -176,9 +176,15 @@ impl Iterator for RangeIterator {
         } else {
             match (&self.curr, &self.end) {
                 (Value::Int { val: curr, .. }, Value::Int { val: end, .. }) => Some(curr.cmp(end)),
-                (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) =>  compare_floats(*curr, *end),
-                (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => compare_floats(*curr, *end as f64),
-                (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => compare_floats(*curr as f64, *end),
+                (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) => {
+                    compare_floats(*curr, *end)
+                }
+                (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => {
+                    compare_floats(*curr, *end as f64)
+                }
+                (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => {
+                    compare_floats(*curr as f64, *end)
+                }
                 _ => None,
             }
         };
