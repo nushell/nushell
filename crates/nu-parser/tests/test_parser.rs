@@ -404,6 +404,38 @@ mod range {
     }
 
     #[test]
+    fn parse_float_range() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let (block, err) = parse(&mut working_set, None, b"2.0..4.0..10.0", true);
+
+        assert!(err.is_none());
+        assert!(block.len() == 1);
+        match &block[0] {
+            Statement::Pipeline(Pipeline { expressions }) => {
+                assert!(expressions.len() == 1);
+                assert!(matches!(
+                    expressions[0],
+                    Expression {
+                        expr: Expr::Range(
+                            Some(_),
+                            Some(_),
+                            Some(_),
+                            RangeOperator {
+                                inclusion: RangeInclusion::Inclusive,
+                                ..
+                            }
+                        ),
+                        ..
+                    }
+                ))
+            }
+            _ => panic!("No match"),
+        }
+    }
+
+    #[test]
     fn bad_parse_does_crash() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::{
     ast::{RangeInclusion, RangeOperator},
     *,
@@ -150,29 +152,50 @@ impl RangeIterator {
     }
 }
 
+// Compare two floating point numbers. The decision interval for equality is dynamically scaled
+// as the value being compared increases in magnitude.
+fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
+    let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
+
+    if (other - val).abs() < prec {
+        return Some(Ordering::Equal);
+    }
+
+    val.partial_cmp(&other)
+}
+
 impl Iterator for RangeIterator {
     type Item = Value;
     fn next(&mut self) -> Option<Self::Item> {
-        use std::cmp::Ordering;
         if self.done {
             return None;
         }
 
         let ordering = if matches!(self.end, Value::Nothing { .. }) {
-            Ordering::Less
+            Some(Ordering::Less)
         } else {
             match (&self.curr, &self.end) {
-                (Value::Int { val: curr, .. }, Value::Int { val: end, .. }) => curr.cmp(end),
-                // (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) => curr.cmp(end),
-                // (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => curr.cmp(end),
-                // (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => curr.cmp(end),
-                _ => {
-                    self.done = true;
-                    return Some(Value::Error {
-                        error: ShellError::CannotCreateRange(self.span),
-                    });
+                (Value::Int { val: curr, .. }, Value::Int { val: end, .. }) => Some(curr.cmp(end)),
+                (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) => {
+                    compare_floats(*curr, *end)
                 }
+                (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => {
+                    compare_floats(*curr, *end as f64)
+                }
+                (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => {
+                    compare_floats(*curr as f64, *end)
+                }
+                _ => None,
             }
+        };
+
+        let ordering = if let Some(ord) = ordering {
+            ord
+        } else {
+            self.done = true;
+            return Some(Value::Error {
+                error: ShellError::CannotCreateRange(self.span),
+            });
         };
 
         let desired_ordering = if self.moves_up {
