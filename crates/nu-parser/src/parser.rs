@@ -610,7 +610,7 @@ pub fn parse_call(
                 return (
                     garbage(Span::new(0, 0)),
                     Some(ParseError::UnknownState(
-                        "internal error: incomplete statement".into(),
+                        "Incomplete statement".into(),
                         span(spans),
                     )),
                 );
