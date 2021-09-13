@@ -29,7 +29,11 @@ impl Command for For {
                 ),
                 "range of the loop",
             )
-            .required("block", SyntaxShape::Block, "the block to run")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![])),
+                "the block to run",
+            )
     }
 
     fn run(

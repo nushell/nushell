@@ -15,7 +15,11 @@ impl Command for Do {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("do").required("block", SyntaxShape::Block, "the block to run")
+        Signature::build("do").required(
+            "block",
+            SyntaxShape::Block(Some(vec![])),
+            "the block to run",
+        )
     }
 
     fn run(
