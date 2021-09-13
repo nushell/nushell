@@ -2,9 +2,42 @@ use nu_parser::ParseError;
 use nu_parser::*;
 use nu_protocol::{
     ast::{Expr, Expression, Pipeline, Statement},
-    engine::{EngineState, StateWorkingSet},
+    engine::{Command, EngineState, StateWorkingSet},
     Signature, SyntaxShape,
 };
+
+#[cfg(test)]
+pub struct Let;
+
+#[cfg(test)]
+impl Command for Let {
+    fn name(&self) -> &str {
+        "let"
+    }
+
+    fn usage(&self) -> &str {
+        "Create a variable and give it a value."
+    }
+
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build("let")
+            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+            .required(
+                "initial_value",
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                "equals sign followed by value",
+            )
+    }
+
+    fn run(
+        &self,
+        _context: &nu_protocol::engine::EvaluationContext,
+        _call: &nu_protocol::ast::Call,
+        _input: nu_protocol::Value,
+    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        todo!()
+    }
+}
 
 #[test]
 pub fn parse_int() {
@@ -280,6 +313,8 @@ mod range {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
+        working_set.add_decl(Box::new(Let));
+
         let (block, err) = parse(&mut working_set, None, b"let a = 2; $a..10", true);
 
         assert!(err.is_none());
@@ -311,6 +346,8 @@ mod range {
     fn parse_subexpression_variable_range() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
+
+        working_set.add_decl(Box::new(Let));
 
         let (block, err) = parse(&mut working_set, None, b"let a = 2; $a..<($a + 10)", true);
 
