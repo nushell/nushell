@@ -63,16 +63,35 @@ fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError>
     }
 }
 
-fn check_name(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
-    if spans[1..].len() < 2 {
-        Some(ParseError::UnknownState(
-            "missing definition name".into(),
-            span(spans),
-        ))
+fn check_name<'a>(
+    working_set: &mut StateWorkingSet,
+    spans: &'a [Span],
+) -> Option<(&'a Span, ParseError)> {
+    if spans.len() == 1 {
+        None
+    } else if spans.len() < 4 {
+        if working_set.get_span_contents(spans[1]) == b"=" {
+            let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+            Some((
+                &spans[1],
+                ParseError::AssignmentMismatch(
+                    format!("{} missing name", name),
+                    "missing name".into(),
+                    spans[1],
+                ),
+            ))
+        } else {
+            None
+        }
     } else if working_set.get_span_contents(spans[2]) != b"=" {
-        Some(ParseError::UnknownState(
-            "missing equal sign in definition".into(),
-            span(spans),
+        let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+        Some((
+            &spans[2],
+            ParseError::AssignmentMismatch(
+                format!("{} missing sign", name),
+                "missing equal sign".into(),
+                spans[2],
+            ),
         ))
     } else {
         None
@@ -2490,7 +2509,7 @@ pub fn parse_def(
         (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
-                "definition unparseable. Expected structure: def <name> [] {}".into(),
+                "Expected structure: def <name> [] {}".into(),
                 span(spans),
             )),
         )
@@ -2504,9 +2523,9 @@ pub fn parse_alias(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"alias" {
-        if let Some(err) = check_name(working_set, spans) {
+        if let Some((span, err)) = check_name(working_set, spans) {
             return (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(*span)])),
                 Some(err),
             );
         }
@@ -2562,9 +2581,9 @@ pub fn parse_let(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"let" {
-        if let Some(err) = check_name(working_set, spans) {
+        if let Some((span, err)) = check_name(working_set, spans) {
             return (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(*span)])),
                 Some(err),
             );
         }
@@ -2606,16 +2625,16 @@ pub fn parse_statement(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    // FIXME: improve errors by checking keyword first
-    if let (decl, None) = parse_def(working_set, spans) {
-        (decl, None)
-    } else if let (stmt, None) = parse_let(working_set, spans) {
-        (stmt, None)
-    } else if let (stmt, None) = parse_alias(working_set, spans) {
-        (stmt, None)
-    } else {
-        let (expr, err) = parse_expression(working_set, spans);
-        (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+    let name = working_set.get_span_contents(spans[0]);
+
+    match name {
+        b"def" => parse_def(working_set, spans),
+        b"let" => parse_let(working_set, spans),
+        b"alias" => parse_alias(working_set, spans),
+        _ => {
+            let (expr, err) = parse_expression(working_set, spans);
+            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+        }
     }
 }
 
