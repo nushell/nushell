@@ -26,6 +26,10 @@ fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
 }
 
+fn garbage_statement(spans: &[Span]) -> Statement {
+    Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))]))
+}
+
 fn is_identifier_byte(b: u8) -> bool {
     b != b'.' && b != b'[' && b != b'(' && b != b'{'
 }
@@ -55,6 +59,22 @@ fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError>
                 ));
             }
         }
+        None
+    }
+}
+
+fn check_name(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
+    if spans[1..].len() < 2 {
+        Some(ParseError::UnknownState(
+            "missing definition name".into(),
+            span(spans),
+        ))
+    } else if working_set.get_span_contents(spans[2]) != b"=" {
+        Some(ParseError::UnknownState(
+            "missing equal sign in definition".into(),
+            span(spans),
+        ))
+    } else {
         None
     }
 }
@@ -580,6 +600,23 @@ pub fn parse_call(
             name = new_name;
             pos += 1;
         }
+
+        // Before the internal parsing we check if there is no let or alias declarations
+        // that are missing their name, e.g.: let = 1 or alias = 2
+        if spans.len() > 1 {
+            let test_equal = working_set.get_span_contents(spans[1]);
+
+            if test_equal == [b'='] {
+                return (
+                    garbage(Span::new(0, 0)),
+                    Some(ParseError::UnknownState(
+                        "Incomplete statement".into(),
+                        span(spans),
+                    )),
+                );
+            }
+        }
+
         // parse internal command
         let (call, _, err) =
             parse_internal_call(working_set, span(&spans[0..pos]), &spans[pos..], decl_id);
@@ -592,6 +629,14 @@ pub fn parse_call(
             err,
         )
     } else {
+        // We might be parsing left-unbounded range ("..10")
+        let bytes = working_set.get_span_contents(spans[0]);
+        if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+            let (range_expr, range_err) = parse_range(working_set, spans[0]);
+            if range_err.is_none() {
+                return (range_expr, range_err);
+            }
+        }
         parse_external_call(working_set, spans)
     }
 }
@@ -2391,6 +2436,13 @@ pub fn parse_def(
         error = error.or(err);
         working_set.exit_scope();
 
+        if error.is_some() {
+            return (
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                error,
+            );
+        }
+
         let name = name_expr.as_string();
 
         let signature = sig.as_signature();
@@ -2430,23 +2482,15 @@ pub fn parse_def(
                 )
             }
             _ => (
-                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Garbage,
-                    span: span(spans),
-                    ty: Type::Unknown,
-                }])),
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
                 error,
             ),
         }
     } else {
         (
-            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                expr: Expr::Garbage,
-                span: span(spans),
-                ty: Type::Unknown,
-            }])),
+            garbage_statement(spans),
             Some(ParseError::UnknownState(
-                "internal error: definition unparseable".into(),
+                "definition unparseable. Expected structure: def <name> [] {}".into(),
                 span(spans),
             )),
         )
@@ -2460,6 +2504,13 @@ pub fn parse_alias(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"alias" {
+        if let Some(err) = check_name(working_set, spans) {
+            return (
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Some(err),
+            );
+        }
+
         if let Some(decl_id) = working_set.find_decl(b"alias") {
             let (call, call_span, _) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -2496,13 +2547,9 @@ pub fn parse_alias(
     }
 
     (
-        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-            expr: Expr::Garbage,
-            span: span(spans),
-            ty: Type::Unknown,
-        }])),
+        garbage_statement(spans),
         Some(ParseError::UnknownState(
-            "internal error: let statement unparseable".into(),
+            "internal error: alias statement unparseable".into(),
             span(spans),
         )),
     )
@@ -2515,6 +2562,13 @@ pub fn parse_let(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"let" {
+        if let Some(err) = check_name(working_set, spans) {
+            return (
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Some(err),
+            );
+        }
+
         if let Some(decl_id) = working_set.find_decl(b"let") {
             let (call, call_span, err) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -2540,11 +2594,7 @@ pub fn parse_let(
         }
     }
     (
-        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-            expr: Expr::Garbage,
-            span: span(spans),
-            ty: Type::Unknown,
-        }])),
+        garbage_statement(spans),
         Some(ParseError::UnknownState(
             "internal error: let statement unparseable".into(),
             span(spans),
@@ -2574,12 +2624,9 @@ pub fn parse_block(
     lite_block: &LiteBlock,
     scoped: bool,
 ) -> (Block, Option<ParseError>) {
-    let mut error = None;
     if scoped {
         working_set.enter_scope();
     }
-
-    let mut block = Block::new();
 
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
@@ -2589,25 +2636,41 @@ pub fn parse_block(
         }
     }
 
-    for pipeline in &lite_block.block {
-        if pipeline.commands.len() > 1 {
-            let mut output = vec![];
-            for command in &pipeline.commands {
-                let (expr, err) = parse_expression(working_set, &command.parts);
-                error = error.or(err);
+    let mut error = None;
 
-                output.push(expr);
+    let block: Block = lite_block
+        .block
+        .iter()
+        .map(|pipeline| {
+            if pipeline.commands.len() > 1 {
+                let output = pipeline
+                    .commands
+                    .iter()
+                    .map(|command| {
+                        let (expr, err) = parse_expression(working_set, &command.parts);
+
+                        if error.is_none() {
+                            error = err;
+                        }
+
+                        expr
+                    })
+                    .collect::<Vec<Expression>>();
+
+                Statement::Pipeline(Pipeline {
+                    expressions: output,
+                })
+            } else {
+                let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
+
+                if error.is_none() {
+                    error = err;
+                }
+
+                stmt
             }
-            block.stmts.push(Statement::Pipeline(Pipeline {
-                expressions: output,
-            }));
-        } else {
-            let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
-            error = error.or(err);
-
-            block.stmts.push(stmt);
-        }
-    }
+        })
+        .into();
 
     if scoped {
         working_set.exit_scope();
