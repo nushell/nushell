@@ -63,7 +63,7 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, debug_mode: bool) ->
     }
 
     if debug_mode {
-        eprintln!("Pass in Column Headers = {:#?}", &cols,);
+        eprintln!("Passed in Column Headers = {:#?}", &cols,);
     }
 
     let mut table = match Table::find_by_headers(html, &cols) {
