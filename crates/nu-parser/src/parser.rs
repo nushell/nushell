@@ -1030,20 +1030,7 @@ pub fn parse_variable_expr(
                 None,
             )
         } else {
-            // let name = working_set.get_span_contents(span).to_vec();
-            // this seems okay to set it to unknown here, but we should double-check
-            //let id = working_set.add_variable(name, Type::Unknown);
-            // (
-            //     Expression {
-            //         expr: Expr::Var(id),
-            //         span,
-            //         ty: Type::Unknown,
-            //     },
-            //     None,
-            // )
-            // } else {
-            (garbage(span), err)
-            // }
+            (garbage(span), Some(ParseError::VariableNotFound(span)))
         }
     } else {
         (garbage(span), err)
@@ -1243,7 +1230,7 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"path" => SyntaxShape::FilePath,
         b"glob" => SyntaxShape::GlobPattern,
-        b"block" => SyntaxShape::Block,
+        b"block" => SyntaxShape::Block(None), //FIXME
         b"cond" => SyntaxShape::RowCondition,
         b"operator" => SyntaxShape::Operator,
         b"math" => SyntaxShape::MathExpression,
@@ -1905,6 +1892,7 @@ pub fn parse_table_expression(
 
 pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
+    shape: &SyntaxShape,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
@@ -1945,7 +1933,7 @@ pub fn parse_block_expression(
     working_set.enter_scope();
 
     // Check to see if we have parameters
-    let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
+    let (mut signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
             contents: TokenContents::Pipe,
             span,
@@ -1990,6 +1978,23 @@ pub fn parse_block_expression(
 
     let (output, err) = lite_parse(&output[amt_to_skip..]);
     error = error.or(err);
+
+    if let SyntaxShape::Block(Some(v)) = shape {
+        if signature.is_none() && v.len() == 1 {
+            // We'll assume there's an `$it` present
+            let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+
+            let mut new_sigature = Signature::new("");
+            new_sigature.required_positional.push(PositionalArg {
+                var_id: Some(var_id),
+                name: "$it".into(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+            });
+
+            signature = Some(Box::new(new_sigature));
+        }
+    }
 
     let (mut output, err) = parse_block(working_set, &output, false);
     error = error.or(err);
@@ -2049,8 +2054,8 @@ pub fn parse_value(
             return parse_full_column_path(working_set, None, span);
         }
     } else if bytes.starts_with(b"{") {
-        if matches!(shape, SyntaxShape::Block) || matches!(shape, SyntaxShape::Any) {
-            return parse_block_expression(working_set, span);
+        if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+            return parse_block_expression(working_set, shape, span);
         } else {
             return (
                 Expression::garbage(span),
@@ -2079,9 +2084,9 @@ pub fn parse_value(
         SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
             parse_string(working_set, span)
         }
-        SyntaxShape::Block => {
+        SyntaxShape::Block(_) => {
             if bytes.starts_with(b"{") {
-                parse_block_expression(working_set, span)
+                parse_block_expression(working_set, shape, span)
             } else {
                 (
                     Expression::garbage(span),
@@ -2129,7 +2134,7 @@ pub fn parse_value(
                     SyntaxShape::Range,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
-                    SyntaxShape::Block,
+                    SyntaxShape::Block(None),
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
@@ -2381,7 +2386,8 @@ pub fn parse_def(
         let (sig, err) = parse_signature(working_set, spans[2]);
         error = error.or(err);
 
-        let (block, err) = parse_block_expression(working_set, spans[3]);
+        let (block, err) =
+            parse_block_expression(working_set, &SyntaxShape::Block(Some(vec![])), spans[3]);
         error = error.or(err);
         working_set.exit_scope();
 

@@ -308,3 +308,11 @@ fn row_condition2() -> TestResult {
         "1",
     )
 }
+
+#[test]
+fn better_block_types() -> TestResult {
+    run_test(
+        r#"([1, 2, 3] | each -n { $"($it.index) is ($it.item)" }).1"#,
+        "1 is 2",
+    )
+}

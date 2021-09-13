@@ -16,7 +16,11 @@ impl Command for Each {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("each")
-            .required("block", SyntaxShape::Block, "the block to run")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                "the block to run",
+            )
             .switch("numbered", "iterate with an index", Some('n'))
     }
 

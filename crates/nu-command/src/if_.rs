@@ -17,7 +17,7 @@ impl Command for If {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
             .required("cond", SyntaxShape::Expression, "condition")
-            .required("then_block", SyntaxShape::Block, "then block")
+            .required("then_block", SyntaxShape::Block(Some(vec![])), "then block")
             .optional(
                 "else",
                 SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),

@@ -34,7 +34,7 @@ pub enum SyntaxShape {
     GlobPattern,
 
     /// A block is allowed, eg `{start this thing}`
-    Block(Vec<(Vec<u8>, SyntaxShape)>),
+    Block(Option<Vec<SyntaxShape>>),
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
@@ -75,7 +75,7 @@ impl SyntaxShape {
     pub fn to_type(&self) -> Type {
         match self {
             SyntaxShape::Any => Type::Unknown,
-            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Block(_) => Type::Block,
             SyntaxShape::CellPath => Type::Unknown,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
