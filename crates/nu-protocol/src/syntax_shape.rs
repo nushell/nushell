@@ -34,7 +34,7 @@ pub enum SyntaxShape {
     GlobPattern,
 
     /// A block is allowed, eg `{start this thing}`
-    Block,
+    Block(Vec<(Vec<u8>, SyntaxShape)>),
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,

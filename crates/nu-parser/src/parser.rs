@@ -1030,17 +1030,20 @@ pub fn parse_variable_expr(
                 None,
             )
         } else {
-            let name = working_set.get_span_contents(span).to_vec();
+            // let name = working_set.get_span_contents(span).to_vec();
             // this seems okay to set it to unknown here, but we should double-check
-            let id = working_set.add_variable(name, Type::Unknown);
-            (
-                Expression {
-                    expr: Expr::Var(id),
-                    span,
-                    ty: Type::Unknown,
-                },
-                None,
-            )
+            //let id = working_set.add_variable(name, Type::Unknown);
+            // (
+            //     Expression {
+            //         expr: Expr::Var(id),
+            //         span,
+            //         ty: Type::Unknown,
+            //     },
+            //     None,
+            // )
+            // } else {
+            (garbage(span), err)
+            // }
         }
     } else {
         (garbage(span), err)
@@ -1995,6 +1998,7 @@ pub fn parse_block_expression(
         output.signature = signature;
     } else if let Some(last) = working_set.delta.scope.last() {
         // FIXME: this only supports the top $it. Instead, we should look for a free $it in the expression.
+
         if let Some(var_id) = last.get_var(b"$it") {
             let mut signature = Signature::new("");
             signature.required_positional.push(PositionalArg {
