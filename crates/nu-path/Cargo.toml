@@ -10,5 +10,3 @@ version = "0.37.0"
 dirs-next = "2.0.0"
 dunce = "1.0.1"
 
-[dev-dependencies]
-nu-test-support = { version = "0.37.0", path="../nu-test-support" }
