@@ -8,7 +8,7 @@ fn returns_path_joined_with_column_path() {
         cwd: "tests", pipeline(
         r#"
             echo [ [name]; [eggs] ]
-            | path join -a spam.txt name
+            | path join spam.txt -c [ name ]
             | get name
         "#
     ));
@@ -23,7 +23,7 @@ fn returns_path_joined_from_list() {
         cwd: "tests", pipeline(
         r#"
             echo [ home viking spam.txt ]
-            | path join 
+            | path join
         "#
     ));
 
@@ -37,7 +37,7 @@ fn appends_slash_when_joined_with_empty_path() {
         cwd: "tests", pipeline(
         r#"
             echo "/some/dir"
-            | path join -a ''
+            | path join ''
         "#
     ));
 
@@ -51,7 +51,7 @@ fn returns_joined_path_when_joining_empty_path() {
         cwd: "tests", pipeline(
         r#"
             echo ""
-            | path join -a foo.txt
+            | path join foo.txt
         "#
     ));
 
