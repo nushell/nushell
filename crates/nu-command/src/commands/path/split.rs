@@ -60,7 +60,7 @@ impl WholeStreamCommand for PathSplit {
             },
             Example {
                 description: "Split all paths under the 'name' column",
-                example: r"ls | path split -c [ name ]",
+                example: r"ls ('.' | path expand) | path split -c [ name ]",
                 result: None,
             },
         ]
@@ -81,7 +81,7 @@ impl WholeStreamCommand for PathSplit {
             },
             Example {
                 description: "Split all paths under the 'name' column",
-                example: r"ls | path split -c [ name ]",
+                example: r"ls ('.' | path expand) | path split -c [ name ]",
                 result: None,
             },
         ]

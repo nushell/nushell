@@ -65,6 +65,11 @@ impl WholeStreamCommand for PathExpand {
                 ]),
             },
             Example {
+                description: "Expand a path in a column",
+                example: "ls | path expand -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Expand a relative path",
                 example: r"'foo\..\bar' | path expand",
                 result: Some(vec![
@@ -83,6 +88,11 @@ impl WholeStreamCommand for PathExpand {
                 result: Some(vec![
                     UntaggedValue::filepath("/home/joe/bar").into_value(Span::new(0, 22))
                 ]),
+            },
+            Example {
+                description: "Expand a path in a column",
+                example: "ls | path expand -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Expand a relative path",

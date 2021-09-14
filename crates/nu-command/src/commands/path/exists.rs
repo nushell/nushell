@@ -46,20 +46,34 @@ impl WholeStreamCommand for PathExists {
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Check if a file exists",
-            example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
-            result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
-        }]
+        vec![
+            Example {
+                description: "Check if a file exists",
+                example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
+                result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
+            },
+            Example {
+                description: "Check if a file exists in a column",
+                example: "ls | path exists -c [ name ]",
+                result: None,
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Check if a file exists",
-            example: "echo '/home/joe/todo.txt' | path exists",
-            result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
-        }]
+        vec![
+            Example {
+                description: "Check if a file exists",
+                example: "echo '/home/joe/todo.txt' | path exists",
+                result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
+            },
+            Example {
+                description: "Check if a file exists in a column",
+                example: "ls | path exists -c [ name ]",
+                result: None,
+            },
+        ]
     }
 }
 

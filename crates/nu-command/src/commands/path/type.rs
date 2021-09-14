@@ -46,11 +46,18 @@ impl WholeStreamCommand for PathType {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Show type of a filepath",
-            example: "echo '.' | path type",
-            result: Some(vec![Value::from("Dir")]),
-        }]
+        vec![
+            Example {
+                description: "Show type of a filepath",
+                example: "echo '.' | path type",
+                result: Some(vec![Value::from("Dir")]),
+            },
+            Example {
+                description: "Show type of a filepath in a column",
+                example: "ls | path type -c [ name ]",
+                result: None,
+            },
+        ]
     }
 }
 

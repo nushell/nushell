@@ -68,6 +68,11 @@ path."#
                 result: Some(vec![Value::from(UntaggedValue::filepath(r"viking"))]),
             },
             Example {
+                description: "Find a relative path from two absolute paths in a column",
+                example: "ls ~ | path relative-to ~ -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Find a relative path from two relative paths",
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(r"spam"))]),
@@ -82,6 +87,11 @@ path."#
                 description: "Find a relative path from two absolute paths",
                 example: r"'/home/viking' | path relative-to '/home'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(r"viking"))]),
+            },
+            Example {
+                description: "Find a relative path from two absolute paths in a column",
+                example: "ls ~ | path relative-to ~ -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",

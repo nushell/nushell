@@ -73,6 +73,11 @@ impl WholeStreamCommand for PathDirname {
                 ))]),
             },
             Example {
+                description: "Get dirname of a path in a column",
+                example: "ls ('.' | path expand) | path dirname -c [ name ]",
+                result: None.
+            },
+            Example {
                 description: "Walk up two levels",
                 example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("C:\\Users\\joe"))]),
@@ -95,6 +100,11 @@ impl WholeStreamCommand for PathDirname {
                 description: "Get dirname of a path",
                 example: "echo '/home/joe/code/test.txt' | path dirname",
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/code"))]),
+            },
+            Example {
+                description: "Get dirname of a path in a column",
+                example: "ls ('.' | path expand) | path dirname -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Walk up two levels",
