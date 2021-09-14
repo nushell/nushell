@@ -66,17 +66,17 @@ On Windows, an extra 'prefix' column is added."#
         vec![
             Example {
                 description: "Parse a single path",
-                example: r"echo 'C:\Users\viking\spam.txt' | path parse",
+                example: r"'C:\Users\viking\spam.txt' | path parse",
                 result: None,
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"echo 'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"echo 'C:\Users\viking.d' | path parse -e ''",
+                example: r"'C:\Users\viking.d' | path parse -e ''",
                 result: None,
             },
             Example {
@@ -92,17 +92,17 @@ On Windows, an extra 'prefix' column is added."#
         vec![
             Example {
                 description: "Parse a path",
-                example: r"echo '/home/viking/spam.txt' | path parse",
+                example: r"'/home/viking/spam.txt' | path parse",
                 result: None,
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"echo '/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"echo '/etc/conf.d' | path parse -e ''",
+                example: r"'/etc/conf.d' | path parse -e ''",
                 result: None,
             },
             Example {

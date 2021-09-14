@@ -67,7 +67,7 @@ impl WholeStreamCommand for PathDirname {
         vec![
             Example {
                 description: "Get dirname of a path",
-                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname",
+                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\joe\\code",
                 ))]),
@@ -79,13 +79,13 @@ impl WholeStreamCommand for PathDirname {
             },
             Example {
                 description: "Walk up two levels",
-                example: "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
+                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("C:\\Users\\joe"))]),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example:
-                    "echo 'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
+                    "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\viking\\code\\test.txt",
                 ))]),
@@ -98,7 +98,7 @@ impl WholeStreamCommand for PathDirname {
         vec![
             Example {
                 description: "Get dirname of a path",
-                example: "echo '/home/joe/code/test.txt' | path dirname",
+                example: "'/home/joe/code/test.txt' | path dirname",
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe/code"))]),
             },
             Example {
@@ -108,12 +108,12 @@ impl WholeStreamCommand for PathDirname {
             },
             Example {
                 description: "Walk up two levels",
-                example: "echo '/home/joe/code/test.txt' | path dirname -n 2",
+                example: "'/home/joe/code/test.txt' | path dirname -n 2",
                 result: Some(vec![Value::from(UntaggedValue::filepath("/home/joe"))]),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example: "echo '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
+                example: "'/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/viking/code/test.txt",
                 ))]),

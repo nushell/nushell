@@ -49,7 +49,7 @@ impl WholeStreamCommand for PathExists {
         vec![
             Example {
                 description: "Check if a file exists",
-                example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
+                example: "'C:\\Users\\joe\\todo.txt' | path exists",
                 result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
             },
             Example {
@@ -65,7 +65,7 @@ impl WholeStreamCommand for PathExists {
         vec![
             Example {
                 description: "Check if a file exists",
-                example: "echo '/home/joe/todo.txt' | path exists",
+                example: "'/home/joe/todo.txt' | path exists",
                 result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
             },
             Example {

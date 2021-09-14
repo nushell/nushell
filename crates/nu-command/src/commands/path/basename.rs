@@ -59,7 +59,7 @@ impl WholeStreamCommand for PathBasename {
         vec![
             Example {
                 description: "Get basename of a path",
-                example: "echo 'C:\\Users\\joe\\test.txt' | path basename",
+                example: "'C:\\Users\\joe\\test.txt' | path basename",
                 result: Some(vec![Value::from("test.txt")]),
             },
             Example {
@@ -69,7 +69,7 @@ impl WholeStreamCommand for PathBasename {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "echo 'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\joe\\spam.png",
                 ))]),
@@ -82,7 +82,7 @@ impl WholeStreamCommand for PathBasename {
         vec![
             Example {
                 description: "Get basename of a path",
-                example: "echo '/home/joe/test.txt' | path basename",
+                example: "'/home/joe/test.txt' | path basename",
                 result: Some(vec![Value::from("test.txt")]),
             },
             Example {
@@ -92,7 +92,7 @@ impl WholeStreamCommand for PathBasename {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "echo '/home/joe/test.txt' | path basename -r 'spam.png'",
+                example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/joe/spam.png",
                 ))]),
