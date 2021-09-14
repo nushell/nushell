@@ -4,11 +4,11 @@ description = "Path handling library for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-path"
-version = "0.36.1"
+version = "0.37.0"
 
 [dependencies]
 dirs-next = "2.0.0"
 dunce = "1.0.1"
 
 [dev-dependencies]
-nu-test-support = { version = "0.36.1", path="../nu-test-support" }
+nu-test-support = { version = "0.37.0", path="../nu-test-support" }
