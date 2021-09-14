@@ -30,4 +30,5 @@ pub enum ParseError {
     RestNeedsName(Span),
     ExtraColumns(usize, Span),
     MissingColumns(usize, Span),
+    AssignmentMismatch(String, String, Span),
 }
