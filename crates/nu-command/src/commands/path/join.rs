@@ -1,4 +1,4 @@
-use super::{handle_value, join_path, operate_column_paths, PathSubcommandArguments};
+use super::{handle_value, join_path, operate_column_paths, column_paths_from_args, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -50,34 +50,10 @@ the output of 'path parse' and 'path split' subcommands."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
-        let column_paths: Option<Vec<Value>> = args.get_flag("columns")?;
-        let column_paths = match column_paths {
-            Some(cols) => {
-                let mut c = Vec::new();
-                for col in cols {
-                    c.push(ColumnPath::build(&col.convert_to_string().spanned_unknown()))
-                }
-                c
-            },
-            None => Vec::new(),
-        };
-
-        if args.has_flag("columns") && column_paths.is_empty() {
-            let colval: Option<Value> = args.get_flag("columns")?;
-            let colspan = match colval {
-                Some(v) => v.tag.span,
-                None => Span::unknown()
-            };
-            return Err(ShellError::labeled_error(
-                "Requires a list of columns",
-                "must be a list of columns",
-                colspan,
-            ))
-        }
 
         let cmd_args = Arc::new(PathJoinArguments {
             append: args.opt(0)?,
-            columns: column_paths,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
