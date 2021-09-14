@@ -113,6 +113,7 @@ pub fn parse_external_call(
             expr: Expr::ExternalCall(name, args),
             span: span(spans),
             ty: Type::Unknown,
+            custom_completion: None,
         },
         None,
     )
@@ -360,6 +361,7 @@ fn parse_multispan_value(
                         ),
                         span: arg_span,
                         ty: Type::Unknown,
+                        custom_completion: None,
                     },
                     error,
                 );
@@ -374,6 +376,7 @@ fn parse_multispan_value(
                     expr: Expr::Keyword(keyword.clone(), keyword_span, Box::new(expr)),
                     span: arg_span,
                     ty,
+                    custom_completion: None,
                 },
                 error,
             )
@@ -553,12 +556,14 @@ pub fn parse_call(
                     expr: Expr::Call(mut call),
                     span,
                     ty,
+                    custom_completion: None,
                 } => {
                     call.head = orig_span;
                     Expression {
                         expr: Expr::Call(call),
                         span,
                         ty,
+                        custom_completion: None,
                     }
                 }
                 x => x,
@@ -596,12 +601,14 @@ pub fn parse_call(
                             expr: Expr::Call(mut call),
                             span,
                             ty,
+                            custom_completion: None,
                         } => {
                             call.head = orig_span;
                             Expression {
                                 expr: Expr::Call(call),
                                 span,
                                 ty,
+                                custom_completion: None,
                             }
                         }
                         x => x,
@@ -644,6 +651,7 @@ pub fn parse_call(
                 expr: Expr::Call(call),
                 span: span(spans),
                 ty: Type::Unknown, // FIXME
+                custom_completion: None,
             },
             err,
         )
@@ -668,6 +676,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -688,6 +697,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -708,6 +718,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -727,6 +738,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 expr: Expr::Int(x),
                 span,
                 ty: Type::Int,
+                custom_completion: None,
             },
             None,
         )
@@ -745,6 +757,7 @@ pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>)
                 expr: Expr::Float(x),
                 span,
                 ty: Type::Float,
+                custom_completion: None,
             },
             None,
         )
@@ -901,6 +914,7 @@ pub fn parse_range(
             expr: Expr::Range(from, next, to, range_op),
             span,
             ty: Type::Range,
+            custom_completion: None,
         },
         None,
     )
@@ -971,6 +985,7 @@ pub fn parse_string_interpolation(
                     expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
                     span,
                     ty: Type::String,
+                    custom_completion: None,
                 });
             }
             token_start = b;
@@ -1013,6 +1028,7 @@ pub fn parse_string_interpolation(
                     expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
                     span,
                     ty: Type::String,
+                    custom_completion: None,
                 });
             }
         }
@@ -1044,6 +1060,7 @@ pub fn parse_string_interpolation(
                 })),
                 span,
                 ty: Type::String,
+                custom_completion: None,
             },
             error,
         )
@@ -1067,6 +1084,7 @@ pub fn parse_variable_expr(
                 expr: Expr::Bool(true),
                 span,
                 ty: Type::Bool,
+                custom_completion: None,
             },
             None,
         );
@@ -1076,6 +1094,7 @@ pub fn parse_variable_expr(
                 expr: Expr::Bool(false),
                 span,
                 ty: Type::Bool,
+                custom_completion: None,
             },
             None,
         );
@@ -1090,6 +1109,7 @@ pub fn parse_variable_expr(
                     expr: Expr::Var(id),
                     span,
                     ty: working_set.get_variable(id).clone(),
+                    custom_completion: None,
                 },
                 None,
             )
@@ -1159,6 +1179,7 @@ pub fn parse_full_column_path(
                     expr: Expr::Subexpression(block_id),
                     span,
                     ty: Type::Unknown, // FIXME
+                    custom_completion: None,
                 },
                 true,
             )
@@ -1175,6 +1196,7 @@ pub fn parse_full_column_path(
                     expr: Expr::Var(var_id),
                     span: Span::unknown(),
                     ty: Type::Unknown,
+                    custom_completion: None,
                 },
                 false,
             )
@@ -1241,6 +1263,7 @@ pub fn parse_full_column_path(
                 expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
                 ty: Type::Unknown,
                 span: full_column_span,
+                custom_completion: None,
             },
             error,
         )
@@ -1268,6 +1291,7 @@ pub fn parse_string(
                 expr: Expr::String(token),
                 span,
                 ty: Type::String,
+                custom_completion: None,
             },
             None,
         )
@@ -1337,6 +1361,7 @@ pub fn parse_var_with_opt_type(
                     expr: Expr::Var(id),
                     span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
                     ty,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -1347,6 +1372,7 @@ pub fn parse_var_with_opt_type(
                     expr: Expr::Var(id),
                     span: spans[*spans_idx],
                     ty: Type::Unknown,
+                    custom_completion: None,
                 },
                 Some(ParseError::MissingType(spans[*spans_idx])),
             )
@@ -1359,6 +1385,7 @@ pub fn parse_var_with_opt_type(
                 expr: Expr::Var(id),
                 span: span(&spans[*spans_idx..*spans_idx + 1]),
                 ty: Type::Unknown,
+                custom_completion: None,
             },
             None,
         )
@@ -1395,6 +1422,7 @@ pub fn parse_row_condition(
             ty: Type::Bool,
             span,
             expr: Expr::RowCondition(var_id, Box::new(expression)),
+            custom_completion: None,
         },
         err,
     )
@@ -1435,6 +1463,7 @@ pub fn parse_signature(
             expr: Expr::Signature(sig),
             span,
             ty: Type::Unknown,
+            custom_completion: None,
         },
         error,
     )
@@ -1834,6 +1863,7 @@ pub fn parse_list_expression(
             } else {
                 Type::Unknown
             })),
+            custom_completion: None,
         },
         error,
     )
@@ -1882,6 +1912,7 @@ pub fn parse_table_expression(
                 expr: Expr::List(vec![]),
                 span,
                 ty: Type::List(Box::new(Type::Unknown)),
+                custom_completion: None,
             },
             None,
         ),
@@ -1947,6 +1978,7 @@ pub fn parse_table_expression(
                     expr: Expr::Table(table_headers, rows),
                     span,
                     ty: Type::Table,
+                    custom_completion: None,
                 },
                 error,
             )
@@ -2089,6 +2121,7 @@ pub fn parse_block_expression(
             expr: Expr::Block(block_id),
             span,
             ty: Type::Block,
+            custom_completion: None,
         },
         error,
     )
@@ -2142,6 +2175,11 @@ pub fn parse_value(
     }
 
     match shape {
+        SyntaxShape::Custom(shape, custom_completion) => {
+            let (mut expression, err) = parse_value(working_set, span, shape);
+            expression.custom_completion = Some(custom_completion.clone());
+            (expression, err)
+        }
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Range => parse_range(working_set, span),
@@ -2254,6 +2292,7 @@ pub fn parse_operator(
             expr: Expr::Operator(operator),
             span,
             ty: Type::Unknown,
+            custom_completion: None,
         },
         None,
     )
@@ -2333,6 +2372,7 @@ pub fn parse_math_expression(
                     expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
                     span: op_span,
                     ty: result_ty,
+                    custom_completion: None,
                 });
             }
         }
@@ -2367,6 +2407,7 @@ pub fn parse_math_expression(
             expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
             span: binary_op_span,
             ty: result_ty,
+            custom_completion: None,
         });
     }
 
@@ -2496,6 +2537,7 @@ pub fn parse_def(
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Unknown,
+                        custom_completion: None,
                     }])),
                     error,
                 )
@@ -2559,6 +2601,7 @@ pub fn parse_alias(
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
+                    custom_completion: None,
                 }])),
                 None,
             );
@@ -2607,6 +2650,7 @@ pub fn parse_let(
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
+                    custom_completion: None,
                 }])),
                 err,
             );

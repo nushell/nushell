@@ -39,6 +39,7 @@ impl Highlighter for NuHighlighter {
                 [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
                 .to_string();
             match shape.1 {
+                FlatShape::Custom(..) => output.push((Style::new().bold(), next_token)),
                 FlatShape::External => output.push((Style::new().bold(), next_token)),
                 FlatShape::ExternalArg => output.push((Style::new().bold(), next_token)),
                 FlatShape::Garbage => output.push((
