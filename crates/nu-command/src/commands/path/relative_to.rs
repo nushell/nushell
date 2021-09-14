@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -10,12 +10,12 @@ pub struct PathRelativeTo;
 
 struct PathRelativeToArguments {
     path: Tagged<PathBuf>,
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathRelativeToArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -31,10 +31,11 @@ impl WholeStreamCommand for PathRelativeTo {
                 SyntaxShape::FilePath,
                 "Parent shared with the input path",
             )
-            .rest(
-                "rest",
-                SyntaxShape::ColumnPath,
+            .named(
+                "columns",
+                SyntaxShape::Table,
                 "Optionally operate by column path",
+                Some('c'),
             )
     }
 
@@ -52,7 +53,7 @@ path."#
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathRelativeToArguments {
             path: args.req(0)?,
-            rest: args.rest(1)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

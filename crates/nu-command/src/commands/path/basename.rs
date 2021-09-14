@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -9,13 +9,13 @@ use std::path::Path;
 pub struct PathBasename;
 
 struct PathBasenameArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
     replace: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathBasenameArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -26,10 +26,11 @@ impl WholeStreamCommand for PathBasename {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
-            .rest(
-                "rest",
-                SyntaxShape::ColumnPath,
+            .named(
+                "columns",
+                SyntaxShape::Table,
                 "Optionally operate by column path",
+                Some('c'),
             )
             .named(
                 "replace",
@@ -46,7 +47,7 @@ impl WholeStreamCommand for PathBasename {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathBasenameArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
             replace: args.get_flag("replace")?,
         });
 

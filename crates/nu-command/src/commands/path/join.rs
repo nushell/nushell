@@ -1,4 +1,6 @@
-use super::{handle_value, join_path, operate_column_paths, column_paths_from_args, PathSubcommandArguments};
+use super::{
+    column_paths_from_args, handle_value, join_path, operate_column_paths, PathSubcommandArguments,
+};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -9,8 +11,8 @@ use std::path::{Path, PathBuf};
 pub struct PathJoin;
 
 struct PathJoinArguments {
-    append: Option<Tagged<PathBuf>>,
     columns: Vec<ColumnPath>,
+    append: Option<Tagged<PathBuf>>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
@@ -26,16 +28,16 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
             .optional(
                 "append",
                 SyntaxShape::FilePath,
                 "Path to append to the input",
-            )
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "Optionally operate on table columns",
-                Some('c'),
             )
     }
 
@@ -52,8 +54,8 @@ the output of 'path parse' and 'path split' subcommands."#
         let tag = args.call_info.name_tag.clone();
 
         let cmd_args = Arc::new(PathJoinArguments {
-            append: args.opt(0)?,
             columns: column_paths_from_args(&args)?,
+            append: args.opt(0)?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -71,7 +73,7 @@ the output of 'path parse' and 'path split' subcommands."#
             },
             Example {
                 description: "Append a filename to a path inside a column",
-                example: r"ls | path join spam.txt -c name",
+                example: r"ls | path join spam.txt -c [ name ]",
                 result: None,
             },
             Example {
@@ -103,7 +105,7 @@ the output of 'path parse' and 'path split' subcommands."#
             },
             Example {
                 description: "Append a filename to a path inside a column",
-                example: r"ls | path join spam.txt -c name",
+                example: r"ls | path join spam.txt -c [ name ]",
                 result: None,
             },
             Example {

@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -11,12 +11,12 @@ pub struct PathExpand;
 
 struct PathExpandArguments {
     strict: bool,
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathExpandArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -32,10 +32,11 @@ impl WholeStreamCommand for PathExpand {
                 "Throw an error if the path could not be expanded",
                 Some('s'),
             )
-            .rest(
-                "rest",
-                SyntaxShape::ColumnPath,
+            .named(
+                "columns",
+                SyntaxShape::Table,
                 "Optionally operate by column path",
+                Some('c'),
             )
     }
 
@@ -47,7 +48,7 @@ impl WholeStreamCommand for PathExpand {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathExpandArguments {
             strict: args.has_flag("strict"),
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))

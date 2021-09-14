@@ -230,7 +230,7 @@ fn column_paths_from_args(args: &CommandArgs) -> Result<Vec<ColumnPath>, ShellEr
                 }
             }
             c
-        },
+        }
         None => Vec::new(),
     };
 
@@ -238,13 +238,13 @@ fn column_paths_from_args(args: &CommandArgs) -> Result<Vec<ColumnPath>, ShellEr
         let colval: Option<Value> = args.get_flag("columns")?;
         let colspan = match colval {
             Some(v) => v.tag.span,
-            None => Span::unknown()
+            None => Span::unknown(),
         };
         return Err(ShellError::labeled_error(
             "Requires a list of columns",
             "must be a list of columns",
             colspan,
-        ))
+        ));
     }
 
     Ok(column_paths)
