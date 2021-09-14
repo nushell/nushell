@@ -16,6 +16,7 @@ pub enum FlatShape {
     Signature,
     String,
     Variable,
+    Custom(String),
 }
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
@@ -40,6 +41,10 @@ pub fn flatten_expression(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
+    if let Some(custom_completion) = &expr.custom_completion {
+        return vec![(expr.span, FlatShape::Custom(custom_completion.clone()))];
+    }
+
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
             let mut output = vec![];

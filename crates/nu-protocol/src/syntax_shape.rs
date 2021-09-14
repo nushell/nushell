@@ -69,6 +69,9 @@ pub enum SyntaxShape {
 
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
+
+    /// A custom shape with custom completion logic
+    Custom(Box<SyntaxShape>, String),
 }
 
 impl SyntaxShape {
@@ -77,6 +80,7 @@ impl SyntaxShape {
             SyntaxShape::Any => Type::Unknown,
             SyntaxShape::Block(_) => Type::Block,
             SyntaxShape::CellPath => Type::Unknown,
+            SyntaxShape::Custom(custom, _) => custom.to_type(),
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
             SyntaxShape::FilePath => Type::FilePath,
