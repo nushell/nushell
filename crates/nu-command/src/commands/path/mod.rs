@@ -61,7 +61,7 @@ fn encode_path(
                 ALLOWED_COLUMNS.join(", ")
             );
             return Err(ShellError::labeled_error_with_secondary(
-                "Invalid column name",
+                "Expected structured path table",
                 msg,
                 new_span,
                 "originates from here",
