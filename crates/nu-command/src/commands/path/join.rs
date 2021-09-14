@@ -9,13 +9,13 @@ use std::path::{Path, PathBuf};
 pub struct PathJoin;
 
 struct PathJoinArguments {
-    rest: Vec<ColumnPath>,
     append: Option<Tagged<PathBuf>>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -26,16 +26,16 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
-            .rest(
-                "rest",
-                SyntaxShape::ColumnPath,
-                "Optionally operate by column path",
-            )
-            .named(
+            .optional(
                 "append",
                 SyntaxShape::FilePath,
                 "Path to append to the input",
-                Some('a'),
+            )
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate on table columns",
+                Some('c'),
             )
     }
 
@@ -50,9 +50,34 @@ the output of 'path parse' and 'path split' subcommands."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
+        let column_paths: Option<Vec<Value>> = args.get_flag("columns")?;
+        let column_paths = match column_paths {
+            Some(cols) => {
+                let mut c = Vec::new();
+                for col in cols {
+                    c.push(ColumnPath::build(&col.convert_to_string().spanned_unknown()))
+                }
+                c
+            },
+            None => Vec::new(),
+        };
+
+        if args.has_flag("columns") && column_paths.is_empty() {
+            let colval: Option<Value> = args.get_flag("columns")?;
+            let colspan = match colval {
+                Some(v) => v.tag.span,
+                None => Span::unknown()
+            };
+            return Err(ShellError::labeled_error(
+                "Requires a list of columns",
+                "must be a list of columns",
+                colspan,
+            ))
+        }
+
         let cmd_args = Arc::new(PathJoinArguments {
-            rest: args.rest(0)?,
-            append: args.get_flag("append")?,
+            append: args.opt(0)?,
+            columns: column_paths,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -63,10 +88,15 @@ the output of 'path parse' and 'path split' subcommands."#
         vec![
             Example {
                 description: "Append a filename to a path",
-                example: r"echo 'C:\Users\viking' | path join -a spam.txt",
+                example: r"echo 'C:\Users\viking' | path join spam.txt",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"C:\Users\viking\spam.txt",
                 ))]),
+            },
+            Example {
+                description: "Append a filename to a path inside a column",
+                example: r"ls | path join spam.txt -c name",
+                result: None,
             },
             Example {
                 description: "Join a list of parts into a path",
@@ -90,10 +120,15 @@ the output of 'path parse' and 'path split' subcommands."#
         vec![
             Example {
                 description: "Append a filename to a path",
-                example: r"echo '/home/viking' | path join -a spam.txt",
+                example: r"echo '/home/viking' | path join spam.txt",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"/home/viking/spam.txt",
                 ))]),
+            },
+            Example {
+                description: "Append a filename to a path inside a column",
+                example: r"ls | path join spam.txt -c name",
+                result: None,
             },
             Example {
                 description: "Join a list of parts into a path",
