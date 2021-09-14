@@ -34,7 +34,7 @@ pub enum SyntaxShape {
     GlobPattern,
 
     /// A block is allowed, eg `{start this thing}`
-    Block,
+    Block(Option<Vec<SyntaxShape>>),
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table,
@@ -69,14 +69,18 @@ pub enum SyntaxShape {
 
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
+
+    /// A custom shape with custom completion logic
+    Custom(Box<SyntaxShape>, String),
 }
 
 impl SyntaxShape {
     pub fn to_type(&self) -> Type {
         match self {
             SyntaxShape::Any => Type::Unknown,
-            SyntaxShape::Block => Type::Block,
+            SyntaxShape::Block(_) => Type::Block,
             SyntaxShape::CellPath => Type::Unknown,
+            SyntaxShape::Custom(custom, _) => custom.to_type(),
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
             SyntaxShape::FilePath => Type::FilePath,

@@ -63,16 +63,35 @@ fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError>
     }
 }
 
-fn check_name(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
-    if spans[1..].len() < 2 {
-        Some(ParseError::UnknownState(
-            "missing definition name".into(),
-            span(spans),
-        ))
+fn check_name<'a>(
+    working_set: &mut StateWorkingSet,
+    spans: &'a [Span],
+) -> Option<(&'a Span, ParseError)> {
+    if spans.len() == 1 {
+        None
+    } else if spans.len() < 4 {
+        if working_set.get_span_contents(spans[1]) == b"=" {
+            let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+            Some((
+                &spans[1],
+                ParseError::AssignmentMismatch(
+                    format!("{} missing name", name),
+                    "missing name".into(),
+                    spans[1],
+                ),
+            ))
+        } else {
+            None
+        }
     } else if working_set.get_span_contents(spans[2]) != b"=" {
-        Some(ParseError::UnknownState(
-            "missing equal sign in definition".into(),
-            span(spans),
+        let name = String::from_utf8_lossy(working_set.get_span_contents(spans[0]));
+        Some((
+            &spans[2],
+            ParseError::AssignmentMismatch(
+                format!("{} missing sign", name),
+                "missing equal sign".into(),
+                spans[2],
+            ),
         ))
     } else {
         None
@@ -94,6 +113,7 @@ pub fn parse_external_call(
             expr: Expr::ExternalCall(name, args),
             span: span(spans),
             ty: Type::Unknown,
+            custom_completion: None,
         },
         None,
     )
@@ -341,6 +361,7 @@ fn parse_multispan_value(
                         ),
                         span: arg_span,
                         ty: Type::Unknown,
+                        custom_completion: None,
                     },
                     error,
                 );
@@ -355,6 +376,7 @@ fn parse_multispan_value(
                     expr: Expr::Keyword(keyword.clone(), keyword_span, Box::new(expr)),
                     span: arg_span,
                     ty,
+                    custom_completion: None,
                 },
                 error,
             )
@@ -534,12 +556,14 @@ pub fn parse_call(
                     expr: Expr::Call(mut call),
                     span,
                     ty,
+                    custom_completion: None,
                 } => {
                     call.head = orig_span;
                     Expression {
                         expr: Expr::Call(call),
                         span,
                         ty,
+                        custom_completion: None,
                     }
                 }
                 x => x,
@@ -577,12 +601,14 @@ pub fn parse_call(
                             expr: Expr::Call(mut call),
                             span,
                             ty,
+                            custom_completion: None,
                         } => {
                             call.head = orig_span;
                             Expression {
                                 expr: Expr::Call(call),
                                 span,
                                 ty,
+                                custom_completion: None,
                             }
                         }
                         x => x,
@@ -610,7 +636,7 @@ pub fn parse_call(
                 return (
                     garbage(Span::new(0, 0)),
                     Some(ParseError::UnknownState(
-                        "internal error: incomplete statement".into(),
+                        "Incomplete statement".into(),
                         span(spans),
                     )),
                 );
@@ -625,10 +651,19 @@ pub fn parse_call(
                 expr: Expr::Call(call),
                 span: span(spans),
                 ty: Type::Unknown, // FIXME
+                custom_completion: None,
             },
             err,
         )
     } else {
+        // We might be parsing left-unbounded range ("..10")
+        let bytes = working_set.get_span_contents(spans[0]);
+        if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+            let (range_expr, range_err) = parse_range(working_set, spans[0]);
+            if range_err.is_none() {
+                return (range_expr, range_err);
+            }
+        }
         parse_external_call(working_set, spans)
     }
 }
@@ -641,6 +676,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -661,6 +697,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -681,6 +718,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                     expr: Expr::Int(v),
                     span,
                     ty: Type::Int,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -700,6 +738,7 @@ pub fn parse_int(token: &[u8], span: Span) -> (Expression, Option<ParseError>) {
                 expr: Expr::Int(x),
                 span,
                 ty: Type::Int,
+                custom_completion: None,
             },
             None,
         )
@@ -718,6 +757,7 @@ pub fn parse_float(token: &[u8], span: Span) -> (Expression, Option<ParseError>)
                 expr: Expr::Float(x),
                 span,
                 ty: Type::Float,
+                custom_completion: None,
             },
             None,
         )
@@ -746,8 +786,8 @@ pub fn parse_range(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    // Range follows the following syntax: [<from>][<step_operator><step>]<range_operator>[<to>]
-    //   where <step_operator> is ".."
+    // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
+    //   where <next_operator> is ".."
     //   and  <range_operator> is ".." or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
@@ -762,42 +802,28 @@ pub fn parse_range(
     // First, figure out what exact operators are used and determine their positions
     let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
 
-    let (step_op_pos, range_op_pos) =
+    let (next_op_pos, range_op_pos) =
         match dotdot_pos.len() {
             1 => (None, dotdot_pos[0]),
             2 => (Some(dotdot_pos[0]), dotdot_pos[1]),
             _ => return (
                 garbage(span),
                 Some(ParseError::Expected(
-                    "one range operator ('..' or '..<') and optionally one step operator ('..')"
+                    "one range operator ('..' or '..<') and optionally one next operator ('..')"
                         .into(),
                     span,
                 )),
             ),
         };
 
-    let _step_op_span = step_op_pos.map(|pos| {
-        Span::new(
-            span.start + pos,
-            span.start + pos + "..".len(), // Only ".." is allowed for step operator
-        )
-    });
-
-    let (range_op, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
+    let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
             let op_str = "..<";
             let op_span = Span::new(
                 span.start + range_op_pos,
                 span.start + range_op_pos + op_str.len(),
             );
-            (
-                RangeOperator {
-                    inclusion: RangeInclusion::RightExclusive,
-                    span: op_span,
-                },
-                "..<",
-                op_span,
-            )
+            (RangeInclusion::RightExclusive, "..<", op_span)
         } else {
             return (
                 garbage(span),
@@ -813,21 +839,14 @@ pub fn parse_range(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
         );
-        (
-            RangeOperator {
-                inclusion: RangeInclusion::Inclusive,
-                span: op_span,
-            },
-            "..",
-            op_span,
-        )
+        (RangeInclusion::Inclusive, "..", op_span)
     };
 
-    // Now, based on the operator positions, figure out where the bounds & step are located and
+    // Now, based on the operator positions, figure out where the bounds & next are located and
     // parse them
-    // TODO: Actually parse the step number
+    // TODO: Actually parse the next number
     let from = if token.starts_with("..") {
-        // token starts with either step operator, or range operator -- we don't care which one
+        // token starts with either next operator, or range operator -- we don't care which one
         None
     } else {
         let from_span = Span::new(span.start, span.start + dotdot_pos[0]);
@@ -867,11 +886,35 @@ pub fn parse_range(
         );
     }
 
+    let (next, next_op_span) = if let Some(pos) = next_op_pos {
+        let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
+        let next_span = Span::new(next_op_span.end, range_op_span.start);
+
+        match parse_value(working_set, next_span, &SyntaxShape::Number) {
+            (expression, None) => (Some(Box::new(expression)), next_op_span),
+            _ => {
+                return (
+                    garbage(span),
+                    Some(ParseError::Expected("number".into(), span)),
+                )
+            }
+        }
+    } else {
+        (None, Span::unknown())
+    };
+
+    let range_op = RangeOperator {
+        inclusion,
+        span: range_op_span,
+        next_op_span,
+    };
+
     (
         Expression {
-            expr: Expr::Range(from, to, range_op),
+            expr: Expr::Range(from, next, to, range_op),
             span,
             ty: Type::Range,
+            custom_completion: None,
         },
         None,
     )
@@ -942,6 +985,7 @@ pub fn parse_string_interpolation(
                     expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
                     span,
                     ty: Type::String,
+                    custom_completion: None,
                 });
             }
             token_start = b;
@@ -984,6 +1028,7 @@ pub fn parse_string_interpolation(
                     expr: Expr::String(String::from_utf8_lossy(str_contents).to_string()),
                     span,
                     ty: Type::String,
+                    custom_completion: None,
                 });
             }
         }
@@ -1015,6 +1060,7 @@ pub fn parse_string_interpolation(
                 })),
                 span,
                 ty: Type::String,
+                custom_completion: None,
             },
             error,
         )
@@ -1038,6 +1084,7 @@ pub fn parse_variable_expr(
                 expr: Expr::Bool(true),
                 span,
                 ty: Type::Bool,
+                custom_completion: None,
             },
             None,
         );
@@ -1047,6 +1094,7 @@ pub fn parse_variable_expr(
                 expr: Expr::Bool(false),
                 span,
                 ty: Type::Bool,
+                custom_completion: None,
             },
             None,
         );
@@ -1061,21 +1109,12 @@ pub fn parse_variable_expr(
                     expr: Expr::Var(id),
                     span,
                     ty: working_set.get_variable(id).clone(),
+                    custom_completion: None,
                 },
                 None,
             )
         } else {
-            let name = working_set.get_span_contents(span).to_vec();
-            // this seems okay to set it to unknown here, but we should double-check
-            let id = working_set.add_variable(name, Type::Unknown);
-            (
-                Expression {
-                    expr: Expr::Var(id),
-                    span,
-                    ty: Type::Unknown,
-                },
-                None,
-            )
+            (garbage(span), Some(ParseError::VariableNotFound(span)))
         }
     } else {
         (garbage(span), err)
@@ -1140,6 +1179,7 @@ pub fn parse_full_column_path(
                     expr: Expr::Subexpression(block_id),
                     span,
                     ty: Type::Unknown, // FIXME
+                    custom_completion: None,
                 },
                 true,
             )
@@ -1156,6 +1196,7 @@ pub fn parse_full_column_path(
                     expr: Expr::Var(var_id),
                     span: Span::unknown(),
                     ty: Type::Unknown,
+                    custom_completion: None,
                 },
                 false,
             )
@@ -1222,6 +1263,7 @@ pub fn parse_full_column_path(
                 expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
                 ty: Type::Unknown,
                 span: full_column_span,
+                custom_completion: None,
             },
             error,
         )
@@ -1249,6 +1291,7 @@ pub fn parse_string(
                 expr: Expr::String(token),
                 span,
                 ty: Type::String,
+                custom_completion: None,
             },
             None,
         )
@@ -1275,7 +1318,7 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"path" => SyntaxShape::FilePath,
         b"glob" => SyntaxShape::GlobPattern,
-        b"block" => SyntaxShape::Block,
+        b"block" => SyntaxShape::Block(None), //FIXME
         b"cond" => SyntaxShape::RowCondition,
         b"operator" => SyntaxShape::Operator,
         b"math" => SyntaxShape::MathExpression,
@@ -1318,6 +1361,7 @@ pub fn parse_var_with_opt_type(
                     expr: Expr::Var(id),
                     span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
                     ty,
+                    custom_completion: None,
                 },
                 None,
             )
@@ -1328,6 +1372,7 @@ pub fn parse_var_with_opt_type(
                     expr: Expr::Var(id),
                     span: spans[*spans_idx],
                     ty: Type::Unknown,
+                    custom_completion: None,
                 },
                 Some(ParseError::MissingType(spans[*spans_idx])),
             )
@@ -1340,6 +1385,7 @@ pub fn parse_var_with_opt_type(
                 expr: Expr::Var(id),
                 span: span(&spans[*spans_idx..*spans_idx + 1]),
                 ty: Type::Unknown,
+                custom_completion: None,
             },
             None,
         )
@@ -1376,6 +1422,7 @@ pub fn parse_row_condition(
             ty: Type::Bool,
             span,
             expr: Expr::RowCondition(var_id, Box::new(expression)),
+            custom_completion: None,
         },
         err,
     )
@@ -1416,6 +1463,7 @@ pub fn parse_signature(
             expr: Expr::Signature(sig),
             span,
             ty: Type::Unknown,
+            custom_completion: None,
         },
         error,
     )
@@ -1815,6 +1863,7 @@ pub fn parse_list_expression(
             } else {
                 Type::Unknown
             })),
+            custom_completion: None,
         },
         error,
     )
@@ -1863,6 +1912,7 @@ pub fn parse_table_expression(
                 expr: Expr::List(vec![]),
                 span,
                 ty: Type::List(Box::new(Type::Unknown)),
+                custom_completion: None,
             },
             None,
         ),
@@ -1928,6 +1978,7 @@ pub fn parse_table_expression(
                     expr: Expr::Table(table_headers, rows),
                     span,
                     ty: Type::Table,
+                    custom_completion: None,
                 },
                 error,
             )
@@ -1937,6 +1988,7 @@ pub fn parse_table_expression(
 
 pub fn parse_block_expression(
     working_set: &mut StateWorkingSet,
+    shape: &SyntaxShape,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
@@ -1977,7 +2029,7 @@ pub fn parse_block_expression(
     working_set.enter_scope();
 
     // Check to see if we have parameters
-    let (signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
+    let (mut signature, amt_to_skip): (Option<Box<Signature>>, usize) = match output.first() {
         Some(Token {
             contents: TokenContents::Pipe,
             span,
@@ -2023,12 +2075,31 @@ pub fn parse_block_expression(
     let (output, err) = lite_parse(&output[amt_to_skip..]);
     error = error.or(err);
 
+    if let SyntaxShape::Block(Some(v)) = shape {
+        if signature.is_none() && v.len() == 1 {
+            // We'll assume there's an `$it` present
+            let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
+
+            let mut new_sigature = Signature::new("");
+            new_sigature.required_positional.push(PositionalArg {
+                var_id: Some(var_id),
+                name: "$it".into(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+            });
+
+            signature = Some(Box::new(new_sigature));
+        }
+    }
+
     let (mut output, err) = parse_block(working_set, &output, false);
     error = error.or(err);
 
     if let Some(signature) = signature {
         output.signature = signature;
     } else if let Some(last) = working_set.delta.scope.last() {
+        // FIXME: this only supports the top $it. Instead, we should look for a free $it in the expression.
+
         if let Some(var_id) = last.get_var(b"$it") {
             let mut signature = Signature::new("");
             signature.required_positional.push(PositionalArg {
@@ -2050,6 +2121,7 @@ pub fn parse_block_expression(
             expr: Expr::Block(block_id),
             span,
             ty: Type::Block,
+            custom_completion: None,
         },
         error,
     )
@@ -2079,8 +2151,8 @@ pub fn parse_value(
             return parse_full_column_path(working_set, None, span);
         }
     } else if bytes.starts_with(b"{") {
-        if matches!(shape, SyntaxShape::Block) || matches!(shape, SyntaxShape::Any) {
-            return parse_block_expression(working_set, span);
+        if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
+            return parse_block_expression(working_set, shape, span);
         } else {
             return (
                 Expression::garbage(span),
@@ -2103,15 +2175,20 @@ pub fn parse_value(
     }
 
     match shape {
+        SyntaxShape::Custom(shape, custom_completion) => {
+            let (mut expression, err) = parse_value(working_set, span, shape);
+            expression.custom_completion = Some(custom_completion.clone());
+            (expression, err)
+        }
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
             parse_string(working_set, span)
         }
-        SyntaxShape::Block => {
+        SyntaxShape::Block(_) => {
             if bytes.starts_with(b"{") {
-                parse_block_expression(working_set, span)
+                parse_block_expression(working_set, shape, span)
             } else {
                 (
                     Expression::garbage(span),
@@ -2159,7 +2236,7 @@ pub fn parse_value(
                     SyntaxShape::Range,
                     SyntaxShape::Filesize,
                     SyntaxShape::Duration,
-                    SyntaxShape::Block,
+                    SyntaxShape::Block(None),
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
@@ -2215,6 +2292,7 @@ pub fn parse_operator(
             expr: Expr::Operator(operator),
             span,
             ty: Type::Unknown,
+            custom_completion: None,
         },
         None,
     )
@@ -2294,6 +2372,7 @@ pub fn parse_math_expression(
                     expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
                     span: op_span,
                     ty: result_ty,
+                    custom_completion: None,
                 });
             }
         }
@@ -2328,6 +2407,7 @@ pub fn parse_math_expression(
             expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
             span: binary_op_span,
             ty: result_ty,
+            custom_completion: None,
         });
     }
 
@@ -2411,7 +2491,8 @@ pub fn parse_def(
         let (sig, err) = parse_signature(working_set, spans[2]);
         error = error.or(err);
 
-        let (block, err) = parse_block_expression(working_set, spans[3]);
+        let (block, err) =
+            parse_block_expression(working_set, &SyntaxShape::Block(Some(vec![])), spans[3]);
         error = error.or(err);
         working_set.exit_scope();
 
@@ -2456,6 +2537,7 @@ pub fn parse_def(
                         expr: Expr::Call(call),
                         span: span(spans),
                         ty: Type::Unknown,
+                        custom_completion: None,
                     }])),
                     error,
                 )
@@ -2469,7 +2551,7 @@ pub fn parse_def(
         (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
-                "definition unparseable. Expected structure: def <name> [] {}".into(),
+                "Expected structure: def <name> [] {}".into(),
                 span(spans),
             )),
         )
@@ -2483,9 +2565,9 @@ pub fn parse_alias(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"alias" {
-        if let Some(err) = check_name(working_set, spans) {
+        if let Some((span, err)) = check_name(working_set, spans) {
             return (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(*span)])),
                 Some(err),
             );
         }
@@ -2519,6 +2601,7 @@ pub fn parse_alias(
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
+                    custom_completion: None,
                 }])),
                 None,
             );
@@ -2541,9 +2624,9 @@ pub fn parse_let(
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"let" {
-        if let Some(err) = check_name(working_set, spans) {
+        if let Some((span, err)) = check_name(working_set, spans) {
             return (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
+                Statement::Pipeline(Pipeline::from_vec(vec![garbage(*span)])),
                 Some(err),
             );
         }
@@ -2567,6 +2650,7 @@ pub fn parse_let(
                     expr: Expr::Call(call),
                     span: call_span,
                     ty: Type::Unknown,
+                    custom_completion: None,
                 }])),
                 err,
             );
@@ -2585,16 +2669,16 @@ pub fn parse_statement(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    // FIXME: improve errors by checking keyword first
-    if let (decl, None) = parse_def(working_set, spans) {
-        (decl, None)
-    } else if let (stmt, None) = parse_let(working_set, spans) {
-        (stmt, None)
-    } else if let (stmt, None) = parse_alias(working_set, spans) {
-        (stmt, None)
-    } else {
-        let (expr, err) = parse_expression(working_set, spans);
-        (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+    let name = working_set.get_span_contents(spans[0]);
+
+    match name {
+        b"def" => parse_def(working_set, spans),
+        b"let" => parse_let(working_set, spans),
+        b"alias" => parse_alias(working_set, spans),
+        _ => {
+            let (expr, err) = parse_expression(working_set, spans);
+            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+        }
     }
 }
 

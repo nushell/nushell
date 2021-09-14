@@ -1,7 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
+use nu_engine::eval_block;
 use nu_parser::{flatten_block, parse};
-use nu_protocol::engine::{EngineState, StateWorkingSet};
+use nu_protocol::{
+    engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
+    Value,
+};
 use reedline::Completer;
 
 pub struct NuCompleter {
@@ -26,7 +30,39 @@ impl Completer for NuCompleter {
 
         for flat in flattened {
             if pos >= flat.0.start && pos <= flat.0.end {
-                match flat.1 {
+                match &flat.1 {
+                    nu_parser::FlatShape::Custom(custom_completion) => {
+                        let prefix = working_set.get_span_contents(flat.0).to_vec();
+
+                        let (block, ..) =
+                            parse(&mut working_set, None, custom_completion.as_bytes(), false);
+                        let context = EvaluationContext {
+                            engine_state: self.engine_state.clone(),
+                            stack: Stack::default(),
+                        };
+                        let result = eval_block(&context, &block, Value::nothing());
+
+                        let v: Vec<_> = match result {
+                            Ok(Value::List { vals, .. }) => vals
+                                .into_iter()
+                                .map(move |x| {
+                                    let s = x.as_string().expect("FIXME");
+
+                                    (
+                                        reedline::Span {
+                                            start: flat.0.start - offset,
+                                            end: flat.0.end - offset,
+                                        },
+                                        s,
+                                    )
+                                })
+                                .filter(|x| x.1.as_bytes().starts_with(&prefix))
+                                .collect(),
+                            _ => vec![],
+                        };
+
+                        return v;
+                    }
                     nu_parser::FlatShape::External | nu_parser::FlatShape::InternalCall => {
                         let prefix = working_set.get_span_contents(flat.0);
                         let results = working_set.find_commands_by_prefix(prefix);

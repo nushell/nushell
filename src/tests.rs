@@ -215,6 +215,16 @@ fn block_param2() -> TestResult {
 }
 
 #[test]
+fn block_param3_list_iteration() -> TestResult {
+    run_test("[1,2,3] | each { $it + 10 }", "[11, 12, 13]")
+}
+
+#[test]
+fn block_param4_list_iteration() -> TestResult {
+    run_test("[1,2,3] | each { |y| $y + 10 }", "[11, 12, 13]")
+}
+
+#[test]
 fn range_iteration1() -> TestResult {
     run_test("1..4 | each { |y| $y + 10 }", "[11, 12, 13, 14]")
 }
@@ -252,6 +262,22 @@ fn build_string3() -> TestResult {
     run_test(
         "build-string 'nu' 'shell' | each {build-string $it ' rocks'}",
         "nushell rocks",
+    )
+}
+
+#[test]
+fn build_string4() -> TestResult {
+    run_test(
+        "['sam','rick','pete'] | each { build-string $it ' is studying'}",
+        "[sam is studying, rick is studying, pete is studying]",
+    )
+}
+
+#[test]
+fn build_string5() -> TestResult {
+    run_test(
+        "['sam','rick','pete'] | each { |x| build-string $x ' is studying'}",
+        "[sam is studying, rick is studying, pete is studying]",
     )
 }
 
@@ -306,5 +332,13 @@ fn row_condition2() -> TestResult {
     run_test(
         "[[name, size]; [a, 1], [b, 2], [c, 3]] | where $it.size > 2 | length",
         "1",
+    )
+}
+
+#[test]
+fn better_block_types() -> TestResult {
+    run_test(
+        r#"([1, 2, 3] | each -n { $"($it.index) is ($it.item)" }).1"#,
+        "1 is 2",
     )
 }

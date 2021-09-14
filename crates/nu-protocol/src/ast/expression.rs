@@ -6,6 +6,7 @@ pub struct Expression {
     pub expr: Expr,
     pub span: Span,
     pub ty: Type,
+    pub custom_completion: Option<String>,
 }
 
 impl Expression {
@@ -14,6 +15,7 @@ impl Expression {
             expr: Expr::Garbage,
             span,
             ty: Type::Unknown,
+            custom_completion: None,
         }
     }
 

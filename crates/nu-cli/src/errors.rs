@@ -261,6 +261,14 @@ pub fn report_parsing_error(
                     .with_labels(vec![Label::primary(diag_file_id, diag_range)
                         .with_message("needs a parameter name")])
             }
+            ParseError::AssignmentMismatch(msg, label, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+                Diagnostic::error()
+                    .with_message(msg)
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message(label)
+                    ])
+            }
         };
 
     // println!("DIAG");

@@ -25,4 +25,14 @@ impl Call {
             named: vec![],
         }
     }
+
+    pub fn has_flag(&self, flag_name: &str) -> bool {
+        for name in &self.named {
+            if flag_name == name.0 {
+                return true;
+            }
+        }
+
+        false
+    }
 }

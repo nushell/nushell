@@ -16,6 +16,7 @@ pub enum FlatShape {
     Signature,
     String,
     Variable,
+    Custom(String),
 }
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
@@ -40,6 +41,10 @@ pub fn flatten_expression(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
+    if let Some(custom_completion) = &expr.custom_completion {
+        return vec![(expr.span, FlatShape::Custom(custom_completion.clone()))];
+    }
+
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
             let mut output = vec![];
@@ -85,15 +90,19 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::Range(from, to, op) => {
+        Expr::Range(from, next, to, op) => {
             let mut output = vec![];
             if let Some(f) = from {
                 output.extend(flatten_expression(working_set, f));
             }
+            if let Some(s) = next {
+                output.extend(vec![(op.next_op_span, FlatShape::Operator)]);
+                output.extend(flatten_expression(working_set, s));
+            }
+            output.extend(vec![(op.span, FlatShape::Operator)]);
             if let Some(t) = to {
                 output.extend(flatten_expression(working_set, t));
             }
-            output.extend(vec![(op.span, FlatShape::Operator)]);
             output
         }
         Expr::Bool(_) => {

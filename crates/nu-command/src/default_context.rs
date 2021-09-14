@@ -6,8 +6,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv, Ls,
-    Table,
+    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, For, Git, GitCheckout, If, Length,
+    Let, LetEnv, ListGitBranches, Ls, Table,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -47,6 +47,11 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Ls));
 
         working_set.add_decl(Box::new(Table));
+
+        // This is a WIP proof of concept
+        working_set.add_decl(Box::new(ListGitBranches));
+        working_set.add_decl(Box::new(Git));
+        working_set.add_decl(Box::new(GitCheckout));
 
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());
