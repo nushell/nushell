@@ -2764,7 +2764,6 @@ version = "0.37.0"
 dependencies = [
  "dirs-next",
  "dunce",
- "nu-test-support",
 ]
 
 [[package]]
