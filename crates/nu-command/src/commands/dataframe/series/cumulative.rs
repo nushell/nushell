@@ -101,9 +101,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let cum_type = CumType::from_str(&cum_type.item, &cum_type.tag.span)?;
     let mut res = match cum_type {
-        CumType::Max => series.cum_max(reverse),
-        CumType::Min => series.cum_min(reverse),
-        CumType::Sum => series.cum_sum(reverse),
+        CumType::Max => series.cummax(reverse),
+        CumType::Min => series.cummin(reverse),
+        CumType::Sum => series.cumsum(reverse),
     };
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());

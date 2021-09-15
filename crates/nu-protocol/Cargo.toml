@@ -32,7 +32,7 @@ serde_yaml = "0.8.16"
 toml = "0.5.8"
 
 [dependencies.polars]
-version = "0.15.1"
+version = "0.16.0"
 optional = true
 features = ["default", "serde", "rows", "strings", "checked_arithmetic", "object", "dtype-duration-ns"]
 
