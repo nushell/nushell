@@ -19,8 +19,8 @@
 - [x] Iteration (`each`) over tables
 - [x] Row conditions
 - [x] Simple completions
-- [ ] Detecting `$it` currently only looks at top scope but should find any free `$it` in the expression (including subexprs)
-- [ ] Signature needs to make parameters visible in scope before block is parsed
+- [x] Detecting `$it` currently only looks at top scope but should find any free `$it` in the expression (including subexprs)
+- [x] Signature needs to make parameters visible in scope before block is parsed
 - [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
 - [ ] Error shortcircuit (stopping on first error)
