@@ -75,7 +75,7 @@ impl WholeStreamCommand for PathDirname {
             Example {
                 description: "Get dirname of a path in a column",
                 example: "ls ('.' | path expand) | path dirname -c [ name ]",
-                result: None.
+                result: None,
             },
             Example {
                 description: "Walk up two levels",
