@@ -106,7 +106,7 @@ digest = "0.9.0"
 [dependencies.polars]
 version = "0.16.0"
 optional = true
-features = ["parquet", "json", "random", "pivot", "strings", "is_in", "temporal"]
+features = ["parquet", "json", "random", "pivot", "strings", "is_in", "temporal", "cum_agg", "rolling_window"]
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
