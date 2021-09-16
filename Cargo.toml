@@ -141,7 +141,7 @@ dataframe = [
 ]
 
 [profile.release]
-opt-level = "z"  # Optimize for size.
+opt-level = "s"  # Optimize for size.
 
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
