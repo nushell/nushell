@@ -9,7 +9,7 @@ pub struct Selector {
     pub as_html: bool,
     pub attribute: String,
     pub as_table: Value,
-    pub debug: bool,
+    pub inspect: bool,
 }
 
 impl Selector {
@@ -23,7 +23,7 @@ impl Selector {
                 UntaggedValue::Primitive(Primitive::String("".to_string())),
                 Tag::unknown(),
             ),
-            debug: false,
+            inspect: false,
         }
     }
 }
@@ -36,7 +36,7 @@ impl Default for Selector {
 
 pub fn begin_selector_query(input_html: String, selector: &Selector) -> Vec<Value> {
     if selector.as_table.is_some() {
-        retrieve_tables(input_html.as_str(), &selector.as_table, selector.debug)
+        retrieve_tables(input_html.as_str(), &selector.as_table, selector.inspect)
     } else {
         match selector.attribute.is_empty() {
             true => execute_selector_query(
@@ -53,7 +53,7 @@ pub fn begin_selector_query(input_html: String, selector: &Selector) -> Vec<Valu
     }
 }
 
-pub fn retrieve_tables(input_string: &str, columns: &Value, debug_mode: bool) -> Vec<Value> {
+pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) -> Vec<Value> {
     let html = input_string;
     let mut cols = Vec::new();
     if let UntaggedValue::Table(t) = &columns.value {
@@ -62,13 +62,13 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, debug_mode: bool) ->
         }
     }
 
-    if debug_mode {
+    if inspect_mode {
         eprintln!("Passed in Column Headers = {:#?}", &cols,);
     }
 
     let mut table = match Table::find_by_headers(html, &cols) {
         Some(t) => {
-            if debug_mode {
+            if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
             }
             t

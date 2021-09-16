@@ -25,9 +25,9 @@ impl Plugin for Selector {
                 Some('t'),
             )
             .switch(
-                "debug",
-                "run in debug mode to provide more information",
-                Some('d'),
+                "inspect",
+                "run in inspect mode to provide more information for determining column headers",
+                Some('i'),
             )
             .filter())
     }
@@ -57,7 +57,7 @@ impl Plugin for Selector {
         if call_info.args.has("as_table") {
             self.as_table = call_info.args.expect_get("as_table")?.clone();
         }
-        self.debug = call_info.args.has("debug");
+        self.inspect = call_info.args.has("inspect");
 
         Ok(vec![])
     }
