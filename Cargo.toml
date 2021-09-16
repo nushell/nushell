@@ -1,3 +1,5 @@
+cargo-features = ["named-profiles"]
+
 [package]
 authors = ["The Nu Project Contributors"]
 default-run = "nu"
@@ -141,6 +143,9 @@ dataframe = [
 ]
 
 [profile.release]
+opt-level = "s"
+
+[profile.release_ci]
 opt-level = "s"
 lto = true
 codegen-units = 1
