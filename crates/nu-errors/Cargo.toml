@@ -4,14 +4,14 @@ description = "Core error subsystem for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-errors"
-version = "0.37.0"
+version = "0.37.1"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-source = { path="../nu-source", version = "0.37.0" }
-nu-ansi-term = { version = "0.37.0", path="../nu-ansi-term" }
+nu-source = { path="../nu-source", version = "0.37.1" }
+nu-ansi-term = { version = "0.37.1", path="../nu-ansi-term" }
 
 bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 codespan-reporting = { version="0.11.0", features=["serialization"] }
