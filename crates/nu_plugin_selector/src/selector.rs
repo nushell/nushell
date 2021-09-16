@@ -1,5 +1,6 @@
+use crate::Table;
 use nipper::Document;
-use nu_protocol::{value::StringExt, Value};
+use nu_protocol::{value::StringExt, Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
 pub struct Selector {
@@ -7,6 +8,8 @@ pub struct Selector {
     pub tag: Tag,
     pub as_html: bool,
     pub attribute: String,
+    pub as_table: Value,
+    pub inspect: bool,
 }
 
 impl Selector {
@@ -16,6 +19,11 @@ impl Selector {
             tag: Tag::unknown(),
             as_html: false,
             attribute: String::new(),
+            as_table: Value::new(
+                UntaggedValue::Primitive(Primitive::String("".to_string())),
+                Tag::unknown(),
+            ),
+            inspect: false,
         }
     }
 }
@@ -27,12 +35,102 @@ impl Default for Selector {
 }
 
 pub fn begin_selector_query(input_html: String, selector: &Selector) -> Vec<Value> {
-    match selector.attribute.is_empty() {
-        true => execute_selector_query(&input_html, &selector.query, selector.as_html),
-        false => {
-            execute_selector_query_with_attribute(&input_html, &selector.query, &selector.attribute)
+    if selector.as_table.is_some() {
+        retrieve_tables(input_html.as_str(), &selector.as_table, selector.inspect)
+    } else {
+        match selector.attribute.is_empty() {
+            true => execute_selector_query(
+                input_html.as_str(),
+                selector.query.as_str(),
+                selector.as_html,
+            ),
+            false => execute_selector_query_with_attribute(
+                input_html.as_str(),
+                selector.query.as_str(),
+                selector.attribute.as_str(),
+            ),
         }
     }
+}
+
+pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) -> Vec<Value> {
+    let html = input_string;
+    let mut cols = Vec::new();
+    if let UntaggedValue::Table(t) = &columns.value {
+        for x in t {
+            cols.push(x.convert_to_string());
+        }
+    }
+
+    if inspect_mode {
+        eprintln!("Passed in Column Headers = {:#?}", &cols,);
+    }
+
+    let mut table = match Table::find_by_headers(html, &cols) {
+        Some(t) => {
+            if inspect_mode {
+                eprintln!("Table Found = {:#?}", &t);
+            }
+            t
+        }
+        None => Table::empty(),
+    };
+
+    let mut table_out = Vec::new();
+
+    // since cols was empty and headers is not, it means that headers were manually populated
+    // so let's fake the data in order to build a proper table. this situation happens when
+    // there are tables where the first column is actually the headers. kind of like a table
+    // that has been rotated ccw 90 degrees
+    if cols.is_empty() && !table.headers().is_empty() {
+        for col in table.headers().keys() {
+            cols.push(col.to_string());
+        }
+
+        let mut data2 = Vec::new();
+        for x in &table.data {
+            data2.push(x.join(", "));
+        }
+        // eprintln!("data2={:?}", data2);
+        table.data = vec![data2];
+    }
+
+    // if columns are still empty, let's just make a single column table with the data
+    if cols.is_empty() {
+        let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
+
+        for row in &table_with_no_empties {
+            let mut dict = TaggedDictBuilder::new(Tag::unknown());
+            for (counter, cell) in row.iter().enumerate() {
+                let col_name = format!("Column{}", counter);
+                dict.insert_value(
+                    col_name,
+                    UntaggedValue::Primitive(Primitive::String(cell.to_string()))
+                        .into_value(Tag::unknown()),
+                );
+            }
+            table_out.push(dict.into_value());
+        }
+    } else {
+        for row in &table {
+            let mut dict = TaggedDictBuilder::new(Tag::unknown());
+            // eprintln!("row={:?}", &row);
+            for col in &cols {
+                // eprintln!("col={:?}", &col);
+                let key = col.to_string();
+                let val = row
+                    .get(col)
+                    .unwrap_or(&format!("Missing column: '{}'", &col))
+                    .to_string();
+                dict.insert_value(
+                    key,
+                    UntaggedValue::Primitive(Primitive::String(val)).into_value(Tag::unknown()),
+                );
+            }
+            table_out.push(dict.into_value());
+        }
+    }
+    table_out
 }
 
 fn execute_selector_query_with_attribute(
