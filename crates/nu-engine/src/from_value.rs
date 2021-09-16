@@ -101,6 +101,7 @@ impl FromValue for i64 {
         v.as_i64()
     }
 }
+
 impl FromValue for Tagged<i64> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let tag = v.tag.clone();
