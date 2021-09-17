@@ -238,11 +238,19 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                                 }
                             }
 
-                            output.push(loc.clone());
+                            output.push({
+                                let mut partial_loc = loc.clone();
+                                partial_loc.span = Span::new(loc.span.start(), pos);
+                                partial_loc
+                            });
                             output
                         }
                     }
-                    _ => vec![loc.clone()],
+                    _ => vec![{
+                        let mut partial_loc = loc.clone();
+                        partial_loc.span = Span::new(loc.span.start(), pos);
+                        partial_loc
+                    }],
                 };
             } else if pos < loc.span.start() {
                 break;
