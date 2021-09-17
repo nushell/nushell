@@ -77,6 +77,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Shells
             whole_stream_command(Next),
             whole_stream_command(Previous),
+            whole_stream_command(Goto),
             whole_stream_command(Shells),
             whole_stream_command(Enter),
             whole_stream_command(Exit),

@@ -136,6 +136,16 @@ impl ShellManager {
         self.set_path(self.path())
     }
 
+    pub fn goto(&self, i: usize) {
+        {
+            let shell_len = self.shells.lock().len();
+            if i < shell_len {
+                self.current_shell.store(i, Ordering::SeqCst);
+            }
+        }
+        self.set_path(self.path())
+    }
+
     pub fn homedir(&self) -> Option<PathBuf> {
         let env = self.shells.lock();
 
