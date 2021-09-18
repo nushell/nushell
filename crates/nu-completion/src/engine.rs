@@ -347,7 +347,7 @@ mod tests {
             line: &str,
             scope: &dyn ParserScope,
             pos: usize,
-        ) -> Vec<LocationType> {
+        ) -> Vec<CompletionLocation> {
             let (tokens, _) = lex(line, 0, nu_parser::NewlineMode::Normal);
             let (lite_block, _) = parse_block(tokens);
 
@@ -356,9 +356,6 @@ mod tests {
             scope.exit_scope();
 
             super::completion_location(line, &block, pos)
-                .into_iter()
-                .map(|v| v.item)
-                .collect()
         }
 
         #[test]
@@ -370,7 +367,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(9, 10)),],
             );
         }
 
@@ -381,7 +378,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(9, 10)),],
             );
         }
 
@@ -392,7 +389,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 4),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(0, 4)),],
             );
         }
 
@@ -403,7 +400,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 13),
-                vec![LocationType::Variable],
+                vec![LocationType::Variable.spanned(Span::new(5, 13)),],
             );
         }
 
@@ -418,7 +415,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 7),
-                vec![LocationType::Flag("du".to_string())],
+                vec![LocationType::Flag("du".to_string()).spanned(Span::new(3, 7)),],
             );
         }
 
@@ -429,7 +426,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 8),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(6, 8)),],
             );
         }
 
@@ -441,8 +438,8 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 3),
                 vec![
-                    LocationType::Command,
-                    LocationType::Argument(Some("cd".to_string()), None)
+                    LocationType::Command.spanned(Span::new(0, 3)),
+                    LocationType::Argument(Some("cd".to_string()), None).spanned(Span::new(3, 3)),
                 ],
             );
         }
@@ -459,8 +456,8 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 3),
                 vec![
-                    LocationType::Argument(Some("du".to_string()), None),
-                    LocationType::Flag("du".to_string()),
+                    LocationType::Argument(Some("du".to_string()), None).spanned(Span::new(3, 4)),
+                    LocationType::Flag("du".to_string()).spanned(Span::new(3, 4)),
                 ],
             );
         }
@@ -475,8 +472,24 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 6),
                 vec![
-                    LocationType::Command,
-                    LocationType::Argument(Some("echo".to_string()), None)
+                    LocationType::Command.spanned(Span::new(0, 6)),
+                    LocationType::Argument(Some("echo".to_string()), None).spanned(Span::new(5, 6)),
+                ],
+            );
+        }
+
+        #[test]
+        fn completes_argument_when_cursor_inside_argument() {
+            let registry: VecRegistry =
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
+            let line = "echo 123";
+
+            assert_eq!(
+                completion_location(line, &registry, 6),
+                vec![
+                    LocationType::Command.spanned(Span::new(0, 6)),
+                    LocationType::Argument(Some("echo".to_string()), None).spanned(Span::new(5, 6)),
                 ],
             );
         }
