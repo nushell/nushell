@@ -73,7 +73,7 @@ quick-xml = "0.22"
 rand = "0.8"
 rayon = "1.5.0"
 regex = "1.4.3"
-reqwest = {version = "0.11", optional = true }
+reqwest = {version = "0.11", default-features = false, features = ["rustls-tls"], optional = true }
 roxmltree = "0.14.0"
 rust-embed = "5.9.0"
 rustyline = { version="9.0.0", optional=true }
