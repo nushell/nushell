@@ -46,7 +46,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
         call: &'call Call,
         context: &'contex EvaluationContext,
     ) -> Result<Self, ShellError> {
-        if call.positional.len() == 0 {
+        if call.positional.is_empty() {
             return Err(ShellError::ExternalNotSupported(call.head));
         }
 

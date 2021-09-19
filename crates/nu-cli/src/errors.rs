@@ -401,7 +401,7 @@ pub fn report_shell_error(
                 Diagnostic::error()
                     .with_message("External command")
                     .with_labels(vec![
-                        Label::primary(diag_file_id, diag_range).with_message(format!("{}", error))
+                        Label::primary(diag_file_id, diag_range).with_message(error.to_string())
                     ])
             }
         };
