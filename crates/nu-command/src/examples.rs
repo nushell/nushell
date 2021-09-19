@@ -21,8 +21,8 @@ use crate::commands::{
 };
 
 use crate::commands::{
-    Append, BuildString, Collect, Each, Echo, First, Get, Keep, Last, Let, Math, MathMode, Nth,
-    Select, StrCollect, Wrap,
+    Append, BuildString, Collect, Each, Echo, First, Get, If, IntoInt, Keep, Last, Let, Math,
+    MathMode, Nth, Select, StrCollect, Wrap,
 };
 use nu_engine::{run_block, whole_stream_command, Command, EvaluationContext, WholeStreamCommand};
 use nu_stream::InputStream;
@@ -41,6 +41,8 @@ pub fn test_examples(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(BuildString {}),
         whole_stream_command(First {}),
         whole_stream_command(Get {}),
+        whole_stream_command(If {}),
+        whole_stream_command(IntoInt {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
@@ -253,6 +255,8 @@ pub fn test_anchors(cmd: Command) -> Result<(), ShellError> {
         whole_stream_command(BuildString {}),
         whole_stream_command(First {}),
         whole_stream_command(Get {}),
+        whole_stream_command(If {}),
+        whole_stream_command(IntoInt {}),
         whole_stream_command(Keep {}),
         whole_stream_command(Each {}),
         whole_stream_command(Last {}),
