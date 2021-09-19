@@ -53,7 +53,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
         Ok(Self {
             name: &call.positional[0],
             args: &call.positional[1..],
-            context: context,
+            context,
         })
     }
 
