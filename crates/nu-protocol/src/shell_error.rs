@@ -21,4 +21,5 @@ pub enum ShellError {
     AccessBeyondEndOfStream(Span),
     IncompatiblePathAccess(String, Span),
     CantFindColumn(Span),
+    ExternalCommand(String, Span),
 }

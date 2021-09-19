@@ -104,6 +104,10 @@ impl Stack {
         })))
     }
 
+    pub fn get_env_vars(&self) -> HashMap<String, String> {
+        self.0.borrow().env_vars.clone()
+    }
+
     pub fn print_stack(&self) {
         println!("===frame===");
         println!("vars:");

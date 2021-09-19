@@ -395,6 +395,15 @@ pub fn report_shell_error(
                         Label::primary(diag_file_id, diag_range).with_message("cannot find column")
                     ])
             }
+            ShellError::ExternalCommand(error, span) => {
+                let (diag_file_id, diag_range) = convert_span_to_diag(working_set, span)?;
+
+                Diagnostic::error()
+                    .with_message("External command")
+                    .with_labels(vec![
+                        Label::primary(diag_file_id, diag_range).with_message(format!("{}", error))
+                    ])
+            }
         };
 
     // println!("DIAG");

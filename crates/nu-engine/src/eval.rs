@@ -1,8 +1,6 @@
-use std::process::Command;
-
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::{Range, ShellError, Span, Type, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -70,33 +68,6 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
     }
 }
 
-pub fn eval_external(
-    context: &EvaluationContext,
-    command_span: &Span,
-    spans: &Vec<Span>,
-    expr: &Expression,
-) -> Result<Value, ShellError> {
-    let state = context.engine_state.borrow();
-    let name = state.get_span_contents(command_span);
-    let cmd = std::str::from_utf8(name).unwrap();
-
-    let args = spans
-        .iter()
-        .map(|span| {
-            let val = state.get_span_contents(span);
-            std::str::from_utf8(val).unwrap()
-        })
-        .collect::<Vec<&str>>();
-
-    let output = Command::new(cmd).args(args).output().unwrap();
-
-    println!("{:?}", output);
-    let test = output.stdout;
-    println!("{:?}", test);
-
-    Err(ShellError::ExternalNotSupported(expr.span))
-}
-
 pub fn eval_expression(
     context: &EvaluationContext,
     expr: &Expression,
@@ -154,8 +125,37 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(command_span, spans) => {
-            eval_external(context, command_span, spans, expr)
+        Expr::ExternalCall(name, args) => {
+            let engine_state = context.engine_state.borrow();
+
+            let decl_id = engine_state
+                .find_decl("run_external".as_bytes())
+                .ok_or(ShellError::ExternalNotSupported(name.clone()))?;
+
+            let command = engine_state.get_decl(decl_id);
+            let new_context = context.enter_scope();
+
+            let mut call = Call::new();
+            call.positional = [name.clone()]
+                .iter()
+                .chain(args.iter())
+                .map(|span| {
+                    let contents = engine_state.get_span_contents(span);
+                    let val = String::from_utf8_lossy(contents);
+                    Expression {
+                        expr: Expr::String(val.into()),
+                        span: span.clone(),
+                        ty: Type::String,
+                        custom_completion: None,
+                    }
+                })
+                .collect();
+
+            let value = Value::Nothing {
+                span: Span::new(0, 1),
+            };
+
+            command.run(&new_context, &call, value)
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {

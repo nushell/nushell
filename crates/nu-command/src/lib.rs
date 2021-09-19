@@ -14,6 +14,7 @@ mod let_;
 mod let_env;
 mod list_git_branches;
 mod ls;
+mod run_external;
 mod table;
 mod where_;
 
@@ -33,4 +34,5 @@ pub use let_::Let;
 pub use let_env::LetEnv;
 pub use list_git_branches::ListGitBranches;
 pub use ls::Ls;
+pub use run_external::External;
 pub use table::Table;
