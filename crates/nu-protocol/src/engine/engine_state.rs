@@ -137,7 +137,7 @@ impl EngineState {
         output
     }
 
-    pub fn get_span_contents(&self, span: Span) -> &[u8] {
+    pub fn get_span_contents(&self, span: &Span) -> &[u8] {
         &self.file_contents[span.start..span.end]
     }
 

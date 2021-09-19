@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::{Range, ShellError, Span, Type, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -125,7 +125,38 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
+        Expr::ExternalCall(name, args) => {
+            let engine_state = context.engine_state.borrow();
+
+            let decl_id = engine_state
+                .find_decl("run_external".as_bytes())
+                .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
+
+            let command = engine_state.get_decl(decl_id);
+            let new_context = context.enter_scope();
+
+            let mut call = Call::new();
+            call.positional = [*name]
+                .iter()
+                .chain(args.iter())
+                .map(|span| {
+                    let contents = engine_state.get_span_contents(span);
+                    let val = String::from_utf8_lossy(contents);
+                    Expression {
+                        expr: Expr::String(val.into()),
+                        span: *span,
+                        ty: Type::String,
+                        custom_completion: None,
+                    }
+                })
+                .collect();
+
+            let value = Value::Nothing {
+                span: Span::new(0, 1),
+            };
+
+            command.run(&new_context, &call, value)
+        }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
