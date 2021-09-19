@@ -130,13 +130,13 @@ pub fn eval_expression(
 
             let decl_id = engine_state
                 .find_decl("run_external".as_bytes())
-                .ok_or(ShellError::ExternalNotSupported(name.clone()))?;
+                .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
 
             let command = engine_state.get_decl(decl_id);
             let new_context = context.enter_scope();
 
             let mut call = Call::new();
-            call.positional = [name.clone()]
+            call.positional = [*name]
                 .iter()
                 .chain(args.iter())
                 .map(|span| {
@@ -144,7 +144,7 @@ pub fn eval_expression(
                     let val = String::from_utf8_lossy(contents);
                     Expression {
                         expr: Expr::String(val.into()),
-                        span: span.clone(),
+                        span: *span,
                         ty: Type::String,
                         custom_completion: None,
                     }
