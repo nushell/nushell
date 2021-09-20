@@ -61,12 +61,11 @@ fn find_source_file(
 
     if let Some(dir) = lib_dirs {
         for lib_path in dir.into_iter().flatten() {
-            let path = canonicalize_with(&file, lib_path).map_err(|e| {
-                ParseError::general_error(
-                    format!("Can't load source file. Reason: {}", e.to_string()),
-                    "Can't load this file".spanned(file_span),
-                )
-            })?;
+            let path = if let Ok(p) = canonicalize_with(&file, lib_path) {
+                p
+            } else {
+                continue;
+            };
 
             if let Ok(contents) = std::fs::read_to_string(&path) {
                 return parse(&contents, 0, scope);
