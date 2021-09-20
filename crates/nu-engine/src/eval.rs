@@ -98,7 +98,7 @@ fn eval_external(
         })
         .collect();
 
-    command.run(&context, &call, input)
+    command.run(context, &call, input)
 }
 
 pub fn eval_expression(
