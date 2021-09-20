@@ -68,6 +68,39 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
     }
 }
 
+fn eval_external(
+    context: &EvaluationContext,
+    name: &Span,
+    args: &[Span],
+    input: Value,
+) -> Result<Value, ShellError> {
+    let engine_state = context.engine_state.borrow();
+
+    let decl_id = engine_state
+        .find_decl("run_external".as_bytes())
+        .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
+
+    let command = engine_state.get_decl(decl_id);
+
+    let mut call = Call::new();
+    call.positional = [*name]
+        .iter()
+        .chain(args.iter())
+        .map(|span| {
+            let contents = engine_state.get_span_contents(span);
+            let val = String::from_utf8_lossy(contents);
+            Expression {
+                expr: Expr::String(val.into()),
+                span: *span,
+                ty: Type::String,
+                custom_completion: None,
+            }
+        })
+        .collect();
+
+    command.run(context, &call, input)
+}
+
 pub fn eval_expression(
     context: &EvaluationContext,
     expr: &Expression,
@@ -125,38 +158,7 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(name, args) => {
-            let engine_state = context.engine_state.borrow();
-
-            let decl_id = engine_state
-                .find_decl("run_external".as_bytes())
-                .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
-
-            let command = engine_state.get_decl(decl_id);
-            let new_context = context.enter_scope();
-
-            let mut call = Call::new();
-            call.positional = [*name]
-                .iter()
-                .chain(args.iter())
-                .map(|span| {
-                    let contents = engine_state.get_span_contents(span);
-                    let val = String::from_utf8_lossy(contents);
-                    Expression {
-                        expr: Expr::String(val.into()),
-                        span: *span,
-                        ty: Type::String,
-                        custom_completion: None,
-                    }
-                })
-                .collect();
-
-            let value = Value::Nothing {
-                span: Span::new(0, 1),
-            };
-
-            command.run(&new_context, &call, value)
-        }
+        Expr::ExternalCall(name, args) => eval_external(context, name, args, Value::nothing()),
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
@@ -246,6 +248,12 @@ pub fn eval_block(
                         ..
                     } => {
                         input = eval_call(context, call, input)?;
+                    }
+                    Expression {
+                        expr: Expr::ExternalCall(name, args),
+                        ..
+                    } => {
+                        input = eval_external(context, name, args, input)?;
                     }
 
                     elem => {
