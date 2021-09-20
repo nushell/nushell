@@ -76,53 +76,6 @@ You can also build Nu yourself with all the bells and whistles (be sure to have 
 ```shell
 cargo build --workspace --features=extra
 ```
-
-### Docker
-
-#### Quickstart
-
-Want to try Nu right away? Execute the following to get started.
-
-```shell
-docker run -it quay.io/nushell/nu:latest
-```
-
-#### Guide
-
-If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
-on Quay.io. Pulling a container would come down to:
-
-```shell
-docker pull quay.io/nushell/nu
-docker pull quay.io/nushell/nu-base
-```
-
-Both "nu-base" and "nu" provide the nu binary, however, nu-base also includes the source code at `/code`
-in the container and all dependencies.
-
-Optionally, you can also build the containers locally using the [dockerfiles provided](docker):
-To build the base image:
-
-```shell
-docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
-```
-
-And then to build the smaller container (using a Multistage build):
-
-```shell
-docker build -f docker/Dockerfile -t nushell/nu .
-```
-
-Either way, you can run either container as follows:
-
-```shell
-docker run -it nushell/nu-base
-docker run -it nushell/nu
-/> exit
-```
-
-The second container is a bit smaller if the size is important to you.
-
 ### Packaging status
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
