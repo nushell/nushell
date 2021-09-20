@@ -81,7 +81,6 @@ fn eval_external(
         .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
 
     let command = engine_state.get_decl(decl_id);
-    let new_context = context.enter_scope();
 
     let mut call = Call::new();
     call.positional = [*name]
@@ -99,7 +98,7 @@ fn eval_external(
         })
         .collect();
 
-    command.run(&new_context, &call, input)
+    command.run(&context, &call, input)
 }
 
 pub fn eval_expression(
