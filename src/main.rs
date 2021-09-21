@@ -13,6 +13,8 @@ use reedline::DefaultCompletionActionHandler;
 mod tests;
 
 fn main() -> Result<()> {
+    miette::set_panic_hook();
+
     let engine_state = create_default_context();
 
     if let Some(path) = std::env::args().nth(1) {
