@@ -39,7 +39,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::type_mismatch), url(docsrs))]
     Mismatch(String, String, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
-    #[error("Unsupported operation.")]
+    #[error("Types mismatched for operation.")]
     #[diagnostic(
         code(nu::parser::unsupported_operation),
         url(docsrs),
