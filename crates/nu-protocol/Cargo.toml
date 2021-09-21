@@ -7,4 +7,4 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0.29"
-miette = { version = "3.0.0-alpha.0" }
+miette = { git = "https://github.com/zkat/miette", branch = "release/3.0.0" }

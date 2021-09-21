@@ -160,9 +160,13 @@ fn parse_long_flag(
                 }
             } else {
                 (
-                    Some(long_name),
+                    Some(long_name.clone()),
                     None,
-                    Some(ParseError::UnknownFlag(arg_span)),
+                    Some(ParseError::UnknownFlag(
+                        sig.name.clone(),
+                        long_name.clone(),
+                        arg_span,
+                    )),
                 )
             }
         } else {
@@ -214,17 +218,45 @@ fn parse_short_flags(
                     if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
                         return (None, None);
                     } else if let Some(first) = unmatched_short_flags.first() {
-                        error = error.or(Some(ParseError::UnknownFlag(*first)));
+                        let contents = working_set.get_span_contents(*first);
+                        error = error.or_else(|| {
+                            Some(ParseError::UnknownFlag(
+                                sig.name.clone(),
+                                format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                                *first,
+                            ))
+                        });
                     }
                 } else if let Some(first) = unmatched_short_flags.first() {
-                    error = error.or(Some(ParseError::UnknownFlag(*first)));
+                    let contents = working_set.get_span_contents(*first);
+                    error = error.or_else(|| {
+                        Some(ParseError::UnknownFlag(
+                            sig.name.clone(),
+                            format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                            *first,
+                        ))
+                    });
                 }
             } else if let Some(first) = unmatched_short_flags.first() {
-                error = error.or(Some(ParseError::UnknownFlag(*first)));
+                let contents = working_set.get_span_contents(*first);
+                error = error.or_else(|| {
+                    Some(ParseError::UnknownFlag(
+                        sig.name.clone(),
+                        format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                        *first,
+                    ))
+                });
             }
         } else if !unmatched_short_flags.is_empty() {
             if let Some(first) = unmatched_short_flags.first() {
-                error = error.or(Some(ParseError::UnknownFlag(*first)));
+                let contents = working_set.get_span_contents(*first);
+                error = error.or_else(|| {
+                    Some(ParseError::UnknownFlag(
+                        sig.name.clone(),
+                        format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                        *first,
+                    ))
+                });
             }
         }
 
