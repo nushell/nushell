@@ -168,7 +168,7 @@ pub fn lex_item(
             (delim as char).to_string(),
             Span {
                 start: span.end,
-                end: span.end + 1,
+                end: span.end,
             },
         );
 
