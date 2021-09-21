@@ -574,14 +574,25 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                 let content_span = span_contents.span();
                 // Back to "global" indexing
                 let retranslated = (content_span.offset() + start, content_span.len()).into();
-                return Ok(Box::new(miette::MietteSpanContents::new_named(
-                    filename.clone(),
-                    span_contents.data(),
-                    retranslated,
-                    span_contents.line(),
-                    span_contents.column(),
-                    span_contents.line_count(),
-                )));
+
+                if filename == "<cli>" {
+                    return Ok(Box::new(miette::MietteSpanContents::new(
+                        span_contents.data(),
+                        retranslated,
+                        span_contents.line(),
+                        span_contents.column(),
+                        span_contents.line_count(),
+                    )));
+                } else {
+                    return Ok(Box::new(miette::MietteSpanContents::new_named(
+                        filename.clone(),
+                        span_contents.data(),
+                        retranslated,
+                        span_contents.line(),
+                        span_contents.column(),
+                        span_contents.line_count(),
+                    )));
+                }
             }
         }
         Err(miette::MietteError::OutOfBounds)

@@ -71,7 +71,6 @@ fn main() -> Result<()> {
             ));
 
         let prompt = DefaultPrompt::new(1);
-        let mut current_line = 1;
         let stack = nu_protocol::engine::Stack::new();
 
         loop {
@@ -97,12 +96,8 @@ fn main() -> Result<()> {
                     let (block, delta) = {
                         let engine_state = engine_state.borrow();
                         let mut working_set = StateWorkingSet::new(&*engine_state);
-                        let (output, err) = parse(
-                            &mut working_set,
-                            Some(&format!("line_{}", current_line)),
-                            s.as_bytes(),
-                            false,
-                        );
+                        let (output, err) =
+                            parse(&mut working_set, Some("<cli>"), s.as_bytes(), false);
                         if let Some(err) = err {
                             report_error(&working_set, &err);
                             continue;
@@ -145,7 +140,6 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            current_line += 1;
         }
 
         Ok(())
