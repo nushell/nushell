@@ -2,7 +2,7 @@ use crate::{ast::Call, value::Value, BlockId, Example, ShellError, Signature};
 
 use super::EvaluationContext;
 
-pub trait Command {
+pub trait Command: Send + Sync {
     fn name(&self) -> &str;
 
     fn signature(&self) -> Signature {

@@ -1,4 +1,5 @@
-use nu_cli::{report_parsing_error, report_shell_error, NuCompleter, NuHighlighter};
+use miette::{IntoDiagnostic, Result};
+use nu_cli::{report_error, NuCompleter, NuHighlighter};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -11,18 +12,18 @@ use reedline::DefaultCompletionActionHandler;
 #[cfg(test)]
 mod tests;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<()> {
     let engine_state = create_default_context();
 
     if let Some(path) = std::env::args().nth(1) {
-        let file = std::fs::read(&path)?;
+        let file = std::fs::read(&path).into_diagnostic()?;
 
         let (block, delta) = {
             let engine_state = engine_state.borrow();
             let mut working_set = StateWorkingSet::new(&*engine_state);
             let (output, err) = parse(&mut working_set, Some(&path), &file, false);
             if let Some(err) = err {
-                let _ = report_parsing_error(&working_set, &err);
+                report_error(&working_set, &err);
 
                 std::process::exit(1);
             }
@@ -44,7 +45,7 @@ fn main() -> std::io::Result<()> {
                 let engine_state = engine_state.borrow();
                 let working_set = StateWorkingSet::new(&*engine_state);
 
-                let _ = report_shell_error(&working_set, &err);
+                report_error(&working_set, &err);
 
                 std::process::exit(1);
             }
@@ -56,11 +57,12 @@ fn main() -> std::io::Result<()> {
 
         let completer = NuCompleter::new(engine_state.clone());
 
-        let mut line_editor = Reedline::create()?
-            .with_history(Box::new(FileBackedHistory::with_file(
-                1000,
-                "history.txt".into(),
-            )?))?
+        let mut line_editor = Reedline::create()
+            .into_diagnostic()?
+            .with_history(Box::new(
+                FileBackedHistory::with_file(1000, "history.txt".into()).into_diagnostic()?,
+            ))
+            .into_diagnostic()?
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
             }))
@@ -102,7 +104,7 @@ fn main() -> std::io::Result<()> {
                             false,
                         );
                         if let Some(err) = err {
-                            let _ = report_parsing_error(&working_set, &err);
+                            report_error(&working_set, &err);
                             continue;
                         }
                         (output, working_set.render())
@@ -123,7 +125,7 @@ fn main() -> std::io::Result<()> {
                             let engine_state = engine_state.borrow();
                             let working_set = StateWorkingSet::new(&*engine_state);
 
-                            let _ = report_shell_error(&working_set, &err);
+                            report_error(&working_set, &err);
                         }
                     }
                 }
@@ -134,7 +136,7 @@ fn main() -> std::io::Result<()> {
                     break;
                 }
                 Ok(Signal::CtrlL) => {
-                    line_editor.clear_screen()?;
+                    line_editor.clear_screen().into_diagnostic()?;
                 }
                 Err(err) => {
                     let message = err.to_string();

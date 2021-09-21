@@ -133,7 +133,7 @@ fn if_elseif4() -> TestResult {
 fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",
-        "variable not found",
+        "Variable not found",
     )
 }
 

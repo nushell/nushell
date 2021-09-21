@@ -1,7 +1,7 @@
 use super::Command;
 use crate::{ast::Block, BlockId, DeclId, Span, Type, VarId};
 use core::panic;
-use std::{collections::HashMap, ops::Range, slice::Iter};
+use std::{collections::HashMap, slice::Iter};
 
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -549,95 +549,42 @@ impl<'a> StateWorkingSet<'a> {
     }
 }
 
-impl<'a> codespan_reporting::files::Files<'a> for StateWorkingSet<'a> {
-    type FileId = usize;
-
-    type Name = String;
-
-    type Source = String;
-
-    fn name(&'a self, id: Self::FileId) -> Result<Self::Name, codespan_reporting::files::Error> {
-        Ok(self.get_filename(id))
-    }
-
-    fn source(
-        &'a self,
-        id: Self::FileId,
-    ) -> Result<Self::Source, codespan_reporting::files::Error> {
-        Ok(self.get_file_source(id))
-    }
-
-    fn line_index(
-        &'a self,
-        id: Self::FileId,
-        byte_index: usize,
-    ) -> Result<usize, codespan_reporting::files::Error> {
-        let source = self.get_file_source(id);
-
-        let mut count = 0;
-
-        for byte in source.bytes().enumerate() {
-            if byte.0 == byte_index {
-                // println!("count: {} for file: {} index: {}", count, id, byte_index);
-                return Ok(count);
-            }
-            if byte.1 == b'\n' {
-                count += 1;
-            }
-        }
-
-        // println!("count: {} for file: {} index: {}", count, id, byte_index);
-        Ok(count)
-    }
-
-    fn line_range(
-        &'a self,
-        id: Self::FileId,
-        line_index: usize,
-    ) -> Result<Range<usize>, codespan_reporting::files::Error> {
-        let source = self.get_file_source(id);
-
-        let mut count = 0;
-
-        let mut start = Some(0);
-        let mut end = None;
-
-        for byte in source.bytes().enumerate() {
-            #[allow(clippy::comparison_chain)]
-            if count > line_index {
-                let start = start.expect("internal error: couldn't find line");
-                let end = end.expect("internal error: couldn't find line");
-
-                // println!(
-                //     "Span: {}..{} for fileid: {} index: {}",
-                //     start, end, id, line_index
-                // );
-                return Ok(start..end);
-            } else if count == line_index {
-                end = Some(byte.0 + 1);
-            }
-
-            #[allow(clippy::comparison_chain)]
-            if byte.1 == b'\n' {
-                count += 1;
-                if count > line_index {
-                    break;
-                } else if count == line_index {
-                    start = Some(byte.0 + 1);
-                }
+impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
+    fn read_span<'b>(
+        &'b self,
+        span: &miette::SourceSpan,
+        context_lines_before: usize,
+        context_lines_after: usize,
+    ) -> Result<Box<dyn miette::SpanContents + 'b>, miette::MietteError> {
+        for (filename, start, end) in self.files() {
+            if span.offset() >= *start && span.offset() + span.len() <= *end {
+                let our_span = Span {
+                    start: *start,
+                    end: *end,
+                };
+                // We need to move to a local span because we're only reading
+                // the specific file contents via self.get_span_contents.
+                let local_span = (span.offset() - *start, span.len()).into();
+                let span_contents = self.get_span_contents(our_span);
+                let span_contents = span_contents.read_span(
+                    &local_span,
+                    context_lines_before,
+                    context_lines_after,
+                )?;
+                let content_span = span_contents.span();
+                // Back to "global" indexing
+                let retranslated = (content_span.offset() + start, content_span.len()).into();
+                return Ok(Box::new(miette::MietteSpanContents::new_named(
+                    filename.clone(),
+                    span_contents.data(),
+                    retranslated,
+                    span_contents.line(),
+                    span_contents.column(),
+                    span_contents.line_count(),
+                )));
             }
         }
-
-        match (start, end) {
-            (Some(start), Some(end)) => {
-                // println!(
-                //     "Span: {}..{} for fileid: {} index: {}",
-                //     start, end, id, line_index
-                // );
-                Ok(start..end)
-            }
-            _ => Err(codespan_reporting::files::Error::FileMissing),
-        }
+        Err(miette::MietteError::OutOfBounds)
     }
 }
 
