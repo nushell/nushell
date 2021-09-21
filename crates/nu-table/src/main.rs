@@ -72,7 +72,7 @@ fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
 fn vec_of_str_to_vec_of_styledstr(data: &[&str], is_header: bool) -> Vec<StyledString> {
     let mut v = vec![];
 
-    for x in data.iter() {
+    for x in data {
         if is_header {
             v.push(StyledString::new(
                 String::from(*x),

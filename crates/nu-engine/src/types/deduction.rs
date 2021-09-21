@@ -323,7 +323,7 @@ fn get_result_shape_of_math_expr(
     scope: &Scope,
 ) -> Result<Option<SyntaxShape>, ShellError> {
     let mut shapes: Vec<Option<SyntaxShape>> = vec![];
-    for expr in &[&bin.left, &bin.right] {
+    for expr in [&bin.left, &bin.right] {
         let shape = match &expr.expr {
             Expression::Binary(deep_binary) => {
                 get_result_shape_of_math_expr(deep_binary, (pipeline_idx, pipeline), scope)?
@@ -468,7 +468,10 @@ impl VarSyntaxShapeDeductor {
             if let Expression::Variable(var_name, _) = &positional.expr {
                 let deduced_shape = {
                     if pos_idx >= signature.positional.len() {
-                        signature.rest_positional.as_ref().map(|(shape, _)| shape)
+                        signature
+                            .rest_positional
+                            .as_ref()
+                            .map(|(_, shape, _)| shape)
                     } else {
                         match &signature.positional[pos_idx].0 {
                             PositionalType::Mandatory(_, shape)
@@ -1017,7 +1020,7 @@ impl VarSyntaxShapeDeductor {
                             merge_join_by(a, b, |a, b| {
                                 (a.deduction as i32).cmp(&(b.deduction as i32))
                             })
-                            .map(|either_or| match either_or {
+                            .filter_map(|either_or| match either_or {
                                 //Left is a, right is b
                                 //(a UNION none) OR a is a
                                 EitherOrBoth::Left(deduc) => Some(deduc.clone()),
@@ -1030,7 +1033,6 @@ impl VarSyntaxShapeDeductor {
                                     Some(combination)
                                 }
                             })
-                            .flatten()
                             .collect()
                         }
                         //No any's intersection of both is result

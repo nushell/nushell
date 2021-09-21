@@ -11,11 +11,9 @@ impl Plugin for TreeViewer {
     }
 
     fn sink(&mut self, _call_info: CallInfo, input: Vec<Value>) {
-        if !input.is_empty() {
-            for i in input.iter() {
-                let view = TreeView::from_value(i);
-                let _ = view.render_view();
-            }
+        for i in &input {
+            let view = TreeView::from_value(i);
+            let _ = view.render_view();
         }
     }
 }

@@ -9,7 +9,7 @@ use nu_protocol::{Primitive, Signature, UntaggedValue, Value};
 use nu_table::TextStyle;
 
 #[cfg(feature = "dataframe")]
-use nu_protocol::dataframe::PolarsData;
+use nu_protocol::dataframe::FrameStruct;
 
 pub struct Command;
 
@@ -206,7 +206,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                     > term_width)
                         {
                             let mut entries = vec![];
-                            for (key, value) in row.entries.iter() {
+                            for (key, value) in &row.entries {
                                 entries.push(vec![
                                     nu_table::StyledString::new(
                                         key.to_string(),
@@ -239,7 +239,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)),
+                        value: UntaggedValue::DataFrame(df),
                         tag,
                     } => {
                         if let Some(table) = table {
@@ -253,7 +253,7 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     #[cfg(feature = "dataframe")]
                     Value {
-                        value: UntaggedValue::DataFrame(PolarsData::GroupBy(groupby)),
+                        value: UntaggedValue::FrameStruct(FrameStruct::GroupBy(groupby)),
                         tag,
                     } => {
                         if let Some(table) = table {
@@ -261,20 +261,6 @@ pub fn autoview(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             // adjusted to see a certain amount of values in the head
                             let command_args =
                                 create_default_command_args(&context, groupby.print()?.into(), tag);
-                            let result = table.run(command_args)?;
-                            let _ = result.collect::<Vec<_>>();
-                        }
-                    }
-                    #[cfg(feature = "dataframe")]
-                    Value {
-                        value: UntaggedValue::DataFrame(PolarsData::Series(series)),
-                        tag,
-                    } => {
-                        if let Some(table) = table {
-                            // TODO. Configure the parameter rows from file. It can be
-                            // adjusted to see a certain amount of values in the head
-                            let command_args =
-                                create_default_command_args(&context, series.print()?.into(), tag);
                             let result = table.run(command_args)?;
                             let _ = result.collect::<Vec<_>>();
                         }

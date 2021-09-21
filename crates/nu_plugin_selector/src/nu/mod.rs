@@ -10,33 +10,54 @@ impl Plugin for Selector {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("selector")
             .desc("execute selector query on html/web")
-            .required("query", SyntaxShape::String, "selector query")
-            .switch("as_html", "return the query output as html", Some('a'))
+            .named("query", SyntaxShape::String, "selector query", Some('q'))
+            .switch("as_html", "return the query output as html", Some('m'))
             .named(
                 "attribute",
                 SyntaxShape::String,
                 "downselect based on the given attribute",
+                Some('a'),
+            )
+            .named(
+                "as_table",
+                SyntaxShape::Table,
+                "find table based on column header list",
                 Some('t'),
+            )
+            .switch(
+                "inspect",
+                "run in inspect mode to provide more information for determining column headers",
+                Some('i'),
             )
             .filter())
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         let tag = call_info.name_tag;
-        let query = call_info.args.nth(0).ok_or_else(|| {
-            ShellError::labeled_error(
-                "selector query not passed",
-                "selector query not passed",
-                &tag,
-            )
-        })?;
+        // let query = call_info.args.nth(0).ok_or_else(|| {
+        //     ShellError::labeled_error(
+        //         "selector query not passed",
+        //         "selector query not passed",
+        //         &tag,
+        //     )
+        // })?;
 
-        self.query = query.as_string()?;
+        // self.query = query.as_string()?;
+        self.query = if let Some(qtext) = call_info.args.get("query") {
+            qtext.convert_to_string()
+        } else {
+            "".to_string()
+        };
         self.tag = tag;
         self.as_html = call_info.args.has("as_html");
         if call_info.args.has("attribute") {
             self.attribute = call_info.args.expect_get("attribute")?.convert_to_string();
         }
+
+        if call_info.args.has("as_table") {
+            self.as_table = call_info.args.expect_get("as_table")?.clone();
+        }
+        self.inspect = call_info.args.has("inspect");
 
         Ok(vec![])
     }

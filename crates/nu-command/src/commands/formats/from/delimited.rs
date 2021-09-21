@@ -27,7 +27,7 @@ fn from_delimited_string_to_value(
     let mut rows = vec![];
     for row in reader.records() {
         let mut tagged_row = TaggedDictBuilder::new(&tag);
-        for (value, header) in row?.iter().zip(headers.iter()) {
+        for (value, header) in row?.iter().zip(&headers) {
             if let Ok(i) = value.parse::<i64>() {
                 tagged_row.insert_value(header, UntaggedValue::int(i).into_value(&tag))
             } else if let Ok(f) = value.parse::<f64>() {

@@ -18,8 +18,12 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Def),
             whole_stream_command(Source),
             whole_stream_command(Alias),
+            whole_stream_command(Unalias),
             whole_stream_command(Ignore),
+            whole_stream_command(Tutor),
+            whole_stream_command(Find),
             // System/file operations
+            whole_stream_command(ErrorMake),
             whole_stream_command(Exec),
             whole_stream_command(Pwd),
             whole_stream_command(Ls),
@@ -27,6 +31,12 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Cd),
             whole_stream_command(Remove),
             whole_stream_command(Open),
+            whole_stream_command(Pathvar),
+            whole_stream_command(PathvarAdd),
+            whole_stream_command(PathvarRemove),
+            whole_stream_command(PathvarReset),
+            whole_stream_command(PathvarAppend),
+            whole_stream_command(PathvarSave),
             whole_stream_command(Config),
             whole_stream_command(ConfigGet),
             whole_stream_command(ConfigSet),
@@ -45,6 +55,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DateToTable),
             whole_stream_command(DateToTimeZone),
             whole_stream_command(DateFormat),
+            whole_stream_command(DateHumanize),
             whole_stream_command(Cal),
             whole_stream_command(Mkdir),
             whole_stream_command(Mv),
@@ -66,6 +77,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Shells
             whole_stream_command(Next),
             whole_stream_command(Previous),
+            whole_stream_command(Goto),
             whole_stream_command(Shells),
             whole_stream_command(Enter),
             whole_stream_command(Exit),
@@ -77,7 +89,8 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Text manipulation
             whole_stream_command(Hash),
             whole_stream_command(HashBase64),
-            whole_stream_command(HashMd5),
+            whole_stream_command(HashMd5::default()),
+            whole_stream_command(HashSha256::default()),
             whole_stream_command(Split),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
@@ -97,8 +110,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(StrContains),
             whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
-            whole_stream_command(StrTrimLeft),
-            whole_stream_command(StrTrimRight),
             whole_stream_command(StrStartsWith),
             whole_stream_command(StrEndsWith),
             whole_stream_command(StrCollect),
@@ -123,10 +134,13 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Select),
             whole_stream_command(Get),
             whole_stream_command(Update),
+            whole_stream_command(UpdateCells),
             whole_stream_command(Insert),
             whole_stream_command(Into),
             whole_stream_command(IntoBinary),
             whole_stream_command(IntoInt),
+            whole_stream_command(IntoFilepath),
+            whole_stream_command(IntoFilesize),
             whole_stream_command(IntoString),
             whole_stream_command(SplitBy),
             // Row manipulation
@@ -143,6 +157,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Every),
             whole_stream_command(Nth),
             whole_stream_command(Drop),
+            whole_stream_command(DropNth),
             whole_stream_command(Format),
             whole_stream_command(FileSize),
             whole_stream_command(Where),
@@ -176,6 +191,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(RollUp),
             whole_stream_command(Rotate),
             whole_stream_command(RotateCounterClockwise),
+            whole_stream_command(Zip),
             whole_stream_command(Collect),
             // Data processing
             whole_stream_command(Histogram),
@@ -257,13 +273,23 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Seq),
             whole_stream_command(SeqDates),
             whole_stream_command(TermSize),
+            // Network
+            #[cfg(feature = "fetch")]
+            whole_stream_command(Fetch),
+            #[cfg(feature = "post")]
+            whole_stream_command(Post),
+            // System
+            #[cfg(feature = "ps")]
+            whole_stream_command(Ps),
+            #[cfg(feature = "sys")]
+            whole_stream_command(Sys),
         ]);
 
         //Dataframe commands
         #[cfg(feature = "dataframe")]
         context.add_commands(vec![
             whole_stream_command(DataFrame),
-            whole_stream_command(DataFrameLoad),
+            whole_stream_command(DataFrameOpen),
             whole_stream_command(DataFrameList),
             whole_stream_command(DataFrameGroupBy),
             whole_stream_command(DataFrameAggregate),
@@ -274,14 +300,13 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameSelect),
             whole_stream_command(DataFrameDTypes),
             whole_stream_command(DataFrameDummies),
-            whole_stream_command(DataFrameHead),
-            whole_stream_command(DataFrameTail),
+            whole_stream_command(DataFrameFirst),
+            whole_stream_command(DataFrameLast),
             whole_stream_command(DataFrameSlice),
             whole_stream_command(DataFrameMelt),
             whole_stream_command(DataFramePivot),
             whole_stream_command(DataFrameWhere),
             whole_stream_command(DataFrameToDF),
-            whole_stream_command(DataFrameToSeries),
             whole_stream_command(DataFrameToParquet),
             whole_stream_command(DataFrameToCsv),
             whole_stream_command(DataFrameSort),
@@ -310,11 +335,42 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameIsIn),
             whole_stream_command(DataFrameShift),
             whole_stream_command(DataFrameSet),
+            whole_stream_command(DataFrameNot),
+            whole_stream_command(DataFrameTake),
+            whole_stream_command(DataFrameSetWithIdx),
+            whole_stream_command(DataFrameShape),
+            whole_stream_command(DataFrameReplace),
+            whole_stream_command(DataFrameReplaceAll),
+            whole_stream_command(DataFrameStringLengths),
+            whole_stream_command(DataFrameContains),
+            whole_stream_command(DataFrameToLowercase),
+            whole_stream_command(DataFrameToUppercase),
+            whole_stream_command(DataFrameStringSlice),
+            whole_stream_command(DataFrameConcatenate),
+            whole_stream_command(DataFrameAppend),
+            whole_stream_command(DataFrameGetHour),
+            whole_stream_command(DataFrameGetMinute),
+            whole_stream_command(DataFrameGetSecond),
+            whole_stream_command(DataFrameGetDay),
+            whole_stream_command(DataFrameGetMonth),
+            whole_stream_command(DataFrameGetYear),
+            whole_stream_command(DataFrameGetWeek),
+            whole_stream_command(DataFrameGetWeekDay),
+            whole_stream_command(DataFrameGetOrdinal),
+            whole_stream_command(DataFrameGetNanoSecond),
+            whole_stream_command(DataFrameStrFTime),
+            whole_stream_command(DataFrameDescribe),
+            whole_stream_command(DataFrameRolling),
+            whole_stream_command(DataFrameCumulative),
+            whole_stream_command(DataFrameRename),
         ]);
 
         #[cfg(feature = "clipboard-cli")]
         {
-            context.add_commands(vec![whole_stream_command(crate::commands::Clip)]);
+            context.add_commands(vec![
+                whole_stream_command(crate::commands::Clip),
+                whole_stream_command(crate::commands::Paste),
+            ]);
         }
     }
 

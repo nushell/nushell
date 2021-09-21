@@ -17,7 +17,7 @@ mod integration {
                     .create(),
             )
             .setup(|plugin, returned_values| {
-                let actual = format!("{}", returned_values.unwrap_err());
+                let actual = returned_values.unwrap_err().to_string();
 
                 assert!(actual.contains("can only apply one"));
                 assert_eq!(plugin.error, Some("can only apply one".to_string()));

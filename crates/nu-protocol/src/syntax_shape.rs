@@ -39,10 +39,9 @@ pub enum SyntaxShape {
     MathExpression,
 }
 
-impl PrettyDebug for SyntaxShape {
-    /// Prepare SyntaxShape for pretty-printing
-    fn pretty(&self) -> DebugDocBuilder {
-        DbgDocBldr::kind(match self {
+impl SyntaxShape {
+    pub fn syntax_shape_name(&self) -> &str {
+        match self {
             SyntaxShape::Any => "any",
             SyntaxShape::String => "string",
             SyntaxShape::FullColumnPath => "column path (with variable)",
@@ -59,6 +58,13 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Operator => "operator",
             SyntaxShape::RowCondition => "condition",
             SyntaxShape::MathExpression => "math expression",
-        })
+        }
+    }
+}
+
+impl PrettyDebug for SyntaxShape {
+    /// Prepare SyntaxShape for pretty-printing
+    fn pretty(&self) -> DebugDocBuilder {
+        DbgDocBldr::kind(self.syntax_shape_name().to_string())
     }
 }

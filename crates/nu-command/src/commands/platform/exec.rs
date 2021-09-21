@@ -25,6 +25,7 @@ impl WholeStreamCommand for Exec {
         Signature::build("exec")
             .required("command", SyntaxShape::FilePath, "the command to execute")
             .rest(
+                "rest",
                 SyntaxShape::GlobPattern,
                 "any additional arguments for the command",
             )
@@ -79,7 +80,7 @@ fn exec(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Err(ShellError::labeled_error(
         "Error on exec",
-        format!("{}", err),
+        err.to_string(),
         &name,
     ))
 }

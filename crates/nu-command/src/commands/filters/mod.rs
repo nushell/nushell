@@ -36,8 +36,10 @@ mod skip;
 pub(crate) mod sort_by;
 mod uniq;
 mod update;
+mod update_cells;
 mod where_;
 mod wrap;
+mod zip_;
 
 pub use all::Command as All;
 pub use any::Command as Any;
@@ -77,5 +79,7 @@ pub use skip::{Skip, SkipUntil, SkipWhile};
 pub use sort_by::SortBy;
 pub use uniq::Uniq;
 pub use update::Command as Update;
+pub use update_cells::SubCommand as UpdateCells;
 pub use where_::Command as Where;
 pub use wrap::Wrap;
+pub use zip_::Command as Zip;

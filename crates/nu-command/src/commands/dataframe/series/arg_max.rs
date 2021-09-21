@@ -2,8 +2,11 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::NuSeries, Primitive, Signature, TaggedDictBuilder, UntaggedValue, Value,
+    dataframe::{Column, NuDataFrame},
+    Signature, UntaggedValue,
 };
+
+use polars::prelude::{IntoSeries, NewChunkedArray, UInt32Chunked};
 
 pub struct DataFrame;
 
@@ -13,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Return index for max value in series"
+        "[Series] Return index for max value in series"
     }
 
     fn signature(&self) -> Signature {
@@ -27,8 +30,16 @@ impl WholeStreamCommand for DataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns index for max value",
-            example: "[1 3 2] | dataframe to-series | dataframe arg-max",
-            result: None,
+            example: "[1 3 2] | dataframe to-df | dataframe arg-max",
+            result: Some(vec![NuDataFrame::try_from_columns(
+                vec![Column::new(
+                    "arg_max".to_string(),
+                    vec![UntaggedValue::int(1).into()],
+                )],
+                &Span::default(),
+            )
+            .expect("simple df for test should not fail")
+            .into_value(Tag::default())]),
         }]
     }
 }
@@ -36,22 +47,31 @@ impl WholeStreamCommand for DataFrame {
 fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
 
-    let series = NuSeries::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let series = df.as_series(&df_tag.span)?;
 
-    let res = series.as_ref().arg_max();
+    let res = series.arg_max();
 
-    let value = match res {
-        Some(index) => UntaggedValue::Primitive(Primitive::Int(index as i64)),
-        None => UntaggedValue::Primitive(Primitive::Nothing),
+    let chunked = match res {
+        Some(index) => UInt32Chunked::new_from_slice("arg_max", &[index as u32]),
+        None => UInt32Chunked::new_from_slice("arg_max", &[]),
     };
 
-    let value = Value {
-        value,
-        tag: tag.clone(),
-    };
+    let res = chunked.into_series();
+    let df = NuDataFrame::try_from_series(vec![res], &tag.span)?;
 
-    let mut data = TaggedDictBuilder::new(tag);
-    data.insert_value("arg-max", value);
+    Ok(OutputStream::one(df.into_value(df_tag)))
+}
 
-    Ok(OutputStream::one(data.into_value()))
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
+    }
 }

@@ -1,5 +1,7 @@
+use std::convert::TryInto;
+
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{EnvVar, WholeStreamCommand};
 
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
@@ -60,14 +62,17 @@ fn load_env_from_table(
 
         for (key, value) in value.row_entries() {
             if key == "name" {
-                var_name = Some(value.as_string()?);
+                var_name = Some(value);
             } else if key == "value" {
-                var_value = Some(value.as_string()?);
+                var_value = Some(value);
             }
         }
 
         match (var_name, var_value) {
-            (Some(name), Some(value)) => ctx.scope.add_env_var(name, value),
+            (Some(name), Some(value)) => {
+                let env_var: EnvVar = value.try_into()?;
+                ctx.scope.add_env_var(name.as_string()?, env_var);
+            }
             _ => {
                 return Err(ShellError::labeled_error(
                     r#"Expected each row in the table to have a "name" and "value" field."#,
@@ -85,10 +90,10 @@ pub fn load_env(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let ctx = &args.context;
 
     if let Some(values) = args.opt::<Vec<Value>>(0)? {
-        load_env_from_table(values, &ctx)?;
+        load_env_from_table(values, ctx)?;
     }
 
-    load_env_from_table(args.input, &ctx)?;
+    load_env_from_table(args.input, ctx)?;
 
     Ok(ActionStream::empty())
 }

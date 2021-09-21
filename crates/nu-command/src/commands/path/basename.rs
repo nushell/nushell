@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -9,13 +9,13 @@ use std::path::Path;
 pub struct PathBasename;
 
 struct PathBasenameArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
     replace: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathBasenameArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -26,7 +26,12 @@ impl WholeStreamCommand for PathBasename {
 
     fn signature(&self) -> Signature {
         Signature::build("path basename")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -42,7 +47,7 @@ impl WholeStreamCommand for PathBasename {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathBasenameArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
             replace: args.get_flag("replace")?,
         });
 
@@ -54,12 +59,17 @@ impl WholeStreamCommand for PathBasename {
         vec![
             Example {
                 description: "Get basename of a path",
-                example: "echo 'C:\\Users\\joe\\test.txt' | path basename",
+                example: "'C:\\Users\\joe\\test.txt' | path basename",
                 result: Some(vec![Value::from("test.txt")]),
             },
             Example {
+                description: "Get basename of a path in a column",
+                example: "ls .. | path basename -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Replace basename of a path",
-                example: "echo 'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "C:\\Users\\joe\\spam.png",
                 ))]),
@@ -72,12 +82,17 @@ impl WholeStreamCommand for PathBasename {
         vec![
             Example {
                 description: "Get basename of a path",
-                example: "echo '/home/joe/test.txt' | path basename",
+                example: "'/home/joe/test.txt' | path basename",
                 result: Some(vec![Value::from("test.txt")]),
             },
             Example {
+                description: "Get basename of a path in a column",
+                example: "ls .. | path basename -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Replace basename of a path",
-                example: "echo '/home/joe/test.txt' | path basename -r 'spam.png'",
+                example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     "/home/joe/spam.png",
                 ))]),

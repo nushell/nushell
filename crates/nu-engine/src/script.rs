@@ -1,7 +1,7 @@
 use crate::{evaluate::internal::InternalIterator, maybe_print_errors, run_block, shell::CdArgs};
 use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
 use nu_errors::ShellError;
-use nu_path::canonicalize;
+use nu_path::{canonicalize_with, trim_trailing_slash};
 use nu_protocol::hir::{
     Call, ClassifiedCommand, Expression, ExternalRedirection, InternalCommand, Literal,
     NamedArguments, SpannedExpression,
@@ -66,7 +66,6 @@ pub fn process_script(
         let (block, err) = nu_parser::parse(line, span_offset, &ctx.scope);
 
         debug!("{:#?}", block);
-        //println!("{:#?}", pipeline);
 
         if let Some(failure) = err {
             return LineResult::Error(line.to_string(), failure.into());
@@ -116,7 +115,7 @@ pub fn process_script(
                         .as_ref()
                         .map(NamedArguments::is_empty)
                         .unwrap_or(true)
-                    && canonicalize(ctx.shell_manager().path(), name).is_ok()
+                    && canonicalize_with(name, ctx.shell_manager().path()).is_ok()
                     && Path::new(&name).is_dir()
                     && !ctx.host().lock().is_external_cmd(name)
                 {
@@ -159,6 +158,8 @@ pub fn process_script(
                             name.to_string()
                         }
                     };
+
+                    let path = trim_trailing_slash(&path);
 
                     let cd_args = CdArgs {
                         path: Some(Tagged {

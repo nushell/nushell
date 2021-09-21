@@ -45,7 +45,7 @@ pub fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Val
     let descs = obj.data_descriptors();
 
     for column_name in fields {
-        match descs.iter().find(|d| *d == column_name) {
+        match descs.iter().find(|&d| d == column_name) {
             None => out.insert_untagged(column_name, UntaggedValue::nothing()),
             Some(desc) => out.insert_value(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
@@ -78,6 +78,7 @@ pub enum CompareValues {
     String(String, String),
     Date(DateTime<FixedOffset>, DateTime<FixedOffset>),
     DateDuration(DateTime<FixedOffset>, BigInt),
+    TimeDuration(BigInt, BigInt),
     Booleans(bool, bool),
 }
 
@@ -104,6 +105,7 @@ impl CompareValues {
                 right.cmp(left)
             }
             CompareValues::Booleans(left, right) => left.cmp(right),
+            CompareValues::TimeDuration(left, right) => left.cmp(right),
         }
     }
 }
@@ -164,11 +166,18 @@ pub fn coerce_compare_primitive(
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
         (Boolean(left), Nothing) => CompareValues::Booleans(*left, false),
         (Nothing, Boolean(right)) => CompareValues::Booleans(false, *right),
+        (String(left), Nothing) => CompareValues::String(left.clone(), std::string::String::new()),
+        (Nothing, String(right)) => {
+            CompareValues::String(std::string::String::new(), right.clone())
+        }
         (FilePath(left), String(right)) => {
             CompareValues::String(left.as_path().display().to_string(), right.clone())
         }
         (String(left), FilePath(right)) => {
             CompareValues::String(left.clone(), right.as_path().display().to_string())
+        }
+        (Duration(left), Duration(right)) => {
+            CompareValues::TimeDuration(left.clone(), right.clone())
         }
         _ => return Err((left.type_name(), right.type_name())),
     })

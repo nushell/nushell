@@ -99,7 +99,7 @@ fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(&x.item)
-            .map(Option::Some)
+            .map(Some)
             .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
     })?;
 
@@ -148,11 +148,10 @@ fn du(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     output.push(Ok(ReturnSuccess::Value(
                         DirInfo::new(p, &params, max_depth, ctrl_c.clone()).into(),
                     )));
-                } else {
-                    for v in FileInfo::new(p, deref, tag.clone()).into_iter() {
-                        output.push(Ok(ReturnSuccess::Value(v.into())));
-                    }
+                } else if let Ok(v) = FileInfo::new(p, deref, tag.clone()) {
+                    output.push(Ok(ReturnSuccess::Value(v.into())));
                 }
+
                 output
             }
             Err(e) => vec![Err(e)],

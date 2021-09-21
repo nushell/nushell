@@ -22,7 +22,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to csv file"
+        "[DataFrame] Saves dataframe to csv file"
     }
 
     fn signature(&self) -> Signature {
@@ -45,7 +45,7 @@ impl WholeStreamCommand for DataFrame {
         vec![
             Example {
                 description: "Saves dataframe to csv file",
-                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to_csv test.csv",
+                example: "[[a b]; [1 2] [3 4]] | dataframe to-df | dataframe to-csv test.csv",
                 result: None,
             },
             Example {
@@ -64,14 +64,10 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let delimiter: Option<Tagged<String>> = args.get_flag("delimiter")?;
     let no_header: bool = args.has_flag("no_header");
 
-    let mut df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
 
     let mut file = File::create(&file_name.item).map_err(|e| {
-        ShellError::labeled_error(
-            "Error with file name",
-            format!("{}", e),
-            &file_name.tag.span,
-        )
+        ShellError::labeled_error("Error with file name", e.to_string(), &file_name.tag.span)
     })?;
 
     let writer = CsvWriter::new(&mut file);
@@ -103,7 +99,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     writer
-        .finish(df.as_mut())
+        .finish(df.as_ref())
         .map_err(|e| parse_polars_error::<&str>(&e, &file_name.tag.span, None))?;
 
     let tagged_value = Value {

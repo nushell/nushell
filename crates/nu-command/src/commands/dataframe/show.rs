@@ -13,7 +13,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Converts a section of the dataframe to a Table or List value"
+        "[DataFrame] Converts a section of the dataframe to a Table or List value"
     }
 
     fn signature(&self) -> Signature {
@@ -53,7 +53,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let rows: Option<Tagged<usize>> = args.get_flag("n_rows")?;
     let tail: bool = args.has_flag("tail");
 
-    let df = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
+    let (df, _) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
     let rows = rows.map(|v| v.item);
     let values = if tail { df.tail(rows)? } else { df.head(rows)? };
 

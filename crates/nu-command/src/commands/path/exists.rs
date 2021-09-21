@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -8,12 +8,12 @@ use std::path::Path;
 pub struct PathExists;
 
 struct PathExistsArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathExistsArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -23,8 +23,12 @@ impl WholeStreamCommand for PathExists {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path exists")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path exists").named(
+            "columns",
+            SyntaxShape::Table,
+            "Optionally operate by column path",
+            Some('c'),
+        )
     }
 
     fn usage(&self) -> &str {
@@ -34,7 +38,7 @@ impl WholeStreamCommand for PathExists {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathExistsArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
@@ -42,20 +46,34 @@ impl WholeStreamCommand for PathExists {
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Check if a file exists",
-            example: "echo 'C:\\Users\\joe\\todo.txt' | path exists",
-            result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
-        }]
+        vec![
+            Example {
+                description: "Check if a file exists",
+                example: "'C:\\Users\\joe\\todo.txt' | path exists",
+                result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
+            },
+            Example {
+                description: "Check if a file exists in a column",
+                example: "ls | path exists -c [ name ]",
+                result: None,
+            },
+        ]
     }
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Check if a file exists",
-            example: "echo '/home/joe/todo.txt' | path exists",
-            result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
-        }]
+        vec![
+            Example {
+                description: "Check if a file exists",
+                example: "'/home/joe/todo.txt' | path exists",
+                result: Some(vec![Value::from(UntaggedValue::boolean(false))]),
+            },
+            Example {
+                description: "Check if a file exists in a column",
+                example: "ls | path exists -c [ name ]",
+                result: None,
+            },
+        ]
     }
 }
 

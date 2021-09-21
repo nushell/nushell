@@ -1,4 +1,7 @@
-use crate::whole_stream_command::{whole_stream_command, Command};
+use crate::{
+    evaluate::envvar::EnvVar,
+    whole_stream_command::{whole_stream_command, Command},
+};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
@@ -38,7 +41,7 @@ impl Scope {
         let mut output: IndexMap<String, Vec<Spanned<String>>> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.aliases.iter() {
+            for v in &frame.aliases {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }
@@ -52,12 +55,26 @@ impl Scope {
         let mut output: IndexMap<String, Signature> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for (name, command) in frame.commands.iter() {
+            for (name, command) in &frame.commands {
                 if !output.contains_key(name) {
                     let mut sig = command.signature();
                     // don't show --help and -h in the command arguments for $scope.commands
                     sig.remove_named("help");
                     output.insert(name.clone(), sig);
+                }
+            }
+        }
+
+        output.sorted_by(|k1, _v1, k2, _v2| k1.cmp(k2)).collect()
+    }
+
+    pub fn get_commands_info(&self) -> IndexMap<String, Command> {
+        let mut output: IndexMap<String, Command> = IndexMap::new();
+
+        for frame in self.frames.lock().iter().rev() {
+            for (name, command) in &frame.commands {
+                if !output.contains_key(name) {
+                    output.insert(name.clone(), command.clone());
                 }
             }
         }
@@ -74,7 +91,7 @@ impl Scope {
         let mut output: IndexMap<String, Value> = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.vars.iter() {
+            for v in &frame.vars {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }
@@ -189,12 +206,13 @@ impl Scope {
         }
     }
 
+    // This is used for starting processes, keep it string -> string
     pub fn get_env_vars(&self) -> IndexMap<String, String> {
         //FIXME: should this be an iterator?
         let mut output = IndexMap::new();
 
         for frame in self.frames.lock().iter().rev() {
-            for v in frame.env.iter() {
+            for v in &frame.env {
                 if !output.contains_key(v.0) {
                     output.insert(v.0.clone(), v.1.clone());
                 }
@@ -202,12 +220,21 @@ impl Scope {
         }
 
         output
+            .into_iter()
+            .filter_map(|(k, v)| match v {
+                EnvVar::Proper(s) => Some((k, s)),
+                EnvVar::Nothing => None,
+            })
+            .collect()
     }
 
     pub fn get_env(&self, name: &str) -> Option<String> {
         for frame in self.frames.lock().iter().rev() {
             if let Some(v) = frame.env.get(name) {
-                return Some(v.clone());
+                return match v {
+                    EnvVar::Proper(string) => Some(string.clone()),
+                    EnvVar::Nothing => None,
+                };
             }
         }
 
@@ -238,36 +265,36 @@ impl Scope {
         }
     }
 
-    pub fn add_env_var(&self, name: impl Into<String>, value: String) {
+    pub fn add_env_var(&self, name: impl Into<String>, value: impl Into<EnvVar>) {
         if let Some(frame) = self.frames.lock().last_mut() {
-            frame.env.insert(name.into(), value);
+            frame.env.insert(name.into(), value.into());
         }
     }
 
     pub fn remove_env_var(&self, name: impl Into<String>) -> Option<String> {
         if let Some(frame) = self.frames.lock().last_mut() {
             if let Some(val) = frame.env.remove_entry(&name.into()) {
-                return Some(val.1);
+                return Some(val.0);
             }
         }
         None
     }
 
-    pub fn add_env(&self, env_vars: IndexMap<String, String>) {
+    pub fn add_env(&self, env_vars: IndexMap<String, EnvVar>) {
         if let Some(frame) = self.frames.lock().last_mut() {
             frame.env.extend(env_vars)
         }
     }
 
-    pub fn add_env_to_base(&self, env_vars: IndexMap<String, String>) {
+    pub fn add_env_to_base(&self, env_vars: IndexMap<String, EnvVar>) {
         if let Some(frame) = self.frames.lock().first_mut() {
             frame.env.extend(env_vars)
         }
     }
 
-    pub fn add_env_var_to_base(&self, name: impl Into<String>, value: String) {
+    pub fn add_env_var_to_base(&self, name: impl Into<String>, value: impl Into<EnvVar>) {
         if let Some(frame) = self.frames.lock().first_mut() {
-            frame.env.insert(name.into(), value);
+            frame.env.insert(name.into(), value.into());
         }
     }
 
@@ -393,6 +420,12 @@ impl ParserScope for Scope {
         }
     }
 
+    fn remove_alias(&self, name: &str) {
+        if let Some(frame) = self.frames.lock().last_mut() {
+            frame.aliases.remove(name);
+        }
+    }
+
     fn enter_scope(&self) {
         self.frames.lock().push(ScopeFrame::new());
     }
@@ -406,7 +439,7 @@ impl ParserScope for Scope {
 #[derive(Debug, Clone)]
 pub struct ScopeFrame {
     pub vars: IndexMap<String, Value>,
-    pub env: IndexMap<String, String>,
+    pub env: IndexMap<String, EnvVar>,
     pub commands: IndexMap<String, Command>,
     pub custom_commands: IndexMap<String, Arc<Block>>,
     pub aliases: IndexMap<String, Vec<Spanned<String>>>,

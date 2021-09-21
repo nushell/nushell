@@ -19,6 +19,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str length").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally find length of text by column paths",
         )

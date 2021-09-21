@@ -169,7 +169,7 @@ mod tests {
             // },
         ];
         let test_tag = Tag::unknown();
-        for tc in tt.iter() {
+        for tc in &tt {
             let tc: &TestCase = tc; // Just for type annotations
             let math_functions: Vec<MathFunction> = vec![
                 average, minimum, maximum, median, mode, stddev, summation, variance,

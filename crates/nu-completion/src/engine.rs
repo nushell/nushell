@@ -238,11 +238,19 @@ pub fn completion_location(line: &str, block: &Block, pos: usize) -> Vec<Complet
                                 }
                             }
 
-                            output.push(loc.clone());
+                            output.push({
+                                let mut partial_loc = loc.clone();
+                                partial_loc.span = Span::new(loc.span.start(), pos);
+                                partial_loc
+                            });
                             output
                         }
                     }
-                    _ => vec![loc.clone()],
+                    _ => vec![{
+                        let mut partial_loc = loc.clone();
+                        partial_loc.span = Span::new(loc.span.start(), pos);
+                        partial_loc
+                    }],
                 };
             } else if pos < loc.span.start() {
                 break;
@@ -306,7 +314,7 @@ mod tests {
         }
 
         fn get_signature(&self, name: &str) -> Option<nu_protocol::Signature> {
-            self.0.iter().find(|v| v.name == name).map(Clone::clone)
+            self.0.iter().find(|v| v.name == name).cloned()
         }
 
         fn get_alias(&self, _name: &str) -> Option<Vec<Spanned<String>>> {
@@ -314,6 +322,10 @@ mod tests {
         }
 
         fn add_alias(&self, _name: &str, _replacement: Vec<Spanned<String>>) {
+            todo!()
+        }
+
+        fn remove_alias(&self, _name: &str) {
             todo!()
         }
 
@@ -335,8 +347,8 @@ mod tests {
             line: &str,
             scope: &dyn ParserScope,
             pos: usize,
-        ) -> Vec<LocationType> {
-            let (tokens, _) = lex(line, 0);
+        ) -> Vec<CompletionLocation> {
+            let (tokens, _) = lex(line, 0, nu_parser::NewlineMode::Normal);
             let (lite_block, _) = parse_block(tokens);
 
             scope.enter_scope();
@@ -344,20 +356,18 @@ mod tests {
             scope.exit_scope();
 
             super::completion_location(line, &block, pos)
-                .into_iter()
-                .map(|v| v.item)
-                .collect()
         }
 
         #[test]
         fn completes_internal_command_names() {
             let registry: VecRegistry =
-                vec![Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")].into();
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
             let line = "echo 1 | echo 2";
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(9, 10)),],
             );
         }
 
@@ -368,7 +378,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 10),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(9, 10)),],
             );
         }
 
@@ -379,7 +389,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 4),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(0, 4)),],
             );
         }
 
@@ -390,7 +400,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 13),
-                vec![LocationType::Variable],
+                vec![LocationType::Variable.spanned(Span::new(5, 13)),],
             );
         }
 
@@ -398,14 +408,14 @@ mod tests {
         fn completes_flags() {
             let registry: VecRegistry = vec![Signature::build("du")
                 .switch("recursive", "the values to echo", None)
-                .rest(SyntaxShape::Any, "blah")]
+                .rest("rest", SyntaxShape::Any, "blah")]
             .into();
 
             let line = "du --recurs";
 
             assert_eq!(
                 completion_location(line, &registry, 7),
-                vec![LocationType::Flag("du".to_string())],
+                vec![LocationType::Flag("du".to_string()).spanned(Span::new(3, 7)),],
             );
         }
 
@@ -416,7 +426,7 @@ mod tests {
 
             assert_eq!(
                 completion_location(line, &registry, 8),
-                vec![LocationType::Command],
+                vec![LocationType::Command.spanned(Span::new(6, 8)),],
             );
         }
 
@@ -428,8 +438,8 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 3),
                 vec![
-                    LocationType::Command,
-                    LocationType::Argument(Some("cd".to_string()), None)
+                    LocationType::Command.spanned(Span::new(0, 3)),
+                    LocationType::Argument(Some("cd".to_string()), None).spanned(Span::new(3, 3)),
                 ],
             );
         }
@@ -438,7 +448,7 @@ mod tests {
         fn completes_flags_with_just_a_single_hyphen() {
             let registry: VecRegistry = vec![Signature::build("du")
                 .switch("recursive", "the values to echo", None)
-                .rest(SyntaxShape::Any, "blah")]
+                .rest("rest", SyntaxShape::Any, "blah")]
             .into();
 
             let line = "du -";
@@ -446,8 +456,8 @@ mod tests {
             assert_eq!(
                 completion_location(line, &registry, 3),
                 vec![
-                    LocationType::Argument(Some("du".to_string()), None),
-                    LocationType::Flag("du".to_string()),
+                    LocationType::Argument(Some("du".to_string()), None).spanned(Span::new(3, 4)),
+                    LocationType::Flag("du".to_string()).spanned(Span::new(3, 4)),
                 ],
             );
         }
@@ -455,14 +465,31 @@ mod tests {
         #[test]
         fn completes_arguments() {
             let registry: VecRegistry =
-                vec![Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")].into();
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
             let line = "echo 1 | echo 2";
 
             assert_eq!(
                 completion_location(line, &registry, 6),
                 vec![
-                    LocationType::Command,
-                    LocationType::Argument(Some("echo".to_string()), None)
+                    LocationType::Command.spanned(Span::new(0, 6)),
+                    LocationType::Argument(Some("echo".to_string()), None).spanned(Span::new(5, 6)),
+                ],
+            );
+        }
+
+        #[test]
+        fn completes_argument_when_cursor_inside_argument() {
+            let registry: VecRegistry =
+                vec![Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")]
+                    .into();
+            let line = "echo 123";
+
+            assert_eq!(
+                completion_location(line, &registry, 6),
+                vec![
+                    LocationType::Command.spanned(Span::new(0, 6)),
+                    LocationType::Argument(Some("echo".to_string()), None).spanned(Span::new(5, 6)),
                 ],
             );
         }

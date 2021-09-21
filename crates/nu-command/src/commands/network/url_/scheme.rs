@@ -14,14 +14,18 @@ impl WholeStreamCommand for UrlScheme {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url scheme").rest(SyntaxShape::ColumnPath, "optionally operate by path")
+        Signature::build("url scheme").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "optionally operate by path",
+        )
     }
 
     fn usage(&self) -> &str {
         "gets the scheme (eg http, file) of a url"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let rest: Vec<ColumnPath> = args.rest(0)?;
         Ok(operate(args.input, rest, &Url::scheme))
     }

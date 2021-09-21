@@ -142,6 +142,7 @@ impl WholeStreamCommand for Save {
                 "treat values as-is rather than auto-converting based on file extension",
                 Some('r'),
             )
+            .switch("append", "append values rather than overriding", Some('a'))
     }
 
     fn usage(&self) -> &str {
@@ -165,6 +166,7 @@ fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let path: Option<Tagged<PathBuf>> = args.opt(0)?;
     let save_raw = args.has_flag("raw");
+    let append = args.has_flag("append");
 
     let input: Vec<Value> = args.input.collect();
     if path.is_none() {
@@ -231,7 +233,7 @@ fn save(args: CommandArgs) -> Result<OutputStream, ShellError> {
         };
     };
 
-    shell_manager.save(&full_path, &content?, name.span)
+    shell_manager.save(&full_path, &content?, name.span, append)
 }
 
 fn string_from(input: &[Value]) -> String {
@@ -239,7 +241,7 @@ fn string_from(input: &[Value]) -> String {
 
     if !input.is_empty() {
         let mut first = true;
-        for i in input.iter() {
+        for i in input {
             if !first {
                 save_data.push('\n');
             } else {

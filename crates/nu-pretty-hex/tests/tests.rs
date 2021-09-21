@@ -14,7 +14,7 @@ fn test_simple() {
     let bytes: Vec<u8> = (0..16).collect();
     let expected = "00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f";
     assert_eq!(expected, simple_hex(&bytes));
-    assert_eq!(expected, format!("{}", bytes.hex_dump()));
+    assert_eq!(expected, bytes.hex_dump().to_string());
     assert_eq!(simple_hex(&bytes), config_hex(&bytes, HexConfig::simple()));
 
     let mut have = String::new();
@@ -149,7 +149,7 @@ fn test_config() {
          0010:   10 11 12                                          ..."
     );
     assert_eq!(
-        format!("{}", v.hex_conf(cfg)),
+        v.hex_conf(cfg).to_string(),
         "00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12"
     );
 }

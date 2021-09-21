@@ -602,14 +602,14 @@ mod serde_json_tests {
 
     #[test]
     fn color_deserialization() {
-        let colors = &[
+        let colors = [
             Color::Red,
             Color::Blue,
             Color::Rgb(123, 123, 123),
             Color::Fixed(255),
         ];
 
-        for color in colors.iter() {
+        for color in colors {
             let serialized = serde_json::to_string(&color).unwrap();
             let deserialized: Color = serde_json::from_str(&serialized).unwrap();
 

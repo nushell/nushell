@@ -1,14 +1,12 @@
 use crate::prelude::*;
 use crate::TaggedListBuilder;
-use nu_engine::documentation::generate_docs;
-use nu_engine::{Command, WholeStreamCommand};
+use nu_engine::{documentation::generate_docs, Command, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{
-    NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder,
-    UntaggedValue, Value,
+    Dictionary, NamedType, PositionalType, ReturnSuccess, Signature, SyntaxShape,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::Tag;
-use nu_source::{SpannedItem, Tagged};
+use nu_source::{SpannedItem, Tag, Tagged};
 use nu_value_ext::ValueExt;
 
 pub struct Help;
@@ -19,7 +17,18 @@ impl WholeStreamCommand for Help {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("help").rest(SyntaxShape::String, "the name of command to get help on")
+        Signature::build("help")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "the name of command to get help on",
+            )
+            .named(
+                "find",
+                SyntaxShape::String,
+                "string to find in command usage",
+                Some('f'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -29,13 +38,80 @@ impl WholeStreamCommand for Help {
     fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         help(args)
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "show all commands and sub-commands",
+                example: "help commands",
+                result: None,
+            },
+            Example {
+                description: "generate documentation",
+                example: "help generate_docs",
+                result: None,
+            },
+            Example {
+                description: "show help for single command",
+                example: "help match",
+                result: None,
+            },
+            Example {
+                description: "show help for single sub-command",
+                example: "help str lpad",
+                result: None,
+            },
+            Example {
+                description: "search for string in command usage",
+                example: "help --find char",
+                result: None,
+            },
+        ]
+    }
 }
 
 fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let name = args.call_info.name_tag.clone();
     let scope = args.scope().clone();
-
+    let find: Option<Tagged<String>> = args.get_flag("find")?;
     let rest: Vec<Tagged<String>> = args.rest(0)?;
+
+    if let Some(f) = find {
+        let search_string = f.item;
+        let full_commands = scope.get_commands_info();
+        let mut found_cmds_vec = Vec::new();
+
+        for (key, cmd) in full_commands {
+            let mut indexmap = IndexMap::new();
+
+            let c = cmd.usage().to_string();
+            let e = cmd.extra_usage().to_string();
+            if key.to_lowercase().contains(&search_string)
+                || c.to_lowercase().contains(&search_string)
+                || e.to_lowercase().contains(&search_string)
+            {
+                indexmap.insert(
+                    "name".to_string(),
+                    UntaggedValue::string(key).into_value(&name),
+                );
+
+                indexmap.insert(
+                    "usage".to_string(),
+                    UntaggedValue::string(cmd.usage().to_string()).into_value(&name),
+                );
+
+                indexmap.insert(
+                    "extra_usage".to_string(),
+                    UntaggedValue::string(cmd.extra_usage().to_string()).into_value(&name),
+                );
+
+                found_cmds_vec
+                    .push(UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&name));
+            }
+        }
+
+        return Ok(found_cmds_vec.into_iter().into_action_stream());
+    }
 
     if !rest.is_empty() {
         if rest[0].item == "commands" {
@@ -44,11 +120,11 @@ fn help(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
             let (mut subcommand_names, command_names) = sorted_names
                 .into_iter()
-                // Internal only commands shouldn't be displayed
+                // private only commands shouldn't be displayed
                 .filter(|cmd_name| {
                     scope
                         .get_command(cmd_name)
-                        .filter(|command| !command.is_internal())
+                        .filter(|command| !command.is_private())
                         .is_some()
                 })
                 .partition::<Vec<_>, _>(|cmd_name| cmd_name.contains(' '));
@@ -226,7 +302,7 @@ pub fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
     let mut sig = TaggedListBuilder::new(&tag);
 
-    for arg in signature.positional.iter() {
+    for arg in &signature.positional {
         let is_required = matches!(arg.0, PositionalType::Mandatory(_, _));
 
         sig.push_value(for_spec(arg.0.name(), "argument", is_required, &tag));
@@ -237,7 +313,7 @@ pub fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
         sig.push_value(for_spec("rest", "argument", is_required, &tag));
     }
 
-    for (name, ty) in signature.named.iter() {
+    for (name, ty) in &signature.named {
         match ty.0 {
             NamedType::Mandatory(_, _) => sig.push_value(for_spec(name, "flag", true, &tag)),
             NamedType::Optional(_, _) => sig.push_value(for_spec(name, "flag", false, &tag)),

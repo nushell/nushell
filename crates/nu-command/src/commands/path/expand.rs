@@ -1,22 +1,22 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_path::expand_path;
+use nu_path::{canonicalize, expand_path};
 use nu_protocol::{ColumnPath, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Span;
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
 pub struct PathExpand;
 
 struct PathExpandArguments {
     strict: bool,
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathExpandArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -32,7 +32,12 @@ impl WholeStreamCommand for PathExpand {
                 "Throw an error if the path could not be expanded",
                 Some('s'),
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -43,7 +48,7 @@ impl WholeStreamCommand for PathExpand {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathExpandArguments {
             strict: args.has_flag("strict"),
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
@@ -58,6 +63,11 @@ impl WholeStreamCommand for PathExpand {
                 result: Some(vec![
                     UntaggedValue::filepath(r"C:\Users\joe\bar").into_value(Span::new(0, 25))
                 ]),
+            },
+            Example {
+                description: "Expand a path in a column",
+                example: "ls | path expand -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Expand a relative path",
@@ -80,6 +90,11 @@ impl WholeStreamCommand for PathExpand {
                 ]),
             },
             Example {
+                description: "Expand a path in a column",
+                example: "ls | path expand -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Expand a relative path",
                 example: "'foo/../bar' | path expand",
                 result: Some(vec![
@@ -91,7 +106,7 @@ impl WholeStreamCommand for PathExpand {
 }
 
 fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
-    if let Ok(p) = dunce::canonicalize(path) {
+    if let Ok(p) = canonicalize(path) {
         UntaggedValue::filepath(p).into_value(tag)
     } else if args.strict {
         Value::error(ShellError::labeled_error(
@@ -101,7 +116,7 @@ fn action(path: &Path, tag: Tag, args: &PathExpandArguments) -> Value {
             tag.span,
         ))
     } else {
-        UntaggedValue::filepath(expand_path(Cow::Borrowed(path))).into_value(tag)
+        UntaggedValue::filepath(expand_path(path)).into_value(tag)
     }
 }
 

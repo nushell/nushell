@@ -4,7 +4,7 @@ use nu_source::{DbgDocBldr, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 
 /// The inner set of actions for the command processor. Each denotes a way to change state in the processor without changing it directly from the command itself.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CommandAction {
     /// Change to a new directory or path (in non-filesystem situations)
     ChangePath(String),
@@ -28,6 +28,8 @@ pub enum CommandAction {
     PreviousShell,
     /// Go to the next shell in the shell ring buffer
     NextShell,
+    /// Jump to the specified shell in the shell ring buffer
+    GotoShell(usize),
     /// Leave the current shell. If it's the last shell, exit out of Nu
     LeaveShell(i32),
 }
@@ -51,6 +53,7 @@ impl PrettyDebug for CommandAction {
             CommandAction::AddPlugins(..) => DbgDocBldr::description("add plugins"),
             CommandAction::PreviousShell => DbgDocBldr::description("previous shell"),
             CommandAction::NextShell => DbgDocBldr::description("next shell"),
+            CommandAction::GotoShell(_) => DbgDocBldr::description("goto shell"),
             CommandAction::LeaveShell(_) => DbgDocBldr::description("leave shell"),
             CommandAction::UnloadConfig(cfg) => {
                 DbgDocBldr::description(format!("unload config {:?}", cfg))
@@ -63,7 +66,7 @@ impl PrettyDebug for CommandAction {
 }
 
 /// The fundamental success type in the pipeline. Commands return these values as their main responsibility
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ReturnSuccess {
     /// A value to be used or shown to the user
     Value(Value),
@@ -121,5 +124,17 @@ impl ReturnSuccess {
     /// Helper function for creating actions
     pub fn action(input: CommandAction) -> ReturnValue {
         Ok(ReturnSuccess::Action(input))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{ReturnSuccess, ReturnValue, UntaggedValue};
+
+    #[test]
+    fn return_value_can_be_used_in_assert_eq() {
+        let v1: ReturnValue = ReturnSuccess::value(UntaggedValue::nothing());
+        let v2: ReturnValue = ReturnSuccess::value(UntaggedValue::nothing());
+        assert_eq!(v1, v2);
     }
 }

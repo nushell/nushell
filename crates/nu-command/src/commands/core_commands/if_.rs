@@ -100,18 +100,15 @@ fn if_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
     context.scope.add_vars(&condition.captured.entries);
 
     //FIXME: should we use the scope that's brought in as well?
-    let condition = evaluate_baseline_expr(cond, &*context);
-    match condition {
+    let condition = evaluate_baseline_expr(cond, &context);
+    let result = match condition {
         Ok(condition) => match condition.as_bool() {
             Ok(b) => {
-                let result = if b {
-                    run_block(&then_case.block, &*context, input, external_redirection)
+                if b {
+                    run_block(&then_case.block, &context, input, external_redirection)
                 } else {
-                    run_block(&else_case.block, &*context, input, external_redirection)
-                };
-                context.scope.exit_scope();
-
-                result
+                    run_block(&else_case.block, &context, input, external_redirection)
+                }
             }
             Err(e) => Ok(OutputStream::from_stream(
                 vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
@@ -120,18 +117,38 @@ fn if_command(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Err(e) => Ok(OutputStream::from_stream(
             vec![UntaggedValue::Error(e).into_untagged_value()].into_iter(),
         )),
-    }
+    };
+    context.scope.exit_scope();
+    result
 }
 
 #[cfg(test)]
 mod tests {
     use super::If;
     use super::ShellError;
+    use nu_test_support::nu;
 
     #[test]
     fn examples_work_as_expected() -> Result<(), ShellError> {
         use crate::examples::test as test_examples;
 
         test_examples(If {})
+    }
+
+    #[test]
+    fn if_doesnt_leak_on_error() {
+        let actual = nu!(
+            ".",
+            r#"
+                def test-leak [] {
+                    let var = "hello"
+                    if 0 == "" {echo ok} {echo not}
+                }
+                test-leak
+                echo $var
+            "#
+        );
+
+        assert!(actual.err.contains("unknown variable"));
     }
 }

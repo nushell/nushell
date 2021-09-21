@@ -1,4 +1,6 @@
-use super::{handle_value, join_path, operate_column_paths, PathSubcommandArguments};
+use super::{
+    column_paths_from_args, handle_value, join_path, operate_column_paths, PathSubcommandArguments,
+};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -9,13 +11,13 @@ use std::path::{Path, PathBuf};
 pub struct PathJoin;
 
 struct PathJoinArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
     append: Option<Tagged<PathBuf>>,
 }
 
 impl PathSubcommandArguments for PathJoinArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -26,12 +28,16 @@ impl WholeStreamCommand for PathJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("path join")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
             .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
+            .optional(
                 "append",
                 SyntaxShape::FilePath,
                 "Path to append to the input",
-                Some('a'),
             )
     }
 
@@ -46,9 +52,10 @@ the output of 'path parse' and 'path split' subcommands."#
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
+
         let cmd_args = Arc::new(PathJoinArguments {
-            rest: args.rest(0)?,
-            append: args.get_flag("append")?,
+            columns: column_paths_from_args(&args)?,
+            append: args.opt(0)?,
         });
 
         Ok(operate_join(args.input, &action, tag, cmd_args))
@@ -59,21 +66,26 @@ the output of 'path parse' and 'path split' subcommands."#
         vec![
             Example {
                 description: "Append a filename to a path",
-                example: r"echo 'C:\Users\viking' | path join -a spam.txt",
+                example: r"'C:\Users\viking' | path join spam.txt",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"C:\Users\viking\spam.txt",
                 ))]),
             },
             Example {
+                description: "Append a filename to a path inside a column",
+                example: r"ls | path join spam.txt -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Join a list of parts into a path",
-                example: r"echo [ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
+                example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"C:\Users\viking\spam.txt",
                 ))]),
             },
             Example {
                 description: "Join a structured path into a path",
-                example: r"echo [ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
+                example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"C:\Users\viking\spam.txt",
                 ))]),
@@ -86,21 +98,26 @@ the output of 'path parse' and 'path split' subcommands."#
         vec![
             Example {
                 description: "Append a filename to a path",
-                example: r"echo '/home/viking' | path join -a spam.txt",
+                example: r"'/home/viking' | path join spam.txt",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"/home/viking/spam.txt",
                 ))]),
             },
             Example {
+                description: "Append a filename to a path inside a column",
+                example: r"ls | path join spam.txt -c [ name ]",
+                result: None,
+            },
+            Example {
                 description: "Join a list of parts into a path",
-                example: r"echo [ '/' 'home' 'viking' 'spam.txt' ] | path join",
+                example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"/home/viking/spam.txt",
                 ))]),
             },
             Example {
                 description: "Join a structured path into a path",
-                example: r"echo [[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
+                example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
                 result: Some(vec![Value::from(UntaggedValue::filepath(
                     r"/home/viking/spam.txt",
                 ))]),

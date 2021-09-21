@@ -14,7 +14,7 @@ impl WholeStreamCommand for Command {
 
     fn signature(&self) -> Signature {
         Signature::build("move")
-            .rest(SyntaxShape::ColumnPath, "the columns to move")
+            .rest("rest", SyntaxShape::ColumnPath, "the columns to move")
             .named(
                 "after",
                 SyntaxShape::ColumnPath,
@@ -242,7 +242,7 @@ fn move_after(table: &Value, columns: &[String], from: &ColumnPath) -> Result<Va
     let mut insert = false;
     let mut inserted = false;
 
-    for name in columns_moved.into_iter() {
+    for name in columns_moved {
         if let Some(name) = name {
             reordered_columns.push(Some(name.clone()));
 
@@ -291,7 +291,7 @@ fn move_before(table: &Value, columns: &[String], from: &ColumnPath) -> Result<V
     let mut reordered_columns = vec![];
     let mut inserted = false;
 
-    for name in columns_moved.into_iter() {
+    for name in columns_moved {
         if let Some(name) = name {
             if !inserted && name == from {
                 for column in columns {

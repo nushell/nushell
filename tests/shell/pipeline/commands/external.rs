@@ -231,11 +231,22 @@ mod external_words {
         assert_eq!(actual.out, "test \"things\"");
     }
 
-    #[test]
-    fn external_arg_with_quotes() {
+    #[rstest::rstest]
+    #[case("sample.toml", r#""sample.toml""#)]
+    #[case("a sample file.toml", r#""a sample file.toml""#)]
+    #[case("quote'mark.toml", r#""quote'mark.toml""#)]
+    #[cfg_attr(
+        not(target_os = "windows"),
+        case(r#"quote"mark.toml"#, r#"$"quote(char double_quote)mark.toml""#)
+    )]
+    #[cfg_attr(not(target_os = "windows"), case("?mark.toml", r#""?mark.toml""#))]
+    #[cfg_attr(not(target_os = "windows"), case("*.toml", r#""*.toml""#))]
+    #[cfg_attr(not(target_os = "windows"), case("*.toml", "*.toml"))]
+    #[case("$ sign.toml", r#""$ sign.toml""#)]
+    fn external_arg_with_special_characters(#[case] path: &str, #[case] nu_path_argument: &str) {
         Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
-                "sample.toml",
+                path,
                 r#"
                     nu_party_venue = "zion"
                 "#,
@@ -243,9 +254,9 @@ mod external_words {
 
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                r#"
-                    nu --testbin meow "sample.toml" | from toml | get nu_party_venue
-                "#
+                &format!(r#"
+                    nu --testbin meow {} | from toml | get nu_party_venue
+                "#, nu_path_argument)
             ));
 
             assert_eq!(actual.out, "zion");
@@ -365,6 +376,28 @@ mod external_command_arguments {
                 ));
 
                 assert_eq!(actual.out, "ferris_not_here.txt");
+            },
+        )
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn string_interpolation_with_an_external_command() {
+        Playground::setup(
+            "string_interpolation_with_an_external_command",
+            |dirs, sandbox| {
+                sandbox.mkdir("cd");
+
+                sandbox.with_files(vec![EmptyFile("cd/jonathan_likes_cake.txt")]);
+
+                let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    ^ls $"(pwd)/cd"
+                "#
+                ));
+
+                assert_eq!(actual.out, "jonathan_likes_cake.txt");
             },
         )
     }

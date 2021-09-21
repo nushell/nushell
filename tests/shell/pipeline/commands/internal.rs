@@ -79,6 +79,7 @@ fn tags_dont_persist_through_column_path() {
             cd temp;
             let x = (open ../nu_times.csv).name;
             $x | tags | get anchor | autoview;
+            cd ..;
             rmdir temp
             "#
         ));
@@ -105,7 +106,8 @@ fn tags_persist_through_vars() {
             mkdir temp;
             cd temp;
             let x = (open ../nu_times.csv);
-            $x | tags | get anchor | autoview;
+            $x | tags | get anchor.file | autoview;
+            cd ..;
             rmdir temp
             "#
         ));
@@ -213,6 +215,19 @@ fn string_interpolation_and_paren() {
     );
 
     assert_eq!(actual.out, "a paren is (");
+}
+
+#[test]
+fn string_interpolation_with_unicode() {
+    //カ = U+30AB : KATAKANA LETTER KA
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            $"カ"
+        "#
+    );
+
+    assert_eq!(actual.out, "カ");
 }
 
 #[test]
@@ -361,6 +376,25 @@ fn run_custom_command_with_empty_rest() {
 }
 
 #[test]
+fn run_custom_command_with_rest_other_name() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            def say-hello [
+                greeting:string,
+                ...names:string # All of the names
+                ] {
+                    echo $"($greeting), ($names | sort-by | str collect ' ')"
+                }
+            say-hello Salutations E D C A B
+        "#
+    );
+
+    assert_eq!(actual.out, r#"Salutations, A B C D E"#);
+    assert_eq!(actual.err, r#""#);
+}
+
+#[test]
 fn alias_a_load_env() {
     let actual = nu!(
         cwd: ".",
@@ -412,6 +446,43 @@ fn let_env_variable() {
 }
 
 #[test]
+fn let_env_hides_variable() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TESTENVVAR = "hello world"
+            echo $nu.env.TESTENVVAR
+            let-env TESTENVVAR = $nothing
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello world");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn let_env_hides_variable_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env TESTENVVAR = "hello world"
+            echo $nu.env.TESTENVVAR
+            do {
+                let-env TESTENVVAR = $nothing
+                echo $nu.env.TESTENVVAR
+            }
+            echo $nu.env.TESTENVVAR
+        "#
+    );
+
+    assert_eq!(actual.out, "hello worldhello world");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
 fn unlet_env_variable() {
     let actual = nu!(
         cwd: ".",
@@ -430,10 +501,31 @@ fn unlet_nonexistent_variable() {
         cwd: ".",
         r#"
             unlet-env NONEXISTENT_VARIABLE
-        "
+        "#
     );
 
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Not an environment variable"));
+}
+
+#[test]
+fn unlet_variable_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            let-env DEBUG = "1"
+            echo $nu.env.DEBUG
+            do {
+                let-env DEBUG = "2"
+                echo $nu.env.DEBUG
+                unlet-env DEBUG
+                echo $nu.env.DEBUG
+            }
+            echo $nu.env.DEBUG
+        "#
+    );
+
+    assert_eq!(actual.out, "1211");
 }
 
 #[test]
@@ -519,6 +611,41 @@ fn proper_shadow_load_env_aliases() {
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
+}
+
+#[test]
+fn load_env_can_hide_var_envs() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = "1"
+        echo $nu.env.DEBUG
+        load-env [[name, value]; [DEBUG $nothing]]
+        echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "1");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
+}
+
+#[test]
+fn load_env_can_hide_var_envs_in_parent_scope() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        let-env DEBUG = "1"
+        echo $nu.env.DEBUG
+        do {
+            load-env [[name, value]; [DEBUG $nothing]]
+            echo $nu.env.DEBUG
+        }
+        echo $nu.env.DEBUG
+        "#
+    );
+    assert_eq!(actual.out, "11");
+    assert!(actual.err.contains("error"));
+    assert!(actual.err.contains("Unknown column"));
 }
 
 #[test]
@@ -666,6 +793,31 @@ fn negative_decimal_start() {
 
     assert_eq!(actual.out, "2.7");
 }
+
+#[test]
+fn string_inside_of() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            "bob" in "bobby"
+        "#
+    );
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn string_not_inside_of() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+            "bob" not-in "bobby"
+        "#
+    );
+
+    assert_eq!(actual.out, "false");
+}
+
 #[test]
 fn index_row() {
     let actual = nu!(
@@ -1026,6 +1178,134 @@ fn pipeline_params_inner() {
     );
 
     assert_eq!(actual.out, "126");
+}
+
+#[test]
+fn better_table_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        let table = [
+            [name, size];
+            [small, 7]
+            [medium, 10]
+            [large, 12]
+        ];
+        $table.1.size
+        "#)
+    );
+
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn better_subexpr_lex() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        (echo boo
+        sam | str length | math sum)
+        "#)
+    );
+
+    assert_eq!(actual.out, "6");
+}
+
+#[test]
+fn subsubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb" [url] { $url + " loaded" }; aws s3 rb localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
+#[test]
+fn manysubcommand() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def "aws s3 rb ax vf qqqq rrrr" [url] { $url + " loaded" }; aws s3 rb ax vf qqqq rrrr localhost
+        "#)
+    );
+
+    assert_eq!(actual.out, "localhost loaded");
+}
+
+#[test]
+fn nothing_string_1() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        $nothing == "foo"
+        "#)
+    );
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn nothing_string_2() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        "" == $nothing
+        "#)
+    );
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn unalias_shadowing() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-shadowing [] {
+            alias greet = echo hello;
+            let xyz = { greet };
+            unalias greet;
+            do $xyz
+        };
+        test-shadowing
+        "#)
+    );
+    assert_eq!(actual.out, "hello");
+}
+
+#[test]
+fn unalias_does_not_escape_scope() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        def test-alias [] {
+            alias greet = echo hello;
+            (unalias greet);
+            greet
+        };
+        test-alias
+        "#)
+    );
+    assert_eq!(actual.out, "hello");
+}
+
+#[test]
+fn unalias_hides_alias() {
+    let actual = nu!(cwd: ".", pipeline(
+        r#"
+        def test-alias [] {
+            alias ll = ls -l;
+            unalias ll;
+            ll
+        };
+        test-alias
+        "#)
+    );
+
+    assert!(actual.err.contains("not found"));
 }
 
 mod parse {

@@ -49,7 +49,7 @@ impl WholeStreamCommand for EachWindow {
         let block: CapturedBlock = args.req(1)?;
         let stride: Option<Tagged<usize>> = args.get_flag("stride")?;
 
-        let block = Arc::new(Box::new(block));
+        let block = Arc::new(block);
 
         let mut window: Vec<_> = args
             .input
@@ -64,7 +64,7 @@ impl WholeStreamCommand for EachWindow {
         Ok(args
             .input
             .enumerate()
-            .map(move |(i, input)| {
+            .flat_map(move |(i, input)| {
                 // This would probably be more efficient if `last` was a VecDeque
                 // But we can't have that because it needs to be put into a Table
                 window.remove(0);
@@ -85,7 +85,6 @@ impl WholeStreamCommand for EachWindow {
                     None
                 }
             })
-            .flatten()
             .flatten()
             .map(Ok)
             .into_input_stream())

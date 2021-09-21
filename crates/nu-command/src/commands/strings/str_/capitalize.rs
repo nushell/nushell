@@ -2,9 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::ShellTypeName;
-use nu_protocol::{
-    ColumnPath, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{ColumnPath, Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tag;
 use nu_value_ext::ValueExt;
 
@@ -21,6 +19,7 @@ impl WholeStreamCommand for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str capitalize").rest(
+            "rest",
             SyntaxShape::ColumnPath,
             "optionally capitalize text by column paths",
         )
@@ -30,7 +29,7 @@ impl WholeStreamCommand for SubCommand {
         "capitalizes text"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         operate(args)
     }
 
@@ -43,7 +42,7 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
+fn operate(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let (options, input) = (
         Arguments {
             column_paths: args.rest(0)?,
@@ -54,7 +53,7 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
     Ok(input
         .map(move |v| {
             if options.column_paths.is_empty() {
-                ReturnSuccess::value(action(&v, v.tag())?)
+                action(&v, v.tag())
             } else {
                 let mut ret = v;
 
@@ -65,10 +64,10 @@ fn operate(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     )?;
                 }
 
-                ReturnSuccess::value(ret)
+                Ok(ret)
             }
         })
-        .into_action_stream())
+        .into_input_stream())
 }
 
 fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {

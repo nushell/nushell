@@ -74,14 +74,16 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         UntaggedValue::Error(e) => return Err(e.clone()),
         UntaggedValue::Block(_) => toml::Value::String("<Block>".to_string()),
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => toml::Value::String("<Data>".to_string()),
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => {
+            toml::Value::String("<Data>".to_string())
+        }
         UntaggedValue::Primitive(Primitive::Range(_)) => toml::Value::String("<Range>".to_string()),
         UntaggedValue::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
         }
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             toml::Value::Table(m)
@@ -95,7 +97,7 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     match &v.value {
         UntaggedValue::Row(o) => {
             let mut m = toml::map::Map::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(k.clone(), helper(v)?);
             }
             Ok(toml::Value::Table(m))

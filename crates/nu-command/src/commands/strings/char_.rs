@@ -41,8 +41,10 @@ lazy_static! {
         "right_brace" => '}'.to_string(),
         "rbrace" => '}'.to_string(),
         "left_paren" => '('.to_string(),
+        "lp" => '('.to_string(),
         "lparen" => '('.to_string(),
         "right_paren" => ')'.to_string(),
+        "rp" => ')'.to_string(),
         "rparen" => ')'.to_string(),
         "left_bracket" => '['.to_string(),
         "lbracket" => '['.to_string(),
@@ -68,6 +70,37 @@ lazy_static! {
         "pound_sign" => '#'.to_string(),                           // #
         "sharp" => '#'.to_string(),                                // #
         "root" => '#'.to_string(),                                 // #
+        "comma" => ','.to_string(), // , comma
+        "semicolon" => ';'.to_string(), // ; semicolon
+        "dollar" => '$'.to_string(), // $ dollar
+        "at" => '@'.to_string(), // @ at
+        "minus" => '-'.to_string(), // - minus
+        "subtract" => '-'.to_string(),
+        "dash" => '-'.to_string(),
+        "plus" => '+'.to_string(), // + plus
+        "add" => '+'.to_string(),
+        "divide" => '/'.to_string(), // / divide, slash
+        "slash" => '/'.to_string(),
+        "backslash" => '\\'.to_string(),// \ backslash
+        "percent" => '%'.to_string(), // % percent
+        "multiply" => '*'.to_string(), // * multiply
+        "greater_than" => '>'.to_string(), // > greater_than
+        "gt" => '>'.to_string(),
+        "less_than" => '<'.to_string(), // < less_than
+        "lt" => '<'.to_string(),
+        "and" => '&'.to_string(), // & and, ampersand
+        "ampersand" => '&'.to_string(),
+        "equal" => '='.to_string(), // = equal
+        "eq" => '='.to_string(),
+        "double_equal" => "==".to_string(), // == double_equal
+        "fat_arrow" => "=>".to_string(), // => fat_arrow
+        "right_arrow" => "->".to_string(), // -> right_arrow
+        "left_arrow" => "<-".to_string(), // <- left_arrow
+        "question" => '?'.to_string(), // ? question, q
+        "q" => '?'.to_string(),
+        "colon" => ':'.to_string(), // : colon
+        "underscore" => '_'.to_string(),
+        "u" => '_'.to_string(),
 
         // This is the unicode section
         // Unicode names came from https://www.compart.com/en/unicode
@@ -135,7 +168,7 @@ impl WholeStreamCommand for Char {
                 SyntaxShape::Any,
                 "the name of the character to output",
             )
-            .rest(SyntaxShape::String, "multiple Unicode bytes")
+            .rest("rest", SyntaxShape::String, "multiple Unicode bytes")
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
     }

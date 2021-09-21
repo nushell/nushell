@@ -163,7 +163,7 @@ fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                 context.scope.enter_scope();
                 context.scope.add_var("$acc", f);
-                let result = process_row(block, &*context, row);
+                let result = process_row(block, &context, row);
                 context.scope.exit_scope();
 
                 // we make sure that result is an indexed item
@@ -201,7 +201,7 @@ fn reduce(args: CommandArgs) -> Result<ActionStream, ShellError> {
 
                 context.scope.enter_scope();
                 context.scope.add_var("$acc", f);
-                let result = process_row(block, &*context, row);
+                let result = process_row(block, &context, row);
                 context.scope.exit_scope();
                 result
             })?

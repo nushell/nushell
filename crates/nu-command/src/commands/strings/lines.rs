@@ -91,7 +91,7 @@ fn lines(args: CommandArgs) -> Result<ActionStream, ShellError> {
                     value: UntaggedValue::Primitive(Primitive::EndOfStream),
                     ..
                 } => {
-                    let st = (&*leftover_string).lock().clone();
+                    let st = leftover_string.lock().clone();
                     if !st.is_empty() {
                         Some(vec![ReturnSuccess::value(
                             UntaggedValue::string(st).into_untagged_value(),

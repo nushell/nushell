@@ -76,6 +76,8 @@ pub fn default_rustyline_editor_configuration() -> Editor<Helper> {
     let config = Config::builder()
         .check_cursor_position(true)
         .color_mode(ColorMode::Forced)
+        .history_ignore_dups(false)
+        .max_history_size(10_000)
         .build();
     let mut rl: Editor<_> = Editor::with_config(config);
 
@@ -247,7 +249,7 @@ pub fn rustyline_hinter(
 ) -> Option<rustyline::hint::HistoryHinter> {
     if let Some(line_editor_vars) = config.var("line_editor") {
         for (idx, value) in line_editor_vars.row_entries() {
-            if idx == "show_hints" && value.expect_string() == "false" {
+            if idx == "show_hints" && value.as_bool() == Ok(false) {
                 return None;
             }
         }

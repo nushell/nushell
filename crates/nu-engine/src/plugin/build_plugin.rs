@@ -1,6 +1,7 @@
 use crate::plugin::run_plugin::PluginCommandBuilder;
 use log::trace;
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_plugin::jsonrpc::JsonRpc;
 use nu_protocol::{Signature, Value};
 use std::io::{BufRead, BufReader, Write};
@@ -21,7 +22,7 @@ pub fn build_plugin_command(
         Command::new("pwsh")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .args(&[
+            .args([
                 "-NoLogo",
                 "-NoProfile",
                 "-ExecutionPolicy",
@@ -48,7 +49,7 @@ pub fn build_plugin_command(
     let request_raw = serde_json::to_string(&request)?;
     trace!(target: "nu::load", "plugin infrastructure config -> path {:#?}, request {:?}", &path, &request_raw);
     stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
-    let path = dunce::canonicalize(path)?;
+    let path = canonicalize(path)?;
 
     let mut input = String::new();
     let result = match reader.read_line(&mut input) {
@@ -134,7 +135,7 @@ pub fn scan(
                 let is_executable = {
                     #[cfg(windows)]
                     {
-                        bin_name.ends_with(".exe") 
+                        bin_name.ends_with(".exe")
                         || bin_name.ends_with(".bat")
                         || bin_name.ends_with(".cmd")
                         || bin_name.ends_with(".py")

@@ -100,7 +100,7 @@ fn from_eml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         dict.insert_untagged("To", headerfieldvalue_to_value(&tag, &to));
     }
 
-    for HeaderField { name, value } in eml.headers.iter() {
+    for HeaderField { name, value } in &eml.headers {
         dict.insert_untagged(name, headerfieldvalue_to_value(&tag, value));
     }
 

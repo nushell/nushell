@@ -61,7 +61,7 @@ fn encode_path(
                 ALLOWED_COLUMNS.join(", ")
             );
             return Err(ShellError::labeled_error_with_secondary(
-                "Invalid column name",
+                "Expected structured path table",
                 msg,
                 new_span,
                 "originates from here",
@@ -215,4 +215,37 @@ where
     } else {
         operate_column_paths(input, action, span, args)
     }
+}
+
+fn column_paths_from_args(args: &CommandArgs) -> Result<Vec<ColumnPath>, ShellError> {
+    let column_paths: Option<Vec<Value>> = args.get_flag("columns")?;
+    let has_columns = column_paths.is_some();
+    let column_paths = match column_paths {
+        Some(cols) => {
+            let mut c = Vec::new();
+            for col in cols {
+                let colpath = ColumnPath::build(&col.convert_to_string().spanned_unknown());
+                if !colpath.is_empty() {
+                    c.push(colpath)
+                }
+            }
+            c
+        }
+        None => Vec::new(),
+    };
+
+    if has_columns && column_paths.is_empty() {
+        let colval: Option<Value> = args.get_flag("columns")?;
+        let colspan = match colval {
+            Some(v) => v.tag.span,
+            None => Span::unknown(),
+        };
+        return Err(ShellError::labeled_error(
+            "Requires a list of columns",
+            "must be a list of columns",
+            colspan,
+        ));
+    }
+
+    Ok(column_paths)
 }

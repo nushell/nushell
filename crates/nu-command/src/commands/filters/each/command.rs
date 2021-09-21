@@ -69,7 +69,7 @@ impl WholeStreamCommand for Each {
 }
 
 pub fn process_row(
-    captured_block: Arc<Box<CapturedBlock>>,
+    captured_block: Arc<CapturedBlock>,
     context: Arc<EvaluationContext>,
     input: Value,
     external_redirection: ExternalRedirection,
@@ -96,7 +96,7 @@ pub fn process_row(
 
     let result = run_block(
         &captured_block.block,
-        &*context,
+        &context,
         input_stream,
         external_redirection,
     );
@@ -121,13 +121,13 @@ fn each(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block: CapturedBlock = args.req(0)?;
     let numbered: bool = args.has_flag("numbered");
 
-    let block = Arc::new(Box::new(block));
+    let block = Arc::new(block);
 
     if numbered {
         Ok(args
             .input
             .enumerate()
-            .map(move |input| {
+            .flat_map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
                 let row = make_indexed_item(input.0, input.1);
@@ -137,12 +137,11 @@ fn each(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
-            .flatten()
             .into_output_stream())
     } else {
         Ok(args
             .input
-            .map(move |input| {
+            .flat_map(move |input| {
                 let block = block.clone();
                 let context = context.clone();
 
@@ -151,7 +150,6 @@ fn each(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Err(e) => OutputStream::one(Value::error(e)),
                 }
             })
-            .flatten()
             .into_output_stream())
     }
 }

@@ -14,15 +14,18 @@ impl WholeStreamCommand for UrlHost {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("url host")
-            .rest(SyntaxShape::ColumnPath, "optionally operate by column path")
+        Signature::build("url host").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "optionally operate by column path",
+        )
     }
 
     fn usage(&self) -> &str {
         "gets the host of a url"
     }
 
-    fn run_with_actions(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let rest: Vec<ColumnPath> = args.rest(0)?;
         let input = args.input;
 

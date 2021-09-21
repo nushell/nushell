@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::filesystem::filesystem_shell::get_file_type;
 use nu_engine::WholeStreamCommand;
@@ -9,12 +9,12 @@ use std::path::Path;
 pub struct PathType;
 
 struct PathTypeArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathTypeArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -24,8 +24,12 @@ impl WholeStreamCommand for PathType {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path type")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path type").named(
+            "columns",
+            SyntaxShape::Table,
+            "Optionally operate by column path",
+            Some('c'),
+        )
     }
 
     fn usage(&self) -> &str {
@@ -35,18 +39,25 @@ impl WholeStreamCommand for PathType {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathTypeArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Show type of a filepath",
-            example: "echo '.' | path type",
-            result: Some(vec![Value::from("Dir")]),
-        }]
+        vec![
+            Example {
+                description: "Show type of a filepath",
+                example: "'.' | path type",
+                result: Some(vec![Value::from("Dir")]),
+            },
+            Example {
+                description: "Show type of a filepath in a column",
+                example: "ls | path type -c [ name ]",
+                result: None,
+            },
+        ]
     }
 }
 

@@ -20,7 +20,7 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -35,7 +35,6 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
     })
 }
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]
@@ -114,7 +113,7 @@ fn picks_up_script_vars_when_entering_trusted_directory() {
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -193,7 +192,7 @@ fn leaving_a_trusted_directory_runs_exit_scripts() {
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -222,7 +221,7 @@ fn entry_scripts_are_called_when_revisiting_a_trusted_directory() {
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -255,7 +254,7 @@ fn given_a_trusted_directory_with_entry_scripts_when_entering_a_subdirectory_ent
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -286,7 +285,7 @@ fn given_a_trusted_directory_with_exit_scripts_when_entering_a_subdirectory_exit
                 SCRIPTS,
                 r#"[env]
                 testkey = "testvalue"
-        
+
                [scriptvars]
                 myscript = "echo myval"
             "#
@@ -433,7 +432,6 @@ fn given_a_hierachy_of_trusted_directories_going_back_restores_overwritten_varia
     })
 }
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]
@@ -488,7 +486,6 @@ fn local_config_env_var_present_and_removed_correctly() {
     });
 }
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]
@@ -555,7 +552,6 @@ fn local_config_env_var_gets_overwritten() {
     });
 }
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]
@@ -604,7 +600,6 @@ fn autoenv_test_entry_scripts() {
     });
 }
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 #[test]
 #[serial]

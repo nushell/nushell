@@ -80,7 +80,7 @@ fn process_row(
 
             let result = run_block(
                 &block.block,
-                &*context,
+                &context,
                 input_stream,
                 ExternalRedirection::Stdout,
             );
@@ -162,7 +162,7 @@ fn insert(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let column = Arc::new(column);
 
     Ok(input
-        .map(move |input| {
+        .flat_map(move |input| {
             let context = context.clone();
             let value = value.clone();
             let column = column.clone();
@@ -172,6 +172,5 @@ fn insert(args: CommandArgs) -> Result<ActionStream, ShellError> {
                 Err(e) => ActionStream::one(Err(e)),
             }
         })
-        .flatten()
         .into_action_stream())
 }

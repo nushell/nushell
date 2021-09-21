@@ -49,22 +49,22 @@ impl WholeStreamCommand for Command {
                 result: Some(vec![Value::from(one(r#"
                 |name|type|chickens|modified|
                 |-|-|-|-|
-                |Andres.txt|File|10|1 year ago|
-                |Jonathan|Dir|5|1 year ago|
-                |Darren.txt|File|20|1 year ago|
-                |Yehuda|Dir|4|1 year ago|
+                |Andres.txt|File|10|2 years ago|
+                |Jonathan|Dir|5|2 years ago|
+                |Darren.txt|File|20|2 years ago|
+                |Yehuda|Dir|4|2 years ago|
                 "#))]),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
                 example: "ls | to md --pretty",
                 result: Some(vec![Value::from(one(r#"
-                    | name       | type | chickens | modified   |
-                    | ---------- | ---- | -------- | ---------- |
-                    | Andres.txt | File | 10       | 1 year ago |
-                    | Jonathan   | Dir  | 5        | 1 year ago |
-                    | Darren.txt | File | 20       | 1 year ago |
-                    | Yehuda     | Dir  | 4        | 1 year ago |
+                    | name       | type | chickens | modified    |
+                    | ---------- | ---- | -------- | ----------- |
+                    | Andres.txt | File | 10       | 2 years ago |
+                    | Jonathan   | Dir  | 5        | 2 years ago |
+                    | Darren.txt | File | 20       | 2 years ago |
+                    | Yehuda     | Dir  | 4        | 2 years ago |
                     "#))]),
             },
             Example {
@@ -72,10 +72,10 @@ impl WholeStreamCommand for Command {
                 example: "echo [[H1]; [\"Welcome to Nushell\"]] | append (ls | first 2) | to md --per-element --pretty",
                 result: Some(vec![Value::from(one(r#"
                     # Welcome to Nushell
-                    | name       | type | chickens | modified   |
-                    | ---------- | ---- | -------- | ---------- |
-                    | Andres.txt | File | 10       | 1 year ago |
-                    | Jonathan   | Dir  | 5        | 1 year ago |
+                    | name       | type | chickens | modified    |
+                    | ---------- | ---- | -------- | ----------- |
+                    | Andres.txt | File | 10       | 2 years ago |
+                    | Jonathan   | Dir  | 5        | 2 years ago |
                     "#))]),
             }
         ]
@@ -236,7 +236,7 @@ fn get_output_string(
                 ));
                 output_string.push(' ');
             } else {
-                output_string.push_str(headers[i].as_str());
+                output_string.push_str(&headers[i]);
             }
 
             output_string.push('|');
@@ -275,7 +275,7 @@ fn get_output_string(
                 output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
                 output_string.push(' ');
             } else {
-                output_string.push_str(row[i].as_str());
+                output_string.push_str(&row[i]);
             }
 
             if !headers.is_empty() {

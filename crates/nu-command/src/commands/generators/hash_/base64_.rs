@@ -45,6 +45,7 @@ impl WholeStreamCommand for SubCommand {
                 "decode the input from base64",
                 Some('d'))
             .rest(
+"rest",
                 SyntaxShape::ColumnPath,
                 "optionally base64 encode / decode data by column paths",
             )

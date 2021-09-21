@@ -90,7 +90,10 @@ impl rustyline::completion::Completer for Helper {
 impl rustyline::hint::Hinter for Helper {
     type Hint = String;
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.as_ref().and_then(|h| h.hint(line, pos, ctx))
+        match &self.hinter {
+            Some(the_hinter) => the_hinter.hint(line, pos, ctx),
+            None => Some("".to_string()),
+        }
     }
 }
 
@@ -149,7 +152,7 @@ impl rustyline::validate::Validator for NuValidator {
     ) -> rustyline::Result<rustyline::validate::ValidationResult> {
         let src = ctx.input();
 
-        let (tokens, err) = nu_parser::lex(src, 0);
+        let (tokens, err) = nu_parser::lex(src, 0, nu_parser::NewlineMode::Normal);
         if let Some(err) = err {
             if let nu_errors::ParseErrorReason::Eof { .. } = err.reason() {
                 return Ok(rustyline::validate::ValidationResult::Incomplete);

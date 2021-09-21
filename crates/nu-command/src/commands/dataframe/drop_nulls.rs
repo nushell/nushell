@@ -2,7 +2,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, NuSeries, PolarsData},
+    dataframe::{Column, NuDataFrame},
     Signature, SyntaxShape, UntaggedValue, Value,
 };
 
@@ -16,7 +16,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Drops null values in dataframe"
+        "[DataFrame, Series] Drops null values in dataframe"
     }
 
     fn signature(&self) -> Signature {
@@ -36,17 +36,47 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | dataframe to-df);
-let res = ($df.b / $df.b);
-let df = ($df | dataframe with-column $res as res);
-$df | dataframe drop-nulls
-"#,
-                result: None,
+    let res = ($df.b / $df.b);
+    let df = ($df | dataframe with-column $res --name res);
+    $df | dataframe drop-nulls"#,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(1).into()],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![UntaggedValue::int(2).into(), UntaggedValue::int(2).into()],
+                        ),
+                        Column::new(
+                            "res".to_string(),
+                            vec![UntaggedValue::int(1).into(), UntaggedValue::int(1).into()],
+                        ),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "drop null values in dataframe",
-                example: r#"let s = ([1 2 0 0 3 4] | dataframe to-series);
-($s / $s) | dataframe drop-nulls"#,
-                result: None,
+                example: r#"let s = ([1 2 0 0 3 4] | dataframe to-df);
+    ($s / $s) | dataframe drop-nulls"#,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "div_0_0".to_string(),
+                        vec![
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                            UntaggedValue::int(1).into(),
+                        ],
+                    )],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -60,7 +90,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             // Extracting the selection columns of the columns to perform the aggregation
             let columns: Option<Vec<Value>> = args.opt(0)?;
             let (subset, col_span) = match columns {
@@ -80,14 +110,23 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
-            let res = series.as_ref().drop_nulls();
-            Ok(OutputStream::one(NuSeries::series_to_value(res, tag)))
-        }
         _ => Err(ShellError::labeled_error(
             "Incorrect type",
             "drop nulls cannot be done with this value",
             &value.tag.span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
+
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
+
+        test_examples(DataFrame {})
     }
 }

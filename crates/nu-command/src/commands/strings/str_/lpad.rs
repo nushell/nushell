@@ -31,6 +31,7 @@ impl WholeStreamCommand for SubCommand {
                 Some('c'),
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally check if string contains pattern by column paths",
             )
@@ -124,7 +125,7 @@ fn action(
                 )
             } else {
                 let mut res = character.repeat(**length - s.chars().count());
-                res += s.as_ref();
+                res += s;
                 Ok(UntaggedValue::string(res).into_value(tag))
             }
         }

@@ -3,7 +3,8 @@ use crate::value::column_path::ColumnPath;
 use crate::value::range::{Range, RangeInclusion};
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
+use chrono_humanize::HumanTime;
 use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
@@ -89,14 +90,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_usize().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into an unsigned 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_usize().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into an unsigned 64-bit integer",
                 )
             }),
@@ -113,14 +114,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_u64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into an unsigned 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_u64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into an unsigned 64-bit integer",
                 )
             }),
@@ -137,14 +138,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_f64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a 64-bit floating point",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_f64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a 64-bit floating point",
                 )
             }),
@@ -161,21 +162,21 @@ impl Primitive {
             Primitive::Int(int) => int.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 64-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 64-bit integer",
                 )
             }),
             Primitive::Duration(duration) => duration.to_i64().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I64,
-                    &format!("{}", duration).spanned(span),
+                    &duration.to_string().spanned(span),
                     "converting a duration into a signed 64-bit integer",
                 )
             }),
@@ -192,14 +193,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_u32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a unsigned 32-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_u32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::U32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a unsigned 32-bit integer",
                 )
             }),
@@ -215,14 +216,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_i32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 32-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 32-bit integer",
                 )
             }),
@@ -238,14 +239,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_i16().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I16,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 16-bit integer",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_i16().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::I16,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 16-bit integer",
                 )
             }),
@@ -261,14 +262,14 @@ impl Primitive {
             Primitive::Int(int) => int.to_f32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F32,
-                    &format!("{}", int).spanned(span),
+                    &int.to_string().spanned(span),
                     "converting an integer into a signed 32-bit float",
                 )
             }),
             Primitive::Decimal(decimal) => decimal.to_f32().ok_or_else(|| {
                 ShellError::range_error(
                     ExpectedRange::F32,
-                    &format!("{}", decimal).spanned(span),
+                    &decimal.to_string().spanned(span),
                     "converting a decimal into a signed 32-bit float",
                 )
             }),
@@ -459,7 +460,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Nothing => String::new(),
         Primitive::BeginningOfStream => String::new(),
         Primitive::EndOfStream => String::new(),
-        Primitive::FilePath(p) => format!("{}", p.display()),
+        Primitive::FilePath(p) => p.display().to_string(),
         Primitive::Filesize(num_bytes) => {
             if let Some(value) = num_bytes.to_u128() {
                 let byte = byte_unit::Byte::from_bytes(value);
@@ -488,7 +489,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             if decimal_places.len() == 2 && decimal_places[1].len() > 4 {
                 format!("{:.4}", decimal)
             } else {
-                format!("{}", decimal)
+                decimal.to_string()
             }
         }
         Primitive::Range(range) => format!(
@@ -592,127 +593,7 @@ pub fn format_duration(duration: &BigInt) -> String {
     )
 }
 
-#[allow(clippy::cognitive_complexity)]
 /// Format a date value into a humanized string (eg "1 week ago" instead of a formal date string)
 pub fn format_date(d: &DateTime<FixedOffset>) -> String {
-    let utc: DateTime<Utc> = Utc::now();
-
-    let duration = utc.signed_duration_since(*d);
-
-    if duration.num_seconds() < 0 {
-        // Our duration is negative, so we need to speak about the future
-        if -duration.num_weeks() >= 52 {
-            let num_years = -duration.num_weeks() / 52;
-
-            format!(
-                "{} year{} from now",
-                num_years,
-                if num_years == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_weeks() >= 4 {
-            let num_months = -duration.num_weeks() / 4;
-
-            format!(
-                "{} month{} from now",
-                num_months,
-                if num_months == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_weeks() >= 1 {
-            let num_weeks = -duration.num_weeks();
-
-            format!(
-                "{} week{} from now",
-                num_weeks,
-                if num_weeks == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_days() >= 1 {
-            let num_days = -duration.num_days();
-
-            format!(
-                "{} day{} from now",
-                num_days,
-                if num_days == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_hours() >= 1 {
-            let num_hours = -duration.num_hours();
-
-            format!(
-                "{} hour{} from now",
-                num_hours,
-                if num_hours == 1 { "" } else { "s" }
-            )
-        } else if -duration.num_minutes() >= 1 {
-            let num_minutes = -duration.num_minutes();
-
-            format!(
-                "{} min{} from now",
-                num_minutes,
-                if num_minutes == 1 { "" } else { "s" }
-            )
-        } else {
-            let num_seconds = -duration.num_seconds();
-
-            format!(
-                "{} sec{} from now",
-                num_seconds,
-                if num_seconds == 1 { "" } else { "s" }
-            )
-        }
-    } else if duration.num_weeks() >= 52 {
-        let num_years = duration.num_weeks() / 52;
-
-        format!(
-            "{} year{} ago",
-            num_years,
-            if num_years == 1 { "" } else { "s" }
-        )
-    } else if duration.num_weeks() >= 4 {
-        let num_months = duration.num_weeks() / 4;
-
-        format!(
-            "{} month{} ago",
-            num_months,
-            if num_months == 1 { "" } else { "s" }
-        )
-    } else if duration.num_weeks() >= 1 {
-        let num_weeks = duration.num_weeks();
-
-        format!(
-            "{} week{} ago",
-            num_weeks,
-            if num_weeks == 1 { "" } else { "s" }
-        )
-    } else if duration.num_days() >= 1 {
-        let num_days = duration.num_days();
-
-        format!(
-            "{} day{} ago",
-            num_days,
-            if num_days == 1 { "" } else { "s" }
-        )
-    } else if duration.num_hours() >= 1 {
-        let num_hours = duration.num_hours();
-
-        format!(
-            "{} hour{} ago",
-            num_hours,
-            if num_hours == 1 { "" } else { "s" }
-        )
-    } else if duration.num_minutes() >= 1 {
-        let num_minutes = duration.num_minutes();
-
-        format!(
-            "{} min{} ago",
-            num_minutes,
-            if num_minutes == 1 { "" } else { "s" }
-        )
-    } else {
-        let num_seconds = duration.num_seconds();
-
-        format!(
-            "{} sec{} ago",
-            num_seconds,
-            if num_seconds == 1 { "" } else { "s" }
-        )
-    }
+    HumanTime::from(*d).to_string()
 }

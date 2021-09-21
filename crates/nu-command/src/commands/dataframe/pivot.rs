@@ -46,7 +46,7 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Performs a pivot operation on a groupby object"
+        "[GroupBy] Performs a pivot operation on a groupby object"
     }
 
     fn signature(&self) -> Signature {
@@ -72,8 +72,8 @@ impl WholeStreamCommand for DataFrame {
         vec![Example {
             description: "Pivot a dataframe on b and aggregation on col c",
             example:
-                "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by [a] | dataframe pivot b c sum",
-            result: None,
+                "[[a b c]; [one x 1] [two y 2]] | dataframe to-df | dataframe group-by a | dataframe pivot b c sum",
+            result: None, // No sample because there are nulls in the result dataframe
         }]
     }
 }
@@ -100,7 +100,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut groupby = nu_groupby.to_groupby()?;
 
-    let pivot = groupby.pivot(pivot_col.item.as_ref(), value_col.item.as_ref());
+    let pivot = groupby.pivot(&pivot_col.item, &value_col.item);
 
     let res = match op {
         Operation::Mean => pivot.mean(),
@@ -120,7 +120,7 @@ fn check_pivot_column(
     col: &Tagged<String>,
 ) -> Result<(), ShellError> {
     let series = df
-        .column(col.item.as_ref())
+        .column(&col.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {
@@ -146,7 +146,7 @@ fn check_value_column(
     col: &Tagged<String>,
 ) -> Result<(), ShellError> {
     let series = df
-        .column(col.item.as_ref())
+        .column(&col.item)
         .map_err(|e| parse_polars_error::<&str>(&e, &col.tag.span, None))?;
 
     match series.dtype() {

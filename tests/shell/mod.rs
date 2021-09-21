@@ -5,7 +5,6 @@ use nu_test_support::{nu, pipeline};
 use hamcrest2::assert_that;
 use hamcrest2::prelude::*;
 
-#[cfg(feature = "directories-support")]
 #[cfg(feature = "which-support")]
 mod environment;
 

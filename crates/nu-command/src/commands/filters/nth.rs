@@ -18,7 +18,7 @@ impl WholeStreamCommand for Nth {
                 SyntaxShape::Int,
                 "the number of the row to return",
             )
-            .rest(SyntaxShape::Any, "Optionally return more rows")
+            .rest("rest", SyntaxShape::Any, "Optionally return more rows")
             .switch("skip", "Skip the rows instead of selecting them", Some('s'))
     }
 
@@ -110,18 +110,5 @@ impl Iterator for NthIterator {
                 return self.input.next();
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Nth;
-    use super::ShellError;
-
-    #[test]
-    fn examples_work_as_expected() -> Result<(), ShellError> {
-        use crate::examples::test as test_examples;
-
-        test_examples(Nth {})
     }
 }

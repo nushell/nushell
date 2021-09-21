@@ -1,4 +1,4 @@
-use super::{handle_value, operate_column_paths, PathSubcommandArguments};
+use super::{column_paths_from_args, handle_value, operate_column_paths, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -8,12 +8,12 @@ use std::path::Path;
 pub struct PathSplit;
 
 struct PathSplitArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathSplitArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -23,8 +23,12 @@ impl WholeStreamCommand for PathSplit {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path split")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+        Signature::build("path split").named(
+            "columns",
+            SyntaxShape::Table,
+            "Optionally operate by column path",
+            Some('c'),
+        )
     }
 
     fn usage(&self) -> &str {
@@ -34,7 +38,7 @@ impl WholeStreamCommand for PathSplit {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathSplitArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate_split(args.input, &action, tag.span, cmd_args))
@@ -45,7 +49,7 @@ impl WholeStreamCommand for PathSplit {
         vec![
             Example {
                 description: "Split a path into parts",
-                example: r"echo 'C:\Users\viking\spam.txt' | path split",
+                example: r"'C:\Users\viking\spam.txt' | path split",
                 result: Some(vec![
                     Value::from(UntaggedValue::string("C:")),
                     Value::from(UntaggedValue::string(r"\")),
@@ -56,7 +60,7 @@ impl WholeStreamCommand for PathSplit {
             },
             Example {
                 description: "Split all paths under the 'name' column",
-                example: r"ls | path split name",
+                example: r"ls ('.' | path expand) | path split -c [ name ]",
                 result: None,
             },
         ]
@@ -67,7 +71,7 @@ impl WholeStreamCommand for PathSplit {
         vec![
             Example {
                 description: "Split a path into parts",
-                example: r"echo '/home/viking/spam.txt' | path split",
+                example: r"'/home/viking/spam.txt' | path split",
                 result: Some(vec![
                     Value::from(UntaggedValue::string("/")),
                     Value::from(UntaggedValue::string("home")),
@@ -77,7 +81,7 @@ impl WholeStreamCommand for PathSplit {
             },
             Example {
                 description: "Split all paths under the 'name' column",
-                example: r"ls | path split name",
+                example: r"ls ('.' | path expand) | path split -c [ name ]",
                 result: None,
             },
         ]

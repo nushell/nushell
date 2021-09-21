@@ -10,6 +10,7 @@ pub struct Command;
 
 #[derive(Deserialize)]
 struct Arguments {
+    #[allow(unused)]
     pub rest: Vec<Value>,
 }
 
@@ -19,7 +20,7 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")
+        Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")
     }
 
     fn usage(&self) -> &str {
@@ -37,7 +38,7 @@ impl WholeStreamCommand for Command {
             base_value = first.clone()
         }
 
-        let stream = rest.into_iter().map(move |i| {
+        let stream = rest.into_iter().flat_map(move |i| {
             let base_value = base_value.clone();
             match i.as_string() {
                 Ok(s) => ActionStream::one(Ok(ReturnSuccess::Value(Value {
@@ -51,9 +52,9 @@ impl WholeStreamCommand for Command {
                     } => {
                         if table.len() == 1 && table[0].is_table() {
                             let mut values: Vec<Value> =
-                                table[0].table_entries().map(Clone::clone).collect();
+                                table[0].table_entries().cloned().collect();
 
-                            for v in values.iter_mut() {
+                            for v in &mut values {
                                 v.tag = base_value.tag();
                             }
 
@@ -80,6 +81,6 @@ impl WholeStreamCommand for Command {
             }
         });
 
-        Ok((stream).flatten().into_action_stream())
+        Ok(stream.into_action_stream())
     }
 }

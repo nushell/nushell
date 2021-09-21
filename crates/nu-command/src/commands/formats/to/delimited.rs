@@ -20,7 +20,7 @@ fn from_value_to_delimited_string(
             let mut fields: VecDeque<String> = VecDeque::new();
             let mut values: VecDeque<String> = VecDeque::new();
 
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 fields.push_back(k.clone());
 
                 values.push_back(to_string_tagged_value(v)?);
@@ -130,12 +130,14 @@ pub fn clone_tagged_value(v: &Value) -> Value {
 // NOTE: could this be useful more widely and implemented on Value ?
 fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
     match &v.value {
-        UntaggedValue::Primitive(Primitive::String(_))
-        | UntaggedValue::Primitive(Primitive::Filesize(_))
-        | UntaggedValue::Primitive(Primitive::Boolean(_))
-        | UntaggedValue::Primitive(Primitive::Decimal(_))
-        | UntaggedValue::Primitive(Primitive::FilePath(_))
-        | UntaggedValue::Primitive(Primitive::Int(_)) => as_string(v),
+        UntaggedValue::Primitive(
+            Primitive::String(_)
+            | Primitive::Filesize(_)
+            | Primitive::Boolean(_)
+            | Primitive::Decimal(_)
+            | Primitive::FilePath(_)
+            | Primitive::Int(_),
+        ) => as_string(v),
         UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         UntaggedValue::Primitive(Primitive::Nothing) => Ok(String::new()),
         UntaggedValue::Table(_) => Ok(String::from("[Table]")),
@@ -153,7 +155,7 @@ fn merge_descriptors(values: &[Value]) -> Vec<Spanned<String>> {
     let mut seen: IndexSet<String> = indexset! {};
     for value in values {
         for desc in value.data_descriptors() {
-            if !seen.contains(&desc[..]) {
+            if !seen.contains(&desc) {
                 seen.insert(desc.clone());
                 ret.push(desc.spanned(value.tag.span));
             }

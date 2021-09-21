@@ -40,6 +40,7 @@ impl WholeStreamCommand for SubCommand {
                 Some('d'),
             )
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally, draw gradients using text from column paths",
             )

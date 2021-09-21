@@ -47,19 +47,38 @@ pub trait WholeStreamCommand: Send + Sync {
     }
 
     // Commands that are not meant to be run by users
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         false
     }
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
     }
+
+    // This is a built-in command
+    fn is_builtin(&self) -> bool {
+        true
+    }
+
+    // Is a sub command
+    fn is_sub(&self) -> bool {
+        self.name().contains(' ')
+    }
+
+    // Is a plugin command
+    fn is_plugin(&self) -> bool {
+        false
+    }
+
+    // Is a custom command i.e. def blah [] { }
+    fn is_custom(&self) -> bool {
+        false
+    }
 }
 
 // Custom commands are blocks, so we can use the information in the block to also
 // implement a WholeStreamCommand
 #[allow(clippy::suspicious_else_formatting)]
-
 impl WholeStreamCommand for Arc<Block> {
     fn name(&self) -> &str {
         &self.params.name
@@ -73,6 +92,10 @@ impl WholeStreamCommand for Arc<Block> {
         &self.params.usage
     }
 
+    fn extra_usage(&self) -> &str {
+        &self.params.extra_usage
+    }
+
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let call_info = args.call_info.clone();
 
@@ -81,7 +104,7 @@ impl WholeStreamCommand for Arc<Block> {
         let external_redirection = args.call_info.args.external_redirection;
 
         let ctx = &args.context;
-        let evaluated = call_info.evaluate(&ctx)?;
+        let evaluated = call_info.evaluate(ctx)?;
 
         let input = args.input;
         ctx.scope.enter_scope();
@@ -116,7 +139,7 @@ impl WholeStreamCommand for Arc<Block> {
                     _ => break,
                 }
             }
-            if block.params.rest_positional.is_some() {
+            if let Some(rest_pos) = &block.params.rest_positional {
                 let elements: Vec<_> = args_iter.collect();
                 let start = if let Some(first) = elements.first() {
                     first.tag.span.start()
@@ -130,15 +153,15 @@ impl WholeStreamCommand for Arc<Block> {
                 };
 
                 ctx.scope.add_var(
-                    "$rest",
+                    format!("${}", rest_pos.0),
                     UntaggedValue::Table(elements).into_value(Span::new(start, end)),
                 );
             }
-        } else if block.params.rest_positional.is_some() {
+        } else if let Some(rest_pos) = &block.params.rest_positional {
             //If there is a rest arg, but no args were provided,
             //we have to set $rest to an empty table
             ctx.scope.add_var(
-                "$rest",
+                format!("${}", rest_pos.0),
                 UntaggedValue::Table(Vec::new()).into_value(Span::new(0, 0)),
             );
         }
@@ -175,7 +198,7 @@ impl WholeStreamCommand for Arc<Block> {
                 }
             }
         }
-        let result = run_block(&block, &ctx, input, external_redirection);
+        let result = run_block(&block, ctx, input, external_redirection);
         ctx.scope.exit_scope();
         result
     }
@@ -184,12 +207,20 @@ impl WholeStreamCommand for Arc<Block> {
         false
     }
 
-    fn is_internal(&self) -> bool {
+    fn is_private(&self) -> bool {
         false
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![]
+    }
+
+    fn is_custom(&self) -> bool {
+        true
+    }
+
+    fn is_builtin(&self) -> bool {
+        false
     }
 }
 
@@ -228,6 +259,10 @@ impl Command {
         self.0.usage()
     }
 
+    pub fn extra_usage(&self) -> &str {
+        self.0.extra_usage()
+    }
+
     pub fn examples(&self) -> Vec<Example> {
         self.0.examples()
     }
@@ -260,12 +295,28 @@ impl Command {
         self.0.is_binary()
     }
 
-    pub fn is_internal(&self) -> bool {
-        self.0.is_internal()
+    pub fn is_private(&self) -> bool {
+        self.0.is_private()
     }
 
     pub fn stream_command(&self) -> &dyn WholeStreamCommand {
         &*self.0
+    }
+
+    pub fn is_builtin(&self) -> bool {
+        self.0.is_builtin()
+    }
+
+    pub fn is_sub(&self) -> bool {
+        self.0.is_sub()
+    }
+
+    pub fn is_plugin(&self) -> bool {
+        self.0.is_plugin()
+    }
+
+    pub fn is_custom(&self) -> bool {
+        self.0.is_custom()
     }
 }
 

@@ -4,7 +4,7 @@ use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 
 use nu_errors::ShellError;
-use nu_path::canonicalize;
+use nu_path::canonicalize_with;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
@@ -56,7 +56,7 @@ impl WholeStreamCommand for SubCommand {
             tag,
         }) = load_path
         {
-            let path = canonicalize(shell_manager.path(), load_path).map_err(|_| {
+            let path = canonicalize_with(load_path, shell_manager.path()).map_err(|_| {
                 ShellError::labeled_error(
                     "Cannot load plugins from directory",
                     "directory not found",

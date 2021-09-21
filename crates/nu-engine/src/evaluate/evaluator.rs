@@ -127,7 +127,7 @@ pub fn evaluate_baseline_expr(
                 }
 
                 let mut row_output = IndexMap::new();
-                for cell in output_headers.iter().zip(row.iter()) {
+                for cell in output_headers.iter().zip(row) {
                     let val = evaluate_baseline_expr(cell.1, ctx)?;
                     row_output.insert(cell.0.clone(), val);
                 }
@@ -266,7 +266,7 @@ impl<'a> From<&'a Expression> for Variable<'a> {
                 "$true" => Self::True,
                 "$false" => Self::False,
                 "$nothing" => Self::Nothing,
-                _ => Self::Other(&name),
+                _ => Self::Other(name),
             },
             _ => unreachable!(),
         }

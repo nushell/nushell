@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -11,13 +11,13 @@ use std::path::Path;
 pub struct PathParse;
 
 struct PathParseArguments {
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
     extension: Option<Tagged<String>>,
 }
 
 impl PathSubcommandArguments for PathParseArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -28,7 +28,12 @@ impl WholeStreamCommand for PathParse {
 
     fn signature(&self) -> Signature {
         Signature::build("path parse")
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
             .named(
                 "extension",
                 SyntaxShape::String,
@@ -49,7 +54,7 @@ On Windows, an extra 'prefix' column is added."#
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathParseArguments {
-            rest: args.rest(0)?,
+            columns: column_paths_from_args(&args)?,
             extension: args.get_flag("extension")?,
         });
 
@@ -61,22 +66,22 @@ On Windows, an extra 'prefix' column is added."#
         vec![
             Example {
                 description: "Parse a single path",
-                example: r"echo 'C:\Users\viking\spam.txt' | path parse",
+                example: r"'C:\Users\viking\spam.txt' | path parse",
                 result: None,
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"echo 'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"echo 'C:\Users\viking.d' | path parse -e ''",
+                example: r"'C:\Users\viking.d' | path parse -e ''",
                 result: None,
             },
             Example {
                 description: "Parse all paths under the 'name' column",
-                example: r"ls | path parse name",
+                example: r"ls | path parse -c [ name ]",
                 result: None,
             },
         ]
@@ -87,22 +92,22 @@ On Windows, an extra 'prefix' column is added."#
         vec![
             Example {
                 description: "Parse a path",
-                example: r"echo '/home/viking/spam.txt' | path parse",
+                example: r"'/home/viking/spam.txt' | path parse",
                 result: None,
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"echo '/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
+                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"echo '/etc/conf.d' | path parse -e ''",
+                example: r"'/etc/conf.d' | path parse -e ''",
                 result: None,
             },
             Example {
                 description: "Parse all paths under the 'name' column",
-                example: r"ls | path parse name",
+                example: r"ls | path parse -c [ name ]",
                 result: None,
             },
         ]

@@ -26,7 +26,7 @@ fn txt(text: &str) -> String {
 fn hjson_expectations() -> PathBuf {
     let assets = nu_test_support::fs::assets().join("nu_json");
 
-    dunce::canonicalize(assets.clone()).unwrap_or_else(|e| {
+    nu_path::canonicalize(assets.clone()).unwrap_or_else(|e| {
         panic!(
             "Couldn't canonicalize hjson assets path {}: {:?}",
             assets.display(),

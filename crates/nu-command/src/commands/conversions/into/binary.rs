@@ -12,23 +12,11 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into binary")
-            .rest(
-                SyntaxShape::ColumnPath,
-                "column paths to convert to binary (for table input)",
-            )
-            .named(
-                "skip",
-                SyntaxShape::Int,
-                "skip x number of bytes",
-                Some('s'),
-            )
-            .named(
-                "bytes",
-                SyntaxShape::Int,
-                "show y number of bytes",
-                Some('b'),
-            )
+        Signature::build("into binary").rest(
+            "rest",
+            SyntaxShape::ColumnPath,
+            "column paths to convert to binary (for table input)",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -54,42 +42,20 @@ impl WholeStreamCommand for SubCommand {
                 .into()]),
             },
             Example {
-                description: "convert string to a nushell binary primitive",
-                example:
-                    "echo 'This is a string that is exactly 52 characters long.' | into binary --skip 10",
-                result: Some(vec![UntaggedValue::binary(
-                    "string that is exactly 52 characters long."
-                        .to_string()
-                        .as_bytes()
-                        .to_vec(),
-                )
-                .into()]),
-            },
-            Example {
-                description: "convert string to a nushell binary primitive",
-                example:
-                    "echo 'This is a string that is exactly 52 characters long.' | into binary --skip 10 --bytes 10",
-                result: Some(vec![UntaggedValue::binary(
-                    "string tha"
-                        .to_string()
-                        .as_bytes()
-                        .to_vec(),
-                )
-                .into()]),
-            },
-            Example {
                 description: "convert a number to a nushell binary primitive",
                 example: "echo 1 | into binary",
-                result: Some(vec![
-                    UntaggedValue::binary(i64::from(1).to_le_bytes().to_vec()).into()
-                ]),
+                result: Some(vec![UntaggedValue::binary(
+                    i64::from(1).to_le_bytes().to_vec(),
+                )
+                .into()]),
             },
             Example {
                 description: "convert a boolean to a nushell binary primitive",
                 example: "echo $true | into binary",
-                result: Some(vec![
-                    UntaggedValue::binary(i64::from(1).to_le_bytes().to_vec()).into()
-                ]),
+                result: Some(vec![UntaggedValue::binary(
+                    i64::from(1).to_le_bytes().to_vec(),
+                )
+                .into()]),
             },
             Example {
                 description: "convert a filesize to a nushell binary primitive",
@@ -113,23 +79,19 @@ impl WholeStreamCommand for SubCommand {
 }
 
 fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let skip: Option<Value> = args.get_flag("skip")?;
-    let bytes: Option<Value> = args.get_flag("bytes")?;
     let column_paths: Vec<ColumnPath> = args.rest(0)?;
 
     Ok(args
         .input
         .map(move |v| {
             if column_paths.is_empty() {
-                action(&v, v.tag(), &skip, &bytes)
+                action(&v, v.tag())
             } else {
                 let mut ret = v;
                 for path in &column_paths {
-                    let skip_clone = skip.clone();
-                    let bytes_clone = bytes.clone();
                     ret = ret.swap_data_by_column_path(
                         path,
-                        Box::new(move |old| action(old, old.tag(), &skip_clone, &bytes_clone)),
+                        Box::new(move |old| action(old, old.tag())),
                     )?;
                 }
 
@@ -141,54 +103,26 @@ fn into_binary(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
 fn int_to_endian(n: i64) -> Vec<u8> {
     if cfg!(target_endian = "little") {
-        // eprintln!("Little Endian");
         n.to_le_bytes().to_vec()
     } else {
-        // eprintln!("Big Endian");
         n.to_be_bytes().to_vec()
     }
 }
 
 fn bigint_to_endian(n: &BigInt) -> Vec<u8> {
     if cfg!(target_endian = "little") {
-        // eprintln!("Little Endian");
         n.to_bytes_le().1
     } else {
-        // eprintln!("Big Endian");
         n.to_bytes_be().1
     }
 }
 
-pub fn action(
-    input: &Value,
-    tag: impl Into<Tag>,
-    skip: &Option<Value>,
-    bytes: &Option<Value>,
-) -> Result<Value, ShellError> {
+pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
-    let skip_bytes = match skip {
-        Some(s) => s.as_usize().unwrap_or(0),
-        None => 0usize,
-    };
-
-    let num_bytes = match bytes {
-        Some(b) => b.as_usize().unwrap_or(0),
-        None => 0usize,
-    };
 
     match &input.value {
         UntaggedValue::Primitive(prim) => Ok(UntaggedValue::binary(match prim {
-            Primitive::Binary(b) => {
-                if num_bytes == 0usize {
-                    b.to_vec().into_iter().skip(skip_bytes).collect()
-                } else {
-                    b.to_vec()
-                        .into_iter()
-                        .skip(skip_bytes)
-                        .take(num_bytes)
-                        .collect()
-                }
-            }
+            Primitive::Binary(b) => b.to_vec(),
             Primitive::Int(n_ref) => int_to_endian(*n_ref),
             Primitive::BigInt(n_ref) => bigint_to_endian(n_ref),
             Primitive::Decimal(dec) => match dec.to_bigint() {
@@ -207,25 +141,7 @@ pub fn action(
                     ));
                 }
             },
-            Primitive::String(a_string) => {
-                // a_string.as_bytes().to_vec()
-                if num_bytes == 0usize {
-                    a_string
-                        .as_bytes()
-                        .to_vec()
-                        .into_iter()
-                        .skip(skip_bytes)
-                        .collect()
-                } else {
-                    a_string
-                        .as_bytes()
-                        .to_vec()
-                        .into_iter()
-                        .skip(skip_bytes)
-                        .take(num_bytes)
-                        .collect()
-                }
-            }
+            Primitive::String(a_string) => a_string.as_bytes().to_vec(),
             Primitive::Boolean(a_bool) => match a_bool {
                 false => int_to_endian(0),
                 true => int_to_endian(1),

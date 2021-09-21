@@ -59,14 +59,12 @@ pub fn roll(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(args
         .input
-        .map(move |value| {
+        .flat_map(move |value| {
             let tag = value.tag();
 
             roll_by(value, &options)
                 .unwrap_or_else(|| vec![UntaggedValue::nothing().into_value(tag)])
-                .into_iter()
         })
-        .flatten()
         .into_output_stream())
 }
 
@@ -84,8 +82,7 @@ fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {
             let values_rotated = rotate(
                 value
                     .row_entries()
-                    .map(|(_, value)| value)
-                    .map(Clone::clone)
+                    .map(|(_, value)| value.clone())
                     .collect::<Vec<_>>(),
                 &options.by,
                 direction,
@@ -94,7 +91,7 @@ fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {
             if let Some(ref values) = values_rotated {
                 let mut out = TaggedDictBuilder::new(&tag);
 
-                for (k, v) in columns.iter().zip(values.iter()) {
+                for (k, v) in columns.iter().zip(values) {
                     out.insert_value(k, v.clone());
                 }
 
@@ -104,7 +101,7 @@ fn roll_by(value: Value, options: &Arguments) -> Option<Vec<Value>> {
         None
     } else if value.is_table() {
         rotate(
-            value.table_entries().map(Clone::clone).collect(),
+            value.table_entries().cloned().collect(),
             &options.by,
             direction,
         )

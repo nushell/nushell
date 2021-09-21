@@ -30,7 +30,7 @@ impl WholeStreamCommand for AutoenvUntrust {
                 value: UntaggedValue::Primitive(Primitive::String(ref path)),
                 tag: _,
             }) => {
-                let mut dir = fs::canonicalize(path)?;
+                let mut dir = nu_path::canonicalize(path)?;
                 dir.push(".nu-env");
                 dir
             }
@@ -61,7 +61,7 @@ impl WholeStreamCommand for AutoenvUntrust {
         let mut doc = String::new();
         file.read_to_string(&mut doc)?;
 
-        let mut allowed: Trusted = toml::from_str(doc.as_str()).unwrap_or_else(|_| Trusted::new());
+        let mut allowed: Trusted = toml::from_str(&doc).unwrap_or_else(|_| Trusted::new());
 
         let file_to_untrust = file_to_untrust.to_string_lossy().to_string();
 

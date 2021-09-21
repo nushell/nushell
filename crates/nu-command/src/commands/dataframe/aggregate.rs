@@ -2,16 +2,11 @@ use crate::{commands::dataframe::utils::parse_polars_error, prelude::*};
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{
-    dataframe::{NuDataFrame, PolarsData},
-    Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+    dataframe::{Column, FrameStruct, NuDataFrame},
+    Signature, SyntaxShape, UntaggedValue,
 };
 use nu_source::Tagged;
-use polars::{
-    frame::groupby::GroupBy,
-    prelude::{DataType, PolarsError, Series},
-};
-
-use super::utils::convert_columns;
+use polars::{frame::groupby::GroupBy, prelude::PolarsError};
 
 enum Operation {
     Mean,
@@ -84,22 +79,22 @@ impl WholeStreamCommand for DataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Performs an aggregation operation on a dataframe or groupby object"
+        "[DataFrame, GroupBy, Series] Performs an aggregation operation on a dataframe, groupby or series object"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("dataframe aggregate")
             .required("operation", SyntaxShape::String, "aggregate operation")
-            .optional(
-                "selection",
-                SyntaxShape::Table,
-                "columns to perform aggregation",
-            )
             .named(
                 "quantile",
                 SyntaxShape::Number,
                 "quantile value for quantile operation",
                 Some('q'),
+            )
+            .switch(
+                "explicit",
+                "returns explicit names for groupby aggregations",
+                Some('e'),
             )
     }
 
@@ -112,18 +107,41 @@ impl WholeStreamCommand for DataFrame {
             Example {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
-                    "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by [a] | dataframe aggregate sum",
-                result: None,
+                    "[[a b]; [one 1] [one 2]] | dataframe to-df | dataframe group-by a | dataframe aggregate sum",
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![UntaggedValue::string("one").into()]),
+                        Column::new("b".to_string(), vec![UntaggedValue::int(3).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Aggregate sum in dataframe columns",
                 example: "[[a b]; [4 1] [5 2]] | dataframe to-df | dataframe aggregate sum",
-                result: None,
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![UntaggedValue::int(9).into()]),
+                        Column::new("b".to_string(), vec![UntaggedValue::int(3).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
             Example {
                 description: "Aggregate sum in series",
-                example: "[4 1 5 6] | dataframe to-series | dataframe aggregate sum",
-                result: None,
+                example: "[4 1 5 6] | dataframe to-df | dataframe aggregate sum",
+                result: Some(vec![NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("0".to_string(), vec![UntaggedValue::int(16).into()]),
+                    ],
+                    &Span::default(),
+                )
+                .expect("simple df for test should not fail")
+                .into_value(Tag::default())]),
             },
         ]
     }
@@ -136,57 +154,34 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let operation: Tagged<String> = args.req(0)?;
     let op = Operation::from_tagged(&operation, quantile)?;
 
-    // Extracting the selection columns of the columns to perform the aggregation
-    let agg_cols: Option<Vec<Value>> = args.opt(1)?;
-    let (selection, agg_span) = match agg_cols {
-        Some(cols) => {
-            let (agg_string, agg_span) = convert_columns(&cols, &tag)?;
-            (Some(agg_string), agg_span)
-        }
-        None => (None, Span::unknown()),
-    };
-
     let value = args.input.next().ok_or_else(|| {
         ShellError::labeled_error("Empty stream", "No value found in the stream", &tag)
     })?;
 
     match value.value {
-        UntaggedValue::DataFrame(PolarsData::GroupBy(nu_groupby)) => {
+        UntaggedValue::FrameStruct(FrameStruct::GroupBy(nu_groupby)) => {
             let groupby = nu_groupby.to_groupby()?;
 
-            let groupby = match &selection {
-                Some(cols) => groupby.select(cols),
-                None => groupby,
-            };
-
-            let res = perform_groupby_aggregation(groupby, op, &operation.tag, &agg_span)?;
+            let res = perform_groupby_aggregation(
+                groupby,
+                op,
+                &operation.tag,
+                &tag.span,
+                args.has_flag("explicit"),
+            )?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::EagerDataFrame(df)) => {
+        UntaggedValue::DataFrame(df) => {
             let df = df.as_ref();
 
-            let res = match &selection {
-                Some(cols) => {
-                    let df = df
-                        .select(cols)
-                        .map_err(|e| parse_polars_error::<&str>(&e, &agg_span, None))?;
-
-                    perform_dataframe_aggregation(&df, op, &operation.tag)
-                }
-                None => perform_dataframe_aggregation(&df, op, &operation.tag),
-            }?;
+            let res = perform_dataframe_aggregation(df, op, &operation.tag)?;
 
             Ok(OutputStream::one(NuDataFrame::dataframe_to_value(res, tag)))
         }
-        UntaggedValue::DataFrame(PolarsData::Series(series)) => {
-            let value = perform_series_aggregation(series.as_ref(), op, &operation.tag)?;
-
-            Ok(OutputStream::one(value))
-        }
         _ => Err(ShellError::labeled_error(
-            "No groupby or dataframe",
-            "no groupby or found in input stream",
+            "No groupby, dataframe or series in stream",
+            "no groupby, dataframe or series found in input stream",
             &value.tag.span,
         )),
     }
@@ -197,8 +192,9 @@ fn perform_groupby_aggregation(
     operation: Operation,
     operation_tag: &Tag,
     agg_span: &Span,
+    explicit: bool,
 ) -> Result<polars::prelude::DataFrame, ShellError> {
-    match operation {
+    let mut res = match operation {
         Operation::Mean => groupby.mean(),
         Operation::Sum => groupby.sum(),
         Operation::Min => groupby.min(),
@@ -219,7 +215,42 @@ fn perform_groupby_aggregation(
         };
 
         parse_polars_error::<&str>(&e, span, None)
-    })
+    })?;
+
+    if !explicit {
+        let col_names = res
+            .get_column_names()
+            .iter()
+            .map(|name| name.to_string())
+            .collect::<Vec<String>>();
+
+        for col in col_names {
+            let from = match operation {
+                Operation::Mean => "_mean",
+                Operation::Sum => "_sum",
+                Operation::Min => "_min",
+                Operation::Max => "_max",
+                Operation::First => "_first",
+                Operation::Last => "_last",
+                Operation::Nunique => "_n_unique",
+                Operation::Quantile(_) => "_quantile",
+                Operation::Median => "_median",
+                Operation::Var => "_agg_var",
+                Operation::Std => "_agg_std",
+                Operation::Count => "_count",
+            };
+
+            let new_col = match col.find(from) {
+                Some(index) => &col[..index],
+                None => &col[..],
+            };
+
+            res.rename(&col, new_col)
+                .expect("Column is always there. Looping with known names");
+        }
+    }
+
+    Ok(res)
 }
 
 fn perform_dataframe_aggregation(
@@ -248,162 +279,15 @@ fn perform_dataframe_aggregation(
     }
 }
 
-fn perform_series_aggregation(
-    series: &Series,
-    operation: Operation,
-    operation_tag: &Tag,
-) -> Result<Value, ShellError> {
-    match operation {
-        Operation::Mean => {
-            let res = match series.mean() {
-                Some(val) => UntaggedValue::Primitive(val.into()),
-                None => UntaggedValue::Primitive(0.into()),
-            };
+#[cfg(test)]
+mod tests {
+    use super::DataFrame;
+    use super::ShellError;
 
-            let value = Value {
-                value: res,
-                tag: operation_tag.clone(),
-            };
+    #[test]
+    fn examples_work_as_expected() -> Result<(), ShellError> {
+        use crate::examples::test_dataframe as test_examples;
 
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("mean", value);
-
-            Ok(data.into_value())
-        }
-        Operation::Median => {
-            let res = match series.median() {
-                Some(val) => UntaggedValue::Primitive(val.into()),
-                None => UntaggedValue::Primitive(0.into()),
-            };
-
-            let value = Value {
-                value: res,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("median", value);
-
-            Ok(data.into_value())
-        }
-        Operation::Sum => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.sum().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.sum().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("sum", value);
-
-            Ok(data.into_value())
-        }
-        Operation::Max => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.max().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.max().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("max", value);
-
-            Ok(data.into_value())
-        }
-        Operation::Min => {
-            let untagged = match series.dtype() {
-                DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64 => {
-                    let res: i64 = series.min().unwrap_or(0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                DataType::Float32 | DataType::Float64 => {
-                    let res: f64 = series.min().unwrap_or(0.0);
-                    Ok(UntaggedValue::Primitive(res.into()))
-                }
-                _ => Err(ShellError::labeled_error(
-                    "Not valid type",
-                    format!(
-                        "this operation can not be performed with series of type {}",
-                        series.dtype()
-                    ),
-                    &operation_tag.span,
-                )),
-            }?;
-
-            let value = Value {
-                value: untagged,
-                tag: operation_tag.clone(),
-            };
-
-            let mut data = TaggedDictBuilder::new(operation_tag.clone());
-            data.insert_value("min", value);
-
-            Ok(data.into_value())
-        }
-
-        _ => Err(ShellError::labeled_error_with_secondary(
-            "Not valid operation",
-            "operation not valid for series",
-            &operation_tag.span,
-            "Perhaps you want: mean, median, sum, max, min",
-            &operation_tag.span,
-        )),
+        test_examples(DataFrame {})
     }
 }

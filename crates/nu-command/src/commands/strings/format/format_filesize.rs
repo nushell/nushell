@@ -90,7 +90,7 @@ fn filesize(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(args
         .input
-        .map(move |input| {
+        .flat_map(move |input| {
             let format = format.clone();
             let field = field.clone();
 
@@ -99,7 +99,6 @@ fn filesize(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Err(e) => Err(e),
             }
         })
-        .flatten()
         .map(Ok)
         .into_input_stream())
 }

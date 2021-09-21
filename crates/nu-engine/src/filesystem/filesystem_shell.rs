@@ -9,12 +9,13 @@ use crate::{
 };
 use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
-use nu_path::canonicalize;
+use nu_path::{canonicalize, canonicalize_with, expand_path_with};
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
 use std::collections::VecDeque;
-use std::io::ErrorKind;
+use std::fs::OpenOptions;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -77,7 +78,7 @@ impl FilesystemShell {
         path: String,
         mode: FilesystemShellMode,
     ) -> Result<FilesystemShell, std::io::Error> {
-        let path = canonicalize(std::env::current_dir()?, &path)?;
+        let path = canonicalize_with(&path, std::env::current_dir()?)?;
         let path = path.display().to_string();
         let last_path = path.clone();
 
@@ -237,13 +238,20 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = canonicalize(self.path(), target).map_err(|_| {
-                        ShellError::labeled_error(
+                    // Extra expand attempt allows cd from /home/user/non-existent-dir/..
+                    // to /home/user
+                    let path = match canonicalize_with(&target, self.path()) {
+                        Ok(p) => p,
+                        _ => expand_path_with(&target, self.path()),
+                    };
+
+                    if !path.exists() {
+                        return Err(ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
                             &tag,
-                        )
-                    })?;
+                        ));
+                    }
 
                     if !path.is_dir() {
                         return Err(ShellError::labeled_error(
@@ -291,7 +299,7 @@ impl Shell for FilesystemShell {
         //Loading local configs in script mode, makes scripts behave different on different
         //filesystems and might therefore surprise users. That's why we only load them in cli mode.
         if self.is_cli() {
-            match dunce::canonicalize(self.path()) {
+            match canonicalize(self.path()) {
                 Err(e) => {
                     let err = ShellError::untagged_runtime_error(format!(
                         "Could not get absolute path from current fs shell. The error was: {:?}",
@@ -388,7 +396,7 @@ impl Shell for FilesystemShell {
             if entry.is_file() {
                 let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                     if destination.is_dir() {
-                        let mut dest = canonicalize(&path, &dst.item)?;
+                        let mut dest = canonicalize_with(&dst.item, &path)?;
                         if let Some(name) = entry.file_name() {
                             dest.push(name);
                         }
@@ -427,7 +435,7 @@ impl Shell for FilesystemShell {
 
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
-                    let path = canonicalize(&path, &source_file)?;
+                    let path = canonicalize_with(&source_file, &path)?;
 
                     let comps: Vec<_> = path
                         .components()
@@ -483,7 +491,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        for dir in directories.iter() {
+        for dir in &directories {
             let create_at = path.join(&dir.item);
 
             let dir_res = std::fs::create_dir_all(&create_at);
@@ -652,7 +660,7 @@ impl Shell for FilesystemShell {
                                 // It is not appropriate to try and remove the
                                 // current directory or its parent when using
                                 // glob patterns.
-                                let name = format!("{}", f.display());
+                                let name = f.display().to_string();
                                 if name.ends_with("/.") || name.ends_with("/..") {
                                     continue;
                                 }
@@ -773,7 +781,7 @@ impl Shell for FilesystemShell {
 
     fn pwd(&self, args: CommandArgs) -> Result<ActionStream, ShellError> {
         let path = PathBuf::from(self.path());
-        let p = match dunce::canonicalize(path.as_path()) {
+        let p = match canonicalize(path.as_path()) {
             Ok(p) => p,
             Err(_) => {
                 return Err(ShellError::labeled_error(
@@ -792,7 +800,7 @@ impl Shell for FilesystemShell {
 
     fn set_path(&mut self, path: String) {
         let pathbuf = PathBuf::from(&path);
-        let path = match canonicalize(self.path(), pathbuf.as_path()) {
+        let path = match canonicalize_with(pathbuf.as_path(), self.path()) {
             Ok(path) => {
                 let _ = std::env::set_current_dir(&path);
                 std::env::set_var("PWD", &path);
@@ -866,8 +874,19 @@ impl Shell for FilesystemShell {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
+        append: bool,
     ) -> Result<OutputStream, ShellError> {
-        match std::fs::write(full_path, save_data) {
+        let mut options = OpenOptions::new();
+        if append {
+            options.append(true)
+        } else {
+            options.write(true).create(true).truncate(true)
+        };
+
+        match options
+            .open(full_path)
+            .and_then(|ref mut file| file.write_all(save_data))
+        {
             Ok(_) => Ok(OutputStream::empty()),
             Err(e) => Err(ShellError::labeled_error(
                 e.to_string(),
@@ -1037,10 +1056,8 @@ pub(crate) fn dir_entry_dict(
         {
             for column in [
                 "name", "type", "target", "readonly", "size", "created", "accessed", "modified",
-            ]
-            .iter()
-            {
-                dict.insert_untagged(*column, UntaggedValue::nothing());
+            ] {
+                dict.insert_untagged(column, UntaggedValue::nothing());
             }
         }
 
@@ -1060,18 +1077,16 @@ pub(crate) fn dir_entry_dict(
                 "created",
                 "accessed",
                 "modified",
-            ]
-            .iter()
-            {
-                dict.insert_untagged(&(*column.to_owned()), UntaggedValue::nothing());
+            ] {
+                dict.insert_untagged(column, UntaggedValue::nothing());
             }
         }
     } else {
-        for column in ["name", "type", "target", "size", "modified"].iter() {
-            if *column == "target" {
+        for column in ["name", "type", "target", "size", "modified"] {
+            if column == "target" {
                 continue;
             }
-            dict.insert_untagged(*column, UntaggedValue::nothing());
+            dict.insert_untagged(column, UntaggedValue::nothing());
         }
     }
 

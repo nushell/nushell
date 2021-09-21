@@ -82,7 +82,7 @@ pub fn integer(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut thread_rng = thread_rng();
             // add 1 to max, because gen_range is right-exclusive
             let max = max.saturating_add(1);
-            let result: i64 = thread_rng.gen_range(min, max);
+            let result: i64 = thread_rng.gen_range(min..max);
 
             Ok(OutputStream::one(
                 UntaggedValue::int(result).into_value(Tag::unknown()),

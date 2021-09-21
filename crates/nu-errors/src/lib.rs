@@ -32,7 +32,10 @@ pub enum ParseErrorReason {
     Unclosed { delimiter: String, span: Span },
 
     /// An unexpected internal error has occurred
-    InternalError { message: Spanned<String> },
+    GeneralError {
+        message: String,
+        label: Spanned<String>,
+    },
 
     /// The parser tried to parse an argument for a command, but it failed for
     /// some reason
@@ -83,11 +86,15 @@ impl ParseError {
         }
     }
 
-    /// Construct a [ParseErrorReason::InternalError](ParseErrorReason::InternalError)
-    pub fn internal_error(message: Spanned<impl Into<String>>) -> ParseError {
+    /// Construct a [ParseErrorReason::GeneralError](ParseErrorReason::GeneralError)
+    pub fn general_error(
+        message: impl Into<String>,
+        label: Spanned<impl Into<String>>,
+    ) -> ParseError {
         ParseError {
-            reason: ParseErrorReason::InternalError {
-                message: message.item.into().spanned(message.span),
+            reason: ParseErrorReason::GeneralError {
+                message: message.into(),
+                label: label.item.into().spanned(label.span),
             },
         }
     }
@@ -119,11 +126,9 @@ impl From<ParseError> for ShellError {
             ParseErrorReason::Mismatch { actual, expected } => {
                 ShellError::type_error(expected, actual)
             }
-            ParseErrorReason::InternalError { message } => ShellError::labeled_error(
-                format!("Internal error: {}", message.item),
-                &message.item,
-                &message.span,
-            ),
+            ParseErrorReason::GeneralError { message, label } => {
+                ShellError::labeled_error(&message, &label.item, &label.span)
+            }
             ParseErrorReason::ArgumentError { command, error } => {
                 ShellError::argument_error(command, error)
             }
@@ -620,7 +625,7 @@ impl ShellError {
             }
 
             ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::error().with_message(format!("Error: {}", reason)),
-            ProximateShellError::Unimplemented { reason } => Diagnostic::error().with_message(format!("Inimplemented: {}", reason)),
+            ProximateShellError::Unimplemented { reason } => Diagnostic::error().with_message(format!("Unimplemented: {}", reason)),
 
         };
 
@@ -866,25 +871,25 @@ impl std::error::Error for ShellError {}
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::untagged_runtime_error(format!("{}", input))
+        ShellError::untagged_runtime_error(input.to_string())
     }
 }
 
 impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::untagged_runtime_error(format!("{}", input))
+        ShellError::untagged_runtime_error(input.to_string())
     }
 }
 
 impl std::convert::From<std::string::FromUtf8Error> for ShellError {
     fn from(input: std::string::FromUtf8Error) -> ShellError {
-        ShellError::untagged_runtime_error(format!("{}", input))
+        ShellError::untagged_runtime_error(input.to_string())
     }
 }
 
 impl std::convert::From<std::str::Utf8Error> for ShellError {
     fn from(input: std::str::Utf8Error) -> ShellError {
-        ShellError::untagged_runtime_error(format!("{}", input))
+        ShellError::untagged_runtime_error(input.to_string())
     }
 }
 

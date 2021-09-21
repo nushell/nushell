@@ -1,4 +1,7 @@
-use crate::{evaluate::scope::Scope, EvaluationContext};
+use crate::{
+    evaluate::{lang, scope::Scope},
+    EvaluationContext,
+};
 use indexmap::IndexMap;
 use nu_data::config::path::{default_history_path, history_path};
 use nu_errors::ShellError;
@@ -13,7 +16,7 @@ pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
 
     let mut dict = TaggedDictBuilder::new(&tag);
 
-    for v in env.iter() {
+    for v in env {
         if v.0 != "PATH" && v.0 != "Path" {
             dict.insert_untagged(v.0, UntaggedValue::string(v.1));
         }
@@ -60,7 +63,7 @@ pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
     // For now, we work around the discrepency as best we can by merging the two into what is shown to the user as the
     // 'path' column of `$nu`
     let mut table = vec![];
-    for v in env.iter() {
+    for v in env {
         if v.0 == "PATH" || v.0 == "Path" {
             for path in std::env::split_paths(&v.1) {
                 table.push(UntaggedValue::filepath(path).into_value(&tag));
@@ -88,6 +91,12 @@ pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
         );
     }
 
+    let cmd_info = lang::Lang::query_commands(scope);
+    match cmd_info {
+        Ok(cmds) => nu_dict.insert_value("lang", UntaggedValue::table(&cmds).into_value(&tag)),
+        Err(_) => nu_dict.insert_value("lang", UntaggedValue::string("no commands found")),
+    }
+
     Ok(nu_dict.into_value())
 }
 
@@ -101,11 +110,11 @@ pub fn scope(
     let mut scope_dict = TaggedDictBuilder::new(&tag);
 
     let mut aliases_dict = TaggedDictBuilder::new(&tag);
-    for v in aliases.iter() {
+    for v in aliases {
         let values = v.1.clone();
         let mut vec = Vec::new();
 
-        for k in values.iter() {
+        for k in &values {
             vec.push(k.to_string());
         }
 
@@ -115,7 +124,7 @@ pub fn scope(
     }
 
     let mut commands_dict = TaggedDictBuilder::new(&tag);
-    for (name, signature) in commands.iter() {
+    for (name, signature) in commands {
         commands_dict.insert_untagged(name, UntaggedValue::string(&signature.allowed().join(" ")))
     }
 

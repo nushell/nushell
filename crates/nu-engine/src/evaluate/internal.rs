@@ -177,6 +177,9 @@ impl Iterator for InternalIterator {
                     CommandAction::NextShell => {
                         self.context.shell_manager().next();
                     }
+                    CommandAction::GotoShell(i) => {
+                        self.context.shell_manager().goto(i);
+                    }
                     CommandAction::LeaveShell(code) => {
                         self.context.shell_manager().remove_at_current();
                         if self.context.shell_manager().is_empty() {

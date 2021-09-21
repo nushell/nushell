@@ -44,7 +44,7 @@ impl DictionaryExt for Dictionary {
         let result = self
             .entries
             .iter()
-            .find(|(desc_name, _)| *desc_name == name.item)?
+            .find(|&(desc_name, _)| desc_name == name.item)?
             .1;
 
         Some(
@@ -58,7 +58,7 @@ impl DictionaryExt for Dictionary {
     fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Value> {
         self.entries
             .iter_mut()
-            .find(|(desc_name, _)| *desc_name == name)
+            .find(|&(desc_name, _)| desc_name == name)
             .map_or_else(|| None, |x| Some(x.1))
     }
 

@@ -39,7 +39,7 @@ impl OptionsParser for NuParser {
 
     fn parse(&self, input: &str) -> Result<Options, ShellError> {
         let options = Options::default();
-        let (lite_result, _err) = nu_parser::lex(input, 0);
+        let (lite_result, _err) = nu_parser::lex(input, 0, nu_parser::NewlineMode::Normal);
         let (lite_result, _err) = nu_parser::parse_block(lite_result);
 
         let (parsed, err) = nu_parser::classify_block(&lite_result, &self.context.scope);
@@ -67,51 +67,40 @@ impl OptionsParser for NuParser {
                             }
                         };
 
-                        let value =
-                            value
-                                .map(|v| match k.as_ref() {
-                                    "testbin" => {
-                                        if let Ok(name) = v.as_string() {
-                                            if testbins().iter().any(|n| name == *n) {
-                                                Some(v)
-                                            } else {
-                                                Some(
-                                                    UntaggedValue::Error(
-                                                        ShellError::untagged_runtime_error(
-                                                            format!("{} is not supported.", name),
-                                                        ),
-                                                    )
-                                                    .into_value(v.tag),
-                                                )
-                                            }
-                                        } else {
-                                            Some(v)
-                                        }
+                        let value = value.map(|v| match k.as_ref() {
+                            "testbin" => {
+                                if let Ok(name) = v.as_string() {
+                                    if testbins().iter().any(|n| name == *n) {
+                                        v
+                                    } else {
+                                        UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                            format!("{} is not supported.", name),
+                                        ))
+                                        .into_value(v.tag)
                                     }
-                                    "loglevel" => {
-                                        if let Ok(name) = v.as_string() {
-                                            if loglevels().iter().any(|n| name == *n) {
-                                                Some(v)
-                                            } else {
-                                                Some(
-                                                    UntaggedValue::Error(
-                                                        ShellError::untagged_runtime_error(
-                                                            format!("{} is not supported.", name),
-                                                        ),
-                                                    )
-                                                    .into_value(v.tag),
-                                                )
-                                            }
-                                        } else {
-                                            Some(v)
-                                        }
+                                } else {
+                                    v
+                                }
+                            }
+                            "loglevel" => {
+                                if let Ok(name) = v.as_string() {
+                                    if loglevels().iter().any(|n| name == *n) {
+                                        v
+                                    } else {
+                                        UntaggedValue::Error(ShellError::untagged_runtime_error(
+                                            format!("{} is not supported.", name),
+                                        ))
+                                        .into_value(v.tag)
                                     }
-                                    _ => Some(v),
-                                })
-                                .flatten();
+                                } else {
+                                    v
+                                }
+                            }
+                            _ => v,
+                        });
 
                         if let Some(value) = value {
-                            options.put(&k, value);
+                            options.put(k, value);
                         }
                     });
                 }

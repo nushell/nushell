@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use nu_parser::NewlineMode;
 use nu_source::{Span, Tag};
 
 use crate::command::CommandCompleter;
@@ -24,7 +25,7 @@ impl NuCompleter {
     ) -> (usize, Vec<Suggestion>) {
         use engine::LocationType;
 
-        let tokens = nu_parser::lex(line, 0).0;
+        let tokens = nu_parser::lex(line, 0, NewlineMode::Normal).0;
 
         let locations = Some(nu_parser::parse_block(tokens).0)
             .map(|block| nu_parser::classify_block(&block, context.scope()))
@@ -36,7 +37,7 @@ impl NuCompleter {
             .and_then(|cfg| cfg.get("line_editor").cloned())
             .and_then(|le| {
                 le.row_entries()
-                    .find(|(idx, _value)| idx.as_str() == "completion_match_method")
+                    .find(|&(idx, _value)| idx == "completion_match_method")
                     .and_then(|(_idx, value)| value.as_string().ok())
             })
             .unwrap_or_else(String::new);

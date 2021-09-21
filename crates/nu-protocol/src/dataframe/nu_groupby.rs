@@ -2,7 +2,7 @@ use nu_source::{Span, Tag};
 use polars::frame::groupby::{GroupBy, GroupTuples};
 use serde::{Deserialize, Serialize};
 
-use super::{NuDataFrame, PolarsData};
+use super::{FrameStruct, NuDataFrame};
 use nu_errors::ShellError;
 
 use crate::{TaggedDictBuilder, UntaggedValue, Value};
@@ -23,6 +23,10 @@ impl NuGroupBy {
         }
     }
 
+    pub fn by(&self) -> &[String] {
+        &self.by
+    }
+
     pub fn try_from_stream<T>(input: &mut T, span: &Span) -> Result<NuGroupBy, ShellError>
     where
         T: Iterator<Item = Value>,
@@ -30,7 +34,7 @@ impl NuGroupBy {
         input
             .next()
             .and_then(|value| match value.value {
-                UntaggedValue::DataFrame(PolarsData::GroupBy(group)) => Some(group),
+                UntaggedValue::FrameStruct(FrameStruct::GroupBy(group)) => Some(group),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -46,7 +50,7 @@ impl NuGroupBy {
         let df = self.dataframe.as_ref();
 
         let by = df.select_series(&self.by).map_err(|e| {
-            ShellError::labeled_error("Error creating groupby", format!("{}", e), Tag::unknown())
+            ShellError::labeled_error("Error creating groupby", e.to_string(), Tag::unknown())
         })?;
 
         Ok(GroupBy::new(df, by, self.groups.clone(), None))

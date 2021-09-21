@@ -1,8 +1,7 @@
 use super::matchers::Matcher;
 use crate::{Completer, CompletionContext, Suggestion};
 use indexmap::set::IndexSet;
-#[cfg(feature = "is_executable")]
-#[allow(unused)]
+#[cfg(not(target_arch = "wasm32"))]
 use is_executable::IsExecutable;
 use nu_test_support::NATIVE_PATH_ENV_VAR;
 use std::iter::FromIterator;
@@ -26,7 +25,7 @@ where
         let path_executables = find_path_executables().unwrap_or_default();
 
         // TODO quote these, if necessary
-        commands.extend(path_executables.into_iter());
+        commands.extend(path_executables);
 
         let mut suggestions: Vec<_> = commands
             .into_iter()
@@ -56,33 +55,18 @@ where
     }
 }
 
-#[cfg(windows)]
+#[cfg(not(target_arch = "wasm32"))]
 fn is_executable(path: &Path) -> bool {
     // This call to a crate essentially checks the PATHEXT on Windows and does some
     // low level WinAPI calls to determine if the file is executable. It seems quite
     // a bit faster than calling path.metadata().
+    // On Unix, this checks the file metadata. The underlying code traverses symlinks.
     path.is_executable()
 }
 
 #[cfg(target_arch = "wasm32")]
 fn is_executable(_path: &Path) -> bool {
     false
-}
-
-#[cfg(unix)]
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    if let Ok(metadata) = path.metadata() {
-        let filetype = metadata.file_type();
-        let permissions = metadata.permissions();
-
-        // The file is executable if it is a directory or a symlink and the permissions are set for
-        // owner, group, or other
-        (filetype.is_file() || filetype.is_symlink()) && (permissions.mode() & 0o111 != 0)
-    } else {
-        false
-    }
 }
 
 // TODO cache these, but watch for changes to PATH

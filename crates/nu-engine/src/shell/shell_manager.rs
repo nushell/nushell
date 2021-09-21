@@ -105,8 +105,9 @@ impl ShellManager {
         full_path: &Path,
         save_data: &[u8],
         name: Span,
+        append: bool,
     ) -> Result<OutputStream, ShellError> {
-        self.shells.lock()[self.current_shell()].save(full_path, save_data, name)
+        self.shells.lock()[self.current_shell()].save(full_path, save_data, name, append)
     }
 
     pub fn next(&self) {
@@ -130,6 +131,16 @@ impl ShellManager {
             } else {
                 self.current_shell
                     .store(self.current_shell() - 1, Ordering::SeqCst);
+            }
+        }
+        self.set_path(self.path())
+    }
+
+    pub fn goto(&self, i: usize) {
+        {
+            let shell_len = self.shells.lock().len();
+            if i < shell_len {
+                self.current_shell.store(i, Ordering::SeqCst);
             }
         }
         self.set_path(self.path())

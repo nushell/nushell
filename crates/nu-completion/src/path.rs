@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::path::{is_separator, Path, PathBuf};
 
 use super::matchers::Matcher;
@@ -27,7 +26,7 @@ impl PathCompleter {
             (base, rest)
         };
 
-        let base_dir = nu_path::expand_path(Cow::Borrowed(Path::new(&base_dir_name)));
+        let base_dir = nu_path::expand_path(&base_dir_name);
         // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
         // which we don't want in this case (if we did, base_dir would already be ".")
         if base_dir == Path::new("") {
@@ -39,9 +38,9 @@ impl PathCompleter {
                 .filter_map(|entry| {
                     entry.ok().and_then(|entry| {
                         let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                        if matcher.matches(partial, file_name.as_str()) {
-                            let mut path = format!("{}{}", &base_dir_name, file_name);
-                            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                        if matcher.matches(partial, &file_name) {
+                            let mut path = format!("{}{}", base_dir_name, file_name);
+                            if entry.path().is_dir() {
                                 path.push(SEP);
                                 file_name.push(SEP);
                             }

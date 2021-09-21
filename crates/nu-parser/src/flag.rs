@@ -47,7 +47,7 @@ pub fn get_flag_signature_spec(
             let mut starting_pos = arg.span.start() + 1;
             for c in remainder.chars() {
                 let mut found = false;
-                for (full_name, named_arg) in signature.named.iter() {
+                for (full_name, named_arg) in &signature.named {
                     if Some(c) == named_arg.0.get_short() {
                         found = true;
                         output.push((full_name.clone(), named_arg.0.clone()));
@@ -88,13 +88,13 @@ mod tests {
         Signature::build("bundle add")
             .switch("skip-install", "Adds the gem to the Gemfile but does not install it.", None)
             .named("group", SyntaxShape::String, "Specify the group(s) for the added gem. Multiple groups should be separated by commas.", Some('g'))
-            .rest(SyntaxShape::Any, "options")
+            .rest("rest", SyntaxShape::Any, "options")
     }
 
     #[test]
     fn parses_longform_flag_containing_equal_sign() {
         let input = "bundle add rails --group=development";
-        let (tokens, _) = lex(input, 0);
+        let (tokens, _) = lex(input, 0, lex::lexer::NewlineMode::Normal);
         let (root_node, _) = parse_block(tokens);
 
         assert_eq!(root_node.block.len(), 1);

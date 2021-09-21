@@ -1,6 +1,7 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
 use nu_ansi_term::{Color, Style};
 use std::collections::HashMap;
+use std::fmt::Write;
 
 enum SeparatorPosition {
     Top,
@@ -862,12 +863,12 @@ impl WrappedTable {
                     );
                 }
             }
+
             if lines_printed == 0 {
                 break;
-            } else {
-                total_output.push_str(output.as_str());
-                total_output.push('\n');
             }
+
+            writeln!(&mut total_output, "{}", output).unwrap();
         }
         total_output
     }
@@ -885,17 +886,14 @@ impl WrappedTable {
         }
 
         if self.theme.print_top_border {
-            output.push_str(
-                self.print_separator(SeparatorPosition::Top, color_hm)
-                    .as_str(),
-            );
+            output.push_str(&self.print_separator(SeparatorPosition::Top, color_hm));
         }
 
         let skip_headers = (self.headers.len() == 2 && self.headers[1].max_width == 0)
             || (self.headers.len() == 1 && self.headers[0].max_width == 0);
 
         if !self.headers.is_empty() && !skip_headers {
-            output.push_str(self.print_cell_contents(&self.headers, color_hm).as_str());
+            output.push_str(&self.print_cell_contents(&self.headers, color_hm));
         }
 
         let mut first_row = true;
@@ -903,31 +901,23 @@ impl WrappedTable {
         for row in &self.data {
             if !first_row {
                 if self.theme.separate_rows {
-                    output.push_str(
-                        self.print_separator(SeparatorPosition::Middle, color_hm)
-                            .as_str(),
-                    )
+                    output.push_str(&self.print_separator(SeparatorPosition::Middle, color_hm));
                 }
             } else {
                 first_row = false;
 
                 if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
-                    output.push_str(
-                        self.print_separator(SeparatorPosition::Middle, color_hm)
-                            .as_str(),
-                    );
+                    output.push_str(&self.print_separator(SeparatorPosition::Middle, color_hm));
                 }
             }
 
-            output.push_str(self.print_cell_contents(row, color_hm).as_str());
+            output.push_str(&self.print_cell_contents(row, color_hm));
         }
 
         if self.theme.print_bottom_border {
-            output.push_str(
-                self.print_separator(SeparatorPosition::Bottom, color_hm)
-                    .as_str(),
-            );
+            output.push_str(&self.print_separator(SeparatorPosition::Bottom, color_hm));
         }
+
         output
     }
 }

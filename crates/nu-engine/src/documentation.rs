@@ -83,7 +83,7 @@ pub fn generate_docs(scope: &Scope) -> Value {
     // Return documentation for each command
     // Sub-commands are nested under their respective parent commands
     let mut table = Vec::new();
-    for name in sorted_names.iter() {
+    for name in &sorted_names {
         // Must be a sub-command, skip since it's being handled underneath when we hit the parent command
         if !cmap.contains_key(name) {
             continue;
@@ -91,7 +91,7 @@ pub fn generate_docs(scope: &Scope) -> Value {
         let mut row_entries = generate_doc(name, scope);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
-        for sub_name in cmap.get(name).unwrap_or(&Vec::new()).iter() {
+        for sub_name in cmap.get(name).unwrap_or(&Vec::new()) {
             let sub_row = generate_doc(sub_name, scope);
             sub_table.push(UntaggedValue::row(sub_row).into_untagged_value());
         }
@@ -205,7 +205,7 @@ pub fn get_documentation(
         }
 
         if let Some(rest_positional) = &signature.rest_positional {
-            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
+            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.2));
         }
     }
     if !signature.named.is_empty() {

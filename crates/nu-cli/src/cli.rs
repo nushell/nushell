@@ -1,3 +1,4 @@
+use crate::app::STOPWATCH;
 use crate::line_editor::configure_ctrl_c;
 use nu_ansi_term::Color;
 use nu_engine::{maybe_print_errors, run_block, script::run_script_standalone, EvaluationContext};
@@ -30,9 +31,12 @@ use std::error::Error;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
+// Name of environment variable where the prompt could be stored
+#[cfg(feature = "rustyline-support")]
+const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
+
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
-
     let mut search_paths = Vec::new();
 
     // Automatically add path `nu` is in as a search path
@@ -83,6 +87,66 @@ pub fn run_script_file(
 }
 
 #[cfg(feature = "rustyline-support")]
+fn default_prompt_string(cwd: &str) -> String {
+    format!(
+        "{}{}{}{}{}{}> ",
+        Color::Green.bold().prefix().to_string(),
+        cwd,
+        nu_ansi_term::ansi::RESET,
+        Color::Cyan.bold().prefix().to_string(),
+        current_branch(),
+        nu_ansi_term::ansi::RESET
+    )
+}
+
+#[cfg(feature = "rustyline-support")]
+fn evaluate_prompt_string(prompt_line: &str, context: &EvaluationContext, cwd: &str) -> String {
+    context.scope.enter_scope();
+    let (prompt_block, err) = nu_parser::parse(prompt_line, 0, &context.scope);
+
+    if err.is_some() {
+        context.scope.exit_scope();
+        default_prompt_string(cwd)
+    } else {
+        let run_result = run_block(
+            &prompt_block,
+            context,
+            InputStream::empty(),
+            ExternalRedirection::Stdout,
+        );
+        context.scope.exit_scope();
+
+        match run_result {
+            Ok(result) => match result.collect_string(Tag::unknown()) {
+                Ok(string_result) => {
+                    let errors = context.get_errors();
+                    maybe_print_errors(context, Text::from(prompt_line));
+                    context.clear_errors();
+
+                    if !errors.is_empty() {
+                        "> ".into()
+                    } else {
+                        string_result.item
+                    }
+                }
+                Err(e) => {
+                    context.host().lock().print_err(e, &Text::from(prompt_line));
+                    context.clear_errors();
+
+                    "> ".into()
+                }
+            },
+            Err(e) => {
+                context.host().lock().print_err(e, &Text::from(prompt_line));
+                context.clear_errors();
+
+                "> ".into()
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rustyline-support")]
 pub fn cli(
     context: EvaluationContext,
     options: super::app::CliOptions,
@@ -97,15 +161,29 @@ pub fn cli(
     } else {
         load_global_cfg(&context);
     }
+
     // Store cmd duration in an env var
     context.scope.add_env_var(
         "CMD_DURATION_MS",
-        format!("{}", startup_commands_start_time.elapsed().as_millis()),
+        startup_commands_start_time
+            .elapsed()
+            .as_millis()
+            .to_string(),
     );
-    trace!(
-        "startup commands took {:?}",
-        startup_commands_start_time.elapsed()
-    );
+
+    if options.perf {
+        eprintln!(
+            "config loaded: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
 
     //Configure rustyline
     let mut rl = default_rustyline_editor_configuration();
@@ -118,9 +196,37 @@ pub fn cli(
         nu_data::config::path::default_history_path()
     };
 
+    if options.perf {
+        eprintln!(
+            "rustyline configuration: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
+
     // Don't load history if it's not necessary
     if options.save_history {
         let _ = rl.load_history(&history_path);
+    }
+
+    if options.perf {
+        eprintln!(
+            "history load: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
     }
 
     //set vars from cfg if present
@@ -135,6 +241,20 @@ pub fn cli(
     } else {
         (false, None)
     };
+
+    if options.perf {
+        eprintln!(
+            "load custom prompt: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .start();
+    }
 
     //Check whether dir we start in contains local cfg file and if so load it.
     load_local_cfg_if_present(&context);
@@ -159,6 +279,20 @@ pub fn cli(
 
     let mut ctrlcbreak = false;
 
+    if options.perf {
+        eprintln!(
+            "timing stopped. starting run loop: {:?}",
+            STOPWATCH
+                .lock()
+                .expect("unable to lock the stopwatch")
+                .elapsed_split()
+        );
+        STOPWATCH
+            .lock()
+            .expect("unable to lock the stopwatch")
+            .stop();
+    }
+
     loop {
         if context.ctrl_c().load(Ordering::SeqCst) {
             context.ctrl_c().store(false, Ordering::SeqCst);
@@ -167,72 +301,17 @@ pub fn cli(
 
         let cwd = context.shell_manager().path();
 
-        let colored_prompt = {
-            if let Some(prompt) = &prompt {
-                let prompt_line = prompt.as_string()?;
-
-                context.scope.enter_scope();
-                let (prompt_block, err) = nu_parser::parse(&prompt_line, 0, &context.scope);
-
-                if err.is_some() {
-                    context.scope.exit_scope();
-
-                    format!(
-                        "{}{}{}{}{}{}> ",
-                        Color::Green.bold().prefix().to_string(),
-                        cwd,
-                        nu_ansi_term::ansi::RESET,
-                        Color::Cyan.bold().prefix().to_string(),
-                        current_branch(),
-                        nu_ansi_term::ansi::RESET
-                    )
+        // Check if the PROMPT_COMMAND env variable is set. This env variable
+        // contains nu code that is used to overwrite the prompt
+        let colored_prompt = match context.scope.get_env(PROMPT_COMMAND) {
+            Some(env_prompt) => evaluate_prompt_string(&env_prompt, &context, &cwd),
+            None => {
+                if let Some(prompt) = &prompt {
+                    let prompt_line = prompt.as_string()?;
+                    evaluate_prompt_string(&prompt_line, &context, &cwd)
                 } else {
-                    let run_result = run_block(
-                        &prompt_block,
-                        &context,
-                        InputStream::empty(),
-                        ExternalRedirection::Stdout,
-                    );
-                    context.scope.exit_scope();
-
-                    match run_result {
-                        Ok(result) => match result.collect_string(Tag::unknown()) {
-                            Ok(string_result) => {
-                                let errors = context.get_errors();
-                                maybe_print_errors(&context, Text::from(prompt_line));
-                                context.clear_errors();
-
-                                if !errors.is_empty() {
-                                    "> ".to_string()
-                                } else {
-                                    string_result.item
-                                }
-                            }
-                            Err(e) => {
-                                context.host().lock().print_err(e, &Text::from(prompt_line));
-                                context.clear_errors();
-
-                                "> ".to_string()
-                            }
-                        },
-                        Err(e) => {
-                            context.host().lock().print_err(e, &Text::from(prompt_line));
-                            context.clear_errors();
-
-                            "> ".to_string()
-                        }
-                    }
+                    default_prompt_string(&cwd)
                 }
-            } else {
-                format!(
-                    "{}{}{}{}{}{}> ",
-                    Color::Green.bold().prefix().to_string(),
-                    cwd,
-                    nu_ansi_term::ansi::RESET,
-                    Color::Cyan.bold().prefix().to_string(),
-                    current_branch(),
-                    nu_ansi_term::ansi::RESET
-                )
             }
         };
 
@@ -277,7 +356,7 @@ pub fn cli(
         // Store cmd duration in an env var
         context.scope.add_env_var(
             "CMD_DURATION_MS",
-            format!("{}", cmd_start_time.elapsed().as_millis()),
+            cmd_start_time.elapsed().as_millis().to_string(),
         );
 
         match line {
@@ -321,8 +400,7 @@ pub fn cli(
                     .lock()
                     .global_config
                     .as_ref()
-                    .map(|cfg| cfg.var("ctrlc_exit"))
-                    .flatten()
+                    .and_then(|cfg| cfg.var("ctrlc_exit"))
                     .map(|ctrl_c| ctrl_c.is_true())
                     .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
 
@@ -364,6 +442,7 @@ pub fn cli(
     Ok(())
 }
 
+#[cfg(feature = "rustyline-support")]
 pub fn load_local_cfg_if_present(context: &EvaluationContext) {
     trace!("Loading local cfg if present");
     match config::loadable_cfg_exists_in_dir(PathBuf::from(context.shell_manager().path())) {
@@ -454,21 +533,5 @@ fn current_branch() -> String {
     #[cfg(not(feature = "shadow-rs"))]
     {
         "".to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use nu_engine::EvaluationContext;
-
-    #[quickcheck]
-    fn quickcheck_parse(data: String) -> bool {
-        let (tokens, err) = nu_parser::lex(&data, 0);
-        let (lite_block, err2) = nu_parser::parse_block(tokens);
-        if err.is_none() && err2.is_none() {
-            let context = EvaluationContext::basic();
-            let _ = nu_parser::classify_block(&lite_block, &context.scope);
-        }
-        true
     }
 }

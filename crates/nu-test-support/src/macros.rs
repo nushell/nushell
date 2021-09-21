@@ -30,7 +30,7 @@ macro_rules! nu {
         );
 
         let test_bins = $crate::fs::binaries();
-        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
+        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),
@@ -41,7 +41,7 @@ macro_rules! nu {
         let mut paths = $crate::shell_os_paths();
         paths.insert(0, test_bins);
 
-        let paths_joined = match std::env::join_paths(paths.iter()) {
+        let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
@@ -111,7 +111,7 @@ macro_rules! nu_with_plugins {
         );
 
         let test_bins = $crate::fs::binaries();
-        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
+        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),
@@ -122,7 +122,7 @@ macro_rules! nu_with_plugins {
         let mut paths = $crate::shell_os_paths();
         paths.insert(0, test_bins);
 
-        let paths_joined = match std::env::join_paths(paths.iter()) {
+        let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };

@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 #[cfg(feature = "dataframe")]
-use crate::dataframe::PolarsData;
+use crate::dataframe::{FrameStruct, NuDataFrame};
 
 /// The core structured values that flow through a pipeline
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
@@ -51,10 +51,15 @@ pub enum UntaggedValue {
     /// A block of Nu code, eg `{ ls | get name ; echo "done" }` with its captured values
     Block(Box<hir::CapturedBlock>),
 
-    /// Data option that holds the polars structs required to to data
-    /// manipulation and operations using polars dataframes
+    /// Main nushell dataframe
     #[cfg(feature = "dataframe")]
-    DataFrame(PolarsData),
+    DataFrame(NuDataFrame),
+
+    /// Data option that holds intermediate struct required to do data
+    /// manipulation and operations for dataframes such as groupby, lazy frames
+    /// and lazy groupby
+    #[cfg(feature = "dataframe")]
+    FrameStruct(FrameStruct),
 }
 
 impl UntaggedValue {
@@ -80,6 +85,11 @@ impl UntaggedValue {
             value: self,
             tag: Tag::unknown(),
         }
+    }
+
+    /// Returns true if this value represents a binary
+    pub fn is_binary(&self) -> bool {
+        matches!(self, &UntaggedValue::Primitive(Primitive::Binary(_)))
     }
 
     /// Returns true if this value represents boolean true
@@ -391,11 +401,11 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::String(s)) => s.clone(),
             UntaggedValue::Primitive(Primitive::Date(dt)) => dt.format("%Y-%m-%d").to_string(),
-            UntaggedValue::Primitive(Primitive::Boolean(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Decimal(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Int(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::Filesize(x)) => format!("{}", x),
-            UntaggedValue::Primitive(Primitive::FilePath(x)) => format!("{}", x.display()),
+            UntaggedValue::Primitive(Primitive::Boolean(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Decimal(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Int(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::Filesize(x)) => x.to_string(),
+            UntaggedValue::Primitive(Primitive::FilePath(x)) => x.display().to_string(),
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 let joined: String = path
                     .iter()
@@ -418,6 +428,14 @@ impl Value {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Date(dt)) => Ok(dt.format(fmt).to_string()),
             _ => Err(ShellError::type_error("date", self.spanned_type_name())),
+        }
+    }
+
+    /// View a Primitive::Binary as a Vec<u8>, if possible
+    pub fn as_binary_vec(&self) -> Result<Vec<u8>, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Binary(bin)) => Ok(bin.to_vec()),
+            _ => Err(ShellError::type_error("binary", self.spanned_type_name())),
         }
     }
 
@@ -672,11 +690,9 @@ impl ShellTypeName for UntaggedValue {
             UntaggedValue::Error(_) => "error",
             UntaggedValue::Block(_) => "block",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::EagerDataFrame(_)) => "dataframe",
+            UntaggedValue::DataFrame(_) => "dataframe",
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::Series(_)) => "series",
-            #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(PolarsData::GroupBy(_)) => "groupby",
+            UntaggedValue::FrameStruct(FrameStruct::GroupBy(_)) => "groupby",
         }
     }
 }

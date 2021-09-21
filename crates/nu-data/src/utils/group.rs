@@ -27,7 +27,7 @@ pub fn group(
 
     let mut out = TaggedDictBuilder::new(&tag);
 
-    for (k, v) in groups.iter() {
+    for (k, v) in &groups {
         out.insert_untagged(k, UntaggedValue::table(v));
     }
 

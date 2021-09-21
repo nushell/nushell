@@ -76,53 +76,6 @@ You can also build Nu yourself with all the bells and whistles (be sure to have 
 ```shell
 cargo build --workspace --features=extra
 ```
-
-### Docker
-
-#### Quickstart
-
-Want to try Nu right away? Execute the following to get started.
-
-```shell
-docker run -it quay.io/nushell/nu:latest
-```
-
-#### Guide
-
-If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
-on Quay.io. Pulling a container would come down to:
-
-```shell
-docker pull quay.io/nushell/nu
-docker pull quay.io/nushell/nu-base
-```
-
-Both "nu-base" and "nu" provide the nu binary, however, nu-base also includes the source code at `/code`
-in the container and all dependencies.
-
-Optionally, you can also build the containers locally using the [dockerfiles provided](docker):
-To build the base image:
-
-```shell
-docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
-```
-
-And then to build the smaller container (using a Multistage build):
-
-```shell
-docker build -f docker/Dockerfile -t nushell/nu .
-```
-
-Either way, you can run either container as follows:
-
-```shell
-docker run -it nushell/nu-base
-docker run -it nushell/nu
-/> exit
-```
-
-The second container is a bit smaller if the size is important to you.
-
 ### Packaging status
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
@@ -237,8 +190,6 @@ Finally, we can use commands outside of Nu once we have the data we want:
 0.32.0
 ```
 
-Here we use the variable `$it` to refer to the value being piped to the external command.
-
 ### Configuration
 
 Nu has early support for configuring the shell. You can refer to the book for a list of [all supported variables](https://www.nushell.sh/book/configuration.html).
@@ -312,9 +263,15 @@ Nu is in heavy development and will naturally change as it matures and people us
 | Completions   |             |           |  X  |         |        | Completions for filepaths                                            |
 | Type-checking |             |           |  X  |         |        | Commands check basic types, but input/output isn't checked           |
 
-## Current Roadmap
+## Officially Supported By
 
-We've added a `Roadmap Board` to help collaboratively capture the direction we're going for the current release and capture some important issues we'd like to see in Nushell. You can find the Roadmap [here](https://github.com/nushell/nushell/projects/2).
+Please submit an issue or PR to be added to this list.
+
+###   Integrations
+-   [zoxide](https://github.com/ajeetdsouza/zoxide)
+-   [starship](https://github.com/starship/starship)
+###   Mentions
+-   [The Python Launcher for Unix](https://github.com/brettcannon/python-launcher#how-do-i-get-a-table-of-python-executables-in-nushell)
 
 ## Contributing
 

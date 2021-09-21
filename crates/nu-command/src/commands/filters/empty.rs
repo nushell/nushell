@@ -19,6 +19,7 @@ impl WholeStreamCommand for Command {
     fn signature(&self) -> Signature {
         Signature::build("empty?")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "the names of the columns to check emptiness",
             )
@@ -139,7 +140,7 @@ fn process_row(
 
         let stream = run_block(
             &default_block.block,
-            &*context,
+            context,
             input_stream,
             ExternalRedirection::Stdout,
         );

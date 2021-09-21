@@ -13,8 +13,11 @@ impl WholeStreamCommand for BuildString {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("build-string")
-            .rest(SyntaxShape::Any, "all values to form into the string")
+        Signature::build("build-string").rest(
+            "rest",
+            SyntaxShape::Any,
+            "all values to form into the string",
+        )
     }
 
     fn usage(&self) -> &str {

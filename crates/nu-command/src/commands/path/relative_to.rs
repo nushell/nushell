@@ -1,4 +1,4 @@
-use super::{operate, PathSubcommandArguments};
+use super::{column_paths_from_args, operate, PathSubcommandArguments};
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
@@ -10,12 +10,12 @@ pub struct PathRelativeTo;
 
 struct PathRelativeToArguments {
     path: Tagged<PathBuf>,
-    rest: Vec<ColumnPath>,
+    columns: Vec<ColumnPath>,
 }
 
 impl PathSubcommandArguments for PathRelativeToArguments {
     fn get_column_paths(&self) -> &Vec<ColumnPath> {
-        &self.rest
+        &self.columns
     }
 }
 
@@ -31,7 +31,12 @@ impl WholeStreamCommand for PathRelativeTo {
                 SyntaxShape::FilePath,
                 "Parent shared with the input path",
             )
-            .rest(SyntaxShape::ColumnPath, "Optionally operate by column path")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -48,7 +53,7 @@ path."#
         let tag = args.call_info.name_tag.clone();
         let cmd_args = Arc::new(PathRelativeToArguments {
             path: args.req(0)?,
-            rest: args.rest(1)?,
+            columns: column_paths_from_args(&args)?,
         });
 
         Ok(operate(args.input, &action, tag.span, cmd_args))
@@ -61,6 +66,11 @@ path."#
                 description: "Find a relative path from two absolute paths",
                 example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(r"viking"))]),
+            },
+            Example {
+                description: "Find a relative path from two absolute paths in a column",
+                example: "ls ~ | path relative-to ~ -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",
@@ -77,6 +87,11 @@ path."#
                 description: "Find a relative path from two absolute paths",
                 example: r"'/home/viking' | path relative-to '/home'",
                 result: Some(vec![Value::from(UntaggedValue::filepath(r"viking"))]),
+            },
+            Example {
+                description: "Find a relative path from two absolute paths in a column",
+                example: "ls ~ | path relative-to ~ -c [ name ]",
+                result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",

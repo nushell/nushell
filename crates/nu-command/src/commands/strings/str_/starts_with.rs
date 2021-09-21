@@ -24,6 +24,7 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("str starts-with")
             .required("pattern", SyntaxShape::String, "the pattern to match")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "optionally matches prefix of text by column paths",
             )

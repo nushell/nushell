@@ -14,7 +14,11 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("flatten").rest(SyntaxShape::String, "optionally flatten data by column")
+        Signature::build("flatten").rest(
+            "rest",
+            SyntaxShape::String,
+            "optionally flatten data by column",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -52,8 +56,7 @@ fn flatten(args: CommandArgs) -> Result<ActionStream, ShellError> {
     let input = args.input;
 
     Ok(input
-        .map(move |item| flat_value(&columns, &item, &tag).into_iter())
-        .flatten()
+        .flat_map(move |item| flat_value(&columns, &item, &tag))
         .into_action_stream())
 }
 
@@ -92,7 +95,7 @@ fn flat_value(
                         continue;
                     }
 
-                    for (k, v) in mapa.into_iter() {
+                    for (k, v) in mapa {
                         if out.contains_key(k) {
                             out.insert_value(format!("{}_{}", column, k), v.clone());
                         } else {
@@ -155,7 +158,7 @@ fn flat_value(
             let mut expanded = vec![];
 
             if let Some(TableInside::Entries(column, _, entries)) = a_table {
-                for entry in entries.into_iter() {
+                for entry in entries {
                     let mut base = out.clone();
                     base.insert_value(column, entry.clone());
                     expanded.push(base.into_value());
@@ -166,7 +169,7 @@ fn flat_value(
 
             expanded
         } else if item.is_table() {
-            item.table_entries().map(Clone::clone).collect()
+            item.table_entries().cloned().collect()
         } else {
             vec![item.clone()]
         }

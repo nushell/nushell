@@ -283,4 +283,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./nushell-windows.msi
           asset_name: ${{ steps.info.outputs.windowsdir }}.msi
-          asset_content_type: applictaion/x-msi
+          asset_content_type: application/x-msi

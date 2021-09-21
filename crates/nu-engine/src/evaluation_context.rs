@@ -1,3 +1,4 @@
+use crate::evaluate::envvar::EnvVar;
 use crate::evaluate::evaluator::Variable;
 use crate::evaluate::scope::{Scope, ScopeFrame};
 use crate::shell::palette::ThemedPalette;
@@ -9,6 +10,7 @@ use crate::{env::basic_host::BasicHost, Host};
 
 use nu_data::config::{self, Conf, NuConfig};
 use nu_errors::ShellError;
+use nu_path::expand_path;
 use nu_protocol::{hir, ConfigPath, VariableRegistry};
 use nu_source::Spanned;
 use nu_source::{Span, Tag};
@@ -66,7 +68,12 @@ impl EvaluationContext {
     pub fn basic() -> EvaluationContext {
         let scope = Scope::new();
         let host = BasicHost {};
-        let env_vars = host.vars().iter().cloned().collect::<IndexMap<_, _>>();
+        let env_vars: IndexMap<String, EnvVar> = host
+            .vars()
+            .iter()
+            .cloned()
+            .map(|(k, v)| (k, v.into()))
+            .collect();
         scope.add_env(env_vars);
 
         EvaluationContext {
@@ -151,7 +158,7 @@ impl EvaluationContext {
 
         for (var, val) in env_vars {
             if var == NATIVE_PATH_ENV_VAR {
-                std::env::set_var(var, val);
+                std::env::set_var(var, expand_path(val));
                 break;
             }
         }
@@ -239,7 +246,12 @@ impl EvaluationContext {
         let tag = config::cfg_path_to_scope_tag(cfg_path.get_path());
 
         self.scope.enter_scope_with_tag(tag);
-        self.scope.add_env(cfg.env_map());
+        let config_env = cfg.env_map();
+        let env_vars = config_env
+            .into_iter()
+            .map(|(k, v)| (k, EnvVar::from(v)))
+            .collect();
+        self.scope.add_env(env_vars);
         if let Some(path) = joined_paths {
             self.scope.add_env_var(NATIVE_PATH_ENV_VAR, path);
         }
@@ -348,10 +360,16 @@ impl EvaluationContext {
 
         let tag = config::cfg_path_to_scope_tag(&cfg.file_path);
         let mut frame = ScopeFrame::with_tag(tag.clone());
-
-        frame.env = cfg.env_map();
+        let config_env = cfg.env_map();
+        let env_vars = config_env
+            .into_iter()
+            .map(|(k, v)| (k, EnvVar::from(v)))
+            .collect();
+        frame.env = env_vars;
         if let Some(path) = joined_paths {
-            frame.env.insert(NATIVE_PATH_ENV_VAR.to_string(), path);
+            frame
+                .env
+                .insert(NATIVE_PATH_ENV_VAR.to_string(), path.into());
         }
         frame.exitscripts = exit_scripts;
 
@@ -415,7 +433,7 @@ impl VariableRegistry for EvaluationContext {
     fn variables(&self) -> Vec<String> {
         Variable::list()
             .into_iter()
-            .chain(self.scope.get_variable_names().into_iter())
+            .chain(self.scope.get_variable_names())
             .unique()
             .collect()
     }

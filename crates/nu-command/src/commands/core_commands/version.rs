@@ -184,14 +184,11 @@ pub fn version(args: CommandArgs) -> Result<OutputStream, ShellError> {
 fn features_enabled() -> Vec<String> {
     let mut names = vec!["default".to_string()];
 
+    // NOTE: There should be another way to know
+    // features on.
     #[cfg(feature = "ctrlc")]
     {
         names.push("ctrlc".to_string());
-    }
-
-    #[cfg(feature = "ptree")]
-    {
-        names.push("ptree".to_string());
     }
 
     // #[cfg(feature = "rich-benchmark")]
@@ -232,6 +229,16 @@ fn features_enabled() -> Vec<String> {
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());
+    }
+
+    #[cfg(feature = "dataframe")]
+    {
+        names.push("dataframe".to_string());
+    }
+
+    #[cfg(feature = "table-pager")]
+    {
+        names.push("table-pager".to_string());
     }
 
     // #[cfg(feature = "binaryview")]

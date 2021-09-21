@@ -21,7 +21,7 @@ impl WholeStreamCommand for SortBy {
                 Some('i'),
             )
             .switch("reverse", "Sort in reverse order", Some('r'))
-            .rest(SyntaxShape::String, "the column(s) to sort by")
+            .rest("rest", SyntaxShape::String, "the column(s) to sort by")
     }
 
     fn usage(&self) -> &str {
@@ -118,7 +118,7 @@ fn sort_by(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         vec.reverse()
     }
 
-    Ok((vec.into_iter()).into_output_stream())
+    Ok(vec.into_iter().into_output_stream())
 }
 
 pub fn sort(
@@ -137,7 +137,7 @@ pub fn sort(
         ));
     }
 
-    for sort_arg in keys.iter() {
+    for sort_arg in keys {
         let match_test = &vec[0].get_data_by_key(sort_arg.borrow_spanned());
         if match_test.is_none() {
             return Err(ShellError::labeled_error(

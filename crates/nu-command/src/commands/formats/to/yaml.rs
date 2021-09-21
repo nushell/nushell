@@ -65,7 +65,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
             let mut out = vec![];
 
-            for member in path.iter() {
+            for member in path {
                 match &member.unspanned {
                     UnspannedPathMember::String(string) => {
                         out.push(serde_yaml::Value::String(string.clone()))
@@ -96,7 +96,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
             serde_yaml::Value::Null
         }
         #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) => serde_yaml::Value::Null,
+        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
             b.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
@@ -104,7 +104,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         ),
         UntaggedValue::Row(o) => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in o.entries.iter() {
+            for (k, v) in &o.entries {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,

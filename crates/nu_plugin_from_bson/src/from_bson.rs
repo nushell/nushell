@@ -42,7 +42,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
         Bson::Array(a) => UntaggedValue::Table(bson_array(a, tag.clone())?).into_value(&tag),
         Bson::Document(doc) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            for (k, v) in doc.iter() {
+            for (k, v) in doc {
                 collected.insert_value(k.clone(), convert_bson_value_to_nu_value(v, &tag)?);
             }
 
@@ -67,7 +67,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
         Bson::Decimal128(n) => {
             // TODO: this really isn't great, and we should update this to do a higher
             // fidelity translation
-            let decimal = BigDecimal::from_str(&format!("{}", n)).map_err(|_| {
+            let decimal = BigDecimal::from_str(&n.to_string()).map_err(|_| {
                 ShellError::range_error(
                     ExpectedRange::BigDecimal,
                     &n.spanned(span),

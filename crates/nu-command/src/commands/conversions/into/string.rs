@@ -20,6 +20,7 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into string")
             .rest(
+                "rest",
                 SyntaxShape::ColumnPath,
                 "column paths to convert to string (for table input)",
             )
@@ -158,7 +159,7 @@ pub fn action(
 }
 
 fn format_int(int: i64) -> String {
-    format!("{}", int)
+    int.to_string()
 
     // TODO once platform-specific dependencies are stable (see Cargo.toml)
     // #[cfg(windows)]
@@ -175,7 +176,7 @@ fn format_int(int: i64) -> String {
 }
 
 fn format_bigint(int: &BigInt) -> String {
-    format!("{}", int)
+    int.to_string()
 
     // TODO once platform-specific dependencies are stable (see Cargo.toml)
     // #[cfg(windows)]
@@ -229,7 +230,7 @@ fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bo
     let format_default_loc = |int_part: BigInt| {
         let loc = Locale::en;
         //TODO: when num_format is available for recent bigint, replace this with the locale-based format
-        let (int_str, sep) = (format!("{}", int_part), String::from(loc.decimal()));
+        let (int_str, sep) = (int_part.to_string(), String::from(loc.decimal()));
 
         format!("{}{}{}", int_str, sep, dec_str)
     };

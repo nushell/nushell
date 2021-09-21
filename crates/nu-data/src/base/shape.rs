@@ -13,6 +13,9 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use sys_locale::get_locale;
 
+#[cfg(feature = "dataframe")]
+use nu_protocol::dataframe::{FrameStruct, NuDataFrame};
+
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
 pub struct InlineRange {
     from: (InlineShape, RangeInclusion),
@@ -45,9 +48,11 @@ pub enum InlineShape {
     // TODO: Error type
     Error,
 
-    // TODO: Dataframe type
     #[cfg(feature = "dataframe")]
-    DataFrame,
+    DataFrame(String),
+
+    #[cfg(feature = "dataframe")]
+    FrameStruct(String),
 
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
@@ -105,7 +110,7 @@ impl InlineShape {
     pub fn from_dictionary(dictionary: &Dictionary) -> InlineShape {
         let mut map = IndexMap::new();
 
-        for (key, value) in dictionary.entries.iter() {
+        for (key, value) in &dictionary.entries {
             let column = Column::String(key.clone());
             map.insert(column, InlineShape::from_value(value));
         }
@@ -114,24 +119,40 @@ impl InlineShape {
     }
 
     pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> InlineShape {
-        let mut vec = vec![];
-
-        for item in table.into_iter() {
-            vec.push(InlineShape::from_value(item))
-        }
+        let vec = table.into_iter().map(InlineShape::from_value).collect();
 
         InlineShape::Table(vec)
+    }
+
+    #[cfg(feature = "dataframe")]
+    pub fn from_df(df: &NuDataFrame) -> InlineShape {
+        let msg = format!("{} rows {} cols", df.as_ref().height(), df.as_ref().width());
+
+        InlineShape::DataFrame(msg)
+    }
+
+    #[cfg(feature = "dataframe")]
+    pub fn from_frame_struct(s: &FrameStruct) -> InlineShape {
+        match s {
+            FrameStruct::GroupBy(groupby) => {
+                let msg = groupby.by().join(",");
+                let msg = format!("groupby {}", msg);
+                InlineShape::DataFrame(msg)
+            }
+        }
     }
 
     pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> InlineShape {
         match value.into() {
             UntaggedValue::Primitive(p) => InlineShape::from_primitive(p),
             UntaggedValue::Row(row) => InlineShape::from_dictionary(row),
-            UntaggedValue::Table(table) => InlineShape::from_table(table.iter()),
+            UntaggedValue::Table(table) => InlineShape::from_table(table),
             UntaggedValue::Error(_) => InlineShape::Error,
             UntaggedValue::Block(_) => InlineShape::Block,
             #[cfg(feature = "dataframe")]
-            UntaggedValue::DataFrame(_) => InlineShape::DataFrame,
+            UntaggedValue::DataFrame(df) => InlineShape::from_df(df),
+            #[cfg(feature = "dataframe")]
+            UntaggedValue::FrameStruct(s) => InlineShape::from_frame_struct(s),
         }
     }
 
@@ -236,10 +257,9 @@ impl InlineShape {
                 }
             }
         } else {
-            let doc = (DbgDocBldr::primitive(format!("{}", bytesize))
-                + DbgDocBldr::space()
-                + DbgDocBldr::kind("B"))
-            .group();
+            let doc =
+                (DbgDocBldr::primitive(bytesize) + DbgDocBldr::space() + DbgDocBldr::kind("B"))
+                    .group();
             (doc.clone(), InlineShape::render_doc(&doc))
         }
     }
@@ -259,8 +279,8 @@ impl PrettyDebug for FormatInlineShape {
 
         match &self.shape {
             InlineShape::Nothing => DbgDocBldr::blank(),
-            InlineShape::Int(int) => DbgDocBldr::primitive(format!("{}", int)),
-            InlineShape::BigInt(int) => DbgDocBldr::primitive(format!("{}", int)),
+            InlineShape::Int(int) => DbgDocBldr::primitive(int),
+            InlineShape::BigInt(int) => DbgDocBldr::primitive(int),
             InlineShape::Decimal(decimal) => DbgDocBldr::description(format_primitive(
                 &Primitive::Decimal(decimal.clone()),
                 None,
@@ -344,7 +364,16 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Block => DbgDocBldr::opaque("block"),
             InlineShape::Error => DbgDocBldr::error("error"),
             #[cfg(feature = "dataframe")]
-            InlineShape::DataFrame => DbgDocBldr::error("dataframe_pretty_formatter"),
+            InlineShape::DataFrame(msg) => DbgDocBldr::delimit(
+                "[",
+                DbgDocBldr::kind("dataframe") + DbgDocBldr::space() + DbgDocBldr::primitive(msg),
+                "]",
+            )
+            .group(),
+            #[cfg(feature = "dataframe")]
+            InlineShape::FrameStruct(msg) => {
+                DbgDocBldr::delimit("[", DbgDocBldr::primitive(msg), "]").group()
+            }
             InlineShape::BeginningOfStream => DbgDocBldr::blank(),
             InlineShape::EndOfStream => DbgDocBldr::blank(),
         }

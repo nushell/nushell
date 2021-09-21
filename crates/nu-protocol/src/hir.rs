@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::{convert::From, sync::Arc};
 
+use indexmap::map::Iter;
 use serde::{Deserialize, Serialize};
 
 use crate::Signature;
@@ -384,7 +385,7 @@ impl PrettyDebugWithSource for Member {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
             Member::String(outer, _) => DbgDocBldr::value(outer.slice(source)),
-            Member::Int(int, _) => DbgDocBldr::value(format!("{}", int)),
+            Member::Int(int, _) => DbgDocBldr::value(int),
             Member::Bare(span) => DbgDocBldr::value(span.span.slice(source)),
         }
     }
@@ -786,13 +787,10 @@ impl PrettyDebugWithSource for SpannedExpression {
                 Expression::Table(_headers, cells) => DbgDocBldr::delimit(
                     "[",
                     DbgDocBldr::intersperse(
-                        cells
-                            .iter()
-                            .map(|row| {
-                                row.iter()
-                                    .map(|item| item.refined_pretty_debug(refine, source))
-                            })
-                            .flatten(),
+                        cells.iter().flat_map(|row| {
+                            row.iter()
+                                .map(|item| item.refined_pretty_debug(refine, source))
+                        }),
                         DbgDocBldr::space(),
                     ),
                     "]",
@@ -846,8 +844,7 @@ impl PrettyDebugWithSource for SpannedExpression {
                 DbgDocBldr::intersperse(
                     cells
                         .iter()
-                        .map(|row| row.iter().map(|item| item.pretty_debug(source)))
-                        .flatten(),
+                        .flat_map(|row| row.iter().map(|item| item.pretty_debug(source))),
                     DbgDocBldr::space(),
                 ),
                 "]",
@@ -1014,7 +1011,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 Literal::String(string) => DbgDocBldr::primitive(format!("{:?}", string)), //string.slice(source))),
                 Literal::GlobPattern(pattern) => DbgDocBldr::primitive(pattern),
                 Literal::ColumnPath(path) => {
-                    DbgDocBldr::intersperse_with_source(path.iter(), DbgDocBldr::space(), source)
+                    DbgDocBldr::intersperse_with_source(path, DbgDocBldr::space(), source)
                 }
                 Literal::Bare(bare) => {
                     DbgDocBldr::delimit("b\"", DbgDocBldr::primitive(bare), "\"")
@@ -1039,7 +1036,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
             }
             Literal::ColumnPath(path) => DbgDocBldr::typed(
                 "column path",
-                DbgDocBldr::intersperse_with_source(path.iter(), DbgDocBldr::space(), source),
+                DbgDocBldr::intersperse_with_source(path, DbgDocBldr::space(), source),
             ),
             Literal::Bare(bare) => DbgDocBldr::typed("bare", DbgDocBldr::primitive(bare)),
             Literal::Operator(operator) => {
@@ -1359,7 +1356,7 @@ impl Call {
     }
 
     pub fn set_initial_flags(&mut self, signature: &crate::Signature) {
-        for (named, value) in signature.named.iter() {
+        for (named, value) in &signature.named {
             if self.named.is_none() {
                 self.named = Some(NamedArguments::new());
             }
@@ -1570,7 +1567,7 @@ impl NamedArguments {
 
     pub fn get_free_variables(&self, known_variables: &mut Vec<String>) -> Vec<String> {
         let mut free_variables = vec![];
-        for (_, val) in self.named.iter() {
+        for (_, val) in &self.named {
             free_variables.extend(val.get_free_variables(known_variables));
         }
         free_variables
@@ -1643,6 +1640,16 @@ impl PrettyDebugWithSource for NamedArguments {
             self.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source),
             ")",
         )
+    }
+}
+
+impl<'a> IntoIterator for &'a NamedArguments {
+    type Item = (&'a String, &'a NamedValue);
+
+    type IntoIter = Iter<'a, String, NamedValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.named.iter()
     }
 }
 

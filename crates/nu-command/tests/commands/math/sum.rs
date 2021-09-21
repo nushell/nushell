@@ -42,14 +42,14 @@ fn compute_sum_of_individual_row() -> Result<(), String> {
         ("mem", 3032375296.),
         ("virtual", 102579965952.),
     ];
-    for (column_name, expected_value) in answers_for_columns.iter() {
+    for (column_name, expected_value) in answers_for_columns {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
             format!("open sample-ps-output.json | select {} | math sum | get {}", column_name, column_name)
         );
         let result =
             f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
-        assert_eq!(result, *expected_value);
+        assert_eq!(result, expected_value);
     }
     Ok(())
 }
@@ -63,14 +63,14 @@ fn compute_sum_of_table() -> Result<(), String> {
         ("mem", 3032375296.),
         ("virtual", 102579965952.),
     ];
-    for (column_name, expected_value) in answers_for_columns.iter() {
+    for (column_name, expected_value) in answers_for_columns {
         let actual = nu!(
             cwd: "tests/fixtures/formats/",
             format!("open sample-ps-output.json | select cpu mem virtual | math sum | get {}", column_name)
         );
         let result =
             f64::from_str(&actual.out).map_err(|_| String::from("Failed to parse float."))?;
-        assert_eq!(result, *expected_value);
+        assert_eq!(result, expected_value);
     }
     Ok(())
 }

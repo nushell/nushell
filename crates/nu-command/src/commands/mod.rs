@@ -12,10 +12,12 @@ mod generators;
 mod math;
 mod network;
 mod path;
+mod pathvar;
 mod platform;
 mod random;
 mod shells;
 mod strings;
+mod system;
 mod viewers;
 
 pub use charting::*;
@@ -24,16 +26,22 @@ pub use conversions::*;
 pub use core_commands::*;
 #[cfg(feature = "dataframe")]
 pub use dataframe::{
-    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameArgMax,
-    DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique, DataFrameColumn,
-    DataFrameDTypes, DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls, DataFrameDummies,
-    DataFrameFilter, DataFrameGet, DataFrameGroupBy, DataFrameHead, DataFrameIsDuplicated,
-    DataFrameIsIn, DataFrameIsNotNull, DataFrameIsNull, DataFrameIsUnique, DataFrameJoin,
-    DataFrameList, DataFrameLoad, DataFrameMelt, DataFrameNNull, DataFrameNUnique, DataFramePivot,
-    DataFrameSample, DataFrameSelect, DataFrameSeriesRename, DataFrameSet, DataFrameShift,
-    DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameTail, DataFrameToCsv, DataFrameToDF,
-    DataFrameToParquet, DataFrameToSeries, DataFrameUnique, DataFrameValueCounts, DataFrameWhere,
-    DataFrameWithColumn,
+    DataFrame, DataFrameAggregate, DataFrameAllFalse, DataFrameAllTrue, DataFrameAppend,
+    DataFrameArgMax, DataFrameArgMin, DataFrameArgSort, DataFrameArgTrue, DataFrameArgUnique,
+    DataFrameColumn, DataFrameConcatenate, DataFrameContains, DataFrameCumulative, DataFrameDTypes,
+    DataFrameDescribe, DataFrameDrop, DataFrameDropDuplicates, DataFrameDropNulls,
+    DataFrameDummies, DataFrameFilter, DataFrameFirst, DataFrameGet, DataFrameGetDay,
+    DataFrameGetHour, DataFrameGetMinute, DataFrameGetMonth, DataFrameGetNanoSecond,
+    DataFrameGetOrdinal, DataFrameGetSecond, DataFrameGetWeek, DataFrameGetWeekDay,
+    DataFrameGetYear, DataFrameGroupBy, DataFrameIsDuplicated, DataFrameIsIn, DataFrameIsNotNull,
+    DataFrameIsNull, DataFrameIsUnique, DataFrameJoin, DataFrameLast, DataFrameList, DataFrameMelt,
+    DataFrameNNull, DataFrameNUnique, DataFrameNot, DataFrameOpen, DataFramePivot, DataFrameRename,
+    DataFrameReplace, DataFrameReplaceAll, DataFrameRolling, DataFrameSample, DataFrameSelect,
+    DataFrameSeriesRename, DataFrameSet, DataFrameSetWithIdx, DataFrameShape, DataFrameShift,
+    DataFrameShow, DataFrameSlice, DataFrameSort, DataFrameStrFTime, DataFrameStringLengths,
+    DataFrameStringSlice, DataFrameTake, DataFrameToCsv, DataFrameToDF, DataFrameToLowercase,
+    DataFrameToParquet, DataFrameToUppercase, DataFrameUnique, DataFrameValueCounts,
+    DataFrameWhere, DataFrameWithColumn,
 };
 pub use env::*;
 pub use filesystem::*;
@@ -43,10 +51,12 @@ pub use generators::*;
 pub use math::*;
 pub use network::*;
 pub use path::*;
+pub use pathvar::*;
 pub use platform::*;
 pub use random::*;
 pub use shells::*;
 pub use strings::*;
+pub use system::*;
 pub use viewers::*;
 
 #[cfg(test)]
@@ -58,12 +68,17 @@ mod tests {
 
     fn full_tests() -> Vec<Command> {
         vec![
+            whole_stream_command(ErrorMake),
+            whole_stream_command(Drop),
+            whole_stream_command(DropNth),
+            whole_stream_command(DropColumn),
             whole_stream_command(Append),
             whole_stream_command(GroupBy),
             whole_stream_command(Insert),
             whole_stream_command(MoveColumn),
             whole_stream_command(Update),
             whole_stream_command(Empty),
+            whole_stream_command(Nth),
             // whole_stream_command(Select),
             // whole_stream_command(Get),
             // Str Command Suite
@@ -79,8 +94,6 @@ mod tests {
             whole_stream_command(StrContains),
             whole_stream_command(StrIndexOf),
             whole_stream_command(StrTrim),
-            whole_stream_command(StrTrimLeft),
-            whole_stream_command(StrTrimRight),
             whole_stream_command(StrStartsWith),
             whole_stream_command(StrEndsWith),
             //whole_stream_command(StrCollect),
@@ -99,7 +112,11 @@ mod tests {
 
     fn only_examples() -> Vec<Command> {
         let mut commands = full_tests();
-        commands.extend(vec![whole_stream_command(Flatten)]);
+        commands.extend([
+            whole_stream_command(UpdateCells),
+            whole_stream_command(Zip),
+            whole_stream_command(Flatten),
+        ]);
         commands
     }
 

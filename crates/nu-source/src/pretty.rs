@@ -182,9 +182,8 @@ impl DebugDocBuilder {
     ) -> DebugDocBuilder {
         DbgDocBldr::delimit(
             "(",
-            (DbgDocBldr::kind(kind)
-                + DbgDocBldr::delimit("[", DbgDocBldr::kind(format!("{}", subkind)), "]"))
-            .group()
+            (DbgDocBldr::kind(kind) + DbgDocBldr::delimit("[", DbgDocBldr::kind(subkind), "]"))
+                .group()
                 + DbgDocBldr::space()
                 + value.group(),
             ")",
@@ -205,7 +204,7 @@ impl DebugDocBuilder {
     }
 
     pub fn primitive(string: impl std::fmt::Display) -> DebugDocBuilder {
-        DebugDocBuilder::styled(format!("{}", string), ShellStyle::Primitive)
+        DebugDocBuilder::styled(string, ShellStyle::Primitive)
     }
 
     pub fn opaque(string: impl std::fmt::Display) -> DebugDocBuilder {
@@ -501,17 +500,17 @@ fn hash_doc<H: std::hash::Hasher>(doc: &PrettyDebugDoc, state: &mut H) {
         pretty::Doc::Nil => 0u8.hash(state),
         pretty::Doc::Append(a, b) => {
             1u8.hash(state);
-            hash_doc(&*a, state);
-            hash_doc(&*b, state);
+            hash_doc(a, state);
+            hash_doc(b, state);
         }
         pretty::Doc::Group(a) => {
             2u8.hash(state);
-            hash_doc(&*a, state);
+            hash_doc(a, state);
         }
         pretty::Doc::Nest(a, b) => {
             3u8.hash(state);
             a.hash(state);
-            hash_doc(&*b, state);
+            hash_doc(b, state);
         }
         pretty::Doc::Space => 4u8.hash(state),
         pretty::Doc::Newline => 5u8.hash(state),
@@ -522,7 +521,7 @@ fn hash_doc<H: std::hash::Hasher>(doc: &PrettyDebugDoc, state: &mut H) {
         pretty::Doc::Annotated(a, b) => {
             7u8.hash(state);
             a.hash(state);
-            hash_doc(&*b, state);
+            hash_doc(b, state);
         }
     }
 }

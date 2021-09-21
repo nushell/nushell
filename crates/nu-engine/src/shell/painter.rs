@@ -68,7 +68,7 @@ impl Painter {
                     // Emit, as we changed styles
                     let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);
 
-                    builder.push_str(&format!("{}", current_style.paint(intermediate)));
+                    builder.push_str(&current_style.paint(intermediate).to_string());
 
                     current_style = self.styles[idx_end];
                     idx_start = idx_end;
@@ -77,7 +77,7 @@ impl Painter {
             }
 
             let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);
-            builder.push_str(&format!("{}", current_style.paint(intermediate)));
+            builder.push_str(&current_style.paint(intermediate).to_string());
 
             builder
         }

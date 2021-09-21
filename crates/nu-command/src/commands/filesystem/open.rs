@@ -6,6 +6,7 @@ use log::debug;
 use nu_engine::StringOrBinary;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
+use nu_path::canonicalize;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
 use std::path::{Path, PathBuf};
@@ -172,9 +173,9 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
             Ok(StringOrBinary::String(s)) => {
                 ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
             }
-            Ok(StringOrBinary::Binary(b)) => ReturnSuccess::value(
-                UntaggedValue::binary(b.into_iter().collect()).into_value(file_tag),
-            ),
+            Ok(StringOrBinary::Binary(b)) => {
+                ReturnSuccess::value(UntaggedValue::binary(b).into_value(file_tag))
+            }
             Err(se) => Err(se),
         }
     });
@@ -193,7 +194,7 @@ pub fn fetch(
     // TODO: I don't understand the point of this? Maybe for better error reporting
     let mut cwd = PathBuf::from(cwd);
     cwd.push(location);
-    let nice_location = dunce::canonicalize(&cwd).map_err(|e| match e.kind() {
+    let nice_location = canonicalize(&cwd).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => ShellError::labeled_error(
             format!("Cannot find file {:?}", cwd),
             "cannot find file",
