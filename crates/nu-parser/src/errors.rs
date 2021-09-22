@@ -21,7 +21,7 @@ pub enum ParseError {
 
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof), url(docsrs))]
-    UnexpectedEof(String, #[label("expected {0}")] Span),
+    UnexpectedEof(String, #[label("expected closing {0}")] Span),
 
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter), url(docsrs))]
