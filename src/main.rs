@@ -58,6 +58,7 @@ fn main() -> Result<()> {
         use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
 
         let completer = NuCompleter::new(engine_state.clone());
+        let mut entry_num = 0;
 
         let mut line_editor = Reedline::create()
             .into_diagnostic()?
@@ -76,6 +77,8 @@ fn main() -> Result<()> {
         let stack = nu_protocol::engine::Stack::new();
 
         loop {
+            entry_num += 1;
+
             let input = line_editor.read_line(&prompt);
             match input {
                 Ok(Signal::Success(s)) => {
@@ -98,8 +101,12 @@ fn main() -> Result<()> {
                     let (block, delta) = {
                         let engine_state = engine_state.borrow();
                         let mut working_set = StateWorkingSet::new(&*engine_state);
-                        let (output, err) =
-                            parse(&mut working_set, Some("<cli>"), s.as_bytes(), false);
+                        let (output, err) = parse(
+                            &mut working_set,
+                            Some(&format!("entry #{}", entry_num)),
+                            s.as_bytes(),
+                            false,
+                        );
                         if let Some(err) = err {
                             report_error(&working_set, &err);
                             continue;
