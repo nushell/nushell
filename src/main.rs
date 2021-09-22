@@ -1,5 +1,5 @@
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{report_error, NuCompleter, NuHighlighter};
+use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -71,7 +71,10 @@ fn main() -> Result<()> {
             }))
             .with_completion_action_handler(Box::new(
                 DefaultCompletionActionHandler::default().with_completer(Box::new(completer)),
-            ));
+            ))
+            .with_validator(Box::new(NuValidator {
+                engine_state: engine_state.clone(),
+            }));
 
         let prompt = DefaultPrompt::new(1);
         let stack = nu_protocol::engine::Stack::new();
