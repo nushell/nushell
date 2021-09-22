@@ -339,7 +339,7 @@ checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 [[package]]
 name = "miette"
 version = "3.0.1-alpha.0"
-source = "git+https://github.com/zkat/miette?rev=183ecb9#183ecb9b78a1c22d832e979db5054dcac36d8b7a"
+source = "git+https://github.com/zkat/miette?branch=release/3.0.0#491ce7c0ce1f04c9b6fc09c250f188c1ec77df53"
 dependencies = [
  "atty",
  "backtrace",
@@ -354,13 +354,12 @@ dependencies = [
  "term_size",
  "textwrap",
  "thiserror",
- "unicode-width",
 ]
 
 [[package]]
 name = "miette-derive"
 version = "3.0.0-alpha.0"
-source = "git+https://github.com/zkat/miette?rev=183ecb9#183ecb9b78a1c22d832e979db5054dcac36d8b7a"
+source = "git+https://github.com/zkat/miette?branch=release/3.0.0#491ce7c0ce1f04c9b6fc09c250f188c1ec77df53"
 dependencies = [
  "proc-macro2",
  "quote",
