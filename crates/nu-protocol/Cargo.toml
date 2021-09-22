@@ -7,5 +7,5 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0.29"
-miette = { git = "https://github.com/zkat/miette", rev = "183ecb9" }
+miette = { git = "https://github.com/zkat/miette", branch = "release/3.0.0" }
 # miette = { path = "../../../miette" }

@@ -16,7 +16,7 @@ nu-engine = { path="./crates/nu-engine" }
 nu-parser = { path="./crates/nu-parser" }
 nu-protocol = { path = "./crates/nu-protocol" }
 nu-table = { path = "./crates/nu-table" }
-miette = { git = "https://github.com/zkat/miette", rev = "183ecb9" }
+miette = { git = "https://github.com/zkat/miette", branch = "release/3.0.0" }
 # miette = { path = "../miette" }
 # mimalloc = { version = "*", default-features = false }
 

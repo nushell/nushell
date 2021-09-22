@@ -556,8 +556,20 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
         context_lines_before: usize,
         context_lines_after: usize,
     ) -> Result<Box<dyn miette::SpanContents + 'b>, miette::MietteError> {
+        let debugging = std::env::var("MIETTE_DEBUG").is_ok();
+        if debugging {
+            let finding_span = "Finding span in StateWorkingSet";
+            dbg!(finding_span, span);
+        }
         for (filename, start, end) in self.files() {
+            if debugging {
+                dbg!(&filename, start, end);
+            }
             if span.offset() >= *start && span.offset() + span.len() <= *end {
+                if debugging {
+                    let found_file = "Found matching file";
+                    dbg!(found_file);
+                }
                 let our_span = Span {
                     start: *start,
                     end: *end,
@@ -565,7 +577,13 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                 // We need to move to a local span because we're only reading
                 // the specific file contents via self.get_span_contents.
                 let local_span = (span.offset() - *start, span.len()).into();
+                if debugging {
+                    dbg!(&local_span);
+                }
                 let span_contents = self.get_span_contents(our_span);
+                if debugging {
+                    dbg!(String::from_utf8_lossy(span_contents));
+                }
                 let span_contents = span_contents.read_span(
                     &local_span,
                     context_lines_before,
@@ -574,19 +592,31 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
                 let content_span = span_contents.span();
                 // Back to "global" indexing
                 let retranslated = (content_span.offset() + start, content_span.len()).into();
+                if debugging {
+                    dbg!(&retranslated);
+                }
 
+                let data = span_contents.data();
                 if filename == "<cli>" {
+                    if debugging {
+                        let success_cli = "Successfully read CLI span";
+                        dbg!(success_cli, String::from_utf8_lossy(data));
+                    }
                     return Ok(Box::new(miette::MietteSpanContents::new(
-                        span_contents.data(),
+                        data,
                         retranslated,
                         span_contents.line(),
                         span_contents.column(),
                         span_contents.line_count(),
                     )));
                 } else {
+                    if debugging {
+                        let success_file = "Successfully read file span";
+                        dbg!(success_file);
+                    }
                     return Ok(Box::new(miette::MietteSpanContents::new_named(
                         filename.clone(),
-                        span_contents.data(),
+                        data,
                         retranslated,
                         span_contents.line(),
                         span_contents.column(),
