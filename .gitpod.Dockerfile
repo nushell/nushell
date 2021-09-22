@@ -2,7 +2,7 @@ FROM gitpod/workspace-full
 
 # Gitpod will not rebuild Nushell's dev image unless *some* change is made to this Dockerfile.
 # To force a rebuild, simply increase this counter:
-ENV TRIGGER_REBUILD 1
+ENV TRIGGER_REBUILD 2
 
 USER gitpod
 
