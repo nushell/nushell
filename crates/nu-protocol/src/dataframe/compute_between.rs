@@ -21,7 +21,7 @@ pub fn compute_between_dataframes(
     if let (UntaggedValue::DataFrame(lhs), UntaggedValue::DataFrame(rhs)) =
         (&left.value, &right.value)
     {
-        let operation_span = left.tag.span.until(right.tag.span);
+        let operation_span = right.tag.span.merge(left.tag.span);
         match (lhs.is_series(), rhs.is_series()) {
             (true, true) => {
                 let lhs = &lhs
