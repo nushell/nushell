@@ -59,6 +59,10 @@ pub enum Value {
     Error {
         error: ShellError,
     },
+    Binary {
+        val: Vec<u8>,
+        span: Span,
+    },
 }
 
 impl Value {
@@ -83,6 +87,7 @@ impl Value {
             Value::Block { span, .. } => *span,
             Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
+            Value::Binary { span, .. } => *span,
         }
     }
 
@@ -100,6 +105,7 @@ impl Value {
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
+            Value::Binary { span, .. } => *span = new_span,
         }
 
         self
@@ -121,6 +127,7 @@ impl Value {
             Value::Block { .. } => Type::Block,
             Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
+            Value::Binary { .. } => Type::Binary,
         }
     }
 
@@ -159,6 +166,7 @@ impl Value {
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
+            Value::Binary { val, .. } => format!("{:?}", val),
         }
     }
 

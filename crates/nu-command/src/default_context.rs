@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::{
     where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, External, For, Git, GitCheckout,
-    If, Length, Let, LetEnv, ListGitBranches, Ls, Table,
+    If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Table,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -49,6 +49,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Table));
 
         working_set.add_decl(Box::new(External));
+
+        working_set.add_decl(Box::new(Lines));
 
         // This is a WIP proof of concept
         working_set.add_decl(Box::new(ListGitBranches));

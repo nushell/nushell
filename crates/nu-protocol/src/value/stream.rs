@@ -30,8 +30,7 @@ impl Iterator for ValueStream {
 
     fn next(&mut self) -> Option<Self::Item> {
         {
-            let mut iter = self.0.borrow_mut();
-            iter.next()
+            self.0.borrow_mut().next()
         }
     }
 }

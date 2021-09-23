@@ -73,6 +73,7 @@ fn eval_external(
     name: &Span,
     args: &[Span],
     input: Value,
+    last_expression: bool,
 ) -> Result<Value, ShellError> {
     let engine_state = context.engine_state.borrow();
 
@@ -97,6 +98,10 @@ fn eval_external(
             }
         })
         .collect();
+
+    if last_expression {
+        call.named.push(("last_expression".into(), None))
+    }
 
     command.run(context, &call, input)
 }
@@ -158,7 +163,9 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(name, args) => eval_external(context, name, args, Value::nothing()),
+        Expr::ExternalCall(name, args) => {
+            eval_external(context, name, args, Value::nothing(), true)
+        }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
@@ -239,9 +246,9 @@ pub fn eval_block(
     block: &Block,
     mut input: Value,
 ) -> Result<Value, ShellError> {
-    for stmt in &block.stmts {
+    for stmt in block.stmts.iter() {
         if let Statement::Pipeline(pipeline) = stmt {
-            for elem in &pipeline.expressions {
+            for (i, elem) in pipeline.expressions.iter().enumerate() {
                 match elem {
                     Expression {
                         expr: Expr::Call(call),
@@ -253,7 +260,13 @@ pub fn eval_block(
                         expr: Expr::ExternalCall(name, args),
                         ..
                     } => {
-                        input = eval_external(context, name, args, input)?;
+                        input = eval_external(
+                            context,
+                            name,
+                            args,
+                            input,
+                            i == pipeline.expressions.len() - 1,
+                        )?;
                     }
 
                     elem => {

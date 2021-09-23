@@ -1,13 +1,21 @@
+use std::borrow::Cow;
+use std::cell::RefCell;
 use std::env;
-use std::process::Command as CommandSys;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{ChildStdin, Command as CommandSys, Stdio};
+use std::rc::Rc;
+use std::sync::mpsc;
 
 use nu_protocol::{
     ast::{Call, Expression},
     engine::{Command, EvaluationContext},
     ShellError, Signature, SyntaxShape, Value,
 };
+use nu_protocol::{Span, ValueStream};
 
 use nu_engine::eval_expression;
+
+const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 pub struct External;
 
@@ -21,7 +29,9 @@ impl Command for External {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("run_external").rest("rest", SyntaxShape::Any, "external command to run")
+        Signature::build("run_external")
+            .switch("last_expression", "last_expression", None)
+            .rest("rest", SyntaxShape::Any, "external command to run")
     }
 
     fn run(
@@ -39,6 +49,7 @@ pub struct ExternalCommand<'call, 'contex> {
     pub name: &'call Expression,
     pub args: &'call [Expression],
     pub context: &'contex EvaluationContext,
+    pub last_expression: bool,
 }
 
 impl<'call, 'contex> ExternalCommand<'call, 'contex> {
@@ -54,6 +65,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             name: &call.positional[0],
             args: &call.positional[1..],
             context,
+            last_expression: call.has_flag("last_expression"),
         })
     }
 
@@ -70,7 +82,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             .collect()
     }
 
-    pub fn run_with_input(&self, _input: Value) -> Result<Value, ShellError> {
+    pub fn run_with_input(&self, input: Value) -> Result<Value, ShellError> {
         let mut process = self.create_command();
 
         // TODO. We don't have a way to know the current directory
@@ -81,18 +93,120 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
         let envs = self.context.stack.get_env_vars();
         process.envs(envs);
 
+        // If the external is not the last command, its output will get piped
+        // either as a string or binary
+        if !self.last_expression {
+            process.stdout(Stdio::piped());
+        }
+
+        // If there is an input from the pipeline. The stdin from the process
+        // is piped so it can be used to send the input information
+        if let Value::String { .. } = input {
+            process.stdin(Stdio::piped());
+        }
+
+        if let Value::Stream { .. } = input {
+            process.stdin(Stdio::piped());
+        }
+
         match process.spawn() {
             Err(err) => Err(ShellError::ExternalCommand(
                 format!("{}", err),
                 self.name.span,
             )),
-            Ok(mut child) => match child.wait() {
-                Err(err) => Err(ShellError::ExternalCommand(
-                    format!("{}", err),
-                    self.name.span,
-                )),
-                Ok(_) => Ok(Value::nothing()),
-            },
+            Ok(mut child) => {
+                // if there is a string or a stream, that is sent to the pipe std
+                match input {
+                    Value::Nothing { span: _ } => (),
+                    Value::String { val, span: _ } => {
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            self.write_to_stdin(&mut stdin_write, val.as_bytes())?
+                        }
+                    }
+                    Value::Binary { val, span: _ } => {
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            self.write_to_stdin(&mut stdin_write, &val)?
+                        }
+                    }
+                    Value::Stream { stream, span: _ } => {
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            for value in stream {
+                                match value {
+                                    Value::String { val, span: _ } => {
+                                        self.write_to_stdin(&mut stdin_write, val.as_bytes())?
+                                    }
+                                    Value::Binary { val, span: _ } => {
+                                        self.write_to_stdin(&mut stdin_write, &val)?
+                                    }
+                                    _ => continue,
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ShellError::ExternalCommand(
+                            "Input is not string or binary".to_string(),
+                            self.name.span,
+                        ))
+                    }
+                }
+
+                // If this external is not the last expression, then its output is piped to a channel
+                // and we create a ValueStream that can be consumed
+                let value = if !self.last_expression {
+                    let (tx, rx) = mpsc::sync_channel(0);
+                    let stdout = child.stdout.take().ok_or_else(|| {
+                        ShellError::ExternalCommand(
+                            "Error taking stdout from external".to_string(),
+                            self.name.span,
+                        )
+                    })?;
+
+                    std::thread::spawn(move || {
+                        // Stdout is read using the Buffer reader. It will do so until there is an
+                        // error or there are no more bytes to read
+                        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
+                        while let Ok(bytes) = buf_read.fill_buf() {
+                            if bytes.is_empty() {
+                                break;
+                            }
+
+                            // The Cow generated from the function represents the conversion
+                            // from bytes to String. If no replacements are required, then the
+                            // borrowed value is a proper UTF-8 string. The Owned option represents
+                            // a string where the values had to be replaced, thus marking it as bytes
+                            let data = match String::from_utf8_lossy(bytes) {
+                                Cow::Borrowed(s) => Data::String(s.into()),
+                                Cow::Owned(_) => Data::Bytes(bytes.to_vec()),
+                            };
+
+                            let length = bytes.len();
+                            buf_read.consume(length);
+
+                            match tx.send(data) {
+                                Ok(_) => continue,
+                                Err(_) => break,
+                            }
+                        }
+                    });
+
+                    // The ValueStream is consumed by the next expression in the pipeline
+                    Value::Stream {
+                        stream: ValueStream(Rc::new(RefCell::new(ChannelReceiver::new(rx)))),
+                        span: Span::unknown(),
+                    }
+                } else {
+                    Value::nothing()
+                };
+
+                match child.wait() {
+                    Err(err) => Err(ShellError::ExternalCommand(
+                        format!("{}", err),
+                        self.name.span,
+                    )),
+                    Ok(_) => Ok(value),
+                }
+            }
         }
     }
 
@@ -118,6 +232,56 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             let mut process = CommandSys::new("sh");
             process.arg("-c").arg(cmd_with_args);
             process
+        }
+    }
+
+    fn write_to_stdin(&self, stdin_write: &mut ChildStdin, val: &[u8]) -> Result<(), ShellError> {
+        if stdin_write.write(val).is_err() {
+            Err(ShellError::ExternalCommand(
+                "Error writing input to stdin".to_string(),
+                self.name.span,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// The piped data from stdout from the external command can be either String
+// or binary. We use this enum to pass the data from the spawned process
+enum Data {
+    String(String),
+    Bytes(Vec<u8>),
+}
+
+// Receiver used for the ValueStream
+// It implements iterator so it can be used as a ValueStream
+struct ChannelReceiver {
+    rx: mpsc::Receiver<Data>,
+}
+
+impl ChannelReceiver {
+    pub fn new(rx: mpsc::Receiver<Data>) -> Self {
+        Self { rx }
+    }
+}
+
+impl Iterator for ChannelReceiver {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.rx.recv() {
+            Ok(v) => match v {
+                Data::String(s) => Some(Value::String {
+                    val: s,
+                    span: Span::unknown(),
+                }),
+                Data::Bytes(b) => Some(Value::Binary {
+                    val: b,
+                    span: Span::unknown(),
+                }),
+            },
+            Err(_) => None,
         }
     }
 }
