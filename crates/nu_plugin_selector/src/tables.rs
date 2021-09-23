@@ -18,9 +18,13 @@ impl Table {
         html.select(&css("table")).next().map(Table::new)
     }
 
-    pub fn find_all_tables(html: &str) -> Vec<Table> {
+    pub fn find_all_tables(html: &str) -> Option<Vec<Table>> {
         let html = Html::parse_fragment(html);
-        html.select(&css("table")).map(Table::new).collect()
+        let iter: Vec<Table> = html.select(&css("table")).map(Table::new).collect();
+        if iter.is_empty() {
+            return None
+        }
+        Some(iter)
     }
 
     /// Finds the table in `html` with an id of `id`.
@@ -40,12 +44,12 @@ impl Table {
     ///
     /// If `headers` is empty, this is the same as
     /// [`find_first`](#method.find_first).
-    pub fn find_by_headers<T>(html: &str, headers: &[T]) -> Option<Table>
+    pub fn find_by_headers<T>(html: &str, headers: &[T]) -> Option<Vec<Table>>
     where
         T: AsRef<str>,
     {
         if headers.is_empty() {
-            return Table::find_first(html);
+            return Table::find_all_tables(html);
         }
 
         let sel_table = css("table");
@@ -53,14 +57,15 @@ impl Table {
         let sel_th = css("th");
 
         let html = Html::parse_fragment(html);
-        html.select(&sel_table)
-            .find(|table| {
+        let mut tables = html.select(&sel_table)
+            .filter(|table| {
                 table.select(&sel_tr).next().map_or(false, |tr| {
                     let cells = select_cells(tr, &sel_th, true);
                     headers.iter().all(|h| contains_str(&cells, h.as_ref()))
                 })
-            })
-            .map(Table::new)
+            }).peekable();
+        tables.peek()?;
+        Some(tables.map(Table::new).collect())
     }
 
     /// Returns the headers of the table.
@@ -352,10 +357,30 @@ mod tests {
 </table>
 "#;
 
+    const TWO_TABLES_TD: &'static str = r#"
+<table>
+    <tr><td>Name</td><td>Age</td></tr>
+</table>
+<table>
+    <tr><td>Profession</td><td>Civil State</td></tr>
+</table>
+"#;
+
     const TABLE_TH_TD: &'static str = r#"
 <table>
     <tr><th>Name</th><th>Age</th></tr>
     <tr><td>John</td><td>20</td></tr>
+</table>
+"#;
+
+    const TWO_TABLES_TH_TD: &'static str = r#"
+<table>
+    <tr><th>Name</th><th>Age</th></tr>
+    <tr><td>John</td><td>20</td></tr>
+</table>
+<table>
+    <tr><th>Profession</th><th>Civil State</th></tr>
+    <tr><td>Mechanic</td><td>Single</td></tr>
 </table>
 "#;
 
@@ -381,6 +406,29 @@ mod tests {
     <tr></tr>
     <tr><td>a</td><td>b</td><td>c</td><td>d</td></tr>
 </table>
+"#;
+
+    const TWO_TABLES_COMPLEX: &'static str = r#"
+<!doctype HTML>
+<html>
+    <head><title>foo</title></head>
+    <body>
+        <table>
+            <tr><th>Name</th><th>Age</th><th>Extra</th></tr>
+            <tr><td>John</td><td>20</td></tr>
+            <tr><td>May</td><td>30</td><td>foo</td></tr>
+            <tr></tr>
+            <tr><td>a</td><td>b</td><td>c</td><td>d</td></tr>
+        </table>
+        <table>
+            <tr><th>Profession</th><th>Civil State</th><th>Extra</th></tr>
+            <tr><td>Carpenter</td><td>Single</td></tr>
+            <tr><td>Mechanic</td><td>Married</td><td>bar</td></tr>
+            <tr></tr>
+            <tr><td>e</td><td>f</td><td>g</td><td>h</td></tr>
+        </table>
+    </body>
+</html>
 "#;
 
     const HTML_NO_TABLE: &'static str = r#"
@@ -776,6 +824,29 @@ mod tests {
     }
 
     #[test]
+    fn test_row_len_two_tables() {
+        let tables = Table::find_all_tables(HTML_TWO_TABLES).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        assert_eq!(vec![2], table_1.iter().map(|r| r.len()).collect::<Vec<_>>());
+        assert_eq!(vec![2], table_2.iter().map(|r| r.len()).collect::<Vec<_>>());
+
+        let tables = Table::find_all_tables(TWO_TABLES_COMPLEX).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        assert_eq!(
+            vec![2, 3, 0, 4],
+            table_1.iter().map(|r| r.len()).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec![2, 3, 0, 4],
+            table_2.iter().map(|r| r.len()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn test_row_get_without_headers() {
         let table = Table::find_first(TABLE_TD).unwrap();
         let mut iter = table.iter();
@@ -832,6 +903,55 @@ mod tests {
     }
 
     #[test]
+    fn test_two_tables_row_get_complex() {
+        let tables = Table::find_all_tables(TWO_TABLES_COMPLEX).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        let mut iter_1 = table_1.iter();
+        let mut iter_2 = table_2.iter();
+
+        let row_table_1 = iter_1.next().unwrap();
+        let row_table_2 = iter_2.next().unwrap();
+        assert_eq!(Some("John"), row_table_1.get("Name"));
+        assert_eq!(Some("20"), row_table_1.get("Age"));
+        assert_eq!(None, row_table_1.get("Extra"));
+        assert_eq!(Some("Carpenter"), row_table_2.get("Profession"));
+        assert_eq!(Some("Single"), row_table_2.get("Civil State"));
+        assert_eq!(None, row_table_2.get("Extra"));
+
+        let row_table_1 = iter_1.next().unwrap();
+        let row_table_2 = iter_2.next().unwrap();
+        assert_eq!(Some("May"), row_table_1.get("Name"));
+        assert_eq!(Some("30"), row_table_1.get("Age"));
+        assert_eq!(Some("foo"), row_table_1.get("Extra"));
+        assert_eq!(Some("Mechanic"), row_table_2.get("Profession"));
+        assert_eq!(Some("Married"), row_table_2.get("Civil State"));
+        assert_eq!(Some("bar"), row_table_2.get("Extra"));
+
+        let row_table_1 = iter_1.next().unwrap();
+        let row_table_2 = iter_2.next().unwrap();
+        assert_eq!(None, row_table_1.get("Name"));
+        assert_eq!(None, row_table_1.get("Age"));
+        assert_eq!(None, row_table_1.get("Extra"));
+        assert_eq!(None, row_table_2.get("Name"));
+        assert_eq!(None, row_table_2.get("Age"));
+        assert_eq!(None, row_table_2.get("Extra"));
+
+        let row_table_1 = iter_1.next().unwrap();
+        let row_table_2 = iter_2.next().unwrap();
+        assert_eq!(Some("a"), row_table_1.get("Name"));
+        assert_eq!(Some("b"), row_table_1.get("Age"));
+        assert_eq!(Some("c"), row_table_1.get("Extra"));
+        assert_eq!(Some("e"), row_table_2.get("Profession"));
+        assert_eq!(Some("f"), row_table_2.get("Civil State"));
+        assert_eq!(Some("g"), row_table_2.get("Extra"));
+
+        assert_eq!(None, iter_1.next());
+        assert_eq!(None, iter_2.next());
+    }
+
+    #[test]
     fn test_row_as_slice_without_headers() {
         let table = Table::find_first(TABLE_TD).unwrap();
         let mut iter = table.iter();
@@ -841,12 +961,42 @@ mod tests {
     }
 
     #[test]
+    fn test_row_as_slice_without_headers_two_tables() {
+        let tables = Table::find_all_tables(TWO_TABLES_TD).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        let mut iter_1 = table_1.iter();
+        let mut iter_2 = table_2.iter();
+
+        assert_eq!(&["Name", "Age"], iter_1.next().unwrap().as_slice());
+        assert_eq!(&["Profession", "Civil State"], iter_2.next().unwrap().as_slice());
+        assert_eq!(None, iter_1.next());
+        assert_eq!(None, iter_2.next());
+    }
+
+    #[test]
     fn test_row_as_slice_with_headers() {
         let table = Table::find_first(TABLE_TH_TD).unwrap();
         let mut iter = table.iter();
 
         assert_eq!(&["John", "20"], iter.next().unwrap().as_slice());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_row_as_slice_with_headers_two_tables() {
+        let tables = Table::find_all_tables(TWO_TABLES_TH_TD).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        let mut iter_1 = table_1.iter();
+        let mut iter_2 = table_2.iter();
+
+        assert_eq!(&["John", "20"], iter_1.next().unwrap().as_slice());
+        assert_eq!(&["Mechanic", "Single"], iter_2.next().unwrap().as_slice());
+        assert_eq!(None, iter_1.next());
+        assert_eq!(None, iter_2.next());
     }
 
     #[test]
@@ -863,6 +1013,28 @@ mod tests {
     }
 
     #[test]
+    fn test_row_as_slice_complex_two_tables() {
+        let tables = Table::find_all_tables(TWO_TABLES_COMPLEX).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        let mut iter_1 = table_1.iter();
+        let mut iter_2 = table_2.iter();
+        let empty: [&str; 0] = [];
+
+        assert_eq!(&["John", "20"], iter_1.next().unwrap().as_slice());
+        assert_eq!(&["May", "30", "foo"], iter_1.next().unwrap().as_slice());
+        assert_eq!(&empty, iter_1.next().unwrap().as_slice());
+        assert_eq!(&["a", "b", "c", "d"], iter_1.next().unwrap().as_slice());
+        assert_eq!(None, iter_1.next());
+        assert_eq!(&["Carpenter", "Single"], iter_2.next().unwrap().as_slice());
+        assert_eq!(&["Mechanic", "Married", "bar"], iter_2.next().unwrap().as_slice());
+        assert_eq!(&empty, iter_2.next().unwrap().as_slice());
+        assert_eq!(&["e", "f", "g", "h"], iter_2.next().unwrap().as_slice());
+        assert_eq!(None, iter_2.next());
+    }
+
+    #[test]
     fn test_row_iter_simple() {
         let table = Table::find_first(TABLE_TD).unwrap();
         let row = table.iter().next().unwrap();
@@ -871,6 +1043,25 @@ mod tests {
         assert_eq!(Some("Name"), iter.next().map(String::as_str));
         assert_eq!(Some("Age"), iter.next().map(String::as_str));
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_row_iter_simple_two_tables() {
+        let tables = Table::find_all_tables(TWO_TABLES_TD).unwrap();
+        let mut tables_iter = tables.iter();
+        let table_1 = tables_iter.next().unwrap();
+        let table_2 = tables_iter.next().unwrap();
+        let row_1 = table_1.iter().next().unwrap();
+        let row_2 = table_2.iter().next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+
+        assert_eq!(Some("Name"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("Age"), iter_1.next().map(String::as_str));
+        assert_eq!(None, iter_1.next());
+        assert_eq!(Some("Profession"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("Civil State"), iter_2.next().map(String::as_str));
+        assert_eq!(None, iter_2.next());
     }
 
     #[test]
@@ -902,6 +1093,60 @@ mod tests {
         assert_eq!(Some("c"), iter.next().map(String::as_str));
         assert_eq!(Some("d"), iter.next().map(String::as_str));
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_row_iter_complex_two_tables() {
+        let tables = Table::find_all_tables(TWO_TABLES_COMPLEX).unwrap();
+        let mut tables_iter = tables.iter();
+        let mut table_1 = tables_iter.next().unwrap().iter();
+        let mut table_2 = tables_iter.next().unwrap().iter();
+
+        let row_1 = table_1.next().unwrap();
+        let row_2 = table_2.next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+        assert_eq!(Some("John"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("20"), iter_1.next().map(String::as_str));
+        assert_eq!(None, iter_1.next());
+        assert_eq!(Some("Carpenter"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("Single"), iter_2.next().map(String::as_str));
+        assert_eq!(None, iter_2.next());
+
+        let row_1 = table_1.next().unwrap();
+        let row_2 = table_2.next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+        assert_eq!(Some("May"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("30"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("foo"), iter_1.next().map(String::as_str));
+        assert_eq!(None, iter_1.next());
+        assert_eq!(Some("Mechanic"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("Married"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("bar"), iter_2.next().map(String::as_str));
+        assert_eq!(None, iter_2.next());
+
+        let row_1 = table_1.next().unwrap();
+        let row_2 = table_2.next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+        assert_eq!(None, iter_1.next());
+        assert_eq!(None, iter_2.next());
+
+        let row_1 = table_1.next().unwrap();
+        let row_2 = table_2.next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+        assert_eq!(Some("a"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("b"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("c"), iter_1.next().map(String::as_str));
+        assert_eq!(Some("d"), iter_1.next().map(String::as_str));
+        assert_eq!(None, iter_1.next());
+        assert_eq!(Some("e"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("f"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("g"), iter_2.next().map(String::as_str));
+        assert_eq!(Some("h"), iter_2.next().map(String::as_str));
+        assert_eq!(None, iter_2.next());
     }
 
     #[test]
