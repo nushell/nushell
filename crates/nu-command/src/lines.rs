@@ -29,17 +29,22 @@ impl Command for Lines {
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let value = match input {
+            #[allow(clippy::needless_collect)]
+            // Collect is needed because the string may not live long enough for
+            // the Rc structure to continue using it. If split could take ownership
+            // of the split values, then this wouldn't be needed
             Value::String { val, span } => {
-                let iter = val
+                let lines = val
                     .split(SPLIT_CHAR)
-                    .map(|s| Value::String {
-                        val: s.into(),
-                        span,
-                    })
-                    .collect::<Vec<Value>>(); // <----- how to avoid collecting?
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>();
+
+                let iter = lines
+                    .into_iter()
+                    .map(move |s| Value::String { val: s, span });
 
                 Value::Stream {
-                    stream: ValueStream(Rc::new(RefCell::new(iter.into_iter()))),
+                    stream: ValueStream(Rc::new(RefCell::new(iter))),
                     span: Span::unknown(),
                 }
             }
@@ -67,11 +72,10 @@ impl Command for Lines {
                             None
                         }
                     })
-                    .flatten()
-                    .collect::<Vec<Value>>(); // <----- how to avoid collecting?
+                    .flatten();
 
                 Value::Stream {
-                    stream: ValueStream(Rc::new(RefCell::new(iter.into_iter()))),
+                    stream: ValueStream(Rc::new(RefCell::new(iter))),
                     span: Span::unknown(),
                 }
             }
