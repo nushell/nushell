@@ -698,6 +698,7 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(x.to_string()),
         UntaggedValue::Primitive(Primitive::Filesize(x)) => Ok(x.to_string()),
         UntaggedValue::Primitive(Primitive::FilePath(x)) => Ok(x.display().to_string()),
+        UntaggedValue::Primitive(Primitive::BigInt(x)) => Ok(x.to_string()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Ok(path
             .iter()
             .map(|member| match &member.unspanned {

@@ -136,7 +136,8 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
             | Primitive::Boolean(_)
             | Primitive::Decimal(_)
             | Primitive::FilePath(_)
-            | Primitive::Int(_),
+            | Primitive::Int(_)
+            | Primitive::BigInt(_),
         ) => as_string(v),
         UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         UntaggedValue::Primitive(Primitive::Nothing) => Ok(String::new()),
