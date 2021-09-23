@@ -181,17 +181,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-recursion"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7d78656ba01f1b93024b7c3a0467f1608e4be67d725749fdcd7d2c7678fd7a2"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "async-std"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1459,18 +1448,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures_codec"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce54d63f8b0c75023ed920d46fd71d0cbbb830b0ee012726b5b4f506fb6dea5b"
-dependencies = [
- "bytes 0.5.6",
- "futures 0.3.16",
- "memchr",
- "pin-project",
-]
-
-[[package]]
 name = "fxhash"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2567,7 +2544,6 @@ name = "nu-ansi-term"
 version = "0.37.1"
 dependencies = [
  "doc-comment",
- "itertools",
  "overload",
  "regex",
  "serde",
@@ -2609,26 +2585,20 @@ dependencies = [
  "arboard",
  "base64",
  "bigdecimal-rs",
- "byte-unit",
- "bytes 1.1.0",
  "calamine",
  "chrono",
  "chrono-tz",
- "codespan-reporting",
  "crossterm",
  "csv",
  "ctrlc",
  "derive-new",
  "digest",
- "directories-next",
  "dirs-next",
  "dtparse",
  "eml-parser",
  "encoding_rs",
  "filesize",
- "fs_extra",
  "futures 0.3.16",
- "getset",
  "glob",
  "hamcrest2",
  "htmlescape",
@@ -2661,22 +2631,17 @@ dependencies = [
  "num-format",
  "num-traits",
  "parking_lot",
- "pin-utils",
  "polars",
- "query_interface",
  "quick-xml 0.22.0",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.4",
- "rayon",
  "regex",
  "reqwest",
  "roxmltree",
- "rusqlite",
  "rust-embed",
  "rustyline",
  "serde",
- "serde_bytes",
  "serde_ini",
  "serde_json",
  "serde_urlencoded",
@@ -2684,13 +2649,9 @@ dependencies = [
  "sha2",
  "shadow-rs",
  "strip-ansi-escapes",
- "sxd-document",
- "sxd-xpath",
  "sysinfo",
- "tempfile",
  "term 0.7.0",
  "term_size",
- "termcolor",
  "thiserror",
  "titlecase",
  "tokio",
@@ -2709,12 +2670,10 @@ dependencies = [
 name = "nu-completion"
 version = "0.37.1"
 dependencies = [
- "dirs-next",
  "indexmap",
  "is_executable",
  "nu-data",
  "nu-engine",
- "nu-errors",
  "nu-parser",
  "nu-path",
  "nu-protocol",
@@ -2733,7 +2692,6 @@ dependencies = [
  "common-path",
  "derive-new",
  "directories-next",
- "dirs-next",
  "getset",
  "indexmap",
  "log",
@@ -2748,7 +2706,6 @@ dependencies = [
  "num-bigint 0.3.3",
  "num-format",
  "num-traits",
- "query_interface",
  "serde",
  "sha2",
  "sys-locale",
@@ -2761,21 +2718,15 @@ name = "nu-engine"
 version = "0.37.1"
 dependencies = [
  "ansi_term 0.12.1",
- "async-recursion",
- "async-trait",
  "bigdecimal-rs",
  "bytes 0.5.6",
  "chrono",
  "codespan-reporting",
  "derive-new",
  "dirs-next",
- "dyn-clone",
  "encoding_rs",
  "filesize",
  "fs_extra",
- "futures 0.3.16",
- "futures-util",
- "futures_codec",
  "getset",
  "glob",
  "hamcrest2",
@@ -2795,8 +2746,6 @@ dependencies = [
  "nu-test-support",
  "nu-value-ext",
  "num-bigint 0.3.3",
- "num-format",
- "num-traits",
  "parking_lot",
  "rayon",
  "serde",
@@ -2848,7 +2797,6 @@ name = "nu-parser"
 version = "0.37.1"
 dependencies = [
  "bigdecimal-rs",
- "codespan-reporting",
  "derive-new",
  "indexmap",
  "itertools",
@@ -2860,8 +2808,6 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "num-bigint 0.3.3",
- "num-traits",
- "serde",
  "smart-default",
 ]
 
@@ -2877,14 +2823,12 @@ dependencies = [
 name = "nu-plugin"
 version = "0.37.1"
 dependencies = [
- "bigdecimal-rs",
  "indexmap",
  "nu-errors",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint 0.3.3",
  "serde",
  "serde_json",
 ]
@@ -2918,9 +2862,6 @@ dependencies = [
  "polars",
  "serde",
  "serde_bytes",
- "serde_json",
- "serde_yaml",
- "toml",
 ]
 
 [[package]]
@@ -2950,7 +2891,6 @@ dependencies = [
 name = "nu-stream"
 version = "0.37.1"
 dependencies = [
- "futures 0.3.16",
  "nu-errors",
  "nu-protocol",
  "nu-source",
@@ -2971,7 +2911,6 @@ version = "0.37.1"
 dependencies = [
  "bigdecimal-rs",
  "chrono",
- "dunce",
  "getset",
  "glob",
  "hamcrest2",
@@ -2980,7 +2919,6 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-source",
- "nu-value-ext",
  "num-bigint 0.3.3",
  "tempfile",
 ]
@@ -3037,8 +2975,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-value-ext",
- "num-traits",
 ]
 
 [[package]]
@@ -3062,8 +2998,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-value-ext",
- "num-traits",
  "rusqlite",
  "tempfile",
 ]
@@ -3088,7 +3022,6 @@ dependencies = [
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
- "nu-source",
  "regex",
 ]
 
@@ -3101,7 +3034,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-test-support",
 ]
 
 [[package]]
@@ -3126,7 +3058,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-test-support",
  "scraper",
 ]
 
@@ -3149,7 +3080,6 @@ name = "nu_plugin_textview"
 version = "0.37.1"
 dependencies = [
  "bat",
- "nu-ansi-term",
  "nu-data",
  "nu-errors",
  "nu-plugin",
@@ -3168,7 +3098,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-value-ext",
  "num-traits",
 ]
 
@@ -3181,8 +3110,6 @@ dependencies = [
  "nu-plugin",
  "nu-protocol",
  "nu-source",
- "nu-value-ext",
- "num-traits",
  "rusqlite",
  "tempfile",
 ]
@@ -3195,7 +3122,6 @@ dependencies = [
  "nu-errors",
  "nu-plugin",
  "nu-protocol",
- "nu-source",
  "ptree",
 ]
 
@@ -3670,26 +3596,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pin-project"
-version = "0.4.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "918192b5c59119d51e0cd221f4d49dde9112824ba717369e903c97d076083d0f"
-dependencies = [
- "pin-project-internal",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "0.4.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3be26700300be6d9d23264c73211d8190e755b6b5ca7a1b28230025511b52a5e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3928,12 +3834,6 @@ checksum = "beb17280503804146233f15c98385d3c65f0330663ce0b602a1e4c9379e96b4d"
 dependencies = [
  "serde",
 ]
-
-[[package]]
-name = "query_interface"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78c0f0046284eebb86b68f93f9677d499034f88e15ca01021ceea32c4d3c3693"
 
 [[package]]
 name = "quick-error"
