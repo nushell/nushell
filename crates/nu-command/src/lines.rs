@@ -39,9 +39,13 @@ impl Command for Lines {
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
-                let iter = lines
-                    .into_iter()
-                    .map(move |s| Value::String { val: s, span });
+                let iter = lines.into_iter().filter_map(move |s| {
+                    if !s.is_empty() {
+                        Some(Value::String { val: s, span })
+                    } else {
+                        None
+                    }
+                });
 
                 Value::Stream {
                     stream: ValueStream(Rc::new(RefCell::new(iter))),
