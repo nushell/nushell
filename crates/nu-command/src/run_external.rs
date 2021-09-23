@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Command as CommandSys, Stdio};
+use std::process::{ChildStdin, Command as CommandSys, Stdio};
 use std::rc::Rc;
 use std::sync::mpsc;
 
@@ -116,49 +116,30 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             )),
             Ok(mut child) => {
                 // if there is a string or a stream, that is sent to the pipe std
-                let mut stdin_write = child
-                    .stdin
-                    .take()
-                    .expect("Internal error: could not get stdin pipe for external command");
-
                 match input {
                     Value::Nothing { span: _ } => (),
                     Value::String { val, span: _ } => {
-                        if stdin_write.write(val.as_bytes()).is_err() {
-                            return Err(ShellError::ExternalCommand(
-                                "Error writing input to stdin".to_string(),
-                                self.name.span,
-                            ));
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            self.write_to_stdin(&mut stdin_write, val.as_bytes())?
                         }
                     }
                     Value::Binary { val, span: _ } => {
-                        if stdin_write.write(&val).is_err() {
-                            return Err(ShellError::ExternalCommand(
-                                "Error writing input to stdin".to_string(),
-                                self.name.span,
-                            ));
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            self.write_to_stdin(&mut stdin_write, &val)?
                         }
                     }
                     Value::Stream { stream, span: _ } => {
-                        for value in stream {
-                            match value {
-                                Value::String { val, span: _ } => {
-                                    if stdin_write.write(val.as_bytes()).is_err() {
-                                        return Err(ShellError::ExternalCommand(
-                                            "Error writing input to stdin".to_string(),
-                                            self.name.span,
-                                        ));
+                        if let Some(mut stdin_write) = child.stdin.take() {
+                            for value in stream {
+                                match value {
+                                    Value::String { val, span: _ } => {
+                                        self.write_to_stdin(&mut stdin_write, val.as_bytes())?
                                     }
-                                }
-                                Value::Binary { val, span: _ } => {
-                                    if stdin_write.write(&val).is_err() {
-                                        return Err(ShellError::ExternalCommand(
-                                            "Error writing input to stdin".to_string(),
-                                            self.name.span,
-                                        ));
+                                    Value::Binary { val, span: _ } => {
+                                        self.write_to_stdin(&mut stdin_write, &val)?
                                     }
+                                    _ => continue,
                                 }
-                                _ => continue,
                             }
                         }
                     }
@@ -251,6 +232,17 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             let mut process = CommandSys::new("sh");
             process.arg("-c").arg(cmd_with_args);
             process
+        }
+    }
+
+    fn write_to_stdin(&self, stdin_write: &mut ChildStdin, val: &[u8]) -> Result<(), ShellError> {
+        if stdin_write.write(val).is_err() {
+            Err(ShellError::ExternalCommand(
+                "Error writing input to stdin".to_string(),
+                self.name.span,
+            ))
+        } else {
+            Ok(())
         }
     }
 }
