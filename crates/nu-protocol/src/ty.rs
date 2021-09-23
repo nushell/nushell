@@ -20,6 +20,7 @@ pub enum Type {
     ValueStream,
     Unknown,
     Error,
+    Binary,
 }
 
 impl Display for Type {
@@ -43,6 +44,7 @@ impl Display for Type {
             Type::ValueStream => write!(f, "value stream"),
             Type::Unknown => write!(f, "unknown"),
             Type::Error => write!(f, "error"),
+            Type::Binary => write!(f, "binary"),
         }
     }
 }
