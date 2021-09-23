@@ -22,7 +22,7 @@ impl Table {
         let html = Html::parse_fragment(html);
         let iter: Vec<Table> = html.select(&css("table")).map(Table::new).collect();
         if iter.is_empty() {
-            return None
+            return None;
         }
         Some(iter)
     }
@@ -57,13 +57,15 @@ impl Table {
         let sel_th = css("th");
 
         let html = Html::parse_fragment(html);
-        let mut tables = html.select(&sel_table)
+        let mut tables = html
+            .select(&sel_table)
             .filter(|table| {
                 table.select(&sel_tr).next().map_or(false, |tr| {
                     let cells = select_cells(tr, &sel_th, true);
                     headers.iter().all(|h| contains_str(&cells, h.as_ref()))
                 })
-            }).peekable();
+            })
+            .peekable();
         tables.peek()?;
         Some(tables.map(Table::new).collect())
     }
@@ -970,7 +972,10 @@ mod tests {
         let mut iter_2 = table_2.iter();
 
         assert_eq!(&["Name", "Age"], iter_1.next().unwrap().as_slice());
-        assert_eq!(&["Profession", "Civil State"], iter_2.next().unwrap().as_slice());
+        assert_eq!(
+            &["Profession", "Civil State"],
+            iter_2.next().unwrap().as_slice()
+        );
         assert_eq!(None, iter_1.next());
         assert_eq!(None, iter_2.next());
     }
@@ -1028,7 +1033,10 @@ mod tests {
         assert_eq!(&["a", "b", "c", "d"], iter_1.next().unwrap().as_slice());
         assert_eq!(None, iter_1.next());
         assert_eq!(&["Carpenter", "Single"], iter_2.next().unwrap().as_slice());
-        assert_eq!(&["Mechanic", "Married", "bar"], iter_2.next().unwrap().as_slice());
+        assert_eq!(
+            &["Mechanic", "Married", "bar"],
+            iter_2.next().unwrap().as_slice()
+        );
         assert_eq!(&empty, iter_2.next().unwrap().as_slice());
         assert_eq!(&["e", "f", "g", "h"], iter_2.next().unwrap().as_slice());
         assert_eq!(None, iter_2.next());

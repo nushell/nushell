@@ -78,7 +78,12 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
     if tables.len() == 1 {
         return retrieve_table(tables.into_iter().next().unwrap(), columns);
     }
-    tables.into_iter().map(move |table| UntaggedValue::Table(retrieve_table(table, columns)).into_value(Tag::unknown())).collect()
+    tables
+        .into_iter()
+        .map(move |table| {
+            UntaggedValue::Table(retrieve_table(table, columns)).into_value(Tag::unknown())
+        })
+        .collect()
 }
 
 fn retrieve_table(mut table: Table, columns: &Value) -> Vec<Value> {
@@ -88,7 +93,7 @@ fn retrieve_table(mut table: Table, columns: &Value) -> Vec<Value> {
             cols.push(x.convert_to_string());
         }
     }
-     // since cols was empty and headers is not, it means that headers were manually populated
+    // since cols was empty and headers is not, it means that headers were manually populated
     // so let's fake the data in order to build a proper table. this situation happens when
     // there are tables where the first column is actually the headers. kind of like a table
     // that has been rotated ccw 90 degrees
