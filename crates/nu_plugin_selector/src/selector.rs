@@ -76,7 +76,13 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
         None => vec![Table::empty()],
     };
     if tables.len() == 1 {
-        return retrieve_table(tables.into_iter().next().expect("This should never trigger"), columns);
+        return retrieve_table(
+            tables
+                .into_iter()
+                .next()
+                .expect("This should never trigger"),
+            columns,
+        );
     }
     tables
         .into_iter()
