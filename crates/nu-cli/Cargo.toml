@@ -7,8 +7,7 @@ edition = "2018"
 nu-engine = { path = "../nu-engine" }
 nu-parser = { path = "../nu-parser" }
 nu-protocol = { path = "../nu-protocol" }
-miette = { git = "https://github.com/zkat/miette", branch = "release/3.0.0", features = ["fancy"] }
-# miette = { path = "../../../miette", features = ["fancy"] }
+miette = { version = "3.0.0", features = ["fancy"] }
 thiserror = "1.0.29"
 nu-ansi-term = "0.36.0"
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
