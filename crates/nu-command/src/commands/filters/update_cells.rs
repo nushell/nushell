@@ -16,11 +16,18 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("update cells").required(
-            "block",
-            SyntaxShape::Block,
-            "the block to run an update for each cell",
-        )
+        Signature::build("update cells")
+            .required(
+                "block",
+                SyntaxShape::Block,
+                "the block to run an update for each cell",
+            )
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "list of columns to update",
+                Some('c'),
+            )
     }
 
     fn usage(&self) -> &str {
@@ -65,6 +72,9 @@ fn update_cells(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block: CapturedBlock = args.req(0)?;
     let block = Arc::new(block);
 
+    let columns: Value = args.get_flag("columns")?.unwrap_or(Value::nothing());
+    let columns = Arc::new(columns);
+
     Ok(args
         .input
         .flat_map(move |input| {
@@ -72,7 +82,13 @@ fn update_cells(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let context = context.clone();
 
             if input.is_row() {
-                OutputStream::one(process_cells(block, context, input, external_redirection))
+                OutputStream::one(process_cells(
+                    block,
+                    columns.clone(),
+                    context,
+                    input,
+                    external_redirection,
+                ))
             } else {
                 match process_input(block, context, input, external_redirection) {
                     Ok(s) => s,
@@ -123,12 +139,22 @@ pub fn process_input(
 
 pub fn process_cells(
     captured_block: Arc<CapturedBlock>,
+    columns: Arc<Value>,
     context: Arc<EvaluationContext>,
     input: Value,
     external_redirection: ExternalRedirection,
 ) -> Value {
     TaggedDictBuilder::build(input.tag(), |row| {
         input.row_entries().for_each(|(column, cell_value)| {
+            if columns.is_table()
+                && columns
+                    .table_entries()
+                    .find(|val| val.as_string().is_ok() && val.as_string().unwrap() == *column)
+                    .is_none()
+            {
+                row.insert_value(column, cell_value.clone());
+                return;
+            }
             let cell_processed = process_input(
                 captured_block.clone(),
                 context.clone(),
