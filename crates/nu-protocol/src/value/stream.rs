@@ -6,9 +6,12 @@ pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
 
 impl ValueStream {
     pub fn into_string(self) -> String {
-        self.map(|x: Value| x.into_string())
-            .collect::<Vec<String>>()
-            .join("\n")
+        format!(
+            "[{}]",
+            self.map(|x: Value| x.into_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 
     pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
