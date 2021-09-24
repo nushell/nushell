@@ -66,18 +66,39 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
         eprintln!("Passed in Column Headers = {:#?}", &cols,);
     }
 
-    let mut table = match Table::find_by_headers(html, &cols) {
+    let tables = match Table::find_by_headers(html, &cols) {
         Some(t) => {
             if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
             }
             t
         }
-        None => Table::empty(),
+        None => vec![Table::empty()],
     };
+    if tables.len() == 1 {
+        return retrieve_table(
+            tables
+                .into_iter()
+                .next()
+                .expect("This should never trigger"),
+            columns,
+        );
+    }
+    tables
+        .into_iter()
+        .map(move |table| {
+            UntaggedValue::Table(retrieve_table(table, columns)).into_value(Tag::unknown())
+        })
+        .collect()
+}
 
-    let mut table_out = Vec::new();
-
+fn retrieve_table(mut table: Table, columns: &Value) -> Vec<Value> {
+    let mut cols = Vec::new();
+    if let UntaggedValue::Table(t) = &columns.value {
+        for x in t {
+            cols.push(x.convert_to_string());
+        }
+    }
     // since cols was empty and headers is not, it means that headers were manually populated
     // so let's fake the data in order to build a proper table. this situation happens when
     // there are tables where the first column is actually the headers. kind of like a table
@@ -95,6 +116,7 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
         table.data = vec![data2];
     }
 
+    let mut table_out = Vec::new();
     // if columns are still empty, let's just make a single column table with the data
     if cols.is_empty() {
         let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
