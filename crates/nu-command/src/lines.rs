@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, Span, Value, ValueStream};
+use nu_protocol::{ShellError, Signature, Span, Value, ValueStream};
 
 pub struct Lines;
 
@@ -25,10 +25,10 @@ impl Command for Lines {
     fn run(
         &self,
         _context: &EvaluationContext,
-        _call: &Call,
+        call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let value = match input {
+        match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
@@ -47,10 +47,10 @@ impl Command for Lines {
                     }
                 });
 
-                Value::Stream {
+                Ok(Value::Stream {
                     stream: ValueStream(Rc::new(RefCell::new(iter))),
                     span: Span::unknown(),
-                }
+                })
             }
             Value::Stream { stream, span: _ } => {
                 let iter = stream
@@ -78,14 +78,15 @@ impl Command for Lines {
                     })
                     .flatten();
 
-                Value::Stream {
+                Ok(Value::Stream {
                     stream: ValueStream(Rc::new(RefCell::new(iter))),
                     span: Span::unknown(),
-                }
+                })
             }
-            _ => unimplemented!(),
-        };
-
-        Ok(value)
+            val => Err(ShellError::UnsupportedInput(
+                format!("Not supported input: {}", val.as_string()?),
+                call.head,
+            )),
+        }
     }
 }
