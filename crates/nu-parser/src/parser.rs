@@ -2649,6 +2649,123 @@ pub fn parse_alias(
     )
 }
 
+pub fn parse_module(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    // parse_def() equivalent
+    if bytes == b"module" && spans.len() >= 3 {
+        let (name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        // parse_block_expression() equivalent
+        let block_span = spans[2];
+        let block_bytes = working_set.get_span_contents(block_span);
+        let mut start = block_span.start;
+        let mut end = block_span.end;
+
+        if block_bytes.starts_with(b"{") {
+            start += 1;
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::Expected("block".into(), block_span)),
+            );
+        }
+
+        if block_bytes.ends_with(b"}") {
+            end -= 1;
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::Unclosed(
+                    "}".into(),
+                    Span {
+                        start: end,
+                        end: end + 1,
+                    },
+                ))
+            });
+        }
+
+        let block_span = Span { start, end };
+
+        let source = working_set.get_span_contents(block_span);
+
+        let (output, err) = lex(source, start, &[], &[]);
+        error = error.or(err);
+
+        working_set.enter_scope();
+
+        // Do we need block parameters?
+
+        let (output, err) = lite_parse(&output);
+        error = error.or(err);
+
+        // We probably don't need $it
+
+        // we're doing parse_block() equivalent
+        // let (mut output, err) = parse_block(working_set, &output, false);
+
+        for pipeline in &output.block {
+            if pipeline.commands.len() == 1 {
+                parse_def_predecl(working_set, &pipeline.commands[0].parts);
+            }
+        }
+
+        let block: Block = output
+            .block
+            .iter()
+            .map(|pipeline| {
+                if pipeline.commands.len() == 1 {
+                    // this one here is doing parse_statement() equivalent
+                    // let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
+                    let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
+
+                    let (stmt, err) = match name {
+                        // TODO: Here we can add other stuff that's alowed for modules
+                        b"def" => parse_def(working_set, &pipeline.commands[0].parts),
+                        _ => (
+                            garbage_statement(&pipeline.commands[0].parts),
+                            Some(ParseError::Expected("def".into(), block_span)),
+                        )
+                    };
+
+                    if error.is_none() {
+                        error = err;
+                    }
+
+                    stmt
+                } else {
+                    error = Some(ParseError::Expected("not a pipeline".into(), block_span));
+                    garbage_statement(spans)
+                }
+            })
+            .into();
+
+        working_set.exit_scope();
+
+        // WIP error:
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "This is OK module".into(),
+                span(spans),
+            )),
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: module <name> {}".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2707,6 +2824,7 @@ pub fn parse_statement(
         b"def" => parse_def(working_set, spans),
         b"let" => parse_let(working_set, spans),
         b"alias" => parse_alias(working_set, spans),
+        b"module" => parse_module(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
