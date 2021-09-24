@@ -304,7 +304,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85375a908d633fa70ab5b8a217d3d0b6e5c4a9b03786f0c3c969e77f4016b10c"
 dependencies = [
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
  "serde",
@@ -2657,7 +2657,7 @@ dependencies = [
  "nu-table",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-format",
  "num-traits",
  "parking_lot",
@@ -2745,7 +2745,7 @@ dependencies = [
  "nu-table",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-format",
  "num-traits",
  "query_interface",
@@ -2794,7 +2794,7 @@ dependencies = [
  "nu-stream",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-format",
  "num-traits",
  "parking_lot",
@@ -2821,7 +2821,7 @@ dependencies = [
  "glob",
  "nu-ansi-term",
  "nu-source",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-traits",
  "serde",
  "serde_json",
@@ -2859,7 +2859,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu-test-support",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-traits",
  "serde",
  "smart-default",
@@ -2884,7 +2884,7 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "nu-value-ext",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "serde",
  "serde_json",
 ]
@@ -2912,7 +2912,7 @@ dependencies = [
  "log",
  "nu-errors",
  "nu-source",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
  "polars",
@@ -2981,7 +2981,7 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "tempfile",
 ]
 
@@ -3234,7 +3234,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
 dependencies = [
- "num-bigint 0.4.1",
+ "num-bigint 0.4.2",
  "num-complex 0.4.0",
  "num-integer",
  "num-iter",
@@ -3255,9 +3255,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0a3d5e207573f948a9e5376662aa743a2ea13f7c50a554d7af443a73fbfeba"
+checksum = "5f6f7833f2cbf2360a6cfd58cd41a53aa7a90bd4c202f5b1c7dd2ed73c57b2c3"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -3267,9 +3267,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76e97c412795abf6c24ba30055a8f20642ea57ca12875220b854cfa501bf1e48"
+checksum = "74e768dff5fb39a41b3bcd30bb25cf989706c90d028d1ad71971987aa309d535"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -3346,7 +3346,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
 dependencies = [
  "autocfg",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
  "serde",
@@ -3359,7 +3359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d41702bd167c2df5520b384281bc111a4b5efcf7fbc4c9c222c815b07e0a6a6a"
 dependencies = [
  "autocfg",
- "num-bigint 0.4.1",
+ "num-bigint 0.4.2",
  "num-integer",
  "num-traits",
 ]
