@@ -234,9 +234,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bee0328b1209d157ef001c94dd85b4f8f64139adb0eac2659f4b08382b2f474d"
+checksum = "716d3d89f35ac6a34fd0eed635395f4c3b76fa889338a4632e5231a8684216bd"
 dependencies = [
  "cfg-if",
 ]
@@ -625,8 +625,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.1.0"
-source = "git+https://github.com/jntrnr/reedline?branch=main#22fc31c68d1da6a41a93b5cfa901143b4eca4051"
+version = "0.2.0"
+source = "git+https://github.com/jntrnr/reedline?branch=main#93c2146fcf4257c40426bc2f0c6903d4115caaf1"
 dependencies = [
  "chrono",
  "crossterm",
@@ -772,9 +772,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.76"
+version = "1.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6f107db402c2c2055242dbf4d2af0e69197202e9faacbef9571bbe47f5a1b84"
+checksum = "5239bc68e0fef57495900cfea4e8dc75596d9a319d7e16b1e0a440d24e6fe0a0"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -69,4 +69,8 @@ pub enum ShellError {
     #[error("External command")]
     #[diagnostic(code(nu::shell::external_command), url(docsrs))]
     ExternalCommand(String, #[label("{0}")] Span),
+
+    #[error("Unsupported input")]
+    #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
+    UnsupportedInput(String, #[label("{0}")] Span),
 }

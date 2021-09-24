@@ -154,7 +154,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
                 // If this external is not the last expression, then its output is piped to a channel
                 // and we create a ValueStream that can be consumed
                 let value = if !self.last_expression {
-                    let (tx, rx) = mpsc::sync_channel(0);
+                    let (tx, rx) = mpsc::channel();
                     let stdout = child.stdout.take().ok_or_else(|| {
                         ShellError::ExternalCommand(
                             "Error taking stdout from external".to_string(),
