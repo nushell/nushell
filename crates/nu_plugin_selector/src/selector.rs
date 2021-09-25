@@ -139,9 +139,7 @@ fn retrieve_table(mut table: Table, columns: &Value) -> Vec<Value> {
                     .get(col)
                     .unwrap_or(&format!("Missing column: '{}'", &col))
                     .to_string();
-                if !at_least_one_row_filled
-                    && val != format!("Missing column: '{}'", &col)
-                {
+                if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
                     at_least_one_row_filled = true;
                 }
                 dict.insert_value(
