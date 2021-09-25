@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator};
 use nu_command::create_default_context;
@@ -139,7 +141,12 @@ fn main() -> Result<()> {
                                 }
                                 None => value.into_string(),
                             };
-                            println!("{}", output);
+                            let stdout = std::io::stdout();
+
+                            match stdout.lock().write_all(output.as_bytes()) {
+                                Ok(_) => (),
+                                Err(err) => eprintln!("{}", err),
+                            };
                         }
                         Err(err) => {
                             let engine_state = engine_state.borrow();
