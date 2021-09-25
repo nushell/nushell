@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "A converter plugin to the bson format for Nushell"
+description = "A converter plugin to the SQLite format for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_to_sqlite"
