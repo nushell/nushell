@@ -21,6 +21,7 @@
 - [x] Simple completions
 - [x] Detecting `$it` currently only looks at top scope but should find any free `$it` in the expression (including subexprs)
 - [x] Signature needs to make parameters visible in scope before block is parsed
+- [x] Externals
 - [ ] Support for `$in`
 - [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
@@ -30,7 +31,6 @@
 - [ ] finish operator type-checking
 - [ ] Source
 - [ ] Overlays (replacement for `autoenv`)
-- [ ] Externals
 - [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
   
 ## Maybe: 
