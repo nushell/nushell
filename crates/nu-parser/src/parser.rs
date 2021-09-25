@@ -2747,13 +2747,34 @@ pub fn parse_module(
 
         working_set.exit_scope();
 
-        // WIP error:
+        let block_id = working_set.add_block(block);
+
+        let block_expr = Expression {
+            expr: Expr::Block(block_id),
+            span: block_span,
+            ty: Type::Block,
+            custom_completion: None,
+        };
+
+        let module_decl_id = working_set
+            .find_decl(b"module")
+            .expect("internal error: missing module command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: module_decl_id,
+            positional: vec![name_expr, block_expr],
+            named: vec![],
+        });
+
         (
-            garbage_statement(spans),
-            Some(ParseError::UnknownState(
-                "This is OK module".into(),
-                span(spans),
-            )),
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
         )
     } else {
         (

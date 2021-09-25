@@ -16,6 +16,7 @@ mod lines;
 mod list_git_branches;
 mod ls;
 mod run_external;
+mod module;
 mod table;
 mod where_;
 
@@ -37,4 +38,5 @@ pub use lines::Lines;
 pub use list_git_branches::ListGitBranches;
 pub use ls::Ls;
 pub use run_external::External;
+pub use module::Module;
 pub use table::Table;
