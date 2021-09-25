@@ -113,6 +113,11 @@ impl EngineState {
         }
     }
 
+    pub fn print_contents(&self) {
+        let string = String::from_utf8_lossy(&self.file_contents);
+        println!("{}", string);
+    }
+
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         for scope in self.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {

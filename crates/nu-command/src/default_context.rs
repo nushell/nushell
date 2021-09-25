@@ -67,6 +67,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(sig.predeclare());
         let sig = Signature::build("stack");
         working_set.add_decl(sig.predeclare());
+        let sig = Signature::build("contents");
+        working_set.add_decl(sig.predeclare());
 
         working_set.render()
     };

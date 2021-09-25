@@ -65,7 +65,11 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
-        let mut headers = first.columns();
+        let mut headers = match first {
+            Value::Record { .. } => first.columns(),
+            _ => ["Column_0".to_string()].to_vec(),
+        };
+
         headers.insert(0, "#".into());
 
         let mut data = vec![];
@@ -74,10 +78,13 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
             let mut row = vec![row_num.to_string()];
 
             for header in headers.iter().skip(1) {
-                let result = item.clone().follow_cell_path(&[PathMember::String {
-                    val: header.into(),
-                    span: Span::unknown(),
-                }]);
+                let result = match item {
+                    Value::Record { .. } => item.clone().follow_cell_path(&[PathMember::String {
+                        val: header.into(),
+                        span: Span::unknown(),
+                    }]),
+                    _ => Ok(item.clone()),
+                };
 
                 match result {
                     Ok(value) => row.push(value.into_string()),
