@@ -167,7 +167,7 @@ fn print_value(value: Value, state: &EvaluationContext) -> Result<(), ShellError
         Some(decl_id) => {
             let table = engine_state
                 .get_decl(decl_id)
-                .run(&state, &Call::new(), value)?;
+                .run(state, &Call::new(), value)?;
             table.into_string()
         }
         None => value.into_string(),
