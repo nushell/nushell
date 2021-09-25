@@ -290,7 +290,7 @@ impl Value {
     pub fn columns(&self) -> Vec<String> {
         match self {
             Value::Record { cols, .. } => cols.clone(),
-            _ => vec!["<value>".into()],
+            _ => vec![],
         }
     }
 }
