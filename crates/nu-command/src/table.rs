@@ -74,10 +74,14 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
             let mut row = vec![row_num.to_string()];
 
             for header in headers.iter().skip(1) {
-                let result = item.clone().follow_cell_path(&[PathMember::String {
-                    val: header.into(),
-                    span: Span::unknown(),
-                }]);
+                let result = if header == "<value>" {
+                    Ok(item.clone())
+                } else {
+                    item.clone().follow_cell_path(&[PathMember::String {
+                        val: header.into(),
+                        span: Span::unknown(),
+                    }])
+                };
 
                 match result {
                     Ok(value) => row.push(value.into_string()),
