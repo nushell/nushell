@@ -102,6 +102,9 @@ fn main() -> Result<()> {
                     } else if s.trim() == "stack" {
                         stack.print_stack();
                         continue;
+                    } else if s.trim() == "contents" {
+                        engine_state.borrow().print_contents();
+                        continue;
                     }
 
                     let (block, delta) = {
