@@ -7,6 +7,8 @@ use nu_protocol::{
     hir::{CapturedBlock, ExternalRedirection},
     Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
 pub struct SubCommand;
 
@@ -39,9 +41,10 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Update the zero value cells to empty strings.",
-            example: r#"[
+        vec![
+            Example {
+                description: "Update the zero value cells to empty strings.",
+                example: r#"[
   [2021-04-16, 2021-06-10, 2021-09-18, 2021-10-15, 2021-11-16, 2021-11-17, 2021-11-18];
   [        37,          0,          0,          0,         37,          0,          0]
 ] | update cells {|value|
@@ -51,17 +54,41 @@ impl WholeStreamCommand for SubCommand {
         $value
       }
 }"#,
-            result: Some(vec![UntaggedValue::row(indexmap! {
-                    "2021-04-16".to_string() => UntaggedValue::int(37).into(),
-                    "2021-06-10".to_string() => Value::from(""),
-                    "2021-09-18".to_string() => Value::from(""),
-                    "2021-10-15".to_string() => Value::from(""),
-                    "2021-11-16".to_string() => UntaggedValue::int(37).into(),
-                    "2021-11-17".to_string() => Value::from(""),
-                    "2021-11-18".to_string() => Value::from(""),
-            })
-            .into()]),
-        }]
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "2021-04-16".to_string() => UntaggedValue::int(37).into(),
+                        "2021-06-10".to_string() => Value::from(""),
+                        "2021-09-18".to_string() => Value::from(""),
+                        "2021-10-15".to_string() => Value::from(""),
+                        "2021-11-16".to_string() => UntaggedValue::int(37).into(),
+                        "2021-11-17".to_string() => Value::from(""),
+                        "2021-11-18".to_string() => Value::from(""),
+                })
+                .into()]),
+            },
+            Example {
+                description: "Update the zero value cells to empty strings in 2 last columns.",
+                example: r#"[
+    [2021-04-16, 2021-06-10, 2021-09-18, 2021-10-15, 2021-11-16, 2021-11-17, 2021-11-18];
+    [        37,          0,          0,          0,         37,          0,          0]
+] | update cells -c ["2021-11-18", "2021-11-17"] {|value|
+        if ($value | into int) == 0 {
+        ""
+        } {
+        $value
+        }
+}"#,
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                        "2021-04-16".to_string() => UntaggedValue::int(37).into(),
+                        "2021-06-10".to_string() => UntaggedValue::int(0).into(),
+                        "2021-09-18".to_string() => UntaggedValue::int(0).into(),
+                        "2021-10-15".to_string() => UntaggedValue::int(0).into(),
+                        "2021-11-16".to_string() => UntaggedValue::int(37).into(),
+                        "2021-11-17".to_string() => Value::from(""),
+                        "2021-11-18".to_string() => Value::from(""),
+                })
+                .into()]),
+            },
+        ]
     }
 }
 
@@ -72,7 +99,9 @@ fn update_cells(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block: CapturedBlock = args.req(0)?;
     let block = Arc::new(block);
 
-    let columns: Value = args.get_flag("columns")?.unwrap_or(Value::nothing());
+    let columns = args
+        .get_flag("columns")?
+        .map(|x: Value| HashSet::from_iter(x.table_entries().map(|val| val.convert_to_string())));
     let columns = Arc::new(columns);
 
     Ok(args
@@ -139,22 +168,20 @@ pub fn process_input(
 
 pub fn process_cells(
     captured_block: Arc<CapturedBlock>,
-    columns: Arc<Value>,
+    columns: Arc<Option<HashSet<String>>>,
     context: Arc<EvaluationContext>,
     input: Value,
     external_redirection: ExternalRedirection,
 ) -> Value {
     TaggedDictBuilder::build(input.tag(), |row| {
         input.row_entries().for_each(|(column, cell_value)| {
-            if columns.is_table()
-                && columns
-                    .table_entries()
-                    .find(|val| val.as_string().is_ok() && val.as_string().unwrap() == *column)
-                    .is_none()
-            {
-                row.insert_value(column, cell_value.clone());
-                return;
-            }
+            match &*columns {
+                Some(col) if !col.contains(column) => {
+                    row.insert_value(column, cell_value.clone());
+                    return;
+                }
+                _ => {}
+            };
             let cell_processed = process_input(
                 captured_block.clone(),
                 context.clone(),
