@@ -134,9 +134,11 @@ fn main() -> Result<()> {
                             let engine_state = engine_state.borrow();
                             let output = match engine_state.find_decl("table".as_bytes()) {
                                 Some(decl_id) => {
-                                    let command = engine_state.get_decl(decl_id);
-
-                                    let table = command.run(&state, &Call::new(), value)?;
+                                    let table = engine_state.get_decl(decl_id).run(
+                                        &state,
+                                        &Call::new(),
+                                        value,
+                                    )?;
                                     table.into_string()
                                 }
                                 None => value.into_string(),
