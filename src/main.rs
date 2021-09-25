@@ -8,7 +8,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, EvaluationContext, StateWorkingSet},
-    Value,
+    ShellError, Value,
 };
 use reedline::DefaultCompletionActionHandler;
 
@@ -128,28 +128,7 @@ fn main() -> Result<()> {
                     };
 
                     match eval_block(&state, &block, Value::nothing()) {
-                        Ok(value) => {
-                            // If the table function is in the declarations, then we can use it
-                            // to create the table value that will be printed in the terminal
-                            let engine_state = engine_state.borrow();
-                            let output = match engine_state.find_decl("table".as_bytes()) {
-                                Some(decl_id) => {
-                                    let table = engine_state.get_decl(decl_id).run(
-                                        &state,
-                                        &Call::new(),
-                                        value,
-                                    )?;
-                                    table.into_string()
-                                }
-                                None => value.into_string(),
-                            };
-                            let stdout = std::io::stdout();
-
-                            match stdout.lock().write_all(output.as_bytes()) {
-                                Ok(_) => (),
-                                Err(err) => eprintln!("{}", err),
-                            };
-                        }
+                        Ok(value) => print_value(value, &state)?,
                         Err(err) => {
                             let engine_state = engine_state.borrow();
                             let working_set = StateWorkingSet::new(&*engine_state);
@@ -178,4 +157,27 @@ fn main() -> Result<()> {
 
         Ok(())
     }
+}
+
+fn print_value(value: Value, state: &EvaluationContext) -> Result<(), ShellError> {
+    // If the table function is in the declarations, then we can use it
+    // to create the table value that will be printed in the terminal
+    let engine_state = state.engine_state.borrow();
+    let output = match engine_state.find_decl("table".as_bytes()) {
+        Some(decl_id) => {
+            let table = engine_state
+                .get_decl(decl_id)
+                .run(&state, &Call::new(), value)?;
+            table.into_string()
+        }
+        None => value.into_string(),
+    };
+    let stdout = std::io::stdout();
+
+    match stdout.lock().write_all(output.as_bytes()) {
+        Ok(_) => (),
+        Err(err) => eprintln!("{}", err),
+    };
+
+    Ok(())
 }
