@@ -117,7 +117,6 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             Ok(mut child) => {
                 // if there is a string or a stream, that is sent to the pipe std
                 match input {
-                    Value::Nothing { span: _ } => (),
                     Value::String { val, span: _ } => {
                         if let Some(mut stdin_write) = child.stdin.take() {
                             self.write_to_stdin(&mut stdin_write, val.as_bytes())?
@@ -143,12 +142,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
                             }
                         }
                     }
-                    _ => {
-                        return Err(ShellError::ExternalCommand(
-                            "Input is not string or binary".to_string(),
-                            self.name.span,
-                        ))
-                    }
+                    _ => (),
                 }
 
                 // If this external is not the last expression, then its output is piped to a channel

@@ -4,6 +4,7 @@ use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    ast::Call,
     engine::{EngineState, EvaluationContext, StateWorkingSet},
     Value,
 };
@@ -126,7 +127,19 @@ fn main() -> Result<()> {
 
                     match eval_block(&state, &block, Value::nothing()) {
                         Ok(value) => {
-                            println!("{}", value.into_string());
+                            // If the table function is in the declarations, then we can use it
+                            // to create the table value that will be printed in the terminal
+                            let engine_state = engine_state.borrow();
+                            let output = match engine_state.find_decl("table".as_bytes()) {
+                                Some(decl_id) => {
+                                    let command = engine_state.get_decl(decl_id);
+
+                                    let table = command.run(&state, &Call::new(), value)?;
+                                    table.into_string()
+                                }
+                                None => value.into_string(),
+                            };
+                            println!("{}", output);
                         }
                         Err(err) => {
                             let engine_state = engine_state.borrow();
