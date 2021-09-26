@@ -2658,8 +2658,12 @@ pub fn parse_module(
 
     // parse_def() equivalent
     if bytes == b"module" && spans.len() >= 3 {
-        let (name_expr, err) = parse_string(working_set, spans[1]);
+        let (module_name_expr, err) = parse_string(working_set, spans[1]);
         error = error.or(err);
+
+        let module_name = module_name_expr
+            .as_string()
+            .expect("internal error: module name is not a string");
 
         // parse_block_expression() equivalent
         let block_span = spans[2];
@@ -2715,6 +2719,8 @@ pub fn parse_module(
             }
         }
 
+        let mut exports: Vec<Vec<u8>> = vec![];
+
         let block: Block = output
             .block
             .iter()
@@ -2726,11 +2732,22 @@ pub fn parse_module(
 
                     let (stmt, err) = match name {
                         // TODO: Here we can add other stuff that's alowed for modules
-                        b"def" => parse_def(working_set, &pipeline.commands[0].parts),
+                        b"def" => {
+                            let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
+
+                            if err.is_none() {
+                                let def_name =
+                                    working_set.get_span_contents(pipeline.commands[0].parts[1]);
+                                // TODO: Later, we want to put this behind 'export'
+                                exports.push(def_name.into());
+                            }
+
+                            (stmt, err)
+                        }
                         _ => (
                             garbage_statement(&pipeline.commands[0].parts),
                             Some(ParseError::Expected("def".into(), block_span)),
-                        )
+                        ),
                     };
 
                     if error.is_none() {
@@ -2745,9 +2762,11 @@ pub fn parse_module(
             })
             .into();
 
+        let block = block.with_exports(exports);
+
         working_set.exit_scope();
 
-        let block_id = working_set.add_block(block);
+        let block_id = working_set.add_module(&module_name, block);
 
         let block_expr = Expression {
             expr: Expr::Block(block_id),
@@ -2763,7 +2782,7 @@ pub fn parse_module(
         let call = Box::new(Call {
             head: spans[0],
             decl_id: module_decl_id,
-            positional: vec![name_expr, block_expr],
+            positional: vec![module_name_expr, block_expr],
             named: vec![],
         });
 

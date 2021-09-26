@@ -17,6 +17,7 @@ pub struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
+    modules: HashMap<Vec<u8>, BlockId>,
 }
 
 impl ScopeFrame {
@@ -25,6 +26,7 @@ impl ScopeFrame {
             vars: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
+            modules: HashMap::new(),
         }
     }
 
@@ -288,6 +290,23 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
+    }
+
+    pub fn add_module(&mut self, name: &str, block: Block) -> BlockId {
+        let name = name.as_bytes().to_vec();
+
+        self.delta.blocks.push(block);
+        let block_id = self.num_blocks() - 1;
+
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        scope_frame.modules.insert(name, block_id);
+
+        block_id
     }
 
     pub fn next_span_start(&self) -> usize {
