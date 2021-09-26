@@ -287,7 +287,10 @@ pub fn parse_module(
                         }
                         _ => (
                             garbage_statement(&pipeline.commands[0].parts),
-                            Some(ParseError::Expected("def".into(), block_span)),
+                            Some(ParseError::Expected(
+                                "def".into(),
+                                pipeline.commands[0].parts[0],
+                            )),
                         ),
                     };
 
