@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{Signature, DeclId};
+use crate::{DeclId, Signature};
 
 use super::Statement;
 
