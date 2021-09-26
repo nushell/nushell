@@ -10,7 +10,7 @@ use nu_protocol::{
         RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    span, DeclId, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
 };
 
 #[derive(Debug, Clone)]
@@ -2653,6 +2653,9 @@ pub fn parse_module(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
+    // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
+    // visible and usable in this module's scope). We might want to disable that. How?
+
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
@@ -2719,7 +2722,7 @@ pub fn parse_module(
             }
         }
 
-        let mut exports: Vec<Vec<u8>> = vec![];
+        let mut exports: Vec<(Vec<u8>, DeclId)> = vec![];
 
         let block: Block = output
             .block
@@ -2736,10 +2739,15 @@ pub fn parse_module(
                             let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
 
                             if err.is_none() {
-                                let def_name =
+                                let decl_name =
                                     working_set.get_span_contents(pipeline.commands[0].parts[1]);
+
+                                let decl_id = working_set
+                                    .find_decl(decl_name)
+                                    .expect("internal error: failed to find added declaration");
+
                                 // TODO: Later, we want to put this behind 'export'
-                                exports.push(def_name.into());
+                                exports.push((decl_name.into(), decl_id));
                             }
 
                             (stmt, err)
@@ -2825,8 +2833,10 @@ pub fn parse_use(
 
         let module_name_bytes = module_name.as_bytes().to_vec();
 
-        let block = if let Some(block_id) = working_set.find_module(&module_name_bytes) {
-            working_set.get_block(block_id)
+        let exports = if let Some(block_id) = working_set.find_module(&module_name_bytes) {
+            // TODO: Since we don't use the Block at all, we might just as well create a separate
+            // Module that holds only the exports, without having Blocks in the way.
+            working_set.get_block(block_id).exports.clone()
         } else {
             return (
                 garbage_statement(spans),
@@ -2834,6 +2844,10 @@ pub fn parse_use(
             );
         };
 
+        // Extend the current scope with the module's exports
+        working_set.activate_overlay(exports);
+
+        // Create the Use command call
         let use_decl_id = working_set
             .find_decl(b"use")
             .expect("internal error: missing use command");

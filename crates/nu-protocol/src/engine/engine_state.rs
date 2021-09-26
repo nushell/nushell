@@ -312,6 +312,20 @@ impl<'a> StateWorkingSet<'a> {
         block_id
     }
 
+    pub fn activate_overlay(&mut self, overlay: Vec<(Vec<u8>, DeclId)>) {
+        // TODO: This will overwrite all existing definitions in a scope. When we add deactivate,
+        // we need to re-think how make it recoverable.
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for (name, decl_id) in overlay {
+            scope_frame.decls.insert(name, decl_id);
+        }
+    }
+
     pub fn next_span_start(&self) -> usize {
         self.permanent_state.next_span_start() + self.delta.file_contents.len()
     }

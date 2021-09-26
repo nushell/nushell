@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::Signature;
+use crate::{Signature, DeclId};
 
 use super::Statement;
 
@@ -8,7 +8,7 @@ use super::Statement;
 pub struct Block {
     pub signature: Box<Signature>,
     pub stmts: Vec<Statement>,
-    pub exports: Vec<Vec<u8>>, // Assuming just defs for now
+    pub exports: Vec<(Vec<u8>, DeclId)>, // Assuming just defs for now
 }
 
 impl Block {
@@ -50,7 +50,7 @@ impl Block {
         }
     }
 
-    pub fn with_exports(self, exports: Vec<Vec<u8>>) -> Self {
+    pub fn with_exports(self, exports: Vec<(Vec<u8>, DeclId)>) -> Self {
         Self {
             signature: self.signature,
             stmts: self.stmts,
