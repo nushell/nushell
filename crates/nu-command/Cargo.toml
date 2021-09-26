@@ -6,7 +6,6 @@ edition = "2018"
 license = "MIT"
 name = "nu-command"
 version = "0.37.1"
-resolver = "2"
 
 [lib]
 doctest = false
@@ -99,8 +98,11 @@ features = ["parquet", "json", "random", "pivot", "strings", "is_in", "temporal"
 umask = "1.0.0"
 users = "0.11.0"
 
-[target.'cfg(not(windows))'.dependencies]
-num-format = {version = "0.4", features = ["with-system-locale"]}
+# TODO this will be possible with new dependency resolver
+#   (currently on nightly behind -Zfeatures=itarget):
+#   https://github.com/rust-lang/cargo/issues/7914
+# [target.'cfg(not(windows))'.dependencies]
+# num-format = { version = "0.4", features = ["with-system-locale"] }
 
 [build-dependencies]
 shadow-rs = "0.6"
