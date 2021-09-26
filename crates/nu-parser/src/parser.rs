@@ -2806,6 +2806,65 @@ pub fn parse_module(
     }
 }
 
+pub fn parse_use(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    // TODO: Currently, this directly imports the module's definitions into the current scope.
+    // Later, we want to put them behind the module's name and add selective importing
+    if bytes == b"use" && spans.len() >= 2 {
+        let (module_name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        let module_name = module_name_expr
+            .as_string()
+            .expect("internal error: module name is not a string");
+
+        let module_name_bytes = module_name.as_bytes().to_vec();
+
+        let block = if let Some(block_id) = working_set.find_module(&module_name_bytes) {
+            working_set.get_block(block_id)
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::ModuleNotFound(spans[1])),
+            );
+        };
+
+        let use_decl_id = working_set
+            .find_decl(b"use")
+            .expect("internal error: missing use command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: use_decl_id,
+            positional: vec![module_name_expr],
+            named: vec![],
+        });
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: use <name>".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2865,6 +2924,7 @@ pub fn parse_statement(
         b"let" => parse_let(working_set, spans),
         b"alias" => parse_alias(working_set, spans),
         b"module" => parse_module(working_set, spans),
+        b"use" => parse_use(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)

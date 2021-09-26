@@ -78,6 +78,9 @@ impl EngineState {
             for item in first.aliases.into_iter() {
                 last.aliases.insert(item.0, item.1);
             }
+            for item in first.modules.into_iter() {
+                last.modules.insert(item.0, item.1);
+            }
         }
     }
 
@@ -388,6 +391,22 @@ impl<'a> StateWorkingSet<'a> {
         for scope in self.permanent_state.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module(&self, name: &[u8]) -> Option<BlockId> {
+        for scope in self.delta.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
             }
         }
 

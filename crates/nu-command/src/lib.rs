@@ -18,6 +18,7 @@ mod ls;
 mod module;
 mod run_external;
 mod table;
+mod use_;
 mod where_;
 
 pub use alias::Alias;
@@ -40,3 +41,4 @@ pub use ls::Ls;
 pub use module::Module;
 pub use run_external::External;
 pub use table::Table;
+pub use use_::Use;
