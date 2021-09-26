@@ -66,37 +66,54 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
         eprintln!("Passed in Column Headers = {:#?}", &cols,);
     }
 
-    let mut table = match Table::find_by_headers(html, &cols) {
+    let tables = match Table::find_by_headers(html, &cols) {
         Some(t) => {
             if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
             }
             t
         }
-        None => Table::empty(),
+        None => vec![Table::empty()],
     };
+    if tables.len() == 1 {
+        return retrieve_table(
+            tables
+                .into_iter()
+                .next()
+                .expect("This should never trigger"),
+            columns,
+        );
+    }
+    tables
+        .into_iter()
+        .map(move |table| {
+            UntaggedValue::Table(retrieve_table(table, columns)).into_value(Tag::unknown())
+        })
+        .collect()
+}
 
-    let mut table_out = Vec::new();
+fn retrieve_table(mut table: Table, columns: &Value) -> Vec<Value> {
+    let mut cols = Vec::new();
+    if let UntaggedValue::Table(t) = &columns.value {
+        for x in t {
+            cols.push(x.convert_to_string());
+        }
+    }
 
-    // since cols was empty and headers is not, it means that headers were manually populated
-    // so let's fake the data in order to build a proper table. this situation happens when
-    // there are tables where the first column is actually the headers. kind of like a table
-    // that has been rotated ccw 90 degrees
     if cols.is_empty() && !table.headers().is_empty() {
         for col in table.headers().keys() {
             cols.push(col.to_string());
         }
-
-        let mut data2 = Vec::new();
-        for x in &table.data {
-            data2.push(x.join(", "));
-        }
-        // eprintln!("data2={:?}", data2);
-        table.data = vec![data2];
     }
 
+    let mut table_out = Vec::new();
+    // sometimes there are tables where the first column is the headers, kind of like
+    // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
+    // we keep track of this with this variable so we can deal with it later
+    let mut at_least_one_row_filled = false;
     // if columns are still empty, let's just make a single column table with the data
     if cols.is_empty() {
+        at_least_one_row_filled = true;
         let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();
 
         for row in &table_with_no_empties {
@@ -116,12 +133,15 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
             let mut dict = TaggedDictBuilder::new(Tag::unknown());
             // eprintln!("row={:?}", &row);
             for col in &cols {
-                // eprintln!("col={:?}", &col);
+                //eprintln!("col={:?}", &col);
                 let key = col.to_string();
                 let val = row
                     .get(col)
                     .unwrap_or(&format!("Missing column: '{}'", &col))
                     .to_string();
+                if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
+                    at_least_one_row_filled = true;
+                }
                 dict.insert_value(
                     key,
                     UntaggedValue::Primitive(Primitive::String(val)).into_value(Tag::unknown()),
@@ -129,6 +149,14 @@ pub fn retrieve_tables(input_string: &str, columns: &Value, inspect_mode: bool) 
             }
             table_out.push(dict.into_value());
         }
+    }
+    if !at_least_one_row_filled {
+        let mut data2 = Vec::new();
+        for x in &table.data {
+            data2.push(x.join(", "));
+        }
+        table.data = vec![data2];
+        return retrieve_table(table, columns);
     }
     table_out
 }
