@@ -17,6 +17,7 @@ pub struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
+    modules: HashMap<Vec<u8>, BlockId>,
 }
 
 impl ScopeFrame {
@@ -25,6 +26,7 @@ impl ScopeFrame {
             vars: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
+            modules: HashMap::new(),
         }
     }
 
@@ -75,6 +77,9 @@ impl EngineState {
             }
             for item in first.aliases.into_iter() {
                 last.aliases.insert(item.0, item.1);
+            }
+            for item in first.modules.into_iter() {
+                last.modules.insert(item.0, item.1);
             }
         }
     }
@@ -295,6 +300,37 @@ impl<'a> StateWorkingSet<'a> {
         self.num_blocks() - 1
     }
 
+    pub fn add_module(&mut self, name: &str, block: Block) -> BlockId {
+        let name = name.as_bytes().to_vec();
+
+        self.delta.blocks.push(block);
+        let block_id = self.num_blocks() - 1;
+
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        scope_frame.modules.insert(name, block_id);
+
+        block_id
+    }
+
+    pub fn activate_overlay(&mut self, overlay: Vec<(Vec<u8>, DeclId)>) {
+        // TODO: This will overwrite all existing definitions in a scope. When we add deactivate,
+        // we need to re-think how make it recoverable.
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for (name, decl_id) in overlay {
+            scope_frame.decls.insert(name, decl_id);
+        }
+    }
+
     pub fn next_span_start(&self) -> usize {
         self.permanent_state.next_span_start() + self.delta.file_contents.len()
     }
@@ -374,6 +410,22 @@ impl<'a> StateWorkingSet<'a> {
         for scope in self.permanent_state.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module(&self, name: &[u8]) -> Option<BlockId> {
+        for scope in self.delta.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
             }
         }
 

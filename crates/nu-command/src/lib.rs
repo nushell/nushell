@@ -15,8 +15,10 @@ mod let_env;
 mod lines;
 mod list_git_branches;
 mod ls;
+mod module;
 mod run_external;
 mod table;
+mod use_;
 mod where_;
 
 pub use alias::Alias;
@@ -36,5 +38,7 @@ pub use let_env::LetEnv;
 pub use lines::Lines;
 pub use list_git_branches::ListGitBranches;
 pub use ls::Ls;
+pub use module::Module;
 pub use run_external::External;
 pub use table::Table;
+pub use use_::Use;

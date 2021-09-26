@@ -10,7 +10,7 @@ use nu_protocol::{
         RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    span, DeclId, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
 };
 
 #[derive(Debug, Clone)]
@@ -2649,6 +2649,236 @@ pub fn parse_alias(
     )
 }
 
+pub fn parse_module(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
+    // visible and usable in this module's scope). We might want to disable that. How?
+
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    // parse_def() equivalent
+    if bytes == b"module" && spans.len() >= 3 {
+        let (module_name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        let module_name = module_name_expr
+            .as_string()
+            .expect("internal error: module name is not a string");
+
+        // parse_block_expression() equivalent
+        let block_span = spans[2];
+        let block_bytes = working_set.get_span_contents(block_span);
+        let mut start = block_span.start;
+        let mut end = block_span.end;
+
+        if block_bytes.starts_with(b"{") {
+            start += 1;
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::Expected("block".into(), block_span)),
+            );
+        }
+
+        if block_bytes.ends_with(b"}") {
+            end -= 1;
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::Unclosed(
+                    "}".into(),
+                    Span {
+                        start: end,
+                        end: end + 1,
+                    },
+                ))
+            });
+        }
+
+        let block_span = Span { start, end };
+
+        let source = working_set.get_span_contents(block_span);
+
+        let (output, err) = lex(source, start, &[], &[]);
+        error = error.or(err);
+
+        working_set.enter_scope();
+
+        // Do we need block parameters?
+
+        let (output, err) = lite_parse(&output);
+        error = error.or(err);
+
+        // We probably don't need $it
+
+        // we're doing parse_block() equivalent
+        // let (mut output, err) = parse_block(working_set, &output, false);
+
+        for pipeline in &output.block {
+            if pipeline.commands.len() == 1 {
+                parse_def_predecl(working_set, &pipeline.commands[0].parts);
+            }
+        }
+
+        let mut exports: Vec<(Vec<u8>, DeclId)> = vec![];
+
+        let block: Block = output
+            .block
+            .iter()
+            .map(|pipeline| {
+                if pipeline.commands.len() == 1 {
+                    // this one here is doing parse_statement() equivalent
+                    // let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
+                    let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
+
+                    let (stmt, err) = match name {
+                        // TODO: Here we can add other stuff that's alowed for modules
+                        b"def" => {
+                            let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
+
+                            if err.is_none() {
+                                let decl_name =
+                                    working_set.get_span_contents(pipeline.commands[0].parts[1]);
+
+                                let decl_id = working_set
+                                    .find_decl(decl_name)
+                                    .expect("internal error: failed to find added declaration");
+
+                                // TODO: Later, we want to put this behind 'export'
+                                exports.push((decl_name.into(), decl_id));
+                            }
+
+                            (stmt, err)
+                        }
+                        _ => (
+                            garbage_statement(&pipeline.commands[0].parts),
+                            Some(ParseError::Expected("def".into(), block_span)),
+                        ),
+                    };
+
+                    if error.is_none() {
+                        error = err;
+                    }
+
+                    stmt
+                } else {
+                    error = Some(ParseError::Expected("not a pipeline".into(), block_span));
+                    garbage_statement(spans)
+                }
+            })
+            .into();
+
+        let block = block.with_exports(exports);
+
+        working_set.exit_scope();
+
+        let block_id = working_set.add_module(&module_name, block);
+
+        let block_expr = Expression {
+            expr: Expr::Block(block_id),
+            span: block_span,
+            ty: Type::Block,
+            custom_completion: None,
+        };
+
+        let module_decl_id = working_set
+            .find_decl(b"module")
+            .expect("internal error: missing module command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: module_decl_id,
+            positional: vec![module_name_expr, block_expr],
+            named: vec![],
+        });
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: module <name> {}".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
+pub fn parse_use(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    // TODO: Currently, this directly imports the module's definitions into the current scope.
+    // Later, we want to put them behind the module's name and add selective importing
+    if bytes == b"use" && spans.len() >= 2 {
+        let (module_name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        let module_name = module_name_expr
+            .as_string()
+            .expect("internal error: module name is not a string");
+
+        let module_name_bytes = module_name.as_bytes().to_vec();
+
+        let exports = if let Some(block_id) = working_set.find_module(&module_name_bytes) {
+            // TODO: Since we don't use the Block at all, we might just as well create a separate
+            // Module that holds only the exports, without having Blocks in the way.
+            working_set.get_block(block_id).exports.clone()
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::ModuleNotFound(spans[1])),
+            );
+        };
+
+        // Extend the current scope with the module's exports
+        working_set.activate_overlay(exports);
+
+        // Create the Use command call
+        let use_decl_id = working_set
+            .find_decl(b"use")
+            .expect("internal error: missing use command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: use_decl_id,
+            positional: vec![module_name_expr],
+            named: vec![],
+        });
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: use <name>".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2707,6 +2937,8 @@ pub fn parse_statement(
         b"def" => parse_def(working_set, spans),
         b"let" => parse_let(working_set, spans),
         b"alias" => parse_alias(working_set, spans),
+        b"module" => parse_module(working_set, spans),
+        b"use" => parse_use(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
