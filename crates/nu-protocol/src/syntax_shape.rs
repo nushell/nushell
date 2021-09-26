@@ -33,6 +33,9 @@ pub enum SyntaxShape {
     /// A glob pattern is allowed, eg `foo*`
     GlobPattern,
 
+    /// A module path pattern used for imports
+    ImportPattern,
+
     /// A block is allowed, eg `{start this thing}`
     Block(Option<Vec<SyntaxShape>>),
 
@@ -87,6 +90,7 @@ impl SyntaxShape {
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Unknown,
             SyntaxShape::GlobPattern => Type::String,
+            SyntaxShape::ImportPattern => Type::Unknown,
             SyntaxShape::Int => Type::Int,
             SyntaxShape::List(x) => {
                 let contents = x.to_type();

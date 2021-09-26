@@ -156,10 +156,10 @@ pub fn eval_expression(
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
-        Expr::FullCellPath(column_path) => {
-            let value = eval_expression(context, &column_path.head)?;
+        Expr::FullCellPath(cell_path) => {
+            let value = eval_expression(context, &cell_path.head)?;
 
-            value.follow_cell_path(&column_path.tail)
+            value.follow_cell_path(&cell_path.tail)
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),

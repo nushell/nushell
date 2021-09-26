@@ -342,3 +342,35 @@ fn better_block_types() -> TestResult {
         "1 is 2",
     )
 }
+
+#[test]
+fn module_imports_1() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
+        "1",
+    )
+}
+
+#[test]
+fn module_imports_2() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
+        "1",
+    )
+}
+
+#[test]
+fn module_imports_3() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.*; b"#,
+        "2",
+    )
+}
+
+#[test]
+fn module_imports_4() -> TestResult {
+    fail_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.c"#,
+        "not find import",
+    )
+}

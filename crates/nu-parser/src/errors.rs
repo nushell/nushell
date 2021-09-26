@@ -151,4 +151,12 @@ pub enum ParseError {
     #[error("{0}")]
     #[diagnostic(code(nu::parser::assignment_mismatch), url(docsrs))]
     AssignmentMismatch(String, String, #[label("{1}")] Span),
+
+    #[error("Missing import pattern.")]
+    #[diagnostic(code(nu::parser::missing_import_pattern), url(docsrs))]
+    MissingImportPattern(#[label = "needs an import pattern"] Span),
+
+    #[error("Module export not found.")]
+    #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
+    ExportNotFound(#[label = "could not find imports"] Span),
 }
