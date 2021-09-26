@@ -177,9 +177,9 @@ impl Value {
         }
     }
 
-    pub fn follow_cell_path(self, column_path: &[PathMember]) -> Result<Value, ShellError> {
+    pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
         let mut current = self;
-        for member in column_path {
+        for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
             // to traverse the path without them
             match member {

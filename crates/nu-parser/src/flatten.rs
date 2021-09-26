@@ -79,10 +79,10 @@ pub fn flatten_expression(
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
         }
-        Expr::FullCellPath(column_path) => {
+        Expr::FullCellPath(cell_path) => {
             let mut output = vec![];
-            output.extend(flatten_expression(working_set, &column_path.head));
-            for path_element in &column_path.tail {
+            output.extend(flatten_expression(working_set, &cell_path.head));
+            for path_element in &cell_path.tail {
                 match path_element {
                     PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
                     PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
