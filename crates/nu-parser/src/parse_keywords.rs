@@ -47,71 +47,107 @@ pub fn parse_def(
     let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
-    if name == b"def" && spans.len() >= 4 {
-        //FIXME: don't use expect here
-        let (name_expr, err) = parse_string(working_set, spans[1]);
-        error = error.or(err);
+    if name == b"def" {
+        let def_decl_id = working_set
+            .find_decl(b"def")
+            .expect("internal error: missing def command");
 
-        working_set.enter_scope();
-        let (sig, err) = parse_signature(working_set, spans[2]);
-        error = error.or(err);
+        let mut call = Box::new(Call {
+            head: spans[0],
+            decl_id: def_decl_id,
+            positional: vec![],
+            named: vec![],
+        });
 
-        let (block, err) =
-            parse_block_expression(working_set, &SyntaxShape::Block(Some(vec![])), spans[3]);
-        error = error.or(err);
-        working_set.exit_scope();
+        let call = if let Some(name_span) = spans.get(1) {
+            let (name_expr, err) = parse_string(working_set, *name_span);
+            error = error.or(err);
 
-        if error.is_some() {
-            return (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
-                error,
-            );
-        }
+            let name = name_expr.as_string();
+            call.positional.push(name_expr);
 
-        let name = name_expr.as_string();
+            if let Some(sig_span) = spans.get(2) {
+                working_set.enter_scope();
+                let (sig, err) = parse_signature(working_set, *sig_span);
+                error = error.or(err);
 
-        let signature = sig.as_signature();
+                let signature = sig.as_signature();
 
-        let block_id = block.as_block();
+                call.positional.push(sig);
 
-        match (name, signature, block_id) {
-            (Some(name), Some(mut signature), Some(block_id)) => {
-                let decl_id = working_set
-                    .find_decl(name.as_bytes())
-                    .expect("internal error: predeclaration failed to add definition");
+                if let Some(block_span) = spans.get(3) {
+                    let (block, err) = parse_block_expression(
+                        working_set,
+                        &SyntaxShape::Block(Some(vec![])),
+                        *block_span,
+                    );
+                    error = error.or(err);
 
-                let declaration = working_set.get_decl_mut(decl_id);
+                    let block_id = block.as_block();
 
-                signature.name = name;
+                    call.positional.push(block);
 
-                *declaration = signature.into_block_command(block_id);
+                    if let (Some(name), Some(mut signature), Some(block_id)) =
+                        (name, signature, block_id)
+                    {
+                        let decl_id = working_set
+                            .find_decl(name.as_bytes())
+                            .expect("internal error: predeclaration failed to add definition");
 
-                let def_decl_id = working_set
-                    .find_decl(b"def")
-                    .expect("internal error: missing def command");
+                        let declaration = working_set.get_decl_mut(decl_id);
 
-                let call = Box::new(Call {
-                    head: spans[0],
-                    decl_id: def_decl_id,
-                    positional: vec![name_expr, sig, block],
-                    named: vec![],
-                });
+                        signature.name = name;
 
-                (
-                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: span(spans),
-                        ty: Type::Unknown,
-                        custom_completion: None,
-                    }])),
-                    error,
-                )
+                        *declaration = signature.into_block_command(block_id);
+                    }
+                } else {
+                    let err_span = Span {
+                        start: sig_span.end,
+                        end: sig_span.end,
+                    };
+
+                    error = error
+                        .or_else(|| Some(ParseError::MissingPositional("block".into(), err_span)));
+                }
+                working_set.exit_scope();
+
+                call
+            } else {
+                let err_span = Span {
+                    start: name_span.end,
+                    end: name_span.end,
+                };
+
+                error = error
+                    .or_else(|| Some(ParseError::MissingPositional("parameters".into(), err_span)));
+
+                call
             }
-            _ => (
-                Statement::Pipeline(Pipeline::from_vec(vec![garbage(span(spans))])),
-                error,
-            ),
-        }
+        } else {
+            let err_span = Span {
+                start: spans[0].end,
+                end: spans[0].end,
+            };
+
+            error = error.or_else(|| {
+                Some(ParseError::MissingPositional(
+                    "definition name".into(),
+                    err_span,
+                ))
+            });
+
+            call
+        };
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
     } else {
         (
             garbage_statement(spans),
