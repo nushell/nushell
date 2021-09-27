@@ -1,5 +1,6 @@
 use crate::{ast::RangeInclusion, *};
 
+/// A Range is an iterator over integers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Range {
     pub from: Value,

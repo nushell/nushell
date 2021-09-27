@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::{
     lex, lite_parse,
     type_check::{math_result_type, type_compatible},
@@ -10,7 +12,7 @@ use nu_protocol::{
         RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    span, Flag, PositionalArg, ShellError, Signature, Span, SyntaxShape, Type, VarId,
 };
 
 #[derive(Debug, Clone)]
@@ -2299,6 +2301,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     }
 }
 
+/// Parser for the def command
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2381,6 +2384,7 @@ pub fn parse_def(
     }
 }
 
+/// Parser for the alias command
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2436,6 +2440,7 @@ pub fn parse_alias(
     )
 }
 
+/// Parse let command
 pub fn parse_let(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2480,6 +2485,105 @@ pub fn parse_let(
     )
 }
 
+/// Parser for the source command
+pub fn parse_source(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let name = working_set.get_span_contents(spans[0]);
+
+    if name == b"source" {
+        let (name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        if let Some(filename) = name_expr.as_string() {
+            let source_file = Path::new(&filename);
+            // This is to stay consistent w/ the code taken from nushell
+            let path = source_file;
+
+            let contents = std::fs::read(path);
+
+            match contents {
+                Ok(contents) => {
+                    let (block, err) = parse(
+                        &mut working_set,
+                        path.file_name().and_then(|x| x.to_str()),
+                        &contents,
+                        true,
+                    );
+                    if let Some(e) = err {
+                        (
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Garbage,
+                                span: span(spans),
+                                ty: Type::Unknown,
+                            }])),
+                            err,
+                        )
+                    } else {
+                        let block_id = working_set.add_block(block);
+                        (
+                            // Why creating a pipeline here for only one expression?
+                            // Is there a way to only make this a declaration?
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Subexpression(block_id),
+                                span: span(spans),
+                                ty: Type::Unknown, // FIXME
+                            }])),
+                            None,
+                        )
+                    }
+                }
+                Err(e) => (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Garbage,
+                        span: span(spans),
+                        ty: Type::Unknown,
+                    }])),
+                    Some(ParseError::UnknownState(e.into(), span(spans))),
+                ), //(ShellError::InternalError("Can't load file to source".to_string())),
+            }
+        } else {
+            (
+                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Garbage,
+                    span: span(spans),
+                    ty: Type::Unknown,
+                }])),
+                Some(ParseError::Mismatch(
+                    "string".into(),
+                    // Can this be better?
+                    "incompatible string".into(),
+                    spans[1],
+                )),
+            )
+        }
+    } else {
+        // Not source command?
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Garbage,
+                span: span(spans),
+                ty: Type::Unknown,
+            }])),
+            error,
+        )
+    }
+    // (
+    //     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+    //         expr: Expr::Garbage,
+    //         span: span(spans),
+    //         ty: Type::Unknown,
+    //     }])),
+    //     Some(ParseError::UnknownState(
+    //         "internal error: let statement unparseable".into(),
+    //         span(spans),
+    //     )),
+    // )
+}
+
+/// Parse a statement. Check if def, let, alias, or source command can process it properly
 pub fn parse_statement(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -2491,6 +2595,8 @@ pub fn parse_statement(
         (stmt, None)
     } else if let (stmt, None) = parse_alias(working_set, spans) {
         (stmt, None)
+    } else if let (decl, None) = parse_source(working_set, spans) {
+        (decl, None)
     } else {
         let (expr, err) = parse_expression(working_set, spans);
         (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)

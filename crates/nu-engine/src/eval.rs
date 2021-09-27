@@ -1,5 +1,6 @@
+use nu_parser::parse;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
-use nu_protocol::engine::EvaluationContext;
+use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
 use nu_protocol::{Range, ShellError, Span, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
@@ -239,3 +240,15 @@ pub fn eval_block(
 
     Ok(input)
 }
+
+// pub fn eval(context: &EvaluationContext, script: &str) -> Result<Value, ShellError> {
+//     let engine_state = EngineState::new();
+//     let mut working_set = StateWorkingSet::new(&engine_state);
+
+//     let (block, err) = parse(&mut working_set, None, b"3", true);
+//     if let Some(e) = err {
+//         Err(e)
+//     } else {
+//         eval_block(context, &block, Value::nothing())
+//     }
+// }

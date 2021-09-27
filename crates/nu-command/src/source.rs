@@ -101,7 +101,7 @@ pub fn source(ctx: &EvaluationContext, call: &Call, input: Value) -> Result<Valu
             let (block, err) = parse(&mut working_set, None, &contents, true);
             if let Some(e) = err {
                 // Be more specific here: need to convert parse error to string
-                Err(ShellError::InternalError("Parse error in file".to_string()))
+                Err(e.into())
             } else {
                 let result = eval_block(ctx, &block, input);
                 match result {
