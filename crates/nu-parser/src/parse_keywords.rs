@@ -309,6 +309,7 @@ pub fn parse_module(
 
                             if err.is_none() {
                                 let decl_name =
+                                    // parts[1] is safe since it's checked in parse_def already
                                     working_set.get_span_contents(pipeline.commands[0].parts[1]);
 
                                 let decl_id = working_set
