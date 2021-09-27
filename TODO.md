@@ -31,8 +31,8 @@
 - [ ] finish operator type-checking
 - [ ] Source
 - [ ] Overlays (replacement for `autoenv`)
-- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
   
 ## Maybe: 
 - [ ] default param values?
 - [ ] Unary not?
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
