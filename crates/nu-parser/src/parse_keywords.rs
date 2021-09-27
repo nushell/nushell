@@ -400,6 +400,24 @@ pub fn parse_use(
 
                     new_exports
                 }
+                ImportPatternMember::List { names } => {
+                    let mut output = vec![];
+
+                    for (name, span) in names {
+                        let mut new_exports: Vec<(Vec<u8>, usize)> = exports
+                            .iter()
+                            .filter_map(|x| if &x.0 == name { Some(x.clone()) } else { None })
+                            .collect();
+
+                        if new_exports.is_empty() {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)))
+                        } else {
+                            output.append(&mut new_exports)
+                        }
+                    }
+
+                    output
+                }
             }
         };
 

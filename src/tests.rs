@@ -374,3 +374,11 @@ fn module_imports_4() -> TestResult {
         "not find import",
     )
 }
+
+#[test]
+fn module_imports_5() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 }; def c [] { 3 } }; use foo.[a, c]; c"#,
+        "3",
+    )
+}

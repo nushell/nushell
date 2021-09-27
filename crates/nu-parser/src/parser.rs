@@ -1376,7 +1376,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 }
 
 pub fn parse_import_pattern(
-    working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (ImportPattern, Option<ParseError>) {
     let source = working_set.get_span_contents(span);
@@ -1409,6 +1409,38 @@ pub fn parse_import_pattern(
                 },
                 error,
             )
+        } else if tail.starts_with(b"[") {
+            let (result, err) = parse_list_expression(working_set, tail_span, &SyntaxShape::String);
+            error = error.or(err);
+
+            let mut output = vec![];
+
+            match result {
+                Expression {
+                    expr: Expr::List(list),
+                    ..
+                } => {
+                    for l in list {
+                        let contents = working_set.get_span_contents(l.span);
+                        output.push((contents.to_vec(), l.span));
+                    }
+
+                    (
+                        ImportPattern {
+                            head,
+                            members: vec![ImportPatternMember::List { names: output }],
+                        },
+                        error,
+                    )
+                }
+                _ => (
+                    ImportPattern {
+                        head,
+                        members: vec![],
+                    },
+                    Some(ParseError::ExportNotFound(result.span)),
+                ),
+            }
         } else {
             (
                 ImportPattern {
