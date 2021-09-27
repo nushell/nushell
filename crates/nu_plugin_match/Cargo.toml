@@ -13,7 +13,6 @@ doctest = false
 nu-errors = { path="../nu-errors", version = "0.37.1" }
 nu-plugin = { path="../nu-plugin", version = "0.37.1" }
 nu-protocol = { path="../nu-protocol", version = "0.37.1" }
-nu-source = { path="../nu-source", version = "0.37.1" }
 regex = "1.4.3"
 
 [build-dependencies]

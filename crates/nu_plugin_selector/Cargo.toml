@@ -18,5 +18,4 @@ nu-protocol = { version = "0.37.1", path="../nu-protocol" }
 nu-source = { version = "0.37.1", path="../nu-source" }
 
 [dev-dependencies]
-nu-test-support = { path="../nu-test-support", version = "0.37.1" }
 indexmap = { version="1.7", features=["serde-1"] }

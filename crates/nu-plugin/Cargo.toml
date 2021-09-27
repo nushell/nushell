@@ -15,10 +15,7 @@ nu-protocol = { path="../nu-protocol", version = "0.37.1" }
 nu-source = { path="../nu-source", version = "0.37.1" }
 nu-test-support = { path="../nu-test-support", version = "0.37.1" }
 nu-value-ext = { path="../nu-value-ext", version = "0.37.1" }
-
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
 indexmap = { version="1.6.1", features=["serde-1"] }
-num-bigint = { version="0.3.1", features=["serde"] }
 serde = { version="1.0", features=["derive"] }
 serde_json = "1.0"
 

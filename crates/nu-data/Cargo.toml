@@ -16,14 +16,12 @@ chrono = "0.4.19"
 common-path = "1.0.0"
 derive-new = "0.5.8"
 directories-next = "2.0.0"
-dirs-next = "2.0.0"
 getset = "0.1.1"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4.14"
 num-bigint = { version="0.3.1", features=["serde"] }
 num-format = "0.4.0"
 num-traits = "0.2.14"
-query_interface = "0.3.5"
 serde = { version="1.0.123", features=["derive"] }
 sha2 = "0.9.3"
 sys-locale = "0.1.0"

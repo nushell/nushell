@@ -8,13 +8,10 @@ version = "0.37.1"
 
 [dependencies]
 bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
-codespan-reporting = "0.11.0"
 derive-new = "0.5.8"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4"
 num-bigint = { version="0.3.1", features=["serde"] }
-num-traits = "0.2.14"
-serde = "1.0"
 itertools = "0.10.0"
 smart-default = "0.6.0"
 
