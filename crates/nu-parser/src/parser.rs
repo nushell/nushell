@@ -14,7 +14,7 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_let, parse_module, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
 };
 
 #[derive(Debug, Clone)]
@@ -2589,6 +2589,7 @@ pub fn parse_statement(
             garbage_statement(spans),
             Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
         ),
+        b"hide" => parse_hide(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)

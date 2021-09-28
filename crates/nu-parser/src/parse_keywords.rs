@@ -472,8 +472,6 @@ pub fn parse_use(
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
-    // TODO: Currently, this directly imports the module's definitions into the current scope.
-    // Later, we want to put them behind the module's name and add selective importing
     if bytes == b"use" && spans.len() >= 2 {
         let (module_name_expr, err) = parse_string(working_set, spans[1]);
         error = error.or(err);
@@ -482,8 +480,6 @@ pub fn parse_use(
         error = error.or(err);
 
         let exports = if let Some(block_id) = working_set.find_module(&import_pattern.head) {
-            // TODO: Since we don't use the Block at all, we might just as well create a separate
-            // Module that holds only the exports, without having Blocks in the way.
             working_set.get_block(block_id).exports.clone()
         } else {
             return (
@@ -565,6 +561,65 @@ pub fn parse_use(
             garbage_statement(spans),
             Some(ParseError::UnknownState(
                 "Expected structure: use <name>".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
+pub fn parse_hide(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    if bytes == b"hide" && spans.len() >= 2 {
+        let (name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        let name_bytes: Vec<u8> = working_set.get_span_contents(spans[1]).into();
+
+        // TODO: Do the import pattern stuff for bulk-hiding
+        // TODO: move this error into error = error.or pattern
+        let _decl_id = if let Some(id) = working_set.find_decl(&name_bytes) {
+            id
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownCommand(spans[1])),
+            );
+        };
+
+        // Hide the definitions
+        working_set.hide_decl(name_bytes);
+
+        // Create the Hide command call
+        let hide_decl_id = working_set
+            .find_decl(b"hide")
+            .expect("internal error: missing hide command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: hide_decl_id,
+            positional: vec![name_expr],
+            named: vec![],
+        });
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: hide <name>".into(),
                 span(spans),
             )),
         )

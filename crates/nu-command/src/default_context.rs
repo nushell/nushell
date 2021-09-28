@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::{
     Alias, Benchmark, BuildString, Def, Do, Each, ExportDef, External, For, From, FromJson, Git, GitCheckout,
-    If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Sys, Table, Use, Where,
+    Hide, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Sys, Table, Use, Where,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -29,8 +29,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Alias));
         working_set.add_decl(Box::new(Benchmark));
         working_set.add_decl(Box::new(BuildString));
-
-        working_set.add_decl(Box::new(Def));
+       
+ working_set.add_decl(Box::new(Def));
         working_set.add_decl(Box::new(Do));
         working_set.add_decl(Box::new(Each));
         working_set.add_decl(Box::new(ExportDef));
@@ -38,6 +38,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(For));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
+        working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
         working_set.add_decl(Box::new(Length));
         working_set.add_decl(Box::new(Let));
@@ -48,7 +49,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Use));
-        working_set.add_decl(Box::new(Where));
+		working_set.add_decl(Box::new(Where));
 
         // This is a WIP proof of concept
         working_set.add_decl(Box::new(ListGitBranches));
