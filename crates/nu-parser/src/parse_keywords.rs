@@ -16,6 +16,13 @@ use crate::{
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let name = working_set.get_span_contents(spans[0]);
 
+    // handle "export def" same as "def"
+    let (name, spans) = if name == b"export" && spans.len() >= 2 {
+        (working_set.get_span_contents(spans[1]), &spans[1..])
+    } else {
+        (name, spans)
+    };
+
     if name == b"def" && spans.len() >= 4 {
         let (name_expr, ..) = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
@@ -218,6 +225,38 @@ pub fn parse_alias(
     )
 }
 
+pub fn parse_export(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    if bytes == b"export" && spans.len() >= 3 {
+        let export_name = working_set.get_span_contents(spans[1]);
+
+        match export_name {
+            b"def" => parse_def(working_set, &spans[1..]),
+            _ => (
+                garbage_statement(spans),
+                Some(ParseError::Expected(
+                    // TODO: Fill in more as they come
+                    "def keyword".into(),
+                    spans[1],
+                )),
+            ),
+        }
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                // TODO: fill in more as they come
+                "Expected structure: export def [] {}".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -307,16 +346,21 @@ pub fn parse_module(
                         b"def" => {
                             let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
 
+                            (stmt, err)
+                        }
+                        b"export" => {
+                            let (stmt, err) =
+                                parse_export(working_set, &pipeline.commands[0].parts);
+
                             if err.is_none() {
                                 let decl_name =
-                                    // parts[1] is safe since it's checked in parse_def already
-                                    working_set.get_span_contents(pipeline.commands[0].parts[1]);
+                                    // parts[2] is safe since it's checked in parse_def already
+                                    working_set.get_span_contents(pipeline.commands[0].parts[2]);
 
                                 let decl_id = working_set
                                     .find_decl(decl_name)
                                     .expect("internal error: failed to find added declaration");
 
-                                // TODO: Later, we want to put this behind 'export'
                                 exports.push((decl_name.into(), decl_id));
                             }
 
@@ -325,7 +369,8 @@ pub fn parse_module(
                         _ => (
                             garbage_statement(&pipeline.commands[0].parts),
                             Some(ParseError::Expected(
-                                "def".into(),
+                                // TODO: Fill in more as they com
+                                "def or export keyword".into(),
                                 pipeline.commands[0].parts[0],
                             )),
                         ),
