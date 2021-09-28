@@ -2585,6 +2585,10 @@ pub fn parse_statement(
         b"alias" => parse_alias(working_set, spans),
         b"module" => parse_module(working_set, spans),
         b"use" => parse_use(working_set, spans),
+        b"export" => (
+            garbage_statement(spans),
+            Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
+        ),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
