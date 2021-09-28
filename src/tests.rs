@@ -346,7 +346,7 @@ fn better_block_types() -> TestResult {
 #[test]
 fn module_imports_1() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
         "1",
     )
 }
@@ -354,7 +354,7 @@ fn module_imports_1() -> TestResult {
 #[test]
 fn module_imports_2() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
         "1",
     )
 }
@@ -362,7 +362,7 @@ fn module_imports_2() -> TestResult {
 #[test]
 fn module_imports_3() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.*; b"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo.*; b"#,
         "2",
     )
 }
@@ -370,7 +370,7 @@ fn module_imports_3() -> TestResult {
 #[test]
 fn module_imports_4() -> TestResult {
     fail_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.c"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo.c"#,
         "not find import",
     )
 }
@@ -378,7 +378,7 @@ fn module_imports_4() -> TestResult {
 #[test]
 fn module_imports_5() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 }; def c [] { 3 } }; use foo.[a, c]; c"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 }; export def c [] { 3 } }; use foo.[a, c]; c"#,
         "3",
     )
 }
