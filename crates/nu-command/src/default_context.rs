@@ -138,6 +138,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Insert),
             whole_stream_command(Into),
             whole_stream_command(IntoBinary),
+            whole_stream_command(IntoColumnPath),
             whole_stream_command(IntoInt),
             whole_stream_command(IntoFilepath),
             whole_stream_command(IntoFilesize),
