@@ -235,7 +235,40 @@ pub fn parse_export(
         let export_name = working_set.get_span_contents(spans[1]);
 
         match export_name {
-            b"def" => parse_def(working_set, &spans[1..]),
+            b"def" => {
+                let (stmt, err) = parse_def(working_set, &spans[1..]);
+
+                let export_def_decl_id = working_set
+                    .find_decl(b"export def")
+                    .expect("internal error: missing 'export def' command");
+
+                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
+                let stmt = if let Statement::Pipeline(ref pipe) = stmt {
+                    if !pipe.expressions.is_empty() {
+                        if let Expr::Call(ref call) = pipe.expressions[0].expr {
+                            let mut call = call.clone();
+
+                            call.head = span(&spans[0..=1]);
+                            call.decl_id = export_def_decl_id;
+
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(spans),
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            }]))
+                        } else {
+                            stmt
+                        }
+                    } else {
+                        stmt
+                    }
+                } else {
+                    stmt
+                };
+
+                (stmt, err)
+            }
             _ => (
                 garbage_statement(spans),
                 Some(ParseError::Expected(
