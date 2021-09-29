@@ -6,8 +6,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    where_::Where, Alias, Benchmark, BuildString, Def, Do, Each, External, For, Git, GitCheckout,
-    If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Table, Use,
+    Alias, Benchmark, BuildString, Def, Do, Each, External, For, Git, GitCheckout, If, Length, Let,
+    LetEnv, Lines, ListGitBranches, Ls, Module, Table, Use, Where,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {

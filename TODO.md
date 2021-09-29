@@ -22,6 +22,8 @@
 - [x] Detecting `$it` currently only looks at top scope but should find any free `$it` in the expression (including subexprs)
 - [x] Signature needs to make parameters visible in scope before block is parsed
 - [x] Externals
+- [x] Modules and imports
+- [ ] Exports
 - [ ] Support for `$in`
 - [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
