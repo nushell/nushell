@@ -24,6 +24,7 @@ use rustyline::{self, error::ReadlineError};
 
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
+use nu_path::expand_tilde;
 use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
 
 use log::trace;
@@ -54,7 +55,7 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
         {
             for pipeline in pipelines {
                 if let Ok(plugin_dir) = pipeline.as_string() {
-                    search_paths.push(PathBuf::from(plugin_dir));
+                    search_paths.push(expand_tilde(plugin_dir));
                 }
             }
         }

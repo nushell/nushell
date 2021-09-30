@@ -21,6 +21,7 @@ nu-protocol = { version = "0.37.1", path="../nu-protocol" }
 nu-source = { version = "0.37.1", path="../nu-source" }
 nu-stream = { version = "0.37.1", path="../nu-stream" }
 nu-ansi-term = { version = "0.37.1", path="../nu-ansi-term" }
+nu-path = { version = "0.37.1", path="../nu-path" }
 
 indexmap ="1.6.1"
 log = "0.4.14"
