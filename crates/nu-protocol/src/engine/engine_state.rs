@@ -337,8 +337,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
+        let mut hiding: HashSet<DeclId> = HashSet::new();
+
         // Since we can mutate scope frames in delta, remove the id directly
         for scope in self.delta.scope.iter_mut().rev() {
+            hiding.extend(&scope.hiding);
+
             if let Some(decl_id) = scope.decls.remove(name) {
                 return Some(decl_id);
             }
@@ -352,9 +356,14 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing required scope frame");
 
         for scope in self.permanent_state.scope.iter().rev() {
+            hiding.extend(&scope.hiding);
+
             if let Some(decl_id) = scope.decls.get(name) {
-                last_scope_frame.hiding.insert(*decl_id);
-                return Some(*decl_id);
+                if !hiding.contains(decl_id) {
+                    // Do not hide already hidden decl
+                    last_scope_frame.hiding.insert(*decl_id);
+                    return Some(*decl_id);
+                }
             }
         }
 

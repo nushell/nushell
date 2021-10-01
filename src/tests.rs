@@ -384,6 +384,70 @@ fn module_imports_5() -> TestResult {
 }
 
 #[test]
+fn module_import_uses_internal_command() -> TestResult {
+    run_test(
+        r#"module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo.a"#,
+        "2",
+    )
+}
+
+#[test]
+fn hides_def() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; hide foo; foo"#,
+        "command not found",
+    )
+}
+
+#[test]
+fn hides_def_then_redefines() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; hide foo; def foo [] { "bar" }; foo"#,
+        "defined more than once",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_1() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; do { hide foo; foo }"#,
+        "command not found",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_2() -> TestResult {
+    run_test(
+        r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; foo }"#,
+        "foo",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_3() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; do { hide foo; def foo [] { "bar" }; hide foo; foo }"#,
+        "command not found",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_4() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; hide foo; foo }"#,
+        "command not found",
+    )
+}
+
+#[test]
+fn hide_twice_not_allowed() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; hide foo; hide foo"#,
+        "unknown command",
+    )
+}
+
+#[test]
 fn from_json_1() -> TestResult {
     run_test(r#"('{"name": "Fred"}' | from json).name"#, "Fred")
 }
