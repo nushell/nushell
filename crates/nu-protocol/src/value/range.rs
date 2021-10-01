@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 use crate::{
@@ -5,7 +6,7 @@ use crate::{
     *,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Range {
     pub from: Value,
     pub incr: Value,

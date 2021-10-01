@@ -382,3 +382,17 @@ fn module_imports_5() -> TestResult {
         "3",
     )
 }
+
+#[test]
+fn from_json_1() -> TestResult {
+    run_test(r#"('{"name": "Fred"}' | from json).name"#, "Fred")
+}
+
+#[test]
+fn from_json_2() -> TestResult {
+    run_test(
+        r#"('{"name": "Fred"}
+                   {"name": "Sally"}' | from json -o).name.1"#,
+        "Sally",
+    )
+}

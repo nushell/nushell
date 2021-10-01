@@ -1,9 +1,10 @@
 use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{ast::Operator, Span, Type};
 
-#[derive(Debug, Clone, Error, Diagnostic)]
+#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ShellError {
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]

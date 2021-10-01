@@ -6,9 +6,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol" }
 nu-engine = { path = "../nu-engine" }
+nu-json = { path = "../nu-json" }
+nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 
 # Potential dependencies for extras
 glob = "0.3.0"
+thiserror = "1.0.29"

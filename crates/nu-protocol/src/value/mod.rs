@@ -4,6 +4,7 @@ mod stream;
 
 pub use range::*;
 pub use row::*;
+use serde::{Deserialize, Serialize};
 pub use stream::*;
 
 use std::fmt::Debug;
@@ -14,7 +15,7 @@ use crate::{span, BlockId, Span, Type};
 use crate::ShellError;
 
 /// Core structured values that pass through the pipeline in engine-q
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Bool {
         val: bool,
