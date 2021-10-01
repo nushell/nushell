@@ -17,6 +17,11 @@ mod tests;
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
+    let miette_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |x| {
+        crossterm::terminal::disable_raw_mode().unwrap();
+        miette_hook(x);
+    }));
 
     let engine_state = create_default_context();
 
