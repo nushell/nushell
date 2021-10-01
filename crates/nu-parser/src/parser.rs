@@ -2490,97 +2490,71 @@ pub fn parse_source(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"source" {
-        let (name_expr, err) = parse_string(working_set, spans[1]);
-        error = error.or(err);
+        if let Some(decl_id) = working_set.find_decl(b"source") {
+            let (call, call_span, _) =
+                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-        if let Some(filename) = name_expr.as_string() {
-            let source_file = Path::new(&filename);
-            // This is to stay consistent w/ the code taken from nushell
-            let path = source_file;
+            // Command and one file name
+            if spans.len() >= 2 {
+                let name_expr = working_set.get_span_contents(spans[1]);
+                if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
+                    let source_file = Path::new(&filename);
 
-            let contents = std::fs::read(path);
+                    let path = source_file;
+                    let contents = std::fs::read(path);
 
-            match contents {
-                Ok(contents) => {
-                    let (block, err) = parse(
-                        &mut working_set,
-                        path.file_name().and_then(|x| x.to_str()),
-                        &contents,
-                        true,
-                    );
-                    if let Some(e) = err {
-                        (
-                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Garbage,
-                                span: span(spans),
-                                ty: Type::Unknown,
-                            }])),
-                            err,
-                        )
-                    } else {
-                        let block_id = working_set.add_block(block);
-                        (
-                            // Why creating a pipeline here for only one expression?
-                            // Is there a way to only make this a declaration?
-                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                                expr: Expr::Subexpression(block_id),
-                                span: span(spans),
-                                ty: Type::Unknown, // FIXME
-                            }])),
-                            None,
-                        )
+                    if let Ok(contents) = contents {
+                        let (block, err) = parse(
+                            working_set,
+                            path.file_name().and_then(|x| x.to_str()),
+                            &contents,
+                            true,
+                        );
+                        if let None = err {
+                            // Successful parse
+                            // What should I be doing here?
+                            let block_id = working_set.add_block(block);
+                            // return (
+                            //     // Successful parse
+                            //     // Why creating a pipeline here for only one expression?
+                            //     // Is there a way to only make this a declaration?
+                            //     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                            //         expr: Expr::Subexpression(block_id),
+                            //         span: span(spans),
+                            //         ty: Type::Unknown, // FIXME
+                            //     }])),
+                            //     None,
+                            // );
+                        }
                     }
                 }
-                Err(e) => (
-                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Garbage,
-                        span: span(spans),
-                        ty: Type::Unknown,
-                    }])),
-                    Some(ParseError::UnknownState(e.into(), span(spans))),
-                ), //(ShellError::InternalError("Can't load file to source".to_string())),
             }
-        } else {
-            (
+
+            return (
                 Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Garbage,
-                    span: span(spans),
+                    expr: Expr::Call(call),
+                    span: call_span,
                     ty: Type::Unknown,
                 }])),
-                Some(ParseError::Mismatch(
-                    "string".into(),
-                    // Can this be better?
-                    "incompatible string".into(),
-                    spans[1],
-                )),
-            )
+                None,
+            );
         }
-    } else {
-        // Not source command?
-        (
-            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                expr: Expr::Garbage,
-                span: span(spans),
-                ty: Type::Unknown,
-            }])),
-            error,
-        )
     }
-    // (
-    //     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-    //         expr: Expr::Garbage,
-    //         span: span(spans),
-    //         ty: Type::Unknown,
-    //     }])),
-    //     Some(ParseError::UnknownState(
-    //         "internal error: let statement unparseable".into(),
-    //         span(spans),
-    //     )),
-    // )
+
+    (
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+            expr: Expr::Garbage,
+            span: span(spans),
+            ty: Type::Unknown,
+        }])),
+        Some(ParseError::UnknownState(
+            "internal error: source statement unparseable".into(),
+            span(spans),
+        )),
+    )
 }
 
 /// Parse a statement. Check if def, let, alias, or source command can process it properly
