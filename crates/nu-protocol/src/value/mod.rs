@@ -29,6 +29,10 @@ pub enum Value {
         val: u64,
         span: Span,
     },
+    Duration {
+        val: u64,
+        span: Span,
+    },
     Range {
         val: Box<Range>,
         span: Span,
@@ -86,6 +90,7 @@ impl Value {
             Value::Int { span, .. } => *span,
             Value::Float { span, .. } => *span,
             Value::Filesize { span, .. } => *span,
+            Value::Duration { span, .. } => *span,
             Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::Record { span, .. } => *span,
@@ -104,6 +109,7 @@ impl Value {
             Value::Int { span, .. } => *span = new_span,
             Value::Float { span, .. } => *span = new_span,
             Value::Filesize { span, .. } => *span = new_span,
+            Value::Duration { span, .. } => *span = new_span,
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
@@ -125,6 +131,7 @@ impl Value {
             Value::Int { .. } => Type::Int,
             Value::Float { .. } => Type::Float,
             Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Record { cols, vals, .. } => {
@@ -146,6 +153,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
             Value::Range { val, .. } => {
                 format!(
                     "range: [{}]",
@@ -185,6 +193,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
             Value::Range { val, .. } => val
                 .into_iter()
                 .map(|x| x.into_string())

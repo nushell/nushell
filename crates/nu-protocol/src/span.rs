@@ -1,6 +1,11 @@
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
+pub struct Spanned<T> {
+    pub item: T,
+    pub span: Span,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,

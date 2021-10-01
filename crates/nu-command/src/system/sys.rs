@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    ShellError, Signature, Span, Value,
+    Example, ShellError, Signature, Span, Value,
 };
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
 
@@ -31,13 +31,13 @@ impl Command for Sys {
         run_sys(call)
     }
 
-    // fn examples(&self) -> Vec<Example> {
-    //     vec![Example {
-    //         description: "Show info about the system",
-    //         example: "sys",
-    //         result: None,
-    //     }]
-    // }
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Show info about the system",
+            example: "sys",
+            result: None,
+        }]
+    }
 }
 
 fn run_sys(call: &Call) -> Result<Value, ShellError> {

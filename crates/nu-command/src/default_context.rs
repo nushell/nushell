@@ -2,12 +2,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    Signature, SyntaxShape,
+    Signature,
 };
 
 use crate::{
     Alias, Benchmark, BuildString, Def, Do, Each, External, For, From, FromJson, Git, GitCheckout,
-    If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Sys, Table, Use, Where,
+    Help, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Ps, Sys, Table, Use, Where,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -15,10 +15,6 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
     let delta = {
         let engine_state = engine_state.borrow();
         let mut working_set = StateWorkingSet::new(&*engine_state);
-
-        let sig =
-            Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
-        working_set.add_decl(sig.predeclare());
 
         working_set.add_decl(Box::new(Alias));
         working_set.add_decl(Box::new(Benchmark));
@@ -30,6 +26,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(For));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
+        working_set.add_decl(Box::new(Help));
         working_set.add_decl(Box::new(If));
         working_set.add_decl(Box::new(Length));
         working_set.add_decl(Box::new(Let));
@@ -37,6 +34,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Lines));
         working_set.add_decl(Box::new(Ls));
         working_set.add_decl(Box::new(Module));
+        working_set.add_decl(Box::new(Ps));
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Use));

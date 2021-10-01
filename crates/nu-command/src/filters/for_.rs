@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, Signature, SyntaxShape, Value};
+use nu_protocol::{Example, IntoValueStream, Signature, Span, SyntaxShape, Value};
 
 pub struct For;
 
@@ -90,5 +90,43 @@ impl Command for For {
             }),
             _ => Ok(Value::nothing()),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let span = Span::unknown();
+        vec![
+            Example {
+                description: "Echo the square of each integer",
+                example: "for x in [1 2 3] { $x * $x }",
+                result: Some(vec![
+                    Value::Int { val: 1, span },
+                    Value::Int { val: 4, span },
+                    Value::Int { val: 9, span },
+                ]),
+            },
+            Example {
+                description: "Work with elements of a range",
+                example: "for $x in 1..3 { $x }",
+                result: Some(vec![
+                    Value::Int { val: 1, span },
+                    Value::Int { val: 2, span },
+                    Value::Int { val: 3, span },
+                ]),
+            },
+            Example {
+                description: "Number each item and echo a message",
+                example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
+                result: Some(vec![
+                    Value::String {
+                        val: "0 is bob".into(),
+                        span,
+                    },
+                    Value::String {
+                        val: "0 is fred".into(),
+                        span,
+                    },
+                ]),
+            },
+        ]
     }
 }
