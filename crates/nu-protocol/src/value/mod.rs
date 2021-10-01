@@ -171,6 +171,35 @@ impl Value {
         }
     }
 
+    pub fn collect_string(self) -> String {
+        match self {
+            Value::Bool { val, .. } => val.to_string(),
+            Value::Int { val, .. } => val.to_string(),
+            Value::Float { val, .. } => val.to_string(),
+            Value::Range { val, .. } => val
+                .into_iter()
+                .map(|x| x.into_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            Value::String { val, .. } => val,
+            Value::Stream { stream, .. } => stream.collect_string(),
+            Value::List { vals: val, .. } => val
+                .into_iter()
+                .map(|x| x.collect_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Value::Record { vals, .. } => vals
+                .into_iter()
+                .map(|y| y.collect_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Value::Block { val, .. } => format!("<Block {}>", val),
+            Value::Nothing { .. } => String::new(),
+            Value::Error { error } => format!("{:?}", error),
+            Value::Binary { val, .. } => format!("{:?}", val),
+        }
+    }
+
     /// Create a new `Nothing` value
     pub fn nothing() -> Value {
         Value::Nothing {

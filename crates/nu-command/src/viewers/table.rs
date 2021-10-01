@@ -56,6 +56,35 @@ impl Command for Table {
                     Ok(Value::Nothing { span: call.head })
                 }
             }
+            Value::Record { cols, vals, .. } => {
+                let mut output = vec![];
+
+                for (c, v) in cols.into_iter().zip(vals.into_iter()) {
+                    output.push(vec![
+                        StyledString {
+                            contents: c,
+                            style: nu_table::TextStyle::default_header(),
+                        },
+                        StyledString {
+                            contents: v.into_string(),
+                            style: nu_table::TextStyle::default(),
+                        },
+                    ])
+                }
+
+                let table = nu_table::Table {
+                    headers: vec![],
+                    data: output,
+                    theme: nu_table::Theme::rounded(),
+                };
+
+                let result = nu_table::draw_table(&table, 80, &HashMap::new());
+
+                Ok(Value::String {
+                    val: result,
+                    span: call.head,
+                })
+            }
             x => Ok(x),
         }
     }
