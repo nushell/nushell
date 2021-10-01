@@ -265,6 +265,7 @@ name = "engine-q"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "crossterm",
  "miette",
  "nu-cli",
  "nu-command",
