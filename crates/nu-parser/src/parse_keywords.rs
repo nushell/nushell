@@ -13,7 +13,7 @@ use crate::{
     ParseError,
 };
 
-pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
+pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
     let name = working_set.get_span_contents(spans[0]);
 
     // handle "export def" same as "def"
@@ -42,9 +42,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             signature.name = name;
             let decl = signature.predeclare();
 
-            working_set.add_predecl(decl);
+            if working_set.add_predecl(decl).is_some() {
+                return Some(ParseError::DuplicateCommandDef(spans[1]));
+            }
         }
     }
+
+    None
 }
 
 pub fn parse_def(
@@ -98,7 +102,7 @@ pub fn parse_def(
                         (&name, signature, block_id)
                     {
                         let decl_id = working_set
-                            .find_predecl(name.as_bytes())
+                            .find_decl(name.as_bytes())
                             .expect("internal error: predeclaration failed to add definition");
 
                         let declaration = working_set.get_decl_mut(decl_id);

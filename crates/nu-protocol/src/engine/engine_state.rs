@@ -311,17 +311,13 @@ impl<'a> StateWorkingSet<'a> {
         decl_id
     }
 
-    pub fn add_predecl(&mut self, decl: Box<dyn Command>) {
+    pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
         let name = decl.name().as_bytes().to_vec();
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.delta.predecls.insert(name, decl_id);
-    }
-
-    pub fn find_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
-        self.delta.predecls.get(name).copied()
+        self.delta.predecls.insert(name, decl_id)
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {

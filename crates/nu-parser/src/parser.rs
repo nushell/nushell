@@ -2606,15 +2606,17 @@ pub fn parse_block(
         working_set.enter_scope();
     }
 
+    let mut error = None;
+
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts);
+            if let Some(err) = parse_def_predecl(working_set, &pipeline.commands[0].parts) {
+                error = error.or(Some(err));
+            }
         }
     }
-
-    let mut error = None;
 
     let block: Block = lite_block
         .block
