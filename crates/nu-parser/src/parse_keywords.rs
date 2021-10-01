@@ -42,7 +42,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             signature.name = name;
             let decl = signature.predeclare();
 
-            working_set.add_decl(decl);
+            working_set.add_predecl(decl);
         }
     }
 }
@@ -95,15 +95,15 @@ pub fn parse_def(
                     call.positional.push(block);
 
                     if let (Some(name), Some(mut signature), Some(block_id)) =
-                        (name, signature, block_id)
+                        (&name, signature, block_id)
                     {
                         let decl_id = working_set
-                            .find_decl(name.as_bytes())
+                            .find_predecl(name.as_bytes())
                             .expect("internal error: predeclaration failed to add definition");
 
                         let declaration = working_set.get_decl_mut(decl_id);
 
-                        signature.name = name;
+                        signature.name = name.clone();
 
                         *declaration = signature.into_block_command(block_id);
                     }
@@ -117,6 +117,19 @@ pub fn parse_def(
                         .or_else(|| Some(ParseError::MissingPositional("block".into(), err_span)));
                 }
                 working_set.exit_scope();
+
+                if let Some(name) = name {
+                    // It's OK if it returns None: The decl was already merged in previous parse
+                    // pass.
+                    working_set.merge_predecl(name.as_bytes());
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::UnknownState(
+                            "Could not get string from string expression".into(),
+                            *name_span,
+                        ))
+                    });
+                }
 
                 call
             } else {
@@ -581,18 +594,10 @@ pub fn parse_hide(
         let name_bytes: Vec<u8> = working_set.get_span_contents(spans[1]).into();
 
         // TODO: Do the import pattern stuff for bulk-hiding
-        // TODO: move this error into error = error.or pattern
-        let _decl_id = if let Some(id) = working_set.find_decl(&name_bytes) {
-            id
-        } else {
-            return (
-                garbage_statement(spans),
-                Some(ParseError::UnknownCommand(spans[1])),
-            );
-        };
 
-        // Hide the definitions
-        working_set.hide_decl(name_bytes);
+        if working_set.hide_decl(&name_bytes).is_none() {
+            error = error.or_else(|| Some(ParseError::UnknownCommand(spans[1])));
+        }
 
         // Create the Hide command call
         let hide_decl_id = working_set

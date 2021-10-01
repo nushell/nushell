@@ -1,7 +1,10 @@
 use super::Command;
 use crate::{ast::Block, BlockId, DeclId, Span, Type, VarId};
 use core::panic;
-use std::{collections::HashMap, slice::Iter};
+use std::{
+    collections::{HashMap, HashSet},
+    slice::Iter,
+};
 
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -18,7 +21,7 @@ pub struct ScopeFrame {
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
     modules: HashMap<Vec<u8>, BlockId>,
-    hiding: HashMap<Vec<u8>, usize>, // defines what is being hidden and its "hiding strength"
+    hiding: HashSet<DeclId>,
 }
 
 impl ScopeFrame {
@@ -28,7 +31,7 @@ impl ScopeFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
             modules: HashMap::new(),
-            hiding: HashMap::new(),
+            hiding: HashSet::new(),
         }
     }
 
@@ -84,7 +87,7 @@ impl EngineState {
                 last.modules.insert(item.0, item.1);
             }
             for item in first.hiding.into_iter() {
-                last.hiding.insert(item.0, item.1);
+                last.hiding.insert(item);
             }
         }
     }
@@ -129,21 +132,13 @@ impl EngineState {
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
-        let mut hiding_strength = 0;
-        // println!("state: starting finding {}", String::from_utf8_lossy(&name));
+        let mut hiding: HashSet<DeclId> = HashSet::new();
 
         for scope in self.scope.iter().rev() {
-            // println!("hiding map: {:?}", scope.hiding);
-            // check if we're hiding the declin this scope
-            if let Some(strength) = scope.hiding.get(name) {
-                hiding_strength += strength;
-            }
+            hiding.extend(&scope.hiding);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                // if we're hiding this decl, do not return it and reduce the hiding strength
-                if hiding_strength > 0 {
-                    hiding_strength -= 1;
-                } else {
+                if !hiding.contains(decl_id) {
                     return Some(*decl_id);
                 }
             }
@@ -242,9 +237,10 @@ pub struct StateWorkingSet<'a> {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
-    vars: Vec<Type>,              // indexed by VarId
-    decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    blocks: Vec<Block>,           // indexed by BlockId
+    vars: Vec<Type>,                    // indexed by VarId
+    decls: Vec<Box<dyn Command>>,       // indexed by DeclId
+    blocks: Vec<Block>,                 // indexed by BlockId
+    predecls: HashMap<Vec<u8>, DeclId>, // this should get erased after every def call
     pub scope: Vec<ScopeFrame>,
 }
 
@@ -262,12 +258,10 @@ impl StateDelta {
     }
 
     pub fn enter_scope(&mut self) {
-        // println!("enter scope");
         self.scope.push(ScopeFrame::new());
     }
 
     pub fn exit_scope(&mut self) {
-        // println!("exit scope");
         self.scope.pop();
     }
 }
@@ -280,6 +274,7 @@ impl<'a> StateWorkingSet<'a> {
                 file_contents: vec![],
                 vars: vec![],
                 decls: vec![],
+                predecls: HashMap::new(),
                 blocks: vec![],
                 scope: vec![ScopeFrame::new()],
             },
@@ -301,7 +296,6 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_decl(&mut self, decl: Box<dyn Command>) -> DeclId {
         let name = decl.name().as_bytes().to_vec();
-        // println!("adding {}", String::from_utf8_lossy(&name));
 
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
@@ -312,33 +306,63 @@ impl<'a> StateWorkingSet<'a> {
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        // reset "hiding strength" to 0 => not hidden
-        if let Some(strength) = scope_frame.hiding.get_mut(&name) {
-            *strength = 0;
-            // println!(" strength: {}", strength);
-        }
-
         scope_frame.decls.insert(name, decl_id);
 
         decl_id
     }
 
-    pub fn hide_decl(&mut self, name: Vec<u8>) {
-        let scope_frame = self
+    pub fn add_predecl(&mut self, decl: Box<dyn Command>) {
+        let name = decl.name().as_bytes().to_vec();
+
+        self.delta.decls.push(decl);
+        let decl_id = self.num_decls() - 1;
+
+        self.delta.predecls.insert(name, decl_id);
+    }
+
+    pub fn find_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
+        self.delta.predecls.get(name).copied()
+    }
+
+    pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
+        if let Some(decl_id) = self.delta.predecls.remove(name) {
+            let scope_frame = self
+                .delta
+                .scope
+                .last_mut()
+                .expect("internal error: missing required scope frame");
+
+            scope_frame.decls.insert(name.into(), decl_id);
+
+            return Some(decl_id);
+        }
+
+        None
+    }
+
+    pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
+        // Since we can mutate scope frames in delta, remove the id directly
+        for scope in self.delta.scope.iter_mut().rev() {
+            if let Some(decl_id) = scope.decls.remove(name) {
+                return Some(decl_id);
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current scope frame
+        let last_scope_frame = self
             .delta
             .scope
             .last_mut()
             .expect("internal error: missing required scope frame");
 
-        if let Some(strength) = scope_frame.hiding.get_mut(&name) {
-            *strength += 1;
-            // println!("hiding {}, strength: {}", String::from_utf8_lossy(&name), strength);
-        } else {
-            // println!("hiding {}, strength: 1", String::from_utf8_lossy(&name));
-            scope_frame.hiding.insert(name, 1);
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(decl_id) = scope.decls.get(name) {
+                last_scope_frame.hiding.insert(*decl_id);
+                return Some(*decl_id);
+            }
         }
 
-        // println!("hiding map: {:?}", scope_frame.hiding);
+        None
     }
 
     pub fn add_block(&mut self, block: Block) -> BlockId {
@@ -448,46 +472,25 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
-        let mut hiding_strength = 0;
-        // println!("set: starting finding {}", String::from_utf8_lossy(&name));
+        let mut hiding: HashSet<DeclId> = HashSet::new();
+
+        if let Some(decl_id) = self.delta.predecls.get(name) {
+            return Some(*decl_id);
+        }
 
         for scope in self.delta.scope.iter().rev() {
-            // println!("delta frame");
-            // println!("hiding map: {:?}", scope.hiding);
-            // check if we're hiding the declin this scope
-            if let Some(strength) = scope.hiding.get(name) {
-                hiding_strength += strength;
-                // println!(" was hiding, strength {}", hiding_strength);
-            }
+            hiding.extend(&scope.hiding);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                // if we're hiding this decl, do not return it and reduce the hiding strength
-                if hiding_strength > 0 {
-                    hiding_strength -= 1;
-                    // println!(" decl found, strength {}", hiding_strength);
-                } else {
-                    // println!(" decl found, return");
-                    return Some(*decl_id);
-                }
+                return Some(*decl_id);
             }
         }
 
         for scope in self.permanent_state.scope.iter().rev() {
-            // println!("perma frame");
-            // println!("hiding map: {:?}", scope.hiding);
-            // check if we're hiding the declin this scope
-            if let Some(strength) = scope.hiding.get(name) {
-                hiding_strength += strength;
-                // println!(" was hiding, strength {}", hiding_strength);
-            }
+            hiding.extend(&scope.hiding);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                // if we're hiding this decl, do not return it and reduce the hiding strength
-                if hiding_strength > 0 {
-                    hiding_strength -= 1;
-                    // println!(" decl found, strength {}", hiding_strength);
-                } else {
-                    // println!(" decl found, return");
+                if !hiding.contains(decl_id) {
                     return Some(*decl_id);
                 }
             }
