@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use std::fmt::Display;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
     Int,
     Float,

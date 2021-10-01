@@ -1,6 +1,8 @@
 use crate::*;
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone)]
 pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
 
@@ -32,6 +34,26 @@ impl Iterator for ValueStream {
         {
             self.0.borrow_mut().next()
         }
+    }
+}
+
+impl Serialize for ValueStream {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // FIXME: implement these
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for ValueStream {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // FIXME: implement these
+        todo!()
     }
 }
 
