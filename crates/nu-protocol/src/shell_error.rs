@@ -74,4 +74,8 @@ pub enum ShellError {
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
     UnsupportedInput(String, #[label("{0}")] Span),
+
+    #[error("Flag not found")]
+    #[diagnostic(code(nu::shell::flag_not_found), url(docsrs))]
+    FlagNotFound(String, #[label("{0} not found")] Span),
 }

@@ -510,6 +510,7 @@ name = "nu-engine"
 version = "0.1.0"
 dependencies = [
  "nu-parser",
+ "nu-path",
  "nu-protocol",
 ]
 
