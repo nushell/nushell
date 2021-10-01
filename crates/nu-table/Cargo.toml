@@ -12,7 +12,9 @@ name = "table"
 path = "src/main.rs"
 
 [dependencies]
+atty = "0.2.14"
 nu-ansi-term = { version = "0.37.1", path="../nu-ansi-term" }
 
 regex = "1.4"
+strip-ansi-escapes = "0.1.1"
 unicode-width = "0.1.8"
