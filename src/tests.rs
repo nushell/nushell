@@ -448,6 +448,14 @@ fn hide_twice_not_allowed() -> TestResult {
 }
 
 #[test]
+fn def_twice_should_fail() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; def foo [] { "bar" }"#,
+        "defined more than once",
+    )
+}
+
+#[test]
 fn from_json_1() -> TestResult {
     run_test(r#"('{"name": "Fred"}' | from json).name"#, "Fred")
 }
