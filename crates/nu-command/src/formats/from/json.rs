@@ -28,7 +28,7 @@ impl Command for FromJson {
         input: Value,
     ) -> Result<nu_protocol::Value, ShellError> {
         let span = input.span();
-        let mut string_input = input.into_string();
+        let mut string_input = input.collect_string();
         string_input.push('\n');
 
         // TODO: turn this into a structured underline of the nu_json error

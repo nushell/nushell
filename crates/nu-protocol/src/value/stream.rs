@@ -16,6 +16,12 @@ impl ValueStream {
         )
     }
 
+    pub fn collect_string(self) -> String {
+        self.map(|x: Value| x.collect_string())
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
     pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
         ValueStream(Rc::new(RefCell::new(input)))
     }
