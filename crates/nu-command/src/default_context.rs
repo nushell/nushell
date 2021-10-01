@@ -6,8 +6,9 @@ use nu_protocol::{
 };
 
 use crate::{
-    Alias, Benchmark, BuildString, Def, Do, Each, ExportDef, External, For, From, FromJson, Git, GitCheckout,
-    Hide, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Sys, Table, Use, Where,
+    Alias, Benchmark, BuildString, Def, Do, Each, ExportDef, External, For, From, FromJson, Git,
+    GitCheckout, Hide, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Sys, Table,
+    Use, Where,
 };
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
@@ -20,17 +21,10 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition");
         working_set.add_decl(sig.predeclare());
 
-        working_set.add_decl(Box::new(If));
-
-        working_set.add_decl(Box::new(Let));
-
-        working_set.add_decl(Box::new(LetEnv));
-
         working_set.add_decl(Box::new(Alias));
         working_set.add_decl(Box::new(Benchmark));
         working_set.add_decl(Box::new(BuildString));
-       
- working_set.add_decl(Box::new(Def));
+        working_set.add_decl(Box::new(Def));
         working_set.add_decl(Box::new(Do));
         working_set.add_decl(Box::new(Each));
         working_set.add_decl(Box::new(ExportDef));
@@ -49,7 +43,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Use));
-		working_set.add_decl(Box::new(Where));
+        working_set.add_decl(Box::new(Where));
 
         // This is a WIP proof of concept
         working_set.add_decl(Box::new(ListGitBranches));
