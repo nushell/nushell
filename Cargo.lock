@@ -2900,8 +2900,10 @@ dependencies = [
 name = "nu-table"
 version = "0.37.1"
 dependencies = [
+ "atty",
  "nu-ansi-term",
  "regex",
+ "strip-ansi-escapes",
  "unicode-width",
 ]
 

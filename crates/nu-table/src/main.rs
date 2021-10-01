@@ -27,8 +27,18 @@ fn main() {
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
     // Capture the table as a string
     let output_table = draw_table(&table, width, &color_hm);
-    // Draw the table
-    println!("{}", output_table)
+
+    if atty::is(atty::Stream::Stdout) {
+        // Draw the table with ansi colors
+        println!("{}", output_table)
+    } else {
+        // Draw the table without ansi colors
+        if let Ok(bytes) = strip_ansi_escapes::strip(&output_table) {
+            println!("{}", String::from_utf8_lossy(&bytes))
+        } else {
+            println!("{}", output_table)
+        }
+    }
 }
 
 fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
