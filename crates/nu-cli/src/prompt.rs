@@ -10,7 +10,7 @@ use {
 pub struct NushellPrompt {
     prompt_command: String,
     prompt_string: String,
-    // These are part of the struct definition in case we want to later allow
+    // These are part of the struct definition in case we want to allow
     // further customization to the shell status
     default_prompt_indicator: String,
     default_vi_insert_prompt_indicator: String,
@@ -25,7 +25,6 @@ impl Default for NushellPrompt {
 }
 
 impl NushellPrompt {
-    /// Constructor for the default prompt, which takes the amount of spaces required between the left and right-hand sides of the prompt
     pub fn new() -> NushellPrompt {
         NushellPrompt {
             prompt_command: "".to_string(),
