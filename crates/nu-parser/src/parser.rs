@@ -2507,24 +2507,21 @@ pub fn parse_source(
                     let contents = std::fs::read(path);
 
                     if let Ok(contents) = contents {
+                        // This will load the defs from the file into the
+                        // working set, if it was a successful parse.
                         let (block, err) = parse(
                             working_set,
                             path.file_name().and_then(|x| x.to_str()),
                             &contents,
-                            true,
+                            false,
                         );
-                        if let None = err {
-                            // Successful parse
-                            // What should I be doing here?
-                            let block_id = working_set.add_block(block);
+                        if let Some(_) = err {
+                            // Unsuccessful parse of file
                             // return (
-                            //     // Successful parse
-                            //     // Why creating a pipeline here for only one expression?
-                            //     // Is there a way to only make this a declaration?
                             //     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                            //         expr: Expr::Subexpression(block_id),
-                            //         span: span(spans),
-                            //         ty: Type::Unknown, // FIXME
+                            //         expr: Expr::Call(call),
+                            //         span: call_span,
+                            //         ty: Type::Unknown,
                             //     }])),
                             //     None,
                             // );
