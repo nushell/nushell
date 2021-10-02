@@ -166,7 +166,7 @@ This will get the 3rd (note that `nth` is zero-based) row in the table created
 by the `ls` command. You can use `nth` on any table created by other commands
 as well.
 
-You can also access the column of data in one of two ways. If you want to want
+You can also access the column of data in one of two ways. If you want
 to keep the column as part of a new table, you can use `select`.
 ```
 ls | select name
@@ -274,7 +274,7 @@ This can be helpful if you want to later processes these values.
 The `echo` command can pair well with the `each` command which can run
 code on each row, or item, of input.
 
-You can continue to learn more about the `echo` command by running:
+You can continue to learn more about the `each` command by running:
 ```
 tutor each
 ```
