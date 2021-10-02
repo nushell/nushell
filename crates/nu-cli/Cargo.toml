@@ -7,6 +7,7 @@ edition = "2018"
 nu-engine = { path = "../nu-engine" }
 nu-parser = { path = "../nu-parser" }
 nu-protocol = { path = "../nu-protocol" }
-codespan-reporting = "0.11.1"
+miette = { version = "3.0.0", features = ["fancy"] }
+thiserror = "1.0.29"
 nu-ansi-term = "0.36.0"
 reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }

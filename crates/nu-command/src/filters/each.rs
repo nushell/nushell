@@ -15,7 +15,13 @@ impl Command for Each {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("each").required("block", SyntaxShape::Block, "the block to run")
+        Signature::build("each")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                "the block to run",
+            )
+            .switch("numbered", "iterate with an index", Some('n'))
     }
 
     fn run(
@@ -27,20 +33,42 @@ impl Command for Each {
         let block_id = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
+
+        let numbered = call.has_flag("numbered");
         let context = context.clone();
+        let span = call.head;
 
         match input {
             Value::Range { val, .. } => Ok(Value::Stream {
                 stream: val
                     .into_iter()
-                    .map(move |x| {
+                    .enumerate()
+                    .map(move |(idx, x)| {
                         let engine_state = context.engine_state.borrow();
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
+
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
-                                state.add_var(*var_id, x);
+                                if numbered {
+                                    state.add_var(
+                                        *var_id,
+                                        Value::Record {
+                                            cols: vec!["index".into(), "item".into()],
+                                            vals: vec![
+                                                Value::Int {
+                                                    val: idx as i64,
+                                                    span,
+                                                },
+                                                x,
+                                            ],
+                                            span,
+                                        },
+                                    );
+                                } else {
+                                    state.add_var(*var_id, x);
+                                }
                             }
                         }
 
@@ -55,14 +83,32 @@ impl Command for Each {
             Value::List { vals: val, .. } => Ok(Value::Stream {
                 stream: val
                     .into_iter()
-                    .map(move |x| {
+                    .enumerate()
+                    .map(move |(idx, x)| {
                         let engine_state = context.engine_state.borrow();
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
-                                state.add_var(*var_id, x);
+                                if numbered {
+                                    state.add_var(
+                                        *var_id,
+                                        Value::Record {
+                                            cols: vec!["index".into(), "item".into()],
+                                            vals: vec![
+                                                Value::Int {
+                                                    val: idx as i64,
+                                                    span,
+                                                },
+                                                x,
+                                            ],
+                                            span,
+                                        },
+                                    );
+                                } else {
+                                    state.add_var(*var_id, x);
+                                }
                             }
                         }
 
@@ -76,14 +122,32 @@ impl Command for Each {
             }),
             Value::Stream { stream, .. } => Ok(Value::Stream {
                 stream: stream
-                    .map(move |x| {
+                    .enumerate()
+                    .map(move |(idx, x)| {
                         let engine_state = context.engine_state.borrow();
                         let block = engine_state.get_block(block_id);
 
                         let state = context.enter_scope();
                         if let Some(var) = block.signature.get_positional(0) {
                             if let Some(var_id) = &var.var_id {
-                                state.add_var(*var_id, x);
+                                if numbered {
+                                    state.add_var(
+                                        *var_id,
+                                        Value::Record {
+                                            cols: vec!["index".into(), "item".into()],
+                                            vals: vec![
+                                                Value::Int {
+                                                    val: idx as i64,
+                                                    span,
+                                                },
+                                                x,
+                                            ],
+                                            span,
+                                        },
+                                    );
+                                } else {
+                                    state.add_var(*var_id, x);
+                                }
                             }
                         }
 

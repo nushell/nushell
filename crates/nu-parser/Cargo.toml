@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-codespan-reporting = "0.11.1"
+miette = "3.0.0"
+thiserror = "1.0.29"
 nu-protocol = { path = "../nu-protocol"}

@@ -25,4 +25,24 @@ impl Call {
             named: vec![],
         }
     }
+
+    pub fn has_flag(&self, flag_name: &str) -> bool {
+        for name in &self.named {
+            if flag_name == name.0 {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
+        for name in &self.named {
+            if flag_name == name.0 {
+                return name.1.clone();
+            }
+        }
+
+        None
+    }
 }

@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
 
 pub struct BuildString;
 
@@ -24,13 +24,12 @@ impl Command for BuildString {
         call: &Call,
         _input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let mut output = vec![];
+        let output = call
+            .positional
+            .iter()
+            .map(|expr| eval_expression(context, expr).map(|val| val.into_string()))
+            .collect::<Result<Vec<String>, ShellError>>()?;
 
-        for expr in &call.positional {
-            let val = eval_expression(context, expr)?;
-
-            output.push(val.into_string());
-        }
         Ok(Value::String {
             val: output.join(""),
             span: call.head,

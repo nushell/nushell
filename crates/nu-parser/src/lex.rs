@@ -168,7 +168,7 @@ pub fn lex_item(
             (delim as char).to_string(),
             Span {
                 start: span.end,
-                end: span.end + 1,
+                end: span.end,
             },
         );
 
@@ -181,7 +181,13 @@ pub fn lex_item(
         // correct information from the non-lite parse.
         return (
             span,
-            Some(ParseError::UnexpectedEof((delim as char).to_string(), span)),
+            Some(ParseError::UnexpectedEof(
+                (delim as char).to_string(),
+                Span {
+                    start: span.end,
+                    end: span.end,
+                },
+            )),
         );
     }
 

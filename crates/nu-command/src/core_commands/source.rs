@@ -1,10 +1,6 @@
-use nu_engine::{eval_block, eval_expression};
-use nu_parser::parse;
-use nu_protocol::ast::{Block, Call};
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, StateWorkingSet};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
-use std::task::Context;
-use std::{borrow::Cow, path::Path, path::PathBuf};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::{Signature, SyntaxShape, Value};
 
 /// Source a file for environment variables.
 pub struct Source;

@@ -1,7 +1,7 @@
 use nu_parser::parse;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
-use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::engine::EvaluationContext;
+use nu_protocol::{Range, ShellError, Span, Type, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -69,6 +69,44 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
     }
 }
 
+fn eval_external(
+    context: &EvaluationContext,
+    name: &Span,
+    args: &[Span],
+    input: Value,
+    last_expression: bool,
+) -> Result<Value, ShellError> {
+    let engine_state = context.engine_state.borrow();
+
+    let decl_id = engine_state
+        .find_decl("run_external".as_bytes())
+        .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
+
+    let command = engine_state.get_decl(decl_id);
+
+    let mut call = Call::new();
+    call.positional = [*name]
+        .iter()
+        .chain(args.iter())
+        .map(|span| {
+            let contents = engine_state.get_span_contents(span);
+            let val = String::from_utf8_lossy(contents);
+            Expression {
+                expr: Expr::String(val.into()),
+                span: *span,
+                ty: Type::String,
+                custom_completion: None,
+            }
+        })
+        .collect();
+
+    if last_expression {
+        call.named.push(("last_expression".into(), None))
+    }
+
+    command.run(context, &call, input)
+}
+
 pub fn eval_expression(
     context: &EvaluationContext,
     expr: &Expression,
@@ -86,13 +124,19 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
-        Expr::Range(from, to, operator) => {
-            // TODO: Embed the min/max into Range and set max to be the true max
+        Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
                 eval_expression(context, f)?
             } else {
-                Value::Int {
-                    val: 0i64,
+                Value::Nothing {
+                    span: Span::unknown(),
+                }
+            };
+
+            let next = if let Some(s) = next {
+                eval_expression(context, s)?
+            } else {
+                Value::Nothing {
                     span: Span::unknown(),
                 }
             };
@@ -100,44 +144,29 @@ pub fn eval_expression(
             let to = if let Some(t) = to {
                 eval_expression(context, t)?
             } else {
-                Value::Int {
-                    val: 100i64,
+                Value::Nothing {
                     span: Span::unknown(),
                 }
             };
 
-            let range = match (&from, &to) {
-                (&Value::Int { .. }, &Value::Int { .. }) => Range {
-                    from: from.clone(),
-                    to: to.clone(),
-                    inclusion: operator.inclusion,
-                },
-                (lhs, rhs) => {
-                    return Err(ShellError::OperatorMismatch {
-                        op_span: operator.span,
-                        lhs_ty: lhs.get_type(),
-                        lhs_span: lhs.span(),
-                        rhs_ty: rhs.get_type(),
-                        rhs_span: rhs.span(),
-                    })
-                }
-            };
-
             Ok(Value::Range {
-                val: Box::new(range),
+                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
                 span: expr.span,
             })
         }
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
-        Expr::FullCellPath(column_path) => {
-            let value = eval_expression(context, &column_path.head)?;
+        Expr::FullCellPath(cell_path) => {
+            let value = eval_expression(context, &cell_path.head)?;
 
-            value.follow_cell_path(&column_path.tail)
+            value.follow_cell_path(&cell_path.tail)
         }
+        Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(_, _) => Err(ShellError::ExternalNotSupported(expr.span)),
+        Expr::ExternalCall(name, args) => {
+            eval_external(context, name, args, Value::nothing(), true)
+        }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
@@ -159,7 +188,6 @@ pub fn eval_expression(
                 x => Err(ShellError::UnsupportedOperator(x, op_span)),
             }
         }
-
         Expr::Subexpression(block_id) => {
             let engine_state = context.engine_state.borrow();
             let block = engine_state.get_block(*block_id);
@@ -219,15 +247,27 @@ pub fn eval_block(
     block: &Block,
     mut input: Value,
 ) -> Result<Value, ShellError> {
-    for stmt in &block.stmts {
+    for stmt in block.stmts.iter() {
         if let Statement::Pipeline(pipeline) = stmt {
-            for elem in &pipeline.expressions {
+            for (i, elem) in pipeline.expressions.iter().enumerate() {
                 match elem {
                     Expression {
                         expr: Expr::Call(call),
                         ..
                     } => {
                         input = eval_call(context, call, input)?;
+                    }
+                    Expression {
+                        expr: Expr::ExternalCall(name, args),
+                        ..
+                    } => {
+                        input = eval_external(
+                            context,
+                            name,
+                            args,
+                            input,
+                            i == pipeline.expressions.len() - 1,
+                        )?;
                     }
 
                     elem => {
