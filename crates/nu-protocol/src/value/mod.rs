@@ -9,7 +9,7 @@ pub use stream::*;
 
 use std::fmt::Debug;
 
-use crate::ast::PathMember;
+use crate::ast::{CellPath, PathMember};
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -72,6 +72,10 @@ pub enum Value {
         val: Vec<u8>,
         span: Span,
     },
+    CellPath {
+        val: CellPath,
+        span: Span,
+    },
 }
 
 impl Value {
@@ -99,6 +103,7 @@ impl Value {
             Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
             Value::Binary { span, .. } => *span,
+            Value::CellPath { span, .. } => *span,
         }
     }
 
@@ -119,6 +124,7 @@ impl Value {
             Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
             Value::Binary { span, .. } => *span = new_span,
+            Value::CellPath { span, .. } => *span = new_span,
         }
 
         self
@@ -143,6 +149,7 @@ impl Value {
             Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
+            Value::CellPath { .. } => Type::CellPath,
         }
     }
 
@@ -184,6 +191,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
+            Value::CellPath { val, .. } => format!("{:?}", val),
         }
     }
 
@@ -215,6 +223,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
+            Value::CellPath { val, .. } => format!("{:?}", val),
         }
     }
 

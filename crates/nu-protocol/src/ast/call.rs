@@ -45,4 +45,8 @@ impl Call {
 
         None
     }
+
+    pub fn nth(&self, pos: usize) -> Option<Expression> {
+        self.positional.get(pos).cloned()
+    }
 }
