@@ -468,3 +468,32 @@ fn from_json_2() -> TestResult {
         "Sally",
     )
 }
+
+#[test]
+fn wrap() -> TestResult {
+    run_test(r#"([1, 2, 3] | wrap foo).foo.1"#, "2")
+}
+
+#[test]
+fn get() -> TestResult {
+    run_test(
+        r#"[[name, grade]; [Alice, A], [Betty, B]] | get grade.1"#,
+        "B",
+    )
+}
+
+#[test]
+fn select() -> TestResult {
+    run_test(
+        r#"([[name, age]; [a, 1], [b, 2]]) | select name | get 1 | get name"#,
+        "b",
+    )
+}
+
+#[test]
+fn string_cell_path() -> TestResult {
+    run_test(
+        r#"let x = "name"; [["name", "score"]; [a, b], [c, d]] | get $x | get 1"#,
+        "c",
+    )
+}

@@ -240,6 +240,10 @@ impl TextStyle {
             .bold(Some(true))
     }
 
+    pub fn default_field() -> TextStyle {
+        TextStyle::new().fg(Color::Green).bold(Some(true))
+    }
+
     pub fn with_attributes(bo: bool, al: Alignment, co: Color) -> TextStyle {
         TextStyle::new().alignment(al).fg(co).bold(Some(bo))
     }

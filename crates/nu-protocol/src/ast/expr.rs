@@ -1,4 +1,4 @@
-use super::{Call, Expression, FullCellPath, Operator, RangeOperator};
+use super::{Call, CellPath, Expression, FullCellPath, Operator, RangeOperator};
 use crate::{BlockId, Signature, Span, VarId};
 
 #[derive(Debug, Clone)]
@@ -24,6 +24,7 @@ pub enum Expr {
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Keyword(Vec<u8>, Span, Box<Expression>),
     String(String), // FIXME: improve this in the future?
+    CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     Signature(Box<Signature>),
     Garbage,

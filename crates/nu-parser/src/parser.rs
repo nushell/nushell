@@ -6,8 +6,8 @@ use crate::{
 
 use nu_protocol::{
     ast::{
-        Block, Call, Expr, Expression, FullCellPath, ImportPattern, ImportPatternMember, Operator,
-        PathMember, Pipeline, RangeInclusion, RangeOperator, Statement,
+        Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternMember,
+        Operator, PathMember, Pipeline, RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
     span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
@@ -1157,6 +1157,62 @@ pub fn parse_variable_expr(
     }
 }
 
+pub fn parse_cell_path(
+    working_set: &mut StateWorkingSet,
+    tokens: impl Iterator<Item = Token>,
+    mut expect_dot: bool,
+    span: Span,
+) -> (Vec<PathMember>, Option<ParseError>) {
+    let mut error = None;
+    let mut tail = vec![];
+
+    for path_element in tokens {
+        let bytes = working_set.get_span_contents(path_element.span);
+
+        if expect_dot {
+            expect_dot = false;
+            if bytes.len() != 1 || bytes[0] != b'.' {
+                error = error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
+            }
+        } else {
+            expect_dot = true;
+
+            match parse_int(bytes, path_element.span) {
+                (
+                    Expression {
+                        expr: Expr::Int(val),
+                        span,
+                        ..
+                    },
+                    None,
+                ) => tail.push(PathMember::Int {
+                    val: val as usize,
+                    span,
+                }),
+                _ => {
+                    let (result, err) = parse_string(working_set, path_element.span);
+                    error = error.or(err);
+                    match result {
+                        Expression {
+                            expr: Expr::String(string),
+                            span,
+                            ..
+                        } => {
+                            tail.push(PathMember::String { val: string, span });
+                        }
+                        _ => {
+                            error =
+                                error.or_else(|| Some(ParseError::Expected("string".into(), span)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    (tail, error)
+}
+
 pub fn parse_full_cell_path(
     working_set: &mut StateWorkingSet,
     implicit_head: Option<VarId>,
@@ -1173,7 +1229,7 @@ pub fn parse_full_cell_path(
     let mut tokens = tokens.into_iter().peekable();
     if let Some(head) = tokens.peek() {
         let bytes = working_set.get_span_contents(head.span);
-        let (head, mut expect_dot) = if bytes.starts_with(b"(") {
+        let (head, expect_dot) = if bytes.starts_with(b"(") {
             let mut start = head.span.start;
             let mut end = head.span.end;
 
@@ -1247,52 +1303,8 @@ pub fn parse_full_cell_path(
             );
         };
 
-        let mut tail = vec![];
-
-        for path_element in tokens {
-            let bytes = working_set.get_span_contents(path_element.span);
-
-            if expect_dot {
-                expect_dot = false;
-                if bytes.len() != 1 || bytes[0] != b'.' {
-                    error =
-                        error.or_else(|| Some(ParseError::Expected('.'.into(), path_element.span)));
-                }
-            } else {
-                expect_dot = true;
-
-                match parse_int(bytes, path_element.span) {
-                    (
-                        Expression {
-                            expr: Expr::Int(val),
-                            span,
-                            ..
-                        },
-                        None,
-                    ) => tail.push(PathMember::Int {
-                        val: val as usize,
-                        span,
-                    }),
-                    _ => {
-                        let (result, err) = parse_string(working_set, path_element.span);
-                        error = error.or(err);
-                        match result {
-                            Expression {
-                                expr: Expr::String(string),
-                                span,
-                                ..
-                            } => {
-                                tail.push(PathMember::String { val: string, span });
-                            }
-                            _ => {
-                                error = error
-                                    .or_else(|| Some(ParseError::Expected("string".into(), span)));
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let (tail, err) = parse_cell_path(working_set, tokens, expect_dot, span);
+        error = error.or(err);
 
         (
             Expression {
@@ -2350,6 +2362,28 @@ pub fn parse_value(
                     Some(ParseError::Expected("table".into(), span)),
                 )
             }
+        }
+        SyntaxShape::CellPath => {
+            let source = working_set.get_span_contents(span);
+            let mut error = None;
+
+            let (tokens, err) = lex(source, span.start, &[b'\n'], &[b'.']);
+            error = error.or(err);
+
+            let tokens = tokens.into_iter().peekable();
+
+            let (cell_path, err) = parse_cell_path(working_set, tokens, false, span);
+            error = error.or(err);
+
+            (
+                Expression {
+                    expr: Expr::CellPath(CellPath { members: cell_path }),
+                    span,
+                    ty: Type::CellPath,
+                    custom_completion: None,
+                },
+                error,
+            )
         }
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {

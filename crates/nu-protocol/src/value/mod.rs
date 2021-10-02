@@ -9,7 +9,7 @@ pub use stream::*;
 
 use std::fmt::Debug;
 
-use crate::ast::PathMember;
+use crate::ast::{CellPath, PathMember};
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -26,6 +26,10 @@ pub enum Value {
         span: Span,
     },
     Filesize {
+        val: u64,
+        span: Span,
+    },
+    Duration {
         val: u64,
         span: Span,
     },
@@ -68,6 +72,10 @@ pub enum Value {
         val: Vec<u8>,
         span: Span,
     },
+    CellPath {
+        val: CellPath,
+        span: Span,
+    },
 }
 
 impl Value {
@@ -86,6 +94,7 @@ impl Value {
             Value::Int { span, .. } => *span,
             Value::Float { span, .. } => *span,
             Value::Filesize { span, .. } => *span,
+            Value::Duration { span, .. } => *span,
             Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::Record { span, .. } => *span,
@@ -94,6 +103,7 @@ impl Value {
             Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
             Value::Binary { span, .. } => *span,
+            Value::CellPath { span, .. } => *span,
         }
     }
 
@@ -104,6 +114,7 @@ impl Value {
             Value::Int { span, .. } => *span = new_span,
             Value::Float { span, .. } => *span = new_span,
             Value::Filesize { span, .. } => *span = new_span,
+            Value::Duration { span, .. } => *span = new_span,
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
@@ -113,6 +124,7 @@ impl Value {
             Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
             Value::Binary { span, .. } => *span = new_span,
+            Value::CellPath { span, .. } => *span = new_span,
         }
 
         self
@@ -125,6 +137,7 @@ impl Value {
             Value::Int { .. } => Type::Int,
             Value::Float { .. } => Type::Float,
             Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Record { cols, vals, .. } => {
@@ -136,6 +149,7 @@ impl Value {
             Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
+            Value::CellPath { .. } => Type::CellPath,
         }
     }
 
@@ -146,6 +160,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
             Value::Range { val, .. } => {
                 format!(
                     "range: [{}]",
@@ -176,6 +191,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
+            Value::CellPath { val, .. } => val.into_string(),
         }
     }
 
@@ -185,6 +201,7 @@ impl Value {
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
             Value::Range { val, .. } => val
                 .into_iter()
                 .map(|x| x.into_string())
@@ -206,6 +223,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
+            Value::CellPath { .. } => self.into_string(),
         }
     }
 

@@ -35,4 +35,18 @@ impl Call {
 
         false
     }
+
+    pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
+        for name in &self.named {
+            if flag_name == name.0 {
+                return name.1.clone();
+            }
+        }
+
+        None
+    }
+
+    pub fn nth(&self, pos: usize) -> Option<Expression> {
+        self.positional.get(pos).cloned()
+    }
 }

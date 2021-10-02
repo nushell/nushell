@@ -63,7 +63,7 @@ impl Command for Table {
                     output.push(vec![
                         StyledString {
                             contents: c,
-                            style: nu_table::TextStyle::default_header(),
+                            style: nu_table::TextStyle::default_field(),
                         },
                         StyledString {
                             contents: v.into_string(),

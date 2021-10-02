@@ -1,5 +1,5 @@
 use super::Command;
-use crate::{ast::Block, BlockId, DeclId, Span, Type, VarId};
+use crate::{ast::Block, BlockId, DeclId, Signature, Span, Type, VarId};
 use core::panic;
 use std::{
     collections::{HashMap, HashSet},
@@ -176,6 +176,21 @@ impl EngineState {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+    }
+
+    pub fn get_decls(&self) -> Vec<Signature> {
+        let mut output = vec![];
+        for decl in self.decls.iter() {
+            if decl.get_block_id().is_none() {
+                let mut signature = (*decl).signature();
+                signature.usage = decl.usage().to_string();
+                signature.extra_usage = decl.extra_usage().to_string();
+
+                output.push(signature);
+            }
+        }
+
+        output
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {

@@ -156,6 +156,10 @@ pub fn eval_expression(
         Expr::Var(var_id) => context
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
+        Expr::CellPath(cell_path) => Ok(Value::CellPath {
+            val: cell_path.clone(),
+            span: expr.span,
+        }),
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(context, &cell_path.head)?;
 

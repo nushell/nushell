@@ -6,3 +6,4 @@ edition = "2018"
 [dependencies]
 nu-parser = { path = "../nu-parser" }
 nu-protocol = { path = "../nu-protocol" }
+nu-path = { path = "../nu-path" }
