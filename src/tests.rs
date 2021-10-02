@@ -409,3 +409,11 @@ fn get() -> TestResult {
         "B",
     )
 }
+
+#[test]
+fn select() -> TestResult {
+    run_test(
+        r#"([[name, age]; [a, 1], [b, 2]]) | select name | get 1 | get name"#,
+        "b",
+    )
+}
