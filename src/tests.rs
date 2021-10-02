@@ -396,3 +396,16 @@ fn from_json_2() -> TestResult {
         "Sally",
     )
 }
+
+#[test]
+fn wrap() -> TestResult {
+    run_test(r#"([1, 2, 3] | wrap foo).foo.1"#, "2")
+}
+
+#[test]
+fn get() -> TestResult {
+    run_test(
+        r#"[[name, grade]; [Alice, A], [Betty, B]] | get grade.1"#,
+        "B",
+    )
+}

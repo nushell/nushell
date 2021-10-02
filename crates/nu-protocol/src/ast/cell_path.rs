@@ -1,13 +1,14 @@
 use super::Expression;
 use crate::Span;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PathMember {
     String { val: String, span: Span },
     Int { val: usize, span: Span },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
 }
