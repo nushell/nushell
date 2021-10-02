@@ -10,11 +10,13 @@ pub enum FlatShape {
     Range,
     InternalCall,
     External,
+    ExternalArg,
     Literal,
     Operator,
     Signature,
     String,
     Variable,
+    Custom(String),
 }
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
@@ -39,6 +41,10 @@ pub fn flatten_expression(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
+    if let Some(custom_completion) = &expr.custom_completion {
+        return vec![(expr.span, FlatShape::Custom(custom_completion.clone()))];
+    }
+
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
             let mut output = vec![];
@@ -55,8 +61,14 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::ExternalCall(..) => {
-            vec![(expr.span, FlatShape::External)]
+        Expr::ExternalCall(name, args) => {
+            let mut output = vec![(*name, FlatShape::External)];
+
+            for arg in args {
+                output.push((*arg, FlatShape::ExternalArg));
+            }
+
+            output
         }
         Expr::Garbage => {
             vec![(expr.span, FlatShape::Garbage)]
@@ -67,10 +79,10 @@ pub fn flatten_expression(
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
         }
-        Expr::FullCellPath(column_path) => {
+        Expr::FullCellPath(cell_path) => {
             let mut output = vec![];
-            output.extend(flatten_expression(working_set, &column_path.head));
-            for path_element in &column_path.tail {
+            output.extend(flatten_expression(working_set, &cell_path.head));
+            for path_element in &cell_path.tail {
                 match path_element {
                     PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
                     PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
@@ -78,15 +90,19 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::Range(from, to, op) => {
+        Expr::Range(from, next, to, op) => {
             let mut output = vec![];
             if let Some(f) = from {
                 output.extend(flatten_expression(working_set, f));
             }
+            if let Some(s) = next {
+                output.extend(vec![(op.next_op_span, FlatShape::Operator)]);
+                output.extend(flatten_expression(working_set, s));
+            }
+            output.extend(vec![(op.span, FlatShape::Operator)]);
             if let Some(t) = to {
                 output.extend(flatten_expression(working_set, t));
             }
-            output.extend(vec![(op.span, FlatShape::Operator)]);
             output
         }
         Expr::Bool(_) => {
@@ -114,6 +130,7 @@ pub fn flatten_expression(
         Expr::String(_) => {
             vec![(expr.span, FlatShape::String)]
         }
+        Expr::RowCondition(_, expr) => flatten_expression(working_set, expr),
         Expr::Subexpression(block_id) => {
             flatten_block(working_set, working_set.get_block(*block_id))
         }

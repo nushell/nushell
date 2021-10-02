@@ -20,6 +20,7 @@ pub fn math_result_type(
     op: &mut Expression,
     rhs: &mut Expression,
 ) -> (Type, Option<ParseError>) {
+    //println!("checking: {:?} {:?} {:?}", lhs, op, rhs);
     match &op.expr {
         Expr::Operator(operator) => match operator {
             Operator::Plus => match (&lhs.ty, &rhs.ty) {
@@ -31,6 +32,7 @@ pub fn math_result_type(
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
                 (Type::Int, _) => {
+                    let ty = rhs.ty.clone();
                     *rhs = Expression::garbage(rhs.span);
                     (
                         Type::Unknown,
@@ -39,7 +41,7 @@ pub fn math_result_type(
                             lhs.span,
                             lhs.ty.clone(),
                             rhs.span,
-                            rhs.ty.clone(),
+                            ty,
                         )),
                     )
                 }

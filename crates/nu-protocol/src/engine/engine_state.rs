@@ -1,7 +1,7 @@
 use super::Command;
-use crate::{ast::Block, BlockId, DeclId, Span, Type, VarId};
+use crate::{ast::Block, BlockId, DeclId, Signature, Span, Type, VarId};
 use core::panic;
-use std::{collections::HashMap, ops::Range, slice::Iter};
+use std::{collections::HashMap, slice::Iter};
 
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -17,6 +17,7 @@ pub struct ScopeFrame {
     vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
+    modules: HashMap<Vec<u8>, BlockId>,
 }
 
 impl ScopeFrame {
@@ -25,6 +26,7 @@ impl ScopeFrame {
             vars: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
+            modules: HashMap::new(),
         }
     }
 
@@ -76,6 +78,9 @@ impl EngineState {
             for item in first.aliases.into_iter() {
                 last.aliases.insert(item.0, item.1);
             }
+            for item in first.modules.into_iter() {
+                last.modules.insert(item.0, item.1);
+            }
         }
     }
 
@@ -113,6 +118,11 @@ impl EngineState {
         }
     }
 
+    pub fn print_contents(&self) {
+        let string = String::from_utf8_lossy(&self.file_contents);
+        println!("{}", string);
+    }
+
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         for scope in self.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {
@@ -121,6 +131,24 @@ impl EngineState {
         }
 
         None
+    }
+
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        let mut output = vec![];
+
+        for scope in self.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    output.push(decl.0.clone());
+                }
+            }
+        }
+
+        output
+    }
+
+    pub fn get_span_contents(&self, span: &Span) -> &[u8] {
+        &self.file_contents[span.start..span.end]
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Type {
@@ -134,6 +162,21 @@ impl EngineState {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+    }
+
+    pub fn get_decls(&self) -> Vec<Signature> {
+        let mut output = vec![];
+        for decl in self.decls.iter() {
+            if decl.get_block_id().is_none() {
+                let mut signature = (*decl).signature();
+                signature.usage = decl.usage().to_string();
+                signature.extra_usage = decl.extra_usage().to_string();
+
+                output.push(signature);
+            }
+        }
+
+        output
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {
@@ -272,6 +315,37 @@ impl<'a> StateWorkingSet<'a> {
         self.num_blocks() - 1
     }
 
+    pub fn add_module(&mut self, name: &str, block: Block) -> BlockId {
+        let name = name.as_bytes().to_vec();
+
+        self.delta.blocks.push(block);
+        let block_id = self.num_blocks() - 1;
+
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        scope_frame.modules.insert(name, block_id);
+
+        block_id
+    }
+
+    pub fn activate_overlay(&mut self, overlay: Vec<(Vec<u8>, DeclId)>) {
+        // TODO: This will overwrite all existing definitions in a scope. When we add deactivate,
+        // we need to re-think how make it recoverable.
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for (name, decl_id) in overlay {
+            scope_frame.decls.insert(name, decl_id);
+        }
+    }
+
     pub fn next_span_start(&self) -> usize {
         self.permanent_state.next_span_start() + self.delta.file_contents.len()
     }
@@ -351,6 +425,22 @@ impl<'a> StateWorkingSet<'a> {
         for scope in self.permanent_state.scope.iter().rev() {
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module(&self, name: &[u8]) -> Option<BlockId> {
+        for scope in self.delta.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
             }
         }
 
@@ -496,6 +586,24 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn find_commands_by_prefix(&self, name: &[u8]) -> Vec<Vec<u8>> {
+        let mut output = vec![];
+
+        for scope in self.delta.scope.iter().rev() {
+            for decl in &scope.decls {
+                if decl.0.starts_with(name) {
+                    output.push(decl.0.clone());
+                }
+            }
+        }
+
+        let mut permanent = self.permanent_state.find_commands_by_prefix(name);
+
+        output.append(&mut permanent);
+
+        output
+    }
+
     pub fn get_block(&self, block_id: BlockId) -> &Block {
         let num_permanent_blocks = self.permanent_state.num_blocks();
         if block_id < num_permanent_blocks {
@@ -513,95 +621,83 @@ impl<'a> StateWorkingSet<'a> {
     }
 }
 
-impl<'a> codespan_reporting::files::Files<'a> for StateWorkingSet<'a> {
-    type FileId = usize;
-
-    type Name = String;
-
-    type Source = String;
-
-    fn name(&'a self, id: Self::FileId) -> Result<Self::Name, codespan_reporting::files::Error> {
-        Ok(self.get_filename(id))
-    }
-
-    fn source(
-        &'a self,
-        id: Self::FileId,
-    ) -> Result<Self::Source, codespan_reporting::files::Error> {
-        Ok(self.get_file_source(id))
-    }
-
-    fn line_index(
-        &'a self,
-        id: Self::FileId,
-        byte_index: usize,
-    ) -> Result<usize, codespan_reporting::files::Error> {
-        let source = self.get_file_source(id);
-
-        let mut count = 0;
-
-        for byte in source.bytes().enumerate() {
-            if byte.0 == byte_index {
-                // println!("count: {} for file: {} index: {}", count, id, byte_index);
-                return Ok(count);
-            }
-            if byte.1 == b'\n' {
-                count += 1;
-            }
+impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
+    fn read_span<'b>(
+        &'b self,
+        span: &miette::SourceSpan,
+        context_lines_before: usize,
+        context_lines_after: usize,
+    ) -> Result<Box<dyn miette::SpanContents + 'b>, miette::MietteError> {
+        let debugging = std::env::var("MIETTE_DEBUG").is_ok();
+        if debugging {
+            let finding_span = "Finding span in StateWorkingSet";
+            dbg!(finding_span, span);
         }
-
-        // println!("count: {} for file: {} index: {}", count, id, byte_index);
-        Ok(count)
-    }
-
-    fn line_range(
-        &'a self,
-        id: Self::FileId,
-        line_index: usize,
-    ) -> Result<Range<usize>, codespan_reporting::files::Error> {
-        let source = self.get_file_source(id);
-
-        let mut count = 0;
-
-        let mut start = Some(0);
-        let mut end = None;
-
-        for byte in source.bytes().enumerate() {
-            #[allow(clippy::comparison_chain)]
-            if count > line_index {
-                let start = start.expect("internal error: couldn't find line");
-                let end = end.expect("internal error: couldn't find line");
-
-                // println!(
-                //     "Span: {}..{} for fileid: {} index: {}",
-                //     start, end, id, line_index
-                // );
-                return Ok(start..end);
-            } else if count == line_index {
-                end = Some(byte.0 + 1);
+        for (filename, start, end) in self.files() {
+            if debugging {
+                dbg!(&filename, start, end);
             }
+            if span.offset() >= *start && span.offset() + span.len() <= *end {
+                if debugging {
+                    let found_file = "Found matching file";
+                    dbg!(found_file);
+                }
+                let our_span = Span {
+                    start: *start,
+                    end: *end,
+                };
+                // We need to move to a local span because we're only reading
+                // the specific file contents via self.get_span_contents.
+                let local_span = (span.offset() - *start, span.len()).into();
+                if debugging {
+                    dbg!(&local_span);
+                }
+                let span_contents = self.get_span_contents(our_span);
+                if debugging {
+                    dbg!(String::from_utf8_lossy(span_contents));
+                }
+                let span_contents = span_contents.read_span(
+                    &local_span,
+                    context_lines_before,
+                    context_lines_after,
+                )?;
+                let content_span = span_contents.span();
+                // Back to "global" indexing
+                let retranslated = (content_span.offset() + start, content_span.len()).into();
+                if debugging {
+                    dbg!(&retranslated);
+                }
 
-            #[allow(clippy::comparison_chain)]
-            if byte.1 == b'\n' {
-                count += 1;
-                if count > line_index {
-                    break;
-                } else if count == line_index {
-                    start = Some(byte.0 + 1);
+                let data = span_contents.data();
+                if filename == "<cli>" {
+                    if debugging {
+                        let success_cli = "Successfully read CLI span";
+                        dbg!(success_cli, String::from_utf8_lossy(data));
+                    }
+                    return Ok(Box::new(miette::MietteSpanContents::new(
+                        data,
+                        retranslated,
+                        span_contents.line(),
+                        span_contents.column(),
+                        span_contents.line_count(),
+                    )));
+                } else {
+                    if debugging {
+                        let success_file = "Successfully read file span";
+                        dbg!(success_file);
+                    }
+                    return Ok(Box::new(miette::MietteSpanContents::new_named(
+                        filename.clone(),
+                        data,
+                        retranslated,
+                        span_contents.line(),
+                        span_contents.column(),
+                        span_contents.line_count(),
+                    )));
                 }
             }
         }
-
-        match (start, end) {
-            (Some(start), Some(end)) => {
-                // println!(
-                //     "Span: {}..{} for fileid: {} index: {}",
-                //     start, end, id, line_index
-                // );
-                Ok(start..end)
-            }
-            _ => Err(codespan_reporting::files::Error::FileMissing),
-        }
+        Err(miette::MietteError::OutOfBounds)
     }
 }
 

@@ -17,16 +17,24 @@
 - [x] Column path
 - [x] ...rest without calling it rest
 - [x] Iteration (`each`) over tables
+- [x] Row conditions
+- [x] Simple completions
+- [x] Detecting `$it` currently only looks at top scope but should find any free `$it` in the expression (including subexprs)
+- [x] Signature needs to make parameters visible in scope before block is parsed
+- [x] Externals
+- [x] Modules and imports
+- [ ] Exports
+- [ ] Support for `$in`
+- [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
 - [ ] Error shortcircuit (stopping on first error)
 - [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] finish operator type-checking
 - [ ] Source
-- [ ] Autoenv
-- [ ] Externals
-- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
+- [ ] Overlays (replacement for `autoenv`)
   
 ## Maybe: 
 - [ ] default param values?
 - [ ] Unary not?
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)

@@ -7,14 +7,16 @@ pub enum Expr {
     Int(i64),
     Float(f64),
     Range(
-        Option<Box<Expression>>,
-        Option<Box<Expression>>,
+        Option<Box<Expression>>, // from
+        Option<Box<Expression>>, // next value after "from"
+        Option<Box<Expression>>, // to
         RangeOperator,
     ),
     Var(VarId),
     Call(Box<Call>),
-    ExternalCall(Vec<u8>, Vec<Vec<u8>>),
+    ExternalCall(Span, Vec<Span>),
     Operator(Operator),
+    RowCondition(VarId, Box<Expression>),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(BlockId),
     Block(BlockId),

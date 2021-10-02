@@ -4,17 +4,18 @@ mod stream;
 
 pub use range::*;
 pub use row::*;
+use serde::{Deserialize, Serialize};
 pub use stream::*;
 
 use std::fmt::Debug;
 
-use crate::ast::{PathMember, RangeInclusion};
+use crate::ast::PathMember;
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
 
 /// Core structured values that pass through the pipeline in engine-q
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Bool {
         val: bool,
@@ -22,6 +23,14 @@ pub enum Value {
     },
     Int {
         val: i64,
+        span: Span,
+    },
+    Filesize {
+        val: u64,
+        span: Span,
+    },
+    Duration {
+        val: u64,
         span: Span,
     },
     Range {
@@ -59,6 +68,10 @@ pub enum Value {
     Error {
         error: ShellError,
     },
+    Binary {
+        val: Vec<u8>,
+        span: Span,
+    },
 }
 
 impl Value {
@@ -76,6 +89,8 @@ impl Value {
             Value::Bool { span, .. } => *span,
             Value::Int { span, .. } => *span,
             Value::Float { span, .. } => *span,
+            Value::Filesize { span, .. } => *span,
+            Value::Duration { span, .. } => *span,
             Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::Record { span, .. } => *span,
@@ -83,6 +98,7 @@ impl Value {
             Value::Block { span, .. } => *span,
             Value::Stream { span, .. } => *span,
             Value::Nothing { span, .. } => *span,
+            Value::Binary { span, .. } => *span,
         }
     }
 
@@ -92,6 +108,8 @@ impl Value {
             Value::Bool { span, .. } => *span = new_span,
             Value::Int { span, .. } => *span = new_span,
             Value::Float { span, .. } => *span = new_span,
+            Value::Filesize { span, .. } => *span = new_span,
+            Value::Duration { span, .. } => *span = new_span,
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
@@ -100,6 +118,7 @@ impl Value {
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
             Value::Error { .. } => {}
+            Value::Binary { span, .. } => *span = new_span,
         }
 
         self
@@ -111,6 +130,8 @@ impl Value {
             Value::Bool { .. } => Type::Bool,
             Value::Int { .. } => Type::Int,
             Value::Float { .. } => Type::Float,
+            Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Record { cols, vals, .. } => {
@@ -121,6 +142,7 @@ impl Value {
             Value::Block { .. } => Type::Block,
             Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
+            Value::Binary { .. } => Type::Binary,
         }
     }
 
@@ -130,21 +152,13 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
+            Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
             Value::Range { val, .. } => {
-                let vals: Vec<i64> = match (&val.from, &val.to) {
-                    (Value::Int { val: from, .. }, Value::Int { val: to, .. }) => {
-                        match val.inclusion {
-                            RangeInclusion::Inclusive => (*from..=*to).collect(),
-                            RangeInclusion::RightExclusive => (*from..*to).collect(),
-                        }
-                    }
-                    _ => Vec::new(),
-                };
-
                 format!(
                     "range: [{}]",
-                    vals.iter()
-                        .map(|x| x.to_string())
+                    val.into_iter()
+                        .map(|x| x.into_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
@@ -169,6 +183,38 @@ impl Value {
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
+            Value::Binary { val, .. } => format!("{:?}", val),
+        }
+    }
+
+    pub fn collect_string(self) -> String {
+        match self {
+            Value::Bool { val, .. } => val.to_string(),
+            Value::Int { val, .. } => val.to_string(),
+            Value::Float { val, .. } => val.to_string(),
+            Value::Filesize { val, .. } => format!("{} bytes", val),
+            Value::Duration { val, .. } => format!("{} ns", val),
+            Value::Range { val, .. } => val
+                .into_iter()
+                .map(|x| x.into_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            Value::String { val, .. } => val,
+            Value::Stream { stream, .. } => stream.collect_string(),
+            Value::List { vals: val, .. } => val
+                .into_iter()
+                .map(|x| x.collect_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Value::Record { vals, .. } => vals
+                .into_iter()
+                .map(|y| y.collect_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Value::Block { val, .. } => format!("<Block {}>", val),
+            Value::Nothing { .. } => String::new(),
+            Value::Error { error } => format!("{:?}", error),
+            Value::Binary { val, .. } => format!("{:?}", val),
         }
     }
 
@@ -180,9 +226,9 @@ impl Value {
     }
 
     /// Follow a given column path into the value: for example accessing nth elements in a stream or list
-    pub fn follow_cell_path(self, column_path: &[PathMember]) -> Result<Value, ShellError> {
+    pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
         let mut current = self;
-        for member in column_path {
+        for member in cell_path {
             // FIXME: this uses a few extra clones for simplicity, but there may be a way
             // to traverse the path without them
             match member {
@@ -277,6 +323,24 @@ impl Value {
         }
 
         Ok(current)
+    }
+
+    pub fn string(s: &str, span: Span) -> Value {
+        Value::String {
+            val: s.into(),
+            span,
+        }
+    }
+
+    pub fn is_true(&self) -> bool {
+        matches!(self, Value::Bool { val: true, .. })
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        match self {
+            Value::Record { cols, .. } => cols.clone(),
+            _ => vec![],
+        }
     }
 }
 

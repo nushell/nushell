@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use std::fmt::Display;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Type {
     Int,
     Float,
@@ -16,9 +18,11 @@ pub enum Type {
     Number,
     Nothing,
     Record(Vec<String>, Vec<Type>),
+    Table,
     ValueStream,
     Unknown,
     Error,
+    Binary,
 }
 
 impl Display for Type {
@@ -34,6 +38,7 @@ impl Display for Type {
             Type::Int => write!(f, "int"),
             Type::Range => write!(f, "range"),
             Type::Record(cols, vals) => write!(f, "record<{}, {:?}>", cols.join(", "), vals),
+            Type::Table => write!(f, "table"),
             Type::List(l) => write!(f, "list<{}>", l),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
@@ -41,6 +46,7 @@ impl Display for Type {
             Type::ValueStream => write!(f, "value stream"),
             Type::Unknown => write!(f, "unknown"),
             Type::Error => write!(f, "error"),
+            Type::Binary => write!(f, "binary"),
         }
     }
 }

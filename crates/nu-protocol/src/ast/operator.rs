@@ -1,8 +1,9 @@
 use crate::Span;
 
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operator {
     Equal,
     NotEqual,
@@ -49,7 +50,7 @@ impl Display for Operator {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RangeInclusion {
     Inclusive,
     RightExclusive,
@@ -59,6 +60,7 @@ pub enum RangeInclusion {
 pub struct RangeOperator {
     pub inclusion: RangeInclusion,
     pub span: Span,
+    pub next_op_span: Span,
 }
 
 impl Display for RangeOperator {

@@ -1,6 +1,8 @@
 use crate::*;
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone)]
 pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
 
@@ -12,6 +14,12 @@ impl ValueStream {
                 .collect::<Vec<String>>()
                 .join(", ")
         )
+    }
+
+    pub fn collect_string(self) -> String {
+        self.map(|x: Value| x.collect_string())
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 
     pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
@@ -30,9 +38,28 @@ impl Iterator for ValueStream {
 
     fn next(&mut self) -> Option<Self::Item> {
         {
-            let mut iter = self.0.borrow_mut();
-            iter.next()
+            self.0.borrow_mut().next()
         }
+    }
+}
+
+impl Serialize for ValueStream {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // FIXME: implement these
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for ValueStream {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // FIXME: implement these
+        todo!()
     }
 }
 

@@ -133,7 +133,7 @@ fn if_elseif4() -> TestResult {
 fn no_scope_leak1() -> TestResult {
     fail_test(
         "if $false { let $x = 10 } else { let $x = 20 }; $x",
-        "variable not found",
+        "Variable not found",
     )
 }
 
@@ -215,6 +215,16 @@ fn block_param2() -> TestResult {
 }
 
 #[test]
+fn block_param3_list_iteration() -> TestResult {
+    run_test("[1,2,3] | each { $it + 10 }", "[11, 12, 13]")
+}
+
+#[test]
+fn block_param4_list_iteration() -> TestResult {
+    run_test("[1,2,3] | each { |y| $y + 10 }", "[11, 12, 13]")
+}
+
+#[test]
 fn range_iteration1() -> TestResult {
     run_test("1..4 | each { |y| $y + 10 }", "[11, 12, 13, 14]")
 }
@@ -256,6 +266,22 @@ fn build_string3() -> TestResult {
 }
 
 #[test]
+fn build_string4() -> TestResult {
+    run_test(
+        "['sam','rick','pete'] | each { build-string $it ' is studying'}",
+        "[sam is studying, rick is studying, pete is studying]",
+    )
+}
+
+#[test]
+fn build_string5() -> TestResult {
+    run_test(
+        "['sam','rick','pete'] | each { |x| build-string $x ' is studying'}",
+        "[sam is studying, rick is studying, pete is studying]",
+    )
+}
+
+#[test]
 fn cell_path_subexpr1() -> TestResult {
     run_test("([[lang, gems]; [nu, 100]]).lang", "[nu]")
 }
@@ -291,4 +317,82 @@ fn row_iteration() -> TestResult {
 #[test]
 fn record_iteration() -> TestResult {
     run_test("([[name, level]; [aa, 100], [bb, 200]] | each { $it | each { |x| if $x.column == \"level\" { $x.value + 100 } else { $x.value } } }).level", "[200, 300]")
+}
+
+#[test]
+fn row_condition1() -> TestResult {
+    run_test(
+        "([[name, size]; [a, 1], [b, 2], [c, 3]] | where size < 3).name",
+        "[a, b]",
+    )
+}
+
+#[test]
+fn row_condition2() -> TestResult {
+    run_test(
+        "[[name, size]; [a, 1], [b, 2], [c, 3]] | where $it.size > 2 | length",
+        "1",
+    )
+}
+
+#[test]
+fn better_block_types() -> TestResult {
+    run_test(
+        r#"([1, 2, 3] | each -n { $"($it.index) is ($it.item)" }).1"#,
+        "1 is 2",
+    )
+}
+
+#[test]
+fn module_imports_1() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
+        "1",
+    )
+}
+
+#[test]
+fn module_imports_2() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
+        "1",
+    )
+}
+
+#[test]
+fn module_imports_3() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.*; b"#,
+        "2",
+    )
+}
+
+#[test]
+fn module_imports_4() -> TestResult {
+    fail_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.c"#,
+        "not find import",
+    )
+}
+
+#[test]
+fn module_imports_5() -> TestResult {
+    run_test(
+        r#"module foo { def a [] { 1 }; def b [] { 2 }; def c [] { 3 } }; use foo.[a, c]; c"#,
+        "3",
+    )
+}
+
+#[test]
+fn from_json_1() -> TestResult {
+    run_test(r#"('{"name": "Fred"}' | from json).name"#, "Fred")
+}
+
+#[test]
+fn from_json_2() -> TestResult {
+    run_test(
+        r#"('{"name": "Fred"}
+                   {"name": "Sally"}' | from json -o).name.1"#,
+        "Sally",
+    )
 }
