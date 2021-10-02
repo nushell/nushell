@@ -57,6 +57,14 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::expected_keyword), url(docsrs))]
     ExpectedKeyword(String, #[label("expected {0}")] Span),
 
+    #[error("Unexpected keyword.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help("'export' keyword is allowed only in a module.")
+    )]
+    UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
+
     #[error("Multiple rest params.")]
     #[diagnostic(code(nu::parser::multiple_rest_params), url(docsrs))]
     MultipleRestParams(#[label = "multiple rest params"] Span),
@@ -68,6 +76,10 @@ pub enum ParseError {
     #[error("Module not found.")]
     #[diagnostic(code(nu::parser::module_not_found), url(docsrs))]
     ModuleNotFound(#[label = "module not found"] Span),
+
+    #[error("Duplicate command definition within a block.")]
+    #[diagnostic(code(nu::parser::duplicate_command_def), url(docsrs))]
+    DuplicateCommandDef(#[label = "defined more than once"] Span),
 
     #[error("Unknown command.")]
     #[diagnostic(

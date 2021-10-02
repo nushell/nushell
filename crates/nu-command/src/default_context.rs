@@ -19,12 +19,14 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Def));
         working_set.add_decl(Box::new(Do));
         working_set.add_decl(Box::new(Each));
+        working_set.add_decl(Box::new(ExportDef));
         working_set.add_decl(Box::new(External));
         working_set.add_decl(Box::new(For));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
         working_set.add_decl(Box::new(Get));
         working_set.add_decl(Box::new(Help));
+        working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
         working_set.add_decl(Box::new(Length));
         working_set.add_decl(Box::new(Let));

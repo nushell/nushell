@@ -346,7 +346,7 @@ fn better_block_types() -> TestResult {
 #[test]
 fn module_imports_1() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo.a"#,
         "1",
     )
 }
@@ -354,7 +354,7 @@ fn module_imports_1() -> TestResult {
 #[test]
 fn module_imports_2() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo.a; a"#,
         "1",
     )
 }
@@ -362,7 +362,7 @@ fn module_imports_2() -> TestResult {
 #[test]
 fn module_imports_3() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.*; b"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo.*; b"#,
         "2",
     )
 }
@@ -370,7 +370,7 @@ fn module_imports_3() -> TestResult {
 #[test]
 fn module_imports_4() -> TestResult {
     fail_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 } }; use foo.c"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo.c"#,
         "not find import",
     )
 }
@@ -378,8 +378,74 @@ fn module_imports_4() -> TestResult {
 #[test]
 fn module_imports_5() -> TestResult {
     run_test(
-        r#"module foo { def a [] { 1 }; def b [] { 2 }; def c [] { 3 } }; use foo.[a, c]; c"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 }; export def c [] { 3 } }; use foo.[a, c]; c"#,
         "3",
+    )
+}
+
+#[test]
+fn module_import_uses_internal_command() -> TestResult {
+    run_test(
+        r#"module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo.a"#,
+        "2",
+    )
+}
+
+#[test]
+fn hides_def() -> TestResult {
+    fail_test(r#"def foo [] { "foo" }; hide foo; foo"#, "not found")
+}
+
+#[test]
+fn hides_def_then_redefines() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; hide foo; def foo [] { "bar" }; foo"#,
+        "defined more than once",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_1() -> TestResult {
+    fail_test(r#"def foo [] { "foo" }; do { hide foo; foo }"#, "not found")
+}
+
+#[test]
+fn hides_def_in_scope_2() -> TestResult {
+    run_test(
+        r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; foo }"#,
+        "foo",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_3() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; do { hide foo; def foo [] { "bar" }; hide foo; foo }"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hides_def_in_scope_4() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; hide foo; foo }"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hide_twice_not_allowed() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; hide foo; hide foo"#,
+        "unknown command",
+    )
+}
+
+#[test]
+fn def_twice_should_fail() -> TestResult {
+    fail_test(
+        r#"def foo [] { "foo" }; def foo [] { "bar" }"#,
+        "defined more than once",
     )
 }
 

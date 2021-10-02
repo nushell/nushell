@@ -14,7 +14,7 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_let, parse_module, parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
 };
 
 #[derive(Debug, Clone)]
@@ -2619,6 +2619,11 @@ pub fn parse_statement(
         b"alias" => parse_alias(working_set, spans),
         b"module" => parse_module(working_set, spans),
         b"use" => parse_use(working_set, spans),
+        b"export" => (
+            garbage_statement(spans),
+            Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
+        ),
+        b"hide" => parse_hide(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
@@ -2635,15 +2640,17 @@ pub fn parse_block(
         working_set.enter_scope();
     }
 
+    let mut error = None;
+
     // Pre-declare any definition so that definitions
     // that share the same block can see each other
     for pipeline in &lite_block.block {
         if pipeline.commands.len() == 1 {
-            parse_def_predecl(working_set, &pipeline.commands[0].parts);
+            if let Some(err) = parse_def_predecl(working_set, &pipeline.commands[0].parts) {
+                error = error.or(Some(err));
+            }
         }
     }
-
-    let mut error = None;
 
     let block: Block = lite_block
         .block

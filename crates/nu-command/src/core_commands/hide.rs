@@ -2,19 +2,19 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{Signature, SyntaxShape, Value};
 
-pub struct Use;
+pub struct Hide;
 
-impl Command for Use {
+impl Command for Hide {
     fn name(&self) -> &str {
-        "use"
+        "hide"
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module"
+        "Hide definitions in the current scope"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").required("pattern", SyntaxShape::String, "import pattern")
+        Signature::build("hide").required("pattern", SyntaxShape::String, "import pattern")
     }
 
     fn run(

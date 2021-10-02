@@ -2,19 +2,26 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{Signature, SyntaxShape, Value};
 
-pub struct Use;
+pub struct ExportDef;
 
-impl Command for Use {
+impl Command for ExportDef {
     fn name(&self) -> &str {
-        "use"
+        "export def"
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module"
+        "Define a custom command and export it from a module"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").required("pattern", SyntaxShape::String, "import pattern")
+        Signature::build("export def")
+            .required("target", SyntaxShape::String, "definition name")
+            .required("params", SyntaxShape::Signature, "parameters")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![])),
+                "body of the definition",
+            )
     }
 
     fn run(
