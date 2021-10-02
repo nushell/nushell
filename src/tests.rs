@@ -417,3 +417,11 @@ fn select() -> TestResult {
         "b",
     )
 }
+
+#[test]
+fn string_cell_path() -> TestResult {
+    run_test(
+        r#"let x = "name"; [["name", "score"]; [a, b], [c, d]] | get $x | get 1"#,
+        "c",
+    )
+}

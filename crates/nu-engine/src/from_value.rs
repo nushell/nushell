@@ -1,7 +1,7 @@
 // use std::path::PathBuf;
 
 // use nu_path::expand_path;
-use nu_protocol::ast::CellPath;
+use nu_protocol::ast::{CellPath, PathMember};
 use nu_protocol::ShellError;
 use nu_protocol::{Range, Spanned, Value};
 
@@ -115,8 +115,15 @@ impl FromValue for ColumnPath {
 
 impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
             Value::CellPath { val, .. } => Ok(val.clone()),
+            Value::String { val, .. } => Ok(CellPath {
+                members: vec![PathMember::String {
+                    val: val.clone(),
+                    span,
+                }],
+            }),
             v => Err(ShellError::CantConvert("cell path".into(), v.span())),
         }
     }
