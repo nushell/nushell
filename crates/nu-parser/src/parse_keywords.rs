@@ -101,15 +101,20 @@ pub fn parse_def(
                     if let (Some(name), Some(mut signature), Some(block_id)) =
                         (&name, signature, block_id)
                     {
-                        let decl_id = working_set
-                            .find_decl(name.as_bytes())
-                            .expect("internal error: predeclaration failed to add definition");
+                        if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+                            let declaration = working_set.get_decl_mut(decl_id);
 
-                        let declaration = working_set.get_decl_mut(decl_id);
+                            signature.name = name.clone();
 
-                        signature.name = name.clone();
-
-                        *declaration = signature.into_block_command(block_id);
+                            *declaration = signature.into_block_command(block_id);
+                        } else {
+                            error = error.or_else(|| {
+                                Some(ParseError::UnknownState(
+                                    "Could not define hidden command".into(),
+                                    spans[1],
+                                ))
+                            });
+                        };
                     }
                 } else {
                     let err_span = Span {
