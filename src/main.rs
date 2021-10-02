@@ -1,19 +1,22 @@
-use std::io::Write;
+use std::{cell::RefCell, io::Write, rc::Rc};
 
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator};
+use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, EvaluationContext, StateWorkingSet},
+    engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
     ShellError, Value,
 };
-use reedline::DefaultCompletionActionHandler;
+use reedline::{DefaultPrompt, Prompt};
 
 #[cfg(test)]
 mod tests;
+
+// Name of environment variable where the prompt could be stored
+const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
@@ -63,7 +66,7 @@ fn main() -> Result<()> {
 
         Ok(())
     } else {
-        use reedline::{DefaultPrompt, FileBackedHistory, Reedline, Signal};
+        use reedline::{DefaultCompletionActionHandler, FileBackedHistory, Reedline, Signal};
 
         let completer = NuCompleter::new(engine_state.clone());
         let mut entry_num = 0;
@@ -84,13 +87,22 @@ fn main() -> Result<()> {
                 engine_state: engine_state.clone(),
             }));
 
-        let prompt = DefaultPrompt::new(1);
+        let default_prompt = DefaultPrompt::new(1);
+        let mut nu_prompt = NushellPrompt::new();
         let stack = nu_protocol::engine::Stack::new();
 
         loop {
+            let prompt = update_prompt(
+                PROMPT_COMMAND,
+                engine_state.clone(),
+                &stack,
+                &mut nu_prompt,
+                &default_prompt,
+            );
+
             entry_num += 1;
 
-            let input = line_editor.read_line(&prompt);
+            let input = line_editor.read_line(prompt);
             match input {
                 Ok(Signal::Success(s)) => {
                     if s.trim() == "exit" {
@@ -188,4 +200,63 @@ fn print_value(value: Value, state: &EvaluationContext) -> Result<(), ShellError
     };
 
     Ok(())
+}
+
+fn update_prompt<'prompt>(
+    env_variable: &str,
+    engine_state: Rc<RefCell<EngineState>>,
+    stack: &Stack,
+    nu_prompt: &'prompt mut NushellPrompt,
+    default_prompt: &'prompt DefaultPrompt,
+) -> &'prompt dyn Prompt {
+    let prompt_command = match stack.get_env_var(env_variable) {
+        Some(prompt) => prompt,
+        None => return default_prompt as &dyn Prompt,
+    };
+
+    // Checking if the PROMPT_COMMAND is the same to avoid evaluating constantly
+    // the same command, thus saturating the contents in the EngineState
+    if !nu_prompt.is_new_prompt(prompt_command.as_str()) {
+        return nu_prompt as &dyn Prompt;
+    }
+
+    let (block, delta) = {
+        let ref_engine_state = engine_state.borrow();
+        let mut working_set = StateWorkingSet::new(&ref_engine_state);
+        let (output, err) = parse(&mut working_set, None, prompt_command.as_bytes(), false);
+        if let Some(err) = err {
+            report_error(&working_set, &err);
+            return default_prompt as &dyn Prompt;
+        }
+        (output, working_set.render())
+    };
+
+    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+
+    let state = nu_protocol::engine::EvaluationContext {
+        engine_state: engine_state.clone(),
+        stack: stack.clone(),
+    };
+
+    let evaluated_prompt = match eval_block(&state, &block, Value::nothing()) {
+        Ok(value) => match value.as_string() {
+            Ok(prompt) => prompt,
+            Err(err) => {
+                let engine_state = engine_state.borrow();
+                let working_set = StateWorkingSet::new(&*engine_state);
+                report_error(&working_set, &err);
+                return default_prompt as &dyn Prompt;
+            }
+        },
+        Err(err) => {
+            let engine_state = engine_state.borrow();
+            let working_set = StateWorkingSet::new(&*engine_state);
+            report_error(&working_set, &err);
+            return default_prompt as &dyn Prompt;
+        }
+    };
+
+    nu_prompt.update_prompt(prompt_command, evaluated_prompt);
+
+    nu_prompt as &dyn Prompt
 }
