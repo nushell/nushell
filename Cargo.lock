@@ -2566,6 +2566,7 @@ dependencies = [
  "nu-engine",
  "nu-errors",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "nu-source",
  "nu-stream",
