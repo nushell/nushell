@@ -1,12 +1,7 @@
 use nu_parser::parse;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
-<<<<<<< HEAD
-use nu_protocol::engine::{EngineState, EvaluationContext, StateWorkingSet};
-use nu_protocol::{Range, ShellError, Span, Value};
-=======
 use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{Range, ShellError, Span, Type, Value};
->>>>>>> 3567bbbf32302dbc3cbf97a39b03efa3bd3e8bb5
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {

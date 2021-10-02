@@ -5,14 +5,11 @@ use nu_protocol::{
     Signature,
 };
 
-<<<<<<< HEAD
-use crate::{Alias, Benchmark, BuildString, Def, Do, Each, For, If, Length, Let, LetEnv, Source};
-=======
 use crate::{
     Alias, Benchmark, BuildString, Def, Do, Each, External, For, From, FromJson, Git, GitCheckout,
-    Help, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Ps, Sys, Table, Use, Where,
+    Help, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Ps, Source, Sys, Table, Use,
+    Where,
 };
->>>>>>> 3567bbbf32302dbc3cbf97a39b03efa3bd3e8bb5
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
     let engine_state = Rc::new(RefCell::new(EngineState::new()));

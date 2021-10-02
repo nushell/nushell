@@ -350,11 +350,6 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-<<<<<<< HEAD
-version = "0.2.102"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a5ac8f984bfcf3a823267e5fde638acc3325f6496633a5da6bb6eb2171e103"
-=======
 version = "0.2.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8f7255a17a627354f321ef0055d63b898c6fb27eff628af4d1b66b7331edf6"
@@ -368,7 +363,6 @@ dependencies = [
  "serde",
  "serde_test",
 ]
->>>>>>> 3567bbbf32302dbc3cbf97a39b03efa3bd3e8bb5
 
 [[package]]
 name = "lock_api"
@@ -405,9 +399,9 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b98aebb9d23c72cb22c089834ea59be059c6f462e844fd9fd18dd0168ad149c"
+checksum = "4786c5b04c6f73e96d88444e7f37e241d99479ea5dd88a4887363ab2e03b4e53"
 dependencies = [
  "atty",
  "backtrace",
@@ -424,9 +418,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a7cd3347eb52480d4ba59d71ce2b48b8b128034e17068c7e2ff3766c2e87a3"
+checksum = "0ee63a981bc9cde5f26665ffd756b624963bf0b5956e0df51e52ef8f6b5466d6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -504,11 +498,7 @@ version = "0.1.0"
 dependencies = [
  "glob",
  "nu-engine",
-<<<<<<< HEAD
- "nu-parser",
-=======
  "nu-json",
->>>>>>> 3567bbbf32302dbc3cbf97a39b03efa3bd3e8bb5
  "nu-protocol",
  "nu-table",
  "sysinfo",
@@ -812,7 +802,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/jntrnr/reedline?branch=main#93c2146fcf4257c40426bc2f0c6903d4115caaf1"
+source = "git+https://github.com/jntrnr/reedline?branch=main#bfddc5870ca2d8301694b4211bdcdb29e647c6f3"
 dependencies = [
  "chrono",
  "crossterm",
@@ -944,9 +934,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
 name = "smawk"
@@ -956,9 +946,9 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
 name = "supports-color"
-version = "1.1.1"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f5b0f9e689dd52e27228469dd68b7416b60d75b7571ae9060a5f4c50048fee"
+checksum = "3f3cef55878ee693bb9f6765515f52910ec20b776d222fce5d11fbb9f5368028"
 dependencies = [
  "atty",
  "is_ci",
@@ -975,9 +965,9 @@ dependencies = [
 
 [[package]]
 name = "supports-unicode"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5fa283a620b255940913bd962cda2e6320e3799041f96ac0d7191ff2b4622f"
+checksum = "a8b945e45b417b125a8ec51f1b7df2f8df7920367700d1f98aedd21e5735f8b2"
 dependencies = [
  "atty",
 ]

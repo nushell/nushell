@@ -9,14 +9,9 @@ edition = "2018"
 nu-engine = { path = "../nu-engine" }
 nu-json = { path = "../nu-json" }
 nu-protocol = { path = "../nu-protocol" }
-<<<<<<< HEAD
-nu-engine = { path = "../nu-engine" }
-nu-parser = {path = "../nu-parser"}
-=======
 nu-table = { path = "../nu-table" }
 
 # Potential dependencies for extras
 glob = "0.3.0"
 thiserror = "1.0.29"
 sysinfo = "0.20.4"
->>>>>>> 3567bbbf32302dbc3cbf97a39b03efa3bd3e8bb5
