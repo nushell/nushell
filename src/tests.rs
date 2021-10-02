@@ -395,7 +395,7 @@ fn module_import_uses_internal_command() -> TestResult {
 fn hides_def() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; hide foo; foo"#,
-        "command not found",
+        "not found",
     )
 }
 
@@ -411,7 +411,7 @@ fn hides_def_then_redefines() -> TestResult {
 fn hides_def_in_scope_1() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { hide foo; foo }"#,
-        "command not found",
+        "not found",
     )
 }
 
@@ -427,7 +427,7 @@ fn hides_def_in_scope_2() -> TestResult {
 fn hides_def_in_scope_3() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { hide foo; def foo [] { "bar" }; hide foo; foo }"#,
-        "command not found",
+        "not found",
     )
 }
 
@@ -435,7 +435,7 @@ fn hides_def_in_scope_3() -> TestResult {
 fn hides_def_in_scope_4() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; hide foo; foo }"#,
-        "command not found",
+        "not found",
     )
 }
 
