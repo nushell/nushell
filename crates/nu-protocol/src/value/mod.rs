@@ -191,7 +191,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
-            Value::CellPath { val, .. } => format!("{:?}", val),
+            Value::CellPath { val, .. } => val.into_string(),
         }
     }
 
@@ -223,7 +223,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
-            Value::CellPath { val, .. } => format!("{:?}", val),
+            Value::CellPath { .. } => self.into_string(),
         }
     }
 

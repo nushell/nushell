@@ -33,6 +33,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Ls));
         working_set.add_decl(Box::new(Module));
         working_set.add_decl(Box::new(Ps));
+        working_set.add_decl(Box::new(Select));
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Use));
