@@ -112,6 +112,10 @@ impl Stack {
         self.0.borrow().env_vars.clone()
     }
 
+    pub fn get_env_var(&self, name: &str) -> Option<String> {
+        self.0.borrow().env_vars.get(name).cloned()
+    }
+
     pub fn print_stack(&self) {
         println!("===frame===");
         println!("vars:");
