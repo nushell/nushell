@@ -581,6 +581,8 @@ pub fn parse_source(
                             //     None,
                             // );
                         }
+                    } else {
+                        // Source file couldn't be parsed correctly
                     }
                 }
             }

@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
 
 /// Source a file for environment variables.
 pub struct Source;
@@ -27,7 +29,7 @@ impl Command for Source {
         _context: &EvaluationContext,
         call: &Call,
         input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    ) -> Result<Value, ShellError> {
         Ok(Value::Nothing { span: call.head })
         // source(_context, call, input)
     }
