@@ -14,6 +14,14 @@ pub trait CallExt {
         context: &EvaluationContext,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
+
+    fn opt<T: FromValue>(
+        &self,
+        context: &EvaluationContext,
+        pos: usize,
+    ) -> Result<Option<T>, ShellError>;
+
+    fn req<T: FromValue>(&self, context: &EvaluationContext, pos: usize) -> Result<T, ShellError>;
 }
 
 impl CallExt for Call {
@@ -43,5 +51,30 @@ impl CallExt for Call {
         }
 
         Ok(output)
+    }
+
+    fn opt<T: FromValue>(
+        &self,
+        context: &EvaluationContext,
+        pos: usize,
+    ) -> Result<Option<T>, ShellError> {
+        if let Some(expr) = self.nth(pos) {
+            let result = eval_expression(context, &expr)?;
+            FromValue::from_value(&result).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn req<T: FromValue>(&self, context: &EvaluationContext, pos: usize) -> Result<T, ShellError> {
+        if let Some(expr) = self.nth(pos) {
+            let result = eval_expression(context, &expr)?;
+            FromValue::from_value(&result)
+        } else {
+            Err(ShellError::AccessBeyondEnd(
+                self.positional.len(),
+                self.head,
+            ))
+        }
     }
 }

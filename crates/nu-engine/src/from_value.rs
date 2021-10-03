@@ -1,6 +1,7 @@
 // use std::path::PathBuf;
 
 // use nu_path::expand_path;
+use nu_protocol::ast::{CellPath, PathMember};
 use nu_protocol::ShellError;
 use nu_protocol::{Range, Spanned, Value};
 
@@ -110,28 +111,32 @@ impl FromValue for ColumnPath {
     }
 }
 
-impl FromValue for bool {
+*/
+
+impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
+        let span = v.span();
         match v {
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Boolean(b)),
-                ..
-            } => Ok(*b),
-            Value {
-                value: UntaggedValue::Row(_),
-                ..
-            } => {
-                let mut shell_error = ShellError::type_error("boolean", v.spanned_type_name());
-                shell_error.notes.push(
-                    "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
-                );
-                Err(shell_error)
-            }
-            v => Err(ShellError::type_error("boolean", v.spanned_type_name())),
+            Value::CellPath { val, .. } => Ok(val.clone()),
+            Value::String { val, .. } => Ok(CellPath {
+                members: vec![PathMember::String {
+                    val: val.clone(),
+                    span,
+                }],
+            }),
+            v => Err(ShellError::CantConvert("cell path".into(), v.span())),
         }
     }
 }
-*/
+
+impl FromValue for bool {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Bool { val, .. } => Ok(*val),
+            v => Err(ShellError::CantConvert("bool".into(), v.span())),
+        }
+    }
+}
 
 impl FromValue for Spanned<bool> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {

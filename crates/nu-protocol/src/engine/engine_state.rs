@@ -1,7 +1,10 @@
 use super::Command;
 use crate::{ast::Block, BlockId, DeclId, Signature, Span, Type, VarId};
 use core::panic;
-use std::{collections::HashMap, slice::Iter};
+use std::{
+    collections::{HashMap, HashSet},
+    slice::Iter,
+};
 
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -18,6 +21,7 @@ pub struct ScopeFrame {
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
     modules: HashMap<Vec<u8>, BlockId>,
+    hiding: HashSet<DeclId>,
 }
 
 impl ScopeFrame {
@@ -27,6 +31,7 @@ impl ScopeFrame {
             decls: HashMap::new(),
             aliases: HashMap::new(),
             modules: HashMap::new(),
+            hiding: HashSet::new(),
         }
     }
 
@@ -81,6 +86,9 @@ impl EngineState {
             for item in first.modules.into_iter() {
                 last.modules.insert(item.0, item.1);
             }
+            for item in first.hiding.into_iter() {
+                last.hiding.insert(item);
+            }
         }
     }
 
@@ -124,9 +132,15 @@ impl EngineState {
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+        let mut hiding: HashSet<DeclId> = HashSet::new();
+
         for scope in self.scope.iter().rev() {
+            hiding.extend(&scope.hiding);
+
             if let Some(decl_id) = scope.decls.get(name) {
-                return Some(*decl_id);
+                if !hiding.contains(decl_id) {
+                    return Some(*decl_id);
+                }
             }
         }
 
@@ -238,9 +252,10 @@ pub struct StateWorkingSet<'a> {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
-    vars: Vec<Type>,              // indexed by VarId
-    decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    blocks: Vec<Block>,           // indexed by BlockId
+    vars: Vec<Type>,                    // indexed by VarId
+    decls: Vec<Box<dyn Command>>,       // indexed by DeclId
+    blocks: Vec<Block>,                 // indexed by BlockId
+    predecls: HashMap<Vec<u8>, DeclId>, // this should get erased after every def call
     pub scope: Vec<ScopeFrame>,
 }
 
@@ -274,6 +289,7 @@ impl<'a> StateWorkingSet<'a> {
                 file_contents: vec![],
                 vars: vec![],
                 decls: vec![],
+                predecls: HashMap::new(),
                 blocks: vec![],
                 scope: vec![ScopeFrame::new()],
             },
@@ -304,9 +320,69 @@ impl<'a> StateWorkingSet<'a> {
             .scope
             .last_mut()
             .expect("internal error: missing required scope frame");
+
         scope_frame.decls.insert(name, decl_id);
 
         decl_id
+    }
+
+    pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
+        let name = decl.name().as_bytes().to_vec();
+
+        self.delta.decls.push(decl);
+        let decl_id = self.num_decls() - 1;
+
+        self.delta.predecls.insert(name, decl_id)
+    }
+
+    pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
+        if let Some(decl_id) = self.delta.predecls.remove(name) {
+            let scope_frame = self
+                .delta
+                .scope
+                .last_mut()
+                .expect("internal error: missing required scope frame");
+
+            scope_frame.decls.insert(name.into(), decl_id);
+
+            return Some(decl_id);
+        }
+
+        None
+    }
+
+    pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
+        let mut hiding: HashSet<DeclId> = HashSet::new();
+
+        // Since we can mutate scope frames in delta, remove the id directly
+        for scope in self.delta.scope.iter_mut().rev() {
+            hiding.extend(&scope.hiding);
+
+            if let Some(decl_id) = scope.decls.remove(name) {
+                return Some(decl_id);
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current scope frame
+        let last_scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            hiding.extend(&scope.hiding);
+
+            if let Some(decl_id) = scope.decls.get(name) {
+                if !hiding.contains(decl_id) {
+                    // Do not hide already hidden decl
+                    last_scope_frame.hiding.insert(*decl_id);
+                    return Some(*decl_id);
+                }
+            }
+        }
+
+        None
     }
 
     pub fn add_block(&mut self, block: Block) -> BlockId {
@@ -416,15 +492,27 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
+        let mut hiding: HashSet<DeclId> = HashSet::new();
+
+        if let Some(decl_id) = self.delta.predecls.get(name) {
+            return Some(*decl_id);
+        }
+
         for scope in self.delta.scope.iter().rev() {
+            hiding.extend(&scope.hiding);
+
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
             }
         }
 
         for scope in self.permanent_state.scope.iter().rev() {
+            hiding.extend(&scope.hiding);
+
             if let Some(decl_id) = scope.decls.get(name) {
-                return Some(*decl_id);
+                if !hiding.contains(decl_id) {
+                    return Some(*decl_id);
+                }
             }
         }
 

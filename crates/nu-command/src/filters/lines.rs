@@ -62,7 +62,7 @@ impl Command for Lines {
                                 .filter_map(|s| {
                                     if !s.is_empty() {
                                         Some(Value::String {
-                                            val: s.trim().into(),
+                                            val: s.into(),
                                             span,
                                         })
                                     } else {

@@ -499,6 +499,7 @@ dependencies = [
  "glob",
  "nu-engine",
  "nu-json",
+ "nu-path",
  "nu-protocol",
  "nu-table",
  "sysinfo",

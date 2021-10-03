@@ -5,11 +5,7 @@ use nu_protocol::{
     Signature,
 };
 
-use crate::{
-    Alias, Benchmark, BuildString, Def, Do, Each, External, For, From, FromJson, Git, GitCheckout,
-    Help, If, Length, Let, LetEnv, Lines, ListGitBranches, Ls, Module, Ps, Source, Sys, Table, Use,
-    Where,
-};
+use crate::*;
 
 pub fn create_default_context() -> Rc<RefCell<EngineState>> {
     let engine_state = Rc::new(RefCell::new(EngineState::new()));
@@ -20,14 +16,18 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Alias));
         working_set.add_decl(Box::new(Benchmark));
         working_set.add_decl(Box::new(BuildString));
+        working_set.add_decl(Box::new(Cd));
         working_set.add_decl(Box::new(Def));
         working_set.add_decl(Box::new(Do));
         working_set.add_decl(Box::new(Each));
+        working_set.add_decl(Box::new(ExportDef));
         working_set.add_decl(Box::new(External));
         working_set.add_decl(Box::new(For));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
+        working_set.add_decl(Box::new(Get));
         working_set.add_decl(Box::new(Help));
+        working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
         working_set.add_decl(Box::new(Length));
         working_set.add_decl(Box::new(Let));
@@ -36,10 +36,12 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Ls));
         working_set.add_decl(Box::new(Module));
         working_set.add_decl(Box::new(Ps));
+        working_set.add_decl(Box::new(Select));
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Use));
         working_set.add_decl(Box::new(Where));
+        working_set.add_decl(Box::new(Wrap));
 
         // This is a WIP proof of concept
         working_set.add_decl(Box::new(ListGitBranches));

@@ -63,8 +63,8 @@ impl Command for Ls {
                                     } else {
                                         Value::Nothing { span: call_span }
                                     },
-                                    Value::Int {
-                                        val: filesize as i64,
+                                    Value::Filesize {
+                                        val: filesize,
                                         span: call_span,
                                     },
                                 ],

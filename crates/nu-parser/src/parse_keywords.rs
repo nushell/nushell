@@ -14,8 +14,15 @@ use crate::{
     ParseError,
 };
 
-pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
+pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> Option<ParseError> {
     let name = working_set.get_span_contents(spans[0]);
+
+    // handle "export def" same as "def"
+    let (name, spans) = if name == b"export" && spans.len() >= 2 {
+        (working_set.get_span_contents(spans[1]), &spans[1..])
+    } else {
+        (name, spans)
+    };
 
     if name == b"def" && spans.len() >= 4 {
         let (name_expr, ..) = parse_string(working_set, spans[1]);
@@ -36,9 +43,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
             signature.name = name;
             let decl = signature.predeclare();
 
-            working_set.add_decl(decl);
+            if working_set.add_predecl(decl).is_some() {
+                return Some(ParseError::DuplicateCommandDef(spans[1]));
+            }
         }
     }
+
+    None
 }
 
 pub fn parse_def(
@@ -89,17 +100,22 @@ pub fn parse_def(
                     call.positional.push(block);
 
                     if let (Some(name), Some(mut signature), Some(block_id)) =
-                        (name, signature, block_id)
+                        (&name, signature, block_id)
                     {
-                        let decl_id = working_set
-                            .find_decl(name.as_bytes())
-                            .expect("internal error: predeclaration failed to add definition");
+                        if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+                            let declaration = working_set.get_decl_mut(decl_id);
 
-                        let declaration = working_set.get_decl_mut(decl_id);
+                            signature.name = name.clone();
 
-                        signature.name = name;
-
-                        *declaration = signature.into_block_command(block_id);
+                            *declaration = signature.into_block_command(block_id);
+                        } else {
+                            error = error.or_else(|| {
+                                Some(ParseError::UnknownState(
+                                    "Could not define hidden command".into(),
+                                    spans[1],
+                                ))
+                            });
+                        };
                     }
                 } else {
                     let err_span = Span {
@@ -111,6 +127,19 @@ pub fn parse_def(
                         .or_else(|| Some(ParseError::MissingPositional("block".into(), err_span)));
                 }
                 working_set.exit_scope();
+
+                if let Some(name) = name {
+                    // It's OK if it returns None: The decl was already merged in previous parse
+                    // pass.
+                    working_set.merge_predecl(name.as_bytes());
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::UnknownState(
+                            "Could not get string from string expression".into(),
+                            *name_span,
+                        ))
+                    });
+                }
 
                 call
             } else {
@@ -219,6 +248,71 @@ pub fn parse_alias(
     )
 }
 
+pub fn parse_export(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    if bytes == b"export" && spans.len() >= 3 {
+        let export_name = working_set.get_span_contents(spans[1]);
+
+        match export_name {
+            b"def" => {
+                let (stmt, err) = parse_def(working_set, &spans[1..]);
+
+                let export_def_decl_id = working_set
+                    .find_decl(b"export def")
+                    .expect("internal error: missing 'export def' command");
+
+                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
+                let stmt = if let Statement::Pipeline(ref pipe) = stmt {
+                    if !pipe.expressions.is_empty() {
+                        if let Expr::Call(ref call) = pipe.expressions[0].expr {
+                            let mut call = call.clone();
+
+                            call.head = span(&spans[0..=1]);
+                            call.decl_id = export_def_decl_id;
+
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: span(spans),
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            }]))
+                        } else {
+                            stmt
+                        }
+                    } else {
+                        stmt
+                    }
+                } else {
+                    stmt
+                };
+
+                (stmt, err)
+            }
+            _ => (
+                garbage_statement(spans),
+                Some(ParseError::Expected(
+                    // TODO: Fill in more as they come
+                    "def keyword".into(),
+                    spans[1],
+                )),
+            ),
+        }
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                // TODO: fill in more as they come
+                "Expected structure: export def [] {}".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -308,15 +402,21 @@ pub fn parse_module(
                         b"def" => {
                             let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
 
+                            (stmt, err)
+                        }
+                        b"export" => {
+                            let (stmt, err) =
+                                parse_export(working_set, &pipeline.commands[0].parts);
+
                             if err.is_none() {
                                 let decl_name =
-                                    working_set.get_span_contents(pipeline.commands[0].parts[1]);
+                                    // parts[2] is safe since it's checked in parse_def already
+                                    working_set.get_span_contents(pipeline.commands[0].parts[2]);
 
                                 let decl_id = working_set
                                     .find_decl(decl_name)
                                     .expect("internal error: failed to find added declaration");
 
-                                // TODO: Later, we want to put this behind 'export'
                                 exports.push((decl_name.into(), decl_id));
                             }
 
@@ -325,7 +425,8 @@ pub fn parse_module(
                         _ => (
                             garbage_statement(&pipeline.commands[0].parts),
                             Some(ParseError::Expected(
-                                "def".into(),
+                                // TODO: Fill in more as they com
+                                "def or export keyword".into(),
                                 pipeline.commands[0].parts[0],
                             )),
                         ),
@@ -394,8 +495,6 @@ pub fn parse_use(
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
-    // TODO: Currently, this directly imports the module's definitions into the current scope.
-    // Later, we want to put them behind the module's name and add selective importing
     if bytes == b"use" && spans.len() >= 2 {
         let (module_name_expr, err) = parse_string(working_set, spans[1]);
         error = error.or(err);
@@ -404,8 +503,6 @@ pub fn parse_use(
         error = error.or(err);
 
         let exports = if let Some(block_id) = working_set.find_module(&import_pattern.head) {
-            // TODO: Since we don't use the Block at all, we might just as well create a separate
-            // Module that holds only the exports, without having Blocks in the way.
             working_set.get_block(block_id).exports.clone()
         } else {
             return (
@@ -487,6 +584,57 @@ pub fn parse_use(
             garbage_statement(spans),
             Some(ParseError::UnknownState(
                 "Expected structure: use <name>".into(),
+                span(spans),
+            )),
+        )
+    }
+}
+
+pub fn parse_hide(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let mut error = None;
+    let bytes = working_set.get_span_contents(spans[0]);
+
+    if bytes == b"hide" && spans.len() >= 2 {
+        let (name_expr, err) = parse_string(working_set, spans[1]);
+        error = error.or(err);
+
+        let name_bytes: Vec<u8> = working_set.get_span_contents(spans[1]).into();
+
+        // TODO: Do the import pattern stuff for bulk-hiding
+
+        if working_set.hide_decl(&name_bytes).is_none() {
+            error = error.or_else(|| Some(ParseError::UnknownCommand(spans[1])));
+        }
+
+        // Create the Hide command call
+        let hide_decl_id = working_set
+            .find_decl(b"hide")
+            .expect("internal error: missing hide command");
+
+        let call = Box::new(Call {
+            head: spans[0],
+            decl_id: hide_decl_id,
+            positional: vec![name_expr],
+            named: vec![],
+        });
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: span(spans),
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            error,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "Expected structure: hide <name>".into(),
                 span(spans),
             )),
         )
