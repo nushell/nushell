@@ -1320,6 +1320,68 @@ pub fn parse_full_cell_path(
     }
 }
 
+pub fn parse_filepath(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    {
+        &bytes[1..(bytes.len() - 1)]
+    } else {
+        bytes
+    };
+
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        (
+            Expression {
+                expr: Expr::Filepath(token),
+                span,
+                ty: Type::String,
+                custom_completion: None,
+            },
+            None,
+        )
+    } else {
+        (
+            garbage(span),
+            Some(ParseError::Expected("string".into(), span)),
+        )
+    }
+}
+
+pub fn parse_glob_pattern(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    {
+        &bytes[1..(bytes.len() - 1)]
+    } else {
+        bytes
+    };
+
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        (
+            Expression {
+                expr: Expr::GlobPattern(token),
+                span,
+                ty: Type::String,
+                custom_completion: None,
+            },
+            None,
+        )
+    } else {
+        (
+            garbage(span),
+            Some(ParseError::Expected("string".into(), span)),
+        )
+    }
+}
+
 pub fn parse_string(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -1364,7 +1426,7 @@ pub fn parse_shape_name(
         b"number" => SyntaxShape::Number,
         b"range" => SyntaxShape::Range,
         b"int" => SyntaxShape::Int,
-        b"path" => SyntaxShape::FilePath,
+        b"path" => SyntaxShape::Filepath,
         b"glob" => SyntaxShape::GlobPattern,
         b"block" => SyntaxShape::Block(None), //FIXME
         b"cond" => SyntaxShape::RowCondition,
@@ -2320,9 +2382,9 @@ pub fn parse_value(
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
         SyntaxShape::Range => parse_range(working_set, span),
-        SyntaxShape::String | SyntaxShape::GlobPattern | SyntaxShape::FilePath => {
-            parse_string(working_set, span)
-        }
+        SyntaxShape::Filepath => parse_filepath(working_set, span),
+        SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
+        SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Block(_) => {
             if bytes.starts_with(b"{") {
                 parse_block_expression(working_set, shape, span)

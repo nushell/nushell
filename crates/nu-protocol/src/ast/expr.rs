@@ -23,6 +23,8 @@ pub enum Expr {
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Keyword(Vec<u8>, Span, Box<Expression>),
+    Filepath(String),
+    GlobPattern(String),
     String(String), // FIXME: improve this in the future?
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),

@@ -15,6 +15,8 @@ pub enum FlatShape {
     Operator,
     Signature,
     String,
+    Filepath,
+    GlobPattern,
     Variable,
     Custom(String),
 }
@@ -118,7 +120,12 @@ pub fn flatten_expression(
         Expr::Bool(_) => {
             vec![(expr.span, FlatShape::Bool)]
         }
-
+        Expr::Filepath(_) => {
+            vec![(expr.span, FlatShape::Filepath)]
+        }
+        Expr::GlobPattern(_) => {
+            vec![(expr.span, FlatShape::GlobPattern)]
+        }
         Expr::List(list) => {
             let mut output = vec![];
             for l in list {

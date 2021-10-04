@@ -240,6 +240,14 @@ pub fn eval_expression(
             val: s.clone(),
             span: expr.span,
         }),
+        Expr::Filepath(s) => Ok(Value::String {
+            val: s.clone(),
+            span: expr.span,
+        }),
+        Expr::GlobPattern(s) => Ok(Value::String {
+            val: s.clone(),
+            span: expr.span,
+        }),
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
     }
