@@ -600,12 +600,90 @@ pub fn parse_hide(
         let (name_expr, err) = parse_string(working_set, spans[1]);
         error = error.or(err);
 
-        let name_bytes: Vec<u8> = working_set.get_span_contents(spans[1]).into();
+        let (import_pattern, err) = parse_import_pattern(working_set, spans[1]);
+        error = error.or(err);
 
-        // TODO: Do the import pattern stuff for bulk-hiding
+        let exported_names: Vec<Vec<u8>> =
+            if let Some(block_id) = working_set.find_module(&import_pattern.head) {
+                working_set
+                    .get_block(block_id)
+                    .exports
+                    .iter()
+                    .map(|(name, _)| name.clone())
+                    .collect()
+            } else if import_pattern.members.is_empty() {
+                // The pattern head can be e.g. a function name, not just a module
+                vec![import_pattern.head.clone()]
+            } else {
+                return (
+                    garbage_statement(spans),
+                    Some(ParseError::ModuleNotFound(spans[1])),
+                );
+            };
 
-        if working_set.hide_decl(&name_bytes).is_none() {
-            error = error.or_else(|| Some(ParseError::UnknownCommand(spans[1])));
+        // This kind of inverts the import pattern matching found in parse_use()
+        let names_to_hide = if import_pattern.members.is_empty() {
+            exported_names
+        } else {
+            match &import_pattern.members[0] {
+                ImportPatternMember::Glob { .. } => exported_names
+                    .into_iter()
+                    .map(|name| {
+                        let mut new_name = import_pattern.head.to_vec();
+                        new_name.push(b'.');
+                        new_name.extend(&name);
+                        new_name
+                    })
+                    .collect(),
+                ImportPatternMember::Name { name, span } => {
+                    let new_exports: Vec<Vec<u8>> = exported_names
+                        .into_iter()
+                        .filter(|n| n == name)
+                        .map(|n| {
+                            let mut new_name = import_pattern.head.to_vec();
+                            new_name.push(b'.');
+                            new_name.extend(&n);
+                            new_name
+                        })
+                        .collect();
+
+                    if new_exports.is_empty() {
+                        error = error.or(Some(ParseError::ExportNotFound(*span)))
+                    }
+
+                    new_exports
+                }
+                ImportPatternMember::List { names } => {
+                    let mut output = vec![];
+
+                    for (name, span) in names {
+                        let mut new_exports: Vec<Vec<u8>> = exported_names
+                            .iter()
+                            .filter_map(|n| if n == name { Some(n.clone()) } else { None })
+                            .map(|n| {
+                                let mut new_name = import_pattern.head.to_vec();
+                                new_name.push(b'.');
+                                new_name.extend(n);
+                                new_name
+                            })
+                            .collect();
+
+                        if new_exports.is_empty() {
+                            error = error.or(Some(ParseError::ExportNotFound(*span)))
+                        } else {
+                            output.append(&mut new_exports)
+                        }
+                    }
+
+                    output
+                }
+            }
+        };
+
+        for name in names_to_hide {
+            if working_set.hide_decl(&name).is_none() {
+                error = error.or_else(|| Some(ParseError::UnknownCommand(spans[1])));
+            }
         }
 
         // Create the Hide command call
