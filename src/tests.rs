@@ -489,6 +489,15 @@ fn def_twice_should_fail() -> TestResult {
     )
 }
 
+// TODO: This test fails if executed each command on a separate line in REPL
+#[test]
+fn use_import_after_hide() -> TestResult {
+    run_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; use spam.foo; foo"#,
+        "foo"
+    )
+}
+
 #[test]
 fn from_json_1() -> TestResult {
     run_test(r#"('{"name": "Fred"}' | from json).name"#, "Fred")
