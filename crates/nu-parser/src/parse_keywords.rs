@@ -611,16 +611,14 @@ pub fn parse_hide(
                     .iter()
                     .map(|(name, _)| name.clone())
                     .collect()
+            } else if import_pattern.members.is_empty() {
+                // The pattern head can be e.g. a function name, not just a module
+                vec![import_pattern.head.clone()]
             } else {
-                if import_pattern.members.is_empty() {
-                    // The pattern head can be e.g. a function name, not just a module
-                    vec![import_pattern.head.clone()]
-                } else {
-                    return (
-                        garbage_statement(spans),
-                        Some(ParseError::ModuleNotFound(spans[1])),
-                    );
-                }
+                return (
+                    garbage_statement(spans),
+                    Some(ParseError::ModuleNotFound(spans[1])),
+                );
             };
 
         // This kind of inverts the import pattern matching found in parse_use()
