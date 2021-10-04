@@ -28,7 +28,7 @@ impl Command for Cd {
 
         let path = match path {
             Some(path) => {
-                let path = nu_path::expand_tilde(path);
+                let path = nu_path::expand_path(path);
                 path.to_string_lossy().to_string()
             }
             None => {
