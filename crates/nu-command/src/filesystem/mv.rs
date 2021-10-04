@@ -19,26 +19,16 @@ impl Command for Mv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .optional(
+            .required(
                 "source",
                 SyntaxShape::GlobPattern,
                 "the location to move files/directories from",
             )
-            .optional(
+            .required(
                 "destination",
                 SyntaxShape::FilePath,
                 "the location to move files/directories to",
             )
-        // .required(
-        //     "source",
-        //     SyntaxShape::GlobPattern,
-        //     "the location to move files/directories from",
-        // )
-        // .required(
-        //     "destination",
-        //     SyntaxShape::FilePath,
-        //     "the location to move files/directories to",
-        // )
     }
 
     fn run(
