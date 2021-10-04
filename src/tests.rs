@@ -445,7 +445,7 @@ fn hide_twice_not_allowed() -> TestResult {
 fn hides_import_1() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.foo; foo"#,
-        "not found"
+        "not found",
     )
 }
 
@@ -453,7 +453,7 @@ fn hides_import_1() -> TestResult {
 fn hides_import_2() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.*; foo"#,
-        "not found"
+        "not found",
     )
 }
 
@@ -461,7 +461,7 @@ fn hides_import_2() -> TestResult {
 fn hides_import_3() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.[foo]; foo"#,
-        "not found"
+        "not found",
     )
 }
 
@@ -469,7 +469,7 @@ fn hides_import_3() -> TestResult {
 fn hides_import_4() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; foo"#,
-        "not found"
+        "not found",
     )
 }
 
@@ -477,7 +477,7 @@ fn hides_import_4() -> TestResult {
 fn hides_import_5() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.*; hide foo; foo"#,
-        "not found"
+        "not found",
     )
 }
 
@@ -494,7 +494,7 @@ fn def_twice_should_fail() -> TestResult {
 fn use_import_after_hide() -> TestResult {
     run_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; use spam.foo; foo"#,
-        "foo"
+        "foo",
     )
 }
 
