@@ -31,7 +31,14 @@ impl Command for Ls {
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let pattern = if let Some(expr) = call.positional.get(0) {
             let result = eval_expression(context, expr)?;
-            result.as_string()?
+            let mut result = result.as_string()?;
+
+            let path = std::path::Path::new(&result);
+            if path.is_dir() {
+                result.push('*');
+            }
+
+            result
         } else {
             "*".into()
         };

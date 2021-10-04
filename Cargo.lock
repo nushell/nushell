@@ -487,6 +487,7 @@ dependencies = [
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "reedline",
  "thiserror",

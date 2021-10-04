@@ -28,7 +28,7 @@ pub enum SyntaxShape {
     Int,
 
     /// A filepath is allowed
-    FilePath,
+    Filepath,
 
     /// A glob pattern is allowed, eg `foo*`
     GlobPattern,
@@ -86,7 +86,7 @@ impl SyntaxShape {
             SyntaxShape::Custom(custom, _) => custom.to_type(),
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
-            SyntaxShape::FilePath => Type::String,
+            SyntaxShape::Filepath => Type::String,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Unknown,
             SyntaxShape::GlobPattern => Type::String,
