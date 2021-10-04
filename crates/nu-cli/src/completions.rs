@@ -30,8 +30,6 @@ impl Completer for NuCompleter {
 
         let flattened = flatten_block(&working_set, &output);
 
-        // println!("flattened: {:?}", flattened);
-
         for flat in flattened {
             if pos >= flat.0.start && pos <= flat.0.end {
                 match &flat.1 {
@@ -84,7 +82,9 @@ impl Completer for NuCompleter {
                             })
                             .collect();
                     }
-                    nu_parser::FlatShape::Filepath | nu_parser::FlatShape::GlobPattern => {
+                    nu_parser::FlatShape::Filepath
+                    | nu_parser::FlatShape::GlobPattern
+                    | nu_parser::FlatShape::ExternalArg => {
                         let prefix = working_set.get_span_contents(flat.0);
                         let prefix = String::from_utf8_lossy(prefix).to_string();
 
