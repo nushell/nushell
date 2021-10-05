@@ -15,11 +15,18 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("select").rest(
-            "rest",
-            SyntaxShape::ColumnPath,
-            "the columns to select from the table",
-        )
+        Signature::build("select")
+            .named(
+                "columns",
+                SyntaxShape::Table,
+                "Optionally operate by column path",
+                Some('c'),
+            )
+            .rest(
+                "rest",
+                SyntaxShape::ColumnPath,
+                "the columns to select from the table",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -27,10 +34,10 @@ impl WholeStreamCommand for Command {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        let columns: Vec<ColumnPath> = args.rest(0)?;
+        let mut columns = args.rest(0)?;
+        columns.extend(column_paths_from_args(&args)?);
         let input = args.input;
         let name = args.call_info.name_tag;
-
         select(name, columns, input)
     }
 
@@ -46,8 +53,49 @@ impl WholeStreamCommand for Command {
                 example: "ls | select name size",
                 result: None,
             },
+            Example {
+                description: "Select columns dynamically",
+                example: "[[a b]; [1 2]] | select -c [a]",
+                result: Some(vec![UntaggedValue::row(indexmap! {
+                    "a".to_string() => UntaggedValue::int(1).into(),
+                })
+                .into()]),
+            },
         ]
     }
+}
+
+fn column_paths_from_args(args: &CommandArgs) -> Result<Vec<ColumnPath>, ShellError> {
+    let column_paths: Option<Vec<Value>> = args.get_flag("columns")?;
+    let has_columns = column_paths.is_some();
+    let column_paths = match column_paths {
+        Some(cols) => {
+            let mut c = Vec::new();
+            for col in cols {
+                let colpath = ColumnPath::build(&col.convert_to_string().spanned_unknown());
+                if !colpath.is_empty() {
+                    c.push(colpath)
+                }
+            }
+            c
+        }
+        None => Vec::new(),
+    };
+
+    if has_columns && column_paths.is_empty() {
+        let colval: Option<Value> = args.get_flag("columns")?;
+        let colspan = match colval {
+            Some(v) => v.tag.span,
+            None => Span::unknown(),
+        };
+        return Err(ShellError::labeled_error(
+            "Requires a list of columns",
+            "must be a list of columns",
+            colspan,
+        ));
+    }
+
+    Ok(column_paths)
 }
 
 fn select(
