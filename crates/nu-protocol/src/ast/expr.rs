@@ -1,5 +1,5 @@
 use super::{Call, CellPath, Expression, FullCellPath, Operator, RangeOperator};
-use crate::{BlockId, Signature, Span, VarId};
+use crate::{BlockId, Signature, Span, Spanned, Unit, VarId};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -23,6 +23,7 @@ pub enum Expr {
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Keyword(Vec<u8>, Span, Box<Expression>),
+    ValueWithUnit(Box<Expression>, Spanned<Unit>),
     Filepath(String),
     GlobPattern(String),
     String(String), // FIXME: improve this in the future?

@@ -1,11 +1,15 @@
 mod range;
 mod row;
 mod stream;
+mod unit;
 
+use chrono::{DateTime, FixedOffset};
+use chrono_humanize::HumanTime;
 pub use range::*;
 pub use row::*;
 use serde::{Deserialize, Serialize};
 pub use stream::*;
+pub use unit::*;
 
 use std::fmt::Debug;
 
@@ -26,11 +30,15 @@ pub enum Value {
         span: Span,
     },
     Filesize {
-        val: u64,
+        val: i64,
         span: Span,
     },
     Duration {
-        val: u64,
+        val: i64,
+        span: Span,
+    },
+    Date {
+        val: DateTime<FixedOffset>,
         span: Span,
     },
     Range {
@@ -95,6 +103,7 @@ impl Value {
             Value::Float { span, .. } => *span,
             Value::Filesize { span, .. } => *span,
             Value::Duration { span, .. } => *span,
+            Value::Date { span, .. } => *span,
             Value::Range { span, .. } => *span,
             Value::String { span, .. } => *span,
             Value::Record { span, .. } => *span,
@@ -115,6 +124,7 @@ impl Value {
             Value::Float { span, .. } => *span = new_span,
             Value::Filesize { span, .. } => *span = new_span,
             Value::Duration { span, .. } => *span = new_span,
+            Value::Date { span, .. } => *span = new_span,
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
@@ -138,6 +148,7 @@ impl Value {
             Value::Float { .. } => Type::Float,
             Value::Filesize { .. } => Type::Filesize,
             Value::Duration { .. } => Type::Duration,
+            Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
             Value::Record { cols, vals, .. } => {
@@ -159,8 +170,9 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format!("{} bytes", val),
-            Value::Duration { val, .. } => format!("{} ns", val),
+            Value::Filesize { val, .. } => format_filesize(val),
+            Value::Duration { val, .. } => format_duration(val),
+            Value::Date { val, .. } => HumanTime::from(val).to_string(),
             Value::Range { val, .. } => {
                 format!(
                     "range: [{}]",
@@ -202,6 +214,7 @@ impl Value {
             Value::Float { val, .. } => val.to_string(),
             Value::Filesize { val, .. } => format!("{} bytes", val),
             Value::Duration { val, .. } => format!("{} ns", val),
+            Value::Date { val, .. } => format!("{:?}", val),
             Value::Range { val, .. } => val
                 .into_iter()
                 .map(|x| x.into_string())
@@ -390,6 +403,18 @@ impl Value {
                 val: lhs.to_string() + rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: *lhs + *rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: *lhs + *rhs,
+                    span,
+                })
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -420,6 +445,18 @@ impl Value {
                 val: lhs - rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: *lhs - *rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: *lhs - *rhs,
+                    span,
+                })
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -541,6 +578,19 @@ impl Value {
                 val: lhs < rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs < rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs < rhs,
+                    span,
+                })
+            }
+
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -570,6 +620,18 @@ impl Value {
                 val: lhs <= rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs <= rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs <= rhs,
+                    span,
+                })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -599,6 +661,18 @@ impl Value {
                 val: lhs > rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs > rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs > rhs,
+                    span,
+                })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -628,6 +702,18 @@ impl Value {
                 val: lhs >= rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs >= rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs >= rhs,
+                    span,
+                })
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -664,6 +750,18 @@ impl Value {
                 val: lhs == rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs == rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs == rhs,
+                    span,
+                })
+            }
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
                 val: lhs == rhs,
                 span,
@@ -719,6 +817,18 @@ impl Value {
                 val: lhs != rhs,
                 span,
             }),
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs != rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: lhs != rhs,
+                    span,
+                })
+            }
             (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
                 val: lhs != rhs,
                 span,
@@ -747,5 +857,71 @@ impl Value {
                 rhs_span: rhs.span(),
             }),
         }
+    }
+}
+
+/// Format a duration in nanoseconds into a string
+pub fn format_duration(duration: i64) -> String {
+    let (sign, duration) = if duration >= 0 {
+        (1, duration)
+    } else {
+        (-1, -duration)
+    };
+    let (micros, nanos): (i64, i64) = (duration / 1000, duration % 1000);
+    let (millis, micros): (i64, i64) = (micros / 1000, micros % 1000);
+    let (secs, millis): (i64, i64) = (millis / 1000, millis % 1000);
+    let (mins, secs): (i64, i64) = (secs / 60, secs % 60);
+    let (hours, mins): (i64, i64) = (mins / 60, mins % 60);
+    let (days, hours): (i64, i64) = (hours / 24, hours % 24);
+
+    let mut output_prep = vec![];
+
+    if days != 0 {
+        output_prep.push(format!("{}day", days));
+    }
+
+    if hours != 0 {
+        output_prep.push(format!("{}hr", hours));
+    }
+
+    if mins != 0 {
+        output_prep.push(format!("{}min", mins));
+    }
+    // output 0sec for zero duration
+    if duration == 0 || secs != 0 {
+        output_prep.push(format!("{}sec", secs));
+    }
+
+    if millis != 0 {
+        output_prep.push(format!("{}ms", millis));
+    }
+
+    if micros != 0 {
+        output_prep.push(format!("{}us", micros));
+    }
+
+    if nanos != 0 {
+        output_prep.push(format!("{}ns", nanos));
+    }
+
+    format!(
+        "{}{}",
+        if sign == -1 { "-" } else { "" },
+        output_prep.join(" ")
+    )
+}
+
+fn format_filesize(num_bytes: i64) -> String {
+    let byte = byte_unit::Byte::from_bytes(num_bytes as u128);
+
+    if byte.get_bytes() == 0u128 {
+        return "—".to_string();
+    }
+
+    let byte = byte.get_appropriate_unit(false);
+
+    match byte.get_unit() {
+        byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
+        _ => byte.format(1),
     }
 }

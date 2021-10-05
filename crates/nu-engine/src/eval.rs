@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{Range, ShellError, Span, Type, Value};
+use nu_protocol::{Range, ShellError, Span, Type, Unit, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -123,6 +123,10 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
+        Expr::ValueWithUnit(e, unit) => match eval_expression(context, e)? {
+            Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
+            _ => Err(ShellError::CantConvert("unit value".into(), e.span)),
+        },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
                 eval_expression(context, f)?
@@ -290,4 +294,81 @@ pub fn eval_block(
     }
 
     Ok(input)
+}
+
+pub fn compute(size: i64, unit: Unit, span: Span) -> Value {
+    match unit {
+        Unit::Byte => Value::Filesize { val: size, span },
+        Unit::Kilobyte => Value::Filesize {
+            val: size * 1000,
+            span,
+        },
+        Unit::Megabyte => Value::Filesize {
+            val: size * 1000 * 1000,
+            span,
+        },
+        Unit::Gigabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000,
+            span,
+        },
+        Unit::Terabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
+        Unit::Petabyte => Value::Filesize {
+            val: size * 1000 * 1000 * 1000 * 1000 * 1000,
+            span,
+        },
+
+        Unit::Kibibyte => Value::Filesize {
+            val: size * 1024,
+            span,
+        },
+        Unit::Mebibyte => Value::Filesize {
+            val: size * 1024 * 1024,
+            span,
+        },
+        Unit::Gibibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Tebibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+        Unit::Pebibyte => Value::Filesize {
+            val: size * 1024 * 1024 * 1024 * 1024 * 1024,
+            span,
+        },
+
+        Unit::Nanosecond => Value::Duration { val: size, span },
+        Unit::Microsecond => Value::Duration {
+            val: size * 1000,
+            span,
+        },
+        Unit::Millisecond => Value::Duration {
+            val: size * 1000 * 1000,
+            span,
+        },
+        Unit::Second => Value::Duration {
+            val: size * 1000 * 1000 * 1000,
+            span,
+        },
+        Unit::Minute => Value::Duration {
+            val: size * 1000 * 1000 * 1000 * 60,
+            span,
+        },
+        Unit::Hour => Value::Duration {
+            val: size * 1000 * 1000 * 1000 * 60 * 60,
+            span,
+        },
+        Unit::Day => Value::Duration {
+            val: size * 1000 * 1000 * 1000 * 60 * 60 * 24,
+            span,
+        },
+        Unit::Week => Value::Duration {
+            val: size * 1000 * 1000 * 1000 * 60 * 60 * 24 * 7,
+            span,
+        },
+    }
 }

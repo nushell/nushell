@@ -10,7 +10,7 @@ use nu_protocol::{
         Operator, PathMember, Pipeline, RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, SyntaxShape, Type, VarId,
+    span, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
 };
 
 use crate::parse_keywords::{
@@ -1351,6 +1351,193 @@ pub fn parse_filepath(
     }
 }
 
+/// Parse a duration type, eg '10day'
+pub fn parse_duration(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
+        let string_to_parse = format!("0.{}", decimal);
+        if let Ok(x) = string_to_parse.parse::<f64>() {
+            return Some((1_f64 / x) as i64);
+        }
+        None
+    }
+
+    let bytes = working_set.get_span_contents(span);
+    let token = String::from_utf8_lossy(bytes).to_string();
+
+    let unit_groups = [
+        (Unit::Nanosecond, "NS", None),
+        (Unit::Microsecond, "US", Some((Unit::Nanosecond, 1000))),
+        (Unit::Millisecond, "MS", Some((Unit::Microsecond, 1000))),
+        (Unit::Second, "SEC", Some((Unit::Millisecond, 1000))),
+        (Unit::Minute, "MIN", Some((Unit::Second, 60))),
+        (Unit::Hour, "HR", Some((Unit::Minute, 60))),
+        (Unit::Day, "DAY", Some((Unit::Minute, 1440))),
+        (Unit::Week, "WK", Some((Unit::Day, 7))),
+    ];
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| token.to_uppercase().ends_with(x.1))
+    {
+        let mut lhs = token.clone();
+        for _ in 0..unit.1.len() {
+            lhs.pop();
+        }
+
+        let input: Vec<&str> = lhs.split('.').collect();
+        let (value, unit_to_use) = match &input[..] {
+            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
+            [number_str, decimal_part_str] => match unit.2 {
+                Some(unit_to_convert_to) => match (
+                    number_str.parse::<i64>(),
+                    parse_decimal_str_to_number(decimal_part_str),
+                ) {
+                    (Ok(number), Some(decimal_part)) => (
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
+                        unit_to_convert_to.0,
+                    ),
+                    _ => (None, unit.0),
+                },
+                None => (None, unit.0),
+            },
+            _ => (None, unit.0),
+        };
+
+        if let Some(x) = value {
+            let lhs_span = Span::new(span.start, span.start + lhs.len());
+            let unit_span = Span::new(span.start + lhs.len(), span.end);
+            return (
+                Expression {
+                    expr: Expr::ValueWithUnit(
+                        Box::new(Expression {
+                            expr: Expr::Int(x),
+                            span: lhs_span,
+                            ty: Type::Number,
+                            custom_completion: None,
+                        }),
+                        Spanned {
+                            item: unit_to_use,
+                            span: unit_span,
+                        },
+                    ),
+                    span,
+                    ty: Type::Duration,
+                    custom_completion: None,
+                },
+                None,
+            );
+        }
+    }
+
+    (
+        garbage(span),
+        Some(ParseError::Mismatch(
+            "duration".into(),
+            "non-duration unit".into(),
+            span,
+        )),
+    )
+}
+
+/// Parse a unit type, eg '10kb'
+pub fn parse_filesize(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
+        let string_to_parse = format!("0.{}", decimal);
+        if let Ok(x) = string_to_parse.parse::<f64>() {
+            return Some((1_f64 / x) as i64);
+        }
+        None
+    }
+
+    let bytes = working_set.get_span_contents(span);
+    let token = String::from_utf8_lossy(bytes).to_string();
+
+    let unit_groups = [
+        (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
+        (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
+        (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
+        (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
+        (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
+        (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
+        (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
+        (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
+        (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
+        (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
+        (Unit::Byte, "B", None),
+    ];
+    if let Some(unit) = unit_groups
+        .iter()
+        .find(|&x| token.to_uppercase().ends_with(x.1))
+    {
+        let mut lhs = token.clone();
+        for _ in 0..unit.1.len() {
+            lhs.pop();
+        }
+
+        let input: Vec<&str> = lhs.split('.').collect();
+        let (value, unit_to_use) = match &input[..] {
+            [number_str] => (number_str.parse::<i64>().ok(), unit.0),
+            [number_str, decimal_part_str] => match unit.2 {
+                Some(unit_to_convert_to) => match (
+                    number_str.parse::<i64>(),
+                    parse_decimal_str_to_number(decimal_part_str),
+                ) {
+                    (Ok(number), Some(decimal_part)) => (
+                        Some(
+                            (number * unit_to_convert_to.1) + (unit_to_convert_to.1 / decimal_part),
+                        ),
+                        unit_to_convert_to.0,
+                    ),
+                    _ => (None, unit.0),
+                },
+                None => (None, unit.0),
+            },
+            _ => (None, unit.0),
+        };
+
+        if let Some(x) = value {
+            let lhs_span = Span::new(span.start, span.start + lhs.len());
+            let unit_span = Span::new(span.start + lhs.len(), span.end);
+            return (
+                Expression {
+                    expr: Expr::ValueWithUnit(
+                        Box::new(Expression {
+                            expr: Expr::Int(x),
+                            span: lhs_span,
+                            ty: Type::Number,
+                            custom_completion: None,
+                        }),
+                        Spanned {
+                            item: unit_to_use,
+                            span: unit_span,
+                        },
+                    ),
+                    span,
+                    ty: Type::Filesize,
+                    custom_completion: None,
+                },
+                None,
+            );
+        }
+    }
+
+    (
+        garbage(span),
+        Some(ParseError::Mismatch(
+            "filesize".into(),
+            "non-filesize unit".into(),
+            span,
+        )),
+    )
+}
+
 pub fn parse_glob_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -2381,6 +2568,8 @@ pub fn parse_value(
         }
         SyntaxShape::Number => parse_number(bytes, span),
         SyntaxShape::Int => parse_int(bytes, span),
+        SyntaxShape::Duration => parse_duration(working_set, span),
+        SyntaxShape::Filesize => parse_filesize(working_set, span),
         SyntaxShape::Range => parse_range(working_set, span),
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),

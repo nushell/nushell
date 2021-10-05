@@ -9,3 +9,6 @@ edition = "2018"
 thiserror = "1.0.29"
 miette = "3.0.0"
 serde = {version = "1.0.130", features = ["derive"]}
+chrono = { version="0.4.19", features=["serde"] }
+chrono-humanize = "0.2.1"
+byte-unit = "4.0.9"
