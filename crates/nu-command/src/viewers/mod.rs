@@ -1,4 +1,4 @@
-mod grid;
+pub mod grid;
 mod griddle;
 mod table;
 

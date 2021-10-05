@@ -13,7 +13,7 @@
 //! needed. For example:
 //!
 //! ```rust
-//! use super::grid::{Grid, GridOptions, Direction, Filling, Cell};
+//! use nu_command::grid::{Grid, GridOptions, Direction, Filling, Cell};
 //!
 //! let mut grid = Grid::new(GridOptions {
 //!     filling:    Filling::Spaces(1),
@@ -521,7 +521,7 @@ impl fmt::Display for Display<'_> {
 
 /// Pad a string with the given number of spaces.
 fn spaces(length: usize) -> String {
-    repeat(" ").take(length).collect()
+    " ".repeat(length)
 }
 
 /// Pad a string with the given alignment and number of spaces.
