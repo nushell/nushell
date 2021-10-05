@@ -124,18 +124,13 @@ impl Command for Cp {
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
                     let path = canonicalize_with(&source_file, &path)?;
-
-                    let comps: Vec<_> = path
+                    let components = path
                         .components()
                         .map(|fragment| fragment.as_os_str())
                         .rev()
-                        .take(1 + depth_level)
-                        .collect();
+                        .take(1 + depth_level);
 
-                    for fragment in comps.into_iter().rev() {
-                        dest.push(fragment);
-                    }
-
+                    components.for_each(|fragment| dest.push(fragment));
                     Ok((PathBuf::from(&source_file), dest))
                 })?;
 
