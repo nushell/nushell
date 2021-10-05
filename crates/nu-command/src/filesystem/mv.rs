@@ -26,7 +26,7 @@ impl Command for Mv {
             )
             .required(
                 "destination",
-                SyntaxShape::Filepath,
+                SyntaxShape::FilePath,
                 "the location to move files/directories to",
             )
     }
@@ -94,7 +94,7 @@ impl Command for Mv {
     }
 }
 
-fn move_file(call: &Call, from: &PathBuf, to: &PathBuf) -> Result<(), ShellError> {
+fn move_file(call: &Call, from: &Path, to: &Path) -> Result<(), ShellError> {
     if to.exists() && from.is_dir() && to.is_file() {
         return Err(ShellError::MoveNotPossible {
             source_message: "Can't move a directory".to_string(),
@@ -114,7 +114,7 @@ fn move_file(call: &Call, from: &PathBuf, to: &PathBuf) -> Result<(), ShellError
         return Err(ShellError::DirectoryNotFound(call.positional[1].span));
     }
 
-    let mut to = to.clone();
+    let mut to = to.to_path_buf();
     if to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
@@ -124,18 +124,16 @@ fn move_file(call: &Call, from: &PathBuf, to: &PathBuf) -> Result<(), ShellError
         to.push(from_file_name);
     }
 
-    move_item(call, &from, &to)
+    move_item(call, from, &to)
 }
 
 fn move_item(call: &Call, from: &Path, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(&from, &to).or_else(|_| {
-        Err(ShellError::MoveNotPossible {
-            source_message: "failed to move".to_string(),
-            source_span: call.positional[0].span,
-            destination_message: "into".to_string(),
-            destination_span: call.positional[1].span,
-        })
+    std::fs::rename(&from, &to).map_err(|_| ShellError::MoveNotPossible {
+        source_message: "failed to move".to_string(),
+        source_span: call.positional[0].span,
+        destination_message: "into".to_string(),
+        destination_span: call.positional[1].span,
     })
 }
