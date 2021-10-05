@@ -1,8 +1,3 @@
-// use nu_protocol::ast::{Call, PathMember};
-// use nu_protocol::engine::{Command, EvaluationContext};
-// use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
-// use nu_table::StyledString;
-// use std::collections::HashMap;
 use super::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -10,7 +5,7 @@ use nu_protocol::{
     engine::{Command, EvaluationContext},
     Signature, Span, SyntaxShape, Value,
 };
-use terminal_size::{Height, Width};
+use terminal_size::{Height, Width}; //{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 
 pub struct Griddle;
 

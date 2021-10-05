@@ -13,7 +13,7 @@
 //! needed. For example:
 //!
 //! ```rust
-//! use grid::{Grid, GridOptions, Direction, Filling, Cell};
+//! use super::grid::{Grid, GridOptions, Direction, Filling, Cell};
 //!
 //! let mut grid = Grid::new(GridOptions {
 //!     filling:    Filling::Spaces(1),
