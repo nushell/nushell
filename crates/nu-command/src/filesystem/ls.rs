@@ -36,6 +36,9 @@ impl Command for Ls {
 
             let path = std::path::Path::new(&result);
             if path.is_dir() {
+                if !result.ends_with(std::path::MAIN_SEPARATOR) {
+                    result.push(std::path::MAIN_SEPARATOR);
+                }
                 result.push('*');
             }
 
