@@ -112,13 +112,13 @@ pub fn disks(sys: &mut System, span: Span) -> Option<Value> {
 
         cols.push("total".into());
         vals.push(Value::Filesize {
-            val: disk.total_space(),
+            val: disk.total_space() as i64,
             span,
         });
 
         cols.push("free".into());
         vals.push(Value::Filesize {
-            val: disk.available_space(),
+            val: disk.available_space() as i64,
             span,
         });
 
@@ -148,13 +148,13 @@ pub fn net(sys: &mut System, span: Span) -> Option<Value> {
 
         cols.push("sent".into());
         vals.push(Value::Filesize {
-            val: data.total_transmitted(),
+            val: data.total_transmitted() as i64,
             span,
         });
 
         cols.push("recv".into());
         vals.push(Value::Filesize {
-            val: data.total_received(),
+            val: data.total_received() as i64,
             span,
         });
 
@@ -215,25 +215,25 @@ pub fn mem(sys: &mut System, span: Span) -> Option<Value> {
 
     cols.push("total".into());
     vals.push(Value::Filesize {
-        val: total_mem * 1000,
+        val: total_mem as i64 * 1000,
         span,
     });
 
     cols.push("free".into());
     vals.push(Value::Filesize {
-        val: free_mem * 1000,
+        val: free_mem as i64 * 1000,
         span,
     });
 
     cols.push("swap total".into());
     vals.push(Value::Filesize {
-        val: total_swap * 1000,
+        val: total_swap as i64 * 1000,
         span,
     });
 
     cols.push("swap free".into());
     vals.push(Value::Filesize {
-        val: free_swap * 1000,
+        val: free_swap as i64 * 1000,
         span,
     });
 
@@ -276,7 +276,7 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
     }
     cols.push("uptime".into());
     vals.push(Value::Duration {
-        val: 1000000000 * sys.uptime() as u64,
+        val: 1000000000 * sys.uptime() as i64,
         span,
     });
 

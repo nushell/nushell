@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
@@ -56,25 +57,39 @@ impl Command for Ls {
                             let is_dir = metadata.is_dir();
                             let filesize = metadata.len();
 
+                            let mut cols = vec!["name".into(), "type".into(), "size".into()];
+
+                            let mut vals = vec![
+                                Value::String {
+                                    val: path.to_string_lossy().to_string(),
+                                    span: call_span,
+                                },
+                                if is_file {
+                                    Value::string("File", call_span)
+                                } else if is_dir {
+                                    Value::string("Dir", call_span)
+                                } else {
+                                    Value::Nothing { span: call_span }
+                                },
+                                Value::Filesize {
+                                    val: filesize as i64,
+                                    span: call_span,
+                                },
+                            ];
+
+                            if let Ok(date) = metadata.modified() {
+                                let utc: DateTime<Utc> = date.into();
+
+                                cols.push("modified".into());
+                                vals.push(Value::Date {
+                                    val: utc.into(),
+                                    span: call_span,
+                                });
+                            }
+
                             Value::Record {
-                                cols: vec!["name".into(), "type".into(), "size".into()],
-                                vals: vec![
-                                    Value::String {
-                                        val: path.to_string_lossy().to_string(),
-                                        span: call_span,
-                                    },
-                                    if is_file {
-                                        Value::string("file", call_span)
-                                    } else if is_dir {
-                                        Value::string("dir", call_span)
-                                    } else {
-                                        Value::Nothing { span: call_span }
-                                    },
-                                    Value::Filesize {
-                                        val: filesize,
-                                        span: call_span,
-                                    },
-                                ],
+                                cols,
+                                vals,
                                 span: call_span,
                             }
                         }

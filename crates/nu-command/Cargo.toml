@@ -16,3 +16,4 @@ nu-table = { path = "../nu-table" }
 glob = "0.3.0"
 thiserror = "1.0.29"
 sysinfo = "0.20.4"
+chrono = { version="0.4.19", features=["serde"] }

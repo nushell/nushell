@@ -86,13 +86,13 @@ fn run_ps(call: &Call) -> Result<Value, ShellError> {
 
             cols.push("mem".into());
             vals.push(Value::Filesize {
-                val: result.memory() * 1000,
+                val: result.memory() as i64 * 1000,
                 span,
             });
 
             cols.push("virtual".into());
             vals.push(Value::Filesize {
-                val: result.virtual_memory() * 1000,
+                val: result.virtual_memory() as i64 * 1000,
                 span,
             });
 
