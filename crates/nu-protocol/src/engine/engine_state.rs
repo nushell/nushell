@@ -12,12 +12,12 @@ pub struct EngineState {
     vars: Vec<Type>,
     decls: Vec<Box<dyn Command>>,
     blocks: Vec<Block>,
-    scope: Vec<ScopeFrame>,
+    pub scope: Vec<ScopeFrame>,
 }
 
 #[derive(Debug)]
 pub struct ScopeFrame {
-    vars: HashMap<Vec<u8>, VarId>,
+    pub vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
     modules: HashMap<Vec<u8>, BlockId>,
