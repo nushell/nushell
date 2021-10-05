@@ -577,7 +577,7 @@ dependencies = [
  "bitflags",
  "strsim",
  "term_size",
- "textwrap 0.11.0",
+ "textwrap",
  "unicode-width",
  "vec_map",
 ]
@@ -770,28 +770,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c36c10130df424b2f3552fcc2ddcd9b28a27b1e54b358b45874f88d1ca6888c"
 dependencies = [
  "bitflags",
- "crossterm_winapi 0.7.0",
+ "crossterm_winapi",
  "lazy_static",
  "libc",
  "mio",
  "parking_lot",
- "signal-hook 0.1.17",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "crossterm"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0ebde6a9dd5e331cd6c6f48253254d117642c31653baa475e394657c59c1f7d"
-dependencies = [
- "bitflags",
- "crossterm_winapi 0.8.0",
- "libc",
- "mio",
- "parking_lot",
- "signal-hook 0.3.10",
- "signal-hook-mio",
+ "signal-hook",
  "winapi 0.3.9",
 ]
 
@@ -800,15 +784,6 @@ name = "crossterm_winapi"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0da8964ace4d3e4a044fd027919b2237000b24315a37c916f61809f1ff2140b9"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "crossterm_winapi"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a6966607622438301997d3dac0d2f6e9a90c68bb6bc1785ea98456ab93c0507"
 dependencies = [
  "winapi 0.3.9",
 ]
@@ -2344,18 +2319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minus"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9d72a6f2a38c88beb09c432ac2c2072a995e59ee432bf9d7813fbd3a5669a0d"
-dependencies = [
- "crossterm 0.20.0",
- "regex",
- "textwrap 0.13.4",
- "thiserror",
-]
-
-[[package]]
 name = "mio"
 version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2608,7 +2571,7 @@ dependencies = [
  "calamine",
  "chrono",
  "chrono-tz",
- "crossterm 0.19.0",
+ "crossterm",
  "csv",
  "ctrlc",
  "derive-new",
@@ -2630,7 +2593,6 @@ dependencies = [
  "md-5",
  "meval",
  "mime",
- "minus",
  "nu-ansi-term",
  "nu-data",
  "nu-engine",
@@ -2961,7 +2923,7 @@ dependencies = [
 name = "nu_plugin_binaryview"
 version = "0.37.1"
 dependencies = [
- "crossterm 0.19.0",
+ "crossterm",
  "image 0.22.5",
  "neso",
  "nu-ansi-term",
@@ -2977,7 +2939,7 @@ dependencies = [
 name = "nu_plugin_chart"
 version = "0.37.1"
 dependencies = [
- "crossterm 0.19.0",
+ "crossterm",
  "nu-data",
  "nu-errors",
  "nu-plugin",
@@ -4696,27 +4658,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-hook"
-version = "0.3.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c98891d737e271a2954825ef19e46bd16bdb98e2746f2eec4f7a4ef7946efd1"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
-
-[[package]]
-name = "signal-hook-mio"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29fd5867f1c4f2c5be079aee7a2adf1152ebb04a4bc4d341f504b7dece607ed4"
-dependencies = [
- "libc",
- "mio",
- "signal-hook 0.3.10",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5050,15 +4991,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd05616119e612a8041ef58f2b578906cc2531a6069047ae092cfb86a325d835"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "thin-slice"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5252,7 +5184,7 @@ checksum = "861d8f3ad314ede6219bcb2ab844054b1de279ee37a9bc38e3d606f9d3fb2a71"
 dependencies = [
  "bitflags",
  "cassowary",
- "crossterm 0.19.0",
+ "crossterm",
  "unicode-segmentation",
  "unicode-width",
 ]
