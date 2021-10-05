@@ -181,12 +181,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-std"
-version = "1.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8056f1455169ab86dd47b47391e4ab0cbd25410a70e9fe675544f49bafaf952"
-
-[[package]]
 name = "async-stream"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2325,18 +2319,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minus"
-version = "3.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4157dc2cce665432eeb14110669961b4746d5fbd04b399b9af3a0edee37104c"
-dependencies = [
- "async-std",
- "crossterm",
- "regex",
- "thiserror",
-]
-
-[[package]]
 name = "mio"
 version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2611,7 +2593,6 @@ dependencies = [
  "md-5",
  "meval",
  "mime",
- "minus",
  "nu-ansi-term",
  "nu-data",
  "nu-engine",
