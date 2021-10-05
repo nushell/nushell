@@ -127,9 +127,6 @@ tree = ["nu_plugin_tree"]
 xpath = ["nu_plugin_xpath"]
 zip-support = ["nu-command/zip"]
 
-#This is disabled in extra for now
-table-pager = ["nu-command/table-pager"]
-
 #dataframe feature for nushell
 dataframe = [
     "nu-engine/dataframe",
