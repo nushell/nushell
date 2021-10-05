@@ -26,7 +26,7 @@ impl Command for Mv {
             )
             .required(
                 "destination",
-                SyntaxShape::FilePath,
+                SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
     }
