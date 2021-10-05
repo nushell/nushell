@@ -8,17 +8,16 @@ pub struct FileStructure {
     pub resources: Vec<Resource>,
 }
 
+#[allow(dead_code)]
 impl FileStructure {
     pub fn new() -> FileStructure {
         FileStructure { resources: vec![] }
     }
 
-    #[allow(dead_code)]
     pub fn contains_more_than_one_file(&self) -> bool {
         self.resources.len() > 1
     }
 
-    #[allow(dead_code)]
     pub fn contains_files(&self) -> bool {
         !self.resources.is_empty()
     }
@@ -33,7 +32,7 @@ impl FileStructure {
         self.resources
             .iter()
             .map(|f| (PathBuf::from(&f.location), f.at))
-            .map(|f| to(f))
+            .map(to)
             .collect()
     }
 
