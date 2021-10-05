@@ -78,4 +78,23 @@ pub enum ShellError {
     #[error("Flag not found")]
     #[diagnostic(code(nu::shell::flag_not_found), url(docsrs))]
     FlagNotFound(String, #[label("{0} not found")] Span),
+
+    #[error("File not found")]
+    #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
+    FileNotFound(#[label("file not found")] Span),
+
+    #[error("Directory not found")]
+    #[diagnostic(code(nu::shell::directory_not_found), url(docsrs))]
+    DirectoryNotFound(#[label("directory not found")] Span),
+
+    #[error("Move not possible")]
+    #[diagnostic(code(nu::shell::move_not_possible), url(docsrs))]
+    MoveNotPossible {
+        source_message: String,
+        #[label("{source_message}")]
+        source_span: Span,
+        destination_message: String,
+        #[label("{destination_message}")]
+        destination_span: Span,
+    },
 }
