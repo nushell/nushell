@@ -9,7 +9,7 @@ edition = "2018"
 members = ["crates/nu-cli", "crates/nu-engine", "crates/nu-parser", "crates/nu-command", "crates/nu-protocol"]
 
 [dependencies]
-reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 crossterm = "0.21.*"
 nu-cli = { path="./crates/nu-cli" }
 nu-command = { path="./crates/nu-command" }
