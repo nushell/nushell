@@ -12,4 +12,4 @@ nu-protocol = { path = "../nu-protocol" }
 miette = { version = "3.0.0", features = ["fancy"] }
 thiserror = "1.0.29"
 nu-ansi-term = "0.36.0"
-reedline = { git = "https://github.com/jntrnr/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
