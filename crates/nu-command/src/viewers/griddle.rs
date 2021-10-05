@@ -8,7 +8,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Signature, Span, SyntaxShape, Value,
 };
 use terminal_size::{Height, Width};
 
@@ -81,17 +81,17 @@ impl Command for Griddle {
                     });
 
                     for h in data {
-                        let a_string = format!("{}", &h[1]); // bytes ->, &h[3]);
+                        let a_string = (&h[1]).to_string(); // bytes ->, &h[3]);
                         let mut cell = Cell::from(a_string);
                         cell.alignment = Alignment::Right;
                         grid.add(cell);
                     }
 
                     let cols = if let Some(col) = columns {
-                        col.parse::<u16>().unwrap()
+                        col.parse::<u16>().unwrap_or(80)
                     } else {
                         // 80usize
-                        if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {
+                        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
                             w
                         } else {
                             80u16
@@ -122,7 +122,9 @@ impl Command for Griddle {
                     Ok(Value::Nothing { span: call.head })
                 }
             }
-            Value::Record { cols, vals, .. } => {
+            Value::Record {
+                cols: _, vals: _, ..
+            } => {
                 // let mut output = vec![];
 
                 // for (c, v) in cols.into_iter().zip(vals.into_iter()) {
