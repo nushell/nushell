@@ -97,4 +97,20 @@ pub enum ShellError {
         #[label("{destination_message}")]
         destination_span: Span,
     },
+
+    #[error("Move not possible")]
+    #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
+    MoveNotPossibleSingle(String, #[label("{0}")] Span),
+}
+
+impl From<std::io::Error> for ShellError {
+    fn from(input: std::io::Error) -> ShellError {
+        ShellError::InternalError(format!("{:?}", input))
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
+    fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
+        ShellError::InternalError(format!("{:?}", input))
+    }
 }
