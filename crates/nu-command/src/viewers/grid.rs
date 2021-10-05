@@ -13,7 +13,7 @@
 //! needed. For example:
 //!
 //! ```rust
-//! use nu_grid::{Grid, GridOptions, Direction, Filling, Cell};
+//! use grid::{Grid, GridOptions, Direction, Filling, Cell};
 //!
 //! let mut grid = Grid::new(GridOptions {
 //!     filling:    Filling::Spaces(1),
@@ -226,7 +226,7 @@ impl Dimensions {
 
 /// Everything needed to format the cells with the grid options.
 ///
-/// For more information, see the [`nu_grid` crate documentation](index.html).
+/// For more information, see the [`grid` crate documentation](index.html).
 #[derive(PartialEq, Debug)]
 pub struct Grid {
     options: GridOptions,
