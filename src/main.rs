@@ -66,7 +66,7 @@ fn main() -> Result<()> {
 
         Ok(())
     } else {
-        use reedline::{DefaultCompletionActionHandler, FileBackedHistory, Reedline, Signal};
+        use reedline::{FileBackedHistory, ListCompletionHandler, Reedline, Signal};
 
         let completer = NuCompleter::new(engine_state.clone());
         let mut entry_num = 0;
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
                 engine_state: engine_state.clone(),
             }))
             .with_completion_action_handler(Box::new(
-                DefaultCompletionActionHandler::default().with_completer(Box::new(completer)),
+                ListCompletionHandler::default().with_completer(Box::new(completer)),
             ))
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),

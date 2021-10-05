@@ -99,6 +99,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "byte-unit"
+version = "4.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "063197e6eb4b775b64160dedde7a0986bb2836cce140e9492e9e96f28e18bcd8"
+dependencies = [
+ "utf8-width",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -119,8 +128,18 @@ dependencies = [
  "libc",
  "num-integer",
  "num-traits",
+ "serde",
  "time",
  "winapi",
+]
+
+[[package]]
+name = "chrono-humanize"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eddc119501d583fd930cb92144e605f44e0252c38dd89d9247fffa1993375cb"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]
@@ -399,9 +418,9 @@ dependencies = [
 
 [[package]]
 name = "miette"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b98aebb9d23c72cb22c089834ea59be059c6f462e844fd9fd18dd0168ad149c"
+checksum = "4786c5b04c6f73e96d88444e7f37e241d99479ea5dd88a4887363ab2e03b4e53"
 dependencies = [
  "atty",
  "backtrace",
@@ -418,9 +437,9 @@ dependencies = [
 
 [[package]]
 name = "miette-derive"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a7cd3347eb52480d4ba59d71ce2b48b8b128034e17068c7e2ff3766c2e87a3"
+checksum = "0ee63a981bc9cde5f26665ffd756b624963bf0b5956e0df51e52ef8f6b5466d6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -487,6 +506,7 @@ dependencies = [
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
+ "nu-path",
  "nu-protocol",
  "reedline",
  "thiserror",
@@ -496,6 +516,7 @@ dependencies = [
 name = "nu-command"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "glob",
  "nu-engine",
  "nu-json",
@@ -549,6 +570,9 @@ dependencies = [
 name = "nu-protocol"
 version = "0.1.0"
 dependencies = [
+ "byte-unit",
+ "chrono",
+ "chrono-humanize",
  "miette",
  "serde",
  "thiserror",
@@ -803,7 +827,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/jntrnr/reedline?branch=main#93c2146fcf4257c40426bc2f0c6903d4115caaf1"
+source = "git+https://github.com/jntrnr/reedline?branch=main#88bded3417e7f6c1242b444f403448de583357f0"
 dependencies = [
  "chrono",
  "crossterm",
@@ -935,9 +959,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
 name = "smawk"
@@ -947,9 +971,9 @@ checksum = "f67ad224767faa3c7d8b6d91985b78e70a1324408abcb1cfcc2be4c06bc06043"
 
 [[package]]
 name = "supports-color"
-version = "1.1.1"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32f5b0f9e689dd52e27228469dd68b7416b60d75b7571ae9060a5f4c50048fee"
+checksum = "4872ced36b91d47bae8a214a683fe54e7078875b399dfa251df346c9b547d1f9"
 dependencies = [
  "atty",
  "is_ci",
@@ -966,18 +990,18 @@ dependencies = [
 
 [[package]]
 name = "supports-unicode"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5fa283a620b255940913bd962cda2e6320e3799041f96ac0d7191ff2b4622f"
+checksum = "a8b945e45b417b125a8ec51f1b7df2f8df7920367700d1f98aedd21e5735f8b2"
 dependencies = [
  "atty",
 ]
 
 [[package]]
 name = "syn"
-version = "1.0.77"
+version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5239bc68e0fef57495900cfea4e8dc75596d9a319d7e16b1e0a440d24e6fe0a0"
+checksum = "a4eac2e6c19f5c3abc0c229bea31ff0b9b091c7b14990e8924b92902a303a0c0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1097,6 +1121,12 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "utf8-width"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cf7d77f457ef8dfa11e4cd5933c5ddb5dc52a94664071951219a97710f0a32b"
 
 [[package]]
 name = "wait-timeout"

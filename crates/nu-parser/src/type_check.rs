@@ -29,6 +29,9 @@ pub fn math_result_type(
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
                 (Type::String, Type::String) => (Type::String, None),
+                (Type::Duration, Type::Duration) => (Type::Duration, None),
+                (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
+
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
                 (Type::Int, _) => {
@@ -64,6 +67,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Duration, Type::Duration) => (Type::Duration, None),
+                (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
+
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
                 _ => {
@@ -85,6 +91,7 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
                 _ => {
@@ -106,6 +113,7 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
                 _ => {
@@ -127,6 +135,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
                 _ => {
@@ -148,6 +159,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
                 _ => {
@@ -169,6 +183,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
                 _ => {
@@ -190,6 +207,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
                 _ => {
@@ -209,6 +229,9 @@ pub fn math_result_type(
             Operator::Equal => match (&lhs.ty, &rhs.ty) {
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (x, y) if x == y => (Type::Bool, None),
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
@@ -231,6 +254,9 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
+
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
                 _ => {

@@ -12,12 +12,12 @@ pub struct EngineState {
     vars: Vec<Type>,
     decls: Vec<Box<dyn Command>>,
     blocks: Vec<Block>,
-    scope: Vec<ScopeFrame>,
+    pub scope: Vec<ScopeFrame>,
 }
 
 #[derive(Debug)]
 pub struct ScopeFrame {
-    vars: HashMap<Vec<u8>, VarId>,
+    pub vars: HashMap<Vec<u8>, VarId>,
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
     modules: HashMap<Vec<u8>, BlockId>,
@@ -375,7 +375,7 @@ impl<'a> StateWorkingSet<'a> {
 
             if let Some(decl_id) = scope.decls.get(name) {
                 if !hiding.contains(decl_id) {
-                    // Do not hide already hidden decl
+                    // Hide decl only if it's not already hidden
                     last_scope_frame.hiding.insert(*decl_id);
                     return Some(*decl_id);
                 }
@@ -409,8 +409,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn activate_overlay(&mut self, overlay: Vec<(Vec<u8>, DeclId)>) {
-        // TODO: This will overwrite all existing definitions in a scope. When we add deactivate,
-        // we need to re-think how make it recoverable.
         let scope_frame = self
             .delta
             .scope

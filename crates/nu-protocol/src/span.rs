@@ -1,7 +1,11 @@
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
-pub struct Spanned<T> {
+#[derive(Clone, Debug)]
+pub struct Spanned<T>
+where
+    T: Clone + std::fmt::Debug,
+{
     pub item: T,
     pub span: Span,
 }
