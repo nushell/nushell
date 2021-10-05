@@ -1,11 +1,11 @@
 use std::env::current_dir;
 use std::path::PathBuf;
 
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
 
 use crate::filesystem::util::FileStructure;
 
