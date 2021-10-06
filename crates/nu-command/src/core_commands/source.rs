@@ -17,7 +17,7 @@ impl Command for Source {
     fn signature(&self) -> Signature {
         Signature::build("source").required(
             "filename",
-            SyntaxShape::FilePath,
+            SyntaxShape::Filepath,
             "the filepath to the script file to source",
         )
     }

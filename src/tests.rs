@@ -442,10 +442,59 @@ fn hide_twice_not_allowed() -> TestResult {
 }
 
 #[test]
+fn hides_import_1() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.foo; foo"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hides_import_2() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.*; foo"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hides_import_3() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.[foo]; foo"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hides_import_4() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; foo"#,
+        "not found",
+    )
+}
+
+#[test]
+fn hides_import_5() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam.*; hide foo; foo"#,
+        "not found",
+    )
+}
+
+#[test]
 fn def_twice_should_fail() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; def foo [] { "bar" }"#,
         "defined more than once",
+    )
+}
+
+// TODO: This test fails if executed each command on a separate line in REPL
+#[test]
+fn use_import_after_hide() -> TestResult {
+    run_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; use spam.foo; foo"#,
+        "foo",
     )
 }
 

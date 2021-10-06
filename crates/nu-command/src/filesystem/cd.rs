@@ -15,7 +15,7 @@ impl Command for Cd {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("cd").optional("path", SyntaxShape::FilePath, "the path to change to")
+        Signature::build("cd").optional("path", SyntaxShape::Filepath, "the path to change to")
     }
 
     fn run(
@@ -28,7 +28,7 @@ impl Command for Cd {
 
         let path = match path {
             Some(path) => {
-                let path = nu_path::expand_tilde(path);
+                let path = nu_path::expand_path(path);
                 path.to_string_lossy().to_string()
             }
             None => {
