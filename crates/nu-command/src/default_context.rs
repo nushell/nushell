@@ -50,6 +50,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Git));
         working_set.add_decl(Box::new(GitCheckout));
 
+        working_set.add_decl(Box::new(Source));
+
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());
         let sig = Signature::build("vars");

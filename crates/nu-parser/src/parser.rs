@@ -1,5 +1,6 @@
 use crate::{
     lex, lite_parse,
+    parse_keywords::parse_source,
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -2870,6 +2871,7 @@ pub fn parse_statement(
         b"alias" => parse_alias(working_set, spans),
         b"module" => parse_module(working_set, spans),
         b"use" => parse_use(working_set, spans),
+        b"source" => parse_source(working_set, spans),
         b"export" => (
             garbage_statement(spans),
             Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),

@@ -34,7 +34,6 @@ impl Highlighter for NuHighlighter {
                     .to_string();
                 output.push((Style::new(), gap));
             }
-
             let next_token = line
                 [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
                 .to_string();

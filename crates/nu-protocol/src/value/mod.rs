@@ -247,6 +247,7 @@ impl Value {
         }
     }
 
+    /// Follow a given column path into the value: for example accessing nth elements in a stream or list
     pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
         let mut current = self;
         for member in cell_path {

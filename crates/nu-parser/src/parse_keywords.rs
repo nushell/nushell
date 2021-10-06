@@ -3,12 +3,13 @@ use nu_protocol::{
     engine::StateWorkingSet,
     span, DeclId, Span, SyntaxShape, Type,
 };
+use std::path::Path;
 
 use crate::{
     lex, lite_parse,
     parser::{
-        check_name, garbage, garbage_statement, parse_block_expression, parse_import_pattern,
-        parse_internal_call, parse_signature, parse_string,
+        check_name, garbage, garbage_statement, parse, parse_block_expression,
+        parse_import_pattern, parse_internal_call, parse_signature, parse_string,
     },
     ParseError,
 };
@@ -761,6 +762,98 @@ pub fn parse_let(
         garbage_statement(spans),
         Some(ParseError::UnknownState(
             "internal error: let statement unparseable".into(),
+            span(spans),
+        )),
+    )
+}
+
+pub fn parse_source(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let name = working_set.get_span_contents(spans[0]);
+
+    if name == b"source" {
+        if let Some(decl_id) = working_set.find_decl(b"source") {
+            // Is this the right call to be using here?
+            // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
+            let (call, call_span, err) =
+                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+
+            // Command and one file name
+            if spans.len() >= 2 {
+                let name_expr = working_set.get_span_contents(spans[1]);
+                if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
+                    let source_file = Path::new(&filename);
+
+                    let path = source_file;
+                    let contents = std::fs::read(path);
+
+                    if let Ok(contents) = contents {
+                        // This will load the defs from the file into the
+                        // working set, if it was a successful parse.
+                        let (block, err) = parse(
+                            working_set,
+                            path.file_name().and_then(|x| x.to_str()),
+                            &contents,
+                            false,
+                        );
+
+                        if err.is_some() {
+                            // Unsuccessful parse of file
+                            return (
+                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call),
+                                    span: span(&spans[1..]),
+                                    ty: Type::Unknown,
+                                    custom_completion: None,
+                                }])),
+                                // Return the file parse error
+                                err,
+                            );
+                        } else {
+                            // Save the block into the working set
+                            let block_id = working_set.add_block(block);
+
+                            let mut call_with_block = call;
+
+                            // Adding this expression to the positional creates a syntax highlighting error
+                            // after writing `source example.nu`
+                            call_with_block.positional.push(Expression {
+                                expr: Expr::Int(block_id as i64),
+                                span: spans[1],
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            });
+
+                            return (
+                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call_with_block),
+                                    span: call_span,
+                                    ty: Type::Unknown,
+                                    custom_completion: None,
+                                }])),
+                                None,
+                            );
+                        }
+                    }
+                }
+            }
+            return (
+                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: call_span,
+                    ty: Type::Unknown,
+                    custom_completion: None,
+                }])),
+                err,
+            );
+        }
+    }
+    (
+        garbage_statement(spans),
+        Some(ParseError::UnknownState(
+            "internal error: source statement unparseable".into(),
             span(spans),
         )),
     )
