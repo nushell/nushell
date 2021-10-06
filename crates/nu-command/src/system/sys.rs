@@ -274,10 +274,11 @@ pub fn host(sys: &mut System, span: Span) -> Option<Value> {
             span,
         });
     }
-    // dict.insert_untagged(
-    //     "uptime",
-    //     UntaggedValue::duration(1000000000 * sys.uptime() as i64),
-    // );
+    cols.push("uptime".into());
+    vals.push(Value::Duration {
+        val: 1000000000 * sys.uptime() as u64,
+        span,
+    });
 
     let mut users = vec![];
     for user in sys.users() {

@@ -23,7 +23,8 @@
 - [x] Signature needs to make parameters visible in scope before block is parsed
 - [x] Externals
 - [x] Modules and imports
-- [ ] Exports
+- [x] Exports
+- [ ] Input/output types
 - [ ] Support for `$in`
 - [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path

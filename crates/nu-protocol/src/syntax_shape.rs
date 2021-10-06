@@ -86,7 +86,7 @@ impl SyntaxShape {
             SyntaxShape::Custom(custom, _) => custom.to_type(),
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Unknown,
-            SyntaxShape::FilePath => Type::FilePath,
+            SyntaxShape::FilePath => Type::String,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Unknown,
             SyntaxShape::GlobPattern => Type::String,
