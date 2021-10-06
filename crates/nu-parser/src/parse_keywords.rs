@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
-    span, DeclId, ShellError, Span, SyntaxShape, Type,
+    span, DeclId, Span, SyntaxShape, Type,
 };
 use std::path::Path;
 
@@ -779,7 +779,6 @@ pub fn parse_source(
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let (call, call_span, err) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
-            // println!("\nSpans: {:#?}", spans);
 
             // Command and one file name
             if spans.len() >= 2 {
@@ -800,7 +799,7 @@ pub fn parse_source(
                             false,
                         );
 
-                        if let Some(_) = err {
+                        if err.is_some() {
                             // Unsuccessful parse of file
                             return (
                                 Statement::Pipeline(Pipeline::from_vec(vec![Expression {
@@ -815,16 +814,14 @@ pub fn parse_source(
                         } else {
                             // Save the block into the working set
                             let block_id = working_set.add_block(block);
-                            // println!("CALL:{:?}", call);
 
-                            let mut call_with_block = call.clone();
-                            // println!("CALL_WITH_BLOCK: {:?}", call_with_block);
+                            let mut call_with_block = call;
 
                             // Adding this expression to the positional creates a syntax highlighting error
                             // after writing `source example.nu`
                             call_with_block.positional.push(Expression {
-                                expr: Expr::Block(block_id),
-                                span: span(&spans[1..]),
+                                expr: Expr::Int(block_id as i64),
+                                span: spans[1],
                                 ty: Type::Unknown,
                                 custom_completion: None,
                             });
@@ -849,14 +846,14 @@ pub fn parse_source(
                     ty: Type::Unknown,
                     custom_completion: None,
                 }])),
-                None,
+                err,
             );
         }
     }
     (
         garbage_statement(spans),
         Some(ParseError::UnknownState(
-            "internal error: let statement unparseable".into(),
+            "internal error: source statement unparseable".into(),
             span(spans),
         )),
     )

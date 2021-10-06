@@ -1,4 +1,3 @@
-use nu_parser::parse;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{Range, ShellError, Span, Type, Unit, Value};
