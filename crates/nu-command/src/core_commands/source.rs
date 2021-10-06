@@ -1,5 +1,7 @@
+use std::borrow::Borrow;
 use std::path::Path;
 
+use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
@@ -30,8 +32,9 @@ impl Command for Source {
         call: &Call,
         input: Value,
     ) -> Result<Value, ShellError> {
-        Ok(Value::Nothing { span: call.head })
-        // source(_context, call, input)
+        let block = &call.positional[0];
+
+        Ok(eval_expression(_context, block)?)
     }
 }
 

@@ -549,8 +549,9 @@ pub fn parse_source(
 
     if name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source") {
-            let (call, call_span, _) =
+            let (call, call_span, err) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            // println!("\nSpans: {:#?}", spans);
 
             // Command and one file name
             if spans.len() >= 2 {
@@ -570,19 +571,44 @@ pub fn parse_source(
                             &contents,
                             false,
                         );
+
                         if let Some(_) = err {
                             // Unsuccessful parse of file
-                            // return (
-                            //     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                            //         expr: Expr::Call(call),
-                            //         span: call_span,
-                            //         ty: Type::Unknown,
-                            //     }])),
-                            //     None,
-                            // );
+                            return (
+                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call),
+                                    span: span(&spans[1..]),
+                                    ty: Type::Unknown,
+                                    custom_completion: None,
+                                }])),
+                                // Return the file parse error
+                                err,
+                            );
+                        } else {
+                            // Save the block into the working set
+                            let block_id = working_set.add_block(block);
+                            // println!("CALL:{:?}", call);
+
+                            let mut call_with_block = call.clone();
+                            // println!("CALL_WITH_BLOCK: {:?}", call_with_block);
+
+                            call_with_block.positional.push(Expression {
+                                expr: Expr::Block(block_id),
+                                span: span(&spans[1..]),
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            });
+
+                            return (
+                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                    expr: Expr::Call(call_with_block),
+                                    span: call_span,
+                                    ty: Type::Unknown,
+                                    custom_completion: None,
+                                }])),
+                                None,
+                            );
                         }
-                    } else {
-                        // Source file couldn't be parsed correctly
                     }
                 }
             }

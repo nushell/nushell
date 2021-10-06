@@ -1,5 +1,5 @@
-def greet [name] {
-  echo "hello" $name
+def inc [x] {
+  $x + 1
 }
 
-greet "world"
+inc 5
