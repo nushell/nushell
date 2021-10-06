@@ -697,6 +697,8 @@ pub fn parse_source(
 
     if name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source") {
+            // Is this the right call to be using here?
+            // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let (call, call_span, err) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             // println!("\nSpans: {:#?}", spans);
@@ -740,6 +742,8 @@ pub fn parse_source(
                             let mut call_with_block = call.clone();
                             // println!("CALL_WITH_BLOCK: {:?}", call_with_block);
 
+                            // Adding this expression to the positional creates a syntax highlighting error
+                            // after writing `source example.nu`
                             call_with_block.positional.push(Expression {
                                 expr: Expr::Block(block_id),
                                 span: span(&spans[1..]),
