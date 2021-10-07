@@ -83,9 +83,17 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
     FileNotFound(#[label("file not found")] Span),
 
+    #[error("File not found")]
+    #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
+    FileNotFoundCustom(String, #[label("{0}")] Span),
+
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found), url(docsrs))]
     DirectoryNotFound(#[label("directory not found")] Span),
+
+    #[error("File not found")]
+    #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
+    DirectoryNotFoundCustom(String, #[label("{0}")] Span),
 
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible), url(docsrs))]
@@ -97,4 +105,26 @@ pub enum ShellError {
         #[label("{destination_message}")]
         destination_span: Span,
     },
+
+    #[error("Move not possible")]
+    #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
+    MoveNotPossibleSingle(String, #[label("{0}")] Span),
+}
+
+impl From<std::io::Error> for ShellError {
+    fn from(input: std::io::Error) -> ShellError {
+        ShellError::InternalError(format!("{:?}", input))
+    }
+}
+
+impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
+    fn from(input: Box<dyn std::error::Error>) -> ShellError {
+        ShellError::InternalError(input.to_string())
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
+    fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
+        ShellError::InternalError(format!("{:?}", input))
+    }
 }

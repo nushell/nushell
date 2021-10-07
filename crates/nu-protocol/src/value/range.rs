@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
+/// A Range is an iterator over integers.
 use crate::{
     ast::{RangeInclusion, RangeOperator},
     *,

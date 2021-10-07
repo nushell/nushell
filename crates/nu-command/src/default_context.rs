@@ -17,6 +17,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Benchmark));
         working_set.add_decl(Box::new(BuildString));
         working_set.add_decl(Box::new(Cd));
+        working_set.add_decl(Box::new(Cp));
         working_set.add_decl(Box::new(Def));
         working_set.add_decl(Box::new(Do));
         working_set.add_decl(Box::new(Each));
@@ -49,6 +50,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(ListGitBranches));
         working_set.add_decl(Box::new(Git));
         working_set.add_decl(Box::new(GitCheckout));
+
+        working_set.add_decl(Box::new(Source));
 
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());

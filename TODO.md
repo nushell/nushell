@@ -24,6 +24,7 @@
 - [x] Externals
 - [x] Modules and imports
 - [x] Exports
+- [x] Source
 - [ ] Input/output types
 - [ ] Support for `$in`
 - [ ] Value serialization
@@ -32,7 +33,6 @@
 - [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] finish operator type-checking
-- [ ] Source
 - [ ] Overlays (replacement for `autoenv`)
   
 ## Maybe: 
