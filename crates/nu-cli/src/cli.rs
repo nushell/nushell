@@ -372,7 +372,7 @@ pub fn cli(
             LineResult::ClearHistory => {
                 if options.save_history {
                     rl.clear_history();
-                    let _ = rl.append_history(&history_path);
+                    std::fs::remove_file(&history_path)?;
                 }
             }
 
