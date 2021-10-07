@@ -294,6 +294,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-table",
+ "nu-term-grid",
  "pretty_assertions",
  "reedline",
  "tempfile",
@@ -523,10 +524,10 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-table",
+ "nu-term-grid",
  "sysinfo",
  "terminal_size",
  "thiserror",
- "unicode-width",
 ]
 
 [[package]]
@@ -586,6 +587,13 @@ version = "0.36.0"
 dependencies = [
  "nu-ansi-term",
  "regex",
+ "unicode-width",
+]
+
+[[package]]
+name = "nu-term-grid"
+version = "0.36.0"
+dependencies = [
  "unicode-width",
 ]
 

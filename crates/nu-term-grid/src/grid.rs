@@ -13,7 +13,7 @@
 //! needed. For example:
 //!
 //! ```rust
-//! use nu_command::grid::{Grid, GridOptions, Direction, Filling, Cell};
+//! use nu_term_grid::grid::{Grid, GridOptions, Direction, Filling, Cell};
 //!
 //! let mut grid = Grid::new(GridOptions {
 //!     filling:    Filling::Spaces(1),

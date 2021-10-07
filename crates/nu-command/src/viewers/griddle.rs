@@ -1,10 +1,10 @@
-use super::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EvaluationContext},
     Signature, Span, SyntaxShape, Value,
 };
+use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width}; //{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 
 pub struct Griddle;
