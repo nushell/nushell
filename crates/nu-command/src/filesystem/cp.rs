@@ -60,7 +60,7 @@ impl Command for Cp {
         }
 
         let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
-        let recursive = call.named.iter().any(|p| &p.0 == "recursive");
+        let recursive: bool = call.has_flag("recursive");
         if any_source_is_dir && !recursive {
             return Err(ShellError::MoveNotPossibleSingle(
                 "Directories must be copied using \"--recursive\"".to_string(),
