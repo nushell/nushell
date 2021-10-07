@@ -109,6 +109,10 @@ pub enum ShellError {
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
     MoveNotPossibleSingle(String, #[label("{0}")] Span),
+
+    #[error("Create not possible")]
+    #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
+    CreateNotPossible(String, #[label("{0}")] Span),
 }
 
 impl From<std::io::Error> for ShellError {
