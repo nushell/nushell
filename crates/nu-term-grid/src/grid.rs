@@ -1,12 +1,4 @@
-// #![warn(future_incompatible)]
-// #![warn(missing_copy_implementations)]
-// #![warn(missing_docs)]
-// #![warn(nonstandard_style)]
-// #![warn(rust_2018_compatibility)]
-// #![warn(rust_2018_idioms)]
-// #![warn(trivial_casts, trivial_numeric_casts)]
-// #![warn(unused)]
-// #![deny(unsafe_code)]
+// Thanks to https://github.com/ogham/rust-term-grid for making this available
 
 //! This library arranges textual data in a grid format suitable for
 //! fixed-width fonts, using an algorithm to minimise the amount of space

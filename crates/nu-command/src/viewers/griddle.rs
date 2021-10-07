@@ -38,136 +38,42 @@ impl Command for Griddle {
         match input {
             Value::List { vals, .. } => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals);
+                let data = convert_to_list2(vals);
                 if let Some(items) = data {
-                    let mut grid = Grid::new(GridOptions {
-                        direction: Direction::TopToBottom,
-                        filling: Filling::Text(" | ".into()),
-                    });
-                    for list in items {
-                        // looks like '&list = [ "0", "one",]'
-                        let a_string = (&list[1]).to_string();
-                        let mut cell = Cell::from(a_string);
-                        cell.alignment = Alignment::Right;
-                        grid.add(cell);
-                    }
-
-                    let cols = if let Some(col) = columns_param {
-                        col.parse::<u16>().unwrap_or(80)
-                    } else {
-                        // 80usize
-                        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-                            w
-                        } else {
-                            80u16
-                        }
-                    };
-
-                    // eprintln!("columns size = {}", cols);
-                    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-                        // println!("{}", grid_display);
-                        Ok(Value::String {
-                            val: grid_display.to_string(),
-                            span: call.head,
-                        })
-                    } else {
-                        // println!("Couldn't fit grid into 80 columns!");
-                        Ok(Value::String {
-                            val: format!("Couldn't fit grid into {} columns!", cols),
-                            span: call.head,
-                        })
-                    }
+                    Ok(create_grid_output2(items, call, columns_param))
                 } else {
                     Ok(Value::Nothing { span: call.head })
                 }
             }
             Value::Stream { stream, .. } => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream);
+                let data = convert_to_list2(stream);
                 if let Some(items) = data {
-                    let mut grid = Grid::new(GridOptions {
-                        direction: Direction::TopToBottom,
-                        filling: Filling::Text(" | ".into()),
-                    });
-
-                    for list in items {
-                        // dbg!(&list);
-                        // from the output of ls, it looks like
-                        // '&list = [ "0", ".git", "Dir", "4.1 KB", "23 minutes ago",]'
-                        // so we take the 1th index for the file name
-                        // but this [[col1 col2]; [one two] [three four]] | grid
-                        // prints one | three
-                        // TODO: what should we do about tables in the grid? should we
-                        // allow one to specify a column or perhaps all columns?
-                        let a_string = (&list[1]).to_string(); // bytes ->, &h[3]);
-                        let mut cell = Cell::from(a_string);
-                        cell.alignment = Alignment::Right;
-                        grid.add(cell);
-                    }
-
-                    let cols = if let Some(col) = columns_param {
-                        col.parse::<u16>().unwrap_or(80)
-                    } else {
-                        // 80usize
-                        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-                            w
-                        } else {
-                            80u16
-                        }
-                    };
-
-                    // eprintln!("columns size = {}", cols);
-                    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-                        // println!("{}", grid_display);
-                        Ok(Value::String {
-                            val: grid_display.to_string(),
-                            span: call.head,
-                        })
-                    } else {
-                        // println!("Couldn't fit grid into 80 columns!");
-                        Ok(Value::String {
-                            val: format!("Couldn't fit grid into {} columns!", cols),
-                            span: call.head,
-                        })
-                    }
+                    Ok(create_grid_output2(items, call, columns_param))
                 } else {
                     // dbg!(data);
                     Ok(Value::Nothing { span: call.head })
                 }
             }
-            Value::Record {
-                cols: _, vals: _, ..
-            } => {
-                dbg!("value::record");
+            Value::Record { cols, vals, .. } => {
+                // dbg!("value::record");
 
-                // let mut output = vec![];
+                // let mut items = vec![];
 
                 // for (c, v) in cols.into_iter().zip(vals.into_iter()) {
-                //     output.push(vec![
-                //         StyledString {
-                //             contents: c,
-                //             style: nu_table::TextStyle::default_field(),
-                //         },
-                //         StyledString {
-                //             contents: v.into_string(),
-                //             style: nu_table::TextStyle::default(),
-                //         },
-                //     ])
+                //     items.push(vec![c, v.into_string()])
                 // }
+                // dbg!(&items);
 
-                // let table = nu_table::Table {
-                //     headers: vec![],
-                //     data: output,
-                //     theme: nu_table::Theme::rounded(),
-                // };
+                // Ok(create_grid_output(items, call, columns_param))
+                let mut items = vec![];
 
-                // let result = nu_table::draw_table(&table, 80, &HashMap::new());
+                for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
+                    items.push((i, c, v.into_string()))
+                }
+                // dbg!(&items);
 
-                // Ok(Value::String {
-                //     val: result,
-                //     span: call.head,
-                // })
-                Ok(Value::Nothing { span: call.head })
+                Ok(create_grid_output2(items, call, columns_param))
             }
             x => {
                 // dbg!("other value");
@@ -178,17 +84,105 @@ impl Command for Griddle {
     }
 }
 
-fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<String>>> {
+fn create_grid_output2(
+    items: Vec<(usize, String, String)>,
+    call: &Call,
+    columns_param: Option<String>,
+) -> Value {
+    let mut grid = Grid::new(GridOptions {
+        direction: Direction::TopToBottom,
+        filling: Filling::Text(" | ".into()),
+    });
+
+    for (_row_index, header, value) in items {
+        // only output value if the header name is 'name'
+        if header == "name" {
+            let mut cell = Cell::from(value);
+            cell.alignment = Alignment::Right;
+            grid.add(cell);
+        }
+    }
+
+    let cols = if let Some(col) = columns_param {
+        col.parse::<u16>().unwrap_or(80)
+    } else {
+        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+            w
+        } else {
+            80u16
+        }
+    };
+
+    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+        Value::String {
+            val: grid_display.to_string(),
+            span: call.head,
+        }
+    } else {
+        Value::String {
+            val: format!("Couldn't fit grid into {} columns!", cols),
+            span: call.head,
+        }
+    }
+}
+
+// fn create_grid_output(
+//     items: Vec<Vec<String>>,
+//     call: &Call,
+//     columns_param: Option<String>,
+// ) -> Value {
+//     let mut grid = Grid::new(GridOptions {
+//         direction: Direction::TopToBottom,
+//         filling: Filling::Text(" | ".into()),
+//     });
+
+//     for list in items {
+//         dbg!(&list);
+//         // looks like '&list = [ "0", "one",]'
+//         let a_string = (&list[1]).to_string();
+//         let mut cell = Cell::from(a_string);
+//         cell.alignment = Alignment::Right;
+//         grid.add(cell);
+//     }
+
+//     let cols = if let Some(col) = columns_param {
+//         col.parse::<u16>().unwrap_or(80)
+//     } else {
+//         // 80usize
+//         if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+//             w
+//         } else {
+//             80u16
+//         }
+//     };
+
+//     // eprintln!("columns size = {}", cols);
+//     if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+//         // println!("{}", grid_display);
+//         Value::String {
+//             val: grid_display.to_string(),
+//             span: call.head,
+//         }
+//     } else {
+//         // println!("Couldn't fit grid into 80 columns!");
+//         Value::String {
+//             val: format!("Couldn't fit grid into {} columns!", cols),
+//             span: call.head,
+//         }
+//     }
+// }
+
+fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize, String, String)>> {
     let mut iter = iter.into_iter().peekable();
-    let mut data = vec![];
 
     if let Some(first) = iter.peek() {
-        // dbg!(&first);
         let mut headers = first.columns();
 
         if !headers.is_empty() {
             headers.insert(0, "#".into());
         }
+
+        let mut data = vec![];
 
         for (row_num, item) in iter.enumerate() {
             let mut row = vec![row_num.to_string()];
@@ -217,56 +211,58 @@ fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<Stri
             data.push(row);
         }
 
-        Some(data)
+        // TODO: later, let's color these string with LS_COLORS
+        // let h: Vec<String> = headers.into_iter().map(|x| x.trim().to_string()).collect();
+        // let d: Vec<Vec<String>> = data.into_iter().map(|x| x.into_iter().collect()).collect();
+
+        // dbg!(&headers);
+        // dbg!(&data);
+        let mut h: Vec<String> = headers.into_iter().collect();
+        let d: Vec<Vec<String>> = data.into_iter().collect();
+
+        // This is just a list
+        if h.is_empty() {
+            // let's fake the header
+            h.push("#".to_string());
+            h.push("name".to_string());
+        }
+        // dbg!(&h);
+        // dbg!(&d);
+
+        // this tuple is (row_index, header_name, value)
+        let mut interleaved = vec![];
+        for (i, v) in d.into_iter().enumerate() {
+            for (n, s) in v.into_iter().enumerate() {
+                // dbg!(n);
+                // dbg!(&s);
+                // dbg!(&h.len());
+                if h.len() == 1 {
+                    // always get the first element since this is a simple list
+                    // and we hacked the header above because it was empty
+                    interleaved.push((i, h[1].clone(), s))
+                } else {
+                    interleaved.push((i, h[n].clone(), s))
+                }
+            }
+        }
+        // dbg!(&interleaved);
+        Some(interleaved)
     } else {
         None
     }
-    //     Some(nu_table::Table {
-    //         headers: headers
-    //             .into_iter()
-    //             .map(|x| StyledString {
-    //                 contents: x,
-    //                 style: nu_table::TextStyle::default_header(),
-    //             })
-    //             .collect(),
-    //         data: data
-    //             .into_iter()
-    //             .map(|x| {
-    //                 x.into_iter()
-    //                     .enumerate()
-    //                     .map(|(col, y)| {
-    //                         if col == 0 {
-    //                             StyledString {
-    //                                 contents: y,
-    //                                 style: nu_table::TextStyle::default_header(),
-    //                             }
-    //                         } else {
-    //                             StyledString {
-    //                                 contents: y,
-    //                                 style: nu_table::TextStyle::basic_left(),
-    //                             }
-    //                         }
-    //                     })
-    //                     .collect::<Vec<StyledString>>()
-    //             })
-    //             .collect(),
-    //         theme: nu_table::Theme::rounded(),
-    //     })
-    // } else {
-    //     None
-    // }
 }
-// fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::Table> {
+
+// fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<String>>> {
 //     let mut iter = iter.into_iter().peekable();
+//     let mut data = vec![];
 
 //     if let Some(first) = iter.peek() {
+//         // dbg!(&first);
 //         let mut headers = first.columns();
 
 //         if !headers.is_empty() {
 //             headers.insert(0, "#".into());
 //         }
-
-//         let mut data = vec![];
 
 //         for (row_num, item) in iter.enumerate() {
 //             let mut row = vec![row_num.to_string()];
@@ -295,37 +291,7 @@ fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<Stri
 //             data.push(row);
 //         }
 
-//         Some(nu_table::Table {
-//             headers: headers
-//                 .into_iter()
-//                 .map(|x| StyledString {
-//                     contents: x,
-//                     style: nu_table::TextStyle::default_header(),
-//                 })
-//                 .collect(),
-//             data: data
-//                 .into_iter()
-//                 .map(|x| {
-//                     x.into_iter()
-//                         .enumerate()
-//                         .map(|(col, y)| {
-//                             if col == 0 {
-//                                 StyledString {
-//                                     contents: y,
-//                                     style: nu_table::TextStyle::default_header(),
-//                                 }
-//                             } else {
-//                                 StyledString {
-//                                     contents: y,
-//                                     style: nu_table::TextStyle::basic_left(),
-//                                 }
-//                             }
-//                         })
-//                         .collect::<Vec<StyledString>>()
-//                 })
-//                 .collect(),
-//             theme: nu_table::Theme::rounded(),
-//         })
+//         Some(data)
 //     } else {
 //         None
 //     }
