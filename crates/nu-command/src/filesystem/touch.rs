@@ -32,25 +32,21 @@ impl Command for Touch {
         call: &Call,
         _input: Value,
     ) -> Result<Value, ShellError> {
-        touch(context, call)
-    }
-}
+        let target: String = call.req(context, 0)?;
+        let rest: Vec<String> = call.rest(context, 1)?;
 
-fn touch(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
-    let target: String = call.req(context, 0)?;
-    let rest: Vec<String> = call.rest(context, 1)?;
-
-    for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
-        match OpenOptions::new().write(true).create(true).open(&item) {
-            Ok(_) => continue,
-            Err(err) => {
-                return Err(ShellError::CreateNotPossible(
-                    format!("Failed to create file: {}", err),
-                    call.positional[index].span,
-                ));
+        for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
+            match OpenOptions::new().write(true).create(true).open(&item) {
+                Ok(_) => continue,
+                Err(err) => {
+                    return Err(ShellError::CreateNotPossible(
+                        format!("Failed to create file: {}", err),
+                        call.positional[index].span,
+                    ));
+                }
             }
         }
-    }
 
-    Ok(Value::Nothing { span: call.head })
+        Ok(Value::Nothing { span: call.head })
+    }
 }
