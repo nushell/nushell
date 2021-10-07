@@ -5,11 +5,10 @@ use nu_protocol::{
     Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
-use terminal_size::{Height, Width}; //{Alignment, Cell, Direction, Filling, Grid, GridOptions};
+use terminal_size::{Height, Width};
 
 pub struct Griddle;
 
-//NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
 impl Command for Griddle {
     fn name(&self) -> &str {
         "grid"
@@ -34,55 +33,26 @@ impl Command for Griddle {
         call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let columns: Option<String> = call.get_flag(context, "columns")?;
+        let columns_param: Option<String> = call.get_flag(context, "columns")?;
 
         match input {
             Value::List { vals, .. } => {
-                // let table = convert_to_table(vals);
-
-                // if let Some(table) = table {
-                //     let result = nu_table::draw_table(&table, 80, &HashMap::new());
-
-                //     Ok(Value::String {
-                //         val: result,
-                //         span: call.head,
-                //     })
-                // } else {
-                //     Ok(Value::Nothing { span: call.head })
-                // }
-                dbg!("value::list");
-                dbg!("{:#?}", vals);
-                Ok(Value::Nothing { span: call.head })
-            }
-            Value::Stream { stream, .. } => {
-                // dbg!("value::stream");
-                // let table = convert_to_table(stream);
-
-                // if let Some(table) = table {
-                //     let result = nu_table::draw_table(&table, 80, &HashMap::new());
-
-                //     Ok(Value::String {
-                //         val: result,
-                //         span: call.head,
-                //     })
-                // } else {
-                //     Ok(Value::Nothing { span: call.head })
-                // }
-                let data = convert_to_list(stream);
-                if let Some(data) = data {
+                // dbg!("value::list");
+                let data = convert_to_list(vals);
+                if let Some(items) = data {
                     let mut grid = Grid::new(GridOptions {
                         direction: Direction::TopToBottom,
                         filling: Filling::Text(" | ".into()),
                     });
-
-                    for h in data {
-                        let a_string = (&h[1]).to_string(); // bytes ->, &h[3]);
+                    for list in items {
+                        // looks like '&list = [ "0", "one",]'
+                        let a_string = (&list[1]).to_string();
                         let mut cell = Cell::from(a_string);
                         cell.alignment = Alignment::Right;
                         grid.add(cell);
                     }
 
-                    let cols = if let Some(col) = columns {
+                    let cols = if let Some(col) = columns_param {
                         col.parse::<u16>().unwrap_or(80)
                     } else {
                         // 80usize
@@ -103,15 +73,63 @@ impl Command for Griddle {
                     } else {
                         // println!("Couldn't fit grid into 80 columns!");
                         Ok(Value::String {
-                            val: "Couldn't fit grid into 80 columns!".to_string(),
+                            val: format!("Couldn't fit grid into {} columns!", cols),
                             span: call.head,
                         })
                     }
+                } else {
+                    Ok(Value::Nothing { span: call.head })
+                }
+            }
+            Value::Stream { stream, .. } => {
+                // dbg!("value::stream");
+                let data = convert_to_list(stream);
+                if let Some(items) = data {
+                    let mut grid = Grid::new(GridOptions {
+                        direction: Direction::TopToBottom,
+                        filling: Filling::Text(" | ".into()),
+                    });
 
-                    // Ok(Value::String {
-                    //     val: "".to_string(),
-                    //     span: call.head,
-                    // })
+                    for list in items {
+                        // dbg!(&list);
+                        // from the output of ls, it looks like
+                        // '&list = [ "0", ".git", "Dir", "4.1 KB", "23 minutes ago",]'
+                        // so we take the 1th index for the file name
+                        // but this [[col1 col2]; [one two] [three four]] | grid
+                        // prints one | three
+                        // TODO: what should we do about tables in the grid? should we
+                        // allow one to specify a column or perhaps all columns?
+                        let a_string = (&list[1]).to_string(); // bytes ->, &h[3]);
+                        let mut cell = Cell::from(a_string);
+                        cell.alignment = Alignment::Right;
+                        grid.add(cell);
+                    }
+
+                    let cols = if let Some(col) = columns_param {
+                        col.parse::<u16>().unwrap_or(80)
+                    } else {
+                        // 80usize
+                        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+                            w
+                        } else {
+                            80u16
+                        }
+                    };
+
+                    // eprintln!("columns size = {}", cols);
+                    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+                        // println!("{}", grid_display);
+                        Ok(Value::String {
+                            val: grid_display.to_string(),
+                            span: call.head,
+                        })
+                    } else {
+                        // println!("Couldn't fit grid into 80 columns!");
+                        Ok(Value::String {
+                            val: format!("Couldn't fit grid into {} columns!", cols),
+                            span: call.head,
+                        })
+                    }
                 } else {
                     // dbg!(data);
                     Ok(Value::Nothing { span: call.head })
@@ -120,6 +138,8 @@ impl Command for Griddle {
             Value::Record {
                 cols: _, vals: _, ..
             } => {
+                dbg!("value::record");
+
                 // let mut output = vec![];
 
                 // for (c, v) in cols.into_iter().zip(vals.into_iter()) {
@@ -147,10 +167,13 @@ impl Command for Griddle {
                 //     val: result,
                 //     span: call.head,
                 // })
-                dbg!("value::record");
                 Ok(Value::Nothing { span: call.head })
             }
-            x => Ok(x),
+            x => {
+                // dbg!("other value");
+                // dbg!(x.get_type());
+                Ok(x)
+            }
         }
     }
 }
@@ -160,6 +183,7 @@ fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<Stri
     let mut data = vec![];
 
     if let Some(first) = iter.peek() {
+        // dbg!(&first);
         let mut headers = first.columns();
 
         if !headers.is_empty() {
