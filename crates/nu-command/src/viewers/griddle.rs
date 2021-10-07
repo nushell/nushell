@@ -105,12 +105,10 @@ fn create_grid_output2(
 
     let cols = if let Some(col) = columns_param {
         col.parse::<u16>().unwrap_or(80)
+    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+        w
     } else {
-        if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-            w
-        } else {
-            80u16
-        }
+        80u16
     };
 
     if let Some(grid_display) = grid.fit_into_width(cols as usize) {
@@ -218,7 +216,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
         // dbg!(&headers);
         // dbg!(&data);
         let mut h: Vec<String> = headers.into_iter().collect();
-        let d: Vec<Vec<String>> = data.into_iter().collect();
+        // let d: Vec<Vec<String>> = data.into_iter().collect();
 
         // This is just a list
         if h.is_empty() {
@@ -231,7 +229,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
 
         // this tuple is (row_index, header_name, value)
         let mut interleaved = vec![];
-        for (i, v) in d.into_iter().enumerate() {
+        for (i, v) in data.into_iter().enumerate() {
             for (n, s) in v.into_iter().enumerate() {
                 // dbg!(n);
                 // dbg!(&s);
