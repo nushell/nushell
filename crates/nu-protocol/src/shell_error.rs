@@ -111,7 +111,7 @@ pub enum ShellError {
     MoveNotPossibleSingle(String, #[label("{0}")] Span),
 
     #[error("Create not possible")]
-    #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
+    #[diagnostic(code(nu::shell::create_not_possible), url(docsrs))]
     CreateNotPossible(String, #[label("{0}")] Span),
 }
 
