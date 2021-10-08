@@ -13,7 +13,7 @@ pub use unit::*;
 
 use std::fmt::Debug;
 
-use crate::ast::{CellPath, PathMember};
+use crate::ast::{CellPath, PathMember, RangeInclusion};
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
@@ -1005,6 +1005,44 @@ impl Value {
                 span,
             }),
 
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+
+    pub fn r#in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs
+                    .gte(Span::unknown(), &rhs.from)
+                    .map_or(false, |v| v.is_true())
+                    && match rhs.inclusion {
+                        RangeInclusion::Inclusive => lhs
+                            .lte(Span::unknown(), &rhs.to)
+                            .map_or(false, |v| v.is_true()),
+                        RangeInclusion::RightExclusive => lhs
+                            .lt(Span::unknown(), &rhs.to)
+                            .map_or(false, |v| v.is_true()),
+                    },
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
+                val: rhs
+                    .iter()
+                    .any(|x| lhs.eq(Span::unknown(), x).map_or(false, |v| v.is_true())),
+                span,
+            }),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),

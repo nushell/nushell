@@ -569,3 +569,37 @@ fn split_column() -> TestResult {
 fn for_loops() -> TestResult {
     run_test(r#"(for x in [1, 2, 3] { $x + 10 }).1"#, "12")
 }
+
+fn type_in_list_of_this_type() -> TestResult {
+    run_test(r#"42 in [41 42 43]"#, "true")
+}
+
+#[test]
+fn type_in_list_of_non_this_type() -> TestResult {
+    fail_test(r#"'hello' in [41 42 43]"#, "mismatched for operation")
+}
+
+#[test]
+fn string_in_string() -> TestResult {
+    run_test(r#"'z' in 'abc'"#, "false")
+}
+
+#[test]
+fn non_string_in_string() -> TestResult {
+    fail_test(r#"42 in 'abc'"#, "mismatched for operation")
+}
+
+#[test]
+fn int_in_range() -> TestResult {
+    run_test(r#"1 in -4..9.42"#, "true")
+}
+
+#[test]
+fn int_in_exclusive_range() -> TestResult {
+    run_test(r#"3 in 0..<3"#, "false")
+}
+
+#[test]
+fn non_number_in_range() -> TestResult {
+    fail_test(r#"'a' in 1..3"#, "mismatched for operation")
+}

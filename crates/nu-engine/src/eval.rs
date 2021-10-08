@@ -190,6 +190,7 @@ pub fn eval_expression(
                 Operator::GreaterThanOrEqual => lhs.gte(op_span, &rhs),
                 Operator::Equal => lhs.eq(op_span, &rhs),
                 Operator::NotEqual => lhs.ne(op_span, &rhs),
+                Operator::In => lhs.r#in(op_span, &rhs),
                 x => Err(ShellError::UnsupportedOperator(x, op_span)),
             }
         }
