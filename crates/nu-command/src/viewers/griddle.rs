@@ -15,7 +15,7 @@ impl Command for Griddle {
     }
 
     fn usage(&self) -> &str {
-        "Render the grid."
+        "Renders the output to a textual terminal grid."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -25,6 +25,15 @@ impl Command for Griddle {
             "number of columns wide",
             Some('c'),
         )
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"grid was built to give a concise gridded layout for ls. however,
+it determines what to put in the grid by looking for a column named
+'name'. this works great for tables and records but for lists we
+need to do something different. such as with '[one two three] | grid'
+it creates a fake column called 'name' for these values so that it
+prints out the list properly."#
     }
 
     fn run(
@@ -57,21 +66,11 @@ impl Command for Griddle {
             }
             Value::Record { cols, vals, .. } => {
                 // dbg!("value::record");
-
-                // let mut items = vec![];
-
-                // for (c, v) in cols.into_iter().zip(vals.into_iter()) {
-                //     items.push(vec![c, v.into_string()])
-                // }
-                // dbg!(&items);
-
-                // Ok(create_grid_output(items, call, columns_param))
                 let mut items = vec![];
 
                 for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
                     items.push((i, c, v.into_string()))
                 }
-                // dbg!(&items);
 
                 Ok(create_grid_output2(items, call, columns_param))
             }
@@ -213,8 +212,6 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
         // let h: Vec<String> = headers.into_iter().map(|x| x.trim().to_string()).collect();
         // let d: Vec<Vec<String>> = data.into_iter().map(|x| x.into_iter().collect()).collect();
 
-        // dbg!(&headers);
-        // dbg!(&data);
         let mut h: Vec<String> = headers.into_iter().collect();
         // let d: Vec<Vec<String>> = data.into_iter().collect();
 
@@ -224,26 +221,22 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
             h.push("#".to_string());
             h.push("name".to_string());
         }
-        // dbg!(&h);
-        // dbg!(&d);
 
         // this tuple is (row_index, header_name, value)
         let mut interleaved = vec![];
         for (i, v) in data.into_iter().enumerate() {
             for (n, s) in v.into_iter().enumerate() {
-                // dbg!(n);
-                // dbg!(&s);
-                // dbg!(&h.len());
                 if h.len() == 1 {
-                    // always get the first element since this is a simple list
+                    // always get the 1th element since this is a simple list
                     // and we hacked the header above because it was empty
+                    // 0th element is an index, 1th element is the value
                     interleaved.push((i, h[1].clone(), s))
                 } else {
                     interleaved.push((i, h[n].clone(), s))
                 }
             }
         }
-        // dbg!(&interleaved);
+
         Some(interleaved)
     } else {
         None
