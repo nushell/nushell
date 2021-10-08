@@ -14,7 +14,7 @@ pub enum Expr {
     ),
     Var(VarId),
     Call(Box<Call>),
-    ExternalCall(Span, Vec<Expression>),
+    ExternalCall(String, Span, Vec<Expression>),
     Operator(Operator),
     RowCondition(VarId, Box<Expression>),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs

@@ -108,7 +108,8 @@ pub fn parse_external_call(
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
     let mut args = vec![];
-    let name = spans[0];
+    let name_span = spans[0];
+    let name = String::from_utf8_lossy(working_set.get_span_contents(name_span)).to_string();
     let mut error = None;
 
     for span in &spans[1..] {
@@ -129,7 +130,7 @@ pub fn parse_external_call(
     }
     (
         Expression {
-            expr: Expr::ExternalCall(name, args),
+            expr: Expr::ExternalCall(name, name_span, args),
             span: span(spans),
             ty: Type::Unknown,
             custom_completion: None,
