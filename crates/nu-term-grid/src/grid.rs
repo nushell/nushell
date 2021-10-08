@@ -94,9 +94,20 @@
 use std::cmp::max;
 use std::fmt;
 use std::iter::repeat;
-
-// extern crate unicode_width;
+use strip_ansi_escapes::strip;
 use unicode_width::UnicodeWidthStr;
+
+fn unicode_width_strip_ansi(astring: &str) -> usize {
+    let stripped_string: String = {
+        if let Ok(bytes) = strip(astring) {
+            String::from_utf8_lossy(&bytes).to_string()
+        } else {
+            astring.to_string()
+        }
+    };
+
+    UnicodeWidthStr::width(&stripped_string[..])
+}
 
 /// Alignment indicate on which side the content should stick if some filling
 /// is required.
@@ -129,7 +140,7 @@ pub struct Cell {
 impl From<String> for Cell {
     fn from(string: String) -> Self {
         Self {
-            width: UnicodeWidthStr::width(&*string),
+            width: unicode_width_strip_ansi(&*string),
             contents: string,
             alignment: Alignment::Left,
         }
@@ -139,7 +150,7 @@ impl From<String> for Cell {
 impl<'a> From<&'a str> for Cell {
     fn from(string: &'a str) -> Self {
         Self {
-            width: UnicodeWidthStr::width(&*string),
+            width: unicode_width_strip_ansi(&*string),
             contents: string.into(),
             alignment: Alignment::Left,
         }
@@ -177,7 +188,7 @@ impl Filling {
     fn width(&self) -> Width {
         match *self {
             Filling::Spaces(w) => w,
-            Filling::Text(ref t) => UnicodeWidthStr::width(&t[..]),
+            Filling::Text(ref t) => unicode_width_strip_ansi(&t[..]),
         }
     }
 }

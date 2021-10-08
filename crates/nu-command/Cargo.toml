@@ -17,5 +17,6 @@ nu-term-grid = { path = "../nu-term-grid" }
 glob = "0.3.0"
 thiserror = "1.0.29"
 sysinfo = "0.20.4"
-chrono = { version="0.4.19", features=["serde"] }
+chrono = { version = "0.4.19", features = ["serde"] }
 terminal_size = "0.1.17"
+lscolors = { version = "0.8.0", features = ["crossterm"] }

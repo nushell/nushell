@@ -13,3 +13,4 @@ path = "src/main.rs"
 
 [dependencies]
 unicode-width = "0.1.9"
+strip-ansi-escapes = "0.1.1"

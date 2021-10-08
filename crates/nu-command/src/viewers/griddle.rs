@@ -1,3 +1,4 @@
+use lscolors::{LsColors, Style};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -88,6 +89,7 @@ fn create_grid_output2(
     call: &Call,
     columns_param: Option<String>,
 ) -> Value {
+    let ls_colors = LsColors::from_env().unwrap_or_default();
     let mut grid = Grid::new(GridOptions {
         direction: Direction::TopToBottom,
         filling: Filling::Text(" | ".into()),
@@ -96,7 +98,9 @@ fn create_grid_output2(
     for (_row_index, header, value) in items {
         // only output value if the header name is 'name'
         if header == "name" {
-            let mut cell = Cell::from(value);
+            let style = ls_colors.style_for_path(value.clone());
+            let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
+            let mut cell = Cell::from(ansi_style.apply(value).to_string());
             cell.alignment = Alignment::Right;
             grid.add(cell);
         }
