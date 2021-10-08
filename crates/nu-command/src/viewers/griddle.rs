@@ -1,3 +1,4 @@
+use lscolors::{LsColors, Style};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -19,12 +20,14 @@ impl Command for Griddle {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("grid").named(
-            "columns",
-            SyntaxShape::Int,
-            "number of columns wide",
-            Some('c'),
-        )
+        Signature::build("grid")
+            .named(
+                "width",
+                SyntaxShape::Int,
+                "number of columns wide",
+                Some('w'),
+            )
+            .switch("color", "draw output with color", Some('c'))
     }
 
     fn extra_usage(&self) -> &str {
@@ -42,14 +45,15 @@ prints out the list properly."#
         call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let columns_param: Option<String> = call.get_flag(context, "columns")?;
+        let width_param: Option<String> = call.get_flag(context, "width")?;
+        let color_param: bool = call.has_flag("color");
 
         match input {
             Value::List { vals, .. } => {
                 // dbg!("value::list");
                 let data = convert_to_list2(vals);
                 if let Some(items) = data {
-                    Ok(create_grid_output2(items, call, columns_param))
+                    Ok(create_grid_output2(items, call, width_param, color_param))
                 } else {
                     Ok(Value::Nothing { span: call.head })
                 }
@@ -58,7 +62,7 @@ prints out the list properly."#
                 // dbg!("value::stream");
                 let data = convert_to_list2(stream);
                 if let Some(items) = data {
-                    Ok(create_grid_output2(items, call, columns_param))
+                    Ok(create_grid_output2(items, call, width_param, color_param))
                 } else {
                     // dbg!(data);
                     Ok(Value::Nothing { span: call.head })
@@ -72,7 +76,7 @@ prints out the list properly."#
                     items.push((i, c, v.into_string()))
                 }
 
-                Ok(create_grid_output2(items, call, columns_param))
+                Ok(create_grid_output2(items, call, width_param, color_param))
             }
             x => {
                 // dbg!("other value");
@@ -86,8 +90,10 @@ prints out the list properly."#
 fn create_grid_output2(
     items: Vec<(usize, String, String)>,
     call: &Call,
-    columns_param: Option<String>,
+    width_param: Option<String>,
+    color_param: bool,
 ) -> Value {
+    let ls_colors = LsColors::from_env().unwrap_or_default();
     let mut grid = Grid::new(GridOptions {
         direction: Direction::TopToBottom,
         filling: Filling::Text(" | ".into()),
@@ -96,13 +102,21 @@ fn create_grid_output2(
     for (_row_index, header, value) in items {
         // only output value if the header name is 'name'
         if header == "name" {
-            let mut cell = Cell::from(value);
-            cell.alignment = Alignment::Right;
-            grid.add(cell);
+            if color_param {
+                let style = ls_colors.style_for_path(value.clone());
+                let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
+                let mut cell = Cell::from(ansi_style.apply(value).to_string());
+                cell.alignment = Alignment::Right;
+                grid.add(cell);
+            } else {
+                let mut cell = Cell::from(value);
+                cell.alignment = Alignment::Right;
+                grid.add(cell);
+            }
         }
     }
 
-    let cols = if let Some(col) = columns_param {
+    let cols = if let Some(col) = width_param {
         col.parse::<u16>().unwrap_or(80)
     } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
         w
