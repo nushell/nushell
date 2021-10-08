@@ -2,6 +2,8 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{Range, ShellError, Span, Type, Unit, Value};
 
+use crate::FromValue;
+
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
         Expression {
@@ -71,7 +73,7 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
 fn eval_external(
     context: &EvaluationContext,
     name: &Span,
-    args: &[Span],
+    args: &[Expression],
     input: Value,
     last_expression: bool,
 ) -> Result<Value, ShellError> {
@@ -84,20 +86,28 @@ fn eval_external(
     let command = engine_state.get_decl(decl_id);
 
     let mut call = Call::new();
-    call.positional = [*name]
-        .iter()
-        .chain(args.iter())
-        .map(|span| {
-            let contents = engine_state.get_span_contents(span);
-            let val = String::from_utf8_lossy(contents);
-            Expression {
-                expr: Expr::String(val.into()),
-                span: *span,
-                ty: Type::String,
-                custom_completion: None,
-            }
+
+    let name_span = name;
+    let name = engine_state.get_span_contents(name);
+    call.positional.push(Expression {
+        expr: Expr::String(String::from_utf8_lossy(name).to_string()),
+        span: *name_span,
+        ty: Type::String,
+        custom_completion: None,
+    });
+
+    for arg in args {
+        let span = arg.span;
+        let result = eval_expression(context, arg)?;
+        let result: String = FromValue::from_value(&result)?;
+
+        call.positional.push(Expression {
+            expr: Expr::String(result),
+            span,
+            ty: Type::String,
+            custom_completion: None,
         })
-        .collect();
+    }
 
     if last_expression {
         call.named.push(("last_expression".into(), None))

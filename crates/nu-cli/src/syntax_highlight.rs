@@ -39,8 +39,12 @@ impl Highlighter for NuHighlighter {
                 .to_string();
             match shape.1 {
                 FlatShape::Custom(..) => output.push((Style::new().bold(), next_token)),
-                FlatShape::External => output.push((Style::new().bold(), next_token)),
-                FlatShape::ExternalArg => output.push((Style::new().bold(), next_token)),
+                FlatShape::External => {
+                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                }
+                FlatShape::ExternalArg => {
+                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                }
                 FlatShape::Garbage => output.push((
                     Style::new()
                         .fg(nu_ansi_term::Color::White)

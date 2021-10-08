@@ -104,14 +104,28 @@ pub fn check_name<'a>(
 }
 
 pub fn parse_external_call(
-    _working_set: &mut StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
-    // TODO: add external parsing
     let mut args = vec![];
     let name = spans[0];
+    let mut error = None;
+
     for span in &spans[1..] {
-        args.push(*span);
+        let contents = working_set.get_span_contents(*span);
+
+        if contents.starts_with(b"$") || contents.starts_with(b"(") {
+            let (arg, err) = parse_expression(working_set, &[*span], true);
+            error = error.or(err);
+            args.push(arg);
+        } else {
+            args.push(Expression {
+                expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
+                span: *span,
+                ty: Type::String,
+                custom_completion: None,
+            })
+        }
     }
     (
         Expression {
@@ -120,7 +134,7 @@ pub fn parse_external_call(
             ty: Type::Unknown,
             custom_completion: None,
         },
-        None,
+        error,
     )
 }
 
