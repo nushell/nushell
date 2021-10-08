@@ -28,6 +28,12 @@ impl Command for Griddle {
                 Some('w'),
             )
             .switch("color", "draw output with color", Some('c'))
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "character to separate grid with",
+                Some('s'),
+            )
     }
 
     fn extra_usage(&self) -> &str {
@@ -47,13 +53,20 @@ prints out the list properly."#
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let width_param: Option<String> = call.get_flag(context, "width")?;
         let color_param: bool = call.has_flag("color");
+        let seperator_param: Option<String> = call.get_flag(context, "separator")?;
 
         match input {
             Value::List { vals, .. } => {
                 // dbg!("value::list");
                 let data = convert_to_list2(vals);
                 if let Some(items) = data {
-                    Ok(create_grid_output2(items, call, width_param, color_param))
+                    Ok(create_grid_output2(
+                        items,
+                        call,
+                        width_param,
+                        color_param,
+                        seperator_param,
+                    ))
                 } else {
                     Ok(Value::Nothing { span: call.head })
                 }
@@ -62,7 +75,13 @@ prints out the list properly."#
                 // dbg!("value::stream");
                 let data = convert_to_list2(stream);
                 if let Some(items) = data {
-                    Ok(create_grid_output2(items, call, width_param, color_param))
+                    Ok(create_grid_output2(
+                        items,
+                        call,
+                        width_param,
+                        color_param,
+                        seperator_param,
+                    ))
                 } else {
                     // dbg!(data);
                     Ok(Value::Nothing { span: call.head })
@@ -76,7 +95,13 @@ prints out the list properly."#
                     items.push((i, c, v.into_string()))
                 }
 
-                Ok(create_grid_output2(items, call, width_param, color_param))
+                Ok(create_grid_output2(
+                    items,
+                    call,
+                    width_param,
+                    color_param,
+                    seperator_param,
+                ))
             }
             x => {
                 // dbg!("other value");
@@ -92,11 +117,25 @@ fn create_grid_output2(
     call: &Call,
     width_param: Option<String>,
     color_param: bool,
+    separator_param: Option<String>,
 ) -> Value {
     let ls_colors = LsColors::from_env().unwrap_or_default();
+    let cols = if let Some(col) = width_param {
+        col.parse::<u16>().unwrap_or(80)
+    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+        w
+    } else {
+        80u16
+    };
+    let sep = if let Some(seperator) = separator_param {
+        seperator
+    } else {
+        " │ ".to_string()
+    };
+
     let mut grid = Grid::new(GridOptions {
         direction: Direction::TopToBottom,
-        filling: Filling::Text(" | ".into()),
+        filling: Filling::Text(sep),
     });
 
     for (_row_index, header, value) in items {
@@ -115,14 +154,6 @@ fn create_grid_output2(
             }
         }
     }
-
-    let cols = if let Some(col) = width_param {
-        col.parse::<u16>().unwrap_or(80)
-    } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-        w
-    } else {
-        80u16
-    };
 
     if let Some(grid_display) = grid.fit_into_width(cols as usize) {
         Value::String {
