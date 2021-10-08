@@ -590,8 +590,13 @@ fn non_string_in_string() -> TestResult {
 }
 
 #[test]
-fn int_in_range() -> TestResult {
+fn int_in_inc_range() -> TestResult {
     run_test(r#"1 in -4..9.42"#, "true")
+}
+
+#[test]
+fn int_in_dec_range() -> TestResult {
+    run_test(r#"1 in 9.42..-4"#, "true")
 }
 
 #[test]

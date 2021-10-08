@@ -1020,17 +1020,40 @@ impl Value {
 
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs
-                    .gte(Span::unknown(), &rhs.from)
+                val: if rhs
+                    .incr
+                    .gt(
+                        Span::unknown(),
+                        &Value::Int {
+                            val: 0,
+                            span: Span::unknown(),
+                        },
+                    )
                     .map_or(false, |v| v.is_true())
-                    && match rhs.inclusion {
-                        RangeInclusion::Inclusive => lhs
-                            .lte(Span::unknown(), &rhs.to)
-                            .map_or(false, |v| v.is_true()),
-                        RangeInclusion::RightExclusive => lhs
-                            .lt(Span::unknown(), &rhs.to)
-                            .map_or(false, |v| v.is_true()),
-                    },
+                {
+                    lhs.gte(Span::unknown(), &rhs.from)
+                        .map_or(false, |v| v.is_true())
+                        && match rhs.inclusion {
+                            RangeInclusion::Inclusive => lhs
+                                .lte(Span::unknown(), &rhs.to)
+                                .map_or(false, |v| v.is_true()),
+                            RangeInclusion::RightExclusive => lhs
+                                .lt(Span::unknown(), &rhs.to)
+                                .map_or(false, |v| v.is_true()),
+                        }
+                } else {
+                    lhs.lte(Span::unknown(), &rhs.from)
+                        .map_or(false, |v| v.is_true())
+                        && match rhs.inclusion {
+                            RangeInclusion::Inclusive => lhs
+                                .gte(Span::unknown(), &rhs.to)
+                                .map_or(false, |v| v.is_true()),
+                            RangeInclusion::RightExclusive => lhs
+                                .gt(Span::unknown(), &rhs.to)
+                                .map_or(false, |v| v.is_true()),
+                        }
+                },
+
                 span,
             }),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
