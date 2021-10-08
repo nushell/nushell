@@ -359,7 +359,7 @@ fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::Expression => {
-            let (arg, err) = parse_expression(working_set, &spans[*spans_idx..]);
+            let (arg, err) = parse_expression(working_set, &spans[*spans_idx..], true);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -586,7 +586,7 @@ pub fn parse_call(
                 new_spans.extend(&spans[(pos + 1)..]);
             }
 
-            let (result, err) = parse_call(working_set, &new_spans, false);
+            let (result, err) = parse_expression(working_set, &new_spans, false);
 
             let expression = match result {
                 Expression {
@@ -631,7 +631,7 @@ pub fn parse_call(
                         new_spans.extend(&spans[(pos + 1)..]);
                     }
 
-                    let (result, err) = parse_call(working_set, &new_spans, false);
+                    let (result, err) = parse_expression(working_set, &new_spans, false);
 
                     let expression = match result {
                         Expression {
@@ -2832,13 +2832,14 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases: bool,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[0]);
 
     match bytes[0] {
         b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
         | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans, None),
-        _ => parse_call(working_set, spans, true),
+        _ => parse_call(working_set, spans, expand_aliases),
     }
 }
 
@@ -2878,7 +2879,7 @@ pub fn parse_statement(
         ),
         b"hide" => parse_hide(working_set, spans),
         _ => {
-            let (expr, err) = parse_expression(working_set, spans);
+            let (expr, err) = parse_expression(working_set, spans, true);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
         }
     }
@@ -2914,7 +2915,7 @@ pub fn parse_block(
                     .commands
                     .iter()
                     .map(|command| {
-                        let (expr, err) = parse_expression(working_set, &command.parts);
+                        let (expr, err) = parse_expression(working_set, &command.parts, true);
 
                         if error.is_none() {
                             error = err;
