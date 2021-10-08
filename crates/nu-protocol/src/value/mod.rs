@@ -1020,38 +1020,43 @@ impl Value {
 
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: if rhs
-                    .incr
-                    .gt(
+                val: if matches!(
+                    rhs.incr.gt(
                         Span::unknown(),
                         &Value::Int {
                             val: 0,
-                            span: Span::unknown(),
-                        },
-                    )
-                    .map_or(false, |v| v.is_true())
-                {
-                    lhs.gte(Span::unknown(), &rhs.from)
-                        .map_or(false, |v| v.is_true())
-                        && match rhs.inclusion {
-                            RangeInclusion::Inclusive => lhs
-                                .lte(Span::unknown(), &rhs.to)
-                                .map_or(false, |v| v.is_true()),
-                            RangeInclusion::RightExclusive => lhs
-                                .lt(Span::unknown(), &rhs.to)
-                                .map_or(false, |v| v.is_true()),
+                            span: Span::unknown()
                         }
+                    ),
+                    Ok(Value::Bool { val: true, .. })
+                ) {
+                    matches!(
+                        lhs.gte(Span::unknown(), &rhs.from),
+                        Ok(Value::Bool { val: true, .. })
+                    ) && match rhs.inclusion {
+                        RangeInclusion::Inclusive => matches!(
+                            lhs.lte(Span::unknown(), &rhs.to),
+                            Ok(Value::Bool { val: true, .. })
+                        ),
+                        RangeInclusion::RightExclusive => matches!(
+                            lhs.lt(Span::unknown(), &rhs.to),
+                            Ok(Value::Bool { val: true, .. })
+                        ),
+                    }
                 } else {
-                    lhs.lte(Span::unknown(), &rhs.from)
-                        .map_or(false, |v| v.is_true())
-                        && match rhs.inclusion {
-                            RangeInclusion::Inclusive => lhs
-                                .gte(Span::unknown(), &rhs.to)
-                                .map_or(false, |v| v.is_true()),
-                            RangeInclusion::RightExclusive => lhs
-                                .gt(Span::unknown(), &rhs.to)
-                                .map_or(false, |v| v.is_true()),
-                        }
+                    matches!(
+                        lhs.lte(Span::unknown(), &rhs.from),
+                        Ok(Value::Bool { val: true, .. })
+                    ) && match rhs.inclusion {
+                        RangeInclusion::Inclusive => matches!(
+                            lhs.gte(Span::unknown(), &rhs.to),
+                            Ok(Value::Bool { val: true, .. })
+                        ),
+                        RangeInclusion::RightExclusive => matches!(
+                            lhs.gt(Span::unknown(), &rhs.to),
+                            Ok(Value::Bool { val: true, .. })
+                        ),
+                    }
                 },
 
                 span,
