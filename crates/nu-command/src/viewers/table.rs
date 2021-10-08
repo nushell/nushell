@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{Signature, Span, Value};
 use nu_table::StyledString;
+use std::collections::HashMap;
+use terminal_size::{Height, Width};
 
 pub struct Table;
 
@@ -27,12 +27,18 @@ impl Command for Table {
         call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
+            w as usize
+        } else {
+            80usize
+        };
+
         match input {
             Value::List { vals, .. } => {
                 let table = convert_to_table(vals);
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, 80, &HashMap::new());
+                    let result = nu_table::draw_table(&table, term_width, &HashMap::new());
 
                     Ok(Value::String {
                         val: result,
@@ -46,7 +52,7 @@ impl Command for Table {
                 let table = convert_to_table(stream);
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, 80, &HashMap::new());
+                    let result = nu_table::draw_table(&table, term_width, &HashMap::new());
 
                     Ok(Value::String {
                         val: result,
@@ -78,7 +84,7 @@ impl Command for Table {
                     theme: nu_table::Theme::rounded(),
                 };
 
-                let result = nu_table::draw_table(&table, 80, &HashMap::new());
+                let result = nu_table::draw_table(&table, term_width, &HashMap::new());
 
                 Ok(Value::String {
                     val: result,

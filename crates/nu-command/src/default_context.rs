@@ -27,6 +27,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
         working_set.add_decl(Box::new(Get));
+        working_set.add_decl(Box::new(Griddle));
         working_set.add_decl(Box::new(Help));
         working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
