@@ -27,6 +27,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::unknown_operator), url(docsrs))]
     UnknownOperator(String, #[label = "unsupported operator"] Span),
 
+    #[error("Missing parameter: {0}.")]
+    #[diagnostic(code(nu::shell::missing_parameter), url(docsrs))]
+    MissingParameter(String, #[label = "missing parameter: {0}"] Span),
+
     #[error("External commands not yet supported")]
     #[diagnostic(code(nu::shell::external_commands), url(docsrs))]
     ExternalNotSupported(#[label = "external not supported"] Span),
@@ -109,6 +113,10 @@ pub enum ShellError {
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible_single), url(docsrs))]
     MoveNotPossibleSingle(String, #[label("{0}")] Span),
+
+    #[error("Create not possible")]
+    #[diagnostic(code(nu::shell::create_not_possible), url(docsrs))]
+    CreateNotPossible(String, #[label("{0}")] Span),
 }
 
 impl From<std::io::Error> for ShellError {
