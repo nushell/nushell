@@ -104,10 +104,12 @@ impl Range {
         })
     }
 
+    #[inline]
     fn moves_up(&self) -> bool {
         self.from <= self.to
     }
 
+    #[inline]
     fn is_end_inclusive(&self) -> bool {
         matches!(self.inclusion, RangeInclusion::Inclusive)
     }

@@ -492,40 +492,6 @@ impl PartialOrd for Value {
                     ..
                 },
             ) if lhs_headers == rhs_headers && lhs == rhs => Some(Ordering::Equal),
-            // Note: This may look a bit strange, but a Stream is still just a List,
-            // it just happens to be in an iterator form instead of a concrete form. If the contained
-            // values are the same then it should be treated as equal
-            (
-                Value::Stream {
-                    stream: stream_lhs, ..
-                },
-                Value::List {
-                    vals: stream_rhs, ..
-                },
-            ) => {
-                let vals_lhs: Vec<Value> = stream_lhs.clone().collect();
-                let vals_rhs: Vec<Value> =
-                    stream_rhs.clone().into_iter().into_value_stream().collect();
-
-                vals_lhs.partial_cmp(&vals_rhs)
-            }
-            // Note: This may look a bit strange, but a Stream is still just a List,
-            // it just happens to be in an iterator form instead of a concrete form. If the contained
-            // values are the same then it should be treated as equal
-            (
-                Value::List {
-                    vals: stream_lhs, ..
-                },
-                Value::Stream {
-                    stream: stream_rhs, ..
-                },
-            ) => {
-                let vals_lhs: Vec<Value> =
-                    stream_lhs.clone().into_iter().into_value_stream().collect();
-                let vals_rhs: Vec<Value> = stream_rhs.clone().collect();
-
-                vals_lhs.partial_cmp(&vals_rhs)
-            }
             (Value::Stream { stream: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
                 lhs.clone().partial_cmp(rhs.clone())
             }
@@ -535,6 +501,9 @@ impl PartialOrd for Value {
             (Value::String { val: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
                 lhs.partial_cmp(&rhs.clone().collect_string())
             }
+            // NOTE: This may look a bit strange, but a `Stream` is still just a `List`, it just
+            // happens to be in an iterator form instead of a concrete form. The contained values
+            // can be compared.
             (Value::Stream { stream: lhs, .. }, Value::List { vals: rhs, .. }) => {
                 lhs.clone().collect::<Vec<Value>>().partial_cmp(rhs)
             }
