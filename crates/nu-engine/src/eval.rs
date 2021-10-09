@@ -191,6 +191,7 @@ pub fn eval_expression(
                 Operator::Equal => lhs.eq(op_span, &rhs),
                 Operator::NotEqual => lhs.ne(op_span, &rhs),
                 Operator::In => lhs.r#in(op_span, &rhs),
+                Operator::NotIn => lhs.not_in(op_span, &rhs),
                 x => Err(ShellError::UnsupportedOperator(x, op_span)),
             }
         }

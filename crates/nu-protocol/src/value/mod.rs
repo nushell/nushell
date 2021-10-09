@@ -812,7 +812,7 @@ impl Value {
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
-                val: !matches!(ordering, Ordering::Less),
+                val: !matches!(ordering, Ordering::Equal),
                 span,
             }),
             None => Err(ShellError::OperatorMismatch {
@@ -846,8 +846,43 @@ impl Value {
                 span,
             }),
             (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
-                // TODO(@arthur-targaryen): Not sure about this clone.
+                // TODO(@arthur-targaryen): Not sure about this clone (see also `Value::not_in`).
                 val: rhs.clone().any(|x| lhs == &x),
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+
+    pub fn not_in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
+                // TODO(@arthur-targaryen): Not sure about this clone (see also `Value::r#in`).
+                val: rhs.clone().all(|x| lhs != &x),
                 span,
             }),
             _ => Err(ShellError::OperatorMismatch {

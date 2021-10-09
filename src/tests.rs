@@ -631,3 +631,13 @@ fn string_in_valuestream() -> TestResult {
         "true",
     )
 }
+
+#[test]
+fn string_not_in_string() -> TestResult {
+    run_test(r#"'d' not-in 'abc'"#, "true")
+}
+
+#[test]
+fn float_not_in_inc_range() -> TestResult {
+    run_test(r#"1.4 not-in 2..9.42"#, "true")
+}
