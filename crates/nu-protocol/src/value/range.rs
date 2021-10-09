@@ -115,7 +115,7 @@ impl Range {
     pub fn contains(&self, item: &Value) -> bool {
         match (item.partial_cmp(&self.from), item.partial_cmp(&self.to)) {
             (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) => self.moves_up(),
-            (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) => self.moves_up(),
+            (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) => !self.moves_up(),
             (Some(_), Some(Ordering::Equal)) => self.is_end_inclusive(),
             (_, _) => false,
         }
