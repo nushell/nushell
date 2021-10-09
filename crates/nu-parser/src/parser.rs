@@ -459,6 +459,10 @@ pub fn parse_internal_call(
 
     let signature = working_set.get_decl(decl_id).signature();
 
+    if signature.creates_scope {
+        working_set.enter_scope();
+    }
+
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
 
@@ -553,6 +557,10 @@ pub fn parse_internal_call(
 
     let err = check_call(command_span, &signature, &call);
     error = error.or(err);
+
+    if signature.creates_scope {
+        working_set.exit_scope();
+    }
 
     // FIXME: type unknown
     (Box::new(call), span(spans), error)
