@@ -27,6 +27,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(FromJson));
         working_set.add_decl(Box::new(Get));
+        working_set.add_decl(Box::new(Griddle));
         working_set.add_decl(Box::new(Help));
         working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
@@ -35,12 +36,18 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(LetEnv));
         working_set.add_decl(Box::new(Lines));
         working_set.add_decl(Box::new(Ls));
+        working_set.add_decl(Box::new(Mkdir));
         working_set.add_decl(Box::new(Module));
         working_set.add_decl(Box::new(Mv));
         working_set.add_decl(Box::new(Ps));
         working_set.add_decl(Box::new(Select));
+        working_set.add_decl(Box::new(Split));
+        working_set.add_decl(Box::new(SplitChars));
+        working_set.add_decl(Box::new(SplitColumn));
+        working_set.add_decl(Box::new(SplitRow));
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
+        working_set.add_decl(Box::new(Touch));
         working_set.add_decl(Box::new(Use));
         working_set.add_decl(Box::new(Where));
         working_set.add_decl(Box::new(Wrap));

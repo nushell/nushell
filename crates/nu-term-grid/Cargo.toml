@@ -1,0 +1,16 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Nushell grid printing"
+edition = "2018"
+license = "MIT"
+name = "nu-term-grid"
+version = "0.36.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "grid"
+path = "src/main.rs"
+
+[dependencies]
+unicode-width = "0.1.9"
+strip-ansi-escapes = "0.1.1"

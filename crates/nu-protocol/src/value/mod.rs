@@ -364,6 +364,73 @@ impl Value {
             _ => vec![],
         }
     }
+
+    pub fn map<F>(self, span: Span, mut f: F) -> Value
+    where
+        Self: Sized,
+        F: FnMut(Self) -> Value + 'static,
+    {
+        match self {
+            Value::List { vals, .. } => Value::List {
+                vals: vals.into_iter().map(f).collect(),
+                span,
+            },
+            Value::Stream { stream, .. } => Value::Stream {
+                stream: stream.map(f).into_value_stream(),
+                span,
+            },
+            v => {
+                if v.as_string().is_ok() {
+                    Value::List {
+                        vals: vec![f(v)],
+                        span,
+                    }
+                } else {
+                    Value::Error {
+                        error: ShellError::PipelineMismatch {
+                            expected: Type::String,
+                            expected_span: span,
+                            origin: v.span(),
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn flat_map<U, F>(self, span: Span, mut f: F) -> Value
+    where
+        Self: Sized,
+        U: IntoIterator<Item = Value>,
+        F: FnMut(Self) -> U + 'static,
+    {
+        match self {
+            Value::List { vals, .. } => Value::List {
+                vals: vals.into_iter().map(f).flatten().collect(),
+                span,
+            },
+            Value::Stream { stream, .. } => Value::Stream {
+                stream: stream.map(f).flatten().into_value_stream(),
+                span,
+            },
+            v => {
+                if v.as_string().is_ok() {
+                    Value::List {
+                        vals: f(v).into_iter().collect(),
+                        span,
+                    }
+                } else {
+                    Value::Error {
+                        error: ShellError::PipelineMismatch {
+                            expected: Type::String,
+                            expected_span: span,
+                            origin: v.span(),
+                        },
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl PartialEq for Value {

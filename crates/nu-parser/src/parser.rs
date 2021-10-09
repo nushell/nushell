@@ -104,23 +104,38 @@ pub fn check_name<'a>(
 }
 
 pub fn parse_external_call(
-    _working_set: &mut StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
-    // TODO: add external parsing
     let mut args = vec![];
-    let name = spans[0];
+    let name_span = spans[0];
+    let name = String::from_utf8_lossy(working_set.get_span_contents(name_span)).to_string();
+    let mut error = None;
+
     for span in &spans[1..] {
-        args.push(*span);
+        let contents = working_set.get_span_contents(*span);
+
+        if contents.starts_with(b"$") || contents.starts_with(b"(") {
+            let (arg, err) = parse_expression(working_set, &[*span], true);
+            error = error.or(err);
+            args.push(arg);
+        } else {
+            args.push(Expression {
+                expr: Expr::String(String::from_utf8_lossy(contents).to_string()),
+                span: *span,
+                ty: Type::String,
+                custom_completion: None,
+            })
+        }
     }
     (
         Expression {
-            expr: Expr::ExternalCall(name, args),
+            expr: Expr::ExternalCall(name, name_span, args),
             span: span(spans),
             ty: Type::Unknown,
             custom_completion: None,
         },
-        None,
+        error,
     )
 }
 
@@ -359,7 +374,7 @@ fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::Expression => {
-            let (arg, err) = parse_expression(working_set, &spans[*spans_idx..]);
+            let (arg, err) = parse_expression(working_set, &spans[*spans_idx..], true);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
 
@@ -586,7 +601,7 @@ pub fn parse_call(
                 new_spans.extend(&spans[(pos + 1)..]);
             }
 
-            let (result, err) = parse_call(working_set, &new_spans, false);
+            let (result, err) = parse_expression(working_set, &new_spans, false);
 
             let expression = match result {
                 Expression {
@@ -631,7 +646,7 @@ pub fn parse_call(
                         new_spans.extend(&spans[(pos + 1)..]);
                     }
 
-                    let (result, err) = parse_call(working_set, &new_spans, false);
+                    let (result, err) = parse_expression(working_set, &new_spans, false);
 
                     let expression = match result {
                         Expression {
@@ -2832,13 +2847,14 @@ pub fn parse_math_expression(
 pub fn parse_expression(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
+    expand_aliases: bool,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[0]);
 
     match bytes[0] {
         b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
         | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans, None),
-        _ => parse_call(working_set, spans, true),
+        _ => parse_call(working_set, spans, expand_aliases),
     }
 }
 
@@ -2878,7 +2894,7 @@ pub fn parse_statement(
         ),
         b"hide" => parse_hide(working_set, spans),
         _ => {
-            let (expr, err) = parse_expression(working_set, spans);
+            let (expr, err) = parse_expression(working_set, spans, true);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
         }
     }
@@ -2914,7 +2930,7 @@ pub fn parse_block(
                     .commands
                     .iter()
                     .map(|command| {
-                        let (expr, err) = parse_expression(working_set, &command.parts);
+                        let (expr, err) = parse_expression(working_set, &command.parts, true);
 
                         if error.is_none() {
                             error = err;

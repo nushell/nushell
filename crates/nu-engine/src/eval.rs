@@ -70,8 +70,9 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
 
 fn eval_external(
     context: &EvaluationContext,
-    name: &Span,
-    args: &[Span],
+    name: &str,
+    name_span: &Span,
+    args: &[Expression],
     input: Value,
     last_expression: bool,
 ) -> Result<Value, ShellError> {
@@ -79,25 +80,22 @@ fn eval_external(
 
     let decl_id = engine_state
         .find_decl("run_external".as_bytes())
-        .ok_or_else(|| ShellError::ExternalNotSupported(*name))?;
+        .ok_or_else(|| ShellError::ExternalNotSupported(*name_span))?;
 
     let command = engine_state.get_decl(decl_id);
 
     let mut call = Call::new();
-    call.positional = [*name]
-        .iter()
-        .chain(args.iter())
-        .map(|span| {
-            let contents = engine_state.get_span_contents(span);
-            let val = String::from_utf8_lossy(contents);
-            Expression {
-                expr: Expr::String(val.into()),
-                span: *span,
-                ty: Type::String,
-                custom_completion: None,
-            }
-        })
-        .collect();
+
+    call.positional.push(Expression {
+        expr: Expr::String(name.trim_start_matches('^').to_string()),
+        span: *name_span,
+        ty: Type::String,
+        custom_completion: None,
+    });
+
+    for arg in args {
+        call.positional.push(arg.clone())
+    }
 
     if last_expression {
         call.named.push(("last_expression".into(), None))
@@ -171,8 +169,8 @@ pub fn eval_expression(
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
         Expr::Call(call) => eval_call(context, call, Value::nothing()),
-        Expr::ExternalCall(name, args) => {
-            eval_external(context, name, args, Value::nothing(), true)
+        Expr::ExternalCall(name, span, args) => {
+            eval_external(context, name, span, args, Value::nothing(), true)
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -273,12 +271,13 @@ pub fn eval_block(
                         input = eval_call(context, call, input)?;
                     }
                     Expression {
-                        expr: Expr::ExternalCall(name, args),
+                        expr: Expr::ExternalCall(name, name_span, args),
                         ..
                     } => {
                         input = eval_external(
                             context,
                             name,
+                            name_span,
                             args,
                             input,
                             i == pipeline.expressions.len() - 1,
