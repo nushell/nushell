@@ -54,6 +54,14 @@ fn fail_test(input: &str, expected: &str) -> TestResult {
     Ok(())
 }
 
+fn not_found_msg() -> &'static str {
+    if cfg!(windows) {
+        "not recognized"
+    } else {
+        "not found"
+    }
+}
+
 #[test]
 fn add_simple() -> TestResult {
     run_test("3 + 4", "7")
@@ -393,7 +401,7 @@ fn module_import_uses_internal_command() -> TestResult {
 
 #[test]
 fn hides_def() -> TestResult {
-    fail_test(r#"def foo [] { "foo" }; hide foo; foo"#, "not found")
+    fail_test(r#"def foo [] { "foo" }; hide foo; foo"#, not_found_msg())
 }
 
 #[test]
@@ -406,7 +414,10 @@ fn hides_def_then_redefines() -> TestResult {
 
 #[test]
 fn hides_def_in_scope_1() -> TestResult {
-    fail_test(r#"def foo [] { "foo" }; do { hide foo; foo }"#, "not found")
+    fail_test(
+        r#"def foo [] { "foo" }; do { hide foo; foo }"#,
+        not_found_msg(),
+    )
 }
 
 #[test]
@@ -421,7 +432,7 @@ fn hides_def_in_scope_2() -> TestResult {
 fn hides_def_in_scope_3() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { hide foo; def foo [] { "bar" }; hide foo; foo }"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -429,7 +440,7 @@ fn hides_def_in_scope_3() -> TestResult {
 fn hides_def_in_scope_4() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; hide foo; foo }"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -445,7 +456,7 @@ fn hide_twice_not_allowed() -> TestResult {
 fn hides_import_1() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.foo; foo"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -453,7 +464,7 @@ fn hides_import_1() -> TestResult {
 fn hides_import_2() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.*; foo"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -461,7 +472,7 @@ fn hides_import_2() -> TestResult {
 fn hides_import_3() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam; hide spam.[foo]; foo"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -469,7 +480,7 @@ fn hides_import_3() -> TestResult {
 fn hides_import_4() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; foo"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -477,7 +488,7 @@ fn hides_import_4() -> TestResult {
 fn hides_import_5() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.*; hide foo; foo"#,
-        "not found",
+        not_found_msg(),
     )
 }
 

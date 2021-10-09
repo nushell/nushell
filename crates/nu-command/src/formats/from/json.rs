@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, ShellError, Signature, Span, Value};
+use nu_protocol::{Example, IntoValueStream, ShellError, Signature, Span, Value};
 
 pub struct FromJson;
 
@@ -19,6 +19,50 @@ impl Command for FromJson {
             "treat each line as a separate value",
             Some('o'),
         )
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: "'{ a:1 }' | from json",
+                description: "Converts json formatted string to table",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string()],
+                    vals: vec![Value::Int {
+                        val: 1,
+                        span: Span::unknown(),
+                    }],
+                    span: Span::unknown(),
+                }),
+            },
+            Example {
+                example: "'{ a:1, b: [1, 2] }' | from json",
+                description: "Converts json formatted string to table",
+                result: Some(Value::Record {
+                    cols: vec!["a".to_string(), "b".to_string()],
+                    vals: vec![
+                        Value::Int {
+                            val: 1,
+                            span: Span::unknown(),
+                        },
+                        Value::List {
+                            vals: vec![
+                                Value::Int {
+                                    val: 1,
+                                    span: Span::unknown(),
+                                },
+                                Value::Int {
+                                    val: 2,
+                                    span: Span::unknown(),
+                                },
+                            ],
+                            span: Span::unknown(),
+                        },
+                    ],
+                    span: Span::unknown(),
+                }),
+            },
+        ]
     }
 
     fn run(
@@ -107,5 +151,17 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
             "structured data from json".into(),
             span,
         )),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(FromJson {})
     }
 }

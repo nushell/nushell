@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, Signature, SyntaxShape, Value};
+use nu_protocol::{Example, IntoValueStream, Signature, Span, SyntaxShape, Value};
 
 pub struct Each;
 
@@ -22,6 +22,32 @@ impl Command for Each {
                 "the block to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        let stream_test_1 = vec![
+            Value::Int {
+                val: 2,
+                span: Span::unknown(),
+            },
+            Value::Int {
+                val: 4,
+                span: Span::unknown(),
+            },
+            Value::Int {
+                val: 6,
+                span: Span::unknown(),
+            },
+        ];
+
+        vec![Example {
+            example: "[1 2 3] | each { 2 * $it }",
+            description: "Multiplies elements in list",
+            result: Some(Value::Stream {
+                stream: stream_test_1.into_iter().into_value_stream(),
+                span: Span::unknown(),
+            }),
+        }]
     }
 
     fn run(
@@ -223,5 +249,17 @@ impl Command for Each {
                 eval_block(&state, block, Value::nothing())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Each {})
     }
 }

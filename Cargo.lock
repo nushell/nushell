@@ -538,6 +538,7 @@ dependencies = [
  "lscolors",
  "nu-engine",
  "nu-json",
+ "nu-parser",
  "nu-path",
  "nu-protocol",
  "nu-table",

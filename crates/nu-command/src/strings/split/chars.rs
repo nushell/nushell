@@ -19,6 +19,38 @@ impl Command for SubCommand {
         "splits a string's characters into separate rows"
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Split the string's characters into separate rows",
+            example: "'hello' | split chars",
+            result: Some(Value::List {
+                vals: vec![
+                    Value::String {
+                        val: "h".into(),
+                        span: Span::unknown(),
+                    },
+                    Value::String {
+                        val: "e".into(),
+                        span: Span::unknown(),
+                    },
+                    Value::String {
+                        val: "l".into(),
+                        span: Span::unknown(),
+                    },
+                    Value::String {
+                        val: "l".into(),
+                        span: Span::unknown(),
+                    },
+                    Value::String {
+                        val: "o".into(),
+                        span: Span::unknown(),
+                    },
+                ],
+                span: Span::unknown(),
+            }),
+        }]
+    }
+
     fn run(
         &self,
         _context: &EvaluationContext,
@@ -26,35 +58,6 @@ impl Command for SubCommand {
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         split_chars(call, input)
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Split the string's characters into separate rows",
-            example: "echo 'hello' | split chars",
-            result: Some(vec![
-                Value::String {
-                    val: "h".into(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "e".into(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "l".into(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "l".into(),
-                    span: Span::unknown(),
-                },
-                Value::String {
-                    val: "o".into(),
-                    span: Span::unknown(),
-                },
-            ]),
-        }]
     }
 }
 
@@ -86,15 +89,14 @@ fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::ShellError;
-//     use super::SubCommand;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     #[test]
-//     fn examples_work_as_expected() -> Result<(), ShellError> {
-//         use crate::examples::test as test_examples;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
 
-//         test_examples(SubCommand {})
-//     }
-// }
+        test_examples(SubCommand {})
+    }
+}
