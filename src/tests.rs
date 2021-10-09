@@ -570,6 +570,7 @@ fn for_loops() -> TestResult {
     run_test(r#"(for x in [1, 2, 3] { $x + 10 }).1"#, "12")
 }
 
+#[test]
 fn type_in_list_of_this_type() -> TestResult {
     run_test(r#"42 in [41 42 43]"#, "true")
 }
