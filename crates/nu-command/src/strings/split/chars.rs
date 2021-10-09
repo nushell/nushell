@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Example, IntoValueStream, ShellError, Signature, Span, Type, Value,
+    Example, ShellError, Signature, Span, Type, Value,
 };
 
 pub struct SubCommand;
@@ -59,40 +59,9 @@ impl Command for SubCommand {
 }
 
 fn split_chars(call: &Call, input: Value) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-    let name = call.head;
+    let span = call.head;
 
-    Ok(match input {
-        Value::List { vals, span } => Value::List {
-            vals: vals
-                .iter()
-                .flat_map(|x| split_chars_helper(x, name))
-                .collect(),
-            span,
-        },
-        Value::Stream { stream, span } => Value::Stream {
-            stream: stream
-                .flat_map(move |x| split_chars_helper(&x, name))
-                .into_value_stream(),
-            span,
-        },
-        v => {
-            let v_span = v.span();
-            if v.as_string().is_ok() {
-                Value::List {
-                    vals: split_chars_helper(&v, name),
-                    span: v_span,
-                }
-            } else {
-                Value::Error {
-                    error: ShellError::PipelineMismatch {
-                        expected: Type::String,
-                        expected_span: name,
-                        origin: v.span(),
-                    },
-                }
-            }
-        }
-    })
+    Ok(input.flat_map(span, move |x| split_chars_helper(&x, span)))
 }
 
 fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
