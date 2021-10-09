@@ -1066,9 +1066,25 @@ impl Value {
                 span,
             }),
             (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: rhs
-                    .iter()
-                    .any(|x| lhs.eq(Span::unknown(), x).map_or(false, |v| v.is_true())),
+                val: rhs.iter().any(|x| {
+                    matches!(
+                        lhs.eq(Span::unknown(), x),
+                        Ok(Value::Bool { val: true, .. })
+                    )
+                }),
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.clone().any(|x| {
+                    matches!(
+                        lhs.eq(Span::unknown(), &x),
+                        Ok(Value::Bool { val: true, .. })
+                    )
+                }),
                 span,
             }),
             _ => Err(ShellError::OperatorMismatch {

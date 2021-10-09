@@ -608,3 +608,26 @@ fn int_in_exclusive_range() -> TestResult {
 fn non_number_in_range() -> TestResult {
     fail_test(r#"'a' in 1..3"#, "mismatched for operation")
 }
+
+#[test]
+fn string_in_record() -> TestResult {
+    run_test(r#""a" in ('{ "a": 13, "b": 14 }' | from json)"#, "true")
+}
+
+#[test]
+fn non_string_in_record() -> TestResult {
+    fail_test(
+        r#"4 in ('{ "a": 13, "b": 14 }' | from json)"#,
+        "mismatch during operation",
+    )
+}
+
+#[test]
+fn string_in_valuestream() -> TestResult {
+    run_test(
+        r#"
+    'Hello' in ("Hello
+    World" | lines)"#,
+        "true",
+    )
+}

@@ -277,6 +277,7 @@ pub fn math_result_type(
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                 (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
+                (Type::String, Type::Record(_, _)) => (Type::Bool, None),
 
                 (Type::Unknown, _) => (Type::Bool, None),
                 (_, Type::Unknown) => (Type::Bool, None),
