@@ -103,6 +103,23 @@ impl Range {
             inclusion: operator.inclusion,
         })
     }
+
+    pub fn moves_up(&self) -> bool {
+        self.from <= self.to
+    }
+
+    pub fn is_end_inclusive(&self) -> bool {
+        matches!(self.inclusion, RangeInclusion::Inclusive)
+    }
+
+    pub fn contains(&self, item: &Value) -> bool {
+        match (item.partial_cmp(&self.from), item.partial_cmp(&self.to)) {
+            (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) => self.moves_up(),
+            (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) => self.moves_up(),
+            (Some(_), Some(Ordering::Equal)) => self.is_end_inclusive(),
+            (_, _) => false,
+        }
+    }
 }
 
 impl IntoIterator for Range {
@@ -129,6 +146,9 @@ pub struct RangeIterator {
 
 impl RangeIterator {
     pub fn new(range: Range, span: Span) -> RangeIterator {
+        let moves_up = range.moves_up();
+        let is_end_inclusive = range.is_end_inclusive();
+
         let start = match range.from {
             Value::Nothing { .. } => Value::Int { val: 0, span },
             x => x,
@@ -143,57 +163,15 @@ impl RangeIterator {
         };
 
         RangeIterator {
-            moves_up: matches!(start.lte(span, &end), Ok(Value::Bool { val: true, .. })),
+            moves_up,
             curr: start,
             end,
             span,
-            is_end_inclusive: matches!(range.inclusion, RangeInclusion::Inclusive),
+            is_end_inclusive,
             done: false,
             incr: range.incr,
         }
     }
-
-    pub fn contains(&self, x: &Value) -> bool {
-        let ordering_against_curr = compare_numbers(x, &self.curr);
-        let ordering_against_end = compare_numbers(x, &self.end);
-
-        match (ordering_against_curr, ordering_against_end) {
-            (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) if self.moves_up => {
-                true
-            }
-            (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) if !self.moves_up => {
-                true
-            }
-            (Some(_), Some(Ordering::Equal)) if self.is_end_inclusive => true,
-            (_, _) => false,
-        }
-    }
-}
-
-fn compare_numbers(val: &Value, other: &Value) -> Option<Ordering> {
-    match (val, other) {
-        (Value::Int { val, .. }, Value::Int { val: other, .. }) => Some(val.cmp(other)),
-        (Value::Float { val, .. }, Value::Float { val: other, .. }) => compare_floats(*val, *other),
-        (Value::Float { val, .. }, Value::Int { val: other, .. }) => {
-            compare_floats(*val, *other as f64)
-        }
-        (Value::Int { val, .. }, Value::Float { val: other, .. }) => {
-            compare_floats(*val as f64, *other)
-        }
-        _ => None,
-    }
-}
-
-// Compare two floating point numbers. The decision interval for equality is dynamically scaled
-// as the value being compared increases in magnitude.
-fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
-    let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
-
-    if (other - val).abs() < prec {
-        return Some(Ordering::Equal);
-    }
-
-    val.partial_cmp(&other)
 }
 
 impl Iterator for RangeIterator {
@@ -206,7 +184,7 @@ impl Iterator for RangeIterator {
         let ordering = if matches!(self.end, Value::Nothing { .. }) {
             Some(Ordering::Less)
         } else {
-            compare_numbers(&self.curr, &self.end)
+            self.curr.partial_cmp(&self.end)
         };
 
         let ordering = if let Some(ord) = ordering {
