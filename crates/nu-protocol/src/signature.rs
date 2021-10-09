@@ -36,6 +36,7 @@ pub struct Signature {
     pub rest_positional: Option<PositionalArg>,
     pub named: Vec<Flag>,
     pub is_filter: bool,
+    pub creates_scope: bool,
 }
 
 impl PartialEq for Signature {
@@ -62,6 +63,7 @@ impl Signature {
             rest_positional: None,
             named: vec![],
             is_filter: false,
+            creates_scope: false,
         }
     }
     pub fn build(name: impl Into<String>) -> Signature {
@@ -186,6 +188,12 @@ impl Signature {
             var_id: None,
         });
 
+        self
+    }
+
+    /// Sets that signature will create a scope as it parses
+    pub fn creates_scope(mut self) -> Signature {
+        self.creates_scope = true;
         self
     }
 

@@ -564,3 +564,8 @@ fn split_column() -> TestResult {
         "hello",
     )
 }
+
+#[test]
+fn for_loops() -> TestResult {
+    run_test(r#"(for x in [1, 2, 3] { $x + 10 }).1"#, "12")
+}

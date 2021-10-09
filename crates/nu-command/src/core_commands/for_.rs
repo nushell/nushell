@@ -18,7 +18,7 @@ impl Command for For {
         Signature::build("for")
             .required(
                 "var_name",
-                SyntaxShape::Variable,
+                SyntaxShape::VarWithOptType,
                 "name of the looping variable",
             )
             .required(
@@ -34,6 +34,7 @@ impl Command for For {
                 SyntaxShape::Block(Some(vec![])),
                 "the block to run",
             )
+            .creates_scope()
     }
 
     fn run(
