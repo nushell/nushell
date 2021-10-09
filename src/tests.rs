@@ -540,3 +540,16 @@ fn string_cell_path() -> TestResult {
         "c",
     )
 }
+
+#[test]
+fn split_row() -> TestResult {
+    run_test(r#""hello world" | split row " " | get 1"#, "world")
+}
+
+#[test]
+fn split_column() -> TestResult {
+    run_test(
+        r#""hello world" | split column " " | get "Column1".0"#,
+        "hello",
+    )
+}
