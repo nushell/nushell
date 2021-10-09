@@ -152,6 +152,36 @@ impl RangeIterator {
             incr: range.incr,
         }
     }
+
+    pub fn contains(&self, x: &Value) -> bool {
+        let ordering_against_curr = compare_numbers(x, &self.curr);
+        let ordering_against_end = compare_numbers(x, &self.end);
+
+        match (ordering_against_curr, ordering_against_end) {
+            (Some(Ordering::Greater | Ordering::Equal), Some(Ordering::Less)) if self.moves_up => {
+                true
+            }
+            (Some(Ordering::Less | Ordering::Equal), Some(Ordering::Greater)) if !self.moves_up => {
+                true
+            }
+            (Some(_), Some(Ordering::Equal)) if self.is_end_inclusive => true,
+            (_, _) => false,
+        }
+    }
+}
+
+fn compare_numbers(val: &Value, other: &Value) -> Option<Ordering> {
+    match (val, other) {
+        (Value::Int { val, .. }, Value::Int { val: other, .. }) => Some(val.cmp(other)),
+        (Value::Float { val, .. }, Value::Float { val: other, .. }) => compare_floats(*val, *other),
+        (Value::Float { val, .. }, Value::Int { val: other, .. }) => {
+            compare_floats(*val, *other as f64)
+        }
+        (Value::Int { val, .. }, Value::Float { val: other, .. }) => {
+            compare_floats(*val as f64, *other)
+        }
+        _ => None,
+    }
 }
 
 // Compare two floating point numbers. The decision interval for equality is dynamically scaled
@@ -176,19 +206,7 @@ impl Iterator for RangeIterator {
         let ordering = if matches!(self.end, Value::Nothing { .. }) {
             Some(Ordering::Less)
         } else {
-            match (&self.curr, &self.end) {
-                (Value::Int { val: curr, .. }, Value::Int { val: end, .. }) => Some(curr.cmp(end)),
-                (Value::Float { val: curr, .. }, Value::Float { val: end, .. }) => {
-                    compare_floats(*curr, *end)
-                }
-                (Value::Float { val: curr, .. }, Value::Int { val: end, .. }) => {
-                    compare_floats(*curr, *end as f64)
-                }
-                (Value::Int { val: curr, .. }, Value::Float { val: end, .. }) => {
-                    compare_floats(*curr as f64, *end)
-                }
-                _ => None,
-            }
+            compare_numbers(&self.curr, &self.end)
         };
 
         let ordering = if let Some(ord) = ordering {
