@@ -1020,45 +1020,8 @@ impl Value {
 
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: if matches!(
-                    rhs.incr.gt(
-                        Span::unknown(),
-                        &Value::Int {
-                            val: 0,
-                            span: Span::unknown()
-                        }
-                    ),
-                    Ok(Value::Bool { val: true, .. })
-                ) {
-                    matches!(
-                        lhs.gte(Span::unknown(), &rhs.from),
-                        Ok(Value::Bool { val: true, .. })
-                    ) && match rhs.inclusion {
-                        RangeInclusion::Inclusive => matches!(
-                            lhs.lte(Span::unknown(), &rhs.to),
-                            Ok(Value::Bool { val: true, .. })
-                        ),
-                        RangeInclusion::RightExclusive => matches!(
-                            lhs.lt(Span::unknown(), &rhs.to),
-                            Ok(Value::Bool { val: true, .. })
-                        ),
-                    }
-                } else {
-                    matches!(
-                        lhs.lte(Span::unknown(), &rhs.from),
-                        Ok(Value::Bool { val: true, .. })
-                    ) && match rhs.inclusion {
-                        RangeInclusion::Inclusive => matches!(
-                            lhs.gte(Span::unknown(), &rhs.to),
-                            Ok(Value::Bool { val: true, .. })
-                        ),
-                        RangeInclusion::RightExclusive => matches!(
-                            lhs.gt(Span::unknown(), &rhs.to),
-                            Ok(Value::Bool { val: true, .. })
-                        ),
-                    }
-                },
-
+                // TODO(@arthur-targaryen): Not sure about this clone.
+                val: rhs.clone().into_iter().contains(lhs),
                 span,
             }),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
@@ -1079,6 +1042,7 @@ impl Value {
                 span,
             }),
             (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
+                // TODO(@arthur-targaryen): Not sure about this clone too.
                 val: rhs.clone().any(|x| {
                     matches!(
                         lhs.eq(Span::unknown(), &x),
