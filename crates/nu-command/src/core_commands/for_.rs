@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, IntoValueStream, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, Signature, Span, SyntaxShape, Value};
 
 pub struct For;
 
@@ -23,10 +23,7 @@ impl Command for For {
             )
             .required(
                 "range",
-                SyntaxShape::Keyword(
-                    b"in".to_vec(),
-                    Box::new(SyntaxShape::List(Box::new(SyntaxShape::Int))),
-                ),
+                SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Any)),
                 "range of the loop",
             )
             .required(
@@ -55,42 +52,22 @@ impl Command for For {
         let block = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
+
         let context = context.clone();
 
-        match values {
-            Value::Stream { stream, .. } => Ok(Value::Stream {
-                stream: stream
-                    .map(move |x| {
-                        let engine_state = context.engine_state.borrow();
-                        let block = engine_state.get_block(block);
+        Ok(values.map(call.head, move |x| {
+            let engine_state = context.engine_state.borrow();
+            let block = engine_state.get_block(block);
 
-                        let state = context.enter_scope();
-                        state.add_var(var_id, x);
+            let state = context.enter_scope();
 
-                        //FIXME: DON'T UNWRAP
-                        eval_block(&state, block, Value::nothing()).unwrap()
-                    })
-                    .into_value_stream(),
-                span: call.head,
-            }),
-            Value::List { vals: val, .. } => Ok(Value::List {
-                vals: val
-                    .into_iter()
-                    .map(move |x| {
-                        let engine_state = context.engine_state.borrow();
-                        let block = engine_state.get_block(block);
+            state.add_var(var_id, x);
 
-                        let state = context.enter_scope();
-                        state.add_var(var_id, x);
-
-                        //FIXME: DON'T UNWRAP
-                        eval_block(&state, block, Value::nothing()).unwrap()
-                    })
-                    .collect(),
-                span: call.head,
-            }),
-            _ => Ok(Value::nothing()),
-        }
+            match eval_block(&state, block, Value::nothing()) {
+                Ok(value) => value,
+                Err(error) => Value::Error { error },
+            }
+        }))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -120,23 +97,36 @@ impl Command for For {
                     span: Span::unknown(),
                 }),
             },
-            Example {
-                description: "Number each item and echo a message",
-                example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::String {
-                            val: "0 is bob".into(),
-                            span,
-                        },
-                        Value::String {
-                            val: "0 is fred".into(),
-                            span,
-                        },
-                    ],
-                    span: Span::unknown(),
-                }),
-            },
+            // FIXME? Numbered `for` is kinda strange, but was supported in previous nushell
+            // Example {
+            //     description: "Number each item and echo a message",
+            //     example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
+            //     result: Some(Value::List {
+            //         vals: vec![
+            //             Value::String {
+            //                 val: "0 is bob".into(),
+            //                 span,
+            //             },
+            //             Value::String {
+            //                 val: "0 is fred".into(),
+            //                 span,
+            //             },
+            //         ],
+            //         span: Span::unknown(),
+            //     }),
+            // },
         ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(For {})
     }
 }

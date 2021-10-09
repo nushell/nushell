@@ -379,6 +379,10 @@ impl Value {
                 stream: stream.map(f).into_value_stream(),
                 span,
             },
+            Value::Range { val, .. } => Value::Stream {
+                stream: val.into_iter().map(f).into_value_stream(),
+                span,
+            },
             v => {
                 if v.as_string().is_ok() {
                     Value::List {
@@ -411,6 +415,10 @@ impl Value {
             },
             Value::Stream { stream, .. } => Value::Stream {
                 stream: stream.map(f).flatten().into_value_stream(),
+                span,
+            },
+            Value::Range { val, .. } => Value::Stream {
+                stream: val.into_iter().map(f).flatten().into_value_stream(),
                 span,
             },
             v => {
@@ -482,8 +490,42 @@ impl PartialEq for Value {
                     stream: stream_rhs, ..
                 },
             ) => {
-                let vals_lhs = stream_lhs.clone().collect_string();
-                let vals_rhs = stream_rhs.clone().collect_string();
+                let vals_lhs: Vec<Value> = stream_lhs.clone().collect();
+                let vals_rhs: Vec<Value> = stream_rhs.clone().collect();
+
+                vals_lhs == vals_rhs
+            }
+            // Note: This may look a bit strange, but a Stream is still just a List,
+            // it just happens to be in an iterator form instead of a concrete form. If the contained
+            // values are the same then it should be treated as equal
+            (
+                Value::Stream {
+                    stream: stream_lhs, ..
+                },
+                Value::List {
+                    vals: stream_rhs, ..
+                },
+            ) => {
+                let vals_lhs: Vec<Value> = stream_lhs.clone().collect();
+                let vals_rhs: Vec<Value> =
+                    stream_rhs.clone().into_iter().into_value_stream().collect();
+
+                vals_lhs == vals_rhs
+            }
+            // Note: This may look a bit strange, but a Stream is still just a List,
+            // it just happens to be in an iterator form instead of a concrete form. If the contained
+            // values are the same then it should be treated as equal
+            (
+                Value::List {
+                    vals: stream_lhs, ..
+                },
+                Value::Stream {
+                    stream: stream_rhs, ..
+                },
+            ) => {
+                let vals_lhs: Vec<Value> =
+                    stream_lhs.clone().into_iter().into_value_stream().collect();
+                let vals_rhs: Vec<Value> = stream_rhs.clone().collect();
 
                 vals_lhs == vals_rhs
             }
