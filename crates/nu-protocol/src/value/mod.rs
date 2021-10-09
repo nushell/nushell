@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub use stream::*;
 pub use unit::*;
 
-use std::fmt::Debug;
+use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
 use crate::{span, BlockId, Span, Type};
@@ -441,96 +441,83 @@ impl Value {
     }
 }
 
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // Compare two floating point numbers. The decision interval for equality is dynamically
+        // scaled as the value being compared increases in magnitude.
+        fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
+            let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
+
+            if (other - val).abs() < prec {
+                return Some(Ordering::Equal);
+            }
+
+            val.partial_cmp(&other)
+        }
+
+        match (self, other) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs.partial_cmp(rhs),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs.partial_cmp(rhs),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                compare_floats(*lhs, *rhs)
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                lhs.partial_cmp(rhs)
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                compare_floats(*lhs as f64, *rhs)
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                compare_floats(*lhs, *rhs as f64)
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                lhs.partial_cmp(rhs)
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                lhs.partial_cmp(rhs)
+            }
+            (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) if b1 == b2 => {
+                Some(Ordering::Equal)
+            }
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => lhs.partial_cmp(rhs),
+            (
+                Value::Record {
+                    vals: lhs,
+                    cols: lhs_headers,
+                    ..
+                },
+                Value::Record {
+                    vals: rhs,
+                    cols: rhs_headers,
+                    ..
+                },
+            ) if lhs_headers == rhs_headers && lhs == rhs => Some(Ordering::Equal),
+            (Value::Stream { stream: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
+                lhs.clone().partial_cmp(rhs.clone())
+            }
+            (Value::Stream { stream: lhs, .. }, Value::String { val: rhs, .. }) => {
+                lhs.clone().collect_string().partial_cmp(rhs)
+            }
+            (Value::String { val: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
+                lhs.partial_cmp(&rhs.clone().collect_string())
+            }
+            // NOTE: This may look a bit strange, but a `Stream` is still just a `List`, it just
+            // happens to be in an iterator form instead of a concrete form. The contained values
+            // can be compared.
+            (Value::Stream { stream: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                lhs.clone().collect::<Vec<Value>>().partial_cmp(rhs)
+            }
+            (Value::List { vals: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
+                lhs.partial_cmp(&rhs.clone().collect::<Vec<Value>>())
+            }
+            (_, _) => None,
+        }
+    }
+}
+
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => lhs == rhs,
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => lhs == rhs,
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs == rhs,
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
-            (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) => b1 == b2,
-            (Value::List { vals: vals_lhs, .. }, Value::List { vals: vals_rhs, .. }) => {
-                for (lhs, rhs) in vals_lhs.iter().zip(vals_rhs) {
-                    if lhs != rhs {
-                        return false;
-                    }
-                }
-
-                true
-            }
-            (
-                Value::Record {
-                    cols: cols_lhs,
-                    vals: vals_lhs,
-                    ..
-                },
-                Value::Record {
-                    cols: cols_rhs,
-                    vals: vals_rhs,
-                    ..
-                },
-            ) => {
-                if cols_lhs != cols_rhs {
-                    return false;
-                }
-
-                for (lhs, rhs) in vals_lhs.iter().zip(vals_rhs) {
-                    if lhs != rhs {
-                        return false;
-                    }
-                }
-
-                true
-            }
-            (
-                Value::Stream {
-                    stream: stream_lhs, ..
-                },
-                Value::Stream {
-                    stream: stream_rhs, ..
-                },
-            ) => {
-                let vals_lhs: Vec<Value> = stream_lhs.clone().collect();
-                let vals_rhs: Vec<Value> = stream_rhs.clone().collect();
-
-                vals_lhs == vals_rhs
-            }
-            // Note: This may look a bit strange, but a Stream is still just a List,
-            // it just happens to be in an iterator form instead of a concrete form. If the contained
-            // values are the same then it should be treated as equal
-            (
-                Value::Stream {
-                    stream: stream_lhs, ..
-                },
-                Value::List {
-                    vals: stream_rhs, ..
-                },
-            ) => {
-                let vals_lhs: Vec<Value> = stream_lhs.clone().collect();
-                let vals_rhs: Vec<Value> =
-                    stream_rhs.clone().into_iter().into_value_stream().collect();
-
-                vals_lhs == vals_rhs
-            }
-            // Note: This may look a bit strange, but a Stream is still just a List,
-            // it just happens to be in an iterator form instead of a concrete form. If the contained
-            // values are the same then it should be treated as equal
-            (
-                Value::List {
-                    vals: stream_lhs, ..
-                },
-                Value::Stream {
-                    stream: stream_rhs, ..
-                },
-            ) => {
-                let vals_lhs: Vec<Value> =
-                    stream_lhs.clone().into_iter().into_value_stream().collect();
-                let vals_rhs: Vec<Value> = stream_rhs.clone().collect();
-
-                vals_lhs == vals_rhs
-            }
-            _ => false,
-        }
+        self.partial_cmp(other).map_or(false, Ordering::is_eq)
     }
 }
 
@@ -717,37 +704,12 @@ impl Value {
     pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs < rhs,
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: matches!(ordering, Ordering::Less),
                 span,
             }),
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) < *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs < *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs < rhs,
-                span,
-            }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs < rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs < rhs,
-                    span,
-                })
-            }
-
-            _ => Err(ShellError::OperatorMismatch {
+            None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span(),
@@ -759,36 +721,12 @@ impl Value {
     pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs <= rhs,
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: matches!(ordering, Ordering::Less | Ordering::Equal),
                 span,
             }),
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) <= *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs <= *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs <= rhs,
-                span,
-            }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs <= rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs <= rhs,
-                    span,
-                })
-            }
-            _ => Err(ShellError::OperatorMismatch {
+            None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span(),
@@ -800,36 +738,12 @@ impl Value {
     pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs > rhs,
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: matches!(ordering, Ordering::Greater),
                 span,
             }),
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) > *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs > *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs > rhs,
-                span,
-            }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs > rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs > rhs,
-                    span,
-                })
-            }
-            _ => Err(ShellError::OperatorMismatch {
+            None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span(),
@@ -841,36 +755,12 @@ impl Value {
     pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs >= rhs,
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: matches!(ordering, Ordering::Greater | Ordering::Equal),
                 span,
             }),
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) >= *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs >= *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs >= rhs,
-                span,
-            }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs >= rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs >= rhs,
-                    span,
-                })
-            }
-            _ => Err(ShellError::OperatorMismatch {
+            None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span(),
@@ -882,62 +772,12 @@ impl Value {
     pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs == rhs,
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: matches!(ordering, Ordering::Equal),
                 span,
             }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs == rhs,
-                span,
-            }),
-            // FIXME: these should consider machine epsilon
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) == *rhs,
-                span,
-            }),
-            // FIXME: these should consider machine epsilon
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs == *rhs as f64,
-                span,
-            }),
-            // FIXME: these should consider machine epsilon
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs == rhs,
-                span,
-            }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs == rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs == rhs,
-                    span,
-                })
-            }
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: lhs == rhs,
-                span,
-            }),
-            (
-                Value::Record {
-                    vals: lhs,
-                    cols: lhs_headers,
-                    ..
-                },
-                Value::Record {
-                    vals: rhs,
-                    cols: rhs_headers,
-                    ..
-                },
-            ) => Ok(Value::Bool {
-                val: lhs_headers == rhs_headers && lhs == rhs,
-                span,
-            }),
-            _ => Err(ShellError::OperatorMismatch {
+            None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
                 lhs_span: self.span(),
@@ -949,62 +789,79 @@ impl Value {
     pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span(), rhs.span()]);
 
+        match self.partial_cmp(rhs) {
+            Some(ordering) => Ok(Value::Bool {
+                val: !matches!(ordering, Ordering::Equal),
+                span,
+            }),
+            None => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
+            }),
+        }
+    }
+
+    pub fn r#in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span(), rhs.span()]);
+
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs != rhs,
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.contains(lhs),
                 span,
             }),
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs != rhs,
+                val: rhs.contains(lhs),
                 span,
             }),
-            // FIXME: these should consider machine epsilon
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs as f64) != *rhs,
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.contains(lhs),
                 span,
             }),
-            // FIXME: these should consider machine epsilon
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs != *rhs as f64,
+            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.contains(lhs),
                 span,
             }),
-            // FIXME: these should consider machine epsilon
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs != rhs,
+            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.clone().any(|x| lhs == &x),
                 span,
             }),
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs != rhs,
-                    span,
-                })
-            }
-            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: lhs != rhs,
-                    span,
-                })
-            }
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: lhs != rhs,
-                span,
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span(),
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span(),
             }),
-            (
-                Value::Record {
-                    vals: lhs,
-                    cols: lhs_headers,
-                    ..
-                },
-                Value::Record {
-                    vals: rhs,
-                    cols: rhs_headers,
-                    ..
-                },
-            ) => Ok(Value::Bool {
-                val: lhs_headers != rhs_headers || lhs != rhs,
-                span,
-            }),
+        }
+    }
 
+    pub fn not_in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span(), rhs.span()]);
+
+        match (self, rhs) {
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
+                val: !rhs.contains(lhs),
+                span,
+            }),
+            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
+                val: rhs.clone().all(|x| lhs != &x),
+                span,
+            }),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),

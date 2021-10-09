@@ -569,3 +569,76 @@ fn split_column() -> TestResult {
 fn for_loops() -> TestResult {
     run_test(r#"(for x in [1, 2, 3] { $x + 10 }).1"#, "12")
 }
+
+#[test]
+fn type_in_list_of_this_type() -> TestResult {
+    run_test(r#"42 in [41 42 43]"#, "true")
+}
+
+#[test]
+fn type_in_list_of_non_this_type() -> TestResult {
+    fail_test(r#"'hello' in [41 42 43]"#, "mismatched for operation")
+}
+
+#[test]
+fn string_in_string() -> TestResult {
+    run_test(r#"'z' in 'abc'"#, "false")
+}
+
+#[test]
+fn non_string_in_string() -> TestResult {
+    fail_test(r#"42 in 'abc'"#, "mismatched for operation")
+}
+
+#[test]
+fn int_in_inc_range() -> TestResult {
+    run_test(r#"1 in -4..9.42"#, "true")
+}
+
+#[test]
+fn int_in_dec_range() -> TestResult {
+    run_test(r#"1 in 9.42..-4"#, "true")
+}
+
+#[test]
+fn int_in_exclusive_range() -> TestResult {
+    run_test(r#"3 in 0..<3"#, "false")
+}
+
+#[test]
+fn non_number_in_range() -> TestResult {
+    fail_test(r#"'a' in 1..3"#, "mismatched for operation")
+}
+
+#[test]
+fn string_in_record() -> TestResult {
+    run_test(r#""a" in ('{ "a": 13, "b": 14 }' | from json)"#, "true")
+}
+
+#[test]
+fn non_string_in_record() -> TestResult {
+    fail_test(
+        r#"4 in ('{ "a": 13, "b": 14 }' | from json)"#,
+        "mismatch during operation",
+    )
+}
+
+#[test]
+fn string_in_valuestream() -> TestResult {
+    run_test(
+        r#"
+    'Hello' in ("Hello
+    World" | lines)"#,
+        "true",
+    )
+}
+
+#[test]
+fn string_not_in_string() -> TestResult {
+    run_test(r#"'d' not-in 'abc'"#, "true")
+}
+
+#[test]
+fn float_not_in_inc_range() -> TestResult {
+    run_test(r#"1.4 not-in 2..9.42"#, "true")
+}

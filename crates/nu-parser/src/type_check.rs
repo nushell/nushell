@@ -273,6 +273,50 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::In => match (&lhs.ty, &rhs.ty) {
+                (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
+                (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::String, Type::Record(_, _)) => (Type::Bool, None),
+
+                (Type::Unknown, _) => (Type::Bool, None),
+                (_, Type::Unknown) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Unknown,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
+            Operator::NotIn => match (&lhs.ty, &rhs.ty) {
+                (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
+                (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::String, Type::Record(_, _)) => (Type::Bool, None),
+
+                (Type::Unknown, _) => (Type::Bool, None),
+                (_, Type::Unknown) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Unknown,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
 
             _ => {
                 *op = Expression::garbage(op.span);
