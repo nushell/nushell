@@ -7,7 +7,7 @@ use nu_protocol::{
     Value,
 };
 
-use super::From;
+use super::{From, Split};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -15,10 +15,11 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
     let delta = {
         // Base functions that are needed for testing
-        // Try to keep this working set as small to keep tests running as fast as possible
+        // Try to keep this working set small to keep tests running as fast as possible
         let engine_state = engine_state.borrow();
         let mut working_set = StateWorkingSet::new(&*engine_state);
         working_set.add_decl(Box::new(From));
+        working_set.add_decl(Box::new(Split));
 
         // Adding the command that is being tested to the working set
         working_set.add_decl(Box::new(cmd));
