@@ -479,9 +479,7 @@ impl PartialOrd for Value {
             (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) if b1 == b2 => {
                 Some(Ordering::Equal)
             }
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) if lhs == rhs => {
-                Some(Ordering::Equal)
-            }
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => lhs.partial_cmp(rhs),
             (
                 Value::Record {
                     vals: lhs,
@@ -530,6 +528,18 @@ impl PartialOrd for Value {
             }
             (Value::Stream { stream: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
                 lhs.clone().partial_cmp(rhs.clone())
+            }
+            (Value::Stream { stream: lhs, .. }, Value::String { val: rhs, .. }) => {
+                lhs.clone().collect_string().partial_cmp(rhs)
+            }
+            (Value::String { val: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
+                lhs.partial_cmp(&rhs.clone().collect_string())
+            }
+            (Value::Stream { stream: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                lhs.clone().collect::<Vec<Value>>().partial_cmp(rhs)
+            }
+            (Value::List { vals: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
+                lhs.partial_cmp(&rhs.clone().collect::<Vec<Value>>())
             }
             (_, _) => None,
         }
@@ -846,7 +856,6 @@ impl Value {
                 span,
             }),
             (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
-                // TODO(@arthur-targaryen): Not sure about this clone (see also `Value::not_in`).
                 val: rhs.clone().any(|x| lhs == &x),
                 span,
             }),
@@ -881,7 +890,6 @@ impl Value {
                 span,
             }),
             (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
-                // TODO(@arthur-targaryen): Not sure about this clone (see also `Value::r#in`).
                 val: rhs.clone().all(|x| lhs != &x),
                 span,
             }),
