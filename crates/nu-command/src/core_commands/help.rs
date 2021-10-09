@@ -1,10 +1,10 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Spanned, SyntaxShape, Value,
+    span, Example, ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 
-use nu_engine::CallExt;
+use nu_engine::{get_full_help, CallExt};
 
 pub struct Help;
 
@@ -73,11 +73,11 @@ impl Command for Help {
 }
 
 fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
-    let span = call.head;
+    let head = call.head;
     let find: Option<Spanned<String>> = call.get_flag(context, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(context, 0)?;
 
-    let full_commands = context.get_commands_info();
+    let full_commands = context.get_signatures_with_examples();
 
     if let Some(f) = find {
         let search_string = f.item;
@@ -87,29 +87,36 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             let mut cols = vec![];
             let mut vals = vec![];
 
-            let key = cmd.name.clone();
-            let c = cmd.usage.clone();
-            let e = cmd.extra_usage.clone();
+            let key = cmd.0.name.clone();
+            let c = cmd.0.usage.clone();
+            let e = cmd.0.extra_usage.clone();
             if key.to_lowercase().contains(&search_string)
                 || c.to_lowercase().contains(&search_string)
                 || e.to_lowercase().contains(&search_string)
             {
                 cols.push("name".into());
-                vals.push(Value::String { val: key, span });
+                vals.push(Value::String {
+                    val: key,
+                    span: head,
+                });
 
                 cols.push("usage".into());
-                vals.push(Value::String { val: c, span });
+                vals.push(Value::String { val: c, span: head });
 
                 cols.push("extra_usage".into());
-                vals.push(Value::String { val: e, span });
+                vals.push(Value::String { val: e, span: head });
 
-                found_cmds_vec.push(Value::Record { cols, vals, span });
+                found_cmds_vec.push(Value::Record {
+                    cols,
+                    vals,
+                    span: head,
+                });
             }
         }
 
         return Ok(Value::List {
             vals: found_cmds_vec,
-            span,
+            span: head,
         });
     }
 
@@ -121,25 +128,38 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let key = cmd.name.clone();
-                let c = cmd.usage.clone();
-                let e = cmd.extra_usage.clone();
+                let key = cmd.0.name.clone();
+                let c = cmd.0.usage.clone();
+                let e = cmd.0.extra_usage.clone();
 
                 cols.push("name".into());
-                vals.push(Value::String { val: key, span });
+                vals.push(Value::String {
+                    val: key,
+                    span: head,
+                });
 
                 cols.push("usage".into());
-                vals.push(Value::String { val: c, span });
+                vals.push(Value::String { val: c, span: head });
 
                 cols.push("extra_usage".into());
-                vals.push(Value::String { val: e, span });
+                vals.push(Value::String { val: e, span: head });
 
-                found_cmds_vec.push(Value::Record { cols, vals, span });
+                found_cmds_vec.push(Value::Record {
+                    cols,
+                    vals,
+                    span: head,
+                });
             }
+
+            Ok(Value::List {
+                vals: found_cmds_vec,
+                span: head,
+            })
         } else {
             let mut name = String::new();
+            let mut output = String::new();
 
-            for r in rest {
+            for r in &rest {
                 if !name.is_empty() {
                     name.push(' ');
                 }
@@ -147,31 +167,24 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             }
 
             for cmd in full_commands {
-                let mut cols = vec![];
-                let mut vals = vec![];
-
-                let key = cmd.name.clone();
-                let c = cmd.usage.clone();
-                let e = cmd.extra_usage.clone();
-
-                if key.starts_with(&name) {
-                    cols.push("name".into());
-                    vals.push(Value::String { val: key, span });
-
-                    cols.push("usage".into());
-                    vals.push(Value::String { val: c, span });
-
-                    cols.push("extra_usage".into());
-                    vals.push(Value::String { val: e, span });
-
-                    found_cmds_vec.push(Value::Record { cols, vals, span });
+                if cmd.0.name == name {
+                    let help = get_full_help(&cmd.0, &cmd.1, context);
+                    output.push_str(&help);
                 }
             }
+
+            if !output.is_empty() {
+                Ok(Value::String {
+                    val: output,
+                    span: call.head,
+                })
+            } else {
+                Err(ShellError::CommandNotFound(span(&[
+                    rest[0].span,
+                    rest[rest.len() - 1].span,
+                ])))
+            }
         }
-        Ok(Value::List {
-            vals: found_cmds_vec,
-            span,
-        })
 
         // FIXME: the fancy help stuff needs to be reimplemented
         /*
@@ -341,7 +354,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
 
         Ok(Value::String {
             val: msg.into(),
-            span,
+            span: head,
         })
     }
 }

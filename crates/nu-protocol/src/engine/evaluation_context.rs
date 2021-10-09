@@ -1,7 +1,7 @@
 use super::EngineState;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{ShellError, Signature, Value, VarId};
+use crate::{Example, ShellError, Signature, Value, VarId};
 
 #[derive(Clone)]
 pub struct EvaluationContext {
@@ -47,8 +47,12 @@ impl EvaluationContext {
         self.stack.print_stack();
     }
 
-    pub fn get_commands_info(&self) -> Vec<Signature> {
-        self.engine_state.borrow().get_decls()
+    pub fn get_signatures(&self) -> Vec<Signature> {
+        self.engine_state.borrow().get_signatures()
+    }
+
+    pub fn get_signatures_with_examples(&self) -> Vec<(Signature, Vec<Example>)> {
+        self.engine_state.borrow().get_signatures_with_examples()
     }
 }
 

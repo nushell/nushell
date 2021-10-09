@@ -19,6 +19,16 @@ pub enum ShellError {
         rhs_span: Span,
     },
 
+    #[error("Pipeline mismatch.")]
+    #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
+    PipelineMismatch {
+        expected: Type,
+        #[label("expected: {expected}")]
+        expected_span: Span,
+        #[label("value originates from here")]
+        origin: Span,
+    },
+
     #[error("Unsupported operator: {0}.")]
     #[diagnostic(code(nu::shell::unsupported_operator), url(docsrs))]
     UnsupportedOperator(Operator, #[label = "unsupported operator"] Span),
@@ -78,6 +88,10 @@ pub enum ShellError {
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
     UnsupportedInput(String, #[label("{0}")] Span),
+
+    #[error("Command not found")]
+    #[diagnostic(code(nu::shell::command_not_found), url(docsrs))]
+    CommandNotFound(#[label("command not found")] Span),
 
     #[error("Flag not found")]
     #[diagnostic(code(nu::shell::flag_not_found), url(docsrs))]
