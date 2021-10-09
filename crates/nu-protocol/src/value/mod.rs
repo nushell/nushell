@@ -441,6 +441,52 @@ impl PartialEq for Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => lhs == rhs,
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => lhs == rhs,
             (Value::Block { val: b1, .. }, Value::Block { val: b2, .. }) => b1 == b2,
+            (Value::List { vals: vals_lhs, .. }, Value::List { vals: vals_rhs, .. }) => {
+                for (lhs, rhs) in vals_lhs.iter().zip(vals_rhs) {
+                    if lhs != rhs {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            (
+                Value::Record {
+                    cols: cols_lhs,
+                    vals: vals_lhs,
+                    ..
+                },
+                Value::Record {
+                    cols: cols_rhs,
+                    vals: vals_rhs,
+                    ..
+                },
+            ) => {
+                if cols_lhs != cols_rhs {
+                    return false;
+                }
+
+                for (lhs, rhs) in vals_lhs.iter().zip(vals_rhs) {
+                    if lhs != rhs {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            (
+                Value::Stream {
+                    stream: stream_lhs, ..
+                },
+                Value::Stream {
+                    stream: stream_rhs, ..
+                },
+            ) => {
+                let vals_lhs = stream_lhs.clone().collect_string();
+                let vals_rhs = stream_rhs.clone().collect_string();
+
+                vals_lhs == vals_rhs
+            }
             _ => false,
         }
     }

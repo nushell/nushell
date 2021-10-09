@@ -1,6 +1,7 @@
 mod core_commands;
 mod default_context;
 mod env;
+mod example_test;
 mod experimental;
 mod filesystem;
 mod filters;
@@ -9,9 +10,10 @@ mod strings;
 mod system;
 mod viewers;
 
-pub use core_commands::*;
+pub(crate) use core_commands::*;
 pub use default_context::*;
 pub use env::*;
+pub use example_test::test_examples;
 pub use experimental::*;
 pub use filesystem::*;
 pub use filters::*;

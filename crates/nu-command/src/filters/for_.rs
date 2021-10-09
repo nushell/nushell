@@ -98,34 +98,43 @@ impl Command for For {
             Example {
                 description: "Echo the square of each integer",
                 example: "for x in [1 2 3] { $x * $x }",
-                result: Some(vec![
-                    Value::Int { val: 1, span },
-                    Value::Int { val: 4, span },
-                    Value::Int { val: 9, span },
-                ]),
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Int { val: 1, span },
+                        Value::Int { val: 4, span },
+                        Value::Int { val: 9, span },
+                    ],
+                    span: Span::unknown(),
+                }),
             },
             Example {
                 description: "Work with elements of a range",
                 example: "for $x in 1..3 { $x }",
-                result: Some(vec![
-                    Value::Int { val: 1, span },
-                    Value::Int { val: 2, span },
-                    Value::Int { val: 3, span },
-                ]),
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Int { val: 1, span },
+                        Value::Int { val: 2, span },
+                        Value::Int { val: 3, span },
+                    ],
+                    span: Span::unknown(),
+                }),
             },
             Example {
                 description: "Number each item and echo a message",
                 example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
-                result: Some(vec![
-                    Value::String {
-                        val: "0 is bob".into(),
-                        span,
-                    },
-                    Value::String {
-                        val: "0 is fred".into(),
-                        span,
-                    },
-                ]),
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::String {
+                            val: "0 is bob".into(),
+                            span,
+                        },
+                        Value::String {
+                            val: "0 is fred".into(),
+                            span,
+                        },
+                    ],
+                    span: Span::unknown(),
+                }),
             },
         ]
     }

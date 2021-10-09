@@ -12,6 +12,7 @@ nu-path = { path = "../nu-path" }
 nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 nu-term-grid = { path = "../nu-term-grid" }
+nu-parser = { path = "../nu-parser" }
 
 # Potential dependencies for extras
 glob = "0.3.0"
