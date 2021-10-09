@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    IntoValueStream, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 pub struct SubCommand;
@@ -51,43 +51,9 @@ fn split_column(
     let rest: Vec<Spanned<String>> = call.rest(context, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
-    Ok(match input {
-        Value::List { vals, span } => Value::List {
-            vals: vals
-                .iter()
-                .map(move |x| split_column_helper(x, &separator, &rest, collapse_empty, name_span))
-                .collect(),
-            span,
-        },
-        Value::Stream { stream, span } => Value::Stream {
-            stream: stream
-                .map(move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span))
-                .into_value_stream(),
-            span,
-        },
-        v => {
-            if v.as_string().is_ok() {
-                Value::List {
-                    vals: vec![split_column_helper(
-                        &v,
-                        &separator,
-                        &rest,
-                        collapse_empty,
-                        name_span,
-                    )],
-                    span: call.head,
-                }
-            } else {
-                Value::Error {
-                    error: ShellError::PipelineMismatch {
-                        expected: Type::String,
-                        expected_span: call.head,
-                        origin: v.span(),
-                    },
-                }
-            }
-        }
-    })
+    Ok(input.map(name_span, move |x| {
+        split_column_helper(&x, &separator, &rest, collapse_empty, name_span)
+    }))
 }
 
 fn split_column_helper(
