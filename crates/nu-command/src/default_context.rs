@@ -43,6 +43,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Select));
         working_set.add_decl(Box::new(Split));
         working_set.add_decl(Box::new(SplitChars));
+        working_set.add_decl(Box::new(SplitColumn));
+        working_set.add_decl(Box::new(SplitRow));
         working_set.add_decl(Box::new(Sys));
         working_set.add_decl(Box::new(Table));
         working_set.add_decl(Box::new(Touch));

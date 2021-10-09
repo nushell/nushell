@@ -65,69 +65,21 @@ fn split_chars(call: &Call, input: Value) -> Result<nu_protocol::Value, nu_proto
         Value::List { vals, span } => Value::List {
             vals: vals
                 .iter()
-                .flat_map(move |v| {
-                    if let Ok(s) = v.as_string() {
-                        let v_span = v.span();
-                        s.chars()
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            .map(move |x| Value::String {
-                                val: x.to_string(),
-                                span: v_span,
-                            })
-                            .collect()
-                    } else {
-                        vec![Value::Error {
-                            error: ShellError::PipelineMismatch {
-                                expected: Type::String,
-                                expected_span: name,
-                                origin: v.span(),
-                            },
-                        }]
-                    }
-                })
+                .flat_map(|x| split_chars_helper(x, name))
                 .collect(),
             span,
         },
         Value::Stream { stream, span } => Value::Stream {
             stream: stream
-                .flat_map(move |v| {
-                    if let Ok(s) = v.as_string() {
-                        let v_span = v.span();
-                        s.chars()
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            .map(move |x| Value::String {
-                                val: x.to_string(),
-                                span: v_span,
-                            })
-                            .collect()
-                    } else {
-                        vec![Value::Error {
-                            error: ShellError::PipelineMismatch {
-                                expected: Type::String,
-                                expected_span: name,
-                                origin: v.span(),
-                            },
-                        }]
-                    }
-                })
+                .flat_map(move |x| split_chars_helper(&x, name))
                 .into_value_stream(),
             span,
         },
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if v.as_string().is_ok() {
                 Value::List {
-                    vals: s
-                        .chars()
-                        .collect::<Vec<_>>()
-                        .into_iter()
-                        .map(move |x| Value::String {
-                            val: x.to_string(),
-                            span: v_span,
-                        })
-                        .collect(),
+                    vals: split_chars_helper(&v, name),
                     span: v_span,
                 }
             } else {
@@ -141,6 +93,28 @@ fn split_chars(call: &Call, input: Value) -> Result<nu_protocol::Value, nu_proto
             }
         }
     })
+}
+
+fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
+    if let Ok(s) = v.as_string() {
+        let v_span = v.span();
+        s.chars()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(move |x| Value::String {
+                val: x.to_string(),
+                span: v_span,
+            })
+            .collect()
+    } else {
+        vec![Value::Error {
+            error: ShellError::PipelineMismatch {
+                expected: Type::String,
+                expected_span: name,
+                origin: v.span(),
+            },
+        }]
+    }
 }
 
 // #[cfg(test)]
