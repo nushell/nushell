@@ -13,7 +13,7 @@ pub use unit::*;
 
 use std::fmt::Debug;
 
-use crate::ast::{CellPath, PathMember, RangeInclusion};
+use crate::ast::{CellPath, PathMember};
 use crate::{span, BlockId, Span, Type};
 
 use crate::ShellError;
