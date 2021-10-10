@@ -399,6 +399,7 @@ fn module_import_uses_internal_command() -> TestResult {
     )
 }
 
+// TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]
 fn hides_def() -> TestResult {
     fail_test(r#"def foo [] { "foo" }; hide foo; foo"#, not_found_msg())
@@ -500,12 +501,27 @@ fn def_twice_should_fail() -> TestResult {
     )
 }
 
-// TODO: This test fails if executed each command on a separate line in REPL
 #[test]
 fn use_import_after_hide() -> TestResult {
     run_test(
         r#"module spam { export def foo [] { "foo" } }; use spam.foo; hide foo; use spam.foo; foo"#,
         "foo",
+    )
+}
+
+#[test]
+fn hide_shadowed_decl() -> TestResult {
+    run_test(
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; do { use spam.foo; hide foo; foo }"#,
+        "foo",
+    )
+}
+
+#[test]
+fn hides_all_decls_within_scope() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam.foo; hide foo; foo"#,
+        not_found_msg(),
     )
 }
 
