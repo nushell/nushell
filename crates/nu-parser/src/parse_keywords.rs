@@ -110,8 +110,10 @@ pub fn parse_def(
                             *declaration = signature.into_block_command(block_id);
                         } else {
                             error = error.or_else(|| {
+                                // TODO: Add InternalError variant
                                 Some(ParseError::UnknownState(
-                                    "Could not define hidden command".into(),
+                                    "Internal error: Predeclaration failed to add declaration"
+                                        .into(),
                                     spans[1],
                                 ))
                             });
@@ -318,7 +320,7 @@ pub fn parse_module(
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
-    // visible and usable in this module's scope). We might want to disable that. How?
+    // visible and usable in this module's scope). We want to disable that for files.
 
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
