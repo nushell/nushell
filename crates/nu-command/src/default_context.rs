@@ -23,12 +23,47 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         }
 
         // TODO: sort items categorically
-        #[rustfmt::skip] bind_command!( Alias, Benchmark, BuildString,
-        Cd, Cp, Def, Do, Each, ExportDef, External, For, From,
-        FromJson, Get, Griddle, Help, Hide, If, Length, Let, LetEnv,
-        Lines, Ls, Mkdir, Module, Mv, Open, Ps, Rm, Save, Select,
-        Split, SplitChars, SplitColumn, SplitRow, Sys, Table, Touch,
-        Use, Where, Wrap );
+        bind_command!(
+            Alias,
+            Benchmark,
+            BuildString,
+            Cd,
+            Cp,
+            Def,
+            Do,
+            Each,
+            ExportDef,
+            External,
+            For,
+            From,
+            FromJson,
+            Get,
+            Griddle,
+            Help,
+            Hide,
+            If,
+            Length,
+            Let,
+            LetEnv,
+            Lines,
+            Ls,
+            Mkdir,
+            Module,
+            Mv,
+            Ps,
+            Rm,
+            Select,
+            Split,
+            SplitChars,
+            SplitColumn,
+            SplitRow,
+            Sys,
+            Table,
+            Touch,
+            Use,
+            Where,
+            Wrap
+        );
 
         // This is a WIP proof of concept
         bind_command!(ListGitBranches, Git, GitCheckout, Source);
