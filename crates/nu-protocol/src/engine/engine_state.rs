@@ -56,6 +56,7 @@ impl Visibility {
 #[derive(Debug)]
 pub struct ScopeFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
+    predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     decls: HashMap<Vec<u8>, DeclId>,
     aliases: HashMap<Vec<u8>, Vec<Span>>,
     modules: HashMap<Vec<u8>, BlockId>,
@@ -66,6 +67,7 @@ impl ScopeFrame {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
+            predecls: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
             modules: HashMap::new(),
@@ -303,10 +305,9 @@ pub struct StateWorkingSet<'a> {
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<u8>,
-    vars: Vec<Type>,                    // indexed by VarId
-    decls: Vec<Box<dyn Command>>,       // indexed by DeclId
-    blocks: Vec<Block>,                 // indexed by BlockId
-    predecls: HashMap<Vec<u8>, DeclId>, // this should get erased after every def call
+    vars: Vec<Type>,              // indexed by VarId
+    decls: Vec<Box<dyn Command>>, // indexed by DeclId
+    blocks: Vec<Block>,           // indexed by BlockId
     pub scope: Vec<ScopeFrame>,
 }
 
@@ -340,7 +341,6 @@ impl<'a> StateWorkingSet<'a> {
                 file_contents: vec![],
                 vars: vec![],
                 decls: vec![],
-                predecls: HashMap::new(),
                 blocks: vec![],
                 scope: vec![ScopeFrame::new()],
             },
@@ -384,18 +384,25 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.decls.push(decl);
         let decl_id = self.num_decls() - 1;
 
-        self.delta.predecls.insert(name, decl_id)
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        scope_frame.predecls.insert(name, decl_id)
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
-        if let Some(decl_id) = self.delta.predecls.remove(name) {
-            let scope_frame = self
-                .delta
-                .scope
-                .last_mut()
-                .expect("internal error: missing required scope frame");
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
 
+        if let Some(decl_id) = scope_frame.predecls.remove(name) {
             scope_frame.decls.insert(name.into(), decl_id);
+            scope_frame.visibility.use_id(&decl_id);
 
             return Some(decl_id);
         }
@@ -545,12 +552,12 @@ impl<'a> StateWorkingSet<'a> {
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
-        if let Some(decl_id) = self.delta.predecls.get(name) {
-            return Some(*decl_id);
-        }
-
         for scope in self.delta.scope.iter().rev() {
             visibility.append(&scope.visibility);
+
+            if let Some(decl_id) = scope.predecls.get(name) {
+                return Some(*decl_id);
+            }
 
             if let Some(decl_id) = scope.decls.get(name) {
                 return Some(*decl_id);
