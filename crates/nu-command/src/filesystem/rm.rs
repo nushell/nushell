@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use std::env::current_dir;
 use std::os::unix::prelude::FileTypeExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use glob::Paths;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, Expression};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::{ShellError, Signature, SyntaxShape, Value, ValueStream};
 
@@ -144,7 +142,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
 }
 
 fn rm_helper(call: &Call, args: RmArgs) -> Vec<Value> {
-    let (targets, recursive, trash, permanent, force) = (
+    let (targets, recursive, trash, _permanent, force) = (
         args.targets,
         args.recursive,
         args.trash,
@@ -219,33 +217,33 @@ fn rm_helper(call: &Call, args: RmArgs) -> Vec<Value> {
                     }
 
                     if let Err(e) = result {
-                        return Value::Error {
+                        Value::Error {
                             error: ShellError::RemoveNotPossible(
                                 format!("Could not delete because: {:}\nTry '--trash' flag", e),
                                 call.head,
                             ),
-                        };
+                        }
                     } else {
-                        return Value::String {
-                            val: format!("deleted {:}", f.to_string_lossy()).into(),
+                        Value::String {
+                            val: format!("deleted {:}", f.to_string_lossy()),
                             span: call.positional[i].span,
-                        };
+                        }
                     }
                 } else {
-                    return Value::Error {
+                    Value::Error {
                         error: ShellError::RemoveNotPossible(
                             "Cannot remove. try --recursive".to_string(),
                             call.positional[i].span,
                         ),
-                    };
+                    }
                 }
             } else {
-                return Value::Error {
+                Value::Error {
                     error: ShellError::RemoveNotPossible(
                         "no such file or directory".to_string(),
                         call.positional[i].span,
                     ),
-                };
+                }
             }
         })
         .collect()
