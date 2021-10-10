@@ -64,7 +64,6 @@ impl Command for SubCommand {
 fn split_chars(call: &Call, input: Value) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
     let span = call.head;
 
-	
     Ok(input.flat_map(span, move |x| split_chars_helper(&x, span)))
 }
 
