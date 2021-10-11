@@ -292,7 +292,8 @@ impl Value {
                     val: column_name,
                     span: origin_span,
                 } => match &mut current {
-                    Value::Record { cols, vals, .. } => {
+                    Value::Record { cols, vals, span } => {
+                        let span = *span;
                         let mut found = false;
                         for col in cols.iter().zip(vals.iter()) {
                             if col.0 == column_name {
@@ -303,19 +304,23 @@ impl Value {
                         }
 
                         if !found {
-                            return Err(ShellError::CantFindColumn(*origin_span));
+                            return Err(ShellError::CantFindColumn(*origin_span, span));
                         }
                     }
                     Value::List { vals, span } => {
                         let mut output = vec![];
                         for val in vals {
-                            if let Value::Record { cols, vals, .. } = val {
-                                for col in cols.iter().enumerate() {
-                                    if col.1 == column_name {
-                                        output.push(vals[col.0].clone());
-                                    }
-                                }
-                            }
+                            output.push(val.clone().follow_cell_path(&[PathMember::String {
+                                val: column_name.clone(),
+                                span: *origin_span,
+                            }])?);
+                            // if let Value::Record { cols, vals, .. } = val {
+                            //     for col in cols.iter().enumerate() {
+                            //         if col.1 == column_name {
+                            //             output.push(vals[col.0].clone());
+                            //         }
+                            //     }
+                            // }
                         }
 
                         current = Value::List {
@@ -326,13 +331,17 @@ impl Value {
                     Value::Stream { stream, span } => {
                         let mut output = vec![];
                         for val in stream {
-                            if let Value::Record { cols, vals, .. } = val {
-                                for col in cols.iter().enumerate() {
-                                    if col.1 == column_name {
-                                        output.push(vals[col.0].clone());
-                                    }
-                                }
-                            }
+                            output.push(val.clone().follow_cell_path(&[PathMember::String {
+                                val: column_name.clone(),
+                                span: *origin_span,
+                            }])?);
+                            // if let Value::Record { cols, vals, .. } = val {
+                            //     for col in cols.iter().enumerate() {
+                            //         if col.1 == column_name {
+                            //             output.push(vals[col.0].clone());
+                            //         }
+                            //     }
+                            // }
                         }
 
                         current = Value::List {

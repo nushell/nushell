@@ -666,3 +666,11 @@ fn earlier_errors() -> TestResult {
         "int",
     )
 }
+
+#[test]
+fn missing_column_error() -> TestResult {
+    fail_test(
+        r#"([([[name, size]; [ABC, 10], [DEF, 20]]).1, ([[name]; [HIJ]]).0]).size | table"#,
+        "cannot find column",
+    )
+}

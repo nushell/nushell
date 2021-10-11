@@ -99,7 +99,10 @@ pub enum ShellError {
 
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found), url(docsrs))]
-    CantFindColumn(#[label = "cannot find column"] Span),
+    CantFindColumn(
+        #[label = "cannot find column"] Span,
+        #[label = "value originates here"] Span,
+    ),
 
     #[error("External command")]
     #[diagnostic(code(nu::shell::external_command), url(docsrs))]

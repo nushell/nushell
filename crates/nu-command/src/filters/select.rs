@@ -52,7 +52,7 @@ impl Command for Select {
 
 fn select(span: Span, columns: Vec<CellPath>, input: Value) -> Result<Value, ShellError> {
     if columns.is_empty() {
-        return Err(ShellError::CantFindColumn(span));
+        return Err(ShellError::CantFindColumn(span, input.span()?));
     }
 
     match input {

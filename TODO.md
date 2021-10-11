@@ -27,9 +27,9 @@
 - [x] Source
 - [x] Error shortcircuit (stopping on first error). Revised: errors emit first, but can be seen by commands.
 - [x] Value serialization
+- [x] Handling rows with missing columns during a cell path
 - [ ] Input/output types
 - [ ] Support for `$in`
-- [ ] Handling rows with missing columns during a cell path
 - [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] finish operator type-checking
