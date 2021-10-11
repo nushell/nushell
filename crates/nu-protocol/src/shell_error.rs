@@ -41,6 +41,26 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::missing_parameter), url(docsrs))]
     MissingParameter(String, #[label = "missing parameter: {0}"] Span),
 
+    // Be cautious, as flags can share the same span, resulting in a panic (ex: `rm -pt`)
+    #[error("Incompatible parameters.")]
+    #[diagnostic(code(nu::shell::incompatible_parameters), url(docsrs))]
+    IncompatibleParameters {
+        left_message: String,
+        #[label("{left_message}")]
+        left_span: Span,
+        right_message: String,
+        #[label("{right_message}")]
+        right_span: Span,
+    },
+
+    #[error("Incompatible parameters.")]
+    #[diagnostic(code(nu::shell::incompatible_parameters), url(docsrs))]
+    IncompatibleParametersSingle(String, #[label = "{0}"] Span),
+
+    #[error("Feature not enabled.")]
+    #[diagnostic(code(nu::shell::feature_not_enabled), url(docsrs))]
+    FeatureNotEnabled(#[label = "feature not enabled"] Span),
+
     #[error("External commands not yet supported")]
     #[diagnostic(code(nu::shell::external_commands), url(docsrs))]
     ExternalNotSupported(#[label = "external not supported"] Span),
@@ -131,6 +151,10 @@ pub enum ShellError {
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible), url(docsrs))]
     CreateNotPossible(String, #[label("{0}")] Span),
+
+    #[error("Remove not possible")]
+    #[diagnostic(code(nu::shell::remove_not_possible), url(docsrs))]
+    RemoveNotPossible(String, #[label("{0}")] Span),
 }
 
 impl From<std::io::Error> for ShellError {

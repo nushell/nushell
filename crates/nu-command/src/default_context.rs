@@ -13,54 +13,64 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         let engine_state = engine_state.borrow();
         let mut working_set = StateWorkingSet::new(&*engine_state);
 
-        working_set.add_decl(Box::new(Alias));
-        working_set.add_decl(Box::new(Benchmark));
-        working_set.add_decl(Box::new(BuildString));
-        working_set.add_decl(Box::new(Cd));
-        working_set.add_decl(Box::new(Cp));
-        working_set.add_decl(Box::new(Def));
-        working_set.add_decl(Box::new(Do));
-        working_set.add_decl(Box::new(Each));
-        working_set.add_decl(Box::new(ExportDef));
-        working_set.add_decl(Box::new(External));
-        working_set.add_decl(Box::new(For));
-        working_set.add_decl(Box::new(From));
-        working_set.add_decl(Box::new(FromJson));
-        working_set.add_decl(Box::new(Get));
-        working_set.add_decl(Box::new(Griddle));
-        working_set.add_decl(Box::new(Help));
-        working_set.add_decl(Box::new(Hide));
-        working_set.add_decl(Box::new(If));
-        working_set.add_decl(Box::new(Into));
-        working_set.add_decl(Box::new(IntoBinary));
-        working_set.add_decl(Box::new(IntoFilesize));
-        working_set.add_decl(Box::new(Length));
-        working_set.add_decl(Box::new(Let));
-        working_set.add_decl(Box::new(LetEnv));
-        working_set.add_decl(Box::new(Lines));
-        working_set.add_decl(Box::new(Ls));
-        working_set.add_decl(Box::new(Mkdir));
-        working_set.add_decl(Box::new(Module));
-        working_set.add_decl(Box::new(Mv));
-        working_set.add_decl(Box::new(Ps));
-        working_set.add_decl(Box::new(Select));
-        working_set.add_decl(Box::new(Split));
-        working_set.add_decl(Box::new(SplitChars));
-        working_set.add_decl(Box::new(SplitColumn));
-        working_set.add_decl(Box::new(SplitRow));
-        working_set.add_decl(Box::new(Sys));
-        working_set.add_decl(Box::new(Table));
-        working_set.add_decl(Box::new(Touch));
-        working_set.add_decl(Box::new(Use));
-        working_set.add_decl(Box::new(Where));
-        working_set.add_decl(Box::new(Wrap));
+        macro_rules! bind_command {
+            ( $command:expr ) => {
+                working_set.add_decl(Box::new($command));
+            };
+            ( $( $command:expr ),* ) => {
+                $( working_set.add_decl(Box::new($command)); )*
+            };
+        }
+
+        // TODO: sort items categorically
+        bind_command!(
+            Alias,
+            Benchmark,
+            BuildString,
+            Cd,
+            Cp,
+            Def,
+            Do,
+            Each,
+            ExportDef,
+            External,
+            For,
+            From,
+            FromJson,
+            Get,
+            Griddle,
+            Help,
+            Hide,
+            If,
+            Into,
+            IntoBinary,
+            IntoFilesize,
+            IntoInt,
+            Length,
+            Let,
+            LetEnv,
+            Lines,
+            Ls,
+            Mkdir,
+            Module,
+            Mv,
+            Ps,
+            Rm,
+            Select,
+            Split,
+            SplitChars,
+            SplitColumn,
+            SplitRow,
+            Sys,
+            Table,
+            Touch,
+            Use,
+            Where,
+            Wrap
+        );
 
         // This is a WIP proof of concept
-        working_set.add_decl(Box::new(ListGitBranches));
-        working_set.add_decl(Box::new(Git));
-        working_set.add_decl(Box::new(GitCheckout));
-
-        working_set.add_decl(Box::new(Source));
+        bind_command!(ListGitBranches, Git, GitCheckout, Source);
 
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());
