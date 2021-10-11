@@ -71,7 +71,7 @@ impl Command for FromJson {
         call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, ShellError> {
-        let span = input.span();
+        let span = input.span()?;
         let mut string_input = input.collect_string();
         string_input.push('\n');
 

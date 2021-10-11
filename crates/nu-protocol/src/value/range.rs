@@ -122,19 +122,25 @@ impl Range {
             (_, _) => false,
         }
     }
-}
 
-impl IntoIterator for Range {
-    type Item = Value;
+    pub fn into_range_iter(self) -> Result<RangeIterator, ShellError> {
+        let span = self.from.span()?;
 
-    type IntoIter = RangeIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        let span = self.from.span();
-
-        RangeIterator::new(self, span)
+        Ok(RangeIterator::new(self, span))
     }
 }
+
+// impl IntoIterator for Range {
+//     type Item = Value;
+
+//     type IntoIter = RangeIterator;
+
+//     fn into_iter(self) -> Self::IntoIter {
+//         let span = self.from.span();
+
+//         RangeIterator::new(self, span)
+//     }
+// }
 
 pub struct RangeIterator {
     curr: Value,

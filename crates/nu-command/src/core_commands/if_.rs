@@ -61,7 +61,7 @@ impl Command for If {
                     Ok(Value::Nothing { span })
                 }
             }
-            _ => Err(ShellError::CantConvert("bool".into(), result.span())),
+            _ => Err(ShellError::CantConvert("bool".into(), result.span()?)),
         }
     }
 }
