@@ -91,6 +91,7 @@ impl Command for Table {
                     span: call.head,
                 })
             }
+            Value::Error { error } => Err(error),
             x => Ok(x),
         }
     }
