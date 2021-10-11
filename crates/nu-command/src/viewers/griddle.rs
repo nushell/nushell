@@ -53,7 +53,7 @@ prints out the list properly."#
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let width_param: Option<String> = call.get_flag(context, "width")?;
         let color_param: bool = call.has_flag("color");
-        let seperator_param: Option<String> = call.get_flag(context, "separator")?;
+        let separator_param: Option<String> = call.get_flag(context, "separator")?;
 
         match input {
             Value::List { vals, .. } => {
@@ -65,7 +65,7 @@ prints out the list properly."#
                         call,
                         width_param,
                         color_param,
-                        seperator_param,
+                        separator_param,
                     ))
                 } else {
                     Ok(Value::Nothing { span: call.head })
@@ -80,7 +80,7 @@ prints out the list properly."#
                         call,
                         width_param,
                         color_param,
-                        seperator_param,
+                        separator_param,
                     ))
                 } else {
                     // dbg!(data);
@@ -100,7 +100,7 @@ prints out the list properly."#
                     call,
                     width_param,
                     color_param,
-                    seperator_param,
+                    separator_param,
                 ))
             }
             x => {
@@ -127,8 +127,8 @@ fn create_grid_output2(
     } else {
         80u16
     };
-    let sep = if let Some(seperator) = separator_param {
-        seperator
+    let sep = if let Some(separator) = separator_param {
+        separator
     } else {
         " │ ".to_string()
     };
