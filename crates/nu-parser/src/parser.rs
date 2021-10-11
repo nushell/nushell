@@ -57,7 +57,7 @@ fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError>
         Some(ParseError::MissingPositional(missing.name.clone(), command))
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call.named.iter().all(|(n, _)| n != &req_flag.long) {
+            if call.named.iter().all(|(n, _)| n.item != req_flag.long) {
                 return Some(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
                     command,
@@ -478,7 +478,13 @@ pub fn parse_internal_call(
         if let Some(long_name) = long_name {
             // We found a long flag, like --bar
             error = error.or(err);
-            call.named.push((long_name, arg));
+            call.named.push((
+                Spanned {
+                    item: long_name,
+                    span: arg_span,
+                },
+                arg,
+            ));
             spans_idx += 1;
             continue;
         }
@@ -500,13 +506,25 @@ pub fn parse_internal_call(
                         let (arg, err) = parse_value(working_set, *arg, &arg_shape);
                         error = error.or(err);
 
-                        call.named.push((flag.long.clone(), Some(arg)));
+                        call.named.push((
+                            Spanned {
+                                item: flag.long.clone(),
+                                span: spans[spans_idx],
+                            },
+                            Some(arg),
+                        ));
                         spans_idx += 1;
                     } else {
                         error = error.or(Some(ParseError::MissingFlagParam(arg_span)))
                     }
                 } else {
-                    call.named.push((flag.long.clone(), None));
+                    call.named.push((
+                        Spanned {
+                            item: flag.long.clone(),
+                            span: spans[spans_idx],
+                        },
+                        None,
+                    ));
                 }
             }
             spans_idx += 1;
@@ -1850,7 +1868,18 @@ pub fn parse_signature(
 
     if bytes.starts_with(b"[") {
         start += 1;
+    } else {
+        error = error.or_else(|| {
+            Some(ParseError::Expected(
+                "[".into(),
+                Span {
+                    start,
+                    end: start + 1,
+                },
+            ))
+        });
     }
+
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {

@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::{DeclId, Span};
+use crate::{DeclId, Span, Spanned};
 
 #[derive(Debug, Clone)]
 pub struct Call {
@@ -7,7 +7,7 @@ pub struct Call {
     pub decl_id: DeclId,
     pub head: Span,
     pub positional: Vec<Expression>,
-    pub named: Vec<(String, Option<Expression>)>,
+    pub named: Vec<(Spanned<String>, Option<Expression>)>,
 }
 
 impl Default for Call {
@@ -28,7 +28,7 @@ impl Call {
 
     pub fn has_flag(&self, flag_name: &str) -> bool {
         for name in &self.named {
-            if flag_name == name.0 {
+            if flag_name == name.0.item {
                 return true;
             }
         }
@@ -38,7 +38,7 @@ impl Call {
 
     pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
         for name in &self.named {
-            if flag_name == name.0 {
+            if flag_name == name.0.item {
                 return name.1.clone();
             }
         }
