@@ -1,7 +1,7 @@
 use crate::*;
 use std::{cell::RefCell, fmt::Debug, rc::Rc};
 
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
@@ -44,22 +44,49 @@ impl Iterator for ValueStream {
 }
 
 impl Serialize for ValueStream {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        // FIXME: implement these
-        todo!()
+        let mut seq = serializer.serialize_seq(None)?;
+
+        for element in self.0.borrow_mut().into_iter() {
+            seq.serialize_element(&element)?;
+        }
+        seq.end()
     }
 }
 
 impl<'de> Deserialize<'de> for ValueStream {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         // FIXME: implement these
-        todo!()
+        deserializer.deserialize_seq(MySeqVisitor)
+    }
+}
+
+struct MySeqVisitor;
+
+impl<'a> serde::de::Visitor<'a> for MySeqVisitor {
+    type Value = ValueStream;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a value stream")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'a>,
+    {
+        let mut output: Vec<Value> = vec![];
+
+        while let Some(value) = seq.next_element()? {
+            output.push(value);
+        }
+
+        Ok(ValueStream(Rc::new(RefCell::new(output.into_iter()))))
     }
 }
 

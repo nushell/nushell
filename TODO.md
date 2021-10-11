@@ -26,9 +26,9 @@
 - [x] Exports
 - [x] Source
 - [x] Error shortcircuit (stopping on first error). Revised: errors emit first, but can be seen by commands.
+- [x] Value serialization
 - [ ] Input/output types
 - [ ] Support for `$in`
-- [ ] Value serialization
 - [ ] Handling rows with missing columns during a cell path
 - [ ] ctrl-c support
 - [ ] operator overflow
