@@ -86,7 +86,7 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Multiply => match (&lhs.ty, &rhs.ty) {
+            Operator::Multiply | Operator::Pow => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
@@ -108,11 +108,30 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Divide => match (&lhs.ty, &rhs.ty) {
+            Operator::Divide | Operator::Modulo => match (&lhs.ty, &rhs.ty) {
                 (Type::Int, Type::Int) => (Type::Int, None),
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+
+                (Type::Unknown, _) => (Type::Unknown, None),
+                (_, Type::Unknown) => (Type::Unknown, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Unknown,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
+            Operator::And | Operator::Or => match (&lhs.ty, &rhs.ty) {
+                (Type::Bool, Type::Bool) => (Type::Int, None),
 
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),
@@ -273,6 +292,42 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::Contains => match (&lhs.ty, &rhs.ty) {
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::Unknown, _) => (Type::Bool, None),
+                (_, Type::Unknown) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Unknown,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
+            Operator::NotContains => match (&lhs.ty, &rhs.ty) {
+                (Type::String, Type::String) => (Type::Bool, None),
+                (Type::Unknown, _) => (Type::Bool, None),
+                (_, Type::Unknown) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Unknown,
+                        Some(ParseError::UnsupportedOperation(
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
             Operator::In => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
                 (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
@@ -317,21 +372,6 @@ pub fn math_result_type(
                     )
                 }
             },
-
-            _ => {
-                *op = Expression::garbage(op.span);
-
-                (
-                    Type::Unknown,
-                    Some(ParseError::UnsupportedOperation(
-                        op.span,
-                        lhs.span,
-                        lhs.ty.clone(),
-                        rhs.span,
-                        rhs.ty.clone(),
-                    )),
-                )
-            }
         },
         _ => {
             *op = Expression::garbage(op.span);

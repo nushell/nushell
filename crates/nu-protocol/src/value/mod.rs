@@ -872,6 +872,164 @@ impl Value {
             }),
         }
     }
+
+    pub fn contains(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: lhs.contains(rhs),
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn not_contains(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
+                val: !lhs.contains(rhs),
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn modulo(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Int {
+                        val: lhs % rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Float {
+                        val: *lhs as f64 % *rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Float {
+                        val: *lhs % *rhs as f64,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if *rhs != 0.0 {
+                    Ok(Value::Float {
+                        val: lhs % rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn and(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs && *rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn or(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
+                val: *lhs || *rhs,
+                span,
+            }),
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
+
+    pub fn pow(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
+        let span = span(&[self.span()?, rhs.span()?]);
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
+                val: lhs.pow(*rhs as u32),
+                span,
+            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: (*lhs as f64).powf(*rhs),
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
+                val: lhs.powf(*rhs as f64),
+                span,
+            }),
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
+                val: lhs.powf(*rhs),
+                span,
+            }),
+
+            _ => Err(ShellError::OperatorMismatch {
+                op_span: op,
+                lhs_ty: self.get_type(),
+                lhs_span: self.span()?,
+                rhs_ty: rhs.get_type(),
+                rhs_span: rhs.span()?,
+            }),
+        }
+    }
 }
 
 /// Format a duration in nanoseconds into a string
