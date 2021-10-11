@@ -365,38 +365,29 @@ impl Value {
         }
     }
 
-    pub fn map<F>(self, span: Span, mut f: F) -> Value
+    pub fn map<F>(self, span: Span, mut f: F) -> Result<Value, ShellError>
     where
         Self: Sized,
         F: FnMut(Self) -> Value + 'static,
     {
         match self {
-            Value::List { vals, .. } => Value::List {
-                vals: vals.into_iter().map(f).collect(),
+            Value::List { vals, .. } => Ok(Value::Stream {
+                stream: vals.into_iter().map(f).into_value_stream(),
                 span,
-            },
-            Value::Stream { stream, .. } => Value::Stream {
+            }),
+            Value::Stream { stream, .. } => Ok(Value::Stream {
                 stream: stream.map(f).into_value_stream(),
                 span,
-            },
-            Value::Range { val, .. } => Value::Stream {
+            }),
+            Value::Range { val, .. } => Ok(Value::Stream {
                 stream: val.into_iter().map(f).into_value_stream(),
                 span,
-            },
+            }),
             v => {
-                if v.as_string().is_ok() {
-                    Value::List {
-                        vals: vec![f(v)],
-                        span,
-                    }
-                } else {
-                    Value::Error {
-                        error: ShellError::PipelineMismatch {
-                            expected: Type::String,
-                            expected_span: span,
-                            origin: v.span(),
-                        },
-                    }
+                let output = f(v);
+                match output {
+                    Value::Error { error } => Err(error),
+                    v => Ok(v),
                 }
             }
         }
@@ -406,11 +397,12 @@ impl Value {
     where
         Self: Sized,
         U: IntoIterator<Item = Value>,
+        <U as IntoIterator>::IntoIter: 'static,
         F: FnMut(Self) -> U + 'static,
     {
         match self {
-            Value::List { vals, .. } => Value::List {
-                vals: vals.into_iter().map(f).flatten().collect(),
+            Value::List { vals, .. } => Value::Stream {
+                stream: vals.into_iter().map(f).flatten().into_value_stream(),
                 span,
             },
             Value::Stream { stream, .. } => Value::Stream {
@@ -421,22 +413,10 @@ impl Value {
                 stream: val.into_iter().map(f).flatten().into_value_stream(),
                 span,
             },
-            v => {
-                if v.as_string().is_ok() {
-                    Value::List {
-                        vals: f(v).into_iter().collect(),
-                        span,
-                    }
-                } else {
-                    Value::Error {
-                        error: ShellError::PipelineMismatch {
-                            expected: Type::String,
-                            expected_span: span,
-                            origin: v.span(),
-                        },
-                    }
-                }
-            }
+            v => Value::Stream {
+                stream: f(v).into_iter().into_value_stream(),
+                span,
+            },
         }
     }
 }
@@ -509,6 +489,9 @@ impl PartialOrd for Value {
             }
             (Value::List { vals: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
                 lhs.partial_cmp(&rhs.clone().collect::<Vec<Value>>())
+            }
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+                lhs.partial_cmp(rhs)
             }
             (_, _) => None,
         }

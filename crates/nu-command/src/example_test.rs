@@ -7,7 +7,7 @@ use nu_protocol::{
     Value,
 };
 
-use super::{From, Split};
+use super::{From, Into, Split};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -19,6 +19,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         let engine_state = engine_state.borrow();
         let mut working_set = StateWorkingSet::new(&*engine_state);
         working_set.add_decl(Box::new(From));
+        working_set.add_decl(Box::new(Into));
         working_set.add_decl(Box::new(Split));
 
         // Adding the command that is being tested to the working set
@@ -30,6 +31,10 @@ pub fn test_examples(cmd: impl Command + 'static) {
     EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
 
     for example in examples {
+        // Skip tests that don't have results to compare to
+        if example.result.is_none() {
+            continue;
+        }
         let start = std::time::Instant::now();
 
         let (block, delta) = {
@@ -38,7 +43,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
             let (output, err) = parse(&mut working_set, None, example.example.as_bytes(), false);
 
             if let Some(err) = err {
-                panic!("test parse error: {:?}", err)
+                panic!("test parse error in `{}`: {:?}", example.example, err)
             }
 
             (output, working_set.render())
@@ -52,7 +57,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         };
 
         match eval_block(&state, &block, Value::nothing()) {
-            Err(err) => panic!("test eval error: {:?}", err),
+            Err(err) => panic!("test eval error in `{}`: {:?}", example.example, err),
             Ok(result) => {
                 println!("input: {}", example.example);
                 println!("result: {:?}", result);

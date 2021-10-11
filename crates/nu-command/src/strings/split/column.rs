@@ -51,9 +51,9 @@ fn split_column(
     let rest: Vec<Spanned<String>> = call.rest(context, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
-    Ok(input.map(name_span, move |x| {
+    input.map(name_span, move |x| {
         split_column_helper(&x, &separator, &rest, collapse_empty, name_span)
-    }))
+    })
 }
 
 fn split_column_helper(
@@ -100,9 +100,12 @@ fn split_column_helper(
                 })
             }
         }
-        Value::Record {
-            cols,
-            vals,
+        Value::List {
+            vals: vec![Value::Record {
+                cols,
+                vals,
+                span: head,
+            }],
             span: head,
         }
     } else {

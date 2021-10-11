@@ -124,6 +124,12 @@ impl FromValue for CellPath {
                     span,
                 }],
             }),
+            Value::Int { val, .. } => Ok(CellPath {
+                members: vec![PathMember::Int {
+                    val: *val as usize,
+                    span,
+                }],
+            }),
             v => Err(ShellError::CantConvert("cell path".into(), v.span())),
         }
     }

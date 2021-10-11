@@ -1,3 +1,4 @@
+mod conversions;
 mod core_commands;
 mod default_context;
 mod env;
@@ -10,7 +11,8 @@ mod strings;
 mod system;
 mod viewers;
 
-pub(crate) use core_commands::*;
+pub use conversions::*;
+pub use core_commands::*;
 pub use default_context::*;
 pub use env::*;
 pub use example_test::test_examples;
