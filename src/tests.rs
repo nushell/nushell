@@ -658,3 +658,11 @@ fn string_not_in_string() -> TestResult {
 fn float_not_in_inc_range() -> TestResult {
     run_test(r#"1.4 not-in 2..9.42"#, "true")
 }
+
+#[test]
+fn earlier_errors() -> TestResult {
+    fail_test(
+        r#"[1, "bob"] | each { $it + 3 } | each { $it / $it } | table"#,
+        "int",
+    )
+}

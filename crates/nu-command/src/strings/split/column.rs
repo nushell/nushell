@@ -109,12 +109,15 @@ fn split_column_helper(
             span: head,
         }
     } else {
-        Value::Error {
-            error: ShellError::PipelineMismatch {
-                expected: Type::String,
-                expected_span: head,
-                origin: v.span(),
+        match v.span() {
+            Ok(span) => Value::Error {
+                error: ShellError::PipelineMismatch {
+                    expected: Type::String,
+                    expected_span: head,
+                    origin: span,
+                },
             },
+            Err(error) => Value::Error { error },
         }
     }
 }

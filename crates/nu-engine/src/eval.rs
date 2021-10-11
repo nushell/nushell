@@ -45,7 +45,7 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
             }
 
             let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()
+                rest_item.span()?
             } else {
                 Span::unknown()
             };

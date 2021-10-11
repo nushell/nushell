@@ -33,7 +33,7 @@ impl FromValue for Spanned<i64> {
                 span: *span,
             }),
 
-            v => Err(ShellError::CantConvert("integer".into(), v.span())),
+            v => Err(ShellError::CantConvert("integer".into(), v.span()?)),
         }
     }
 }
@@ -51,7 +51,7 @@ impl FromValue for i64 {
                 *val as i64,
             ),
 
-            v => Err(ShellError::CantConvert("integer".into(), v.span())),
+            v => Err(ShellError::CantConvert("integer".into(), v.span()?)),
         }
     }
 }
@@ -69,7 +69,7 @@ impl FromValue for Spanned<f64> {
                 span: *span,
             }),
 
-            v => Err(ShellError::CantConvert("float".into(), v.span())),
+            v => Err(ShellError::CantConvert("float".into(), v.span()?)),
         }
     }
 }
@@ -79,7 +79,7 @@ impl FromValue for f64 {
         match v {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
-            v => Err(ShellError::CantConvert("float".into(), v.span())),
+            v => Err(ShellError::CantConvert("float".into(), v.span()?)),
         }
     }
 }
@@ -95,7 +95,7 @@ impl FromValue for Spanned<String> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         Ok(Spanned {
             item: v.clone().into_string(),
-            span: v.span(),
+            span: v.span()?,
         })
     }
 }
@@ -115,7 +115,7 @@ impl FromValue for ColumnPath {
 
 impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
-        let span = v.span();
+        let span = v.span()?;
         match v {
             Value::CellPath { val, .. } => Ok(val.clone()),
             Value::String { val, .. } => Ok(CellPath {
@@ -130,7 +130,7 @@ impl FromValue for CellPath {
                     span,
                 }],
             }),
-            v => Err(ShellError::CantConvert("cell path".into(), v.span())),
+            _ => Err(ShellError::CantConvert("cell path".into(), span)),
         }
     }
 }
@@ -139,7 +139,7 @@ impl FromValue for bool {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
             Value::Bool { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert("bool".into(), v.span())),
+            v => Err(ShellError::CantConvert("bool".into(), v.span()?)),
         }
     }
 }
@@ -151,7 +151,7 @@ impl FromValue for Spanned<bool> {
                 item: *val,
                 span: *span,
             }),
-            v => Err(ShellError::CantConvert("bool".into(), v.span())),
+            v => Err(ShellError::CantConvert("bool".into(), v.span()?)),
         }
     }
 }
@@ -182,7 +182,7 @@ impl FromValue for Range {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
             Value::Range { val, .. } => Ok((**val).clone()),
-            v => Err(ShellError::CantConvert("range".into(), v.span())),
+            v => Err(ShellError::CantConvert("range".into(), v.span()?)),
         }
     }
 }
@@ -194,7 +194,7 @@ impl FromValue for Spanned<Range> {
                 item: (**val).clone(),
                 span: *span,
             }),
-            v => Err(ShellError::CantConvert("range".into(), v.span())),
+            v => Err(ShellError::CantConvert("range".into(), v.span()?)),
         }
     }
 }

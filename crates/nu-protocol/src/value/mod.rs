@@ -90,29 +90,29 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val.to_string()),
-            _ => Err(ShellError::CantConvert("string".into(), self.span())),
+            _ => Err(ShellError::CantConvert("string".into(), self.span()?)),
         }
     }
 
     /// Get the span for the current value
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> Result<Span, ShellError> {
         match self {
-            Value::Error { .. } => Span::unknown(),
-            Value::Bool { span, .. } => *span,
-            Value::Int { span, .. } => *span,
-            Value::Float { span, .. } => *span,
-            Value::Filesize { span, .. } => *span,
-            Value::Duration { span, .. } => *span,
-            Value::Date { span, .. } => *span,
-            Value::Range { span, .. } => *span,
-            Value::String { span, .. } => *span,
-            Value::Record { span, .. } => *span,
-            Value::List { span, .. } => *span,
-            Value::Block { span, .. } => *span,
-            Value::Stream { span, .. } => *span,
-            Value::Nothing { span, .. } => *span,
-            Value::Binary { span, .. } => *span,
-            Value::CellPath { span, .. } => *span,
+            Value::Error { error } => Err(error.clone()),
+            Value::Bool { span, .. } => Ok(*span),
+            Value::Int { span, .. } => Ok(*span),
+            Value::Float { span, .. } => Ok(*span),
+            Value::Filesize { span, .. } => Ok(*span),
+            Value::Duration { span, .. } => Ok(*span),
+            Value::Date { span, .. } => Ok(*span),
+            Value::Range { span, .. } => Ok(*span),
+            Value::String { span, .. } => Ok(*span),
+            Value::Record { span, .. } => Ok(*span),
+            Value::List { span, .. } => Ok(*span),
+            Value::Block { span, .. } => Ok(*span),
+            Value::Stream { span, .. } => Ok(*span),
+            Value::Nothing { span, .. } => Ok(*span),
+            Value::Binary { span, .. } => Ok(*span),
+            Value::CellPath { span, .. } => Ok(*span),
         }
     }
 
@@ -173,15 +173,17 @@ impl Value {
             Value::Filesize { val, .. } => format_filesize(val),
             Value::Duration { val, .. } => format_duration(val),
             Value::Date { val, .. } => HumanTime::from(val).to_string(),
-            Value::Range { val, .. } => {
-                format!(
-                    "range: [{}]",
-                    val.into_iter()
-                        .map(|x| x.into_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            }
+            Value::Range { val, .. } => match val.into_range_iter() {
+                Ok(iter) => {
+                    format!(
+                        "range: [{}]",
+                        iter.map(|x| x.into_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+                Err(error) => format!("{:?}", error),
+            },
             Value::String { val, .. } => val,
             Value::Stream { stream, .. } => stream.into_string(),
             Value::List { vals: val, .. } => format!(
@@ -215,11 +217,15 @@ impl Value {
             Value::Filesize { val, .. } => format!("{} bytes", val),
             Value::Duration { val, .. } => format!("{} ns", val),
             Value::Date { val, .. } => format!("{:?}", val),
-            Value::Range { val, .. } => val
-                .into_iter()
-                .map(|x| x.into_string())
-                .collect::<Vec<String>>()
-                .join(", "),
+            Value::Range { val, .. } => match val.into_range_iter() {
+                Ok(iter) => iter
+                    .map(|x| x.into_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                Err(error) => {
+                    format!("{:?}", error)
+                }
+            },
             Value::String { val, .. } => val,
             Value::Stream { stream, .. } => stream.collect_string(),
             Value::List { vals: val, .. } => val
@@ -380,7 +386,7 @@ impl Value {
                 span,
             }),
             Value::Range { val, .. } => Ok(Value::Stream {
-                stream: val.into_iter().map(f).into_value_stream(),
+                stream: val.into_range_iter()?.map(f).into_value_stream(),
                 span,
             }),
             v => {
@@ -409,9 +415,12 @@ impl Value {
                 stream: stream.map(f).flatten().into_value_stream(),
                 span,
             },
-            Value::Range { val, .. } => Value::Stream {
-                stream: val.into_iter().map(f).flatten().into_value_stream(),
-                span,
+            Value::Range { val, .. } => match val.into_range_iter() {
+                Ok(iter) => Value::Stream {
+                    stream: iter.map(f).flatten().into_value_stream(),
+                    span,
+                },
+                Err(error) => Value::Error { error },
             },
             v => Value::Stream {
                 stream: f(v).into_iter().into_value_stream(),
@@ -506,7 +515,7 @@ impl PartialEq for Value {
 
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -545,14 +554,14 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn sub(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -587,14 +596,14 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn mul(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
@@ -617,14 +626,14 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn div(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
@@ -678,14 +687,14 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -695,14 +704,14 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -712,14 +721,14 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -729,14 +738,14 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -746,14 +755,14 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -763,14 +772,14 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
     pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -780,15 +789,15 @@ impl Value {
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
 
     pub fn r#in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
@@ -814,15 +823,15 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }
 
     pub fn not_in(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
-        let span = span(&[self.span(), rhs.span()]);
+        let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
             (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
@@ -848,9 +857,9 @@ impl Value {
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
-                lhs_span: self.span(),
+                lhs_span: self.span()?,
                 rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span(),
+                rhs_span: rhs.span()?,
             }),
         }
     }

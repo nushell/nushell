@@ -67,7 +67,7 @@ impl Command for Each {
         match input {
             Value::Range { val, .. } => Ok(Value::Stream {
                 stream: val
-                    .into_iter()
+                    .into_range_iter()?
                     .enumerate()
                     .map(move |(idx, x)| {
                         let engine_state = context.engine_state.borrow();

@@ -48,28 +48,33 @@ fn split_row(
 }
 
 fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<Value> {
-    if let Ok(s) = v.as_string() {
-        let splitter = separator.item.replace("\\n", "\n");
-        s.split(&splitter)
-            .filter_map(|s| {
-                if s.trim() != "" {
-                    Some(Value::String {
-                        val: s.into(),
-                        span: v.span(),
+    match v.span() {
+        Ok(v_span) => {
+            if let Ok(s) = v.as_string() {
+                let splitter = separator.item.replace("\\n", "\n");
+                s.split(&splitter)
+                    .filter_map(|s| {
+                        if s.trim() != "" {
+                            Some(Value::String {
+                                val: s.into(),
+                                span: v_span,
+                            })
+                        } else {
+                            None
+                        }
                     })
-                } else {
-                    None
-                }
-            })
-            .collect()
-    } else {
-        vec![Value::Error {
-            error: ShellError::PipelineMismatch {
-                expected: Type::String,
-                expected_span: name,
-                origin: v.span(),
-            },
-        }]
+                    .collect()
+            } else {
+                vec![Value::Error {
+                    error: ShellError::PipelineMismatch {
+                        expected: Type::String,
+                        expected_span: name,
+                        origin: v_span,
+                    },
+                }]
+            }
+        }
+        Err(error) => vec![Value::Error { error }],
     }
 }
 
