@@ -1,4 +1,5 @@
 use std::env::current_dir;
+#[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
