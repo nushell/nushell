@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, Span, Value};
+use nu_protocol::{ShellError, Signature, Span, Value};
 use nu_table::StyledString;
 use std::collections::HashMap;
 use terminal_size::{Height, Width};
@@ -35,7 +35,7 @@ impl Command for Table {
 
         match input {
             Value::List { vals, .. } => {
-                let table = convert_to_table(vals);
+                let table = convert_to_table(vals)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -49,7 +49,7 @@ impl Command for Table {
                 }
             }
             Value::Stream { stream, .. } => {
-                let table = convert_to_table(stream);
+                let table = convert_to_table(stream)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -96,7 +96,9 @@ impl Command for Table {
     }
 }
 
-fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::Table> {
+fn convert_to_table(
+    iter: impl IntoIterator<Item = Value>,
+) -> Result<Option<nu_table::Table>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
@@ -109,6 +111,9 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
         let mut data = vec![];
 
         for (row_num, item) in iter.enumerate() {
+            if let Value::Error { error } = item {
+                return Err(error);
+            }
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
@@ -135,7 +140,7 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
             data.push(row);
         }
 
-        Some(nu_table::Table {
+        Ok(Some(nu_table::Table {
             headers: headers
                 .into_iter()
                 .map(|x| StyledString {
@@ -165,8 +170,8 @@ fn convert_to_table(iter: impl IntoIterator<Item = Value>) -> Option<nu_table::T
                 })
                 .collect(),
             theme: nu_table::Theme::rounded(),
-        })
+        }))
     } else {
-        None
+        Ok(None)
     }
 }

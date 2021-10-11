@@ -148,7 +148,14 @@ fn main() -> Result<()> {
                     };
 
                     match eval_block(&state, &block, Value::nothing()) {
-                        Ok(value) => print_value(value, &state)?,
+                        Ok(value) => {
+                            if let Err(err) = print_value(value, &state) {
+                                let engine_state = engine_state.borrow();
+                                let working_set = StateWorkingSet::new(&*engine_state);
+
+                                report_error(&working_set, &err);
+                            }
+                        }
                         Err(err) => {
                             let engine_state = engine_state.borrow();
                             let working_set = StateWorkingSet::new(&*engine_state);
