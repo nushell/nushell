@@ -78,6 +78,41 @@ fn broken_math() -> TestResult {
 }
 
 #[test]
+fn modulo1() -> TestResult {
+    run_test("5 mod 2", "1")
+}
+
+#[test]
+fn modulo2() -> TestResult {
+    run_test("5.25 mod 2", "1.25")
+}
+
+#[test]
+fn and() -> TestResult {
+    run_test("$true && $false", "false")
+}
+
+#[test]
+fn or() -> TestResult {
+    run_test("$true || $false", "true")
+}
+
+#[test]
+fn pow() -> TestResult {
+    run_test("3 ** 3", "27")
+}
+
+#[test]
+fn contains() -> TestResult {
+    run_test("'testme' =~ 'test'", "true")
+}
+
+#[test]
+fn not_contains() -> TestResult {
+    run_test("'testme' !~ 'test'", "false")
+}
+
+#[test]
 fn if_test1() -> TestResult {
     run_test("if $true { 10 } else { 20 } ", "10")
 }

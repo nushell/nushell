@@ -28,11 +28,11 @@
 - [x] Error shortcircuit (stopping on first error). Revised: errors emit first, but can be seen by commands.
 - [x] Value serialization
 - [x] Handling rows with missing columns during a cell path
+- [x] finish operator type-checking
 - [ ] Input/output types
 - [ ] Support for `$in`
 - [ ] ctrl-c support
 - [ ] operator overflow
-- [ ] finish operator type-checking
 - [ ] Overlays (replacement for `autoenv`)
   
 ## Maybe: 

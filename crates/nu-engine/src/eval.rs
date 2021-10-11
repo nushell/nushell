@@ -192,7 +192,12 @@ pub fn eval_expression(
                 Operator::NotEqual => lhs.ne(op_span, &rhs),
                 Operator::In => lhs.r#in(op_span, &rhs),
                 Operator::NotIn => lhs.not_in(op_span, &rhs),
-                x => Err(ShellError::UnsupportedOperator(x, op_span)),
+                Operator::Contains => lhs.contains(op_span, &rhs),
+                Operator::NotContains => lhs.not_contains(op_span, &rhs),
+                Operator::Modulo => lhs.modulo(op_span, &rhs),
+                Operator::And => lhs.and(op_span, &rhs),
+                Operator::Or => lhs.or(op_span, &rhs),
+                Operator::Pow => lhs.pow(op_span, &rhs),
             }
         }
         Expr::Subexpression(block_id) => {
