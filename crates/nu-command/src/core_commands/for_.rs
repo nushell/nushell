@@ -55,7 +55,7 @@ impl Command for For {
 
         let context = context.clone();
 
-        Ok(values.map(call.head, move |x| {
+        values.map(call.head, move |x| {
             let engine_state = context.engine_state.borrow();
             let block = engine_state.get_block(block);
 
@@ -67,7 +67,7 @@ impl Command for For {
                 Ok(value) => value,
                 Err(error) => Value::Error { error },
             }
-        }))
+        })
     }
 
     fn examples(&self) -> Vec<Example> {

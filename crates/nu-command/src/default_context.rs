@@ -31,6 +31,9 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
         working_set.add_decl(Box::new(Help));
         working_set.add_decl(Box::new(Hide));
         working_set.add_decl(Box::new(If));
+        working_set.add_decl(Box::new(Into));
+        working_set.add_decl(Box::new(IntoBinary));
+        working_set.add_decl(Box::new(IntoFilesize));
         working_set.add_decl(Box::new(Length));
         working_set.add_decl(Box::new(Let));
         working_set.add_decl(Box::new(LetEnv));
