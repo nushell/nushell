@@ -84,6 +84,9 @@ impl Highlighter for NuHighlighter {
                     Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
                     next_token,
                 )),
+                FlatShape::Flag => {
+                    output.push((Style::new().fg(nu_ansi_term::Color::Yellow), next_token))
+                }
                 FlatShape::Filepath => output.push((
                     Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
                     next_token,

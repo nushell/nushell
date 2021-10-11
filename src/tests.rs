@@ -714,3 +714,11 @@ fn missing_column_error() -> TestResult {
 fn missing_parameters() -> TestResult {
     fail_test(r#"def foo {}"#, "expected [")
 }
+
+#[test]
+fn flag_param_value() -> TestResult {
+    run_test(
+        r#"def foo [--bob: int] { $bob + 100 }; foo --bob 55"#,
+        "155",
+    )
+}

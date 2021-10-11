@@ -1,6 +1,6 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{Range, ShellError, Span, Type, Unit, Value};
+use nu_protocol::{Range, ShellError, Span, Spanned, Type, Unit, Value};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -60,6 +60,29 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
                 },
             )
         }
+
+        for named in decl.signature().named {
+            for call_named in &call.named {
+                if call_named.0.item == named.long {
+                    let var_id = named
+                        .var_id
+                        .expect("internal error: all custom parameters must have var_ids");
+                    if let Some(arg) = &call_named.1 {
+                        let result = eval_expression(&state, arg)?;
+
+                        state.add_var(var_id, result);
+                    } else {
+                        state.add_var(
+                            var_id,
+                            Value::Bool {
+                                val: true,
+                                span: call.head,
+                            },
+                        )
+                    }
+                }
+            }
+        }
         let engine_state = state.engine_state.borrow();
         let block = engine_state.get_block(block_id);
         eval_block(&state, block, input)
@@ -98,7 +121,13 @@ fn eval_external(
     }
 
     if last_expression {
-        call.named.push(("last_expression".into(), None))
+        call.named.push((
+            Spanned {
+                item: "last_expression".into(),
+                span: Span::unknown(),
+            },
+            None,
+        ))
     }
 
     command.run(context, &call, input)

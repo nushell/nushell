@@ -18,6 +18,7 @@ pub enum FlatShape {
     Filepath,
     GlobPattern,
     Variable,
+    Flag,
     Custom(String),
 }
 
@@ -60,6 +61,12 @@ pub fn flatten_expression(
             let mut output = vec![(call.head, FlatShape::InternalCall)];
             for positional in &call.positional {
                 output.extend(flatten_expression(working_set, positional));
+            }
+            for named in &call.named {
+                output.push((named.0.span, FlatShape::Flag));
+                if let Some(expr) = &named.1 {
+                    output.extend(flatten_expression(working_set, expr));
+                }
             }
             output
         }
