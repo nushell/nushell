@@ -1850,7 +1850,18 @@ pub fn parse_signature(
 
     if bytes.starts_with(b"[") {
         start += 1;
+    } else {
+        error = error.or_else(|| {
+            Some(ParseError::Expected(
+                "[".into(),
+                Span {
+                    start,
+                    end: start + 1,
+                },
+            ))
+        });
     }
+
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {

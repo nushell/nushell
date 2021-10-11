@@ -709,3 +709,8 @@ fn missing_column_error() -> TestResult {
         "cannot find column",
     )
 }
+
+#[test]
+fn missing_parameters() -> TestResult {
+    fail_test(r#"def foo {}"#, "expected [")
+}
