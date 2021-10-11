@@ -4,11 +4,13 @@ name: Continuous integration
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
         rust:
           - stable
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v2
