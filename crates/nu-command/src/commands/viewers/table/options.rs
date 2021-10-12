@@ -40,12 +40,6 @@ pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str)
     None
 }
 
-pub fn header_bold_from_value(bold_value: Option<&Value>) -> bool {
-    bold_value
-        .map(|x| x.as_bool().unwrap_or(true))
-        .unwrap_or(true)
-}
-
 pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
     let vars = &config.vars;
 
@@ -82,11 +76,7 @@ impl ConfigExtensions for NuConfig {
             }
             None => nu_ansi_term::Color::Green.normal(),
         };
-        let head_bold = get_color_from_key_and_subkey(self, "color_config", "header_bold");
-        let head_bold_bool = match head_bold {
-            Some(b) => header_bold_from_value(Some(&b)),
-            None => true,
-        };
+
         let head_align = get_color_from_key_and_subkey(self, "color_config", "header_align");
         let head_alignment = match head_align {
             Some(a) => header_alignment_from_value(Some(&a)),
@@ -95,7 +85,7 @@ impl ConfigExtensions for NuConfig {
 
         TextStyle::new()
             .alignment(head_alignment)
-            .bold(Some(head_bold_bool))
+            .bold(Some(head_color_style.is_bold))
             .fg(head_color_style
                 .foreground
                 .unwrap_or(nu_ansi_term::Color::Green))
