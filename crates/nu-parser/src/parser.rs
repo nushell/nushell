@@ -1664,6 +1664,7 @@ pub fn parse_shape_name(
         b"variable" => SyntaxShape::Variable,
         b"signature" => SyntaxShape::Signature,
         b"expr" => SyntaxShape::Expression,
+        b"bool" => SyntaxShape::Boolean,
         _ => return (SyntaxShape::Any, Some(ParseError::UnknownType(span))),
     };
 
@@ -1671,10 +1672,17 @@ pub fn parse_shape_name(
 }
 
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
-    if bytes == b"int" {
-        Type::Int
-    } else {
-        Type::Unknown
+    match bytes {
+        b"int" => Type::Int,
+        b"bool" => Type::Bool,
+        b"string" => Type::String,
+        b"block" => Type::Block,
+        b"float" => Type::Float,
+        b"filesize" => Type::Filesize,
+        b"binary" => Type::Binary,
+        b"date" => Type::Date,
+
+        _ => Type::Unknown,
     }
 }
 
@@ -2153,8 +2161,11 @@ pub fn parse_signature_helper(
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                        *arg = Some(syntax_shape)
+                                        // Flags with a boolean type are just present/not-present switches
+                                        if syntax_shape != SyntaxShape::Boolean {
+                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                            *arg = Some(syntax_shape)
+                                        }
                                     }
                                 }
                             }
@@ -2688,6 +2699,25 @@ pub fn parse_value(
                 },
                 error,
             )
+        }
+        SyntaxShape::Boolean => {
+            // Redundant, though we catch bad boolean parses here
+            if bytes == b"$true" || bytes == b"$false" {
+                (
+                    Expression {
+                        expr: Expr::Bool(true),
+                        span,
+                        ty: Type::Bool,
+                        custom_completion: None,
+                    },
+                    None,
+                )
+            } else {
+                (
+                    garbage(span),
+                    Some(ParseError::Expected("bool".into(), span)),
+                )
+            }
         }
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {

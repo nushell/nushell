@@ -62,11 +62,13 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
         }
 
         for named in decl.signature().named {
+            let var_id = named
+                .var_id
+                .expect("internal error: all custom parameters must have var_ids");
+
+            let mut found = false;
             for call_named in &call.named {
                 if call_named.0.item == named.long {
-                    let var_id = named
-                        .var_id
-                        .expect("internal error: all custom parameters must have var_ids");
                     if let Some(arg) = &call_named.1 {
                         let result = eval_expression(&state, arg)?;
 
@@ -80,7 +82,18 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
                             },
                         )
                     }
+                    found = true;
                 }
+            }
+
+            if !found && named.arg.is_none() {
+                state.add_var(
+                    var_id,
+                    Value::Bool {
+                        val: false,
+                        span: call.head,
+                    },
+                )
             }
         }
         let engine_state = state.engine_state.borrow();

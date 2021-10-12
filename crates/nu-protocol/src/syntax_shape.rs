@@ -73,6 +73,9 @@ pub enum SyntaxShape {
     /// A general expression, eg `1 + 2` or `foo --bar`
     Expression,
 
+    /// A boolean value
+    Boolean,
+
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, String),
 }
@@ -102,6 +105,7 @@ impl SyntaxShape {
             SyntaxShape::Operator => Type::Unknown,
             SyntaxShape::Range => Type::Unknown,
             SyntaxShape::RowCondition => Type::Bool,
+            SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Unknown,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME
