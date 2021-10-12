@@ -217,7 +217,7 @@ impl Command for Each {
                         Value::Record {
                             mut cols, mut vals, ..
                         } => {
-                            // TODO check that the lengths match
+                            // TODO check that the lengths match when traversing record
                             output_cols.append(&mut cols);
                             output_vals.append(&mut vals);
                         }
@@ -235,7 +235,6 @@ impl Command for Each {
                 })
             }
             x => {
-                //TODO: we need to watch to make sure this is okay
                 let engine_state = context.engine_state.borrow();
                 let block = engine_state.get_block(block_id);
 

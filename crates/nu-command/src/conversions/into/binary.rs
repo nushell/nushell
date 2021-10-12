@@ -93,7 +93,7 @@ fn into_binary(
 
     input.map(head, move |v| {
         action(v, head)
-        // FIXME: Add back in column path support
+        // FIXME: Add back in cell_path support
         // if column_paths.is_empty() {
         //     action(v, head)
         // } else {

@@ -110,7 +110,7 @@ pub fn parse_def(
                             *declaration = signature.into_block_command(block_id);
                         } else {
                             error = error.or_else(|| {
-                                // TODO: Add InternalError variant
+                                // FIXME: add a variant to ParseError that represents internal errors
                                 Some(ParseError::UnknownState(
                                     "Internal error: Predeclaration failed to add declaration"
                                         .into(),
@@ -307,7 +307,7 @@ pub fn parse_export(
         (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
-                // TODO: fill in more as they come
+                // TODO: fill in more export types as they come
                 "Expected structure: export def [] {}".into(),
                 span(spans),
             )),
@@ -400,7 +400,7 @@ pub fn parse_module(
                     let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
 
                     let (stmt, err) = match name {
-                        // TODO: Here we can add other stuff that's alowed for modules
+                        // TODO: Here we can add other stuff that's allowed for modules
                         b"def" => {
                             let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
 
@@ -427,7 +427,7 @@ pub fn parse_module(
                         _ => (
                             garbage_statement(&pipeline.commands[0].parts),
                             Some(ParseError::Expected(
-                                // TODO: Fill in more as they com
+                                // TODO: Fill in more keywords as they come
                                 "def or export keyword".into(),
                                 pipeline.commands[0].parts[0],
                             )),

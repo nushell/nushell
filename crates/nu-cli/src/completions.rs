@@ -82,7 +82,9 @@ impl Completer for NuCompleter {
                             Ok(Value::List { vals, .. }) => vals
                                 .into_iter()
                                 .map(move |x| {
-                                    let s = x.as_string().expect("FIXME");
+                                    let s = x.as_string().expect(
+                                        "FIXME: better error handling for custom completions",
+                                    );
 
                                     (
                                         reedline::Span {

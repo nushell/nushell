@@ -62,7 +62,6 @@ impl<'de> Deserialize<'de> for ValueStream {
     where
         D: serde::Deserializer<'de>,
     {
-        // FIXME: implement these
         deserializer.deserialize_seq(MySeqVisitor)
     }
 }

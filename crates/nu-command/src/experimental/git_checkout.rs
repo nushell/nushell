@@ -52,13 +52,13 @@ impl Command for GitCheckout {
                         Ok(Value::string(&String::from_utf8_lossy(&result), call.head))
                     }
                     Err(_err) => {
-                        // FIXME
+                        // FIXME: Move this to an external signature and add better error handling
                         Ok(Value::nothing())
                     }
                 }
             }
             Err(_err) => {
-                // FIXME
+                // FIXME: Move this to an external signature and add better error handling
                 Ok(Value::nothing())
             }
         }

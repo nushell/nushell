@@ -26,7 +26,7 @@ pub enum Expr {
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     Filepath(String),
     GlobPattern(String),
-    String(String), // FIXME: improve this in the future?
+    String(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     Signature(Box<Signature>),

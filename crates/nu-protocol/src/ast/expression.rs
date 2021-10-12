@@ -39,7 +39,7 @@ impl Expression {
                     | Operator::In
                     | Operator::NotIn => 80,
                     Operator::And => 50,
-                    Operator::Or => 40, // TODO: should we have And and Or be different precedence?
+                    Operator::Or => 40,
                 }
             }
             _ => 0,
