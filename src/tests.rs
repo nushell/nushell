@@ -722,3 +722,8 @@ fn flag_param_value() -> TestResult {
         "155",
     )
 }
+
+#[test]
+fn do_rest_args() -> TestResult {
+    run_test(r#"(do { |...rest| $rest } 1 2).1 + 10"#, "12")
+}
