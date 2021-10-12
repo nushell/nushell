@@ -547,6 +547,7 @@ dependencies = [
  "terminal_size",
  "thiserror",
  "trash",
+ "unicode-segmentation",
 ]
 
 [[package]]
