@@ -759,3 +759,8 @@ fn custom_switch4() -> TestResult {
         "bar",
     )
 }
+
+#[test]
+fn bad_var_name() -> TestResult {
+    fail_test(r#"let $"foo bar" = 4"#, "can't contain")
+}
