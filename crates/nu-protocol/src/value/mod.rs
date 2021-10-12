@@ -11,10 +11,11 @@ use serde::{Deserialize, Serialize};
 pub use stream::*;
 pub use unit::*;
 
+use std::collections::HashMap;
 use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
-use crate::{span, BlockId, Span, Type};
+use crate::{span, BlockId, Span, Spanned, Type};
 
 use crate::ShellError;
 
@@ -1029,6 +1030,23 @@ impl Value {
                 rhs_span: rhs.span()?,
             }),
         }
+    }
+}
+
+/// Create a Value::Record from a spanned hashmap
+impl From<Spanned<HashMap<String, Value>>> for Value {
+    fn from(input: Spanned<HashMap<String, Value>>) -> Self {
+        let span = input.span;
+        let (cols, vals) = input
+            .item
+            .into_iter()
+            .fold((vec![], vec![]), |mut acc, (k, v)| {
+                acc.0.push(k);
+                acc.1.push(v);
+                acc
+            });
+
+        Value::Record { cols, vals, span }
     }
 }
 
