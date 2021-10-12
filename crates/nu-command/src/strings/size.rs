@@ -7,7 +7,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, ShellError, Signature, Span, Spanned, Type, Value};
+use nu_protocol::{ShellError, Signature, Span, Spanned, Type, Value};
 
 pub struct Size;
 
