@@ -1782,6 +1782,13 @@ pub fn parse_var_with_opt_type(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
 
+    if bytes.contains(&b' ') || bytes.contains(&b'"') || bytes.contains(&b'\'') {
+        return (
+            garbage(spans[*spans_idx]),
+            Some(ParseError::VariableNotValid(spans[*spans_idx])),
+        );
+    }
+
     if bytes.ends_with(b":") {
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
