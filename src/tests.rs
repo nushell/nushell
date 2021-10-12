@@ -727,3 +727,35 @@ fn flag_param_value() -> TestResult {
 fn do_rest_args() -> TestResult {
     run_test(r#"(do { |...rest| $rest } 1 2).1 + 10"#, "12")
 }
+
+#[test]
+fn custom_switch1() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run: bool ] { if ($dry-run) { "foo" } else { "bar" } }; florb --dry-run"#,
+        "foo",
+    )
+}
+
+#[test]
+fn custom_switch2() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run: bool ] { if ($dry-run) { "foo" } else { "bar" } }; florb"#,
+        "bar",
+    )
+}
+
+#[test]
+fn custom_switch3() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { if ($dry-run) { "foo" } else { "bar" } }; florb --dry-run"#,
+        "foo",
+    )
+}
+
+#[test]
+fn custom_switch4() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { if ($dry-run) { "foo" } else { "bar" } }; florb"#,
+        "bar",
+    )
+}
