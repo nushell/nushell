@@ -37,7 +37,7 @@ impl Command for Mv {
         call: &Call,
         _input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        // TODO: handle invalid directory or insufficient permissions
+        // TODO: handle invalid directory or insufficient permissions when moving
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
 

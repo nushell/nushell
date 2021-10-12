@@ -6,7 +6,7 @@ const COMMANDS_DOCS_DIR: &str = "docs/commands";
 
 pub struct DocumentationConfig {
     no_subcommands: bool,
-    //FIXME:
+    //FIXME: add back in color support
     #[allow(dead_code)]
     no_color: bool,
     brief: bool,

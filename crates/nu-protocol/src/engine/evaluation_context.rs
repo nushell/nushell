@@ -25,8 +25,8 @@ impl EvaluationContext {
         // We need to make values concreate before we assign them to variables, as stream values
         // will drain and remain drained.
         //
-        // TODO: find a good home for this
-        // TODO: add ctrl-c support
+        // TODO: find a good home for converting a stream->list when storing into a variable
+        // TODO: add ctrl-c support when setting a var
 
         let value = match value {
             Value::Stream { stream, span } => Value::List {

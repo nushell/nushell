@@ -100,19 +100,6 @@ impl FromValue for Spanned<String> {
     }
 }
 
-//FIXME
-/*
-impl FromValue for ColumnPath {
-    fn from_value(v: &Value) -> Result<Self, ShellError> {
-        match v {
-            Value:: => Ok(c.clone()),
-            v => Err(ShellError::type_error("column path", v.spanned_type_name())),
-        }
-    }
-}
-
-*/
-
 impl FromValue for CellPath {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         let span = v.span()?;

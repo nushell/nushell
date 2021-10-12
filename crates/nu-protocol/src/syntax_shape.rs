@@ -108,7 +108,7 @@ impl SyntaxShape {
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Unknown,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME
+            SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME: Tables should have better types
             SyntaxShape::VarWithOptType => Type::Unknown,
             SyntaxShape::Variable => Type::Unknown,
         }

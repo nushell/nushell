@@ -89,8 +89,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::unknown_command),
         url(docsrs),
-        // TODO: actual suggestions
-        // help("Did you mean `foo`?")
+        // TODO: actual suggestions like "Did you mean `foo`?"
     )]
     UnknownCommand(#[label = "unknown command"] Span),
 

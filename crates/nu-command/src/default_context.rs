@@ -22,7 +22,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             };
         }
 
-        // TODO: sort items categorically
+        // TODO: sort default context items categorically
         bind_command!(
             Alias,
             Benchmark,

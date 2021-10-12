@@ -24,7 +24,7 @@ impl Range {
         operator: &RangeOperator,
     ) -> Result<Range, ShellError> {
         // Select from & to values if they're not specified
-        // TODO: Replace the placeholder values with proper min/max based on data type
+        // TODO: Replace the placeholder values with proper min/max for range based on data type
         let from = if let Value::Nothing { .. } = from {
             Value::Int {
                 val: 0i64,

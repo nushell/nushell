@@ -149,7 +149,7 @@ fn parse_long_flag(
     let arg_contents = working_set.get_span_contents(arg_span);
 
     if arg_contents.starts_with(b"--") {
-        // FIXME: only use the first you find
+        // FIXME: only use the first flag you find?
         let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
         let long_name = String::from_utf8(split[0].into());
         if let Ok(long_name) = long_name {
@@ -580,7 +580,7 @@ pub fn parse_internal_call(
         working_set.exit_scope();
     }
 
-    // FIXME: type unknown
+    // FIXME: output type unknown
     (Box::new(call), span(spans), error)
 }
 
@@ -728,7 +728,7 @@ pub fn parse_call(
             Expression {
                 expr: Expr::Call(call),
                 span: span(spans),
-                ty: Type::Unknown, // FIXME
+                ty: Type::Unknown, // FIXME: calls should have known output types
                 custom_completion: None,
             },
             err,
@@ -922,7 +922,7 @@ pub fn parse_range(
 
     // Now, based on the operator positions, figure out where the bounds & next are located and
     // parse them
-    // TODO: Actually parse the next number
+    // TODO: Actually parse the next number in the range
     let from = if token.starts_with("..") {
         // token starts with either next operator, or range operator -- we don't care which one
         None
@@ -1260,7 +1260,6 @@ pub fn parse_full_cell_path(
     implicit_head: Option<VarId>,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
-    // FIXME: assume for now a paren expr, but needs more
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
     let mut error = None;
@@ -1642,7 +1641,7 @@ pub fn parse_string(
     }
 }
 
-//TODO: Handle error case
+//TODO: Handle error case for unknown shapes
 pub fn parse_shape_name(
     _working_set: &StateWorkingSet,
     bytes: &[u8],
@@ -1657,7 +1656,7 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         b"path" => SyntaxShape::Filepath,
         b"glob" => SyntaxShape::GlobPattern,
-        b"block" => SyntaxShape::Block(None), //FIXME
+        b"block" => SyntaxShape::Block(None), //FIXME: Blocks should have known output types
         b"cond" => SyntaxShape::RowCondition,
         b"operator" => SyntaxShape::Operator,
         b"math" => SyntaxShape::MathExpression,
@@ -2161,7 +2160,7 @@ pub fn parse_signature_helper(
                                 let (syntax_shape, err) =
                                     parse_shape_name(working_set, contents, span);
                                 error = error.or(err);
-                                //TODO check if we're replacing one already
+                                //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional(PositionalArg { shape, var_id, .. }, ..) => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
@@ -2555,7 +2554,7 @@ pub fn parse_block_expression(
     if let Some(signature) = signature {
         output.signature = signature;
     } else if let Some(last) = working_set.delta.scope.last() {
-        // FIXME: this only supports the top $it. Instead, we should look for a free $it in the expression.
+        // FIXME: this only supports the top $it. Is this sufficient?
 
         if let Some(var_id) = last.get_var(b"$it") {
             let mut signature = Signature::new("");
