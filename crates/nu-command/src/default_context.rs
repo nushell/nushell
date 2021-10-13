@@ -57,6 +57,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             Ps,
             Rm,
             Select,
+            Size,
             Split,
             SplitChars,
             SplitColumn,
