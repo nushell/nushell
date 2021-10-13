@@ -91,6 +91,23 @@ fn main() -> Result<()> {
         let mut nu_prompt = NushellPrompt::new();
         let stack = nu_protocol::engine::Stack::new();
 
+        // Load config startup file
+        if let Some(mut config_path) = nu_path::config_dir() {
+            config_path.push("nushell");
+            config_path.push("config.nu");
+
+            // FIXME: remove this message when we're ready
+            println!("Loading config from: {:?}", config_path);
+
+            if config_path.exists() {
+                let config_filename = config_path.to_string_lossy().to_owned();
+
+                if let Ok(contents) = std::fs::read_to_string(&config_path) {
+                    eval_source(engine_state.clone(), &stack, &contents, &config_filename);
+                }
+            }
+        }
+
         loop {
             let prompt = update_prompt(
                 PROMPT_COMMAND,
@@ -124,45 +141,12 @@ fn main() -> Result<()> {
                         continue;
                     }
 
-                    let (block, delta) = {
-                        let engine_state = engine_state.borrow();
-                        let mut working_set = StateWorkingSet::new(&*engine_state);
-                        let (output, err) = parse(
-                            &mut working_set,
-                            Some(&format!("entry #{}", entry_num)),
-                            s.as_bytes(),
-                            false,
-                        );
-                        if let Some(err) = err {
-                            report_error(&working_set, &err);
-                            continue;
-                        }
-                        (output, working_set.render())
-                    };
-
-                    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
-
-                    let state = nu_protocol::engine::EvaluationContext {
-                        engine_state: engine_state.clone(),
-                        stack: stack.clone(),
-                    };
-
-                    match eval_block(&state, &block, Value::nothing()) {
-                        Ok(value) => {
-                            if let Err(err) = print_value(value, &state) {
-                                let engine_state = engine_state.borrow();
-                                let working_set = StateWorkingSet::new(&*engine_state);
-
-                                report_error(&working_set, &err);
-                            }
-                        }
-                        Err(err) => {
-                            let engine_state = engine_state.borrow();
-                            let working_set = StateWorkingSet::new(&*engine_state);
-
-                            report_error(&working_set, &err);
-                        }
-                    }
+                    eval_source(
+                        engine_state.clone(),
+                        &stack,
+                        &s,
+                        &format!("entry #{}", entry_num),
+                    );
                 }
                 Ok(Signal::CtrlC) => {
                     println!("Ctrl-c");
@@ -266,4 +250,55 @@ fn update_prompt<'prompt>(
     nu_prompt.update_prompt(prompt_command, evaluated_prompt);
 
     nu_prompt as &dyn Prompt
+}
+
+fn eval_source(
+    engine_state: Rc<RefCell<EngineState>>,
+    stack: &Stack,
+    source: &str,
+    fname: &str,
+) -> bool {
+    let (block, delta) = {
+        let engine_state = engine_state.borrow();
+        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let (output, err) = parse(
+            &mut working_set,
+            Some(fname), // format!("entry #{}", entry_num)
+            source.as_bytes(),
+            false,
+        );
+        if let Some(err) = err {
+            report_error(&working_set, &err);
+            return false;
+        }
+        (output, working_set.render())
+    };
+
+    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+
+    let state = nu_protocol::engine::EvaluationContext {
+        engine_state: engine_state.clone(),
+        stack: stack.clone(),
+    };
+
+    match eval_block(&state, &block, Value::nothing()) {
+        Ok(value) => {
+            if let Err(err) = print_value(value, &state) {
+                let engine_state = engine_state.borrow();
+                let working_set = StateWorkingSet::new(&*engine_state);
+
+                report_error(&working_set, &err);
+                return false;
+            }
+        }
+        Err(err) => {
+            let engine_state = engine_state.borrow();
+            let working_set = StateWorkingSet::new(&*engine_state);
+
+            report_error(&working_set, &err);
+            return false;
+        }
+    }
+
+    true
 }

@@ -1,13 +1,10 @@
 extern crate unicode_segmentation;
 
-use std::collections::HashMap;
-
-// use indexmap::indexmap;
 use unicode_segmentation::UnicodeSegmentation;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Span, Spanned, Type, Value};
+use nu_protocol::{Example, ShellError, Signature, Span, Type, Value};
 
 pub struct Size;
 
@@ -33,32 +30,72 @@ impl Command for Size {
         size(context, call, input)
     }
 
-    // fn examples(&self) -> Vec<Example> {
-    //     vec![
-    //         Example {
-    //             description: "Count the number of words in a string",
-    //             example: r#"echo "There are seven words in this sentence" | size"#,
-    //             result: Some(vec![Value::row(indexmap! {
-    //                     "lines".to_string() => UntaggedValue::int(0).into(),
-    //                     "words".to_string() => UntaggedValue::int(7).into(),
-    //                     "chars".to_string() => UntaggedValue::int(38).into(),
-    //                     "bytes".to_string() => UntaggedValue::int(38).into(),
-    //             })
-    //             .into()]),
-    //         },
-    //         Example {
-    //             description: "Counts Unicode characters correctly in a string",
-    //             example: r#"echo "Amélie Amelie" | size"#,
-    //             result: Some(vec![UntaggedValue::row(indexmap! {
-    //                     "lines".to_string() => UntaggedValue::int(0).into(),
-    //                     "words".to_string() => UntaggedValue::int(2).into(),
-    //                     "chars".to_string() => UntaggedValue::int(13).into(),
-    //                     "bytes".to_string() => UntaggedValue::int(15).into(),
-    //             })
-    //             .into()]),
-    //         },
-    //     ]
-    // }
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Count the number of words in a string",
+                example: r#""There are seven words in this sentence" | size"#,
+                result: Some(Value::Record {
+                    cols: vec![
+                        "lines".into(),
+                        "words".into(),
+                        "chars".into(),
+                        "bytes".into(),
+                    ],
+                    vals: vec![
+                        Value::Int {
+                            val: 0,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 7,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 38,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 38,
+                            span: Span::unknown(),
+                        },
+                    ],
+                    span: Span::unknown(),
+                }),
+            },
+            Example {
+                description: "Counts Unicode characters correctly in a string",
+                example: r#""Amélie Amelie" | size"#,
+                result: Some(Value::Record {
+                    cols: vec![
+                        "lines".into(),
+                        "words".into(),
+                        "chars".into(),
+                        "bytes".into(),
+                    ],
+                    vals: vec![
+                        Value::Int {
+                            val: 0,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 2,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 13,
+                            span: Span::unknown(),
+                        },
+                        Value::Int {
+                            val: 15,
+                            span: Span::unknown(),
+                        },
+                    ],
+                    span: Span::unknown(),
+                }),
+            },
+        ]
+    }
 }
 
 fn size(_context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
@@ -100,24 +137,32 @@ fn count(contents: &str, span: Span) -> Value {
         }
     }
 
-    let mut item: HashMap<String, Value> = HashMap::new();
-    item.insert("lines".to_string(), Value::Int { val: lines, span });
-    item.insert("words".to_string(), Value::Int { val: words, span });
-    item.insert("chars".to_string(), Value::Int { val: chars, span });
-    item.insert("bytes".to_string(), Value::Int { val: bytes, span });
+    let mut cols = vec![];
+    let mut vals = vec![];
 
-    Value::from(Spanned { item, span })
+    cols.push("lines".into());
+    vals.push(Value::Int { val: lines, span });
+
+    cols.push("words".into());
+    vals.push(Value::Int { val: words, span });
+
+    cols.push("chars".into());
+    vals.push(Value::Int { val: chars, span });
+
+    cols.push("bytes".into());
+    vals.push(Value::Int { val: bytes, span });
+
+    Value::Record { cols, vals, span }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::ShellError;
-//     use super::Size;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     #[test]
-//     fn examples_work_as_expected() -> Result<(), ShellError> {
-//         use crate::examples::test as test_examples;
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
 
-//         test_examples(Size {})
-//     }
-// }
+        test_examples(Size {})
+    }
+}
