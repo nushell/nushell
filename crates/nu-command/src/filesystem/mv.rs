@@ -29,6 +29,8 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
+            .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("force", "suppress error when no file", Some('f'))
     }
 
     fn run(
@@ -40,6 +42,8 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
+        let interactive = call.has_flag("interactive");
+        let force = call.has_flag("force");
 
         let path: PathBuf = current_dir().unwrap();
         let source = path.join(source.as_str());
@@ -52,6 +56,21 @@ impl Command for Mv {
             return Err(ShellError::FileNotFound(
                 call.positional.first().unwrap().span,
             ));
+        }
+
+        if interactive && !force {
+            for file in &sources {
+                println!(
+                    "Are you shure that you want to move {} to {}?",
+                    file.as_ref()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                    destination.file_name().unwrap().to_str().unwrap()
+                );
+            }
         }
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)

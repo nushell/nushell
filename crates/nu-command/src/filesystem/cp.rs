@@ -29,6 +29,7 @@ impl Command for Cp {
                 "copy recursively through subdirectories",
                 Some('r'),
             )
+            .switch("interactive", "ask user to confirm action", Some('i'))
     }
 
     fn run(
@@ -39,6 +40,14 @@ impl Command for Cp {
     ) -> Result<Value, ShellError> {
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
+        let interactive = call.has_flag("interactive");
+
+        if interactive {
+            println!(
+                "Are you shure that you want to move {} to {}?",
+                source, destination
+            );
+        }
 
         let path: PathBuf = current_dir().unwrap();
         let source = path.join(source.as_str());

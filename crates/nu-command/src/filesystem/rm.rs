@@ -19,6 +19,7 @@ struct RmArgs {
     trash: bool,
     permanent: bool,
     force: bool,
+    interactive: bool,
 }
 
 impl Command for Rm {
@@ -44,6 +45,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
+            .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
@@ -64,6 +66,7 @@ impl Command for Rm {
 fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let trash = call.has_flag("trash");
     let permanent = call.has_flag("permanent");
+    let interactive = call.has_flag("interactive");
 
     if trash && permanent {
         return Err(ShellError::IncompatibleParametersSingle(
@@ -122,12 +125,22 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
 
+    if interactive && !force {
+        for file in &targets {
+            println!(
+                "Are you shure that you want to delete {}?",
+                file.1.file_name().unwrap().to_str().unwrap()
+            );
+        }
+    }
+
     let args = RmArgs {
         targets,
         recursive,
         trash,
         permanent,
         force,
+        interactive,
     };
     let response = rm_helper(call, args);
 
