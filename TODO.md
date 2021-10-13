@@ -29,6 +29,7 @@
 - [x] Value serialization
 - [x] Handling rows with missing columns during a cell path
 - [x] finish operator type-checking
+- [x] Config file loading
 - [ ] Input/output types
 - [ ] Support for `$in`
 - [ ] ctrl-c support
