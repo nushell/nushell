@@ -2,6 +2,8 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
 use nu_protocol::{Range, ShellError, Span, Spanned, Type, Unit, Value};
 
+use crate::get_full_help;
+
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
         Expression {
@@ -17,7 +19,13 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
 fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
     let engine_state = context.engine_state.borrow();
     let decl = engine_state.get_decl(call.decl_id);
-    if let Some(block_id) = decl.get_block_id() {
+    if call.named.iter().any(|(flag, _)| flag.item == "help") {
+        let full_help = get_full_help(&decl.signature(), &decl.examples(), context);
+        Ok(Value::String {
+            val: full_help,
+            span: call.head,
+        })
+    } else if let Some(block_id) = decl.get_block_id() {
         let state = context.enter_scope();
         for (arg, param) in call.positional.iter().zip(
             decl.signature()
@@ -62,38 +70,36 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
         }
 
         for named in decl.signature().named {
-            let var_id = named
-                .var_id
-                .expect("internal error: all custom parameters must have var_ids");
+            if let Some(var_id) = named.var_id {
+                let mut found = false;
+                for call_named in &call.named {
+                    if call_named.0.item == named.long {
+                        if let Some(arg) = &call_named.1 {
+                            let result = eval_expression(&state, arg)?;
 
-            let mut found = false;
-            for call_named in &call.named {
-                if call_named.0.item == named.long {
-                    if let Some(arg) = &call_named.1 {
-                        let result = eval_expression(&state, arg)?;
-
-                        state.add_var(var_id, result);
-                    } else {
-                        state.add_var(
-                            var_id,
-                            Value::Bool {
-                                val: true,
-                                span: call.head,
-                            },
-                        )
+                            state.add_var(var_id, result);
+                        } else {
+                            state.add_var(
+                                var_id,
+                                Value::Bool {
+                                    val: true,
+                                    span: call.head,
+                                },
+                            )
+                        }
+                        found = true;
                     }
-                    found = true;
                 }
-            }
 
-            if !found && named.arg.is_none() {
-                state.add_var(
-                    var_id,
-                    Value::Bool {
-                        val: false,
-                        span: call.head,
-                    },
-                )
+                if !found && named.arg.is_none() {
+                    state.add_var(
+                        var_id,
+                        Value::Bool {
+                            val: false,
+                            span: call.head,
+                        },
+                    )
+                }
             }
         }
         let engine_state = state.engine_state.borrow();

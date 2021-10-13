@@ -764,3 +764,16 @@ fn custom_switch4() -> TestResult {
 fn bad_var_name() -> TestResult {
     fail_test(r#"let $"foo bar" = 4"#, "can't contain")
 }
+
+#[test]
+fn long_flag() -> TestResult {
+    run_test(
+        r#"([a, b, c] | each --numbered { if $it.index == 1 { 100 } else { 0 } }).1"#,
+        "100",
+    )
+}
+
+#[test]
+fn help_works_with_missing_requirements() -> TestResult {
+    run_test(r#"each --help | lines | length"#, "10")
+}
