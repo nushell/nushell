@@ -260,11 +260,28 @@ fn get_flags_section(signature: &Signature) -> String {
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  -{}, --{} (required parameter){:?} {}\n",
-                        short, flag.long, arg, flag.desc
+                        "  -{}{} (required parameter){:?} {}\n",
+                        short,
+                        if !flag.long.is_empty() {
+                            format!(", --{}", flag.long)
+                        } else {
+                            "".into()
+                        },
+                        arg,
+                        flag.desc
                     )
                 } else {
-                    format!("  -{}, --{} {:?} {}\n", short, flag.long, arg, flag.desc)
+                    format!(
+                        "  -{}{} {:?} {}\n",
+                        short,
+                        if !flag.long.is_empty() {
+                            format!(", --{}", flag.long)
+                        } else {
+                            "".into()
+                        },
+                        arg,
+                        flag.desc
+                    )
                 }
             } else if flag.required {
                 format!(
@@ -277,11 +294,26 @@ fn get_flags_section(signature: &Signature) -> String {
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  -{}, --{} (required parameter) {}\n",
-                    short, flag.long, flag.desc
+                    "  -{}{} (required parameter) {}\n",
+                    short,
+                    if !flag.long.is_empty() {
+                        format!(", --{}", flag.long)
+                    } else {
+                        "".into()
+                    },
+                    flag.desc
                 )
             } else {
-                format!("  -{}, --{} {}\n", short, flag.long, flag.desc)
+                format!(
+                    "  -{}{} {}\n",
+                    short,
+                    if !flag.long.is_empty() {
+                        format!(", --{}", flag.long)
+                    } else {
+                        "".into()
+                    },
+                    flag.desc
+                )
             }
         } else if flag.required {
             format!("  --{} (required parameter) {}\n", flag.long, flag.desc)

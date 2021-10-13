@@ -54,6 +54,16 @@ impl Eq for Signature {}
 
 impl Signature {
     pub fn new(name: impl Into<String>) -> Signature {
+        // default help flag
+        let flag = Flag {
+            long: "help".into(),
+            short: Some('h'),
+            arg: None,
+            desc: "Display this help message".into(),
+            required: false,
+            var_id: None,
+        };
+
         Signature {
             name: name.into(),
             usage: String::new(),
@@ -61,7 +71,7 @@ impl Signature {
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
-            named: vec![],
+            named: vec![flag],
             is_filter: false,
             creates_scope: false,
         }

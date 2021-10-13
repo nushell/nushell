@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Block, Expr, Expression, PathMember, Pipeline, Statement};
 use nu_protocol::{engine::StateWorkingSet, Span};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum FlatShape {
     Garbage,
     Bool,
@@ -59,15 +59,21 @@ pub fn flatten_expression(
         Expr::Block(block_id) => flatten_block(working_set, working_set.get_block(*block_id)),
         Expr::Call(call) => {
             let mut output = vec![(call.head, FlatShape::InternalCall)];
+
+            let mut args = vec![];
             for positional in &call.positional {
-                output.extend(flatten_expression(working_set, positional));
+                args.extend(flatten_expression(working_set, positional));
             }
             for named in &call.named {
-                output.push((named.0.span, FlatShape::Flag));
+                args.push((named.0.span, FlatShape::Flag));
                 if let Some(expr) = &named.1 {
-                    output.extend(flatten_expression(working_set, expr));
+                    args.extend(flatten_expression(working_set, expr));
                 }
             }
+            // sort these since flags and positional args can be intermixed
+            args.sort();
+
+            output.extend(args);
             output
         }
         Expr::ExternalCall(_, name_span, args) => {

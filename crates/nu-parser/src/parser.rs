@@ -52,6 +52,11 @@ fn is_variable(bytes: &[u8]) -> bool {
 }
 
 fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
+    // Allow the call to pass if they pass in the help flag
+    if call.named.iter().any(|(n, _)| n.item == "help") {
+        return None;
+    }
+
     if call.positional.len() < sig.required_positional.len() {
         let missing = &sig.required_positional[call.positional.len()];
         Some(ParseError::MissingPositional(missing.name.clone(), command))
@@ -153,6 +158,7 @@ fn parse_long_flag(
         let split: Vec<_> = arg_contents.split(|x| *x == b'=').collect();
         let long_name = String::from_utf8(split[0].into());
         if let Ok(long_name) = long_name {
+            let long_name = long_name[2..].to_string();
             if let Some(flag) = sig.get_long_flag(&long_name) {
                 if let Some(arg_shape) = &flag.arg {
                     if split.len() > 1 {
@@ -1974,7 +1980,7 @@ pub fn parse_signature_helper(
                                 let flags: Vec<_> =
                                     contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
 
-                                let long = String::from_utf8_lossy(&flags[0]).to_string();
+                                let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let variable_name = flags[0][2..].to_vec();
                                 let var_id = working_set.add_variable(variable_name, Type::Unknown);
 
@@ -2003,7 +2009,7 @@ pub fn parse_signature_helper(
                                     let short_flag =
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
-                                    let long = String::from_utf8_lossy(&flags[0]).to_string();
+                                    let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                     let variable_name = flags[0][2..].to_vec();
                                     let var_id =
                                         working_set.add_variable(variable_name, Type::Unknown);

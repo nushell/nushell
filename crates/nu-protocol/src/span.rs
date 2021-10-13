@@ -10,7 +10,7 @@ where
     pub span: Span,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -36,6 +36,10 @@ impl Span {
             start: self.start - offset,
             end: self.end - offset,
         }
+    }
+
+    pub fn contains(&self, pos: usize) -> bool {
+        pos >= self.start && pos < self.end
     }
 }
 

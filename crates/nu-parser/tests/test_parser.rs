@@ -97,7 +97,7 @@ pub fn parse_call_missing_flag_arg() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+    let sig = Signature::build("foo").named("jazz", SyntaxShape::Int, "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
 
     let (_, err) = parse(&mut working_set, None, b"foo --jazz", true);
