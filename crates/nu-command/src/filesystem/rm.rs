@@ -127,7 +127,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let force = call.has_flag("force");
 
     if interactive && !force {
-        let mut remove_index: Vec<usize> = vec![];
+        let mut remove: Vec<usize> = vec![];
         for (index, file) in targets.iter().enumerate() {
             let prompt: String = format!(
                 "Are you sure that you what to delete {}?",
@@ -137,11 +137,13 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             let input = get_confirmation(prompt)?;
 
             if !input {
-                remove_index.push(index);
+                remove.push(index);
             }
         }
 
-        for index in remove_index {
+        remove.reverse();
+
+        for index in remove {
             targets.remove(index);
         }
 

@@ -74,7 +74,7 @@ impl Command for Cp {
         }
 
         if interactive && !force {
-            let mut remove_index: Vec<usize> = vec![];
+            let mut remove: Vec<usize> = vec![];
             for (index, file) in sources.iter().enumerate() {
                 let prompt = format!(
                     "Are you shure that you want to copy {} to {}?",
@@ -90,10 +90,13 @@ impl Command for Cp {
                 let input = get_confirmation(prompt)?;
 
                 if !input {
-                    remove_index.push(index);
+                    remove.push(index);
                 }
             }
-            for index in remove_index {
+
+            remove.reverse();
+
+            for index in remove {
                 sources.remove(index);
             }
 
