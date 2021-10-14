@@ -23,12 +23,10 @@ impl FromValue for Spanned<i64> {
                 span: *span,
             }),
             Value::Filesize { val, span } => Ok(Spanned {
-                // FIXME: error check that this fits
                 item: *val as i64,
                 span: *span,
             }),
             Value::Duration { val, span } => Ok(Spanned {
-                // FIXME: error check that this fits
                 item: *val as i64,
                 span: *span,
             }),
@@ -42,14 +40,8 @@ impl FromValue for i64 {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(*val),
-            Value::Filesize { val, .. } => Ok(
-                // FIXME: error check that this fits
-                *val as i64,
-            ),
-            Value::Duration { val, .. } => Ok(
-                // FIXME: error check that this fits
-                *val as i64,
-            ),
+            Value::Filesize { val, .. } => Ok(*val as i64),
+            Value::Duration { val, .. } => Ok(*val as i64),
 
             v => Err(ShellError::CantConvert("integer".into(), v.span()?)),
         }
@@ -64,7 +56,6 @@ impl FromValue for Spanned<f64> {
                 span: *span,
             }),
             Value::Float { val, span } => Ok(Spanned {
-                // FIXME: error check that this fits
                 item: *val,
                 span: *span,
             }),
