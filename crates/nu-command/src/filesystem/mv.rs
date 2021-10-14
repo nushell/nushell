@@ -1,6 +1,7 @@
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 
+use super::interactive_helper::get_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
@@ -59,8 +60,9 @@ impl Command for Mv {
         }
 
         if interactive && !force {
-            for file in &sources {
-                println!(
+            let mut remove_index: Vec<usize> = vec![];
+            for (index, file) in sources.iter().enumerate() {
+                let prompt = format!(
                     "Are you shure that you want to move {} to {}?",
                     file.as_ref()
                         .unwrap()
@@ -70,6 +72,19 @@ impl Command for Mv {
                         .unwrap(),
                     destination.file_name().unwrap().to_str().unwrap()
                 );
+
+                let input = get_confirmation(prompt)?;
+
+                if !input {
+                    remove_index.push(index);
+                }
+            }
+            for index in remove_index {
+                sources.remove(index);
+            }
+
+            if sources.len() == 0 {
+                return Err(ShellError::NoFileToBeMoved());
             }
         }
 

@@ -3,6 +3,8 @@ use std::env::current_dir;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::interactive_helper::get_confirmation;
+
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
@@ -19,7 +21,6 @@ struct RmArgs {
     trash: bool,
     permanent: bool,
     force: bool,
-    interactive: bool,
 }
 
 impl Command for Rm {
@@ -126,11 +127,26 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let force = call.has_flag("force");
 
     if interactive && !force {
-        for file in &targets {
-            println!(
-                "Are you shure that you want to delete {}?",
+        let mut remove_index: Vec<usize> = vec![];
+        for (index, file) in targets.iter().enumerate() {
+            let prompt: String = format!(
+                "Are you sure that you what to delete {}?",
                 file.1.file_name().unwrap().to_str().unwrap()
             );
+
+            let input = get_confirmation(prompt)?;
+
+            if !input {
+                remove_index.push(index);
+            }
+        }
+
+        for index in remove_index {
+            targets.remove(index);
+        }
+
+        if targets.len() == 0 {
+            return Err(ShellError::NoFileToBeRemoved());
         }
     }
 
@@ -140,7 +156,6 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
         trash,
         permanent,
         force,
-        interactive,
     };
     let response = rm_helper(call, args);
 

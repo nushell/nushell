@@ -158,6 +158,13 @@ pub enum ShellError {
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible), url(docsrs))]
     RemoveNotPossible(String, #[label("{0}")] Span),
+
+    #[error("No file to be removed")]
+    NoFileToBeRemoved(),
+    #[error("No file to be moved")]
+    NoFileToBeMoved(),
+    #[error("No file to be copied")]
+    NoFileToBeCopied(),
 }
 
 impl From<std::io::Error> for ShellError {
