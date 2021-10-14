@@ -312,7 +312,6 @@ impl Grid {
     }
 
     fn theoretical_max_num_lines(&self, maximum_width: usize) -> usize {
-        // TODO: Make code readable / efficient.
         let mut theoretical_min_num_cols = 0;
         let mut col_total_width_so_far = 0;
 
