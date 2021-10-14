@@ -9,6 +9,7 @@ use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
 
 pub struct Mv;
 
+#[allow(unused_must_use)]
 impl Command for Mv {
     fn name(&self) -> &str {
         "mv"
