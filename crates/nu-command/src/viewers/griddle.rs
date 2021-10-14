@@ -168,52 +168,6 @@ fn create_grid_output2(
     }
 }
 
-// fn create_grid_output(
-//     items: Vec<Vec<String>>,
-//     call: &Call,
-//     columns_param: Option<String>,
-// ) -> Value {
-//     let mut grid = Grid::new(GridOptions {
-//         direction: Direction::TopToBottom,
-//         filling: Filling::Text(" | ".into()),
-//     });
-
-//     for list in items {
-//         dbg!(&list);
-//         // looks like '&list = [ "0", "one",]'
-//         let a_string = (&list[1]).to_string();
-//         let mut cell = Cell::from(a_string);
-//         cell.alignment = Alignment::Right;
-//         grid.add(cell);
-//     }
-
-//     let cols = if let Some(col) = columns_param {
-//         col.parse::<u16>().unwrap_or(80)
-//     } else {
-//         // 80usize
-//         if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-//             w
-//         } else {
-//             80u16
-//         }
-//     };
-
-//     // eprintln!("columns size = {}", cols);
-//     if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-//         // println!("{}", grid_display);
-//         Value::String {
-//             val: grid_display.to_string(),
-//             span: call.head,
-//         }
-//     } else {
-//         // println!("Couldn't fit grid into 80 columns!");
-//         Value::String {
-//             val: format!("Couldn't fit grid into {} columns!", cols),
-//             span: call.head,
-//         }
-//     }
-// }
-
 fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize, String, String)>> {
     let mut iter = iter.into_iter().peekable();
 
@@ -253,12 +207,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
             data.push(row);
         }
 
-        // TODO: later, let's color these string with LS_COLORS
-        // let h: Vec<String> = headers.into_iter().map(|x| x.trim().to_string()).collect();
-        // let d: Vec<Vec<String>> = data.into_iter().map(|x| x.into_iter().collect()).collect();
-
         let mut h: Vec<String> = headers.into_iter().collect();
-        // let d: Vec<Vec<String>> = data.into_iter().collect();
 
         // This is just a list
         if h.is_empty() {
@@ -287,48 +236,3 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
         None
     }
 }
-
-// fn convert_to_list(iter: impl IntoIterator<Item = Value>) -> Option<Vec<Vec<String>>> {
-//     let mut iter = iter.into_iter().peekable();
-//     let mut data = vec![];
-
-//     if let Some(first) = iter.peek() {
-//         // dbg!(&first);
-//         let mut headers = first.columns();
-
-//         if !headers.is_empty() {
-//             headers.insert(0, "#".into());
-//         }
-
-//         for (row_num, item) in iter.enumerate() {
-//             let mut row = vec![row_num.to_string()];
-
-//             if headers.is_empty() {
-//                 row.push(item.into_string())
-//             } else {
-//                 for header in headers.iter().skip(1) {
-//                     let result = match item {
-//                         Value::Record { .. } => {
-//                             item.clone().follow_cell_path(&[PathMember::String {
-//                                 val: header.into(),
-//                                 span: Span::unknown(),
-//                             }])
-//                         }
-//                         _ => Ok(item.clone()),
-//                     };
-
-//                     match result {
-//                         Ok(value) => row.push(value.into_string()),
-//                         Err(_) => row.push(String::new()),
-//                     }
-//                 }
-//             }
-
-//             data.push(row);
-//         }
-
-//         Some(data)
-//     } else {
-//         None
-//     }
-// }
