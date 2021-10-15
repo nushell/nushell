@@ -101,7 +101,7 @@ impl Command for Cp {
                 sources.remove(index);
             }
 
-            if sources.len() == 0 {
+            if sources.is_empty() {
                 return Err(ShellError::NoFileToBeCopied());
             }
         }

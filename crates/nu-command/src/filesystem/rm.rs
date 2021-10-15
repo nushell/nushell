@@ -147,7 +147,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             targets.remove(index);
         }
 
-        if targets.len() == 0 {
+        if targets.is_empty() {
             return Err(ShellError::NoFileToBeRemoved());
         }
     }
