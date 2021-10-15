@@ -1,6 +1,7 @@
 use std::env::current_dir;
 use std::path::PathBuf;
 
+use super::interactive_helper::get_confirmation;
 use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
@@ -11,6 +12,7 @@ use crate::filesystem::util::FileStructure;
 
 pub struct Cp;
 
+#[allow(unused_must_use)]
 impl Command for Cp {
     fn name(&self) -> &str {
         "cp"
@@ -29,6 +31,8 @@ impl Command for Cp {
                 "copy recursively through subdirectories",
                 Some('r'),
             )
+            .switch("force", "suppress error when no file", Some('f'))
+            .switch("interactive", "ask user to confirm action", Some('i'))
     }
 
     fn run(
@@ -39,12 +43,14 @@ impl Command for Cp {
     ) -> Result<Value, ShellError> {
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
+        let interactive = call.has_flag("interactive");
+        let force = call.has_flag("force");
 
         let path: PathBuf = current_dir().unwrap();
         let source = path.join(source.as_str());
         let destination = path.join(destination.as_str());
 
-        let sources =
+        let mut sources =
             glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
         if sources.is_empty() {
             return Err(ShellError::FileNotFound(call.positional[0].span));
@@ -66,6 +72,38 @@ impl Command for Cp {
                 "Directories must be copied using \"--recursive\"".to_string(),
                 call.positional[0].span,
             ));
+        }
+
+        if interactive && !force {
+            let mut remove: Vec<usize> = vec![];
+            for (index, file) in sources.iter().enumerate() {
+                let prompt = format!(
+                    "Are you shure that you want to copy {} to {}?",
+                    file.as_ref()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                    destination.file_name().unwrap().to_str().unwrap()
+                );
+
+                let input = get_confirmation(prompt)?;
+
+                if !input {
+                    remove.push(index);
+                }
+            }
+
+            remove.reverse();
+
+            for index in remove {
+                sources.remove(index);
+            }
+
+            if sources.is_empty() {
+                return Err(ShellError::NoFileToBeCopied());
+            }
         }
 
         for entry in sources.into_iter().flatten() {

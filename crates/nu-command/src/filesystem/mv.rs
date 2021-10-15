@@ -1,6 +1,7 @@
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 
+use super::interactive_helper::get_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
@@ -8,6 +9,7 @@ use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
 
 pub struct Mv;
 
+#[allow(unused_must_use)]
 impl Command for Mv {
     fn name(&self) -> &str {
         "mv"
@@ -29,6 +31,8 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
+            .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("force", "suppress error when no file", Some('f'))
     }
 
     fn run(
@@ -40,6 +44,8 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
+        let interactive = call.has_flag("interactive");
+        let force = call.has_flag("force");
 
         let path: PathBuf = current_dir().unwrap();
         let source = path.join(source.as_str());
@@ -52,6 +58,38 @@ impl Command for Mv {
             return Err(ShellError::FileNotFound(
                 call.positional.first().unwrap().span,
             ));
+        }
+
+        if interactive && !force {
+            let mut remove: Vec<usize> = vec![];
+            for (index, file) in sources.iter().enumerate() {
+                let prompt = format!(
+                    "Are you shure that you want to move {} to {}?",
+                    file.as_ref()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                    destination.file_name().unwrap().to_str().unwrap()
+                );
+
+                let input = get_confirmation(prompt)?;
+
+                if !input {
+                    remove.push(index);
+                }
+            }
+
+            remove.reverse();
+
+            for index in remove {
+                sources.remove(index);
+            }
+
+            if sources.is_empty() {
+                return Err(ShellError::NoFileToBeMoved());
+            }
         }
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
