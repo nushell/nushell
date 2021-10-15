@@ -28,6 +28,7 @@ impl Command for Lines {
         call: &Call,
         input: Value,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        let span = call.head;
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
@@ -49,7 +50,7 @@ impl Command for Lines {
 
                 Ok(Value::Stream {
                     stream: ValueStream(Rc::new(RefCell::new(iter))),
-                    span: Span::unknown(),
+                    span,
                 })
             }
             Value::Stream { stream, span: _ } => {
@@ -80,7 +81,7 @@ impl Command for Lines {
 
                 Ok(Value::Stream {
                     stream: ValueStream(Rc::new(RefCell::new(iter))),
-                    span: Span::unknown(),
+                    span,
                 })
             }
             val => Err(ShellError::UnsupportedInput(

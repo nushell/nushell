@@ -1,5 +1,6 @@
 use std::{cell::RefCell, io::Write, rc::Rc};
 
+use dialoguer::{theme::ColorfulTheme, Select};
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
@@ -10,13 +11,58 @@ use nu_protocol::{
     engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
     ShellError, Value,
 };
-use reedline::{DefaultPrompt, Prompt};
+use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 
 #[cfg(test)]
 mod tests;
 
 // Name of environment variable where the prompt could be stored
 const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
+
+struct FuzzyCompletion {
+    completer: Box<dyn Completer>,
+}
+
+impl CompletionActionHandler for FuzzyCompletion {
+    fn handle(&mut self, present_buffer: &mut LineBuffer) {
+        let completions = self
+            .completer
+            .complete(present_buffer.get_buffer(), present_buffer.offset());
+
+        if completions.is_empty() {
+            // do nothing
+        } else if completions.len() == 1 {
+            let span = completions[0].0;
+
+            let mut offset = present_buffer.offset();
+            offset += completions[0].1.len() - (span.end - span.start);
+
+            // TODO improve the support for multiline replace
+            present_buffer.replace(span.start..span.end, &completions[0].1);
+            present_buffer.set_insertion_point(offset);
+        } else {
+            let selections: Vec<_> = completions.iter().map(|(_, string)| string).collect();
+
+            let _ = crossterm::terminal::disable_raw_mode();
+            println!();
+            let result = Select::with_theme(&ColorfulTheme::default())
+                .default(0)
+                .items(&selections[..])
+                .interact()
+                .unwrap();
+            let _ = crossterm::terminal::enable_raw_mode();
+
+            let span = completions[result].0;
+
+            let mut offset = present_buffer.offset();
+            offset += completions[result].1.len() - (span.end - span.start);
+
+            // TODO improve the support for multiline replace
+            present_buffer.replace(span.start..span.end, &completions[result].1);
+            present_buffer.set_insertion_point(offset);
+        }
+    }
+}
 
 fn main() -> Result<()> {
     miette::set_panic_hook();
@@ -66,7 +112,7 @@ fn main() -> Result<()> {
 
         Ok(())
     } else {
-        use reedline::{FileBackedHistory, ListCompletionHandler, Reedline, Signal};
+        use reedline::{FileBackedHistory, Reedline, Signal};
 
         let completer = NuCompleter::new(engine_state.clone());
         let mut entry_num = 0;
@@ -80,9 +126,12 @@ fn main() -> Result<()> {
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_state.clone(),
             }))
-            .with_completion_action_handler(Box::new(
-                ListCompletionHandler::default().with_completer(Box::new(completer)),
-            ))
+            .with_completion_action_handler(Box::new(FuzzyCompletion {
+                completer: Box::new(completer),
+            }))
+            // .with_completion_action_handler(Box::new(
+            //     ListCompletionHandler::default().with_completer(Box::new(completer)),
+            // ))
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }));
