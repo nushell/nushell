@@ -30,7 +30,7 @@ nu-pretty-hex = { version = "0.41.0", path="../nu-pretty-hex" }
 
 url = "2.2.1"
 mime = "0.3.16"
-Inflector = "0.11"
+heck = "0.4.0"
 base64 = "0.13.0"
 bigdecimal = { version = "0.3.0", features = ["serde"] }
 calamine = "0.18.0"

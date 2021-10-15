@@ -1,6 +1,5 @@
-use super::operate;
+use super::{operate, to_lower_camel_case};
 use crate::prelude::*;
-use inflector::cases::camelcase::to_camel_case;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
@@ -25,7 +24,7 @@ impl WholeStreamCommand for SubCommand {
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        operate(args, &to_camel_case)
+        operate(args, &to_lower_camel_case)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,7 +39,7 @@ impl WholeStreamCommand for SubCommand {
 #[cfg(test)]
 mod tests {
     use super::ShellError;
-    use super::{to_camel_case, SubCommand};
+    use super::{to_lower_camel_case, SubCommand};
     use crate::commands::strings::str_::case::action;
     use nu_source::Tag;
     use nu_test_support::value::string;
@@ -57,7 +56,7 @@ mod tests {
         let word = string("this-is-the-first-case");
         let expected = string("thisIsTheFirstCase");
 
-        let actual = action(&word, Tag::unknown(), &to_camel_case).unwrap();
+        let actual = action(&word, Tag::unknown(), &to_lower_camel_case).unwrap();
         assert_eq!(actual, expected);
     }
     #[test]
@@ -65,7 +64,7 @@ mod tests {
         let word = string("this_is_the_second_case");
         let expected = string("thisIsTheSecondCase");
 
-        let actual = action(&word, Tag::unknown(), &to_camel_case).unwrap();
+        let actual = action(&word, Tag::unknown(), &to_lower_camel_case).unwrap();
         assert_eq!(actual, expected);
     }
 }
