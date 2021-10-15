@@ -1,6 +1,6 @@
 use std::{cell::RefCell, io::Write, rc::Rc};
 
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{console::Term, theme::ColorfulTheme, Select};
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
@@ -48,18 +48,23 @@ impl CompletionActionHandler for FuzzyCompletion {
             let result = Select::with_theme(&ColorfulTheme::default())
                 .default(0)
                 .items(&selections[..])
-                .interact()
+                .interact_on_opt(&Term::stdout())
                 .unwrap();
             let _ = crossterm::terminal::enable_raw_mode();
 
-            let span = completions[result].0;
+            match result {
+                Some(result) => {
+                    let span = completions[result].0;
 
-            let mut offset = present_buffer.offset();
-            offset += completions[result].1.len() - (span.end - span.start);
+                    let mut offset = present_buffer.offset();
+                    offset += completions[result].1.len() - (span.end - span.start);
 
-            // TODO improve the support for multiline replace
-            present_buffer.replace(span.start..span.end, &completions[result].1);
-            present_buffer.set_insertion_point(offset);
+                    // TODO improve the support for multiline replace
+                    present_buffer.replace(span.start..span.end, &completions[result].1);
+                    present_buffer.set_insertion_point(offset);
+                }
+                None => {}
+            }
         }
     }
 }
