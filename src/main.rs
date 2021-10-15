@@ -49,8 +49,10 @@ impl CompletionActionHandler for FuzzyCompletion {
 
             let _ = crossterm::terminal::disable_raw_mode();
             println!();
-            let mut theme = ColorfulTheme::default();
-            theme.active_item_style = Style::new().for_stderr().on_green().black();
+            let theme = ColorfulTheme {
+                active_item_style: Style::new().for_stderr().on_green().black(),
+                ..Default::default()
+            };
             let result = Select::with_theme(&theme)
                 .default(0)
                 .items(&selections[..])
