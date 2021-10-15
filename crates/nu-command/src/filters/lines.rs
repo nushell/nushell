@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Span, Value, ValueStream};
+use nu_protocol::{ShellError, Signature, Value, ValueStream};
 
 pub struct Lines;
 

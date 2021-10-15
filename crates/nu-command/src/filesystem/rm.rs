@@ -3,6 +3,8 @@ use std::env::current_dir;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
+use super::interactive_helper::get_confirmation;
+
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
@@ -44,6 +46,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
+            .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
@@ -64,6 +67,7 @@ impl Command for Rm {
 fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     let trash = call.has_flag("trash");
     let permanent = call.has_flag("permanent");
+    let interactive = call.has_flag("interactive");
 
     if trash && permanent {
         return Err(ShellError::IncompatibleParametersSingle(
@@ -121,6 +125,32 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
 
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
+
+    if interactive && !force {
+        let mut remove: Vec<usize> = vec![];
+        for (index, file) in targets.iter().enumerate() {
+            let prompt: String = format!(
+                "Are you sure that you what to delete {}?",
+                file.1.file_name().unwrap().to_str().unwrap()
+            );
+
+            let input = get_confirmation(prompt)?;
+
+            if !input {
+                remove.push(index);
+            }
+        }
+
+        remove.reverse();
+
+        for index in remove {
+            targets.remove(index);
+        }
+
+        if targets.is_empty() {
+            return Err(ShellError::NoFileToBeRemoved());
+        }
+    }
 
     let args = RmArgs {
         targets,
