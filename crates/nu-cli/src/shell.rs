@@ -1,8 +1,14 @@
+use dialoguer::{
+    console::{Style, Term},
+    theme::ColorfulTheme,
+    FuzzySelect,
+};
 use nu_ansi_term::Color;
 use nu_completion::NuCompleter;
 use nu_engine::{DefaultPalette, EvaluationContext, Painter};
 use nu_source::{Tag, Tagged};
 use std::borrow::Cow::{self, Owned};
+use std::fmt::{self, Display, Formatter};
 
 pub struct Helper {
     completer: NuCompleter,
@@ -53,8 +59,14 @@ impl<'a> AsRef<EvaluationContext> for CompletionContext<'a> {
         self.0
     }
 }
-
+#[derive(Clone)]
 pub struct CompletionSuggestion(nu_completion::Suggestion);
+
+impl Display for CompletionSuggestion {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.display)
+    }
+}
 
 impl rustyline::completion::Candidate for CompletionSuggestion {
     fn display(&self) -> &str {
@@ -77,8 +89,39 @@ impl rustyline::completion::Completer for Helper {
     ) -> Result<(usize, Vec<Self::Candidate>), rustyline::error::ReadlineError> {
         let ctx = CompletionContext(&self.context);
         let (position, suggestions) = self.completer.complete(line, pos, &ctx);
-        let suggestions = suggestions.into_iter().map(CompletionSuggestion).collect();
-        Ok((position, suggestions))
+        let suggestions: Vec<CompletionSuggestion> =
+            suggestions.into_iter().map(CompletionSuggestion).collect();
+
+        match suggestions.len() {
+            0 => return Ok((position, vec![])),
+            1 => return Ok((position, suggestions)),
+            _ => {}
+        }
+
+        //let _ = crossterm::terminal::disable_raw_mode();
+        println!();
+        let theme = ColorfulTheme {
+            active_item_style: Style::new().for_stderr().on_green().black(),
+            ..Default::default()
+        };
+        let result = FuzzySelect::with_theme(&theme)
+            .default(0)
+            .items(&suggestions[..])
+            .interact_on_opt(&Term::stdout())
+            .unwrap_or(None);
+        //let _ = crossterm::terminal::enable_raw_mode();
+        //
+        match result {
+            Some(index) => Ok((position, vec![suggestions[index].clone()])),
+            _ => {
+                // TODO seems dialog is not cleaned up correctly
+                let term = &Term::stdout();
+                term.clear_last_lines(1)?;
+                term.flush()?;
+                term.show_cursor()?;
+                Ok((position, vec![]))
+            }
+        }
     }
 
     fn update(&self, line: &mut rustyline::line_buffer::LineBuffer, start: usize, elected: &str) {

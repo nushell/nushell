@@ -1,5 +1,6 @@
 pub(crate) mod command;
 pub(crate) mod completer;
+pub(crate) mod custom;
 pub(crate) mod engine;
 pub(crate) mod flag;
 pub(crate) mod matchers;
@@ -10,10 +11,11 @@ use nu_engine::EvaluationContext;
 use nu_protocol::{SignatureRegistry, VariableRegistry};
 
 use matchers::Matcher;
+use serde::Deserialize;
 
 pub use completer::NuCompleter;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct Suggestion {
     pub display: String,
     pub replacement: String,

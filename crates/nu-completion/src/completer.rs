@@ -4,6 +4,7 @@ use nu_parser::NewlineMode;
 use nu_source::{Span, Tag};
 
 use crate::command::CommandCompleter;
+use crate::custom::CustomCompleter;
 use crate::engine;
 use crate::flag::FlagCompleter;
 use crate::matchers;
@@ -55,6 +56,17 @@ impl NuCompleter {
         if locations.is_empty() {
             (pos, Vec::new())
         } else {
+            let custom_completer = CustomCompleter {
+                line: line,
+                pos: pos,
+                locations: locations.clone(),
+                context: context,
+            };
+            match custom_completer.complete() {
+                Some(x) => return x,
+                _ => {}
+            };
+
             let mut pos = locations[0].span.start();
 
             for location in &locations {

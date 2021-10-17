@@ -11,6 +11,7 @@ build = "build.rs"
 doctest = false
 
 [dependencies]
+dialoguer = { git = "https://github.com/rsteube/dialoguer", branch = "fuzzy-paging", features = ["fuzzy-select"] }
 nu-completion = { version = "0.38.0", path="../nu-completion" }
 nu-command = { version = "0.38.0", path="../nu-command" }
 nu-data = { version = "0.38.0", path="../nu-data" }

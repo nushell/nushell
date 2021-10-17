@@ -262,7 +262,7 @@ dependencies = [
  "bugreport",
  "clap",
  "clircle",
- "console",
+ "console 0.14.1",
  "content_inspector",
  "dirs-next",
  "encoding",
@@ -653,6 +653,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "console"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a28b32d32ca44b70c3e4acd7db1babf555fa026e385fb95f18028f88848b3c31"
+dependencies = [
+ "encode_unicode",
+ "libc",
+ "once_cell",
+ "regex",
+ "terminal_size",
+ "unicode-width",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -932,6 +947,18 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn",
+]
+
+[[package]]
+name = "dialoguer"
+version = "0.9.0"
+source = "git+https://github.com/rsteube/dialoguer?branch=fuzzy-paging#92b59e2ca8aed50ed8ebc7e094aa8c7e7f2b6d99"
+dependencies = [
+ "console 0.15.0",
+ "fuzzy-matcher",
+ "lazy_static",
+ "tempfile",
+ "zeroize",
 ]
 
 [[package]]
@@ -1442,6 +1469,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fuzzy-matcher"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54614a3312934d066701a80f20f15fa3b56d67ac7722b39eea5b4c9dd1d66c94"
+dependencies = [
+ "thread_local",
+]
+
+[[package]]
 name = "fxhash"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1911,7 +1947,7 @@ version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58019516c1403ac45b106c9fc4e8fcbd77a78e98b014c619d1506338902ccfa4"
 dependencies = [
- "console",
+ "console 0.14.1",
  "lazy_static",
  "serde",
  "serde_json",
@@ -2538,6 +2574,7 @@ name = "nu-cli"
 version = "0.38.0"
 dependencies = [
  "ctrlc",
+ "dialoguer",
  "indexmap",
  "lazy_static",
  "log",
@@ -2662,6 +2699,8 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "parking_lot",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5017,6 +5056,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread_local"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "tiff"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5622,6 +5670,12 @@ checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf68b08513768deaa790264a7fac27a58cbf2705cfcdc9448362229217d7e970"
 
 [[package]]
 name = "zip"
