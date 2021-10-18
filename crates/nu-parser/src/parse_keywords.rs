@@ -309,6 +309,89 @@ pub fn parse_export(
     }
 }
 
+pub fn parse_module_block(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Block, Option<ParseError>) {
+    let mut error = None;
+
+    working_set.enter_scope();
+
+    let source = working_set.get_span_contents(spans[0]);
+
+    let (output, err) = lex(source, spans[0].start, &[], &[]);
+    error = error.or(err);
+
+    let (output, err) = lite_parse(&output);
+    error = error.or(err);
+
+    for pipeline in &output.block {
+        if pipeline.commands.len() == 1 {
+            parse_def_predecl(working_set, &pipeline.commands[0].parts);
+        }
+    }
+
+    let mut exports: Vec<(Vec<u8>, DeclId)> = vec![];
+
+    let block: Block = output
+        .block
+        .iter()
+        .map(|pipeline| {
+            if pipeline.commands.len() == 1 {
+                // this one here is doing parse_statement() equivalent
+                // let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
+                let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
+
+                let (stmt, err) = match name {
+                    b"def" => {
+                        let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
+
+                        (stmt, err)
+                    }
+                    b"export" => {
+                        let (stmt, err) =
+                            parse_export(working_set, &pipeline.commands[0].parts);
+
+                        if err.is_none() {
+                            let decl_name =
+                                // parts[2] is safe since it's checked in parse_export already
+                                working_set.get_span_contents(pipeline.commands[0].parts[2]);
+
+                            let decl_id = working_set
+                                .find_decl(decl_name)
+                                .expect("internal error: failed to find added declaration");
+
+                            exports.push((decl_name.into(), decl_id));
+                        }
+
+                        (stmt, err)
+                    }
+                    _ => (
+                        garbage_statement(&pipeline.commands[0].parts),
+                        Some(ParseError::Expected(
+                            "def or export keyword".into(),
+                            pipeline.commands[0].parts[0],
+                        )),
+                    ),
+                };
+
+                if error.is_none() {
+                    error = err;
+                }
+
+                stmt
+            } else {
+                error = Some(ParseError::Expected("not a pipeline".into(), spans[0]));
+                garbage_statement(spans)
+            }
+        })
+        .into();
+
+    working_set.exit_scope();
+
+    (block.with_exports(exports), error)
+}
+
 pub fn parse_module(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -359,90 +442,8 @@ pub fn parse_module(
 
         let block_span = Span { start, end };
 
-        let source = working_set.get_span_contents(block_span);
-
-        let (output, err) = lex(source, start, &[], &[]);
+        let (block, err) = parse_module_block(working_set, &[block_span]);
         error = error.or(err);
-
-        working_set.enter_scope();
-
-        // Do we need block parameters?
-
-        let (output, err) = lite_parse(&output);
-        error = error.or(err);
-
-        // We probably don't need $it
-
-        // we're doing parse_block() equivalent
-        // let (mut output, err) = parse_block(working_set, &output, false);
-
-        for pipeline in &output.block {
-            if pipeline.commands.len() == 1 {
-                parse_def_predecl(working_set, &pipeline.commands[0].parts);
-            }
-        }
-
-        let mut exports: Vec<(Vec<u8>, DeclId)> = vec![];
-
-        let block: Block = output
-            .block
-            .iter()
-            .map(|pipeline| {
-                if pipeline.commands.len() == 1 {
-                    // this one here is doing parse_statement() equivalent
-                    // let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
-                    let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
-
-                    let (stmt, err) = match name {
-                        // TODO: Here we can add other stuff that's allowed for modules
-                        b"def" => {
-                            let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
-
-                            (stmt, err)
-                        }
-                        b"export" => {
-                            let (stmt, err) =
-                                parse_export(working_set, &pipeline.commands[0].parts);
-
-                            if err.is_none() {
-                                let decl_name =
-                                    // parts[2] is safe since it's checked in parse_def already
-                                    working_set.get_span_contents(pipeline.commands[0].parts[2]);
-
-                                let decl_id = working_set
-                                    .find_decl(decl_name)
-                                    .expect("internal error: failed to find added declaration");
-
-                                exports.push((decl_name.into(), decl_id));
-                            }
-
-                            (stmt, err)
-                        }
-                        _ => (
-                            garbage_statement(&pipeline.commands[0].parts),
-                            Some(ParseError::Expected(
-                                // TODO: Fill in more keywords as they come
-                                "def or export keyword".into(),
-                                pipeline.commands[0].parts[0],
-                            )),
-                        ),
-                    };
-
-                    if error.is_none() {
-                        error = err;
-                    }
-
-                    stmt
-                } else {
-                    error = Some(ParseError::Expected("not a pipeline".into(), block_span));
-                    garbage_statement(spans)
-                }
-            })
-            .into();
-
-        let block = block.with_exports(exports);
-
-        working_set.exit_scope();
 
         let block_id = working_set.add_module(&module_name, block);
 
