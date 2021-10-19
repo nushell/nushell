@@ -571,7 +571,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hides_all_decls_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam.foo; hide foo; foo"#,
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam::foo; hide foo; foo"#,
         not_found_msg(),
     )
 }
