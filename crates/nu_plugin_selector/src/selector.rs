@@ -35,7 +35,7 @@ impl Default for Selector {
 }
 
 pub fn begin_selector_query(input_html: String, selector: &Selector) -> Vec<Value> {
-    if selector.as_table.is_some() {
+    if !selector.as_table.value.is_string() {
         retrieve_tables(input_html.as_str(), &selector.as_table, selector.inspect)
     } else {
         match selector.attribute.is_empty() {
