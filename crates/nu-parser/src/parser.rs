@@ -1711,6 +1711,7 @@ pub fn parse_import_pattern(
         );
     }
 
+    // We can have either "head" or "head::tail"
     if (tokens.len() != 1) && (tokens.len() != 4) {
         return (
             ImportPattern {
@@ -1721,6 +1722,7 @@ pub fn parse_import_pattern(
         );
     }
 
+    // Check if the second : of the :: is really a :
     let has_second_colon = if let Some(t) = tokens.get(2) {
         let potential_colon = working_set.get_span_contents(t.span);
         potential_colon == b":"
@@ -1729,6 +1731,7 @@ pub fn parse_import_pattern(
     };
 
     if (tokens.len() == 4) && !has_second_colon {
+        // Applies only to the "head::tail" structure; "head" only doesn't have :
         return (
             ImportPattern {
                 head: vec![],
