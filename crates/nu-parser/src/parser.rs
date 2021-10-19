@@ -1698,7 +1698,7 @@ pub fn parse_import_pattern(
     let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[], &[b'.']);
+    let (tokens, err) = lex(source, span.start, &[], &[b':']);
     error = error.or(err);
 
     if tokens.is_empty() {
@@ -1713,7 +1713,7 @@ pub fn parse_import_pattern(
 
     let head = working_set.get_span_contents(tokens[0].span).to_vec();
 
-    if let Some(tail) = tokens.get(2) {
+    if let Some(tail) = tokens.get(3) {
         // FIXME: expand this to handle deeper imports once we support module imports
         let tail_span = tail.span;
         let tail = working_set.get_span_contents(tail.span);

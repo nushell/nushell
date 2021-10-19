@@ -513,7 +513,8 @@ pub fn parse_use(
                 .into_iter()
                 .map(|(name, id)| {
                     let mut new_name = import_pattern.head.to_vec();
-                    new_name.push(b'.');
+                    new_name.push(b':');
+                    new_name.push(b':');
                     new_name.extend(&name);
                     (new_name, id)
                 })
@@ -628,7 +629,8 @@ pub fn parse_hide(
                     .into_iter()
                     .map(|name| {
                         let mut new_name = import_pattern.head.to_vec();
-                        new_name.push(b'.');
+                        new_name.push(b':');
+                        new_name.push(b':');
                         new_name.extend(&name);
                         new_name
                     })
@@ -639,7 +641,8 @@ pub fn parse_hide(
                         .filter(|n| n == name)
                         .map(|n| {
                             let mut new_name = import_pattern.head.to_vec();
-                            new_name.push(b'.');
+                            new_name.push(b':');
+                            new_name.push(b':');
                             new_name.extend(&n);
                             new_name
                         })
@@ -660,7 +663,8 @@ pub fn parse_hide(
                             .filter_map(|n| if n == name { Some(n.clone()) } else { None })
                             .map(|n| {
                                 let mut new_name = import_pattern.head.to_vec();
-                                new_name.push(b'.');
+                                new_name.push(b':');
+                                new_name.push(b':');
                                 new_name.extend(n);
                                 new_name
                             })
