@@ -1711,6 +1711,33 @@ pub fn parse_import_pattern(
         );
     }
 
+    if (tokens.len() != 1) && (tokens.len() != 4) {
+        return (
+            ImportPattern {
+                head: vec![],
+                members: vec![],
+            },
+            Some(ParseError::WrongImportPattern(span)),
+        );
+    }
+
+    let has_second_colon = if let Some(t) = tokens.get(2) {
+        let potential_colon = working_set.get_span_contents(t.span);
+        potential_colon == b":"
+    } else {
+        false
+    };
+
+    if (tokens.len() == 4) && !has_second_colon {
+        return (
+            ImportPattern {
+                head: vec![],
+                members: vec![],
+            },
+            Some(ParseError::WrongImportPattern(span)),
+        );
+    }
+
     let head = working_set.get_span_contents(tokens[0].span).to_vec();
 
     if let Some(tail) = tokens.get(3) {
