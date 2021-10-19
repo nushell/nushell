@@ -438,7 +438,7 @@ fn module_import_uses_internal_command() -> TestResult {
 fn module_import_does_not_parse_with_incorrect_delimiter() -> TestResult {
     fail_test(
         r#"module foo { export def a [] { 1 }  }; use foo:.a"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
@@ -446,7 +446,7 @@ fn module_import_does_not_parse_with_incorrect_delimiter() -> TestResult {
 fn module_import_does_not_parse_with_missing_tail() -> TestResult {
     fail_test(
         r#"module foo { export def a [] { 1 }  }; use foo::"#,
-        "not found",
+        not_found_msg(),
     )
 }
 
