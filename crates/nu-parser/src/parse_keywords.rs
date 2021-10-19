@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Block, Call, Expr, Expression, ImportPatternMember, Pipeline, Statement},
+    ast::{Block, Call, Expr, Expression, ImportPattern, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
     span, DeclId, Span, SyntaxShape, Type,
 };
@@ -349,8 +349,7 @@ pub fn parse_module_block(
                         (stmt, err)
                     }
                     b"export" => {
-                        let (stmt, err) =
-                            parse_export(working_set, &pipeline.commands[0].parts);
+                        let (stmt, err) = parse_export(working_set, &pipeline.commands[0].parts);
 
                         if err.is_none() {
                             let decl_name =
@@ -499,14 +498,50 @@ pub fn parse_use(
         let (import_pattern, err) = parse_import_pattern(working_set, spans[1]);
         error = error.or(err);
 
-        let exports = if let Some(block_id) = working_set.find_module(&import_pattern.head) {
-            working_set.get_block(block_id).exports.clone()
-        } else {
-            return (
-                garbage_statement(spans),
-                Some(ParseError::ModuleNotFound(spans[1])),
-            );
-        };
+        let (import_pattern, exports) =
+            if let Some(block_id) = working_set.find_module(&import_pattern.head) {
+                (
+                    import_pattern,
+                    working_set.get_block(block_id).exports.clone(),
+                )
+            } else {
+                // It could be a file
+                let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
+                let module_path = Path::new(&module_filename);
+                let module_name = if let Some(stem) = module_path.file_stem() {
+                    stem.to_string_lossy().to_string()
+                } else {
+                    return (
+                        garbage_statement(spans),
+                        Some(ParseError::ModuleNotFound(spans[1])),
+                    );
+                };
+
+                if let Ok(contents) = std::fs::read(module_path) {
+                    let span_start = working_set.next_span_start();
+                    working_set.add_file(module_filename, &contents);
+                    let span_end = working_set.next_span_start();
+
+                    let (block, err) =
+                        parse_module_block(working_set, &[Span::new(span_start, span_end)]);
+                    error = error.or(err);
+
+                    let block_id = working_set.add_module(&module_name, block);
+
+                    (
+                        ImportPattern {
+                            head: module_name.into(),
+                            members: import_pattern.members,
+                        },
+                        working_set.get_block(block_id).exports.clone(),
+                    )
+                } else {
+                    return (
+                        garbage_statement(spans),
+                        Some(ParseError::ModuleNotFound(spans[1])),
+                    );
+                }
+            };
 
         let exports = if import_pattern.members.is_empty() {
             exports
