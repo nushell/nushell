@@ -596,6 +596,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "itertools",
  "nu-parser",
  "nu-path",

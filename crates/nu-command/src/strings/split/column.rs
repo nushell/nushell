@@ -86,18 +86,12 @@ fn split_column_helper(
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {
                 cols.push(v.to_string());
-                vals.push(Value::String {
-                    val: k.into(),
-                    span: head,
-                });
+                vals.push(Value::string(k, head));
             }
         } else {
             for (&k, v) in split_result.iter().zip(&positional) {
                 cols.push(v.into());
-                vals.push(Value::String {
-                    val: k.into(),
-                    span: head,
-                })
+                vals.push(Value::string(k, head));
             }
         }
         Value::List {

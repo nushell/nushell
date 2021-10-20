@@ -42,7 +42,7 @@ impl Command for Lines {
 
                 let iter = lines.into_iter().filter_map(move |s| {
                     if !s.is_empty() {
-                        Some(Value::String { val: s, span })
+                        Some(Value::string(s, span))
                     } else {
                         None
                     }
