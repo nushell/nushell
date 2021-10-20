@@ -25,26 +25,11 @@ impl Command for SubCommand {
             example: "'hello' | split chars",
             result: Some(Value::List {
                 vals: vec![
-                    Value::String {
-                        val: "h".into(),
-                        span: Span::unknown(),
-                    },
-                    Value::String {
-                        val: "e".into(),
-                        span: Span::unknown(),
-                    },
-                    Value::String {
-                        val: "l".into(),
-                        span: Span::unknown(),
-                    },
-                    Value::String {
-                        val: "l".into(),
-                        span: Span::unknown(),
-                    },
-                    Value::String {
-                        val: "o".into(),
-                        span: Span::unknown(),
-                    },
+                    Value::test_string("h"),
+                    Value::test_string("e"),
+                    Value::test_string("l"),
+                    Value::test_string("l"),
+                    Value::test_string("o"),
                 ],
                 span: Span::unknown(),
             }),
@@ -74,10 +59,7 @@ fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
                 s.chars()
                     .collect::<Vec<_>>()
                     .into_iter()
-                    .map(move |x| Value::String {
-                        val: x.to_string(),
-                        span: v_span,
-                    })
+                    .map(move |x| Value::string(x, v_span))
                     .collect()
             } else {
                 vec![Value::Error {

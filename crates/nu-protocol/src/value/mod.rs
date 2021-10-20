@@ -363,13 +363,6 @@ impl Value {
         Ok(current)
     }
 
-    pub fn string(s: &str, span: Span) -> Value {
-        Value::String {
-            val: s.into(),
-            span,
-        }
-    }
-
     pub fn is_true(&self) -> bool {
         matches!(self, Value::Bool { val: true, .. })
     }
@@ -436,6 +429,33 @@ impl Value {
                 stream: f(v).into_iter().into_value_stream(),
                 span,
             },
+        }
+    }
+
+    pub fn string(val: impl Into<String>, span: Span) -> Value {
+        Value::String {
+            val: val.into(),
+            span,
+        }
+    }
+
+    pub fn int(val: i64, span: Span) -> Value {
+        Value::Int { val, span }
+    }
+
+    // Only use these for test data. Span::unknown() should not be used in user data
+    pub fn test_string(s: impl Into<String>) -> Value {
+        Value::String {
+            val: s.into(),
+            span: Span::unknown(),
+        }
+    }
+
+    // Only use these for test data. Span::unknown() should not be used in user data
+    pub fn test_int(val: i64) -> Value {
+        Value::Int {
+            val,
+            span: Span::unknown(),
         }
     }
 }
@@ -528,10 +548,16 @@ impl Value {
         let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                val: lhs + rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = lhs.checked_add(*rhs) {
+                    Ok(Value::Int { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "add operation overflowed".into(),
+                        span,
+                    ))
+                }
+            }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs as f64 + *rhs,
                 span,

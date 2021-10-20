@@ -55,10 +55,7 @@ fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<V
                 s.split(&splitter)
                     .filter_map(|s| {
                         if s.trim() != "" {
-                            Some(Value::String {
-                                val: s.into(),
-                                span: v_span,
-                            })
+                            Some(Value::string(s, v_span))
                         } else {
                             None
                         }

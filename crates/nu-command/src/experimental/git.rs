@@ -34,7 +34,10 @@ impl Command for Git {
                     Ok(val) => {
                         let result = val.stdout;
 
-                        Ok(Value::string(&String::from_utf8_lossy(&result), call.head))
+                        Ok(Value::String {
+                            val: String::from_utf8_lossy(&result).to_string(),
+                            span: call.head,
+                        })
                     }
                     Err(_err) => {
                         // FIXME: Move this to an external signature and add better error handling

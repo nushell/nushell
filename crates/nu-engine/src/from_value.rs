@@ -1,5 +1,6 @@
 // use std::path::PathBuf;
 
+use chrono::{DateTime, FixedOffset};
 // use nu_path::expand_path;
 use nu_protocol::ast::{CellPath, PathMember};
 use nu_protocol::ShellError;
@@ -134,27 +135,26 @@ impl FromValue for Spanned<bool> {
     }
 }
 
-// impl FromValue for DateTime<FixedOffset> {
-//     fn from_value(v: &Value) -> Result<Self, ShellError> {
-//         match v {
-//             Value {
-//                 value: UntaggedValue::Primitive(Primitive::Date(d)),
-//                 ..
-//             } => Ok(*d),
-//             Value {
-//                 value: UntaggedValue::Row(_),
-//                 ..
-//             } => {
-//                 let mut shell_error = ShellError::type_error("date", v.spanned_type_name());
-//                 shell_error.notes.push(
-//                     "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
-//                 );
-//                 Err(shell_error)
-//             }
-//             v => Err(ShellError::type_error("date", v.spanned_type_name())),
-//         }
-//     }
-// }
+impl FromValue for DateTime<FixedOffset> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Date { val, .. } => Ok(*val),
+            v => Err(ShellError::CantConvert("date".into(), v.span()?)),
+        }
+    }
+}
+
+impl FromValue for Spanned<DateTime<FixedOffset>> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Date { val, span } => Ok(Spanned {
+                item: *val,
+                span: *span,
+            }),
+            v => Err(ShellError::CantConvert("date".into(), v.span()?)),
+        }
+    }
+}
 
 impl FromValue for Range {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
@@ -177,31 +177,15 @@ impl FromValue for Spanned<Range> {
     }
 }
 
-// impl FromValue for Vec<u8> {
-//     fn from_value(v: &Value) -> Result<Self, ShellError> {
-//         match v {
-//             Value {
-//                 value: UntaggedValue::Primitive(Primitive::Binary(b)),
-//                 ..
-//             } => Ok(b.clone()),
-//             Value {
-//                 value: UntaggedValue::Primitive(Primitive::String(s)),
-//                 ..
-//             } => Ok(s.bytes().collect()),
-//             Value {
-//                 value: UntaggedValue::Row(_),
-//                 ..
-//             } => {
-//                 let mut shell_error = ShellError::type_error("binary data", v.spanned_type_name());
-//                 shell_error.notes.push(
-//                     "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
-//                 );
-//                 Err(shell_error)
-//             }
-//             v => Err(ShellError::type_error("binary data", v.spanned_type_name())),
-//         }
-//     }
-// }
+impl FromValue for Vec<u8> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Binary { val, .. } => Ok(val.clone()),
+            Value::String { val, .. } => Ok(val.bytes().collect()),
+            v => Err(ShellError::CantConvert("binary data".into(), v.span()?)),
+        }
+    }
+}
 
 // impl FromValue for Dictionary {
 //     fn from_value(v: &Value) -> Result<Self, ShellError> {

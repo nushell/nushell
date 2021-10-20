@@ -19,6 +19,10 @@ pub enum ShellError {
         rhs_span: Span,
     },
 
+    #[error("Operator overflow.")]
+    #[diagnostic(code(nu::shell::operator_overflow), url(docsrs))]
+    OperatorOverflow(String, #[label = "{0}"] Span),
+
     #[error("Pipeline mismatch.")]
     #[diagnostic(code(nu::shell::pipeline_mismatch), url(docsrs))]
     PipelineMismatch {
