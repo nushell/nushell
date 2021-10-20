@@ -2422,19 +2422,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nipper"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "761382864693f4bb171abf9e8de181a320b00464a83a9a5071059057b1fe0116"
-dependencies = [
- "cssparser",
- "html5ever",
- "markup5ever",
- "selectors",
- "tendril",
-]
-
-[[package]]
 name = "nix"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3037,7 +3024,6 @@ name = "nu_plugin_selector"
 version = "0.38.0"
 dependencies = [
  "indexmap",
- "nipper",
  "nu-errors",
  "nu-plugin",
  "nu-protocol",

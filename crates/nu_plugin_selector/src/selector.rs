@@ -1,5 +1,5 @@
 use crate::Table;
-use nipper::Document;
+use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use nu_protocol::{value::StringExt, Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
 
@@ -166,13 +166,14 @@ fn execute_selector_query_with_attribute(
     query_string: &str,
     attribute: &str,
 ) -> Vec<Value> {
-    let doc = Document::from(input_string);
+    let doc = Html::parse_fragment(input_string);
 
-    doc.select(query_string)
-        .iter()
+    doc.select(&css(query_string))
         .map(|selection| {
             selection
-                .attr_or(attribute, "")
+                .value()
+                .attr(attribute)
+                .unwrap_or("")
                 .to_string()
                 .to_string_value_create_tag()
         })
@@ -180,57 +181,43 @@ fn execute_selector_query_with_attribute(
 }
 
 fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool) -> Vec<Value> {
-    let doc = Document::from(input_string);
+    let doc = Html::parse_fragment(input_string);
 
     match as_html {
         true => doc
-            .select(query_string)
-            .iter()
+            .select(&css(query_string))
             .map(|selection| selection.html().to_string().to_string_value_create_tag())
             .collect(),
         false => doc
-            .select(query_string)
-            .iter()
-            .map(|selection| selection.text().to_string().to_string_value_create_tag())
+            .select(&css(query_string))
+            .map(|selection| selection.text().fold("".to_string(), |acc, x| format!("{}{}", acc, x)).to_string().to_string_value_create_tag())
             .collect(),
     }
 }
 
+pub fn css(selector: &str) -> ScraperSelector {
+    ScraperSelector::parse(selector).expect("this should never trigger")
+}
+
 #[cfg(test)]
 mod tests {
-    use nipper::Document;
+    use super::*;
+
+    const SIMPLE_LIST: &'static str = r#"
+    <ul>
+        <li>Coffee</li>
+        <li>Tea</li>
+        <li>Milk</li>
+    </ul>
+"#;
 
     #[test]
-    fn create_document_from_string() {
-        let html = r#"<div name="foo" value="bar"></div>"#;
-        let document = Document::from(html);
-        let shouldbe =
-            r#"<html><head></head><body><div name="foo" value="bar"></div></body></html>"#;
-
-        assert_eq!(shouldbe.to_string(), document.html().to_string());
+    fn test_first_child_is_not_empty() {
+        assert!(!execute_selector_query(SIMPLE_LIST, "li:first-child", false).is_empty())
     }
 
     #[test]
-    fn modify_html_document() {
-        let html = r#"<div name="foo" value="bar"></div>"#;
-        let document = Document::from(html);
-        let mut input = document.select(r#"div[name="foo"]"#);
-        input.set_attr("id", "input");
-        input.remove_attr("name");
-
-        let shouldbe = "bar".to_string();
-        let actual = input.attr("value").unwrap().to_string();
-
-        assert_eq!(shouldbe, actual);
+    fn test_first_child() {
+        assert_eq!(vec!["Coffee".to_string().to_string_value_create_tag()], execute_selector_query(SIMPLE_LIST, "li:first-child", false))
     }
-
-    // #[test]
-    // fn test_hacker_news() -> Result<(), ShellError> {
-    //     let html = reqwest::blocking::get("https://news.ycombinator.com")?.text()?;
-    //     let document = Document::from(&html);
-    //     let result = query(html, ".hnname a".to_string(), Tag::unknown());
-    //     let shouldbe = Ok(vec!["Hacker News".to_str_value_create_tag()]);
-    //     assert_eq!(shouldbe, result);
-    //     Ok(())
-    // }
 }
