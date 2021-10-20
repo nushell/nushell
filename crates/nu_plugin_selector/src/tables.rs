@@ -1,6 +1,6 @@
+use crate::selector::css;
 use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use std::collections::HashMap;
-use crate::selector::{css};
 
 // Borrowed from here
 // https://github.com/mk12/table-extract/blob/master/src/lib.rs

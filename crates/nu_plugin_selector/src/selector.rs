@@ -1,7 +1,7 @@
 use crate::Table;
-use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use nu_protocol::{value::StringExt, Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
+use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 
 pub struct Selector {
     pub query: String,
@@ -190,7 +190,13 @@ fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool)
             .collect(),
         false => doc
             .select(&css(query_string))
-            .map(|selection| selection.text().fold("".to_string(), |acc, x| format!("{}{}", acc, x)).to_string().to_string_value_create_tag())
+            .map(|selection| {
+                selection
+                    .text()
+                    .fold("".to_string(), |acc, x| format!("{}{}", acc, x))
+                    .to_string()
+                    .to_string_value_create_tag()
+            })
             .collect(),
     }
 }
@@ -218,6 +224,9 @@ mod tests {
 
     #[test]
     fn test_first_child() {
-        assert_eq!(vec!["Coffee".to_string().to_string_value_create_tag()], execute_selector_query(SIMPLE_LIST, "li:first-child", false))
+        assert_eq!(
+            vec!["Coffee".to_string().to_string_value_create_tag()],
+            execute_selector_query(SIMPLE_LIST, "li:first-child", false)
+        )
     }
 }
