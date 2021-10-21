@@ -1,3 +1,4 @@
+use crate::selector::css;
 use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use std::collections::HashMap;
 
@@ -261,10 +262,6 @@ impl<'a> IntoIterator for Row<'a> {
     fn into_iter(self) -> Self::IntoIter {
         self.cells.iter()
     }
-}
-
-fn css(selector: &'static str) -> ScraperSelector {
-    ScraperSelector::parse(selector).expect("Unable to parse selector with scraper")
 }
 
 fn select_cells(

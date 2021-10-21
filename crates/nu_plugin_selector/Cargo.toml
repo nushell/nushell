@@ -10,7 +10,6 @@ version = "0.38.0"
 doctest = false
 
 [dependencies]
-nipper = "0.1.9"
 scraper = "0.12.0"
 nu-errors = { version = "0.38.0", path="../nu-errors" }
 nu-plugin = { version = "0.38.0", path="../nu-plugin" }
