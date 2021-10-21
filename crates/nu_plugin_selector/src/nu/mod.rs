@@ -63,7 +63,7 @@ impl Plugin for Selector {
     }
 
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
-        if self.query != "" && ScraperSelector::parse(&self.query).is_err() {
+        if !self.query.is_empty() && ScraperSelector::parse(&self.query).is_err() {
             return Err(ShellError::labeled_error(
                 "Can not parse this query as a valid css selector",
                 "Parse error",

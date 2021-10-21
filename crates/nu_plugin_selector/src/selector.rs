@@ -1,7 +1,7 @@
 use crate::Table;
 use nu_protocol::{value::StringExt, Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
-use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
+use scraper::{Html, Selector as ScraperSelector};
 
 pub struct Selector {
     pub query: String,
@@ -186,7 +186,7 @@ fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool)
     match as_html {
         true => doc
             .select(&css(query_string))
-            .map(|selection| selection.html().to_string().to_string_value_create_tag())
+            .map(|selection| selection.html().to_string_value_create_tag())
             .collect(),
         false => doc
             .select(&css(query_string))
@@ -194,7 +194,6 @@ fn execute_selector_query(input_string: &str, query_string: &str, as_html: bool)
                 selection
                     .text()
                     .fold("".to_string(), |acc, x| format!("{}{}", acc, x))
-                    .to_string()
                     .to_string_value_create_tag()
             })
             .collect(),
