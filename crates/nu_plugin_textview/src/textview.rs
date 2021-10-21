@@ -36,7 +36,7 @@ pub fn view_text_value(value: &Value) {
     let config = nu_data::config::config(Tag::unknown())
         .ok()
         .and_then(|config| config.get("textview").map(Config::from))
-        .unwrap_or_else(Config::default);
+        .unwrap_or_default();
 
     if let UntaggedValue::Primitive(Primitive::String(ref s)) = &value.value {
         let mut printer = bat::PrettyPrinter::new();

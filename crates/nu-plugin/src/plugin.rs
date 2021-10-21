@@ -55,7 +55,6 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
             match command {
                 Ok(NuCommand::config) => {
                     send_response(plugin.config());
-                    return;
                 }
                 Ok(NuCommand::begin_filter { params }) => {
                     send_response(plugin.begin_filter(params));
@@ -65,23 +64,19 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                 }
                 Ok(NuCommand::end_filter) => {
                     send_response(plugin.end_filter());
-                    return;
                 }
 
                 Ok(NuCommand::sink { params }) => {
                     plugin.sink(params.0, params.1);
-                    return;
                 }
                 Ok(NuCommand::quit) => {
                     plugin.quit();
-                    return;
                 }
                 e => {
                     send_response(ShellError::untagged_runtime_error(format!(
                         "Could not handle plugin message: {} {:?}",
                         input, e
                     )));
-                    return;
                 }
             }
         }
