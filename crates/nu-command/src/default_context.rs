@@ -56,6 +56,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             Mv,
             Ps,
             Rm,
+            RunPlugin,
             Select,
             Size,
             Split,
