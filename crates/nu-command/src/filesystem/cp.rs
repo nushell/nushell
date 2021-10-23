@@ -1,7 +1,7 @@
 use std::env::current_dir;
 use std::path::PathBuf;
 
-use super::interactive_helper::get_confirmation;
+use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
@@ -88,7 +88,7 @@ impl Command for Cp {
                     destination.file_name().unwrap().to_str().unwrap()
                 );
 
-                let input = get_confirmation(prompt)?;
+                let input = get_interactive_confirmation(prompt)?;
 
                 if !input {
                     remove.push(index);
