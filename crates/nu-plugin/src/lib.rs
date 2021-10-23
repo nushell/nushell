@@ -74,10 +74,7 @@ pub mod plugin_value {
                 Value::String { val, .. } => {
                     list_builder.reborrow().get(index as u32).set_string(val);
                 }
-                Value::List { vals, .. } => {
-                    let test = builder.reborrow();
-                    serialize_list(vals, test)
-                }
+                Value::List { vals, .. } => serialize_list(vals, builder),
                 _ => {}
             }
         }
