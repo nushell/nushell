@@ -167,6 +167,7 @@ pub fn parse_type_token(type_: &Token) -> (SyntaxShape, Option<ParseError>) {
             "path" => (SyntaxShape::FilePath, None),
             "table" => (SyntaxShape::Table, None),
             "duration" => (SyntaxShape::Duration, None),
+            "date" => (SyntaxShape::Date, None),
             "filesize" => (SyntaxShape::Filesize, None),
             "number" => (SyntaxShape::Number, None),
             "pattern" => (SyntaxShape::GlobPattern, None),

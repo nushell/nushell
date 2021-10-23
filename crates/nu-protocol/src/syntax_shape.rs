@@ -30,6 +30,8 @@ pub enum SyntaxShape {
     Filesize,
     /// A duration value is allowed, eg `19day`
     Duration,
+    /// A date value is allowed, eg `2021-10-23`
+    Date,
     /// An operator
     Operator,
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
@@ -54,6 +56,7 @@ impl SyntaxShape {
             SyntaxShape::Block => "block",
             SyntaxShape::Table => "table",
             SyntaxShape::Duration => "duration",
+            SyntaxShape::Date => "date",
             SyntaxShape::Filesize => "filesize",
             SyntaxShape::Operator => "operator",
             SyntaxShape::RowCondition => "condition",

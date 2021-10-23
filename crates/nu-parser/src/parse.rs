@@ -968,6 +968,7 @@ fn parse_arg(
         ),
         SyntaxShape::Filesize => parse_filesize(lite_arg),
         SyntaxShape::Duration => parse_duration(lite_arg),
+        SyntaxShape::Date => unimplemented!(),
         SyntaxShape::FilePath => {
             let trimmed = trim_quotes(&lite_arg.item);
             let path = PathBuf::from(trimmed);
