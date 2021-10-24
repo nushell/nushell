@@ -3,7 +3,7 @@ use std::env::current_dir;
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
-use super::interactive_helper::get_confirmation;
+use super::util::get_interactive_confirmation;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -134,7 +134,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 file.1.file_name().unwrap().to_str().unwrap()
             );
 
-            let input = get_confirmation(prompt)?;
+            let input = get_interactive_confirmation(prompt)?;
 
             if !input {
                 remove.push(index);
