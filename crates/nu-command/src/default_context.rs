@@ -51,6 +51,8 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             LetEnv,
             Lines,
             Ls,
+            Math,
+            MathAbs,
             Mkdir,
             Module,
             Mv,

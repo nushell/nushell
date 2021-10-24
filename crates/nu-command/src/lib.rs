@@ -7,8 +7,8 @@ mod experimental;
 mod filesystem;
 mod filters;
 mod formats;
-mod strings;
 mod math;
+mod strings;
 mod system;
 mod viewers;
 
@@ -21,7 +21,7 @@ pub use experimental::*;
 pub use filesystem::*;
 pub use filters::*;
 pub use formats::*;
-pub use strings::*;
 pub use math::*;
+pub use strings::*;
 pub use system::*;
 pub use viewers::*;
