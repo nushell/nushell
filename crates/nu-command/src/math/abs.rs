@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, ShellError, Signature, Span, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Value};
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -19,24 +20,31 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
-        match input {
-            Value::List { vals, span } => Ok(Value::List {
-                vals: vals
-                    .into_iter()
-                    .map(move |val| abs_helper(val, head))
-                    .collect(),
-                span,
-            }),
-            other => match abs_helper(other, head) {
-                Value::Error { error } => Err(error),
-                ok => Ok(ok),
-            },
-        }
+        input.map(move |value| abs_helper(value, head))
+        // PipelineData::Value(Value::List { vals, span }) => Ok(Value::List {
+        //         vals: vals
+        //             .into_iter()
+        //             .map(move |val| abs_helper(val, head))
+        //             .collect(),
+        //         span,
+        //     }),
+        //     PipelineData::Value(other) => match abs_helper(other, head) {
+        //         Value::Error { error } => Err(error),
+        //         ok => Ok(nu_protocolok),
+        //     },
+        //     _ => Value::Error {
+        //         error: ShellError::UnsupportedInput(
+        //             String::from("Only numerical values are supported"),
+        //             head,
+        //         ),
+        //     },
+        // }
     }
 
     fn examples(&self) -> Vec<Example> {

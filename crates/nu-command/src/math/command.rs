@@ -1,8 +1,11 @@
 use nu_engine::get_full_help;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    IntoPipelineData, PipelineData, Signature, Value,
+};
 
+#[derive(Clone)]
 pub struct MathCommand;
 
 impl Command for MathCommand {
@@ -20,13 +23,19 @@ impl Command for MathCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&MathCommand.signature(), &MathCommand.examples(), context),
+            val: get_full_help(
+                &MathCommand.signature(),
+                &MathCommand.examples(),
+                engine_state,
+            ),
             span: call.head,
-        })
+        }
+        .into_pipeline_data())
     }
 }
