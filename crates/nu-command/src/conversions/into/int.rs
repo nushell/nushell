@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -96,23 +96,21 @@ fn into_int(
     let head = call.head;
     // let column_paths: Vec<CellPath> = call.rest(context, 0)?;
 
-    Ok(input
-        .map(move |v| {
-            action(v, head)
-            // FIXME: Add back cell_path support
-            // if column_paths.is_empty() {
-            //     action(&v, v.tag())
-            // } else {
-            //     let mut ret = v;
-            //     for path in &column_paths {
-            //         ret = ret
-            //             .swap_data_by_column_path(path, Box::new(move |old| action(old, old.tag())))?;
-            //     }
+    input.map(move |v| {
+        action(v, head)
+        // FIXME: Add back cell_path support
+        // if column_paths.is_empty() {
+        //     action(&v, v.tag())
+        // } else {
+        //     let mut ret = v;
+        //     for path in &column_paths {
+        //         ret = ret
+        //             .swap_data_by_column_path(path, Box::new(move |old| action(old, old.tag())))?;
+        //     }
 
-            //     Ok(ret)
-            // }
-        })
-        .into_pipeline_data())
+        //     Ok(ret)
+        // }
+    })
 }
 
 pub fn action(input: Value, span: Span) -> Value {

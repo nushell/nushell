@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -54,9 +54,7 @@ fn split_chars(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let span = call.head;
 
-    Ok(input
-        .flat_map(move |x| split_chars_helper(&x, span))
-        .into_pipeline_data())
+    input.flat_map(move |x| split_chars_helper(&x, span))
 }
 
 fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {

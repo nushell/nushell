@@ -38,6 +38,51 @@ impl PipelineData {
             PipelineData::Value(v) => v.follow_cell_path(cell_path),
         }
     }
+
+    /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
+    pub fn map<F>(self, mut f: F) -> Result<PipelineData, ShellError>
+    where
+        Self: Sized,
+        F: FnMut(Value) -> Value + 'static + Send,
+    {
+        match self {
+            PipelineData::Value(Value::List { vals, .. }) => {
+                Ok(vals.into_iter().map(f).into_pipeline_data())
+            }
+            PipelineData::Stream(stream) => Ok(stream.map(f).into_pipeline_data()),
+            PipelineData::Value(Value::Range { val, .. }) => {
+                Ok(val.into_range_iter()?.map(f).into_pipeline_data())
+            }
+            PipelineData::Value(v) => {
+                let output = f(v);
+                match output {
+                    Value::Error { error } => Err(error),
+                    v => Ok(v.into_pipeline_data()),
+                }
+            }
+        }
+    }
+
+    /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
+    pub fn flat_map<U, F>(self, mut f: F) -> Result<PipelineData, ShellError>
+    where
+        Self: Sized,
+        U: IntoIterator<Item = Value>,
+        <U as IntoIterator>::IntoIter: 'static + Send,
+        F: FnMut(Value) -> U + 'static + Send,
+    {
+        match self {
+            PipelineData::Value(Value::List { vals, .. }) => {
+                Ok(vals.into_iter().map(f).flatten().into_pipeline_data())
+            }
+            PipelineData::Stream(stream) => Ok(stream.map(f).flatten().into_pipeline_data()),
+            PipelineData::Value(Value::Range { val, .. }) => match val.into_range_iter() {
+                Ok(iter) => Ok(iter.map(f).flatten().into_pipeline_data()),
+                Err(error) => Err(error),
+            },
+            PipelineData::Value(v) => Ok(f(v).into_iter().into_pipeline_data()),
+        }
+    }
 }
 
 impl Default for PipelineData {
@@ -46,11 +91,28 @@ impl Default for PipelineData {
     }
 }
 
-impl Iterator for PipelineData {
+pub struct PipelineIterator(PipelineData);
+
+impl IntoIterator for PipelineData {
+    type Item = Value;
+
+    type IntoIter = PipelineIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            PipelineData::Value(Value::List { vals, .. }) => PipelineIterator(
+                PipelineData::Stream(ValueStream(Box::new(vals.into_iter()))),
+            ),
+            x => PipelineIterator(x),
+        }
+    }
+}
+
+impl Iterator for PipelineIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self {
+        match &mut self.0 {
             PipelineData::Value(Value::Nothing { .. }) => None,
             PipelineData::Value(v) => {
                 let prev = std::mem::take(v);

@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -45,9 +45,7 @@ fn split_row(
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-    Ok(input
-        .flat_map(move |x| split_row_helper(&x, &separator, name_span))
-        .into_pipeline_data())
+    input.flat_map(move |x| split_row_helper(&x, &separator, name_span))
 }
 
 fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<Value> {

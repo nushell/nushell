@@ -77,6 +77,7 @@ impl Completer for NuCompleter {
 
                         let v: Vec<_> = match result {
                             Ok(pd) => pd
+                                .into_iter()
                                 .map(move |x| {
                                     let s = x.as_string().expect(
                                         "FIXME: better error handling for custom completions",

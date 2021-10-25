@@ -226,26 +226,20 @@ pub fn eval_expression(
         Expr::RowCondition(_, expr) => eval_expression(engine_state, stack, expr),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(Value::List {
-                vals: eval_call(engine_state, stack, call, PipelineData::new())?.collect(),
-                span: expr.span,
-            })
+            Ok(eval_call(engine_state, stack, call, PipelineData::new())?.into_value())
         }
         Expr::ExternalCall(name, span, args) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(Value::List {
-                vals: eval_external(
-                    engine_state,
-                    stack,
-                    name,
-                    span,
-                    args,
-                    PipelineData::new(),
-                    true,
-                )?
-                .collect(),
-                span: expr.span,
-            })
+            Ok(eval_external(
+                engine_state,
+                stack,
+                name,
+                span,
+                args,
+                PipelineData::new(),
+                true,
+            )?
+            .into_value())
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -278,13 +272,8 @@ pub fn eval_expression(
         Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
 
-            let mut stack = stack.collect_captures(&block.captures);
-
             // FIXME: protect this collect with ctrl-c
-            Ok(Value::List {
-                vals: eval_block(engine_state, &mut stack, block, PipelineData::new())?.collect(),
-                span: expr.span,
-            })
+            Ok(eval_block(engine_state, stack, block, PipelineData::new())?.into_value())
         }
         Expr::Block(block_id) => Ok(Value::Block {
             val: *block_id,

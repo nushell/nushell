@@ -40,11 +40,11 @@ impl Stack {
         let mut output = Stack::new();
 
         for capture in captures {
-            output.vars.insert(
-                *capture,
-                self.get_var(*capture)
-                    .expect("internal error: capture of missing variable"),
-            );
+            // Note: this assumes we have calculated captures correctly and that commands
+            // that take in a var decl will manually set this into scope when running the blocks
+            if let Ok(value) = self.get_var(*capture) {
+                output.vars.insert(*capture, value);
+            }
         }
 
         output

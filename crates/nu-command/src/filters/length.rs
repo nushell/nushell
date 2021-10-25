@@ -32,7 +32,7 @@ impl Command for Length {
             }
             .into_pipeline_data()),
             _ => Ok(Value::Int {
-                val: input.count() as i64,
+                val: input.into_iter().count() as i64,
                 span: call.head,
             }
             .into_pipeline_data()),

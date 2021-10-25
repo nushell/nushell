@@ -60,7 +60,7 @@ impl Command for For {
         let mut stack = stack.collect_captures(&block.captures);
 
         match values {
-            Value::List { vals, span } => Ok(vals
+            Value::List { vals, .. } => Ok(vals
                 .into_iter()
                 .map(move |x| {
                     let mut stack = stack.clone();
@@ -68,25 +68,19 @@ impl Command for For {
 
                     let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
-                        Ok(value) => Value::List {
-                            vals: value.collect(),
-                            span,
-                        },
+                        Ok(pipeline_data) => pipeline_data.into_value(),
                         Err(error) => Value::Error { error },
                     }
                 })
                 .into_pipeline_data()),
-            Value::Range { val, span } => Ok(val
+            Value::Range { val, .. } => Ok(val
                 .into_range_iter()?
                 .map(move |x| {
                     stack.add_var(var_id, x);
 
                     let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
-                        Ok(value) => Value::List {
-                            vals: value.collect(),
-                            span,
-                        },
+                        Ok(pipeline_data) => pipeline_data.into_value(),
                         Err(error) => Value::Error { error },
                     }
                 })
