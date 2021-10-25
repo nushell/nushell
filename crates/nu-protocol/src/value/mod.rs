@@ -167,17 +167,9 @@ impl Value {
             Value::Filesize { val, .. } => format_filesize(val),
             Value::Duration { val, .. } => format_duration(val),
             Value::Date { val, .. } => HumanTime::from(val).to_string(),
-            Value::Range { val, .. } => match val.into_range_iter() {
-                Ok(iter) => {
-                    format!(
-                        "range: [{}]",
-                        iter.map(|x| x.into_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                }
-                Err(error) => format!("{:?}", error),
-            },
+            Value::Range { val, .. } => {
+                format!("{}..{}", val.from.into_string(), val.to.into_string())
+            }
             Value::String { val, .. } => val,
             Value::List { vals: val, .. } => format!(
                 "[{}]",
@@ -210,15 +202,9 @@ impl Value {
             Value::Filesize { val, .. } => format!("{} bytes", val),
             Value::Duration { val, .. } => format!("{} ns", val),
             Value::Date { val, .. } => format!("{:?}", val),
-            Value::Range { val, .. } => match val.into_range_iter() {
-                Ok(iter) => iter
-                    .map(|x| x.into_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                Err(error) => {
-                    format!("{:?}", error)
-                }
-            },
+            Value::Range { val, .. } => {
+                format!("{}..{}", val.from.into_string(), val.to.into_string())
+            }
             Value::String { val, .. } => val,
             Value::List { vals: val, .. } => val
                 .into_iter()
