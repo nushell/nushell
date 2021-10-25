@@ -42,7 +42,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Get absolute of each value in a list of numbers",
-            example: "echo [-50 -100.0 25] | math abs",
+            example: "[-50 -100.0 25] | math abs",
             result: Some(Value::List {
                 vals: vec![
                     Value::test_int(50),
