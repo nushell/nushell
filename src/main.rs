@@ -1,4 +1,4 @@
-use std::{cell::RefCell, io::Write, rc::Rc};
+use std::io::Write;
 
 use dialoguer::{
     console::{Style, Term},
@@ -12,7 +12,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
     IntoPipelineData, PipelineData, ShellError, Value,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
@@ -268,23 +268,22 @@ fn update_prompt<'prompt>(
         return nu_prompt as &dyn Prompt;
     }
 
-    let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = {
+        let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(&mut working_set, None, prompt_command.as_bytes(), false);
         if let Some(err) = err {
             report_error(&working_set, &err);
             return default_prompt as &dyn Prompt;
         }
-        (output, working_set.render())
+        output
     };
 
     let mut stack = stack.clone();
 
-    let evaluated_prompt = match eval_block(&engine_state, &mut stack, &block, PipelineData::new())
-    {
+    let evaluated_prompt = match eval_block(engine_state, &mut stack, &block, PipelineData::new()) {
         Ok(pipeline_data) => pipeline_data.collect_string(),
         Err(err) => {
-            let working_set = StateWorkingSet::new(&engine_state);
+            let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &err);
             return default_prompt as &dyn Prompt;
         }

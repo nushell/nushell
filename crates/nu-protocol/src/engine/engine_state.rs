@@ -1,7 +1,7 @@
 use super::Command;
 use crate::{ast::Block, BlockId, DeclId, Example, Signature, Span, Type, VarId};
 use core::panic;
-use std::{collections::HashMap, slice::Iter};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct EngineState {
@@ -167,7 +167,7 @@ impl EngineState {
 
     pub fn print_contents(&self) {
         for (contents, _, _) in self.file_contents.iter() {
-            let string = String::from_utf8_lossy(&contents);
+            let string = String::from_utf8_lossy(contents);
             println!("{}", string);
         }
     }
@@ -204,7 +204,7 @@ impl EngineState {
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
-            if span.start >= *start && span.start <= *finish {
+            if span.start >= *start && span.end <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
@@ -262,7 +262,11 @@ impl EngineState {
     }
 
     pub fn next_span_start(&self) -> usize {
-        self.file_contents.len()
+        if let Some((_, _, last)) = self.file_contents.last() {
+            *last
+        } else {
+            0
+        }
     }
 
     pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
@@ -494,7 +498,13 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn next_span_start(&self) -> usize {
-        self.permanent_state.next_span_start() + self.delta.file_contents.len()
+        let permanent_span_start = self.permanent_state.next_span_start();
+
+        if let Some((_, _, last)) = self.delta.file_contents.last() {
+            permanent_span_start + *last
+        } else {
+            permanent_span_start
+        }
     }
 
     pub fn global_span_offset(&self) -> usize {
@@ -550,7 +560,7 @@ impl<'a> StateWorkingSet<'a> {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
-                if (span.start >= *start) && (span.start <= *finish) {
+                if (span.start >= *start) && (span.end <= *finish) {
                     return &contents[(span.start - permanent_end)..(span.end - permanent_end)];
                 }
             }

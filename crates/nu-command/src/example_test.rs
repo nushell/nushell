@@ -1,10 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{Command, EngineState, EvaluationContext, Stack, StateWorkingSet},
-    PipelineData, Value,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    PipelineData,
 };
 
 use super::{From, Into, Split};

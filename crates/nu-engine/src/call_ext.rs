@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, EvaluationContext, Stack},
+    engine::{EngineState, Stack},
     ShellError,
 };
 

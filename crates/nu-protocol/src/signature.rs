@@ -1,13 +1,10 @@
 use crate::ast::Call;
 use crate::engine::Command;
-use crate::engine::CommandClone;
 use crate::engine::EngineState;
-use crate::engine::EvaluationContext;
 use crate::engine::Stack;
 use crate::BlockId;
 use crate::PipelineData;
 use crate::SyntaxShape;
-use crate::Value;
 use crate::VarId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

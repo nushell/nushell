@@ -4,9 +4,9 @@ use std::process::Command as ProcessCommand;
 use std::process::Stdio;
 
 use nu_protocol::ast::Call;
+use nu_protocol::engine::Command;
 use nu_protocol::engine::EngineState;
 use nu_protocol::engine::Stack;
-use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::IntoPipelineData;
 use nu_protocol::PipelineData;
 use nu_protocol::{Signature, Value};
@@ -46,6 +46,7 @@ impl Command for ListGitBranches {
 
                 let s = String::from_utf8_lossy(&val).to_string();
 
+                #[allow(clippy::needless_collect)]
                 let lines: Vec<_> = s
                     .lines()
                     .filter_map(|x| {

@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -80,6 +80,6 @@ impl Command for Do {
                 )
             }
         }
-        eval_block(&engine_state, &mut stack, block, input)
+        eval_block(engine_state, &mut stack, block, input)
     }
 }

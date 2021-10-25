@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -41,23 +41,23 @@ impl Command for If {
 
         let result = eval_expression(engine_state, stack, cond)?;
         match result {
-            Value::Bool { val, span } => {
+            Value::Bool { val, .. } => {
                 if val {
                     let block = engine_state.get_block(then_block);
                     let mut stack = stack.enter_scope();
-                    eval_block(&engine_state, &mut stack, block, input)
+                    eval_block(engine_state, &mut stack, block, input)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
                             let block = engine_state.get_block(block_id);
                             let mut stack = stack.enter_scope();
-                            eval_block(&engine_state, &mut stack, block, input)
+                            eval_block(engine_state, &mut stack, block, input)
                         } else {
-                            eval_expression(&engine_state, stack, else_expr)
+                            eval_expression(engine_state, stack, else_expr)
                                 .map(|x| x.into_pipeline_data())
                         }
                     } else {
-                        eval_expression(&engine_state, stack, else_case)
+                        eval_expression(engine_state, stack, else_case)
                             .map(|x| x.into_pipeline_data())
                     }
                 } else {

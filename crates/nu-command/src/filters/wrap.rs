@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]

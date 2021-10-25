@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_parser::{parse, ParseError};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use reedline::{ValidationResult, Validator};

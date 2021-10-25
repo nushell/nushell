@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EngineState, EvaluationContext, Stack},
+    engine::{Command, EngineState, Stack},
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 use sysinfo::{ProcessExt, System, SystemExt};

@@ -2,8 +2,8 @@ use std::fs::OpenOptions;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Touch;

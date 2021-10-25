@@ -1,21 +1,15 @@
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{ChildStdin, Command as CommandSys, Stdio};
-use std::rc::Rc;
 use std::sync::mpsc;
 
 use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{
-    ast::{Call, Expression},
-    engine::{Command, EvaluationContext},
-    ShellError, Signature, SyntaxShape, Value,
-};
-use nu_protocol::{IntoPipelineData, PipelineData, Span, Spanned, ValueStream};
+use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Span, Spanned};
 
-use nu_engine::{eval_expression, CallExt};
+use nu_engine::CallExt;
 
 const OUTPUT_BUFFER_SIZE: usize = 8192;
 

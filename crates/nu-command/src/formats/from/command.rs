@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature};
 
 #[derive(Clone)]
 pub struct From;

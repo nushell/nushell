@@ -1,5 +1,5 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
-use nu_protocol::engine::{EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value,
 };
@@ -55,7 +55,7 @@ fn eval_call(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
             ) {
-                let result = eval_expression(&engine_state, &mut stack, arg)?;
+                let result = eval_expression(engine_state, &mut stack, arg)?;
                 rest_items.push(result);
             }
 
@@ -82,7 +82,7 @@ fn eval_call(
                 for call_named in &call.named {
                     if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.1 {
-                            let result = eval_expression(&engine_state, &mut stack, arg)?;
+                            let result = eval_expression(engine_state, &mut stack, arg)?;
 
                             stack.add_var(var_id, result);
                         } else {

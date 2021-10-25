@@ -1,5 +1,5 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]

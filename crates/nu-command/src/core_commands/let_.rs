@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Let;
@@ -40,7 +40,7 @@ impl Command for Let {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression(&engine_state, stack, keyword_expr)?;
+        let rhs = eval_expression(engine_state, stack, keyword_expr)?;
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 

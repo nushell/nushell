@@ -1,7 +1,7 @@
 use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EngineState, EvaluationContext, Stack},
+    engine::{Command, EngineState, Stack},
     IntoPipelineData, PipelineData, Signature, Value,
 };
 

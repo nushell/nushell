@@ -1,9 +1,6 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Value, ValueStream};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Value};
 
 #[derive(Clone)]
 pub struct Lines;
@@ -30,7 +27,6 @@ impl Command for Lines {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let span = call.head;
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for

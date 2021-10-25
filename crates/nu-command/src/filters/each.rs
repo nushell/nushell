@@ -1,6 +1,6 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -64,7 +64,7 @@ impl Command for Each {
 
         let numbered = call.has_flag("numbered");
         let engine_state = engine_state.clone();
-        let mut stack = stack.clone();
+        let stack = stack.clone();
         let span = call.head;
 
         match input {

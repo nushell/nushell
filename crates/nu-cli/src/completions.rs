@@ -1,10 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_engine::eval_block;
 use nu_parser::{flatten_block, parse};
 use nu_protocol::{
-    engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
-    PipelineData, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData,
 };
 use reedline::Completer;
 

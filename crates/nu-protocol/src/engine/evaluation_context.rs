@@ -1,5 +1,5 @@
 use super::EngineState;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use crate::{Example, ShellError, Signature, Value, VarId};
 

@@ -1,5 +1,5 @@
 use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
 use nu_table::StyledString;
 use std::collections::HashMap;

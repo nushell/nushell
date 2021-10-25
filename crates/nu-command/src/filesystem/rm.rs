@@ -7,10 +7,8 @@ use super::util::get_interactive_confirmation;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{
-    IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
-};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Rm;

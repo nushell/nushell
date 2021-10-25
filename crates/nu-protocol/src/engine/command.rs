@@ -1,6 +1,6 @@
-use crate::{ast::Call, value::Value, BlockId, Example, PipelineData, ShellError, Signature};
+use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
 
-use super::{EngineState, EvaluationContext, Stack};
+use super::{EngineState, Stack};
 
 pub trait Command: Send + Sync + CommandClone {
     fn name(&self) -> &str;

@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EngineState, EvaluationContext, Stack},
+    engine::{Command, EngineState, Stack},
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
@@ -26,8 +26,8 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

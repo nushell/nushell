@@ -1,6 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl Command for Where {
                     }
                 })
                 .into_pipeline_data()),
-            PipelineData::Value(Value::List { vals, span }) => Ok(vals
+            PipelineData::Value(Value::List { vals, .. }) => Ok(vals
                 .into_iter()
                 .filter(move |value| {
                     stack.add_var(var_id, value.clone());

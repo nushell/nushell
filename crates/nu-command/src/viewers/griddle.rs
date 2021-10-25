@@ -2,7 +2,7 @@ use lscolors::{LsColors, Style};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
-    engine::{Command, EngineState, EvaluationContext, Stack},
+    engine::{Command, EngineState, Stack},
     IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};

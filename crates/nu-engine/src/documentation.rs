@@ -1,8 +1,5 @@
 use itertools::Itertools;
-use nu_protocol::{
-    engine::{EngineState, EvaluationContext},
-    Example, Signature, Span, Value,
-};
+use nu_protocol::{engine::EngineState, Example, Signature, Span, Value};
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";

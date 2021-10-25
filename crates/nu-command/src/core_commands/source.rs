@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
 /// Source a file for environment variables.
 #[derive(Clone)]

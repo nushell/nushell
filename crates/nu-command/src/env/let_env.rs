@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct LetEnv;

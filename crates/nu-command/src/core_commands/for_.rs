@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl Command for For {
             .expect("internal error: expected block");
 
         let engine_state = engine_state.clone();
-        let mut stack = stack.enter_scope();
+        let stack = stack.enter_scope();
 
         match values {
             Value::List { vals, span } => Ok(vals
