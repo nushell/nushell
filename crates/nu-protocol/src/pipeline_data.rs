@@ -1,4 +1,4 @@
-use crate::{Span, Value, ValueStream};
+use crate::{ast::PathMember, ShellError, Span, Value, ValueStream};
 
 pub enum PipelineData {
     Value(Value),
@@ -17,6 +17,25 @@ impl PipelineData {
                 vals: s.collect(),
                 span: Span::unknown(), // FIXME?
             },
+        }
+    }
+
+    pub fn collect_string(self) -> String {
+        match self {
+            PipelineData::Value(v) => v.collect_string(),
+            PipelineData::Stream(s) => s.collect_string(),
+        }
+    }
+
+    pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
+        match self {
+            // FIXME: there are probably better ways of doing this
+            PipelineData::Stream(stream) => Value::List {
+                vals: stream.collect(),
+                span: Span::unknown(),
+            }
+            .follow_cell_path(cell_path),
+            PipelineData::Value(v) => v.follow_cell_path(cell_path),
         }
     }
 }

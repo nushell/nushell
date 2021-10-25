@@ -62,7 +62,7 @@ impl Command for For {
                 .map(move |x| {
                     let block = context.engine_state.get_block(block);
 
-                    let state = context.enter_scope();
+                    let mut state = context.enter_scope();
 
                     state.add_var(var_id, x);
 
@@ -75,6 +75,33 @@ impl Command for For {
                     }
                 })
                 .into_pipeline_data()),
+            Value::Range { val, span } => Ok(val
+                .into_range_iter()?
+                .map(move |x| {
+                    let block = context.engine_state.get_block(block);
+
+                    let mut state = context.enter_scope();
+
+                    state.add_var(var_id, x);
+
+                    match eval_block(&state, block, PipelineData::new()) {
+                        Ok(value) => Value::List {
+                            vals: value.collect(),
+                            span,
+                        },
+                        Err(error) => Value::Error { error },
+                    }
+                })
+                .into_pipeline_data()),
+            x => {
+                let block = context.engine_state.get_block(block);
+
+                let mut state = context.enter_scope();
+
+                state.add_var(var_id, x);
+
+                eval_block(&state, block, PipelineData::new())
+            }
         }
     }
 

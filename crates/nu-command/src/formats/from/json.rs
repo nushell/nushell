@@ -72,7 +72,7 @@ impl Command for FromJson {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        let span = input.span()?;
+        let span = call.head;
         let mut string_input = input.collect_string();
         string_input.push('\n');
 

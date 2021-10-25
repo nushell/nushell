@@ -39,7 +39,7 @@ impl Command for Do {
 
         let block = context.engine_state.get_block(block_id);
 
-        let state = context.enter_scope();
+        let mut state = context.enter_scope();
 
         let params: Vec<_> = block
             .signature
