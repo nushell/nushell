@@ -1,12 +1,13 @@
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 
-use super::interactive_helper::get_confirmation;
+use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
+#[derive(Clone)]
 pub struct Mv;
 
 #[allow(unused_must_use)]
@@ -37,13 +38,14 @@ impl Command for Mv {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let source: String = call.req(context, 0)?;
-        let destination: String = call.req(context, 1)?;
+        let source: String = call.req(engine_state, stack, 0)?;
+        let destination: String = call.req(engine_state, stack, 1)?;
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 
@@ -74,7 +76,7 @@ impl Command for Mv {
                     destination.file_name().unwrap().to_str().unwrap()
                 );
 
-                let input = get_confirmation(prompt)?;
+                let input = get_interactive_confirmation(prompt)?;
 
                 if !input {
                     remove.push(index);
@@ -128,7 +130,7 @@ impl Command for Mv {
             move_file(call, &entry, &destination)?
         }
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(PipelineData::new())
     }
 }
 

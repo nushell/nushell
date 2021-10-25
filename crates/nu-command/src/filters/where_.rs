@@ -1,8 +1,9 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{IntoValueStream, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct Where;
 
 impl Command for Where {
@@ -20,13 +21,17 @@ impl Command for Where {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cond = call.positional[0].clone();
 
-        let context = context.enter_scope();
+        let engine_state = engine_state.clone();
+
+        // FIXME: very expensive
+        let mut stack = stack.clone();
 
         let (var_id, cond) = match cond {
             Expression {
@@ -37,54 +42,40 @@ impl Command for Where {
         };
 
         match input {
-            Value::Stream { stream, span } => {
-                let output_stream = stream
-                    .filter(move |value| {
-                        context.add_var(var_id, value.clone());
+            PipelineData::Stream(stream) => Ok(stream
+                .filter(move |value| {
+                    stack.add_var(var_id, value.clone());
 
-                        let result = eval_expression(&context, &cond);
+                    let result = eval_expression(&engine_state, &mut stack, &cond);
 
-                        match result {
-                            Ok(result) => result.is_true(),
-                            _ => false,
-                        }
-                    })
-                    .into_value_stream();
-
-                Ok(Value::Stream {
-                    stream: output_stream,
-                    span,
+                    match result {
+                        Ok(result) => result.is_true(),
+                        _ => false,
+                    }
                 })
-            }
-            Value::List { vals, span } => {
-                let output_stream = vals
-                    .into_iter()
-                    .filter(move |value| {
-                        context.add_var(var_id, value.clone());
+                .into_pipeline_data()),
+            PipelineData::Value(Value::List { vals, .. }) => Ok(vals
+                .into_iter()
+                .filter(move |value| {
+                    stack.add_var(var_id, value.clone());
 
-                        let result = eval_expression(&context, &cond);
+                    let result = eval_expression(&engine_state, &mut stack, &cond);
 
-                        match result {
-                            Ok(result) => result.is_true(),
-                            _ => false,
-                        }
-                    })
-                    .into_value_stream();
-
-                Ok(Value::Stream {
-                    stream: output_stream,
-                    span,
+                    match result {
+                        Ok(result) => result.is_true(),
+                        _ => false,
+                    }
                 })
-            }
-            x => {
-                context.add_var(var_id, x.clone());
+                .into_pipeline_data()),
+            PipelineData::Value(x) => {
+                stack.add_var(var_id, x.clone());
 
-                let result = eval_expression(&context, &cond)?;
+                let result = eval_expression(&engine_state, &mut stack, &cond)?;
 
                 if result.is_true() {
-                    Ok(x)
+                    Ok(x.into_pipeline_data())
                 } else {
-                    Ok(Value::Nothing { span: call.head })
+                    Ok(PipelineData::new())
                 }
             }
         }

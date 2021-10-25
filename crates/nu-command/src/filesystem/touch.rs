@@ -2,9 +2,10 @@ use std::fs::OpenOptions;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
+#[derive(Clone)]
 pub struct Touch;
 
 impl Command for Touch {
@@ -28,12 +29,13 @@ impl Command for Touch {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
-        let target: String = call.req(context, 0)?;
-        let rest: Vec<String> = call.rest(context, 1)?;
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let target: String = call.req(engine_state, stack, 0)?;
+        let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
             match OpenOptions::new().write(true).create(true).open(&item) {
@@ -47,6 +49,6 @@ impl Command for Touch {
             }
         }
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(PipelineData::new())
     }
 }

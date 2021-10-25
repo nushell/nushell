@@ -13,6 +13,7 @@ pub enum Expr {
         RangeOperator,
     ),
     Var(VarId),
+    VarDecl(VarId),
     Call(Box<Call>),
     ExternalCall(String, Span, Vec<Expression>),
     Operator(Operator),

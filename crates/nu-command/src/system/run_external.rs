@@ -1,22 +1,19 @@
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{ChildStdin, Command as CommandSys, Stdio};
-use std::rc::Rc;
+use std::process::{Command as CommandSys, Stdio};
 use std::sync::mpsc;
 
-use nu_protocol::{
-    ast::{Call, Expression},
-    engine::{Command, EvaluationContext},
-    ShellError, Signature, SyntaxShape, Value,
-};
-use nu_protocol::{Span, ValueStream};
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Span, Spanned};
 
-use nu_engine::eval_expression;
+use nu_engine::CallExt;
 
 const OUTPUT_BUFFER_SIZE: usize = 8192;
 
+#[derive(Clone)]
 pub struct External;
 
 impl Command for External {
@@ -36,53 +33,35 @@ impl Command for External {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError> {
-        let command = ExternalCommand::try_new(call, context)?;
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let args: Vec<String> = call.rest(engine_state, stack, 1)?;
+        let last_expression = call.has_flag("last_expression");
+        let env_vars = stack.get_env_vars();
+
+        let command = ExternalCommand {
+            name,
+            args,
+            last_expression,
+            env_vars,
+        };
         command.run_with_input(input)
     }
 }
 
-pub struct ExternalCommand<'call, 'contex> {
-    pub name: &'call Expression,
-    pub args: &'call [Expression],
-    pub context: &'contex EvaluationContext,
+pub struct ExternalCommand {
+    pub name: Spanned<String>,
+    pub args: Vec<String>,
     pub last_expression: bool,
+    pub env_vars: HashMap<String, String>,
 }
 
-impl<'call, 'contex> ExternalCommand<'call, 'contex> {
-    pub fn try_new(
-        call: &'call Call,
-        context: &'contex EvaluationContext,
-    ) -> Result<Self, ShellError> {
-        if call.positional.is_empty() {
-            return Err(ShellError::ExternalNotSupported(call.head));
-        }
-
-        Ok(Self {
-            name: &call.positional[0],
-            args: &call.positional[1..],
-            context,
-            last_expression: call.has_flag("last_expression"),
-        })
-    }
-
-    pub fn get_name(&self) -> Result<String, ShellError> {
-        let value = eval_expression(self.context, self.name)?;
-        value.as_string()
-    }
-
-    pub fn get_args(&self) -> Vec<String> {
-        self.args
-            .iter()
-            .filter_map(|expr| eval_expression(self.context, expr).ok())
-            .filter_map(|value| value.as_string().ok())
-            .collect()
-    }
-
-    pub fn run_with_input(&self, input: Value) -> Result<Value, ShellError> {
+impl ExternalCommand {
+    pub fn run_with_input(&self, input: PipelineData) -> Result<PipelineData, ShellError> {
         let mut process = self.create_command();
 
         // TODO. We don't have a way to know the current directory
@@ -90,8 +69,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
         let path = env::current_dir().unwrap();
         process.current_dir(path);
 
-        let envs = self.context.stack.get_env_vars();
-        process.envs(envs);
+        process.envs(&self.env_vars);
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
@@ -101,11 +79,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if let Value::String { .. } = input {
-            process.stdin(Stdio::piped());
-        }
-
-        if let Value::Stream { .. } = input {
+        if !matches!(input, PipelineData::Value(Value::Nothing { .. })) {
             process.stdin(Stdio::piped());
         }
 
@@ -116,33 +90,29 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             )),
             Ok(mut child) => {
                 // if there is a string or a stream, that is sent to the pipe std
-                match input {
-                    Value::String { val, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            self.write_to_stdin(&mut stdin_write, val.as_bytes())?
-                        }
-                    }
-                    Value::Binary { val, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            self.write_to_stdin(&mut stdin_write, &val)?
-                        }
-                    }
-                    Value::Stream { stream, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            for value in stream {
-                                match value {
-                                    Value::String { val, span: _ } => {
-                                        self.write_to_stdin(&mut stdin_write, val.as_bytes())?
+                if let Some(mut stdin_write) = child.stdin.take() {
+                    std::thread::spawn(move || {
+                        for value in input.into_iter() {
+                            match value {
+                                Value::String { val, span: _ } => {
+                                    if stdin_write.write(val.as_bytes()).is_err() {
+                                        return Ok(());
                                     }
-                                    Value::Binary { val, span: _ } => {
-                                        self.write_to_stdin(&mut stdin_write, &val)?
+                                }
+                                Value::Binary { val, span: _ } => {
+                                    if stdin_write.write(&val).is_err() {
+                                        return Ok(());
                                     }
-                                    _ => continue,
+                                }
+                                x => {
+                                    if stdin_write.write(x.into_string().as_bytes()).is_err() {
+                                        return Err(());
+                                    }
                                 }
                             }
                         }
-                    }
-                    _ => (),
+                        Ok(())
+                    });
                 }
 
                 // If this external is not the last expression, then its output is piped to a channel
@@ -185,12 +155,9 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
                     });
 
                     // The ValueStream is consumed by the next expression in the pipeline
-                    Value::Stream {
-                        stream: ValueStream(Rc::new(RefCell::new(ChannelReceiver::new(rx)))),
-                        span: Span::unknown(),
-                    }
+                    ChannelReceiver::new(rx).into_pipeline_data()
                 } else {
-                    Value::nothing()
+                    PipelineData::new()
                 };
 
                 match child.wait() {
@@ -212,8 +179,8 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             // for minimal builds cwd is unused
             let mut process = CommandSys::new("cmd");
             process.arg("/c");
-            process.arg(&self.get_name().unwrap());
-            for arg in self.get_args() {
+            process.arg(&self.name.item);
+            for arg in &self.args {
                 // Clean the args before we use them:
                 // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
                 // cmd.exe needs to have a caret to escape a pipe
@@ -222,21 +189,10 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             }
             process
         } else {
-            let cmd_with_args = vec![self.get_name().unwrap(), self.get_args().join(" ")].join(" ");
+            let cmd_with_args = vec![self.name.item.clone(), self.args.join(" ")].join(" ");
             let mut process = CommandSys::new("sh");
             process.arg("-c").arg(cmd_with_args);
             process
-        }
-    }
-
-    fn write_to_stdin(&self, stdin_write: &mut ChildStdin, val: &[u8]) -> Result<(), ShellError> {
-        if stdin_write.write(val).is_err() {
-            Err(ShellError::ExternalCommand(
-                "Error writing input to stdin".to_string(),
-                self.name.span,
-            ))
-        } else {
-            Ok(())
         }
     }
 }

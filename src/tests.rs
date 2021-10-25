@@ -249,32 +249,32 @@ fn alias_2() -> TestResult {
 
 #[test]
 fn block_param1() -> TestResult {
-    run_test("[3] | each { $it + 10 }", "[13]")
+    run_test("[3] | each { $it + 10 } | get 0", "13")
 }
 
 #[test]
 fn block_param2() -> TestResult {
-    run_test("[3] | each { |y| $y + 10 }", "[13]")
+    run_test("[3] | each { |y| $y + 10 } | get 0", "13")
 }
 
 #[test]
 fn block_param3_list_iteration() -> TestResult {
-    run_test("[1,2,3] | each { $it + 10 }", "[11, 12, 13]")
+    run_test("[1,2,3] | each { $it + 10 } | get 1", "12")
 }
 
 #[test]
 fn block_param4_list_iteration() -> TestResult {
-    run_test("[1,2,3] | each { |y| $y + 10 }", "[11, 12, 13]")
+    run_test("[1,2,3] | each { |y| $y + 10 } | get 2", "13")
 }
 
 #[test]
 fn range_iteration1() -> TestResult {
-    run_test("1..4 | each { |y| $y + 10 }", "[11, 12, 13, 14]")
+    run_test("1..4 | each { |y| $y + 10 } | get 0", "11")
 }
 
 #[test]
 fn range_iteration2() -> TestResult {
-    run_test("4..1 | each { |y| $y + 100 }", "[104, 103, 102, 101]")
+    run_test("4..1 | each { |y| $y + 100 } | get 3", "101")
 }
 
 #[test]
@@ -311,22 +311,22 @@ fn build_string3() -> TestResult {
 #[test]
 fn build_string4() -> TestResult {
     run_test(
-        "['sam','rick','pete'] | each { build-string $it ' is studying'}",
-        "[sam is studying, rick is studying, pete is studying]",
+        "['sam','rick','pete'] | each { build-string $it ' is studying'} | get 2",
+        "pete is studying",
     )
 }
 
 #[test]
 fn build_string5() -> TestResult {
     run_test(
-        "['sam','rick','pete'] | each { |x| build-string $x ' is studying'}",
-        "[sam is studying, rick is studying, pete is studying]",
+        "['sam','rick','pete'] | each { |x| build-string $x ' is studying'} | get 1",
+        "rick is studying",
     )
 }
 
 #[test]
 fn cell_path_subexpr1() -> TestResult {
-    run_test("([[lang, gems]; [nu, 100]]).lang", "[nu]")
+    run_test("([[lang, gems]; [nu, 100]]).lang | get 0", "nu")
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn cell_path_subexpr2() -> TestResult {
 
 #[test]
 fn cell_path_var1() -> TestResult {
-    run_test("let x = [[lang, gems]; [nu, 100]]; $x.lang", "[nu]")
+    run_test("let x = [[lang, gems]; [nu, 100]]; $x.lang | get 0", "nu")
 }
 
 #[test]
@@ -352,21 +352,21 @@ fn custom_rest_var() -> TestResult {
 #[test]
 fn row_iteration() -> TestResult {
     run_test(
-        "[[name, size]; [tj, 100], [rl, 200]] | each { $it.size * 8 }",
-        "[800, 1600]",
+        "[[name, size]; [tj, 100], [rl, 200]] | each { $it.size * 8 } | get 1",
+        "1600",
     )
 }
 
 #[test]
 fn record_iteration() -> TestResult {
-    run_test("([[name, level]; [aa, 100], [bb, 200]] | each { $it | each { |x| if $x.column == \"level\" { $x.value + 100 } else { $x.value } } }).level", "[200, 300]")
+    run_test("([[name, level]; [aa, 100], [bb, 200]] | each { $it | each { |x| if $x.column == \"level\" { $x.value + 100 } else { $x.value } } }).level | get 1", "300")
 }
 
 #[test]
 fn row_condition1() -> TestResult {
     run_test(
-        "([[name, size]; [a, 1], [b, 2], [c, 3]] | where size < 3).name",
-        "[a, b]",
+        "([[name, size]; [a, 1], [b, 2], [c, 3]] | where size < 3).name | get 1",
+        "b",
     )
 }
 

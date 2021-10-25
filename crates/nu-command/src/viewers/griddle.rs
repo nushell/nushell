@@ -2,12 +2,13 @@ use lscolors::{LsColors, Style};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
-    engine::{Command, EvaluationContext},
-    Signature, Span, SyntaxShape, Value,
+    engine::{Command, EngineState, Stack},
+    IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
 
+#[derive(Clone)]
 pub struct Griddle;
 
 impl Command for Griddle {
@@ -47,16 +48,17 @@ prints out the list properly."#
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let width_param: Option<String> = call.get_flag(context, "width")?;
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let width_param: Option<String> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
-        let separator_param: Option<String> = call.get_flag(context, "separator")?;
+        let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
 
         match input {
-            Value::List { vals, .. } => {
+            PipelineData::Value(Value::List { vals, .. }) => {
                 // dbg!("value::list");
                 let data = convert_to_list2(vals);
                 if let Some(items) = data {
@@ -68,10 +70,10 @@ prints out the list properly."#
                         separator_param,
                     ))
                 } else {
-                    Ok(Value::Nothing { span: call.head })
+                    Ok(PipelineData::new())
                 }
             }
-            Value::Stream { stream, .. } => {
+            PipelineData::Stream(stream) => {
                 // dbg!("value::stream");
                 let data = convert_to_list2(stream);
                 if let Some(items) = data {
@@ -84,10 +86,10 @@ prints out the list properly."#
                     ))
                 } else {
                     // dbg!(data);
-                    Ok(Value::Nothing { span: call.head })
+                    Ok(PipelineData::new())
                 }
             }
-            Value::Record { cols, vals, .. } => {
+            PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 
@@ -118,7 +120,7 @@ fn create_grid_output2(
     width_param: Option<String>,
     color_param: bool,
     separator_param: Option<String>,
-) -> Value {
+) -> PipelineData {
     let ls_colors = LsColors::from_env().unwrap_or_default();
     let cols = if let Some(col) = width_param {
         col.parse::<u16>().unwrap_or(80)
@@ -166,6 +168,7 @@ fn create_grid_output2(
             span: call.head,
         }
     }
+    .into_pipeline_data()
 }
 
 fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize, String, String)>> {

@@ -1,22 +1,19 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{Command, EngineState, EvaluationContext, StateWorkingSet},
-    Value,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    PipelineData,
 };
 
 use super::{From, Into, Split};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
-    let engine_state = Rc::new(RefCell::new(EngineState::new()));
+    let mut engine_state = Box::new(EngineState::new());
 
     let delta = {
         // Base functions that are needed for testing
         // Try to keep this working set small to keep tests running as fast as possible
-        let engine_state = engine_state.borrow();
         let mut working_set = StateWorkingSet::new(&*engine_state);
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(Into));
@@ -28,7 +25,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.render()
     };
 
-    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+    EngineState::merge_delta(&mut *engine_state, delta);
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -38,7 +35,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
         let start = std::time::Instant::now();
 
         let (block, delta) = {
-            let engine_state = engine_state.borrow();
             let mut working_set = StateWorkingSet::new(&*engine_state);
             let (output, err) = parse(&mut working_set, None, example.example.as_bytes(), false);
 
@@ -49,16 +45,14 @@ pub fn test_examples(cmd: impl Command + 'static) {
             (output, working_set.render())
         };
 
-        EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+        EngineState::merge_delta(&mut engine_state, delta);
 
-        let state = EvaluationContext {
-            engine_state: engine_state.clone(),
-            stack: nu_protocol::engine::Stack::new(),
-        };
+        let mut stack = Stack::new();
 
-        match eval_block(&state, &block, Value::nothing()) {
+        match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
             Err(err) => panic!("test eval error in `{}`: {:?}", example.example, err),
             Ok(result) => {
+                let result = result.into_value();
                 println!("input: {}", example.example);
                 println!("result: {:?}", result);
                 println!("done: {:?}", start.elapsed());

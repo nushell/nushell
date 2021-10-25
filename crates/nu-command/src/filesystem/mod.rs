@@ -1,6 +1,5 @@
 mod cd;
 mod cp;
-mod interactive_helper;
 mod ls;
 mod mkdir;
 mod mv;

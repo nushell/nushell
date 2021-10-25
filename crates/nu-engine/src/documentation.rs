@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use nu_protocol::{engine::EvaluationContext, Example, Signature, Span, Value};
+use nu_protocol::{engine::EngineState, Example, Signature, Span, Value};
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -22,11 +22,9 @@ impl Default for DocumentationConfig {
     }
 }
 
-fn generate_doc(name: &str, context: &EvaluationContext) -> (Vec<String>, Vec<Value>) {
+fn generate_doc(name: &str, engine_state: &EngineState) -> (Vec<String>, Vec<Value>) {
     let mut cols = vec![];
     let mut vals = vec![];
-
-    let engine_state = context.engine_state.borrow();
 
     let command = engine_state
         .find_decl(name.as_bytes())
@@ -58,7 +56,7 @@ fn generate_doc(name: &str, context: &EvaluationContext) -> (Vec<String>, Vec<Va
         val: get_documentation(
             &command.signature(),
             &command.examples(),
-            context,
+            engine_state,
             &DocumentationConfig {
                 no_subcommands: true,
                 no_color: true,
@@ -72,8 +70,8 @@ fn generate_doc(name: &str, context: &EvaluationContext) -> (Vec<String>, Vec<Va
 }
 
 // generate_docs gets the documentation from each command and returns a Table as output
-pub fn generate_docs(context: &EvaluationContext) -> Value {
-    let signatures = context.get_signatures();
+pub fn generate_docs(engine_state: &EngineState) -> Value {
+    let signatures = engine_state.get_signatures();
 
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
     let mut cmap: HashMap<String, Vec<String>> = HashMap::new();
@@ -99,11 +97,11 @@ pub fn generate_docs(context: &EvaluationContext) -> Value {
         if !cmap.contains_key(&sig.name) {
             continue;
         }
-        let mut row_entries = generate_doc(&sig.name, context);
+        let mut row_entries = generate_doc(&sig.name, engine_state);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
         for sub_name in cmap.get(&sig.name).unwrap_or(&Vec::new()) {
-            let (cols, vals) = generate_doc(sub_name, context);
+            let (cols, vals) = generate_doc(sub_name, engine_state);
             sub_table.push(Value::Record {
                 cols,
                 vals,
@@ -149,7 +147,7 @@ fn retrieve_doc_link(name: &str) -> Option<String> {
 pub fn get_documentation(
     sig: &Signature,
     examples: &[Example],
-    context: &EvaluationContext,
+    engine_state: &EngineState,
     config: &DocumentationConfig,
 ) -> String {
     let cmd_name = &sig.name;
@@ -169,7 +167,7 @@ pub fn get_documentation(
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
-        let signatures = context.get_signatures();
+        let signatures = engine_state.get_signatures();
         for sig in signatures {
             if sig.name.starts_with(&format!("{} ", cmd_name)) {
                 subcommands.push(format!("  {} - {}", sig.name, sig.usage));
@@ -325,15 +323,11 @@ fn get_flags_section(signature: &Signature) -> String {
     long_desc
 }
 
-pub fn get_brief_help(
-    sig: &Signature,
-    examples: &[Example],
-    context: &EvaluationContext,
-) -> String {
+pub fn get_brief_help(sig: &Signature, examples: &[Example], engine_state: &EngineState) -> String {
     get_documentation(
         sig,
         examples,
-        context,
+        engine_state,
         &DocumentationConfig {
             no_subcommands: false,
             no_color: false,
@@ -342,6 +336,6 @@ pub fn get_brief_help(
     )
 }
 
-pub fn get_full_help(sig: &Signature, examples: &[Example], context: &EvaluationContext) -> String {
-    get_documentation(sig, examples, context, &DocumentationConfig::default())
+pub fn get_full_help(sig: &Signature, examples: &[Example], engine_state: &EngineState) -> String {
+    get_documentation(sig, examples, engine_state, &DocumentationConfig::default())
 }

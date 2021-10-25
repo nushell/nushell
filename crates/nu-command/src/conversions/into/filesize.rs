@@ -1,9 +1,10 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Span, SyntaxShape, Value,
+    engine::{Command, EngineState, Stack},
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -25,11 +26,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        into_filesize(context, call, input)
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        into_filesize(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -112,14 +114,13 @@ impl Command for SubCommand {
 }
 
 fn into_filesize(
-    _context: &EvaluationContext,
     call: &Call,
-    input: Value,
-) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    input: PipelineData,
+) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
     // let call_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    input.map(head, move |v| {
+    input.map(move |v| {
         action(v, head)
 
         // FIXME: Add back cell_path support

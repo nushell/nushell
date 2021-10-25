@@ -1806,7 +1806,7 @@ pub fn parse_var_with_opt_type(
 
             (
                 Expression {
-                    expr: Expr::Var(id),
+                    expr: Expr::VarDecl(id),
                     span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
                     ty,
                     custom_completion: None,
@@ -1817,7 +1817,7 @@ pub fn parse_var_with_opt_type(
             let id = working_set.add_variable(bytes[0..(bytes.len() - 1)].to_vec(), Type::Unknown);
             (
                 Expression {
-                    expr: Expr::Var(id),
+                    expr: Expr::VarDecl(id),
                     span: spans[*spans_idx],
                     ty: Type::Unknown,
                     custom_completion: None,
@@ -1830,7 +1830,7 @@ pub fn parse_var_with_opt_type(
 
         (
             Expression {
-                expr: Expr::Var(id),
+                expr: Expr::VarDecl(id),
                 span: span(&spans[*spans_idx..*spans_idx + 1]),
                 ty: Type::Unknown,
                 custom_completion: None,
@@ -2574,6 +2574,11 @@ pub fn parse_block_expression(
         }
     }
 
+    let mut seen = vec![];
+    let captures = find_captures_in_block(working_set, &output, &mut seen);
+
+    output.captures = captures;
+
     working_set.exit_scope();
 
     let block_id = working_set.add_block(output);
@@ -3039,6 +3044,177 @@ pub fn parse_block(
     }
 
     (block, error)
+}
+
+fn find_captures_in_block(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    seen: &mut Vec<VarId>,
+) -> Vec<VarId> {
+    let mut output = vec![];
+
+    for flag in &block.signature.named {
+        if let Some(var_id) = flag.var_id {
+            seen.push(var_id);
+        }
+    }
+
+    for positional in &block.signature.required_positional {
+        if let Some(var_id) = positional.var_id {
+            seen.push(var_id);
+        }
+    }
+    for positional in &block.signature.optional_positional {
+        if let Some(var_id) = positional.var_id {
+            seen.push(var_id);
+        }
+    }
+    for positional in &block.signature.rest_positional {
+        if let Some(var_id) = positional.var_id {
+            seen.push(var_id);
+        }
+    }
+
+    for stmt in &block.stmts {
+        match stmt {
+            Statement::Pipeline(pipeline) => {
+                let result = find_captures_in_pipeline(working_set, pipeline, seen);
+                output.extend(&result);
+            }
+            Statement::Declaration(_) => {}
+        }
+    }
+
+    output
+}
+
+fn find_captures_in_pipeline(
+    working_set: &StateWorkingSet,
+    pipeline: &Pipeline,
+    seen: &mut Vec<VarId>,
+) -> Vec<VarId> {
+    let mut output = vec![];
+    for expr in &pipeline.expressions {
+        let result = find_captures_in_expr(working_set, expr, seen);
+        output.extend(&result);
+    }
+
+    output
+}
+
+pub fn find_captures_in_expr(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    seen: &mut Vec<VarId>,
+) -> Vec<VarId> {
+    let mut output = vec![];
+    match &expr.expr {
+        Expr::BinaryOp(lhs, _, rhs) => {
+            let lhs_result = find_captures_in_expr(working_set, lhs, seen);
+            let rhs_result = find_captures_in_expr(working_set, rhs, seen);
+
+            output.extend(&lhs_result);
+            output.extend(&rhs_result);
+        }
+        Expr::Block(block_id) => {
+            let block = working_set.get_block(*block_id);
+            let result = find_captures_in_block(working_set, block, seen);
+            output.extend(&result);
+        }
+        Expr::Bool(_) => {}
+        Expr::Call(call) => {
+            for named in &call.named {
+                if let Some(arg) = &named.1 {
+                    let result = find_captures_in_expr(working_set, arg, seen);
+                    output.extend(&result);
+                }
+            }
+
+            for positional in &call.positional {
+                let result = find_captures_in_expr(working_set, positional, seen);
+                output.extend(&result);
+            }
+        }
+        Expr::CellPath(_) => {}
+        Expr::ExternalCall(_, _, exprs) => {
+            for expr in exprs {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+        }
+        Expr::Filepath(_) => {}
+        Expr::Float(_) => {}
+        Expr::FullCellPath(cell_path) => {
+            let result = find_captures_in_expr(working_set, &cell_path.head, seen);
+            output.extend(&result);
+        }
+        Expr::Garbage => {}
+        Expr::GlobPattern(_) => {}
+        Expr::Int(_) => {}
+        Expr::Keyword(_, _, expr) => {
+            let result = find_captures_in_expr(working_set, expr, seen);
+            output.extend(&result);
+        }
+        Expr::List(exprs) => {
+            for expr in exprs {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+        }
+        Expr::Operator(_) => {}
+        Expr::Range(expr1, expr2, expr3, _) => {
+            if let Some(expr) = expr1 {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+            if let Some(expr) = expr2 {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+            if let Some(expr) = expr3 {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+        }
+        Expr::RowCondition(var_id, expr) => {
+            seen.push(*var_id);
+
+            let result = find_captures_in_expr(working_set, expr, seen);
+            output.extend(&result);
+        }
+        Expr::Signature(_) => {}
+        Expr::String(_) => {}
+        Expr::Subexpression(block_id) => {
+            let block = working_set.get_block(*block_id);
+            let result = find_captures_in_block(working_set, block, seen);
+            output.extend(&result);
+        }
+        Expr::Table(headers, values) => {
+            for header in headers {
+                let result = find_captures_in_expr(working_set, header, seen);
+                output.extend(&result);
+            }
+            for row in values {
+                for cell in row {
+                    let result = find_captures_in_expr(working_set, cell, seen);
+                    output.extend(&result);
+                }
+            }
+        }
+        Expr::ValueWithUnit(expr, _) => {
+            let result = find_captures_in_expr(working_set, expr, seen);
+            output.extend(&result);
+        }
+        Expr::Var(var_id) => {
+            if !seen.contains(var_id) {
+                output.push(*var_id);
+            }
+        }
+        Expr::VarDecl(var_id) => {
+            seen.push(*var_id);
+        }
+    }
+    output
 }
 
 // Parses a vector of u8 to create an AST Block. If a file name is given, then

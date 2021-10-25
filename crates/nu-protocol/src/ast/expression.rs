@@ -77,6 +77,7 @@ impl Expression {
     pub fn as_var(&self) -> Option<VarId> {
         match self.expr {
             Expr::Var(var_id) => Some(var_id),
+            Expr::VarDecl(var_id) => Some(var_id),
             _ => None,
         }
     }

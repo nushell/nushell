@@ -3,9 +3,10 @@ extern crate unicode_segmentation;
 use unicode_segmentation::UnicodeSegmentation;
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, ShellError, Signature, Span, Type, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
+#[derive(Clone)]
 pub struct Size;
 
 impl Command for Size {
@@ -23,11 +24,12 @@ impl Command for Size {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError> {
-        size(context, call, input)
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        size(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -98,9 +100,9 @@ impl Command for Size {
     }
 }
 
-fn size(_context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
+fn size(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    input.map(span, move |v| match v.as_string() {
+    input.map(move |v| match v.as_string() {
         Ok(s) => count(&s, span),
         Err(_) => Value::Error {
             error: ShellError::PipelineMismatch {

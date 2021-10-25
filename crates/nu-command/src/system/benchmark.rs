@@ -2,9 +2,10 @@ use std::time::Instant;
 
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
+#[derive(Clone)]
 pub struct Benchmark;
 
 impl Command for Benchmark {
@@ -26,23 +27,22 @@ impl Command for Benchmark {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let block = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
-        let engine_state = context.engine_state.borrow();
         let block = engine_state.get_block(block);
 
-        let state = context.enter_scope();
+        let mut stack = stack.collect_captures(&block.captures);
         let start_time = Instant::now();
-        eval_block(&state, block, Value::nothing())?;
+        eval_block(engine_state, &mut stack, block, PipelineData::new())?.into_value();
+
         let end_time = Instant::now();
         println!("{} ms", (end_time - start_time).as_millis());
-        Ok(Value::Nothing {
-            span: call.positional[0].span,
-        })
+        Ok(PipelineData::new())
     }
 }

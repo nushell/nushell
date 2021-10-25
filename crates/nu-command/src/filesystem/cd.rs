@@ -1,8 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
+#[derive(Clone)]
 pub struct Cd;
 
 impl Command for Cd {
@@ -20,11 +21,12 @@ impl Command for Cd {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let path: Option<String> = call.opt(context, 0)?;
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let path: Option<String> = call.opt(engine_state, stack, 0)?;
 
         let path = match path {
             Some(path) => {
@@ -40,7 +42,7 @@ impl Command for Cd {
 
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
-        context.add_env_var("PWD".into(), path);
-        Ok(Value::Nothing { span: call.head })
+        stack.add_env_var("PWD".into(), path);
+        Ok(PipelineData::new())
     }
 }
