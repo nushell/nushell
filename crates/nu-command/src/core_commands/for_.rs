@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, Signature, Span, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct For;
 
 impl Command for For {
@@ -36,10 +37,11 @@ impl Command for For {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let var_id = call.positional[0]
             .as_var()
             .expect("internal error: missing variable");
@@ -47,27 +49,48 @@ impl Command for For {
         let keyword_expr = call.positional[1]
             .as_keyword()
             .expect("internal error: missing keyword");
-        let values = eval_expression(context, keyword_expr)?;
+        let values = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let block = call.positional[2]
+        let block_id = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
 
-        let context = context.clone();
+        let engine_state = engine_state.clone();
+        let block = engine_state.get_block(block_id);
+        let mut stack = stack.collect_captures(&block.captures);
 
-        values.map(call.head, move |x| {
-            let engine_state = context.engine_state.borrow();
-            let block = engine_state.get_block(block);
+        match values {
+            Value::List { vals, .. } => Ok(vals
+                .into_iter()
+                .map(move |x| {
+                    let mut stack = stack.clone();
+                    stack.add_var(var_id, x);
 
-            let state = context.enter_scope();
+                    let block = engine_state.get_block(block_id);
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                        Ok(pipeline_data) => pipeline_data.into_value(),
+                        Err(error) => Value::Error { error },
+                    }
+                })
+                .into_pipeline_data()),
+            Value::Range { val, .. } => Ok(val
+                .into_range_iter()?
+                .map(move |x| {
+                    stack.add_var(var_id, x);
 
-            state.add_var(var_id, x);
+                    let block = engine_state.get_block(block_id);
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                        Ok(pipeline_data) => pipeline_data.into_value(),
+                        Err(error) => Value::Error { error },
+                    }
+                })
+                .into_pipeline_data()),
+            x => {
+                stack.add_var(var_id, x);
 
-            match eval_block(&state, block, Value::nothing()) {
-                Ok(value) => value,
-                Err(error) => Value::Error { error },
+                eval_block(&engine_state, &mut stack, block, PipelineData::new())
             }
-        })
+        }
     }
 
     fn examples(&self) -> Vec<Example> {

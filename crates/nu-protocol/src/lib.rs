@@ -2,6 +2,7 @@ pub mod ast;
 pub mod engine;
 mod example;
 mod id;
+mod pipeline_data;
 mod shell_error;
 mod signature;
 mod span;
@@ -12,6 +13,7 @@ pub use value::Value;
 
 pub use example::*;
 pub use id::*;
+pub use pipeline_data::*;
 pub use shell_error::*;
 pub use signature::*;
 pub use span::*;

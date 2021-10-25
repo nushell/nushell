@@ -7,9 +7,10 @@ use super::util::get_interactive_confirmation;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value, ValueStream};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct Rm;
 
 // Where self.0 is the unexpanded target's positional index (i.e. call.positional[self.0].span)
@@ -56,15 +57,20 @@ impl Command for Rm {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
-        rm(context, call)
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        rm(engine_state, stack, call)
     }
 }
 
-fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
+fn rm(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let trash = call.has_flag("trash");
     let permanent = call.has_flag("permanent");
     let interactive = call.has_flag("interactive");
@@ -95,7 +101,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
 
     let current_path = current_dir()?;
     let mut paths = call
-        .rest::<String>(context, 0)?
+        .rest::<String>(engine_state, stack, 0)?
         .into_iter()
         .map(|path| current_path.join(path))
         .peekable();
@@ -164,11 +170,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
     // let temp = rm_helper(call, args).flatten();
     // let temp = input.flatten(call.head, move |_| rm_helper(call, args));
 
-    Ok(Value::Stream {
-        stream: ValueStream::from_stream(response.into_iter()),
-        span: call.head,
-    })
-
+    Ok(response.into_iter().into_pipeline_data())
     // Ok(Value::Nothing { span })
 }
 
