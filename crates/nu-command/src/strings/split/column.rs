@@ -54,7 +54,7 @@ fn split_column(
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
-    input.map(move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span))
+    input.flat_map(move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span))
 }
 
 fn split_column_helper(
@@ -63,7 +63,7 @@ fn split_column_helper(
     rest: &[Spanned<String>],
     collapse_empty: bool,
     head: Span,
-) -> Value {
+) -> Vec<Value> {
     if let Ok(s) = v.as_string() {
         let splitter = separator.item.replace("\\n", "\n");
 
@@ -95,24 +95,21 @@ fn split_column_helper(
                 vals.push(Value::string(k, head));
             }
         }
-        Value::List {
-            vals: vec![Value::Record {
-                cols,
-                vals,
-                span: head,
-            }],
+        vec![Value::Record {
+            cols,
+            vals,
             span: head,
-        }
+        }]
     } else {
         match v.span() {
-            Ok(span) => Value::Error {
+            Ok(span) => vec![Value::Error {
                 error: ShellError::PipelineMismatch {
                     expected: Type::String,
                     expected_span: head,
                     origin: span,
                 },
-            },
-            Err(error) => Value::Error { error },
+            }],
+            Err(error) => vec![Value::Error { error }],
         }
     }
 }
