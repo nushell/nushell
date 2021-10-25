@@ -64,7 +64,8 @@ impl Command for Each {
 
         let numbered = call.has_flag("numbered");
         let engine_state = engine_state.clone();
-        let stack = stack.clone();
+        let block = engine_state.get_block(block_id);
+        let mut stack = stack.collect_captures(&block.captures);
         let span = call.head;
 
         match input {
@@ -74,7 +75,7 @@ impl Command for Each {
                 .map(move |(idx, x)| {
                     let block = engine_state.get_block(block_id);
 
-                    let mut stack = stack.enter_scope();
+                    let mut stack = stack.clone();
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
@@ -112,7 +113,8 @@ impl Command for Each {
                 .map(move |(idx, x)| {
                     let block = engine_state.get_block(block_id);
 
-                    let mut stack = stack.enter_scope();
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -148,7 +150,8 @@ impl Command for Each {
                 .map(move |(idx, x)| {
                     let block = engine_state.get_block(block_id);
 
-                    let mut stack = stack.enter_scope();
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -186,7 +189,8 @@ impl Command for Each {
                 for (col, val) in cols.into_iter().zip(vals.into_iter()) {
                     let block = engine_state.get_block(block_id);
 
-                    let mut stack = stack.enter_scope();
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             stack.add_var(
@@ -231,7 +235,6 @@ impl Command for Each {
             PipelineData::Value(x) => {
                 let block = engine_state.get_block(block_id);
 
-                let mut stack = stack.enter_scope();
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, x);

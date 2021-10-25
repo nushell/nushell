@@ -37,7 +37,7 @@ impl Command for Benchmark {
             .expect("internal error: expected block");
         let block = engine_state.get_block(block);
 
-        let mut stack = stack.enter_scope();
+        let mut stack = stack.collect_captures(&block.captures);
         let start_time = Instant::now();
         eval_block(engine_state, &mut stack, block, PipelineData::new())?.into_value();
 

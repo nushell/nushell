@@ -51,22 +51,22 @@ impl Command for For {
             .expect("internal error: missing keyword");
         let values = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let block = call.positional[2]
+        let block_id = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
 
         let engine_state = engine_state.clone();
-        let stack = stack.enter_scope();
+        let block = engine_state.get_block(block_id);
+        let mut stack = stack.collect_captures(&block.captures);
 
         match values {
             Value::List { vals, span } => Ok(vals
                 .into_iter()
                 .map(move |x| {
-                    let block = engine_state.get_block(block);
-
                     let mut stack = stack.clone();
                     stack.add_var(var_id, x);
 
+                    let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(value) => Value::List {
                             vals: value.collect(),
@@ -79,12 +79,9 @@ impl Command for For {
             Value::Range { val, span } => Ok(val
                 .into_range_iter()?
                 .map(move |x| {
-                    let block = engine_state.get_block(block);
-
-                    let mut stack = stack.enter_scope();
-
                     stack.add_var(var_id, x);
 
+                    let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(value) => Value::List {
                             vals: value.collect(),
@@ -95,10 +92,6 @@ impl Command for For {
                 })
                 .into_pipeline_data()),
             x => {
-                let block = engine_state.get_block(block);
-
-                let mut stack = stack.enter_scope();
-
                 stack.add_var(var_id, x);
 
                 eval_block(&engine_state, &mut stack, block, PipelineData::new())

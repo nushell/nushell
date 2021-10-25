@@ -29,7 +29,9 @@ impl Command for Where {
         let cond = call.positional[0].clone();
 
         let engine_state = engine_state.clone();
-        let mut stack = stack.enter_scope();
+
+        // FIXME: very expensive
+        let mut stack = stack.clone();
 
         let (var_id, cond) = match cond {
             Expression {

@@ -33,7 +33,9 @@ fn eval_call(
         }
         .into_pipeline_data())
     } else if let Some(block_id) = decl.get_block_id() {
-        let mut stack = stack.enter_scope();
+        let block = engine_state.get_block(block_id);
+
+        let mut stack = stack.collect_captures(&block.captures);
         for (arg, param) in call.positional.iter().zip(
             decl.signature()
                 .required_positional
@@ -109,7 +111,6 @@ fn eval_call(
                 }
             }
         }
-        let block = engine_state.get_block(block_id);
         eval_block(engine_state, &mut stack, block, input)
     } else {
         decl.run(engine_state, stack, call, input)
@@ -212,6 +213,7 @@ pub fn eval_expression(
         Expr::Var(var_id) => stack
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
+        Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
             span: expr.span,
@@ -276,7 +278,7 @@ pub fn eval_expression(
         Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
 
-            let mut stack = stack.enter_scope();
+            let mut stack = stack.collect_captures(&block.captures);
 
             // FIXME: protect this collect with ctrl-c
             Ok(Value::List {

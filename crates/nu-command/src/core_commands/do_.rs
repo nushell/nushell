@@ -40,7 +40,7 @@ impl Command for Do {
 
         let block = engine_state.get_block(block_id);
 
-        let mut stack = stack.enter_scope();
+        let mut stack = stack.collect_captures(&block.captures);
 
         let params: Vec<_> = block
             .signature
