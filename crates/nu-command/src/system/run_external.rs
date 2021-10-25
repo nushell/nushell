@@ -113,8 +113,6 @@ impl ExternalCommand {
                         }
                         Ok(())
                     });
-                } else {
-                    println!("Couldn't take stdin");
                 }
 
                 // If this external is not the last expression, then its output is piped to a channel
