@@ -204,7 +204,7 @@ impl EngineState {
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
         for (contents, start, finish) in &self.file_contents {
-            if span.start >= *start && span.start < *finish {
+            if span.start >= *start && span.start <= *finish {
                 return &contents[(span.start - start)..(span.end - start)];
             }
         }
@@ -550,7 +550,7 @@ impl<'a> StateWorkingSet<'a> {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
-                if (span.start >= *start) && (span.start < *finish) {
+                if (span.start >= *start) && (span.start <= *finish) {
                     return &contents[(span.start - permanent_end)..(span.end - permanent_end)];
                 }
             }

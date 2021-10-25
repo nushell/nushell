@@ -195,8 +195,6 @@ fn main() -> Result<()> {
                         continue;
                     }
 
-                    let mut engine_state = engine_state.clone();
-
                     eval_source(
                         &mut engine_state,
                         &mut stack,
@@ -304,7 +302,7 @@ fn eval_source(
     fname: &str,
 ) -> bool {
     let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(&engine_state);
+        let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
@@ -320,17 +318,17 @@ fn eval_source(
 
     EngineState::merge_delta(engine_state, delta);
 
-    match eval_block(&engine_state, stack, &block, PipelineData::new()) {
+    match eval_block(engine_state, stack, &block, PipelineData::new()) {
         Ok(pipeline_data) => {
-            if let Err(err) = print_value(pipeline_data.into_value(), &engine_state) {
-                let working_set = StateWorkingSet::new(&engine_state);
+            if let Err(err) = print_value(pipeline_data.into_value(), engine_state) {
+                let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);
                 return false;
             }
         }
         Err(err) => {
-            let working_set = StateWorkingSet::new(&engine_state);
+            let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &err);
             return false;
