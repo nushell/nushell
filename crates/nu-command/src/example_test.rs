@@ -5,7 +5,7 @@ use nu_protocol::{
     PipelineData,
 };
 
-use super::{From, Into, Split, Math};
+use super::{From, Into, Math, Split};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
