@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
@@ -26,11 +26,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_binary(context, call, input)
+        into_binary(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -85,7 +86,6 @@ impl Command for SubCommand {
 }
 
 fn into_binary(
-    _context: &EvaluationContext,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

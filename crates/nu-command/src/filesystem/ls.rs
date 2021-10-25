@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -27,12 +27,13 @@ impl Command for Ls {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let pattern = if let Some(expr) = call.positional.get(0) {
-            let result = eval_expression(context, expr)?;
+            let result = eval_expression(engine_state, stack, expr)?;
             let mut result = result.as_string()?;
 
             let path = std::path::Path::new(&result);

@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     span, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Value,
 };
@@ -36,11 +36,12 @@ impl Command for Help {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        help(context, call)
+        help(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -74,12 +75,16 @@ impl Command for Help {
     }
 }
 
-fn help(context: &EvaluationContext, call: &Call) -> Result<PipelineData, ShellError> {
+fn help(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let find: Option<Spanned<String>> = call.get_flag(context, "find")?;
-    let rest: Vec<Spanned<String>> = call.rest(context, 0)?;
+    let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
+    let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    let full_commands = context.get_signatures_with_examples();
+    let full_commands = engine_state.get_signatures_with_examples();
 
     if let Some(f) = find {
         let search_string = f.item;
@@ -164,7 +169,7 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<PipelineData, ShellE
 
             for cmd in full_commands {
                 if cmd.0.name == name {
-                    let help = get_full_help(&cmd.0, &cmd.1, context);
+                    let help = get_full_help(&cmd.0, &cmd.1, engine_state);
                     output.push_str(&help);
                 }
             }

@@ -1,6 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -44,14 +44,15 @@ impl Command for BuildString {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let output = call
             .positional
             .iter()
-            .map(|expr| eval_expression(context, expr).map(|val| val.into_string()))
+            .map(|expr| eval_expression(engine_state, stack, expr).map(|val| val.into_string()))
             .collect::<Result<Vec<String>, ShellError>>()?;
 
         Ok(Value::String {

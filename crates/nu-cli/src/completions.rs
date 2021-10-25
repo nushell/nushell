@@ -10,19 +10,20 @@ use reedline::Completer;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
+#[derive(Clone)]
 pub struct NuCompleter {
-    engine_state: Box<EngineState>,
+    engine_state: EngineState,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Box<EngineState>) -> Self {
+    pub fn new(engine_state: EngineState) -> Self {
         Self { engine_state }
     }
 }
 
 impl Completer for NuCompleter {
     fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
-        let mut working_set = StateWorkingSet::new(&*self.engine_state);
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
@@ -71,11 +72,10 @@ impl Completer for NuCompleter {
 
                         let (block, ..) =
                             parse(&mut working_set, None, custom_completion.as_bytes(), false);
-                        let context = EvaluationContext {
-                            engine_state: self.engine_state.clone(),
-                            stack: Stack::default(),
-                        };
-                        let result = eval_block(&context, &block, PipelineData::new());
+
+                        let mut stack = Stack::default();
+                        let result =
+                            eval_block(&self.engine_state, &mut stack, &block, PipelineData::new());
 
                         let v: Vec<_> = match result {
                             Ok(pd) => pd

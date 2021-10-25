@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -27,11 +27,12 @@ impl Command for Select {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let columns: Vec<CellPath> = call.rest(context, 0)?;
+        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
 
         select(span, columns, input)

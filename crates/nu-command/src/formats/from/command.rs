@@ -1,5 +1,5 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, ShellError, Signature, Value};
 
 #[derive(Clone)]
@@ -20,7 +20,8 @@ impl Command for From {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {

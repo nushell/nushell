@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{Command, EngineState, EvaluationContext, StateWorkingSet},
+    engine::{Command, EngineState, EvaluationContext, Stack, StateWorkingSet},
     PipelineData, Value,
 };
 
@@ -37,7 +37,6 @@ pub fn test_examples(cmd: impl Command + 'static) {
         let start = std::time::Instant::now();
 
         let (block, delta) = {
-            let engine_state = engine_state;
             let mut working_set = StateWorkingSet::new(&*engine_state);
             let (output, err) = parse(&mut working_set, None, example.example.as_bytes(), false);
 
@@ -48,14 +47,11 @@ pub fn test_examples(cmd: impl Command + 'static) {
             (output, working_set.render())
         };
 
-        EngineState::merge_delta(&mut *engine_state, delta);
+        EngineState::merge_delta(&mut engine_state, delta);
 
-        let state = EvaluationContext {
-            engine_state: engine_state.clone(),
-            stack: nu_protocol::engine::Stack::new(),
-        };
+        let mut stack = Stack::new();
 
-        match eval_block(&state, &block, PipelineData::new()) {
+        match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
             Err(err) => panic!("test eval error in `{}`: {:?}", example.example, err),
             Ok(result) => {
                 let result = result.into_value();

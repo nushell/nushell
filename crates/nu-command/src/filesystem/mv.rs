@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -38,13 +38,14 @@ impl Command for Mv {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let source: String = call.req(context, 0)?;
-        let destination: String = call.req(context, 1)?;
+        let source: String = call.req(engine_state, stack, 0)?;
+        let destination: String = call.req(engine_state, stack, 1)?;
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 

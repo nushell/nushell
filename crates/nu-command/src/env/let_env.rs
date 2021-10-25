@@ -1,6 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -27,7 +27,8 @@ impl Command for LetEnv {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -39,12 +40,12 @@ impl Command for LetEnv {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression(context, keyword_expr)?;
+        let rhs = eval_expression(engine_state, stack, keyword_expr)?;
         let rhs = rhs.as_string()?;
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 
-        context.add_env_var(env_var, rhs);
+        stack.add_env_var(env_var, rhs);
         Ok(PipelineData::new())
     }
 }

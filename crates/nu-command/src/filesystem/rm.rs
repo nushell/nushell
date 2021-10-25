@@ -7,7 +7,7 @@ use super::util::get_interactive_confirmation;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{
     IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
 };
@@ -59,15 +59,20 @@ impl Command for Rm {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        rm(context, call)
+        rm(engine_state, stack, call)
     }
 }
 
-fn rm(context: &EvaluationContext, call: &Call) -> Result<PipelineData, ShellError> {
+fn rm(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let trash = call.has_flag("trash");
     let permanent = call.has_flag("permanent");
     let interactive = call.has_flag("interactive");
@@ -98,7 +103,7 @@ fn rm(context: &EvaluationContext, call: &Call) -> Result<PipelineData, ShellErr
 
     let current_path = current_dir()?;
     let mut paths = call
-        .rest::<String>(context, 0)?
+        .rest::<String>(engine_state, stack, 0)?
         .into_iter()
         .map(|path| current_path.join(path))
         .peekable();

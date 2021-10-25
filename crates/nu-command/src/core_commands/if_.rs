@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -28,7 +28,8 @@ impl Command for If {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -38,24 +39,26 @@ impl Command for If {
             .expect("internal error: expected block");
         let else_case = call.positional.get(2);
 
-        let result = eval_expression(context, cond)?;
+        let result = eval_expression(engine_state, stack, cond)?;
         match result {
             Value::Bool { val, span } => {
                 if val {
-                    let block = context.engine_state.get_block(then_block);
-                    let state = context.enter_scope();
-                    eval_block(&state, block, input)
+                    let block = engine_state.get_block(then_block);
+                    let mut stack = stack.enter_scope();
+                    eval_block(&engine_state, &mut stack, block, input)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
-                            let block = context.engine_state.get_block(block_id);
-                            let state = context.enter_scope();
-                            eval_block(&state, block, input)
+                            let block = engine_state.get_block(block_id);
+                            let mut stack = stack.enter_scope();
+                            eval_block(&engine_state, &mut stack, block, input)
                         } else {
-                            eval_expression(context, else_expr).map(|x| x.into_pipeline_data())
+                            eval_expression(&engine_state, stack, else_expr)
+                                .map(|x| x.into_pipeline_data())
                         }
                     } else {
-                        eval_expression(context, else_case).map(|x| x.into_pipeline_data())
+                        eval_expression(&engine_state, stack, else_case)
+                            .map(|x| x.into_pipeline_data())
                     }
                 } else {
                     Ok(PipelineData::new())

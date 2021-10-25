@@ -1,5 +1,5 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
-use nu_protocol::engine::EvaluationContext;
+use nu_protocol::engine::{EngineState, EvaluationContext, Stack};
 use nu_protocol::{
     IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value,
 };
@@ -19,32 +19,33 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
 }
 
 fn eval_call(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let decl = context.engine_state.get_decl(call.decl_id);
+    let decl = engine_state.get_decl(call.decl_id);
     if call.named.iter().any(|(flag, _)| flag.item == "help") {
-        let full_help = get_full_help(&decl.signature(), &decl.examples(), context);
+        let full_help = get_full_help(&decl.signature(), &decl.examples(), engine_state);
         Ok(Value::String {
             val: full_help,
             span: call.head,
         }
         .into_pipeline_data())
     } else if let Some(block_id) = decl.get_block_id() {
-        let mut state = context.enter_scope();
+        let mut stack = stack.enter_scope();
         for (arg, param) in call.positional.iter().zip(
             decl.signature()
                 .required_positional
                 .iter()
                 .chain(decl.signature().optional_positional.iter()),
         ) {
-            let result = eval_expression(&state, arg)?;
+            let result = eval_expression(engine_state, &mut stack, arg)?;
             let var_id = param
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            state.add_var(var_id, result);
+            stack.add_var(var_id, result);
         }
 
         if let Some(rest_positional) = decl.signature().rest_positional {
@@ -54,7 +55,7 @@ fn eval_call(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
             ) {
-                let result = eval_expression(&state, arg)?;
+                let result = eval_expression(&engine_state, &mut stack, arg)?;
                 rest_items.push(result);
             }
 
@@ -64,7 +65,7 @@ fn eval_call(
                 Span::unknown()
             };
 
-            state.add_var(
+            stack.add_var(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
@@ -81,11 +82,11 @@ fn eval_call(
                 for call_named in &call.named {
                     if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.1 {
-                            let result = eval_expression(&state, arg)?;
+                            let result = eval_expression(&engine_state, &mut stack, arg)?;
 
-                            state.add_var(var_id, result);
+                            stack.add_var(var_id, result);
                         } else {
-                            state.add_var(
+                            stack.add_var(
                                 var_id,
                                 Value::Bool {
                                     val: true,
@@ -98,7 +99,7 @@ fn eval_call(
                 }
 
                 if !found && named.arg.is_none() {
-                    state.add_var(
+                    stack.add_var(
                         var_id,
                         Value::Bool {
                             val: false,
@@ -108,27 +109,27 @@ fn eval_call(
                 }
             }
         }
-        let block = context.engine_state.get_block(block_id);
-        eval_block(&state, block, input)
+        let block = engine_state.get_block(block_id);
+        eval_block(engine_state, &mut stack, block, input)
     } else {
-        decl.run(context, call, input)
+        decl.run(engine_state, stack, call, input)
     }
 }
 
 fn eval_external(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     name: &str,
     name_span: &Span,
     args: &[Expression],
     input: PipelineData,
     last_expression: bool,
 ) -> Result<PipelineData, ShellError> {
-    let decl_id = context
-        .engine_state
+    let decl_id = engine_state
         .find_decl("run_external".as_bytes())
         .ok_or_else(|| ShellError::ExternalNotSupported(*name_span))?;
 
-    let command = context.engine_state.get_decl(decl_id);
+    let command = engine_state.get_decl(decl_id);
 
     let mut call = Call::new();
 
@@ -153,11 +154,12 @@ fn eval_external(
         ))
     }
 
-    command.run(context, &call, input)
+    command.run(engine_state, stack, &call, input)
 }
 
 pub fn eval_expression(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
@@ -173,13 +175,13 @@ pub fn eval_expression(
             val: *f,
             span: expr.span,
         }),
-        Expr::ValueWithUnit(e, unit) => match eval_expression(context, e)? {
+        Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
             _ => Err(ShellError::CantConvert("unit value".into(), e.span)),
         },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
-                eval_expression(context, f)?
+                eval_expression(engine_state, stack, f)?
             } else {
                 Value::Nothing {
                     span: Span::unknown(),
@@ -187,7 +189,7 @@ pub fn eval_expression(
             };
 
             let next = if let Some(s) = next {
-                eval_expression(context, s)?
+                eval_expression(engine_state, stack, s)?
             } else {
                 Value::Nothing {
                     span: Span::unknown(),
@@ -195,7 +197,7 @@ pub fn eval_expression(
             };
 
             let to = if let Some(t) = to {
-                eval_expression(context, t)?
+                eval_expression(engine_state, stack, t)?
             } else {
                 Value::Nothing {
                     span: Span::unknown(),
@@ -207,7 +209,7 @@ pub fn eval_expression(
                 span: expr.span,
             })
         }
-        Expr::Var(var_id) => context
+        Expr::Var(var_id) => stack
             .get_var(*var_id)
             .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
@@ -215,32 +217,40 @@ pub fn eval_expression(
             span: expr.span,
         }),
         Expr::FullCellPath(cell_path) => {
-            let value = eval_expression(context, &cell_path.head)?;
+            let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
             value.follow_cell_path(&cell_path.tail)
         }
-        Expr::RowCondition(_, expr) => eval_expression(context, expr),
+        Expr::RowCondition(_, expr) => eval_expression(engine_state, stack, expr),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
             Ok(Value::List {
-                vals: eval_call(context, call, PipelineData::new())?.collect(),
+                vals: eval_call(engine_state, stack, call, PipelineData::new())?.collect(),
                 span: expr.span,
             })
         }
         Expr::ExternalCall(name, span, args) => {
             // FIXME: protect this collect with ctrl-c
             Ok(Value::List {
-                vals: eval_external(context, name, span, args, PipelineData::new(), true)?
-                    .collect(),
+                vals: eval_external(
+                    engine_state,
+                    stack,
+                    name,
+                    span,
+                    args,
+                    PipelineData::new(),
+                    true,
+                )?
+                .collect(),
                 span: expr.span,
             })
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
-            let lhs = eval_expression(context, lhs)?;
+            let lhs = eval_expression(engine_state, stack, lhs)?;
             let op = eval_operator(op)?;
-            let rhs = eval_expression(context, rhs)?;
+            let rhs = eval_expression(engine_state, stack, rhs)?;
 
             match op {
                 Operator::Plus => lhs.add(op_span, &rhs),
@@ -264,13 +274,13 @@ pub fn eval_expression(
             }
         }
         Expr::Subexpression(block_id) => {
-            let block = context.engine_state.get_block(*block_id);
+            let block = engine_state.get_block(*block_id);
 
-            let state = context.enter_scope();
+            let mut stack = stack.enter_scope();
 
             // FIXME: protect this collect with ctrl-c
             Ok(Value::List {
-                vals: eval_block(&state, block, PipelineData::new())?.collect(),
+                vals: eval_block(engine_state, &mut stack, block, PipelineData::new())?.collect(),
                 span: expr.span,
             })
         }
@@ -281,7 +291,7 @@ pub fn eval_expression(
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
-                output.push(eval_expression(context, expr)?);
+                output.push(eval_expression(engine_state, stack, expr)?);
             }
             Ok(Value::List {
                 vals: output,
@@ -291,14 +301,14 @@ pub fn eval_expression(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(context, expr)?.as_string()?);
+                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
             }
 
             let mut output_rows = vec![];
             for val in vals {
                 let mut row = vec![];
                 for expr in val {
-                    row.push(eval_expression(context, expr)?);
+                    row.push(eval_expression(engine_state, stack, expr)?);
                 }
                 output_rows.push(Value::Record {
                     cols: output_headers.clone(),
@@ -311,7 +321,7 @@ pub fn eval_expression(
                 span: expr.span,
             })
         }
-        Expr::Keyword(_, _, expr) => eval_expression(context, expr),
+        Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,
@@ -330,7 +340,8 @@ pub fn eval_expression(
 }
 
 pub fn eval_block(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -342,14 +353,15 @@ pub fn eval_block(
                         expr: Expr::Call(call),
                         ..
                     } => {
-                        input = eval_call(context, call, input)?;
+                        input = eval_call(engine_state, stack, call, input)?;
                     }
                     Expression {
                         expr: Expr::ExternalCall(name, name_span, args),
                         ..
                     } => {
                         input = eval_external(
-                            context,
+                            engine_state,
+                            stack,
                             name,
                             name_span,
                             args,
@@ -359,7 +371,7 @@ pub fn eval_block(
                     }
 
                     elem => {
-                        input = eval_expression(context, elem)?.into_pipeline_data();
+                        input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
                     }
                 }
             }

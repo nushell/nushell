@@ -1,6 +1,6 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -53,7 +53,8 @@ impl Command for Each {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -62,7 +63,8 @@ impl Command for Each {
             .expect("internal error: expected block");
 
         let numbered = call.has_flag("numbered");
-        let context = context.clone();
+        let engine_state = engine_state.clone();
+        let mut stack = stack.clone();
         let span = call.head;
 
         match input {
@@ -70,14 +72,14 @@ impl Command for Each {
                 .into_range_iter()?
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = context.engine_state.get_block(block_id);
+                    let block = engine_state.get_block(block_id);
 
-                    let state = context.enter_scope();
+                    let mut stack = stack.enter_scope();
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
-                                state.add_var(
+                                stack.add_var(
                                     *var_id,
                                     Value::Record {
                                         cols: vec!["index".into(), "item".into()],
@@ -92,12 +94,12 @@ impl Command for Each {
                                     },
                                 );
                             } else {
-                                state.add_var(*var_id, x);
+                                stack.add_var(*var_id, x);
                             }
                         }
                     }
 
-                    match eval_block(&state, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -108,13 +110,13 @@ impl Command for Each {
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = context.engine_state.get_block(block_id);
+                    let block = engine_state.get_block(block_id);
 
-                    let state = context.enter_scope();
+                    let mut stack = stack.enter_scope();
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
-                                state.add_var(
+                                stack.add_var(
                                     *var_id,
                                     Value::Record {
                                         cols: vec!["index".into(), "item".into()],
@@ -129,12 +131,12 @@ impl Command for Each {
                                     },
                                 );
                             } else {
-                                state.add_var(*var_id, x);
+                                stack.add_var(*var_id, x);
                             }
                         }
                     }
 
-                    match eval_block(&state, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -144,13 +146,13 @@ impl Command for Each {
             PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = context.engine_state.get_block(block_id);
+                    let block = engine_state.get_block(block_id);
 
-                    let state = context.enter_scope();
+                    let mut stack = stack.enter_scope();
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
-                                state.add_var(
+                                stack.add_var(
                                     *var_id,
                                     Value::Record {
                                         cols: vec!["index".into(), "item".into()],
@@ -165,12 +167,12 @@ impl Command for Each {
                                     },
                                 );
                             } else {
-                                state.add_var(*var_id, x);
+                                stack.add_var(*var_id, x);
                             }
                         }
                     }
 
-                    match eval_block(&state, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -182,12 +184,12 @@ impl Command for Each {
                 let mut output_vals = vec![];
 
                 for (col, val) in cols.into_iter().zip(vals.into_iter()) {
-                    let block = context.engine_state.get_block(block_id);
+                    let block = engine_state.get_block(block_id);
 
-                    let state = context.enter_scope();
+                    let mut stack = stack.enter_scope();
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
-                            state.add_var(
+                            stack.add_var(
                                 *var_id,
                                 Value::Record {
                                     cols: vec!["column".into(), "value".into()],
@@ -204,7 +206,7 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&state, block, PipelineData::new())? {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new())? {
                         PipelineData::Value(Value::Record {
                             mut cols, mut vals, ..
                         }) => {
@@ -227,16 +229,16 @@ impl Command for Each {
                 .into_pipeline_data())
             }
             PipelineData::Value(x) => {
-                let block = context.engine_state.get_block(block_id);
+                let block = engine_state.get_block(block_id);
 
-                let state = context.enter_scope();
+                let mut stack = stack.enter_scope();
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
-                        state.add_var(*var_id, x);
+                        stack.add_var(*var_id, x);
                     }
                 }
 
-                eval_block(&state, block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, block, PipelineData::new())
             }
         }
     }

@@ -3,7 +3,7 @@ use std::env::current_dir;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{
     IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
 };
@@ -32,13 +32,14 @@ impl Command for Mkdir {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let path = current_dir()?;
         let mut directories = call
-            .rest::<String>(context, 0)?
+            .rest::<String>(engine_state, stack, 0)?
             .into_iter()
             .map(|dir| path.join(dir))
             .peekable();

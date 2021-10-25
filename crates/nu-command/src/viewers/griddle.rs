@@ -2,7 +2,7 @@ use lscolors::{LsColors, Style};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
@@ -48,13 +48,14 @@ prints out the list properly."#
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let width_param: Option<String> = call.get_flag(context, "width")?;
+        let width_param: Option<String> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
-        let separator_param: Option<String> = call.get_flag(context, "separator")?;
+        let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }) => {

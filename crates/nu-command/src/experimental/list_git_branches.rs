@@ -4,6 +4,8 @@ use std::process::Command as ProcessCommand;
 use std::process::Stdio;
 
 use nu_protocol::ast::Call;
+use nu_protocol::engine::EngineState;
+use nu_protocol::engine::Stack;
 use nu_protocol::engine::{Command, EvaluationContext};
 use nu_protocol::IntoPipelineData;
 use nu_protocol::PipelineData;
@@ -28,7 +30,8 @@ impl Command for ListGitBranches {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

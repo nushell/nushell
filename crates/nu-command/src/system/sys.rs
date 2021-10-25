@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
@@ -25,7 +25,8 @@ impl Command for Sys {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

@@ -1,6 +1,6 @@
 use crate::{ast::Call, value::Value, BlockId, Example, PipelineData, ShellError, Signature};
 
-use super::EvaluationContext;
+use super::{EngineState, EvaluationContext, Stack};
 
 pub trait Command: Send + Sync + CommandClone {
     fn name(&self) -> &str;
@@ -17,7 +17,8 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError>;

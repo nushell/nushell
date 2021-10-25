@@ -2,7 +2,7 @@ use nu_parser::ParseError;
 use nu_parser::*;
 use nu_protocol::{
     ast::{Expr, Expression, Pipeline, Statement},
-    engine::{Command, EngineState, StateWorkingSet},
+    engine::{Command, EngineState, Stack, StateWorkingSet},
     Signature, SyntaxShape,
 };
 
@@ -32,7 +32,8 @@ impl Command for Let {
 
     fn run(
         &self,
-        _context: &nu_protocol::engine::EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &nu_protocol::ast::Call,
         _input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

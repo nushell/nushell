@@ -5,7 +5,7 @@ use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 use crate::filesystem::util::FileStructure;
@@ -38,12 +38,13 @@ impl Command for Cp {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let source: String = call.req(context, 0)?;
-        let destination: String = call.req(context, 1)?;
+        let source: String = call.req(engine_state, stack, 0)?;
+        let destination: String = call.req(engine_state, stack, 1)?;
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 

@@ -1,7 +1,9 @@
 use crate::ast::Call;
 use crate::engine::Command;
 use crate::engine::CommandClone;
+use crate::engine::EngineState;
 use crate::engine::EvaluationContext;
+use crate::engine::Stack;
 use crate::BlockId;
 use crate::PipelineData;
 use crate::SyntaxShape;
@@ -357,7 +359,8 @@ impl Command for Predeclaration {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, crate::ShellError> {
@@ -386,7 +389,8 @@ impl Command for BlockCommand {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {

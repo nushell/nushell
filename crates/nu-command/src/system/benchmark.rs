@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -27,18 +27,19 @@ impl Command for Benchmark {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let block = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
-        let block = context.engine_state.get_block(block);
+        let block = engine_state.get_block(block);
 
-        let state = context.enter_scope();
+        let mut stack = stack.enter_scope();
         let start_time = Instant::now();
-        eval_block(&state, block, PipelineData::new())?;
+        eval_block(&engine_state, &mut stack, block, PipelineData::new())?;
         let end_time = Instant::now();
         println!("{} ms", (end_time - start_time).as_millis());
         Ok(PipelineData::new())

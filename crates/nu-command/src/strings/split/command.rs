@@ -1,7 +1,7 @@
 use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     IntoPipelineData, PipelineData, Signature, Value,
 };
 
@@ -23,12 +23,17 @@ impl Command for SplitCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&SplitCommand.signature(), &SplitCommand.examples(), context),
+            val: get_full_help(
+                &SplitCommand.signature(),
+                &SplitCommand.examples(),
+                engine_state,
+            ),
             span: call.head,
         }
         .into_pipeline_data())

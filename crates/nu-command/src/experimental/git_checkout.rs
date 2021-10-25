@@ -1,6 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -25,7 +25,8 @@ impl Command for GitCheckout {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -34,7 +35,7 @@ impl Command for GitCheckout {
 
         let block = &call.positional[0];
 
-        let out = eval_expression(context, block)?;
+        let out = eval_expression(engine_state, stack, block)?;
 
         let out = out.as_string()?;
 

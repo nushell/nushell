@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
@@ -26,11 +26,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_filesize(context, call, input)
+        into_filesize(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -113,7 +114,6 @@ impl Command for SubCommand {
 }
 
 fn into_filesize(
-    _context: &EvaluationContext,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {

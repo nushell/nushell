@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -25,11 +25,12 @@ impl Command for Get {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let cell_path: CellPath = call.req(context, 0)?;
+        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
 
         input
             .follow_cell_path(&cell_path.members)

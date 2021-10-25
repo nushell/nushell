@@ -13,7 +13,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
-    ShellError, Value,
+    IntoPipelineData, PipelineData, ShellError, Value,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 
@@ -82,14 +82,13 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let engine_state = create_default_context();
+    let mut engine_state = create_default_context();
 
     if let Some(path) = std::env::args().nth(1) {
         let file = std::fs::read(&path).into_diagnostic()?;
 
         let (block, delta) = {
-            let engine_state = engine_state.borrow();
-            let mut working_set = StateWorkingSet::new(&*engine_state);
+            let mut working_set = StateWorkingSet::new(&engine_state);
             let (output, err) = parse(&mut working_set, Some(&path), &file, false);
             if let Some(err) = err {
                 report_error(&working_set, &err);
@@ -99,20 +98,16 @@ fn main() -> Result<()> {
             (output, working_set.render())
         };
 
-        EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+        EngineState::merge_delta(&mut engine_state, delta);
 
-        let state = EvaluationContext {
-            engine_state: engine_state.clone(),
-            stack: nu_protocol::engine::Stack::new(),
-        };
+        let mut stack = nu_protocol::engine::Stack::new();
 
-        match eval_block(&state, &block, Value::nothing()) {
-            Ok(value) => {
-                println!("{}", value.into_string());
+        match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
+            Ok(pipeline_data) => {
+                println!("{}", pipeline_data.collect_string());
             }
             Err(err) => {
-                let engine_state = engine_state.borrow();
-                let working_set = StateWorkingSet::new(&*engine_state);
+                let working_set = StateWorkingSet::new(&engine_state);
 
                 report_error(&working_set, &err);
 
@@ -127,28 +122,9 @@ fn main() -> Result<()> {
         let completer = NuCompleter::new(engine_state.clone());
         let mut entry_num = 0;
 
-        let mut line_editor = Reedline::create()
-            .into_diagnostic()?
-            .with_history(Box::new(
-                FileBackedHistory::with_file(1000, "history.txt".into()).into_diagnostic()?,
-            ))
-            .into_diagnostic()?
-            .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_state.clone(),
-            }))
-            .with_completion_action_handler(Box::new(FuzzyCompletion {
-                completer: Box::new(completer),
-            }))
-            // .with_completion_action_handler(Box::new(
-            //     ListCompletionHandler::default().with_completer(Box::new(completer)),
-            // ))
-            .with_validator(Box::new(NuValidator {
-                engine_state: engine_state.clone(),
-            }));
-
         let default_prompt = DefaultPrompt::new(1);
         let mut nu_prompt = NushellPrompt::new();
-        let stack = nu_protocol::engine::Stack::new();
+        let mut stack = nu_protocol::engine::Stack::new();
 
         // Load config startup file
         if let Some(mut config_path) = nu_path::config_dir() {
@@ -162,15 +138,34 @@ fn main() -> Result<()> {
                 let config_filename = config_path.to_string_lossy().to_owned();
 
                 if let Ok(contents) = std::fs::read_to_string(&config_path) {
-                    eval_source(engine_state.clone(), &stack, &contents, &config_filename);
+                    eval_source(&mut engine_state, &mut stack, &contents, &config_filename);
                 }
             }
         }
 
         loop {
+            let mut line_editor = Reedline::create()
+                .into_diagnostic()?
+                .with_history(Box::new(
+                    FileBackedHistory::with_file(1000, "history.txt".into()).into_diagnostic()?,
+                ))
+                .into_diagnostic()?
+                .with_highlighter(Box::new(NuHighlighter {
+                    engine_state: engine_state.clone(),
+                }))
+                .with_completion_action_handler(Box::new(FuzzyCompletion {
+                    completer: Box::new(completer.clone()),
+                }))
+                // .with_completion_action_handler(Box::new(
+                //     ListCompletionHandler::default().with_completer(Box::new(completer)),
+                // ))
+                .with_validator(Box::new(NuValidator {
+                    engine_state: engine_state.clone(),
+                }));
+
             let prompt = update_prompt(
                 PROMPT_COMMAND,
-                engine_state.clone(),
+                &engine_state,
                 &stack,
                 &mut nu_prompt,
                 &default_prompt,
@@ -184,25 +179,27 @@ fn main() -> Result<()> {
                     if s.trim() == "exit" {
                         break;
                     } else if s.trim() == "vars" {
-                        engine_state.borrow().print_vars();
+                        engine_state.print_vars();
                         continue;
                     } else if s.trim() == "decls" {
-                        engine_state.borrow().print_decls();
+                        engine_state.print_decls();
                         continue;
                     } else if s.trim() == "blocks" {
-                        engine_state.borrow().print_blocks();
+                        engine_state.print_blocks();
                         continue;
                     } else if s.trim() == "stack" {
                         stack.print_stack();
                         continue;
                     } else if s.trim() == "contents" {
-                        engine_state.borrow().print_contents();
+                        engine_state.print_contents();
                         continue;
                     }
 
+                    let mut engine_state = engine_state.clone();
+
                     eval_source(
-                        engine_state.clone(),
-                        &stack,
+                        &mut engine_state,
+                        &mut stack,
                         &s,
                         &format!("entry #{}", entry_num),
                     );
@@ -229,16 +226,19 @@ fn main() -> Result<()> {
     }
 }
 
-fn print_value(value: Value, state: &EvaluationContext) -> Result<(), ShellError> {
+fn print_value(value: Value, engine_state: &EngineState) -> Result<(), ShellError> {
     // If the table function is in the declarations, then we can use it
     // to create the table value that will be printed in the terminal
-    let engine_state = state.engine_state.borrow();
     let output = match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
-            let table = engine_state
-                .get_decl(decl_id)
-                .run(state, &Call::new(), value)?;
-            table.into_string()
+            let mut stack = Stack::new();
+            let table = engine_state.get_decl(decl_id).run(
+                engine_state,
+                &mut stack,
+                &Call::new(),
+                value.into_pipeline_data(),
+            )?;
+            table.collect_string()
         }
         None => value.into_string(),
     };
@@ -254,7 +254,7 @@ fn print_value(value: Value, state: &EvaluationContext) -> Result<(), ShellError
 
 fn update_prompt<'prompt>(
     env_variable: &str,
-    engine_state: Rc<RefCell<EngineState>>,
+    engine_state: &EngineState,
     stack: &Stack,
     nu_prompt: &'prompt mut NushellPrompt,
     default_prompt: &'prompt DefaultPrompt,
@@ -271,8 +271,7 @@ fn update_prompt<'prompt>(
     }
 
     let (block, delta) = {
-        let ref_engine_state = engine_state.borrow();
-        let mut working_set = StateWorkingSet::new(&ref_engine_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
         let (output, err) = parse(&mut working_set, None, prompt_command.as_bytes(), false);
         if let Some(err) = err {
             report_error(&working_set, &err);
@@ -281,26 +280,13 @@ fn update_prompt<'prompt>(
         (output, working_set.render())
     };
 
-    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+    let mut stack = stack.clone();
 
-    let state = nu_protocol::engine::EvaluationContext {
-        engine_state: engine_state.clone(),
-        stack: stack.clone(),
-    };
-
-    let evaluated_prompt = match eval_block(&state, &block, Value::nothing()) {
-        Ok(value) => match value.as_string() {
-            Ok(prompt) => prompt,
-            Err(err) => {
-                let engine_state = engine_state.borrow();
-                let working_set = StateWorkingSet::new(&*engine_state);
-                report_error(&working_set, &err);
-                return default_prompt as &dyn Prompt;
-            }
-        },
+    let evaluated_prompt = match eval_block(&engine_state, &mut stack, &block, PipelineData::new())
+    {
+        Ok(pipeline_data) => pipeline_data.collect_string(),
         Err(err) => {
-            let engine_state = engine_state.borrow();
-            let working_set = StateWorkingSet::new(&*engine_state);
+            let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &err);
             return default_prompt as &dyn Prompt;
         }
@@ -312,14 +298,13 @@ fn update_prompt<'prompt>(
 }
 
 fn eval_source(
-    engine_state: Rc<RefCell<EngineState>>,
-    stack: &Stack,
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
     source: &str,
     fname: &str,
 ) -> bool {
     let (block, delta) = {
-        let engine_state = engine_state.borrow();
-        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
         let (output, err) = parse(
             &mut working_set,
             Some(fname), // format!("entry #{}", entry_num)
@@ -333,26 +318,19 @@ fn eval_source(
         (output, working_set.render())
     };
 
-    EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+    EngineState::merge_delta(engine_state, delta);
 
-    let state = nu_protocol::engine::EvaluationContext {
-        engine_state: engine_state.clone(),
-        stack: stack.clone(),
-    };
-
-    match eval_block(&state, &block, Value::nothing()) {
-        Ok(value) => {
-            if let Err(err) = print_value(value, &state) {
-                let engine_state = engine_state.borrow();
-                let working_set = StateWorkingSet::new(&*engine_state);
+    match eval_block(&engine_state, stack, &block, PipelineData::new()) {
+        Ok(pipeline_data) => {
+            if let Err(err) = print_value(pipeline_data.into_value(), &engine_state) {
+                let working_set = StateWorkingSet::new(&engine_state);
 
                 report_error(&working_set, &err);
                 return false;
             }
         }
         Err(err) => {
-            let engine_state = engine_state.borrow();
-            let working_set = StateWorkingSet::new(&*engine_state);
+            let working_set = StateWorkingSet::new(&engine_state);
 
             report_error(&working_set, &err);
             return false;

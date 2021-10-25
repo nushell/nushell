@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -37,7 +37,8 @@ impl Command for For {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -48,25 +49,25 @@ impl Command for For {
         let keyword_expr = call.positional[1]
             .as_keyword()
             .expect("internal error: missing keyword");
-        let values = eval_expression(context, keyword_expr)?;
+        let values = eval_expression(engine_state, stack, keyword_expr)?;
 
         let block = call.positional[2]
             .as_block()
             .expect("internal error: expected block");
 
-        let context = context.clone();
+        let engine_state = engine_state.clone();
+        let mut stack = stack.enter_scope();
 
         match values {
             Value::List { vals, span } => Ok(vals
                 .into_iter()
                 .map(move |x| {
-                    let block = context.engine_state.get_block(block);
+                    let block = engine_state.get_block(block);
 
-                    let mut state = context.enter_scope();
+                    let mut stack = stack.clone();
+                    stack.add_var(var_id, x);
 
-                    state.add_var(var_id, x);
-
-                    match eval_block(&state, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(value) => Value::List {
                             vals: value.collect(),
                             span,
@@ -78,13 +79,13 @@ impl Command for For {
             Value::Range { val, span } => Ok(val
                 .into_range_iter()?
                 .map(move |x| {
-                    let block = context.engine_state.get_block(block);
+                    let block = engine_state.get_block(block);
 
-                    let mut state = context.enter_scope();
+                    let mut stack = stack.enter_scope();
 
-                    state.add_var(var_id, x);
+                    stack.add_var(var_id, x);
 
-                    match eval_block(&state, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
                         Ok(value) => Value::List {
                             vals: value.collect(),
                             span,
@@ -94,13 +95,13 @@ impl Command for For {
                 })
                 .into_pipeline_data()),
             x => {
-                let block = context.engine_state.get_block(block);
+                let block = engine_state.get_block(block);
 
-                let mut state = context.enter_scope();
+                let mut stack = stack.enter_scope();
 
-                state.add_var(var_id, x);
+                stack.add_var(var_id, x);
 
-                eval_block(&state, block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, block, PipelineData::new())
             }
         }
     }

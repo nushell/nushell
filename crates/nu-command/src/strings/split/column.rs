@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -34,22 +34,24 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        split_column(context, call, input)
+        split_column(engine_state, stack, call, input)
     }
 }
 
 fn split_column(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name_span = call.head;
-    let separator: Spanned<String> = call.req(context, 0)?;
-    let rest: Vec<Spanned<String>> = call.rest(context, 1)?;
+    let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
     Ok(input

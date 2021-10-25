@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -28,18 +28,19 @@ impl Command for Do {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let block_id = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
-        let rest: Vec<Value> = call.rest(context, 1)?;
+        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
-        let block = context.engine_state.get_block(block_id);
+        let block = engine_state.get_block(block_id);
 
-        let mut state = context.enter_scope();
+        let mut stack = stack.enter_scope();
 
         let params: Vec<_> = block
             .signature
@@ -50,7 +51,7 @@ impl Command for Do {
 
         for param in params.iter().zip(&rest) {
             if let Some(var_id) = param.0.var_id {
-                state.add_var(var_id, param.1.clone())
+                stack.add_var(var_id, param.1.clone())
             }
         }
 
@@ -68,7 +69,7 @@ impl Command for Do {
                     call.head
                 };
 
-                state.add_var(
+                stack.add_var(
                     param
                         .var_id
                         .expect("Internal error: rest positional parameter lacks var_id"),
@@ -79,6 +80,6 @@ impl Command for Do {
                 )
             }
         }
-        eval_block(&state, block, input)
+        eval_block(&engine_state, &mut stack, block, input)
     }
 }

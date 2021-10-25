@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
+    engine::{Command, EngineState, EvaluationContext, Stack},
     IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -27,21 +27,23 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        split_row(context, call, input)
+        split_row(engine_state, stack, call, input)
     }
 }
 
 fn split_row(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name_span = call.head;
-    let separator: Spanned<String> = call.req(context, 0)?;
+    let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
 
     Ok(input
         .flat_map(move |x| split_row_helper(&x, &separator, name_span))

@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -21,12 +21,13 @@ impl Command for Wrap {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
-        let name: String = call.req(context, 0)?;
+        let name: String = call.req(engine_state, stack, 0)?;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }) => Ok(vals

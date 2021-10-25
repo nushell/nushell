@@ -1,6 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::{Command, EngineState, EvaluationContext, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -21,13 +21,15 @@ impl Command for Where {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cond = call.positional[0].clone();
 
-        let context = context.enter_scope();
+        let engine_state = engine_state.clone();
+        let mut stack = stack.enter_scope();
 
         let (var_id, cond) = match cond {
             Expression {
@@ -40,9 +42,9 @@ impl Command for Where {
         match input {
             PipelineData::Stream(stream) => Ok(stream
                 .filter(move |value| {
-                    context.add_var(var_id, value.clone());
+                    stack.add_var(var_id, value.clone());
 
-                    let result = eval_expression(&context, &cond);
+                    let result = eval_expression(&engine_state, &mut stack, &cond);
 
                     match result {
                         Ok(result) => result.is_true(),
@@ -53,9 +55,9 @@ impl Command for Where {
             PipelineData::Value(Value::List { vals, span }) => Ok(vals
                 .into_iter()
                 .filter(move |value| {
-                    context.add_var(var_id, value.clone());
+                    stack.add_var(var_id, value.clone());
 
-                    let result = eval_expression(&context, &cond);
+                    let result = eval_expression(&engine_state, &mut stack, &cond);
 
                     match result {
                         Ok(result) => result.is_true(),
@@ -64,9 +66,9 @@ impl Command for Where {
                 })
                 .into_pipeline_data()),
             PipelineData::Value(x) => {
-                context.add_var(var_id, x.clone());
+                stack.add_var(var_id, x.clone());
 
-                let result = eval_expression(&context, &cond)?;
+                let result = eval_expression(&engine_state, &mut stack, &cond)?;
 
                 if result.is_true() {
                     Ok(x.into_pipeline_data())
