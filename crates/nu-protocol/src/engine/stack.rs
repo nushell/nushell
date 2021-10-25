@@ -1,46 +1,6 @@
-use super::EngineState;
 use std::collections::HashMap;
 
-use crate::{Example, ShellError, Signature, Value, VarId};
-
-#[derive(Clone)]
-pub struct EvaluationContext {
-    pub engine_state: Box<EngineState>,
-    pub stack: Stack,
-}
-
-impl EvaluationContext {
-    pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
-        self.stack.get_var(var_id)
-    }
-
-    pub fn enter_scope(&self) -> EvaluationContext {
-        Self {
-            engine_state: self.engine_state.clone(),
-            stack: self.stack.clone().enter_scope(),
-        }
-    }
-
-    pub fn add_var(&mut self, var_id: VarId, value: Value) {
-        self.stack.add_var(var_id, value);
-    }
-
-    pub fn add_env_var(&mut self, var: String, value: String) {
-        self.stack.add_env_var(var, value);
-    }
-
-    pub fn print_stack(&self) {
-        self.stack.print_stack();
-    }
-
-    pub fn get_signatures(&self) -> Vec<Signature> {
-        self.engine_state.get_signatures()
-    }
-
-    pub fn get_signatures_with_examples(&self) -> Vec<(Signature, Vec<Example>)> {
-        self.engine_state.get_signatures_with_examples()
-    }
-}
+use crate::{ShellError, Value, VarId};
 
 #[derive(Debug, Clone)]
 pub struct StackFrame {
