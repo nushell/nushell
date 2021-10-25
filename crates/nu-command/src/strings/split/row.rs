@@ -2,9 +2,10 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -28,8 +29,8 @@ impl Command for SubCommand {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         split_row(context, call, input)
     }
 }
@@ -37,14 +38,14 @@ impl Command for SubCommand {
 fn split_row(
     context: &EvaluationContext,
     call: &Call,
-    input: Value,
-) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    input: PipelineData,
+) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(context, 0)?;
 
-    Ok(input.flat_map(name_span, move |x| {
-        split_row_helper(&x, &separator, name_span)
-    }))
+    Ok(input
+        .flat_map(move |x| split_row_helper(&x, &separator, name_span))
+        .into_pipeline_data())
 }
 
 fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<Value> {

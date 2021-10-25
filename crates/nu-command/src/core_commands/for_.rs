@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct For;
 
 impl Command for For {
@@ -38,8 +39,8 @@ impl Command for For {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let var_id = call.positional[0]
             .as_var()
             .expect("internal error: missing variable");
@@ -55,19 +56,26 @@ impl Command for For {
 
         let context = context.clone();
 
-        values.map(call.head, move |x| {
-            let engine_state = context.engine_state.borrow();
-            let block = engine_state.get_block(block);
+        match values {
+            Value::List { vals, span } => Ok(vals
+                .into_iter()
+                .map(move |x| {
+                    let block = context.engine_state.get_block(block);
 
-            let state = context.enter_scope();
+                    let state = context.enter_scope();
 
-            state.add_var(var_id, x);
+                    state.add_var(var_id, x);
 
-            match eval_block(&state, block, Value::nothing()) {
-                Ok(value) => value,
-                Err(error) => Value::Error { error },
-            }
-        })
+                    match eval_block(&state, block, PipelineData::new()) {
+                        Ok(value) => Value::List {
+                            vals: value.collect(),
+                            span,
+                        },
+                        Err(error) => Value::Error { error },
+                    }
+                })
+                .into_pipeline_data()),
+        }
     }
 
     fn examples(&self) -> Vec<Example> {

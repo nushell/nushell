@@ -1,8 +1,9 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct LetEnv;
 
 impl Command for LetEnv {
@@ -28,8 +29,8 @@ impl Command for LetEnv {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let env_var = call.positional[0]
             .as_string()
             .expect("internal error: missing variable");
@@ -44,8 +45,6 @@ impl Command for LetEnv {
         //println!("Adding: {:?} to {}", rhs, var_id);
 
         context.add_env_var(env_var, rhs);
-        Ok(Value::Nothing {
-            span: call.positional[0].span,
-        })
+        Ok(PipelineData::new())
     }
 }

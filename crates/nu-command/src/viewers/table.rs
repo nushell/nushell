@@ -5,6 +5,7 @@ use nu_table::StyledString;
 use std::collections::HashMap;
 use terminal_size::{Height, Width};
 
+#[derive(Clone)]
 pub struct Table;
 
 //NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.

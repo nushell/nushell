@@ -3,13 +3,14 @@ use crate::{ast::Block, BlockId, DeclId, Example, Signature, Span, Type, VarId};
 use core::panic;
 use std::{collections::HashMap, slice::Iter};
 
+#[derive(Clone)]
 pub struct EngineState {
-    files: Vec<(String, usize, usize)>,
-    file_contents: Vec<u8>,
-    vars: Vec<Type>,
-    decls: Vec<Box<dyn Command>>,
-    blocks: Vec<Block>,
-    pub scope: Vec<ScopeFrame>,
+    files: im::Vector<(String, usize, usize)>,
+    file_contents: im::Vector<(Vec<u8>, usize, usize)>,
+    vars: im::Vector<Type>,
+    decls: im::Vector<Box<dyn Command + 'static>>,
+    blocks: im::Vector<Block>,
+    pub scope: im::Vector<ScopeFrame>,
 }
 
 // Tells whether a decl etc. is visible or not
@@ -53,7 +54,7 @@ impl Visibility {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScopeFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
     predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
@@ -95,12 +96,12 @@ impl Default for EngineState {
 impl EngineState {
     pub fn new() -> Self {
         Self {
-            files: vec![],
-            file_contents: vec![],
-            vars: vec![],
-            decls: vec![],
-            blocks: vec![],
-            scope: vec![ScopeFrame::new()],
+            files: im::vector![],
+            file_contents: im::vector![],
+            vars: im::vector![],
+            decls: im::vector![],
+            blocks: im::vector![],
+            scope: im::vector![ScopeFrame::new()],
         }
     }
 
@@ -112,7 +113,7 @@ impl EngineState {
         this.vars.extend(delta.vars);
         this.blocks.extend(delta.blocks);
 
-        if let Some(last) = this.scope.last_mut() {
+        if let Some(last) = this.scope.back_mut() {
             let first = delta.scope.remove(0);
             for item in first.decls.into_iter() {
                 last.decls.insert(item.0, item.1);
@@ -165,8 +166,10 @@ impl EngineState {
     }
 
     pub fn print_contents(&self) {
-        let string = String::from_utf8_lossy(&self.file_contents);
-        println!("{}", string);
+        for (contents, _, _) in self.file_contents.iter() {
+            let string = String::from_utf8_lossy(&contents);
+            println!("{}", string);
+        }
     }
 
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
@@ -200,7 +203,13 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: &Span) -> &[u8] {
-        &self.file_contents[span.start..span.end]
+        for (contents, start, finish) in &self.file_contents {
+            if span.start >= *start && span.start < *finish {
+                return &contents[(span.start - start)..(span.end - start)];
+            }
+        }
+
+        panic!("internal error: span missing in file contents cache")
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Type {
@@ -256,7 +265,7 @@ impl EngineState {
         self.file_contents.len()
     }
 
-    pub fn files(&self) -> Iter<(String, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
         self.files.iter()
     }
 
@@ -273,8 +282,11 @@ impl EngineState {
     pub fn get_file_source(&self, file_id: usize) -> String {
         for file in self.files.iter().enumerate() {
             if file.0 == file_id {
-                let output =
-                    String::from_utf8_lossy(&self.file_contents[file.1 .1..file.1 .2]).to_string();
+                let contents = self.get_span_contents(&Span {
+                    start: file.1 .1,
+                    end: file.1 .2,
+                });
+                let output = String::from_utf8_lossy(contents).to_string();
 
                 return output;
             }
@@ -286,12 +298,13 @@ impl EngineState {
     #[allow(unused)]
     pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
+        let next_span_end = next_span_start + contents.len();
 
-        self.file_contents.extend(&contents);
+        self.file_contents
+            .push_back((contents, next_span_start, next_span_end));
 
-        let next_span_end = self.next_span_start();
-
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files
+            .push_back((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
     }
@@ -304,7 +317,7 @@ pub struct StateWorkingSet<'a> {
 
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
-    pub(crate) file_contents: Vec<u8>,
+    pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Type>,              // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
     blocks: Vec<Block>,           // indexed by BlockId
@@ -520,10 +533,11 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn add_file(&mut self, filename: String, contents: &[u8]) -> usize {
         let next_span_start = self.next_span_start();
+        let next_span_end = next_span_start + contents.len();
 
-        self.delta.file_contents.extend(contents);
-
-        let next_span_end = self.next_span_start();
+        self.delta
+            .file_contents
+            .push((contents.to_vec(), next_span_start, next_span_end));
 
         self.delta
             .files
@@ -535,10 +549,16 @@ impl<'a> StateWorkingSet<'a> {
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
         let permanent_end = self.permanent_state.next_span_start();
         if permanent_end <= span.start {
-            &self.delta.file_contents[(span.start - permanent_end)..(span.end - permanent_end)]
+            for (contents, start, finish) in &self.delta.file_contents {
+                if (span.start >= *start) && (span.start < *finish) {
+                    return &contents[(span.start - permanent_end)..(span.end - permanent_end)];
+                }
+            }
         } else {
-            &self.permanent_state.file_contents[span.start..span.end]
+            return self.permanent_state.get_span_contents(&span);
         }
+
+        panic!("internal error: missing span contents in file cache")
     }
 
     pub fn enter_scope(&mut self) {

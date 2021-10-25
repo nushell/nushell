@@ -3,8 +3,9 @@ use std::fs::OpenOptions;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct Touch;
 
 impl Command for Touch {
@@ -30,8 +31,8 @@ impl Command for Touch {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let target: String = call.req(context, 0)?;
         let rest: Vec<String> = call.rest(context, 1)?;
 
@@ -47,6 +48,6 @@ impl Command for Touch {
             }
         }
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(PipelineData::new())
     }
 }

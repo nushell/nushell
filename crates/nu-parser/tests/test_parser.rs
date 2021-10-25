@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 
 #[cfg(test)]
+#[derive(Clone)]
 pub struct Let;
 
 #[cfg(test)]
@@ -33,8 +34,8 @@ impl Command for Let {
         &self,
         _context: &nu_protocol::engine::EvaluationContext,
         _call: &nu_protocol::ast::Call,
-        _input: nu_protocol::Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: nu_protocol::PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         todo!()
     }
 }

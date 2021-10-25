@@ -1,11 +1,13 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    span, Example, ShellError, Signature, Spanned, SyntaxShape, Value,
+    span, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
+    Value,
 };
 
 use nu_engine::{get_full_help, CallExt};
 
+#[derive(Clone)]
 pub struct Help;
 
 impl Command for Help {
@@ -36,8 +38,8 @@ impl Command for Help {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         help(context, call)
     }
 
@@ -72,7 +74,7 @@ impl Command for Help {
     }
 }
 
-fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
+fn help(context: &EvaluationContext, call: &Call) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let find: Option<Spanned<String>> = call.get_flag(context, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(context, 0)?;
@@ -114,10 +116,7 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             }
         }
 
-        return Ok(Value::List {
-            vals: found_cmds_vec,
-            span: head,
-        });
+        return Ok(found_cmds_vec.into_iter().into_pipeline_data());
     }
 
     if !rest.is_empty() {
@@ -151,10 +150,7 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 });
             }
 
-            Ok(Value::List {
-                vals: found_cmds_vec,
-                span: head,
-            })
+            Ok(found_cmds_vec.into_iter().into_pipeline_data())
         } else {
             let mut name = String::new();
             let mut output = String::new();
@@ -177,7 +173,8 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 Ok(Value::String {
                     val: output,
                     span: call.head,
-                })
+                }
+                .into_pipeline_data())
             } else {
                 Err(ShellError::CommandNotFound(span(&[
                     rest[0].span,
@@ -355,7 +352,8 @@ You can also learn more at https://www.nushell.sh/book/"#;
         Ok(Value::String {
             val: msg.into(),
             span: head,
-        })
+        }
+        .into_pipeline_data())
     }
 }
 

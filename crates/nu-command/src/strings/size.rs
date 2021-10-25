@@ -4,8 +4,11 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
+#[derive(Clone)]
 pub struct Size;
 
 impl Command for Size {
@@ -25,8 +28,8 @@ impl Command for Size {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError> {
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         size(context, call, input)
     }
 
@@ -98,18 +101,24 @@ impl Command for Size {
     }
 }
 
-fn size(_context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
+fn size(
+    _context: &EvaluationContext,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    input.map(span, move |v| match v.as_string() {
-        Ok(s) => count(&s, span),
-        Err(_) => Value::Error {
-            error: ShellError::PipelineMismatch {
-                expected: Type::String,
-                expected_span: span,
-                origin: span,
+    Ok(input
+        .map(move |v| match v.as_string() {
+            Ok(s) => count(&s, span),
+            Err(_) => Value::Error {
+                error: ShellError::PipelineMismatch {
+                    expected: Type::String,
+                    expected_span: span,
+                    origin: span,
+                },
             },
-        },
-    })
+        })
+        .into_pipeline_data())
 }
 
 fn count(contents: &str, span: Span) -> Value {

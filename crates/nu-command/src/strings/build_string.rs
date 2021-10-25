@@ -1,8 +1,11 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
+#[derive(Clone)]
 pub struct BuildString;
 
 impl Command for BuildString {
@@ -43,8 +46,8 @@ impl Command for BuildString {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let output = call
             .positional
             .iter()
@@ -54,7 +57,8 @@ impl Command for BuildString {
         Ok(Value::String {
             val: output.join(""),
             span: call.head,
-        })
+        }
+        .into_pipeline_data())
     }
 }
 

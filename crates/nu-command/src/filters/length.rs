@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Signature, Value};
 
+#[derive(Clone)]
 pub struct Length;
 
 impl Command for Length {
@@ -21,33 +22,19 @@ impl Command for Length {
         &self,
         _context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         match input {
-            Value::List { vals: val, .. } => {
-                let length = val.len();
-
-                Ok(Value::Int {
-                    val: length as i64,
-                    span: call.head,
-                })
-            }
-            Value::Stream { stream, .. } => {
-                let length = stream.count();
-
-                Ok(Value::Int {
-                    val: length as i64,
-                    span: call.head,
-                })
-            }
-            Value::Nothing { .. } => Ok(Value::Int {
+            PipelineData::Value(Value::Nothing { .. }) => Ok(Value::Int {
                 val: 0,
                 span: call.head,
-            }),
+            }
+            .into_pipeline_data()),
             _ => Ok(Value::Int {
-                val: 1,
+                val: input.count() as i64,
                 span: call.head,
-            }),
+            }
+            .into_pipeline_data()),
         }
     }
 }

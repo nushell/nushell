@@ -1,9 +1,10 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -27,8 +28,8 @@ impl Command for SubCommand {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         into_binary(context, call, input)
     }
 
@@ -86,26 +87,28 @@ impl Command for SubCommand {
 fn into_binary(
     _context: &EvaluationContext,
     call: &Call,
-    input: Value,
-) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    input: PipelineData,
+) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
     // let column_paths: Vec<CellPath> = call.rest(context, 0)?;
 
-    input.map(head, move |v| {
-        action(v, head)
-        // FIXME: Add back in cell_path support
-        // if column_paths.is_empty() {
-        //     action(v, head)
-        // } else {
-        //     let mut ret = v;
-        //     for path in &column_paths {
-        //         ret =
-        //             ret.swap_data_by_cell_path(path, Box::new(move |old| action(old, old.tag())))?;
-        //     }
+    Ok(input
+        .map(move |v| {
+            action(v, head)
+            // FIXME: Add back in cell_path support
+            // if column_paths.is_empty() {
+            //     action(v, head)
+            // } else {
+            //     let mut ret = v;
+            //     for path in &column_paths {
+            //         ret =
+            //             ret.swap_data_by_cell_path(path, Box::new(move |old| action(old, old.tag())))?;
+            //     }
 
-        //     Ok(ret)
-        // }
-    })
+            //     Ok(ret)
+            // }
+        })
+        .into_pipeline_data())
 }
 
 fn int_to_endian(n: i64) -> Vec<u8> {

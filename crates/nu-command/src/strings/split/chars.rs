@@ -1,9 +1,10 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Span, Type, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -40,16 +41,21 @@ impl Command for SubCommand {
         &self,
         _context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         split_chars(call, input)
     }
 }
 
-fn split_chars(call: &Call, input: Value) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+fn split_chars(
+    call: &Call,
+    input: PipelineData,
+) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let span = call.head;
 
-    Ok(input.flat_map(span, move |x| split_chars_helper(&x, span)))
+    Ok(input
+        .flat_map(move |x| split_chars_helper(&x, span))
+        .into_pipeline_data())
 }
 
 fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {

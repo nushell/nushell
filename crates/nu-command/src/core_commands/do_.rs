@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct Do;
 
 impl Command for Do {
@@ -29,15 +30,14 @@ impl Command for Do {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let block_id = call.positional[0]
             .as_block()
             .expect("internal error: expected block");
         let rest: Vec<Value> = call.rest(context, 1)?;
 
-        let engine_state = context.engine_state.borrow();
-        let block = engine_state.get_block(block_id);
+        let block = context.engine_state.get_block(block_id);
 
         let state = context.enter_scope();
 

@@ -5,8 +5,9 @@ use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct Mv;
 
 #[allow(unused_must_use)]
@@ -39,8 +40,8 @@ impl Command for Mv {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let source: String = call.req(context, 0)?;
         let destination: String = call.req(context, 1)?;
@@ -128,7 +129,7 @@ impl Command for Mv {
             move_file(call, &entry, &destination)?
         }
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(PipelineData::new())
     }
 }
 

@@ -1,8 +1,9 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
+#[derive(Clone)]
 pub struct If;
 
 impl Command for If {
@@ -29,8 +30,8 @@ impl Command for If {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cond = &call.positional[0];
         let then_block = call.positional[1]
             .as_block()
@@ -40,25 +41,24 @@ impl Command for If {
         let result = eval_expression(context, cond)?;
         match result {
             Value::Bool { val, span } => {
-                let engine_state = context.engine_state.borrow();
                 if val {
-                    let block = engine_state.get_block(then_block);
+                    let block = context.engine_state.get_block(then_block);
                     let state = context.enter_scope();
                     eval_block(&state, block, input)
                 } else if let Some(else_case) = else_case {
                     if let Some(else_expr) = else_case.as_keyword() {
                         if let Some(block_id) = else_expr.as_block() {
-                            let block = engine_state.get_block(block_id);
+                            let block = context.engine_state.get_block(block_id);
                             let state = context.enter_scope();
                             eval_block(&state, block, input)
                         } else {
-                            eval_expression(context, else_expr)
+                            eval_expression(context, else_expr).map(|x| x.into_pipeline_data())
                         }
                     } else {
-                        eval_expression(context, else_case)
+                        eval_expression(context, else_case).map(|x| x.into_pipeline_data())
                     }
                 } else {
-                    Ok(Value::Nothing { span })
+                    Ok(PipelineData::new())
                 }
             }
             _ => Err(ShellError::CantConvert("bool".into(), result.span()?)),

@@ -1,10 +1,11 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Value,
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
+#[derive(Clone)]
 pub struct Ps;
 
 impl Command for Ps {
@@ -31,8 +32,8 @@ impl Command for Ps {
         &self,
         _context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         run_ps(call)
     }
 
@@ -45,7 +46,7 @@ impl Command for Ps {
     }
 }
 
-fn run_ps(call: &Call) -> Result<Value, ShellError> {
+fn run_ps(call: &Call) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let long = call.has_flag("long");
     let mut sys = System::new_all();
@@ -124,5 +125,5 @@ fn run_ps(call: &Call) -> Result<Value, ShellError> {
         }
     }
 
-    Ok(Value::List { vals: output, span })
+    Ok(output.into_iter().into_pipeline_data())
 }

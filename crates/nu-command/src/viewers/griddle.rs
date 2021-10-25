@@ -8,6 +8,7 @@ use nu_protocol::{
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
 
+#[derive(Clone)]
 pub struct Griddle;
 
 impl Command for Griddle {

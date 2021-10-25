@@ -1,8 +1,8 @@
-use crate::{ast::Call, value::Value, BlockId, Example, ShellError, Signature};
+use crate::{ast::Call, value::Value, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::EvaluationContext;
 
-pub trait Command: Send + Sync {
+pub trait Command: Send + Sync + CommandClone {
     fn name(&self) -> &str;
 
     fn signature(&self) -> Signature {
@@ -19,8 +19,8 @@ pub trait Command: Send + Sync {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError>;
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError>;
 
     fn is_binary(&self) -> bool {
         false
@@ -53,5 +53,24 @@ pub trait Command: Send + Sync {
     // If command is a block i.e. def blah [] { }, get the block id
     fn get_block_id(&self) -> Option<BlockId> {
         None
+    }
+}
+
+pub trait CommandClone {
+    fn clone_box(&self) -> Box<dyn Command>;
+}
+
+impl<T> CommandClone for T
+where
+    T: 'static + Command + Clone,
+{
+    fn clone_box(&self) -> Box<dyn Command> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Command> {
+    fn clone(&self) -> Box<dyn Command> {
+        self.clone_box()
     }
 }

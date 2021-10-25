@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, IntoValueStream, ShellError, Signature, Span, Value};
+use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
 
+#[derive(Clone)]
 pub struct FromJson;
 
 impl Command for FromJson {
@@ -69,8 +70,8 @@ impl Command for FromJson {
         &self,
         _context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = input.span()?;
         let mut string_input = input.collect_string();
         string_input.push('\n');
@@ -79,21 +80,18 @@ impl Command for FromJson {
         if call.has_flag("objects") {
             #[allow(clippy::needless_collect)]
             let lines: Vec<String> = string_input.lines().map(|x| x.to_string()).collect();
-            Ok(Value::Stream {
-                stream: lines
-                    .into_iter()
-                    .map(move |mut x| {
-                        x.push('\n');
-                        match convert_string_to_value(x, span) {
-                            Ok(v) => v,
-                            Err(error) => Value::Error { error },
-                        }
-                    })
-                    .into_value_stream(),
-                span,
-            })
+            Ok(lines
+                .into_iter()
+                .map(move |mut x| {
+                    x.push('\n');
+                    match convert_string_to_value(x, span) {
+                        Ok(v) => v,
+                        Err(error) => Value::Error { error },
+                    }
+                })
+                .into_pipeline_data())
         } else {
-            convert_string_to_value(string_input, span)
+            Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
         }
     }
 }

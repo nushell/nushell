@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Value};
+use nu_protocol::{PipelineData, ShellError, Signature, Value};
 
+#[derive(Clone)]
 pub struct From;
 
 impl Command for From {
@@ -21,8 +22,8 @@ impl Command for From {
         &self,
         _context: &EvaluationContext,
         _call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, ShellError> {
-        Ok(Value::nothing())
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, ShellError> {
+        Ok(PipelineData::new())
     }
 }

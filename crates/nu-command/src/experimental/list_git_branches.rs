@@ -5,8 +5,11 @@ use std::process::Stdio;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::IntoPipelineData;
+use nu_protocol::PipelineData;
 use nu_protocol::{Signature, Value};
 
+#[derive(Clone)]
 pub struct ListGitBranches;
 
 //NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
@@ -27,8 +30,8 @@ impl Command for ListGitBranches {
         &self,
         _context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let list_branches = ProcessCommand::new("git")
             .arg("branch")
             .stdout(Stdio::piped())
@@ -55,15 +58,12 @@ impl Command for ListGitBranches {
                     })
                     .collect();
 
-                Ok(Value::List {
-                    vals: lines,
-                    span: call.head,
-                })
+                Ok(lines.into_iter().into_pipeline_data())
             } else {
-                Ok(Value::Nothing { span: call.head })
+                Ok(PipelineData::new())
             }
         } else {
-            Ok(Value::Nothing { span: call.head })
+            Ok(PipelineData::new())
         }
     }
 }

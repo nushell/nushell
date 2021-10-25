@@ -2,9 +2,10 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EvaluationContext},
-    Signature, Value,
+    IntoPipelineData, PipelineData, Signature, Value,
 };
 
+#[derive(Clone)]
 pub struct Into;
 
 impl Command for Into {
@@ -24,12 +25,13 @@ impl Command for Into {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
             val: get_full_help(&Into.signature(), &[], context),
             span: call.head,
-        })
+        }
+        .into_pipeline_data())
     }
 }
 

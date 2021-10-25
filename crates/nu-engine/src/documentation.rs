@@ -26,11 +26,10 @@ fn generate_doc(name: &str, context: &EvaluationContext) -> (Vec<String>, Vec<Va
     let mut cols = vec![];
     let mut vals = vec![];
 
-    let engine_state = context.engine_state.borrow();
-
-    let command = engine_state
+    let command = context
+        .engine_state
         .find_decl(name.as_bytes())
-        .map(|decl_id| engine_state.get_decl(decl_id))
+        .map(|decl_id| context.engine_state.get_decl(decl_id))
         .unwrap_or_else(|| panic!("Expected command '{}' from names to be in registry", name));
 
     cols.push("name".to_string());

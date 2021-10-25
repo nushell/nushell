@@ -4,8 +4,11 @@ use std::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value, ValueStream};
+use nu_protocol::{
+    IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
+};
 
+#[derive(Clone)]
 pub struct Mkdir;
 
 impl Command for Mkdir {
@@ -31,8 +34,8 @@ impl Command for Mkdir {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let path = current_dir()?;
         let mut directories = call
             .rest::<String>(context, 0)?
@@ -67,8 +70,6 @@ impl Command for Mkdir {
             }
         }
 
-        let stream = ValueStream::from_stream(stream.into_iter());
-        let span = call.head;
-        Ok(Value::Stream { stream, span })
+        Ok(stream.into_iter().into_pipeline_data())
     }
 }

@@ -11,12 +11,13 @@ use nu_protocol::{
     engine::{Command, EvaluationContext},
     ShellError, Signature, SyntaxShape, Value,
 };
-use nu_protocol::{Span, ValueStream};
+use nu_protocol::{IntoPipelineData, PipelineData, Span, ValueStream};
 
 use nu_engine::eval_expression;
 
 const OUTPUT_BUFFER_SIZE: usize = 8192;
 
+#[derive(Clone)]
 pub struct External;
 
 impl Command for External {
@@ -38,8 +39,8 @@ impl Command for External {
         &self,
         context: &EvaluationContext,
         call: &Call,
-        input: Value,
-    ) -> Result<Value, ShellError> {
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let command = ExternalCommand::try_new(call, context)?;
         command.run_with_input(input)
     }
@@ -82,7 +83,7 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             .collect()
     }
 
-    pub fn run_with_input(&self, input: Value) -> Result<Value, ShellError> {
+    pub fn run_with_input(&self, input: PipelineData) -> Result<PipelineData, ShellError> {
         let mut process = self.create_command();
 
         // TODO. We don't have a way to know the current directory
@@ -101,11 +102,11 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if let Value::String { .. } = input {
+        if let PipelineData::Value(Value::String { .. }) = input {
             process.stdin(Stdio::piped());
         }
 
-        if let Value::Stream { .. } = input {
+        if let PipelineData::Stream { .. } = input {
             process.stdin(Stdio::piped());
         }
 
@@ -116,33 +117,18 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
             )),
             Ok(mut child) => {
                 // if there is a string or a stream, that is sent to the pipe std
-                match input {
-                    Value::String { val, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            self.write_to_stdin(&mut stdin_write, val.as_bytes())?
-                        }
-                    }
-                    Value::Binary { val, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            self.write_to_stdin(&mut stdin_write, &val)?
-                        }
-                    }
-                    Value::Stream { stream, span: _ } => {
-                        if let Some(mut stdin_write) = child.stdin.take() {
-                            for value in stream {
-                                match value {
-                                    Value::String { val, span: _ } => {
-                                        self.write_to_stdin(&mut stdin_write, val.as_bytes())?
-                                    }
-                                    Value::Binary { val, span: _ } => {
-                                        self.write_to_stdin(&mut stdin_write, &val)?
-                                    }
-                                    _ => continue,
-                                }
+                if let Some(mut stdin_write) = child.stdin.take() {
+                    for value in input {
+                        match value {
+                            Value::String { val, span: _ } => {
+                                self.write_to_stdin(&mut stdin_write, val.as_bytes())?
                             }
+                            Value::Binary { val, span: _ } => {
+                                self.write_to_stdin(&mut stdin_write, &val)?
+                            }
+                            _ => continue,
                         }
                     }
-                    _ => (),
                 }
 
                 // If this external is not the last expression, then its output is piped to a channel
@@ -185,12 +171,9 @@ impl<'call, 'contex> ExternalCommand<'call, 'contex> {
                     });
 
                     // The ValueStream is consumed by the next expression in the pipeline
-                    Value::Stream {
-                        stream: ValueStream(Rc::new(RefCell::new(ChannelReceiver::new(rx)))),
-                        span: Span::unknown(),
-                    }
+                    ChannelReceiver::new(rx).into_pipeline_data()
                 } else {
-                    Value::nothing()
+                    PipelineData::new()
                 };
 
                 match child.wait() {

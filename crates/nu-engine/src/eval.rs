@@ -1,6 +1,8 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::EvaluationContext;
-use nu_protocol::{Range, ShellError, Span, Spanned, Type, Unit, Value};
+use nu_protocol::{
+    IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value,
+};
 
 use crate::get_full_help;
 
@@ -16,17 +18,21 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     }
 }
 
-fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<Value, ShellError> {
-    let engine_state = context.engine_state.borrow();
-    let decl = engine_state.get_decl(call.decl_id);
+fn eval_call(
+    context: &EvaluationContext,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let decl = context.engine_state.get_decl(call.decl_id);
     if call.named.iter().any(|(flag, _)| flag.item == "help") {
         let full_help = get_full_help(&decl.signature(), &decl.examples(), context);
         Ok(Value::String {
             val: full_help,
             span: call.head,
-        })
+        }
+        .into_pipeline_data())
     } else if let Some(block_id) = decl.get_block_id() {
-        let state = context.enter_scope();
+        let mut state = context.enter_scope();
         for (arg, param) in call.positional.iter().zip(
             decl.signature()
                 .required_positional
@@ -102,8 +108,7 @@ fn eval_call(context: &EvaluationContext, call: &Call, input: Value) -> Result<V
                 }
             }
         }
-        let engine_state = state.engine_state.borrow();
-        let block = engine_state.get_block(block_id);
+        let block = context.engine_state.get_block(block_id);
         eval_block(&state, block, input)
     } else {
         decl.run(context, call, input)
@@ -115,16 +120,15 @@ fn eval_external(
     name: &str,
     name_span: &Span,
     args: &[Expression],
-    input: Value,
+    input: PipelineData,
     last_expression: bool,
-) -> Result<Value, ShellError> {
-    let engine_state = context.engine_state.borrow();
-
-    let decl_id = engine_state
+) -> Result<PipelineData, ShellError> {
+    let decl_id = context
+        .engine_state
         .find_decl("run_external".as_bytes())
         .ok_or_else(|| ShellError::ExternalNotSupported(*name_span))?;
 
-    let command = engine_state.get_decl(decl_id);
+    let command = context.engine_state.get_decl(decl_id);
 
     let mut call = Call::new();
 
@@ -216,9 +220,20 @@ pub fn eval_expression(
             value.follow_cell_path(&cell_path.tail)
         }
         Expr::RowCondition(_, expr) => eval_expression(context, expr),
-        Expr::Call(call) => eval_call(context, call, Value::nothing()),
+        Expr::Call(call) => {
+            // FIXME: protect this collect with ctrl-c
+            Ok(Value::List {
+                vals: eval_call(context, call, PipelineData::new())?.collect(),
+                span: expr.span,
+            })
+        }
         Expr::ExternalCall(name, span, args) => {
-            eval_external(context, name, span, args, Value::nothing(), true)
+            // FIXME: protect this collect with ctrl-c
+            Ok(Value::List {
+                vals: eval_external(context, name, span, args, PipelineData::new(), true)?
+                    .collect(),
+                span: expr.span,
+            })
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -249,11 +264,15 @@ pub fn eval_expression(
             }
         }
         Expr::Subexpression(block_id) => {
-            let engine_state = context.engine_state.borrow();
-            let block = engine_state.get_block(*block_id);
+            let block = context.engine_state.get_block(*block_id);
 
             let state = context.enter_scope();
-            eval_block(&state, block, Value::nothing())
+
+            // FIXME: protect this collect with ctrl-c
+            Ok(Value::List {
+                vals: eval_block(&state, block, PipelineData::new())?.collect(),
+                span: expr.span,
+            })
         }
         Expr::Block(block_id) => Ok(Value::Block {
             val: *block_id,
@@ -313,8 +332,8 @@ pub fn eval_expression(
 pub fn eval_block(
     context: &EvaluationContext,
     block: &Block,
-    mut input: Value,
-) -> Result<Value, ShellError> {
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     for stmt in block.stmts.iter() {
         if let Statement::Pipeline(pipeline) = stmt {
             for (i, elem) in pipeline.expressions.iter().enumerate() {
@@ -340,7 +359,7 @@ pub fn eval_block(
                     }
 
                     elem => {
-                        input = eval_expression(context, elem)?;
+                        input = eval_expression(context, elem)?.into_pipeline_data();
                     }
                 }
             }
