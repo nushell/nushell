@@ -4,19 +4,19 @@ description = "Completions for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-completion"
-version = "0.38.0"
+version = "0.39.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-engine = { version = "0.38.0", path="../nu-engine" }
-nu-data = { version = "0.38.0", path="../nu-data" }
-nu-parser = { version = "0.38.0", path="../nu-parser" }
-nu-path = { version = "0.38.0", path="../nu-path" }
-nu-protocol = { version = "0.38.0", path="../nu-protocol" }
-nu-source = { version = "0.38.0", path="../nu-source" }
-nu-test-support = { version = "0.38.0", path="../nu-test-support" }
+nu-engine = { version = "0.39.0", path="../nu-engine" }
+nu-data = { version = "0.39.0", path="../nu-data" }
+nu-parser = { version = "0.39.0", path="../nu-parser" }
+nu-path = { version = "0.39.0", path="../nu-path" }
+nu-protocol = { version = "0.39.0", path="../nu-protocol" }
+nu-source = { version = "0.39.0", path="../nu-source" }
+nu-test-support = { version = "0.39.0", path="../nu-test-support" }
 indexmap = { version="1.6.1", features=["serde-1"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
