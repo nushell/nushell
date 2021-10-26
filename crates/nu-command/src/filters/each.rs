@@ -64,7 +64,7 @@ impl Command for Each {
 
         let numbered = call.has_flag("numbered");
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block_id);
+        let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
         let span = call.head;
 
@@ -73,10 +73,6 @@ impl Command for Each {
                 .into_range_iter()?
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -100,21 +96,16 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
+                        Ok(v) => v.into_value(),
+                        Err(error) => Value::Error { error },
                     }
                 })
-                .flatten()
                 .into_pipeline_data()),
             PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -138,20 +129,15 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
+                        Ok(v) => v.into_value(),
+                        Err(error) => Value::Error { error },
                     }
                 })
-                .flatten()
                 .into_pipeline_data()),
             PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
                 .map(move |(idx, x)| {
-                    let block = engine_state.get_block(block_id);
-
-                    let mut stack = stack.clone();
-
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -175,12 +161,11 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
-                        Ok(v) => v,
-                        Err(error) => Value::Error { error }.into_pipeline_data(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
+                        Ok(v) => v.into_value(),
+                        Err(error) => Value::Error { error },
                     }
                 })
-                .flatten()
                 .into_pipeline_data()),
             PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 let mut output_cols = vec![];
