@@ -43,6 +43,7 @@ pub fn create_default_context() -> EngineState {
             IntoBinary,
             IntoFilesize,
             IntoInt,
+            Last,
             Length,
             Let,
             LetEnv,
