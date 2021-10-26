@@ -1697,26 +1697,8 @@ pub fn parse_import_pattern(
 ) -> (ImportPattern, Option<ParseError>) {
     let mut error = None;
 
-    // return (
-    //     ImportPattern {
-    //         head: vec![],
-    //         members: vec![],
-    //     },
-    //     Some(ParseError::MissingImportPattern(span)),
-    // );
-
-    // return (
-    //     ImportPattern {
-    //         head: vec![],
-    //         members: vec![],
-    //     },
-    //     Some(ParseError::WrongImportPattern(span)),
-    // );
-
     let head = if let Some(head_span) = spans.get(0) {
-        let (head_expr, err) = parse_string(working_set, *head_span);
-        error = error.or(err);
-        working_set.get_span_contents(head_expr.span).to_vec()
+        working_set.get_span_contents(*head_span).to_vec()
     } else {
         return (
             ImportPattern {
