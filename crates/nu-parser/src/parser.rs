@@ -1693,70 +1693,54 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 
 pub fn parse_import_pattern(
     working_set: &mut StateWorkingSet,
-    span: Span,
+    spans: &[Span],
 ) -> (ImportPattern, Option<ParseError>) {
-    let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[], &[b':']);
-    error = error.or(err);
+    // return (
+    //     ImportPattern {
+    //         head: vec![],
+    //         members: vec![],
+    //     },
+    //     Some(ParseError::MissingImportPattern(span)),
+    // );
 
-    if tokens.is_empty() {
-        return (
-            ImportPattern {
-                head: vec![],
-                members: vec![],
-            },
-            Some(ParseError::MissingImportPattern(span)),
-        );
-    }
+    // return (
+    //     ImportPattern {
+    //         head: vec![],
+    //         members: vec![],
+    //     },
+    //     Some(ParseError::WrongImportPattern(span)),
+    // );
 
-    // We can have either "head" or "head::tail"
-    if (tokens.len() != 1) && (tokens.len() != 4) {
-        return (
-            ImportPattern {
-                head: vec![],
-                members: vec![],
-            },
-            Some(ParseError::WrongImportPattern(span)),
-        );
-    }
-
-    // Check if the second : of the :: is really a :
-    let has_second_colon = if let Some(t) = tokens.get(2) {
-        let potential_colon = working_set.get_span_contents(t.span);
-        potential_colon == b":"
+    let head = if let Some(head_span) = spans.get(0) {
+        let (head_expr, err) = parse_string(working_set, *head_span);
+        error = error.or(err);
+        working_set.get_span_contents(head_expr.span).to_vec()
     } else {
-        false
+        return (
+            ImportPattern {
+                head: vec![],
+                members: vec![],
+            },
+            Some(ParseError::WrongImportPattern(span(spans))),
+        );
     };
 
-    if (tokens.len() == 4) && !has_second_colon {
-        // Applies only to the "head::tail" structure; "head" only doesn't have :
-        return (
-            ImportPattern {
-                head: vec![],
-                members: vec![],
-            },
-            Some(ParseError::WrongImportPattern(span)),
-        );
-    }
-
-    let head = working_set.get_span_contents(tokens[0].span).to_vec();
-
-    if let Some(tail) = tokens.get(3) {
+    if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
-        let tail_span = tail.span;
-        let tail = working_set.get_span_contents(tail.span);
+        let tail = working_set.get_span_contents(*tail_span);
         if tail == b"*" {
             (
                 ImportPattern {
                     head,
-                    members: vec![ImportPatternMember::Glob { span: tail_span }],
+                    members: vec![ImportPatternMember::Glob { span: *tail_span }],
                 },
                 error,
             )
         } else if tail.starts_with(b"[") {
-            let (result, err) = parse_list_expression(working_set, tail_span, &SyntaxShape::String);
+            let (result, err) =
+                parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
             error = error.or(err);
 
             let mut output = vec![];
@@ -1793,7 +1777,7 @@ pub fn parse_import_pattern(
                     head,
                     members: vec![ImportPatternMember::Name {
                         name: tail.to_vec(),
-                        span: tail_span,
+                        span: *tail_span,
                     }],
                 },
                 error,

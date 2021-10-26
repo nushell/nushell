@@ -389,7 +389,7 @@ fn better_block_types() -> TestResult {
 #[test]
 fn module_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo::a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo a"#,
         "1",
     )
 }
@@ -397,7 +397,7 @@ fn module_imports_1() -> TestResult {
 #[test]
 fn module_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo::a; a"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo a; a"#,
         "1",
     )
 }
@@ -405,7 +405,7 @@ fn module_imports_2() -> TestResult {
 #[test]
 fn module_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo::*; b"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo *; b"#,
         "2",
     )
 }
@@ -413,7 +413,7 @@ fn module_imports_3() -> TestResult {
 #[test]
 fn module_imports_4() -> TestResult {
     fail_test(
-        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo::c"#,
+        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo c"#,
         "not find import",
     )
 }
@@ -421,7 +421,7 @@ fn module_imports_4() -> TestResult {
 #[test]
 fn module_imports_5() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { 2 }; export def c [] { 3 } }; use foo::[a, c]; c"#,
+        r#"module foo { export def a [] { 1 }; def b [] { 2 }; export def c [] { 3 } }; use foo [a, c]; c"#,
         "3",
     )
 }
@@ -429,7 +429,7 @@ fn module_imports_5() -> TestResult {
 #[test]
 fn module_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo::a"#,
+        r#"module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo a"#,
         "2",
     )
 }
@@ -438,14 +438,6 @@ fn module_import_uses_internal_command() -> TestResult {
 fn module_import_does_not_parse_with_incorrect_delimiter() -> TestResult {
     fail_test(
         r#"module foo { export def a [] { 1 }  }; use foo:.a"#,
-        not_found_msg(),
-    )
-}
-
-#[test]
-fn module_import_does_not_parse_with_missing_tail() -> TestResult {
-    fail_test(
-        r#"module foo { export def a [] { 1 }  }; use foo::"#,
         not_found_msg(),
     )
 }
@@ -507,7 +499,7 @@ fn hide_twice_not_allowed() -> TestResult {
 #[test]
 fn hides_import_1() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam::foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam foo; foo"#,
         not_found_msg(),
     )
 }
@@ -515,7 +507,7 @@ fn hides_import_1() -> TestResult {
 #[test]
 fn hides_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam::*; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam *; foo"#,
         not_found_msg(),
     )
 }
@@ -523,7 +515,7 @@ fn hides_import_2() -> TestResult {
 #[test]
 fn hides_import_3() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam::[foo]; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam [foo]; foo"#,
         not_found_msg(),
     )
 }
@@ -531,7 +523,7 @@ fn hides_import_3() -> TestResult {
 #[test]
 fn hides_import_4() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam::foo; hide foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; foo"#,
         not_found_msg(),
     )
 }
@@ -539,7 +531,7 @@ fn hides_import_4() -> TestResult {
 #[test]
 fn hides_import_5() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam::*; hide foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam *; hide foo; foo"#,
         not_found_msg(),
     )
 }
@@ -555,7 +547,7 @@ fn def_twice_should_fail() -> TestResult {
 #[test]
 fn use_import_after_hide() -> TestResult {
     run_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam::foo; hide foo; use spam::foo; foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam foo; hide foo; use spam foo; foo"#,
         "foo",
     )
 }
@@ -563,7 +555,7 @@ fn use_import_after_hide() -> TestResult {
 #[test]
 fn hide_shadowed_decl() -> TestResult {
     run_test(
-        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; do { use spam::foo; hide foo; foo }"#,
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; do { use spam foo; hide foo; foo }"#,
         "foo",
     )
 }
@@ -571,7 +563,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hides_all_decls_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam::foo; hide foo; foo"#,
+        r#"module spam { export def foo [] { "bar" } }; def foo [] { "foo" }; use spam foo; hide foo; foo"#,
         not_found_msg(),
     )
 }
