@@ -69,9 +69,9 @@ impl Command for Ls {
                                 span: call_span,
                             },
                             if is_file {
-                                Value::string("File", call_span)
+                                Value::string("file", call_span)
                             } else if is_dir {
-                                Value::string("Dir", call_span)
+                                Value::string("dir", call_span)
                             } else {
                                 Value::Nothing { span: call_span }
                             },
