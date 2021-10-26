@@ -56,18 +56,17 @@ impl Command for For {
             .expect("internal error: expected block");
 
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block_id);
+        let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
 
         match values {
             Value::List { vals, .. } => Ok(vals
                 .into_iter()
                 .map(move |x| {
-                    let mut stack = stack.clone();
                     stack.add_var(var_id, x);
 
-                    let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                    //let block = engine_state.get_block(block_id);
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
                         Ok(pipeline_data) => pipeline_data.into_value(),
                         Err(error) => Value::Error { error },
                     }
@@ -78,8 +77,8 @@ impl Command for For {
                 .map(move |x| {
                     stack.add_var(var_id, x);
 
-                    let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                    //let block = engine_state.get_block(block_id);
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
                         Ok(pipeline_data) => pipeline_data.into_value(),
                         Err(error) => Value::Error { error },
                     }
@@ -88,7 +87,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, &block, PipelineData::new())
             }
         }
     }
