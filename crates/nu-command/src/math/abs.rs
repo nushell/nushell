@@ -27,24 +27,6 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         input.map(move |value| abs_helper(value, head))
-        // PipelineData::Value(Value::List { vals, span }) => Ok(Value::List {
-        //         vals: vals
-        //             .into_iter()
-        //             .map(move |val| abs_helper(val, head))
-        //             .collect(),
-        //         span,
-        //     }),
-        //     PipelineData::Value(other) => match abs_helper(other, head) {
-        //         Value::Error { error } => Err(error),
-        //         ok => Ok(nu_protocolok),
-        //     },
-        //     _ => Value::Error {
-        //         error: ShellError::UnsupportedInput(
-        //             String::from("Only numerical values are supported"),
-        //             head,
-        //         ),
-        //     },
-        // }
     }
 
     fn examples(&self) -> Vec<Example> {
