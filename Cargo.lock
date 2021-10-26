@@ -608,6 +608,7 @@ dependencies = [
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
+ "rayon",
  "sysinfo",
  "terminal_size",
  "thiserror",
