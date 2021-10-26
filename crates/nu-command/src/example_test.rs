@@ -5,7 +5,7 @@ use nu_protocol::{
     PipelineData,
 };
 
-use super::{From, Into, Split};
+use super::{From, Into, Math, Split};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -18,6 +18,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(Into));
         working_set.add_decl(Box::new(Split));
+        working_set.add_decl(Box::new(Math));
 
         // Adding the command that is being tested to the working set
         working_set.add_decl(Box::new(cmd));
