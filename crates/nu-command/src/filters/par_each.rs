@@ -17,7 +17,7 @@ impl Command for ParEach {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("each")
+        Signature::build("par-each")
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
