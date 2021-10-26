@@ -35,6 +35,11 @@ impl Command for Last {
     ) -> Result<PipelineData, ShellError> {
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
 
+        // This code works fine and does the correct
+        // calculation of the beginning_rows_to_skip
+        // but it can not currently be used because
+        // I am not able to clone the input
+
         /*
                 let vlength = length(input)?;
                 dbg!(vlength);
@@ -53,6 +58,17 @@ impl Command for Last {
 
                 dbg!(beginning_rows_to_skip);
         */
+
+        // This code works fine if I am able to get this value
+        // So for now I am hard coding this number
+
+        // The above code successfully calculates this number
+        // and it all works if I was able to clone the input
+
+        // it seems being able to
+        // clone the input is important
+
+        // As we were able to do that prior to your changes...
 
         let beginning_rows_to_skip = 2;
 
