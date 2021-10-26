@@ -169,6 +169,14 @@ pub enum ShellError {
     NoFileToBeMoved(),
     #[error("No file to be copied")]
     NoFileToBeCopied(),
+
+    #[error("Unable to serialize message")]
+    #[diagnostic(code(nu::shell::EncodingError), url(docsrs))]
+    EncodingError(String),
+
+    #[error("Unable to read message")]
+    #[diagnostic(code(nu::shell::DecodingError), url(docsrs))]
+    DecodingError(String),
 }
 
 impl From<std::io::Error> for ShellError {
