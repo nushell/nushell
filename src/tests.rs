@@ -622,6 +622,14 @@ fn for_loops() -> TestResult {
 }
 
 #[test]
+fn par_each() -> TestResult {
+    run_test(
+        r#"1..10 | par-each --numbered { ([[index, item]; [$it.index, ($it.item > 5)]]).0 } | where index == 4 | get item.0"#,
+        "false",
+    )
+}
+
+#[test]
 fn type_in_list_of_this_type() -> TestResult {
     run_test(r#"42 in [41 42 43]"#, "true")
 }
