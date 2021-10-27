@@ -50,6 +50,7 @@ pub fn create_default_context() -> EngineState {
             Ls,
             Math,
             MathAbs,
+            MathAvg,
             Mkdir,
             Module,
             Mv,
