@@ -2,7 +2,9 @@ use nu_engine::CallExt;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 use std::convert::TryInto;
 
 #[derive(Clone)]
@@ -23,6 +25,17 @@ impl Command for Last {
 
     fn usage(&self) -> &str {
         "Show only the last number of rows."
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "[1,2,3] | last 2",
+            description: "Get the last 2 items",
+            result: Some(Value::List {
+                vals: vec![Value::test_int(2), Value::test_int(3)],
+                span: Span::unknown(),
+            }),
+        }]
     }
 
     fn run(
@@ -57,4 +70,16 @@ fn rows_to_skip(count: i64, rows: Option<i64>) -> i64 {
     } else {
         return 0;
     };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Last {})
+    }
 }
