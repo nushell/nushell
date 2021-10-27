@@ -66,10 +66,10 @@ fn rows_to_skip(count: i64, rows: Option<i64>) -> i64 {
     };
 
     if end_rows_desired < count {
-        return count - end_rows_desired;
+        count - end_rows_desired
     } else {
-        return 0;
-    };
+        0
+    }
 }
 
 #[cfg(test)]
