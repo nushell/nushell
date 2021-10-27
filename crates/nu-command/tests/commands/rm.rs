@@ -306,3 +306,21 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
         assert!(!files_exist_at(vec![".bar"], dirs.test()));
     })
 }
+
+#[test]
+fn removes_files_with_case_sensitive_glob_matches_by_default() {
+    Playground::setup("glob_test", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("A0"), EmptyFile("a1")]);
+
+        nu!(
+            cwd: dirs.root(),
+            "rm glob_test/A*"
+        );
+
+        let deleted_path = dirs.test().join("A0");
+        let skipped_path = dirs.test().join("a1");
+
+        assert!(!deleted_path.exists());
+        assert!(skipped_path.exists());
+    })
+}
