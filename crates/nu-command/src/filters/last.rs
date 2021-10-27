@@ -2,9 +2,10 @@ use nu_engine::CallExt;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Value};
 
-use std::convert::TryInto;
+//use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+//use std::convert::TryInto;
 
 #[derive(Clone)]
 pub struct Last;
@@ -35,6 +36,12 @@ impl Command for Last {
     ) -> Result<PipelineData, ShellError> {
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
 
+        let iter_count: i64 = input.into_iter().count() as i64;
+
+        let beginning_rows_to_skip = rows_to_skip(iter_count, rows);
+
+        dbg!(beginning_rows_to_skip);
+
         // This code works fine and does the correct
         // calculation of the beginning_rows_to_skip
         // but it can not currently be used because
@@ -56,7 +63,7 @@ impl Command for Last {
                     0
                 };
 
-                dbg!(beginning_rows_to_skip);
+
         */
 
         // This code works fine if I am able to get this value
@@ -70,35 +77,43 @@ impl Command for Last {
 
         // As we were able to do that prior to your changes...
 
-        let beginning_rows_to_skip = 2;
+        /*
+                let beginning_rows_to_skip = 2;
 
-        match input {
-            PipelineData::Stream(stream) => {
-                dbg!("Stream");
-                Ok(stream
-                    .skip(beginning_rows_to_skip.try_into().unwrap())
-                    .into_pipeline_data())
-            }
-            PipelineData::Value(Value::List { vals, .. }) => {
-                dbg!("Value");
-                Ok(vals
-                    .into_iter()
-                    .skip(beginning_rows_to_skip.try_into().unwrap())
-                    .into_pipeline_data())
-            }
-            _ => {
-                dbg!("Fall to the bottom");
-                Ok(PipelineData::Value(Value::Nothing { span: call.head }))
-            }
-        }
-
-        // Ok(PipelineData::Value(Value::Nothing { span: call.head }))
+                match input {
+                    PipelineData::Stream(stream) => {
+                        dbg!("Stream");
+                        Ok(stream
+                            .skip(beginning_rows_to_skip.try_into().unwrap())
+                            .into_pipeline_data())
+                    }
+                    PipelineData::Value(Value::List { vals, .. }) => {
+                        dbg!("Value");
+                        Ok(vals
+                            .into_iter()
+                            .skip(beginning_rows_to_skip.try_into().unwrap())
+                            .into_pipeline_data())
+                    }
+                    _ => {
+                        dbg!("Fall to the bottom");
+                        Ok(PipelineData::Value(Value::Nothing { span: call.head }))
+                    }
+                }
+        */
+        Ok(PipelineData::Value(Value::Nothing { span: call.head }))
     }
 }
 
-fn length(input: PipelineData) -> Result<i64, nu_protocol::ShellError> {
-    match input {
-        PipelineData::Value(Value::Nothing { .. }) => Ok(1),
-        _ => Ok(input.into_iter().count() as i64),
-    }
+fn rows_to_skip(count: i64, rows: Option<i64>) -> i64 {
+    let end_rows_desired = if let Some(quantity) = rows {
+        quantity
+    } else {
+        1
+    };
+
+    if end_rows_desired < count {
+        return count - end_rows_desired;
+    } else {
+        return 0;
+    };
 }
