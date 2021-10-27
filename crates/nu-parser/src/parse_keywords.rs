@@ -511,6 +511,7 @@ pub fn parse_use(
                     working_set.get_block(block_id).exports.clone(),
                 )
             } else {
+                //TODO: Fix this
                 // It could be a file
                 let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
                 let module_path = Path::new(&module_filename);

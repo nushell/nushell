@@ -11,7 +11,7 @@ use nu_protocol::{
         Operator, PathMember, Pipeline, RangeInclusion, RangeOperator, Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
+    span, DeclId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
 };
 
 use crate::parse_keywords::{
@@ -37,6 +37,26 @@ pub fn garbage_statement(spans: &[Span]) -> Statement {
 
 fn is_identifier_byte(b: u8) -> bool {
     b != b'.' && b != b'[' && b != b'(' && b != b'{'
+}
+
+fn is_math_expression_byte(b: u8) -> bool {
+    b == b'0'
+        || b == b'1'
+        || b == b'2'
+        || b == b'3'
+        || b == b'4'
+        || b == b'5'
+        || b == b'6'
+        || b == b'7'
+        || b == b'8'
+        || b == b'9'
+        || b == b'('
+        || b == b'{'
+        || b == b'['
+        || b == b'$'
+        || b == b'"'
+        || b == b'\''
+        || b == b'-'
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
@@ -590,6 +610,62 @@ pub fn parse_internal_call(
     (Box::new(call), span(spans), error)
 }
 
+pub fn parse_command_name(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Option<DeclId>, Option<ParseError>) {
+    if spans.len() == 0 {
+        (
+            None,
+            Some(ParseError::UnknownState(
+                "Encountered command with zero spans".into(),
+                span(spans),
+            )),
+        )
+    } else if spans.len() == 1 {
+        let bytes = working_set.get_span_contents(spans[0]);
+        (working_set.find_decl(bytes), None)
+    } else {
+        // Find the longest group of words that could form a command
+        let mut longest_name = working_set.get_span_contents(spans[0]).to_vec();
+        let mut indices = vec![0];
+        for span in spans[1..].iter() {
+            let bytes = working_set.get_span_contents(*span);
+            if is_math_expression_byte(bytes[0]) {
+                break;
+            }
+            indices.push(longest_name.len());
+            longest_name.push(b' ');
+            longest_name.extend_from_slice(bytes);
+        }
+
+        // Now, try if it matches a command and if not, peel off the last word and try again
+        let mut decl_id = working_set.find_decl(&longest_name);
+        let mut err = None;
+        while decl_id.is_none() {
+            let split_idx = if let Some(i) = indices.pop() {
+                i
+            } else {
+                decl_id = None;
+                err = Some(ParseError::UnknownState(
+                    "Command has no words".into(),
+                    span(spans),
+                ));
+                break;
+            };
+
+            if split_idx == 0 {
+                // This is the first word, we reached the end
+                break;
+            }
+
+            decl_id = working_set.find_decl(&longest_name[..split_idx]);
+        }
+
+        (decl_id, err)
+    }
+}
+
 pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -618,6 +694,7 @@ pub fn parse_call(
         );
     }
 
+    parse_command_name(working_set, &spans[pos..]);
     let name = working_set.get_span_contents(spans[pos]);
 
     let cmd_start = pos;
@@ -2931,10 +3008,10 @@ pub fn parse_expression(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[0]);
 
-    match bytes[0] {
-        b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-        | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans, None),
-        _ => parse_call(working_set, spans, expand_aliases),
+    if is_math_expression_byte(bytes[0]) {
+        parse_math_expression(working_set, spans, None)
+    } else {
+        parse_call(working_set, spans, expand_aliases)
     }
 }
 
