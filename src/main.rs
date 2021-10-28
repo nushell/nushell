@@ -143,18 +143,23 @@ fn main() -> Result<()> {
             }
         }
 
+        let history_path = if let Some(mut history_path) = nu_path::config_dir() {
+            history_path.push("nushell");
+            history_path.push("history.txt");
+
+            Some(history_path)
+        } else {
+            None
+        };
+
         loop {
-            let mut line_editor = Reedline::create()
+            let line_editor = Reedline::create()
                 .into_diagnostic()?
-                .with_history(Box::new(
-                    FileBackedHistory::with_file(1000, "history.txt".into()).into_diagnostic()?,
-                ))
-                .into_diagnostic()?
-                .with_highlighter(Box::new(NuHighlighter {
-                    engine_state: engine_state.clone(),
-                }))
                 .with_completion_action_handler(Box::new(FuzzyCompletion {
                     completer: Box::new(completer.clone()),
+                }))
+                .with_highlighter(Box::new(NuHighlighter {
+                    engine_state: engine_state.clone(),
                 }))
                 // .with_completion_action_handler(Box::new(
                 //     ListCompletionHandler::default().with_completer(Box::new(completer)),
@@ -162,6 +167,17 @@ fn main() -> Result<()> {
                 .with_validator(Box::new(NuValidator {
                     engine_state: engine_state.clone(),
                 }));
+
+            let mut line_editor = if let Some(history_path) = history_path.clone() {
+                line_editor
+                    .with_history(Box::new(
+                        FileBackedHistory::with_file(1000, history_path.clone())
+                            .into_diagnostic()?,
+                    ))
+                    .into_diagnostic()?
+            } else {
+                line_editor
+            };
 
             let prompt = update_prompt(
                 PROMPT_COMMAND,

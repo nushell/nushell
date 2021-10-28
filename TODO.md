@@ -31,13 +31,19 @@
 - [x] finish operator type-checking
 - [x] Config file loading
 - [x] block variable captures
-- [ ] Input/output types
+- [x] improved history and config paths
 - [ ] Support for `$in`
 - [ ] ctrl-c support
 - [ ] operator overflow
-- [ ] Overlays (replacement for `autoenv`)
-  
+- [ ] shells
+- [ ] plugins
+- [ ] dataframes
+
+## Post-nushell merge:
+- [ ] Overlays (replacement for `autoenv`), adding modules to shells
+- [ ] Input/output types
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
+
 ## Maybe: 
 - [ ] default param values?
 - [ ] Unary not?
-- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
