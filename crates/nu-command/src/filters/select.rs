@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -35,7 +36,7 @@ impl Command for Select {
         let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
 
-        select(span, columns, input)
+        select(engine_state, span, columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -55,6 +56,7 @@ impl Command for Select {
 }
 
 fn select(
+    engine_state: &EngineState,
     span: Span,
     columns: Vec<CellPath>,
     input: PipelineData,
@@ -84,7 +86,9 @@ fn select(
                 output.push(Value::Record { cols, vals, span })
             }
 
-            Ok(output.into_iter().into_pipeline_data())
+            Ok(output
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         }
         PipelineData::Stream(stream) => Ok(stream
             .map(move |x| {
@@ -106,7 +110,7 @@ fn select(
 
                 Value::Record { cols, vals, span }
             })
-            .into_pipeline_data()),
+            .into_pipeline_data(engine_state.ctrlc.clone())),
         PipelineData::Value(v) => {
             let mut cols = vec![];
             let mut vals = vec![];

@@ -24,12 +24,12 @@ impl Command for Size {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        size(call, input)
+        size(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -100,18 +100,25 @@ impl Command for Size {
     }
 }
 
-fn size(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+fn size(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    input.map(move |v| match v.as_string() {
-        Ok(s) => count(&s, span),
-        Err(_) => Value::Error {
-            error: ShellError::PipelineMismatch {
-                expected: Type::String,
-                expected_span: span,
-                origin: span,
+    input.map(
+        move |v| match v.as_string() {
+            Ok(s) => count(&s, span),
+            Err(_) => Value::Error {
+                error: ShellError::PipelineMismatch {
+                    expected: Type::String,
+                    expected_span: span,
+                    origin: span,
+                },
             },
         },
-    })
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn count(contents: &str, span: Span) -> Value {

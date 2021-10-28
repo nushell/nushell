@@ -39,22 +39,26 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        split_chars(call, input)
+        split_chars(engine_state, call, input)
     }
 }
 
 fn split_chars(
+    engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let span = call.head;
 
-    input.flat_map(move |x| split_chars_helper(&x, span))
+    input.flat_map(
+        move |x| split_chars_helper(&x, span),
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {

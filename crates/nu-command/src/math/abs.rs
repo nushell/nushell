@@ -20,13 +20,16 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
-        input.map(move |value| abs_helper(value, head))
+        input.map(
+            move |value| abs_helper(value, head),
+            engine_state.ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

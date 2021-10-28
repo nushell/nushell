@@ -54,7 +54,10 @@ fn split_column(
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
-    input.flat_map(move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span))
+    input.flat_map(
+        move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span),
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn split_column_helper(

@@ -26,12 +26,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_binary(call, input)
+        into_binary(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,27 +86,31 @@ impl Command for SubCommand {
 }
 
 fn into_binary(
+    engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
     // let column_paths: Vec<CellPath> = call.rest(context, 0)?;
 
-    input.map(move |v| {
-        action(v, head)
-        // FIXME: Add back in cell_path support
-        // if column_paths.is_empty() {
-        //     action(v, head)
-        // } else {
-        //     let mut ret = v;
-        //     for path in &column_paths {
-        //         ret =
-        //             ret.swap_data_by_cell_path(path, Box::new(move |old| action(old, old.tag())))?;
-        //     }
+    input.map(
+        move |v| {
+            action(v, head)
+            // FIXME: Add back in cell_path support
+            // if column_paths.is_empty() {
+            //     action(v, head)
+            // } else {
+            //     let mut ret = v;
+            //     for path in &column_paths {
+            //         ret =
+            //             ret.swap_data_by_cell_path(path, Box::new(move |old| action(old, old.tag())))?;
+            //     }
 
-        //     Ok(ret)
-        // }
-    })
+            //     Ok(ret)
+            // }
+        },
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn int_to_endian(n: i64) -> Vec<u8> {

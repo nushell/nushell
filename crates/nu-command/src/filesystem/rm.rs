@@ -8,7 +8,9 @@ use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Rm;
@@ -170,7 +172,9 @@ fn rm(
     // let temp = rm_helper(call, args).flatten();
     // let temp = input.flatten(call.head, move |_| rm_helper(call, args));
 
-    Ok(response.into_iter().into_pipeline_data())
+    Ok(response
+        .into_iter()
+        .into_pipeline_data(engine_state.ctrlc.clone()))
     // Ok(Value::Nothing { span })
 }
 

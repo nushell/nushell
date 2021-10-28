@@ -1,7 +1,10 @@
 use super::Command;
 use crate::{ast::Block, BlockId, DeclId, Example, Signature, Span, Type, VarId};
 use core::panic;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 #[derive(Clone)]
 pub struct EngineState {
@@ -11,6 +14,7 @@ pub struct EngineState {
     decls: im::Vector<Box<dyn Command + 'static>>,
     blocks: im::Vector<Block>,
     pub scope: im::Vector<ScopeFrame>,
+    pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
 // Tells whether a decl etc. is visible or not
@@ -102,6 +106,7 @@ impl EngineState {
             decls: im::vector![],
             blocks: im::vector![],
             scope: im::vector![ScopeFrame::new()],
+            ctrlc: None,
         }
     }
 

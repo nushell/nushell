@@ -1,7 +1,16 @@
 use crate::*;
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-pub struct ValueStream(pub Box<dyn Iterator<Item = Value> + Send + 'static>);
+pub struct ValueStream {
+    pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    pub ctrlc: Option<Arc<AtomicBool>>,
+}
 
 impl ValueStream {
     pub fn into_string(self) -> String {
@@ -19,8 +28,14 @@ impl ValueStream {
             .join("\n")
     }
 
-    pub fn from_stream(input: impl Iterator<Item = Value> + Send + 'static) -> ValueStream {
-        ValueStream(Box::new(input))
+    pub fn from_stream(
+        input: impl Iterator<Item = Value> + Send + 'static,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> ValueStream {
+        ValueStream {
+            stream: Box::new(input),
+            ctrlc,
+        }
     }
 }
 
@@ -34,8 +49,14 @@ impl Iterator for ValueStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        {
-            self.0.next()
+        if let Some(ctrlc) = &self.ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                None
+            } else {
+                self.stream.next()
+            }
+        } else {
+            self.stream.next()
         }
     }
 }

@@ -45,7 +45,10 @@ fn split_row(
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-    input.flat_map(move |x| split_row_helper(&x, &separator, name_span))
+    input.flat_map(
+        move |x| split_row_helper(&x, &separator, name_span),
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<Value> {

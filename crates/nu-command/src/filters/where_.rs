@@ -1,7 +1,10 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Where;
@@ -28,6 +31,7 @@ impl Command for Where {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let cond = call.positional[0].clone();
 
+        let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
         // FIXME: very expensive
@@ -53,7 +57,7 @@ impl Command for Where {
                         _ => false,
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals, .. }) => Ok(vals
                 .into_iter()
                 .filter(move |value| {
@@ -66,7 +70,7 @@ impl Command for Where {
                         _ => false,
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(x) => {
                 stack.add_var(var_id, x.clone());
 

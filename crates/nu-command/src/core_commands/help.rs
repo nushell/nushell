@@ -1,8 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Value,
+    span, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Spanned, SyntaxShape, Value,
 };
 
 use nu_engine::{get_full_help, CallExt};
@@ -121,7 +121,9 @@ fn help(
             }
         }
 
-        return Ok(found_cmds_vec.into_iter().into_pipeline_data());
+        return Ok(found_cmds_vec
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()));
     }
 
     if !rest.is_empty() {
@@ -155,7 +157,9 @@ fn help(
                 });
             }
 
-            Ok(found_cmds_vec.into_iter().into_pipeline_data())
+            Ok(found_cmds_vec
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         } else {
             let mut name = String::new();
             let mut output = String::new();

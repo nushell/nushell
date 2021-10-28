@@ -7,7 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::Command;
 use nu_protocol::engine::EngineState;
 use nu_protocol::engine::Stack;
-use nu_protocol::IntoPipelineData;
+use nu_protocol::IntoInterruptiblePipelineData;
 use nu_protocol::PipelineData;
 use nu_protocol::{Signature, Value};
 
@@ -30,7 +30,7 @@ impl Command for ListGitBranches {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
@@ -62,7 +62,9 @@ impl Command for ListGitBranches {
                     })
                     .collect();
 
-                Ok(lines.into_iter().into_pipeline_data())
+                Ok(lines
+                    .into_iter()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
             } else {
                 Ok(PipelineData::new())
             }

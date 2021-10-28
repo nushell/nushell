@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use crate::{ast::PathMember, ShellError, Span, Value, ValueStream};
 
 pub enum PipelineData {
@@ -40,18 +42,22 @@ impl PipelineData {
     }
 
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
-    pub fn map<F>(self, mut f: F) -> Result<PipelineData, ShellError>
+    pub fn map<F>(
+        self,
+        mut f: F,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
             PipelineData::Value(Value::List { vals, .. }) => {
-                Ok(vals.into_iter().map(f).into_pipeline_data())
+                Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
             }
-            PipelineData::Stream(stream) => Ok(stream.map(f).into_pipeline_data()),
+            PipelineData::Stream(stream) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::Range { val, .. }) => {
-                Ok(val.into_range_iter()?.map(f).into_pipeline_data())
+                Ok(val.into_range_iter()?.map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::Value(v) => {
                 let output = f(v);
@@ -64,7 +70,11 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U, F>(self, mut f: F) -> Result<PipelineData, ShellError>
+    pub fn flat_map<U, F>(
+        self,
+        mut f: F,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         U: IntoIterator<Item = Value>,
@@ -73,14 +83,14 @@ impl PipelineData {
     {
         match self {
             PipelineData::Value(Value::List { vals, .. }) => {
-                Ok(vals.into_iter().map(f).flatten().into_pipeline_data())
+                Ok(vals.into_iter().map(f).flatten().into_pipeline_data(ctrlc))
             }
-            PipelineData::Stream(stream) => Ok(stream.map(f).flatten().into_pipeline_data()),
+            PipelineData::Stream(stream) => Ok(stream.map(f).flatten().into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::Range { val, .. }) => match val.into_range_iter() {
-                Ok(iter) => Ok(iter.map(f).flatten().into_pipeline_data()),
+                Ok(iter) => Ok(iter.map(f).flatten().into_pipeline_data(ctrlc)),
                 Err(error) => Err(error),
             },
-            PipelineData::Value(v) => Ok(f(v).into_iter().into_pipeline_data()),
+            PipelineData::Value(v) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
 }
@@ -100,9 +110,12 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PipelineData::Value(Value::List { vals, .. }) => PipelineIterator(
-                PipelineData::Stream(ValueStream(Box::new(vals.into_iter()))),
-            ),
+            PipelineData::Value(Value::List { vals, .. }) => {
+                PipelineIterator(PipelineData::Stream(ValueStream {
+                    stream: Box::new(vals.into_iter()),
+                    ctrlc: None,
+                }))
+            }
             x => PipelineIterator(x),
         }
     }
@@ -133,11 +146,18 @@ impl IntoPipelineData for Value {
     }
 }
 
-impl<T> IntoPipelineData for T
+pub trait IntoInterruptiblePipelineData {
+    fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
+}
+
+impl<T> IntoInterruptiblePipelineData for T
 where
     T: Iterator<Item = Value> + Send + 'static,
 {
-    fn into_pipeline_data(self) -> PipelineData {
-        PipelineData::Stream(ValueStream(Box::new(self)))
+    fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
+        PipelineData::Stream(ValueStream {
+            stream: Box::new(self),
+            ctrlc,
+        })
     }
 }

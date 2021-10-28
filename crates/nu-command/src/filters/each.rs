@@ -1,7 +1,10 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, Span,
+    SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Each;
@@ -63,6 +66,7 @@ impl Command for Each {
             .expect("internal error: expected block");
 
         let numbered = call.has_flag("numbered");
+        let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
@@ -101,7 +105,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
                 .into_iter()
                 .enumerate()
@@ -134,7 +138,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
                 .map(move |(idx, x)| {
@@ -166,7 +170,7 @@ impl Command for Each {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 let mut output_cols = vec![];
                 let mut output_vals = vec![];

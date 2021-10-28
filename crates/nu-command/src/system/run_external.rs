@@ -7,7 +7,7 @@ use std::sync::mpsc;
 
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{IntoPipelineData, PipelineData, Span, Spanned};
+use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
 
 use nu_engine::CallExt;
 
@@ -49,7 +49,7 @@ impl Command for External {
             last_expression,
             env_vars,
         };
-        command.run_with_input(input)
+        command.run_with_input(engine_state, input)
     }
 }
 
@@ -61,8 +61,14 @@ pub struct ExternalCommand {
 }
 
 impl ExternalCommand {
-    pub fn run_with_input(&self, input: PipelineData) -> Result<PipelineData, ShellError> {
+    pub fn run_with_input(
+        &self,
+        engine_state: &EngineState,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let mut process = self.create_command();
+
+        let ctrlc = engine_state.ctrlc.clone();
 
         // TODO. We don't have a way to know the current directory
         // This should be information from the EvaluationContex or EngineState
@@ -155,7 +161,7 @@ impl ExternalCommand {
                     });
 
                     // The ValueStream is consumed by the next expression in the pipeline
-                    ChannelReceiver::new(rx).into_pipeline_data()
+                    ChannelReceiver::new(rx).into_pipeline_data(ctrlc)
                 } else {
                     PipelineData::new()
                 };

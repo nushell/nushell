@@ -1,6 +1,9 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
+    Span, Value,
+};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -68,7 +71,7 @@ impl Command for FromJson {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -90,7 +93,7 @@ impl Command for FromJson {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data())
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         } else {
             Ok(convert_string_to_value(string_input, span)?.into_pipeline_data())
         }
