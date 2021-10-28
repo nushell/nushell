@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct For;
@@ -55,6 +57,7 @@ impl Command for For {
             .as_block()
             .expect("internal error: expected block");
 
+        let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
@@ -71,7 +74,7 @@ impl Command for For {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             Value::Range { val, .. } => Ok(val
                 .into_range_iter()?
                 .map(move |x| {
@@ -83,7 +86,7 @@ impl Command for For {
                         Err(error) => Value::Error { error },
                     }
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             x => {
                 stack.add_var(var_id, x);
 

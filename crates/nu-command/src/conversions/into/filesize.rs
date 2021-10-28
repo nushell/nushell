@@ -26,12 +26,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_filesize(call, input)
+        into_filesize(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -114,30 +114,34 @@ impl Command for SubCommand {
 }
 
 fn into_filesize(
+    engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
     // let call_paths: Vec<ColumnPath> = args.rest(0)?;
 
-    input.map(move |v| {
-        action(v, head)
+    input.map(
+        move |v| {
+            action(v, head)
 
-        // FIXME: Add back cell_path support
-        // if column_paths.is_empty() {
-        //     action(&v, v.tag())
-        // } else {
-        //     let mut ret = v;
-        //     for path in &column_paths {
-        //         ret = ret.swap_data_by_column_path(
-        //             path,
-        //             Box::new(move |old| action(old, old.tag())),
-        //         )?;
-        //     }
+            // FIXME: Add back cell_path support
+            // if column_paths.is_empty() {
+            //     action(&v, v.tag())
+            // } else {
+            //     let mut ret = v;
+            //     for path in &column_paths {
+            //         ret = ret.swap_data_by_column_path(
+            //             path,
+            //             Box::new(move |old| action(old, old.tag())),
+            //         )?;
+            //     }
 
-        //     Ok(ret)
-        // }
-    })
+            //     Ok(ret)
+            // }
+        },
+        engine_state.ctrlc.clone(),
+    )
 }
 
 pub fn action(input: Value, span: Span) -> Value {

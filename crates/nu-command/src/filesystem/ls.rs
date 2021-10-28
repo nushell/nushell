@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -112,6 +112,6 @@ impl Command for Ls {
                 },
                 _ => Value::Nothing { span: call_span },
             })
-            .into_pipeline_data())
+            .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }

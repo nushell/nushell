@@ -7,6 +7,7 @@ use crate::*;
 
 pub fn create_default_context() -> EngineState {
     let mut engine_state = EngineState::new();
+
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
 

@@ -1,7 +1,10 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape,
+    Value,
+};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -46,6 +49,7 @@ impl Command for ParEach {
             .expect("internal error: expected block");
 
         let numbered = call.has_flag("numbered");
+        let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id);
         let mut stack = stack.collect_captures(&block.captures);
@@ -92,7 +96,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
                 .into_iter()
                 .enumerate()
@@ -133,7 +137,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
                 .par_bridge()
@@ -173,7 +177,7 @@ impl Command for ParEach {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .flatten()
-                .into_pipeline_data()),
+                .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 let mut output_cols = vec![];
                 let mut output_vals = vec![];

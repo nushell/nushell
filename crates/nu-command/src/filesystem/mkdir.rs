@@ -4,7 +4,9 @@ use std::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Mkdir;
@@ -69,6 +71,8 @@ impl Command for Mkdir {
             }
         }
 
-        Ok(stream.into_iter().into_pipeline_data())
+        Ok(stream
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }

@@ -32,8 +32,8 @@
 - [x] Config file loading
 - [x] block variable captures
 - [x] improved history and config paths
+- [x] ctrl-c support
 - [ ] Support for `$in`
-- [ ] ctrl-c support
 - [ ] operator overflow
 - [ ] shells
 - [ ] plugins

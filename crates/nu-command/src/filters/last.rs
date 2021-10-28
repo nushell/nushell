@@ -3,7 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 use std::convert::TryInto;
 
@@ -54,7 +55,7 @@ impl Command for Last {
             .into_iter()
             .skip(beginning_rows_to_skip.try_into().unwrap());
 
-        Ok(iter.into_pipeline_data())
+        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 

@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Wrap;
@@ -37,14 +39,14 @@ impl Command for Wrap {
                     vals: vec![x],
                     span,
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(engine_state.ctrlc.clone())),
             PipelineData::Stream(stream) => Ok(stream
                 .map(move |x| Value::Record {
                     cols: vec![name.clone()],
                     vals: vec![x],
                     span,
                 })
-                .into_pipeline_data()),
+                .into_pipeline_data(engine_state.ctrlc.clone())),
             PipelineData::Value(input) => Ok(Value::Record {
                 cols: vec![name],
                 vals: vec![input],

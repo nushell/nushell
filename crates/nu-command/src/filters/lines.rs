@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value};
 
 #[derive(Clone)]
 pub struct Lines;
@@ -22,7 +22,7 @@ impl Command for Lines {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -46,7 +46,7 @@ impl Command for Lines {
                     }
                 });
 
-                Ok(iter.into_pipeline_data())
+                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::Stream(stream) => {
                 let iter = stream
@@ -74,7 +74,7 @@ impl Command for Lines {
                     })
                     .flatten();
 
-                Ok(iter.into_pipeline_data())
+                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::Value(val) => Err(ShellError::UnsupportedInput(
                 format!("Not supported input: {}", val.as_string()?),

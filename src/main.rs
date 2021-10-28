@@ -1,4 +1,10 @@
-use std::io::Write;
+use std::{
+    io::Write,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use dialoguer::{
     console::{Style, Term},
@@ -84,6 +90,20 @@ fn main() -> Result<()> {
 
     let mut engine_state = create_default_context();
 
+    // TODO: make this conditional in the future
+    // Ctrl-c protection section
+    let ctrlc = Arc::new(AtomicBool::new(false));
+    let handler_ctrlc = ctrlc.clone();
+    let engine_state_ctrlc = ctrlc.clone();
+
+    ctrlc::set_handler(move || {
+        handler_ctrlc.store(true, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    engine_state.ctrlc = Some(engine_state_ctrlc);
+    // End ctrl-c protection section
+
     if let Some(path) = std::env::args().nth(1) {
         let file = std::fs::read(&path).into_diagnostic()?;
 
@@ -153,6 +173,9 @@ fn main() -> Result<()> {
         };
 
         loop {
+            //Reset the ctrl-c handler
+            ctrlc.store(false, Ordering::SeqCst);
+
             let line_editor = Reedline::create()
                 .into_diagnostic()?
                 .with_completion_action_handler(Box::new(FuzzyCompletion {
