@@ -1,10 +1,11 @@
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    engine::{Command, EngineState, Stack},
+    PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
+#[derive(Clone)]
 pub struct SubCommand;
 
 impl Command for SubCommand {
@@ -33,27 +34,30 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        split_column(context, call, input)
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        split_column(engine_state, stack, call, input)
     }
 }
 
 fn split_column(
-    context: &EvaluationContext,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
-    input: Value,
-) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+    input: PipelineData,
+) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name_span = call.head;
-    let separator: Spanned<String> = call.req(context, 0)?;
-    let rest: Vec<Spanned<String>> = call.rest(context, 1)?;
+    let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
+    let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
     let collapse_empty = call.has_flag("collapse-empty");
 
-    input.map(name_span, move |x| {
-        split_column_helper(&x, &separator, &rest, collapse_empty, name_span)
-    })
+    input.flat_map(
+        move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span),
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn split_column_helper(
@@ -62,7 +66,7 @@ fn split_column_helper(
     rest: &[Spanned<String>],
     collapse_empty: bool,
     head: Span,
-) -> Value {
+) -> Vec<Value> {
     if let Ok(s) = v.as_string() {
         let splitter = separator.item.replace("\\n", "\n");
 
@@ -94,24 +98,21 @@ fn split_column_helper(
                 vals.push(Value::string(k, head));
             }
         }
-        Value::List {
-            vals: vec![Value::Record {
-                cols,
-                vals,
-                span: head,
-            }],
+        vec![Value::Record {
+            cols,
+            vals,
             span: head,
-        }
+        }]
     } else {
         match v.span() {
-            Ok(span) => Value::Error {
+            Ok(span) => vec![Value::Error {
                 error: ShellError::PipelineMismatch {
                     expected: Type::String,
                     expected_span: head,
                     origin: span,
                 },
-            },
-            Err(error) => Value::Error { error },
+            }],
+            Err(error) => vec![Value::Error { error }],
         }
     }
 }

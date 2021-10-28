@@ -1,29 +1,27 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_engine::eval_block;
 use nu_parser::{flatten_block, parse};
 use nu_protocol::{
-    engine::{EngineState, EvaluationContext, Stack, StateWorkingSet},
-    Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData,
 };
 use reedline::Completer;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
+#[derive(Clone)]
 pub struct NuCompleter {
-    engine_state: Rc<RefCell<EngineState>>,
+    engine_state: EngineState,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Rc<RefCell<EngineState>>) -> Self {
+    pub fn new(engine_state: EngineState) -> Self {
         Self { engine_state }
     }
 }
 
 impl Completer for NuCompleter {
     fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
-        let engine_state = self.engine_state.borrow();
-        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
@@ -49,7 +47,7 @@ impl Completer for NuCompleter {
                             }
                         }
                     }
-                    for scope in &engine_state.scope {
+                    for scope in &self.engine_state.scope {
                         for v in &scope.vars {
                             if v.0.starts_with(prefix) {
                                 output.push((
@@ -72,14 +70,13 @@ impl Completer for NuCompleter {
 
                         let (block, ..) =
                             parse(&mut working_set, None, custom_completion.as_bytes(), false);
-                        let context = EvaluationContext {
-                            engine_state: self.engine_state.clone(),
-                            stack: Stack::default(),
-                        };
-                        let result = eval_block(&context, &block, Value::nothing());
+
+                        let mut stack = Stack::default();
+                        let result =
+                            eval_block(&self.engine_state, &mut stack, &block, PipelineData::new());
 
                         let v: Vec<_> = match result {
-                            Ok(Value::List { vals, .. }) => vals
+                            Ok(pd) => pd
                                 .into_iter()
                                 .map(move |x| {
                                     let s = x.as_string().expect(

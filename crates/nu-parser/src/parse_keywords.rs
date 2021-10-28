@@ -71,7 +71,7 @@ pub fn parse_def(
             named: vec![],
         });
 
-        let call = if let Some(name_span) = spans.get(1) {
+        if let Some(name_span) = spans.get(1) {
             let (name_expr, err) = parse_string(working_set, *name_span);
             error = error.or(err);
 
@@ -142,8 +142,6 @@ pub fn parse_def(
                         ))
                     });
                 }
-
-                call
             } else {
                 let err_span = Span {
                     start: name_span.end,
@@ -152,8 +150,6 @@ pub fn parse_def(
 
                 error = error
                     .or_else(|| Some(ParseError::MissingPositional("parameters".into(), err_span)));
-
-                call
             }
         } else {
             let err_span = Span {
@@ -167,9 +163,7 @@ pub fn parse_def(
                     err_span,
                 ))
             });
-
-            call
-        };
+        }
 
         (
             Statement::Pipeline(Pipeline::from_vec(vec![Expression {

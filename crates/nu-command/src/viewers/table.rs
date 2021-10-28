@@ -1,10 +1,11 @@
 use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Span, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
 use nu_table::StyledString;
 use std::collections::HashMap;
 use terminal_size::{Height, Width};
 
+#[derive(Clone)]
 pub struct Table;
 
 //NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
@@ -23,10 +24,11 @@ impl Command for Table {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             w as usize
         } else {
@@ -34,7 +36,7 @@ impl Command for Table {
         };
 
         match input {
-            Value::List { vals, .. } => {
+            PipelineData::Value(Value::List { vals, .. }) => {
                 let table = convert_to_table(vals)?;
 
                 if let Some(table) = table {
@@ -43,12 +45,13 @@ impl Command for Table {
                     Ok(Value::String {
                         val: result,
                         span: call.head,
-                    })
+                    }
+                    .into_pipeline_data())
                 } else {
-                    Ok(Value::Nothing { span: call.head })
+                    Ok(PipelineData::new())
                 }
             }
-            Value::Stream { stream, .. } => {
+            PipelineData::Stream(stream) => {
                 let table = convert_to_table(stream)?;
 
                 if let Some(table) = table {
@@ -57,12 +60,13 @@ impl Command for Table {
                     Ok(Value::String {
                         val: result,
                         span: call.head,
-                    })
+                    }
+                    .into_pipeline_data())
                 } else {
-                    Ok(Value::Nothing { span: call.head })
+                    Ok(PipelineData::new())
                 }
             }
-            Value::Record { cols, vals, .. } => {
+            PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 let mut output = vec![];
 
                 for (c, v) in cols.into_iter().zip(vals.into_iter()) {
@@ -89,9 +93,10 @@ impl Command for Table {
                 Ok(Value::String {
                     val: result,
                     span: call.head,
-                })
+                }
+                .into_pipeline_data())
             }
-            Value::Error { error } => Err(error),
+            PipelineData::Value(Value::Error { error }) => Err(error),
             x => Ok(x),
         }
     }

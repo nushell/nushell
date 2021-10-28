@@ -1,15 +1,16 @@
 use std::env::current_dir;
 use std::path::PathBuf;
 
-use super::interactive_helper::get_confirmation;
+use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
 use crate::filesystem::util::FileStructure;
 
+#[derive(Clone)]
 pub struct Cp;
 
 #[allow(unused_must_use)]
@@ -37,12 +38,13 @@ impl Command for Cp {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
-        let source: String = call.req(context, 0)?;
-        let destination: String = call.req(context, 1)?;
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let source: String = call.req(engine_state, stack, 0)?;
+        let destination: String = call.req(engine_state, stack, 1)?;
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 
@@ -88,7 +90,7 @@ impl Command for Cp {
                     destination.file_name().unwrap().to_str().unwrap()
                 );
 
-                let input = get_confirmation(prompt)?;
+                let input = get_interactive_confirmation(prompt)?;
 
                 if !input {
                     remove.push(index);
@@ -202,6 +204,6 @@ impl Command for Cp {
             }
         }
 
-        Ok(Value::Nothing { span: call.head })
+        Ok(PipelineData::new())
     }
 }

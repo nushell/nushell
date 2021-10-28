@@ -1,8 +1,12 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Example, IntoValueStream, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
+    Span, SyntaxShape, Value,
+};
 
+#[derive(Clone)]
 pub struct Select;
 
 impl Command for Select {
@@ -24,14 +28,15 @@ impl Command for Select {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let columns: Vec<CellPath> = call.rest(context, 0)?;
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let span = call.head;
 
-        select(span, columns, input)
+        select(engine_state, span, columns, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -50,16 +55,21 @@ impl Command for Select {
     }
 }
 
-fn select(span: Span, columns: Vec<CellPath>, input: Value) -> Result<Value, ShellError> {
+fn select(
+    engine_state: &EngineState,
+    span: Span,
+    columns: Vec<CellPath>,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     if columns.is_empty() {
-        return Err(ShellError::CantFindColumn(span, input.span()?));
+        return Err(ShellError::CantFindColumn(span, span)); //FIXME?
     }
 
     match input {
-        Value::List {
+        PipelineData::Value(Value::List {
             vals: input_vals,
             span,
-        } => {
+        }) => {
             let mut output = vec![];
 
             for input_val in input_vals {
@@ -76,33 +86,32 @@ fn select(span: Span, columns: Vec<CellPath>, input: Value) -> Result<Value, She
                 output.push(Value::Record { cols, vals, span })
             }
 
-            Ok(Value::List { vals: output, span })
+            Ok(output
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        Value::Stream { stream, span } => Ok(Value::Stream {
-            stream: stream
-                .map(move |x| {
-                    let mut cols = vec![];
-                    let mut vals = vec![];
-                    for path in &columns {
-                        //FIXME: improve implementation to not clone
-                        match x.clone().follow_cell_path(&path.members) {
-                            Ok(value) => {
-                                cols.push(path.into_string());
-                                vals.push(value);
-                            }
-                            Err(error) => {
-                                cols.push(path.into_string());
-                                vals.push(Value::Error { error });
-                            }
+        PipelineData::Stream(stream) => Ok(stream
+            .map(move |x| {
+                let mut cols = vec![];
+                let mut vals = vec![];
+                for path in &columns {
+                    //FIXME: improve implementation to not clone
+                    match x.clone().follow_cell_path(&path.members) {
+                        Ok(value) => {
+                            cols.push(path.into_string());
+                            vals.push(value);
+                        }
+                        Err(error) => {
+                            cols.push(path.into_string());
+                            vals.push(Value::Error { error });
                         }
                     }
+                }
 
-                    Value::Record { cols, vals, span }
-                })
-                .into_value_stream(),
-            span,
-        }),
-        v => {
+                Value::Record { cols, vals, span }
+            })
+            .into_pipeline_data(engine_state.ctrlc.clone())),
+        PipelineData::Value(v) => {
             let mut cols = vec![];
             let mut vals = vec![];
 
@@ -114,7 +123,7 @@ fn select(span: Span, columns: Vec<CellPath>, input: Value) -> Result<Value, She
                 vals.push(result);
             }
 
-            Ok(Value::Record { cols, vals, span })
+            Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
     }
 }

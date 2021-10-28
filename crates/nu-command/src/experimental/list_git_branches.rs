@@ -4,9 +4,14 @@ use std::process::Command as ProcessCommand;
 use std::process::Stdio;
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
+use nu_protocol::engine::Command;
+use nu_protocol::engine::EngineState;
+use nu_protocol::engine::Stack;
+use nu_protocol::IntoInterruptiblePipelineData;
+use nu_protocol::PipelineData;
 use nu_protocol::{Signature, Value};
 
+#[derive(Clone)]
 pub struct ListGitBranches;
 
 //NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
@@ -25,10 +30,11 @@ impl Command for ListGitBranches {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let list_branches = ProcessCommand::new("git")
             .arg("branch")
             .stdout(Stdio::piped())
@@ -40,6 +46,7 @@ impl Command for ListGitBranches {
 
                 let s = String::from_utf8_lossy(&val).to_string();
 
+                #[allow(clippy::needless_collect)]
                 let lines: Vec<_> = s
                     .lines()
                     .filter_map(|x| {
@@ -55,15 +62,14 @@ impl Command for ListGitBranches {
                     })
                     .collect();
 
-                Ok(Value::List {
-                    vals: lines,
-                    span: call.head,
-                })
+                Ok(lines
+                    .into_iter()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
             } else {
-                Ok(Value::Nothing { span: call.head })
+                Ok(PipelineData::new())
             }
         } else {
-            Ok(Value::Nothing { span: call.head })
+            Ok(PipelineData::new())
         }
     }
 }

@@ -6,19 +6,19 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Into;
+pub struct MathCommand;
 
-impl Command for Into {
+impl Command for MathCommand {
     fn name(&self) -> &str {
-        "into"
+        "math"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into")
+        Signature::build("math")
     }
 
     fn usage(&self) -> &str {
-        "Apply into function."
+        "Use mathematical functions as aggregate functions on a list of numbers or tables."
     }
 
     fn run(
@@ -29,21 +29,13 @@ impl Command for Into {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Into.signature(), &[], engine_state),
+            val: get_full_help(
+                &MathCommand.signature(),
+                &MathCommand.examples(),
+                engine_state,
+            ),
             span: call.head,
         }
         .into_pipeline_data())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Into {})
     }
 }

@@ -30,13 +30,20 @@
 - [x] Handling rows with missing columns during a cell path
 - [x] finish operator type-checking
 - [x] Config file loading
-- [ ] Input/output types
+- [x] block variable captures
+- [x] improved history and config paths
+- [x] ctrl-c support
 - [ ] Support for `$in`
-- [ ] ctrl-c support
 - [ ] operator overflow
-- [ ] Overlays (replacement for `autoenv`)
-  
+- [ ] shells
+- [ ] plugins
+- [ ] dataframes
+
+## Post-nushell merge:
+- [ ] Overlays (replacement for `autoenv`), adding modules to shells
+- [ ] Input/output types
+- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
+
 ## Maybe: 
 - [ ] default param values?
 - [ ] Unary not?
-- [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)

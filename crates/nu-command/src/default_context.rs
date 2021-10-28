@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Signature,
@@ -7,11 +5,11 @@ use nu_protocol::{
 
 use crate::*;
 
-pub fn create_default_context() -> Rc<RefCell<EngineState>> {
-    let engine_state = Rc::new(RefCell::new(EngineState::new()));
+pub fn create_default_context() -> EngineState {
+    let mut engine_state = EngineState::new();
+
     let delta = {
-        let engine_state = engine_state.borrow();
-        let mut working_set = StateWorkingSet::new(&*engine_state);
+        let mut working_set = StateWorkingSet::new(&engine_state);
 
         macro_rules! bind_command {
             ( $command:expr ) => {
@@ -46,14 +44,19 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
             IntoBinary,
             IntoFilesize,
             IntoInt,
+            Last,
             Length,
             Let,
             LetEnv,
             Lines,
             Ls,
+            Math,
+            MathAbs,
+            MathAvg,
             Mkdir,
             Module,
             Mv,
+            ParEach,
             Ps,
             Rm,
             RunPlugin,
@@ -91,7 +94,7 @@ pub fn create_default_context() -> Rc<RefCell<EngineState>> {
     };
 
     {
-        EngineState::merge_delta(&mut *engine_state.borrow_mut(), delta);
+        EngineState::merge_delta(&mut engine_state, delta);
     }
 
     engine_state

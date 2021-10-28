@@ -194,7 +194,7 @@ pub fn flatten_expression(
             }
             output
         }
-        Expr::Var(_) => {
+        Expr::Var(_) | Expr::VarDecl(_) => {
             vec![(expr.span, FlatShape::Variable)]
         }
     }

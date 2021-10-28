@@ -2,21 +2,19 @@ use nu_ansi_term::Style;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use reedline::{Highlighter, StyledText};
-use std::{cell::RefCell, rc::Rc};
 
 pub struct NuHighlighter {
-    pub engine_state: Rc<RefCell<EngineState>>,
+    pub engine_state: EngineState,
 }
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str) -> StyledText {
         let (shapes, global_span_offset) = {
-            let engine_state = self.engine_state.borrow();
-            let mut working_set = StateWorkingSet::new(&*engine_state);
+            let mut working_set = StateWorkingSet::new(&self.engine_state);
             let (block, _) = parse(&mut working_set, None, line.as_bytes(), false);
 
             let shapes = flatten_block(&working_set, &block);
-            (shapes, engine_state.next_span_start())
+            (shapes, self.engine_state.next_span_start())
         };
 
         let mut output = StyledText::default();

@@ -1,10 +1,11 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
-    Example, ShellError, Signature, Span, Value,
+    engine::{Command, EngineState, Stack},
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
 
+#[derive(Clone)]
 pub struct Sys;
 
 impl Command for Sys {
@@ -24,10 +25,11 @@ impl Command for Sys {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         run_sys(call)
     }
 
@@ -40,7 +42,7 @@ impl Command for Sys {
     }
 }
 
-fn run_sys(call: &Call) -> Result<Value, ShellError> {
+fn run_sys(call: &Call) -> Result<PipelineData, ShellError> {
     let span = call.head;
     let mut sys = System::new();
 
@@ -76,7 +78,8 @@ fn run_sys(call: &Call) -> Result<Value, ShellError> {
         cols: headers,
         vals: values,
         span,
-    })
+    }
+    .into_pipeline_data())
 }
 
 pub fn trim_cstyle_null(s: String) -> String {

@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
+#[derive(Clone)]
 pub struct ExportDef;
 
 impl Command for ExportDef {
@@ -26,10 +27,11 @@ impl Command for ExportDef {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
-        call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        Ok(Value::Nothing { span: call.head })
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        Ok(PipelineData::new())
     }
 }

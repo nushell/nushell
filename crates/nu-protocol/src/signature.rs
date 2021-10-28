@@ -1,9 +1,10 @@
 use crate::ast::Call;
 use crate::engine::Command;
-use crate::engine::EvaluationContext;
+use crate::engine::EngineState;
+use crate::engine::Stack;
 use crate::BlockId;
+use crate::PipelineData;
 use crate::SyntaxShape;
-use crate::Value;
 use crate::VarId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -335,6 +336,7 @@ impl Signature {
     }
 }
 
+#[derive(Clone)]
 struct Predeclaration {
     signature: Signature,
 }
@@ -354,14 +356,16 @@ impl Command for Predeclaration {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
-        _input: Value,
-    ) -> Result<crate::Value, crate::ShellError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, crate::ShellError> {
         panic!("Internal error: can't run a predeclaration without a body")
     }
 }
 
+#[derive(Clone)]
 struct BlockCommand {
     signature: Signature,
     block_id: BlockId,
@@ -382,10 +386,11 @@ impl Command for BlockCommand {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
-        _input: Value,
-    ) -> Result<crate::Value, crate::ShellError> {
+        _input: PipelineData,
+    ) -> Result<crate::PipelineData, crate::ShellError> {
         panic!("Internal error: can't run custom command with 'run', use block_id");
     }
 

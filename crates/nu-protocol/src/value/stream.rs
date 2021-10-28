@@ -1,10 +1,16 @@
 use crate::*;
-use std::{cell::RefCell, fmt::Debug, rc::Rc};
+use std::{
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-use serde::{ser::SerializeSeq, Deserialize, Serialize};
-
-#[derive(Clone)]
-pub struct ValueStream(pub Rc<RefCell<dyn Iterator<Item = Value>>>);
+pub struct ValueStream {
+    pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
+    pub ctrlc: Option<Arc<AtomicBool>>,
+}
 
 impl ValueStream {
     pub fn into_string(self) -> String {
@@ -22,8 +28,14 @@ impl ValueStream {
             .join("\n")
     }
 
-    pub fn from_stream(input: impl Iterator<Item = Value> + 'static) -> ValueStream {
-        ValueStream(Rc::new(RefCell::new(input)))
+    pub fn from_stream(
+        input: impl Iterator<Item = Value> + Send + 'static,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> ValueStream {
+        ValueStream {
+            stream: Box::new(input),
+            ctrlc,
+        }
     }
 }
 
@@ -37,67 +49,73 @@ impl Iterator for ValueStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        {
-            self.0.borrow_mut().next()
+        if let Some(ctrlc) = &self.ctrlc {
+            if ctrlc.load(Ordering::SeqCst) {
+                None
+            } else {
+                self.stream.next()
+            }
+        } else {
+            self.stream.next()
         }
     }
 }
 
-impl Serialize for ValueStream {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+// impl Serialize for ValueStream {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut seq = serializer.serialize_seq(None)?;
 
-        for element in self.0.borrow_mut().into_iter() {
-            seq.serialize_element(&element)?;
-        }
-        seq.end()
-    }
-}
+//         for element in self.0.borrow_mut().into_iter() {
+//             seq.serialize_element(&element)?;
+//         }
+//         seq.end()
+//     }
+// }
 
-impl<'de> Deserialize<'de> for ValueStream {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(MySeqVisitor)
-    }
-}
+// impl<'de> Deserialize<'de> for ValueStream {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         deserializer.deserialize_seq(MySeqVisitor)
+//     }
+// }
 
-struct MySeqVisitor;
+// struct MySeqVisitor;
 
-impl<'a> serde::de::Visitor<'a> for MySeqVisitor {
-    type Value = ValueStream;
+// impl<'a> serde::de::Visitor<'a> for MySeqVisitor {
+//     type Value = ValueStream;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a value stream")
-    }
+//     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         formatter.write_str("a value stream")
+//     }
 
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: serde::de::SeqAccess<'a>,
-    {
-        let mut output: Vec<Value> = vec![];
+//     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+//     where
+//         A: serde::de::SeqAccess<'a>,
+//     {
+//         let mut output: Vec<Value> = vec![];
 
-        while let Some(value) = seq.next_element()? {
-            output.push(value);
-        }
+//         while let Some(value) = seq.next_element()? {
+//             output.push(value);
+//         }
 
-        Ok(ValueStream(Rc::new(RefCell::new(output.into_iter()))))
-    }
-}
+//         Ok(ValueStream(Rc::new(RefCell::new(output.into_iter()))))
+//     }
+// }
 
-pub trait IntoValueStream {
-    fn into_value_stream(self) -> ValueStream;
-}
+// pub trait IntoValueStream {
+//     fn into_value_stream(self) -> ValueStream;
+// }
 
-impl<T> IntoValueStream for T
-where
-    T: Iterator<Item = Value> + 'static,
-{
-    fn into_value_stream(self) -> ValueStream {
-        ValueStream::from_stream(self)
-    }
-}
+// impl<T> IntoValueStream for T
+// where
+//     T: Iterator<Item = Value> + 'static,
+// {
+//     fn into_value_stream(self) -> ValueStream {
+//         ValueStream::from_stream(self)
+//     }
+// }

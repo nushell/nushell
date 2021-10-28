@@ -2,24 +2,25 @@ use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, Span,
-    SyntaxShape, Value,
+    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape,
+    Value,
 };
+use rayon::prelude::*;
 
 #[derive(Clone)]
-pub struct Each;
+pub struct ParEach;
 
-impl Command for Each {
+impl Command for ParEach {
     fn name(&self) -> &str {
-        "each"
+        "par-each"
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each element of input"
+        "Run a block on each element of input in parallel"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("each")
+        Signature::build("par-each")
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
@@ -29,28 +30,10 @@ impl Command for Each {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![
-            Value::Int {
-                val: 2,
-                span: Span::unknown(),
-            },
-            Value::Int {
-                val: 4,
-                span: Span::unknown(),
-            },
-            Value::Int {
-                val: 6,
-                span: Span::unknown(),
-            },
-        ];
-
         vec![Example {
-            example: "[1 2 3] | each { 2 * $it }",
+            example: "[1 2 3] | par-each { 2 * $it }",
             description: "Multiplies elements in list",
-            result: Some(Value::List {
-                vals: stream_test_1,
-                span: Span::unknown(),
-            }),
+            result: None,
         }]
     }
 
@@ -68,7 +51,7 @@ impl Command for Each {
         let numbered = call.has_flag("numbered");
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block_id).clone();
+        let block = engine_state.get_block(block_id);
         let mut stack = stack.collect_captures(&block.captures);
         let span = call.head;
 
@@ -76,7 +59,12 @@ impl Command for Each {
             PipelineData::Value(Value::Range { val, .. }) => Ok(val
                 .into_range_iter()?
                 .enumerate()
+                .par_bridge()
                 .map(move |(idx, x)| {
+                    let block = engine_state.get_block(block_id);
+
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -100,16 +88,24 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
-                        Err(error) => Value::Error { error },
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                        Ok(v) => v,
+                        Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
                 })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
                 .into_iter()
                 .enumerate()
+                .par_bridge()
                 .map(move |(idx, x)| {
+                    let block = engine_state.get_block(block_id);
+
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -133,15 +129,23 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
-                        Err(error) => Value::Error { error },
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                        Ok(v) => v,
+                        Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
                 })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
+                .par_bridge()
                 .map(move |(idx, x)| {
+                    let block = engine_state.get_block(block_id);
+
+                    let mut stack = stack.clone();
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -165,11 +169,14 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
-                        Err(error) => Value::Error { error },
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                        Ok(v) => v,
+                        Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
                 })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .flatten()
                 .into_pipeline_data(ctrlc)),
             PipelineData::Value(Value::Record { cols, vals, .. }) => {
                 let mut output_cols = vec![];
@@ -244,6 +251,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Each {})
+        test_examples(ParEach {})
     }
 }

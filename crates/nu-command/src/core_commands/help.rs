@@ -1,11 +1,13 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EvaluationContext},
-    span, Example, ShellError, Signature, Spanned, SyntaxShape, Value,
+    engine::{Command, EngineState, Stack},
+    span, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Spanned, SyntaxShape, Value,
 };
 
 use nu_engine::{get_full_help, CallExt};
 
+#[derive(Clone)]
 pub struct Help;
 
 impl Command for Help {
@@ -34,11 +36,12 @@ impl Command for Help {
 
     fn run(
         &self,
-        context: &EvaluationContext,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<Value, ShellError> {
-        help(context, call)
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        help(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,12 +75,16 @@ impl Command for Help {
     }
 }
 
-fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
+fn help(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let find: Option<Spanned<String>> = call.get_flag(context, "find")?;
-    let rest: Vec<Spanned<String>> = call.rest(context, 0)?;
+    let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
+    let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    let full_commands = context.get_signatures_with_examples();
+    let full_commands = engine_state.get_signatures_with_examples();
 
     if let Some(f) = find {
         let search_string = f.item;
@@ -114,10 +121,9 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
             }
         }
 
-        return Ok(Value::List {
-            vals: found_cmds_vec,
-            span: head,
-        });
+        return Ok(found_cmds_vec
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()));
     }
 
     if !rest.is_empty() {
@@ -151,10 +157,9 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 });
             }
 
-            Ok(Value::List {
-                vals: found_cmds_vec,
-                span: head,
-            })
+            Ok(found_cmds_vec
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
         } else {
             let mut name = String::new();
             let mut output = String::new();
@@ -168,7 +173,7 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
 
             for cmd in full_commands {
                 if cmd.0.name == name {
-                    let help = get_full_help(&cmd.0, &cmd.1, context);
+                    let help = get_full_help(&cmd.0, &cmd.1, engine_state);
                     output.push_str(&help);
                 }
             }
@@ -177,7 +182,8 @@ fn help(context: &EvaluationContext, call: &Call) -> Result<Value, ShellError> {
                 Ok(Value::String {
                     val: output,
                     span: call.head,
-                })
+                }
+                .into_pipeline_data())
             } else {
                 Err(ShellError::CommandNotFound(span(&[
                     rest[0].span,
@@ -355,7 +361,8 @@ You can also learn more at https://www.nushell.sh/book/"#;
         Ok(Value::String {
             val: msg.into(),
             span: head,
-        })
+        }
+        .into_pipeline_data())
     }
 }
 

@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{Signature, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{IntoPipelineData, PipelineData, Signature, Value};
 
+#[derive(Clone)]
 pub struct Git;
 
 impl Command for Git {
@@ -19,10 +20,11 @@ impl Command for Git {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         use std::process::Command as ProcessCommand;
         use std::process::Stdio;
 
@@ -37,17 +39,18 @@ impl Command for Git {
                         Ok(Value::String {
                             val: String::from_utf8_lossy(&result).to_string(),
                             span: call.head,
-                        })
+                        }
+                        .into_pipeline_data())
                     }
                     Err(_err) => {
                         // FIXME: Move this to an external signature and add better error handling
-                        Ok(Value::nothing())
+                        Ok(PipelineData::new())
                     }
                 }
             }
             Err(_err) => {
                 // FIXME: Move this to an external signature and add better error handling
-                Ok(Value::nothing())
+                Ok(PipelineData::new())
             }
         }
     }

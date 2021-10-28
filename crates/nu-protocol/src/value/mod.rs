@@ -59,10 +59,6 @@ pub enum Value {
         vals: Vec<Value>,
         span: Span,
     },
-    Stream {
-        stream: ValueStream,
-        span: Span,
-    },
     List {
         vals: Vec<Value>,
         span: Span,
@@ -110,7 +106,6 @@ impl Value {
             Value::Record { span, .. } => Ok(*span),
             Value::List { span, .. } => Ok(*span),
             Value::Block { span, .. } => Ok(*span),
-            Value::Stream { span, .. } => Ok(*span),
             Value::Nothing { span, .. } => Ok(*span),
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
@@ -129,7 +124,6 @@ impl Value {
             Value::Range { span, .. } => *span = new_span,
             Value::String { span, .. } => *span = new_span,
             Value::Record { span, .. } => *span = new_span,
-            Value::Stream { span, .. } => *span = new_span,
             Value::List { span, .. } => *span = new_span,
             Value::Block { span, .. } => *span = new_span,
             Value::Nothing { span, .. } => *span = new_span,
@@ -158,7 +152,6 @@ impl Value {
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
-            Value::Stream { .. } => Type::ValueStream,
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
@@ -174,19 +167,10 @@ impl Value {
             Value::Filesize { val, .. } => format_filesize(val),
             Value::Duration { val, .. } => format_duration(val),
             Value::Date { val, .. } => HumanTime::from(val).to_string(),
-            Value::Range { val, .. } => match val.into_range_iter() {
-                Ok(iter) => {
-                    format!(
-                        "range: [{}]",
-                        iter.map(|x| x.into_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                }
-                Err(error) => format!("{:?}", error),
-            },
+            Value::Range { val, .. } => {
+                format!("{}..{}", val.from.into_string(), val.to.into_string())
+            }
             Value::String { val, .. } => val,
-            Value::Stream { stream, .. } => stream.into_string(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.into_iter()
@@ -218,17 +202,10 @@ impl Value {
             Value::Filesize { val, .. } => format!("{} bytes", val),
             Value::Duration { val, .. } => format!("{} ns", val),
             Value::Date { val, .. } => format!("{:?}", val),
-            Value::Range { val, .. } => match val.into_range_iter() {
-                Ok(iter) => iter
-                    .map(|x| x.into_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                Err(error) => {
-                    format!("{:?}", error)
-                }
-            },
+            Value::Range { val, .. } => {
+                format!("{}..{}", val.from.into_string(), val.to.into_string())
+            }
             Value::String { val, .. } => val,
-            Value::Stream { stream, .. } => stream.collect_string(),
             Value::List { vals: val, .. } => val
                 .into_iter()
                 .map(|x| x.collect_string())
@@ -272,13 +249,6 @@ impl Value {
                                 current = item.clone();
                             } else {
                                 return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
-                            }
-                        }
-                        Value::Stream { stream, .. } => {
-                            if let Some(item) = stream.nth(*count) {
-                                current = item;
-                            } else {
-                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
                             }
                         }
                         x => {
@@ -329,27 +299,6 @@ impl Value {
                             span: *span,
                         };
                     }
-                    Value::Stream { stream, span } => {
-                        let mut output = vec![];
-                        for val in stream {
-                            output.push(val.clone().follow_cell_path(&[PathMember::String {
-                                val: column_name.clone(),
-                                span: *origin_span,
-                            }])?);
-                            // if let Value::Record { cols, vals, .. } = val {
-                            //     for col in cols.iter().enumerate() {
-                            //         if col.1 == column_name {
-                            //             output.push(vals[col.0].clone());
-                            //         }
-                            //     }
-                            // }
-                        }
-
-                        current = Value::List {
-                            vals: output,
-                            span: *span,
-                        };
-                    }
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(
                             format!("{}", x.get_type()),
@@ -371,64 +320,6 @@ impl Value {
         match self {
             Value::Record { cols, .. } => cols.clone(),
             _ => vec![],
-        }
-    }
-
-    pub fn map<F>(self, span: Span, mut f: F) -> Result<Value, ShellError>
-    where
-        Self: Sized,
-        F: FnMut(Self) -> Value + 'static,
-    {
-        match self {
-            Value::List { vals, .. } => Ok(Value::Stream {
-                stream: vals.into_iter().map(f).into_value_stream(),
-                span,
-            }),
-            Value::Stream { stream, .. } => Ok(Value::Stream {
-                stream: stream.map(f).into_value_stream(),
-                span,
-            }),
-            Value::Range { val, .. } => Ok(Value::Stream {
-                stream: val.into_range_iter()?.map(f).into_value_stream(),
-                span,
-            }),
-            v => {
-                let output = f(v);
-                match output {
-                    Value::Error { error } => Err(error),
-                    v => Ok(v),
-                }
-            }
-        }
-    }
-
-    pub fn flat_map<U, F>(self, span: Span, mut f: F) -> Value
-    where
-        Self: Sized,
-        U: IntoIterator<Item = Value>,
-        <U as IntoIterator>::IntoIter: 'static,
-        F: FnMut(Self) -> U + 'static,
-    {
-        match self {
-            Value::List { vals, .. } => Value::Stream {
-                stream: vals.into_iter().map(f).flatten().into_value_stream(),
-                span,
-            },
-            Value::Stream { stream, .. } => Value::Stream {
-                stream: stream.map(f).flatten().into_value_stream(),
-                span,
-            },
-            Value::Range { val, .. } => match val.into_range_iter() {
-                Ok(iter) => Value::Stream {
-                    stream: iter.map(f).flatten().into_value_stream(),
-                    span,
-                },
-                Err(error) => Value::Error { error },
-            },
-            v => Value::Stream {
-                stream: f(v).into_iter().into_value_stream(),
-                span,
-            },
         }
     }
 
@@ -457,6 +348,12 @@ impl Value {
             val,
             span: Span::unknown(),
         }
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::nothing()
     }
 }
 
@@ -511,24 +408,6 @@ impl PartialOrd for Value {
                     ..
                 },
             ) if lhs_headers == rhs_headers && lhs == rhs => Some(Ordering::Equal),
-            (Value::Stream { stream: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
-                lhs.clone().partial_cmp(rhs.clone())
-            }
-            (Value::Stream { stream: lhs, .. }, Value::String { val: rhs, .. }) => {
-                lhs.clone().collect_string().partial_cmp(rhs)
-            }
-            (Value::String { val: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
-                lhs.partial_cmp(&rhs.clone().collect_string())
-            }
-            // NOTE: This may look a bit strange, but a `Stream` is still just a `List`, it just
-            // happens to be in an iterator form instead of a concrete form. The contained values
-            // can be compared.
-            (Value::Stream { stream: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                lhs.clone().collect::<Vec<Value>>().partial_cmp(rhs)
-            }
-            (Value::List { vals: lhs, .. }, Value::Stream { stream: rhs, .. }) => {
-                lhs.partial_cmp(&rhs.clone().collect::<Vec<Value>>())
-            }
             (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
                 lhs.partial_cmp(rhs)
             }
@@ -852,10 +731,6 @@ impl Value {
                 val: rhs.contains(lhs),
                 span,
             }),
-            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.clone().any(|x| lhs == &x),
-                span,
-            }),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -884,10 +759,6 @@ impl Value {
             }),
             (Value::String { val: lhs, .. }, Value::Record { cols: rhs, .. }) => Ok(Value::Bool {
                 val: !rhs.contains(lhs),
-                span,
-            }),
-            (lhs, Value::Stream { stream: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.clone().all(|x| lhs != &x),
                 span,
             }),
             _ => Err(ShellError::OperatorMismatch {
