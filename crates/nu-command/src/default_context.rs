@@ -67,6 +67,8 @@ pub fn create_default_context() -> EngineState {
             SplitRow,
             Sys,
             Table,
+            To,
+            ToJson,
             Touch,
             Use,
             Where,
