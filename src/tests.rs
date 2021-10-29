@@ -248,6 +248,11 @@ fn alias_2() -> TestResult {
 }
 
 #[test]
+fn alias_2_multi_word() -> TestResult {
+    run_test(r#"def "foo bar" [$x $y] { $x + $y + 10 }; alias f = foo bar 33; f 100"#, "143")
+}
+
+#[test]
 fn block_param1() -> TestResult {
     run_test("[3] | each { $it + 10 } | get 0", "13")
 }
