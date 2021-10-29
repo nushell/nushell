@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value,
+    IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value, VarId,
 };
 
 use crate::get_full_help;
@@ -210,9 +210,7 @@ pub fn eval_expression(
                 span: expr.span,
             })
         }
-        Expr::Var(var_id) => stack
-            .get_var(*var_id)
-            .map_err(move |_| ShellError::VariableNotFoundAtRuntime(expr.span)),
+        Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
         Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::CellPath(cell_path) => Ok(Value::CellPath {
             val: cell_path.clone(),
@@ -370,6 +368,73 @@ pub fn eval_block(
     }
 
     Ok(input)
+}
+
+pub fn eval_variable(
+    _engine_state: &EngineState,
+    stack: &Stack,
+    var_id: VarId,
+    span: Span,
+) -> Result<Value, ShellError> {
+    if var_id == 0 {
+        // $nu
+        let mut output_cols = vec![];
+        let mut output_vals = vec![];
+
+        let env_columns: Vec<_> = stack.get_env_vars().keys().map(|x| x.to_string()).collect();
+        let env_values: Vec<_> = stack
+            .get_env_vars()
+            .values()
+            .map(|x| Value::String {
+                val: x.to_string(),
+                span,
+            })
+            .collect();
+
+        output_cols.push("env".into());
+        output_vals.push(Value::Record {
+            cols: env_columns,
+            vals: env_values,
+            span,
+        });
+
+        if let Some(mut config_path) = nu_path::config_dir() {
+            config_path.push("nushell");
+
+            let mut history_path = config_path.clone();
+
+            history_path.push("history.txt");
+
+            output_cols.push("history-path".into());
+            output_vals.push(Value::String {
+                val: history_path.to_string_lossy().to_string(),
+                span,
+            });
+
+            config_path.push("config.nu");
+
+            output_cols.push("config-path".into());
+            output_vals.push(Value::String {
+                val: config_path.to_string_lossy().to_string(),
+                span,
+            });
+        }
+
+        if let Ok(cwd) = std::env::var("PWD") {
+            output_cols.push("pwd".into());
+            output_vals.push(Value::String { val: cwd, span })
+        }
+
+        Ok(Value::Record {
+            cols: output_cols,
+            vals: output_vals,
+            span,
+        })
+    } else {
+        stack
+            .get_var(var_id)
+            .map_err(move |_| ShellError::VariableNotFoundAtRuntime(span))
+    }
 }
 
 pub fn compute(size: i64, unit: Unit, span: Span) -> Value {
