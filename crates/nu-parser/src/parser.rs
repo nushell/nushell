@@ -1182,6 +1182,16 @@ pub fn parse_variable_expr(
             },
             None,
         );
+    } else if contents == b"$nu" {
+        return (
+            Expression {
+                expr: Expr::Var(0),
+                span,
+                ty: Type::Unknown,
+                custom_completion: None,
+            },
+            None,
+        );
     }
 
     let (id, err) = parse_variable(working_set, span);

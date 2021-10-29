@@ -122,6 +122,10 @@ fn main() -> Result<()> {
 
         let mut stack = nu_protocol::engine::Stack::new();
 
+        for (k, v) in std::env::vars() {
+            stack.env_vars.insert(k, v);
+        }
+
         match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
             Ok(pipeline_data) => {
                 println!("{}", pipeline_data.collect_string());
@@ -145,6 +149,10 @@ fn main() -> Result<()> {
         let default_prompt = DefaultPrompt::new(1);
         let mut nu_prompt = NushellPrompt::new();
         let mut stack = nu_protocol::engine::Stack::new();
+
+        for (k, v) in std::env::vars() {
+            stack.env_vars.insert(k, v);
+        }
 
         // Load config startup file
         if let Some(mut config_path) = nu_path::config_dir() {
