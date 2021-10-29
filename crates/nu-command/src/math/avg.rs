@@ -50,6 +50,7 @@ pub fn average(values: &[Value], head: &Span) -> Result<Value, ShellError> {
             span: Span::unknown(),
         },
         values.to_vec(),
+        *head,
     )?;
     match total {
         Value::Filesize { val, span } => Ok(Value::Filesize {

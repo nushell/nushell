@@ -51,6 +51,8 @@ pub fn create_default_context() -> EngineState {
             Math,
             MathAbs,
             MathAvg,
+            MathMax,
+            MathMin,
             Mkdir,
             Module,
             Mv,
