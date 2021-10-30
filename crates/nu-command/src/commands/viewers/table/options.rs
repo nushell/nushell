@@ -3,7 +3,6 @@ use nu_data::primitive::lookup_ansi_color_style;
 use nu_protocol::Value;
 use nu_table::{Alignment, TextStyle};
 use std::fmt::Debug;
-use log::{trace};
 
 pub trait ConfigExtensions: Debug + Send {
     fn table_mode(&self) -> nu_table::Theme;
@@ -78,9 +77,10 @@ impl ConfigExtensions for NuConfig {
         // FIXME: I agree, this is the long way around, please suggest and alternative.
         let head_color = get_color_from_key_and_subkey(self, "color_config", "header_color");
         let (head_color_style, head_bold_bool) = match head_color {
-            Some(s) => {
-                (lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string())), header_bold_from_value(Some(&s)))
-            }
+            Some(s) => (
+                lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string())),
+                header_bold_from_value(Some(&s)),
+            ),
             None => (nu_ansi_term::Color::Green.normal(), true),
         };
 
