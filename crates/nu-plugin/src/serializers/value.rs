@@ -1,4 +1,4 @@
-use crate::value_capnp::value;
+use crate::plugin_capnp::value;
 use capnp::serialize_packed;
 use nu_protocol::{ShellError, Span, Value};
 
@@ -35,7 +35,7 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) -> Spa
             *span
         }
         Value::String { val, span } => {
-            builder.set_string(&val);
+            builder.set_string(val);
             *span
         }
         Value::List { vals, span } => {
@@ -92,7 +92,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
 
             let values_list = values
                 .iter()
-                .map(|inner_reader| deserialize_value(inner_reader))
+                .map(deserialize_value)
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
             Ok(Value::List {

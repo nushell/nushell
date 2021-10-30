@@ -1,5 +1,5 @@
 use super::{call, value};
-use crate::value_capnp::call_info;
+use crate::plugin_capnp::call_info;
 use capnp::serialize_packed;
 use nu_protocol::{ast::Call, ShellError, Value};
 

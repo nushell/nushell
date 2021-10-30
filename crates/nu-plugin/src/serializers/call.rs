@@ -1,4 +1,4 @@
-use crate::value_capnp::{call, expression, option};
+use crate::plugin_capnp::{call, expression, option};
 use capnp::serialize_packed;
 use nu_protocol::{
     ast::{Call, Expr, Expression},
@@ -69,7 +69,7 @@ fn serialize_expression(expression: &Expression, mut builder: expression::Builde
         Expr::Bool(val) => builder.set_bool(*val),
         Expr::Int(val) => builder.set_int(*val),
         Expr::Float(val) => builder.set_float(*val),
-        Expr::String(val) => builder.set_string(&val),
+        Expr::String(val) => builder.set_string(val),
         Expr::List(values) => {
             let mut list_builder = builder.reborrow().init_list(values.len() as u32);
             for (index, expression) in values.iter().enumerate() {
@@ -130,10 +130,9 @@ fn deserialize_positionals(
         .collect()
 }
 
-fn deserialize_named(
-    span: Span,
-    reader: call::Reader,
-) -> Result<Vec<(Spanned<String>, Option<Expression>)>, ShellError> {
+type NamedList = Vec<(Spanned<String>, Option<Expression>)>;
+
+fn deserialize_named(span: Span, reader: call::Reader) -> Result<NamedList, ShellError> {
     let named_reader = reader
         .get_named()
         .map_err(|e| ShellError::DecodingError(e.to_string()))?;
