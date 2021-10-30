@@ -3,6 +3,7 @@ use nu_data::primitive::lookup_ansi_color_style;
 use nu_protocol::Value;
 use nu_table::{Alignment, TextStyle};
 use std::fmt::Debug;
+use log::{trace};
 
 pub trait ConfigExtensions: Debug + Send {
     fn table_mode(&self) -> nu_table::Theme;
@@ -40,6 +41,12 @@ pub fn get_color_from_key_and_subkey(config: &NuConfig, key: &str, subkey: &str)
     None
 }
 
+pub fn header_bold_from_value(bold_value: Option<&Value>) -> bool {
+    bold_value
+        .map(|x| x.as_bool().unwrap_or(true))
+        .unwrap_or(true)
+}
+
 pub fn table_mode(config: &NuConfig) -> nu_table::Theme {
     let vars = &config.vars;
 
@@ -70,11 +77,11 @@ impl ConfigExtensions for NuConfig {
     fn header_style(&self) -> TextStyle {
         // FIXME: I agree, this is the long way around, please suggest and alternative.
         let head_color = get_color_from_key_and_subkey(self, "color_config", "header_color");
-        let head_color_style = match head_color {
+        let (head_color_style, head_bold_bool) = match head_color {
             Some(s) => {
-                lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string()))
+                (lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string())), header_bold_from_value(Some(&s)))
             }
-            None => nu_ansi_term::Color::Green.normal(),
+            None => (nu_ansi_term::Color::Green.normal(), true),
         };
 
         let head_align = get_color_from_key_and_subkey(self, "color_config", "header_align");
@@ -85,7 +92,7 @@ impl ConfigExtensions for NuConfig {
 
         TextStyle::new()
             .alignment(head_alignment)
-            .bold(Some(head_color_style.is_bold))
+            .bold(Some(head_bold_bool))
             .fg(head_color_style
                 .foreground
                 .unwrap_or(nu_ansi_term::Color::Green))
