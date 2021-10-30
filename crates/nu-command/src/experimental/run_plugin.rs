@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EvaluationContext};
-use nu_protocol::{ShellError, Signature, Value};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Signature};
 
+#[derive(Clone)]
 pub struct RunPlugin;
 
 impl Command for RunPlugin {
@@ -19,10 +20,11 @@ impl Command for RunPlugin {
 
     fn run(
         &self,
-        _context: &EvaluationContext,
+        _context: &EngineState,
+        _stack: &mut Stack,
         _call: &Call,
-        _input: Value,
-    ) -> Result<nu_protocol::Value, ShellError> {
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Err(ShellError::InternalError("plugin".into()))
     }
 }
