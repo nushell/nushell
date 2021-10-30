@@ -76,17 +76,14 @@ impl ConfigExtensions for NuConfig {
     fn header_style(&self) -> TextStyle {
         // FIXME: I agree, this is the long way around, please suggest and alternative.
         let head_color = get_color_from_key_and_subkey(self, "color_config", "header_color");
-        let head_color_style = match head_color {
-            Some(s) => {
-                lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string()))
-            }
-            None => nu_ansi_term::Color::Green.normal(),
+        let (head_color_style, head_bold_bool) = match head_color {
+            Some(s) => (
+                lookup_ansi_color_style(s.as_string().unwrap_or_else(|_| "green".to_string())),
+                header_bold_from_value(Some(&s)),
+            ),
+            None => (nu_ansi_term::Color::Green.normal(), true),
         };
-        let head_bold = get_color_from_key_and_subkey(self, "color_config", "header_bold");
-        let head_bold_bool = match head_bold {
-            Some(b) => header_bold_from_value(Some(&b)),
-            None => true,
-        };
+
         let head_align = get_color_from_key_and_subkey(self, "color_config", "header_align");
         let head_alignment = match head_align {
             Some(a) => header_alignment_from_value(Some(&a)),
