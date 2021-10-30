@@ -1,3 +1,4 @@
+use crate::selector::css;
 use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use std::collections::HashMap;
 
@@ -263,10 +264,6 @@ impl<'a> IntoIterator for Row<'a> {
     }
 }
 
-fn css(selector: &'static str) -> ScraperSelector {
-    ScraperSelector::parse(selector).expect("Unable to parse selector with scraper")
-}
-
 fn select_cells(
     element: ElementRef,
     selector: &ScraperSelector,
@@ -343,23 +340,23 @@ mod tests {
     use indexmap::indexmap;
     use nu_protocol::UntaggedValue;
 
-    const TABLE_EMPTY: &'static str = r#"
+    const TABLE_EMPTY: &str = r#"
 <table></table>
 "#;
 
-    const TABLE_TH: &'static str = r#"
+    const TABLE_TH: &str = r#"
 <table>
     <tr><th>Name</th><th>Age</th></tr>
 </table>
 "#;
 
-    const TABLE_TD: &'static str = r#"
+    const TABLE_TD: &str = r#"
 <table>
     <tr><td>Name</td><td>Age</td></tr>
 </table>
 "#;
 
-    const TWO_TABLES_TD: &'static str = r#"
+    const TWO_TABLES_TD: &str = r#"
 <table>
     <tr><td>Name</td><td>Age</td></tr>
 </table>
@@ -368,14 +365,14 @@ mod tests {
 </table>
 "#;
 
-    const TABLE_TH_TD: &'static str = r#"
+    const TABLE_TH_TD: &str = r#"
 <table>
     <tr><th>Name</th><th>Age</th></tr>
     <tr><td>John</td><td>20</td></tr>
 </table>
 "#;
 
-    const TWO_TABLES_TH_TD: &'static str = r#"
+    const TWO_TABLES_TH_TD: &str = r#"
 <table>
     <tr><th>Name</th><th>Age</th></tr>
     <tr><td>John</td><td>20</td></tr>
@@ -386,21 +383,21 @@ mod tests {
 </table>
 "#;
 
-    const TABLE_TD_TD: &'static str = r#"
+    const TABLE_TD_TD: &str = r#"
 <table>
     <tr><td>Name</td><td>Age</td></tr>
     <tr><td>John</td><td>20</td></tr>
 </table>
 "#;
 
-    const TABLE_TH_TH: &'static str = r#"
+    const TABLE_TH_TH: &str = r#"
 <table>
     <tr><th>Name</th><th>Age</th></tr>
     <tr><th>John</th><th>20</th></tr>
 </table>
 "#;
 
-    const TABLE_COMPLEX: &'static str = r#"
+    const TABLE_COMPLEX: &str = r#"
 <table>
     <tr><th>Name</th><th>Age</th><th>Extra</th></tr>
     <tr><td>John</td><td>20</td></tr>
@@ -410,7 +407,7 @@ mod tests {
 </table>
 "#;
 
-    const TWO_TABLES_COMPLEX: &'static str = r#"
+    const TWO_TABLES_COMPLEX: &str = r#"
 <!doctype HTML>
 <html>
     <head><title>foo</title></head>
@@ -433,7 +430,7 @@ mod tests {
 </html>
 "#;
 
-    const HTML_NO_TABLE: &'static str = r#"
+    const HTML_NO_TABLE: &str = r#"
 <!doctype HTML>
 <html>
     <head><title>foo</title></head>
@@ -441,7 +438,7 @@ mod tests {
 </html>
 "#;
 
-    const HTML_TWO_TABLES: &'static str = r#"
+    const HTML_TWO_TABLES: &str = r#"
 <!doctype HTML>
 <html>
     <head><title>foo</title></head>
@@ -458,7 +455,7 @@ mod tests {
 </html>
 "#;
 
-    const HTML_TABLE_FRAGMENT: &'static str = r#"
+    const HTML_TABLE_FRAGMENT: &str = r#"
         <table id="first">
             <tr><th>Name</th><th>Age</th></tr>
             <tr><td>John</td><td>20</td></tr>
@@ -467,7 +464,7 @@ mod tests {
 </html>
 "#;
 
-    const HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES: &'static str = r#"
+    const HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES: &str = r#"
     <table class="wikitable">
     <caption>Excel 2007 formats
     </caption>
@@ -515,7 +512,7 @@ mod tests {
     </td></tr></tbody></table>
     "#;
 
-    const HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS: &'static str = r#"
+    const HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS: &str = r#"
 <table class="infobox vevent">
   <caption class="infobox-title summary">
     Microsoft Excel

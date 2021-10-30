@@ -28,6 +28,12 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 
+const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
+    case_sensitive: true,
+    require_literal_separator: false,
+    require_literal_leading_dot: false,
+};
+
 #[derive(Eq, PartialEq, Clone, Copy)]
 pub enum FilesystemShellMode {
     Cli,
@@ -159,7 +165,7 @@ impl Shell for FilesystemShell {
 
         let hidden_dir_specified = is_hidden_dir(&path);
 
-        let mut paths = glob::glob(&path.to_string_lossy())
+        let mut paths = glob::glob_with(&path.to_string_lossy(), GLOB_PARAMS)
             .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
             .peekable();
 
@@ -352,7 +358,7 @@ impl Shell for FilesystemShell {
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
 
-        let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
+        let sources: Vec<_> = match glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
             Ok(files) => files.collect(),
             Err(e) => {
                 return Err(ShellError::labeled_error(
@@ -521,8 +527,8 @@ impl Shell for FilesystemShell {
         let source = path.join(&src.item);
         let destination = path.join(&dst.item);
 
-        let mut sources =
-            glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
+        let mut sources = glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
+            .map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
             return Err(ShellError::labeled_error(
@@ -650,7 +656,7 @@ impl Shell for FilesystemShell {
                 &path.to_string_lossy(),
                 glob::MatchOptions {
                     require_literal_leading_dot: true,
-                    ..Default::default()
+                    ..GLOB_PARAMS
                 },
             ) {
                 Ok(files) => {
