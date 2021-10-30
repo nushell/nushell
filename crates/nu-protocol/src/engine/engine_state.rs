@@ -102,7 +102,7 @@ impl EngineState {
         Self {
             files: im::vector![],
             file_contents: im::vector![],
-            vars: im::vector![],
+            vars: im::vector![Type::Unknown],
             decls: im::vector![],
             blocks: im::vector![],
             scope: im::vector![ScopeFrame::new()],
