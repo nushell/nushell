@@ -88,15 +88,6 @@ fn format_helper(value: Value, formatter: &Spanned<String>, span: Span) -> Value
                 },
                 Err(e) => e,
             }
-            // if dt.is_ok() {
-
-            //     Value::String {
-            //         val: dt.unwrap().format(formatter.item.as_str()).to_string(),
-            //         span,
-            //     }
-            // } else {
-            //     dt.unwrap_err()
-            // }
         }
         Value::Nothing { span: _ } => {
             let dt = Local::now();
