@@ -506,7 +506,7 @@ impl<'a> StateWorkingSet<'a> {
         let permanent_span_start = self.permanent_state.next_span_start();
 
         if let Some((_, _, last)) = self.delta.file_contents.last() {
-            permanent_span_start + *last
+            *last
         } else {
             permanent_span_start
         }
@@ -566,7 +566,7 @@ impl<'a> StateWorkingSet<'a> {
         if permanent_end <= span.start {
             for (contents, start, finish) in &self.delta.file_contents {
                 if (span.start >= *start) && (span.end <= *finish) {
-                    return &contents[(span.start - permanent_end)..(span.end - permanent_end)];
+                    return &contents[(span.start - start)..(span.end - start)];
                 }
             }
         } else {
