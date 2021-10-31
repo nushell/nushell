@@ -19,12 +19,12 @@ jobs:
           operations-per-run: 520
           enable-statistics: true
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: 'This issue is being marked stale because it has been open for 90 days without activity. If you feel that this is in error, please comment below and we will keep it marked as active. Otherwise, it will be closed in 10 days.'
-          stale-pr-message: 'This PR is being marked stale because it has been open for 45 days without activity. If this PR is still active, please comment below and we will keep it marked as active. Otherwise, it will be closed in 10 days.'
-          close-issue-message: 'This issue has been marked stale for more than 10 days without activity. Closing this issue, but if you find that the issue is still valid, please reopen.'
-          close-pr-message: 'This PR has been marked stale for more than 10 days without activity. Closing this PR, but if you are still working on it, please reopen.'
+          stale-issue-message: 'This issue is being marked stale because it has been open for 90 days without activity. If you feel that this is in error, please comment below and we will keep it marked as active.'
+          stale-pr-message: 'This PR is being marked stale because it has been open for 45 days without activity. If this PR is still active, please comment below and we will keep it marked as active.'
+          close-issue-message: 'This issue has been marked stale for more than 100000 days without activity. Closing this issue, but if you find that the issue is still valid, please reopen.'
+          close-pr-message: 'This PR has been marked stale for more than 100 days without activity. Closing this PR, but if you are still working on it, please reopen.'
           days-before-issue-stale: 90
           days-before-pr-stale: 45
-          days-before-issue-close: 10
-          days-before-pr-close: 10
+          days-before-issue-close: 100000
+          days-before-pr-close: 100
           exempt-issue-labels: 'exempt,keep'
