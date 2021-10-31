@@ -502,52 +502,57 @@ pub fn parse_use(
         let (import_pattern, err) = parse_import_pattern(working_set, &spans[1..]);
         error = error.or(err);
 
-        let (import_pattern, exports) = if let Some(block_id) =
-            working_set.find_module(&import_pattern.head)
-        {
-            (
-                import_pattern,
-                working_set.get_block(block_id).exports.clone(),
-            )
-        } else {
-            // TODO: Handle invalid UTF-8 conversion
-            // TODO: Do not close over when loading module from file
-            // It could be a file
-            let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
-            let module_path = Path::new(&module_filename);
-            let module_name = if let Some(stem) = module_path.file_stem() {
-                stem.to_string_lossy().to_string()
-            } else {
-                return (
-                    garbage_statement(spans),
-                    Some(ParseError::ModuleNotFound(spans[1])),
-                );
-            };
-
-            if let Ok(contents) = std::fs::read(module_path) {
-                let span_start = working_set.next_span_start();
-                working_set.add_file(module_filename, &contents);
-                let span_end = working_set.next_span_start();
-
-                let (block, err) = parse_module_block(working_set, Span::new(span_start, span_end));
-                error = error.or(err);
-
-                let block_id = working_set.add_module(&module_name, block);
-
+        let (import_pattern, exports) =
+            if let Some(block_id) = working_set.find_module(&import_pattern.head) {
                 (
-                    ImportPattern {
-                        head: module_name.into(),
-                        members: import_pattern.members,
-                    },
+                    import_pattern,
                     working_set.get_block(block_id).exports.clone(),
                 )
             } else {
-                return (
-                    garbage_statement(spans),
-                    Some(ParseError::ModuleNotFound(spans[1])),
-                );
-            }
-        };
+                // TODO: Do not close over when loading module from file
+                // It could be a file
+                if let Ok(module_filename) = String::from_utf8(import_pattern.head) {
+                    let module_path = Path::new(&module_filename);
+                    let module_name = if let Some(stem) = module_path.file_stem() {
+                        stem.to_string_lossy().to_string()
+                    } else {
+                        return (
+                            garbage_statement(spans),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
+                    };
+
+                    if let Ok(contents) = std::fs::read(module_path) {
+                        let span_start = working_set.next_span_start();
+                        working_set.add_file(module_filename, &contents);
+                        let span_end = working_set.next_span_start();
+
+                        let (block, err) =
+                            parse_module_block(working_set, Span::new(span_start, span_end));
+                        error = error.or(err);
+
+                        let block_id = working_set.add_module(&module_name, block);
+
+                        (
+                            ImportPattern {
+                                head: module_name.into(),
+                                members: import_pattern.members,
+                            },
+                            working_set.get_block(block_id).exports.clone(),
+                        )
+                    } else {
+                        return (
+                            garbage_statement(spans),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
+                    }
+                } else {
+                    return (
+                        garbage_statement(spans),
+                        Some(ParseError::NonUtf8(spans[1])),
+                    );
+                }
+            };
 
         let exports = if import_pattern.members.is_empty() {
             exports
@@ -892,6 +897,11 @@ pub fn parse_source(
                             );
                         }
                     }
+                } else {
+                    return (
+                        garbage_statement(spans),
+                        Some(ParseError::NonUtf8(spans[1])),
+                    );
                 }
             }
             return (

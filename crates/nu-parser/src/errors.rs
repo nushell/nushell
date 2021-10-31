@@ -93,9 +93,9 @@ pub enum ParseError {
     )]
     UnknownCommand(#[label = "unknown command"] Span),
 
-    #[error("Non-UTF8 code.")]
+    #[error("Non-UTF8 string.")]
     #[diagnostic(code(nu::parser::non_utf8), url(docsrs))]
-    NonUtf8(#[label = "non-UTF8 code"] Span),
+    NonUtf8(#[label = "non-UTF8 string"] Span),
 
     #[error("The `{0}` command doesn't have flag `{1}`.")]
     #[diagnostic(code(nu::parser::unknown_flag), url(docsrs))]
