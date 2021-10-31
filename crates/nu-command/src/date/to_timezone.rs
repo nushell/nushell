@@ -101,7 +101,6 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
 
         Value::Nothing { span: _ } => {
             let dt = Local::now();
-
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
         _ => unsupported_input_error(),
