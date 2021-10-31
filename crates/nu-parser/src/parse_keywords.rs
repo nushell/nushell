@@ -511,6 +511,7 @@ pub fn parse_use(
             )
         } else {
             // TODO: Handle invalid UTF-8 conversion
+            // TODO: Do not close over when loading module from file
             // It could be a file
             let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
             let module_path = Path::new(&module_filename);
@@ -734,6 +735,8 @@ pub fn parse_hide(
         };
 
         for name in names_to_hide {
+            // TODO: `use spam; use spam foo; hide foo` will hide both `foo` and `spam foo` since
+            // they point to the same DeclId. Do we want to keep it that way?
             if working_set.hide_decl(&name).is_none() {
                 error = error.or_else(|| Some(ParseError::UnknownCommand(spans[1])));
             }
