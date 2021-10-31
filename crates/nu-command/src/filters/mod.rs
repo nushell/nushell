@@ -1,4 +1,5 @@
 mod each;
+mod first;
 mod get;
 mod last;
 mod length;
@@ -10,6 +11,7 @@ mod where_;
 mod wrap;
 
 pub use each::Each;
+pub use first::First;
 pub use get::Get;
 pub use last::Last;
 pub use length::Length;
