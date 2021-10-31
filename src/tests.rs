@@ -442,14 +442,6 @@ fn module_import_uses_internal_command() -> TestResult {
     )
 }
 
-#[test]
-fn module_import_does_not_parse_with_incorrect_delimiter() -> TestResult {
-    fail_test(
-        r#"module foo { export def a [] { 1 }  }; use foo:.a"#,
-        not_found_msg(),
-    )
-}
-
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]
 fn hides_def() -> TestResult {
