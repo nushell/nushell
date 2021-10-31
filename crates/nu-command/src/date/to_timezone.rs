@@ -1,0 +1,136 @@
+use super::parser::datetime_in_timezone;
+use crate::date::utils::{parse_date_from_string, unsupported_input_error};
+use chrono::{DateTime, Local};
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+};
+
+use chrono::{FixedOffset, TimeZone};
+
+#[derive(Clone)]
+pub struct SubCommand;
+
+impl Command for SubCommand {
+    fn name(&self) -> &str {
+        "date to-timezone"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("date to-timezone").required(
+            "time zone",
+            SyntaxShape::String,
+            "time zone description",
+        )
+    }
+
+    fn usage(&self) -> &str {
+        "Convert a date to a given time zone."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Use 'date list-timezone' to list all supported time zones."
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let head = call.head;
+        let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
+
+        //Ok(PipelineData::new())
+        input.map(
+            move |value| helper(value, head, &timezone),
+            engine_state.ctrlc.clone(),
+        )
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Get the current date in UTC+05:00",
+                example: "date now | date to-timezone +0500",
+                result: None,
+            },
+            Example {
+                description: "Get the current local date",
+                example: "date now | date to-timezone local",
+                result: None,
+            },
+            Example {
+                description: "Get the current date in Hawaii",
+                example: "date now | date to-timezone US/Hawaii",
+                result: None,
+            },
+            Example {
+                description: "Get the current date in Hawaii",
+                example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
+                // result: None
+                // The following should be the result of the test, but it fails. Cannot figure it out why.
+                result: {
+                    let dt = FixedOffset::east(5 * 3600)
+                        .ymd(2020, 10, 10)
+                        .and_hms(13, 00, 00);
+
+                    Some(Value::Date {
+                        val: dt,
+                        span: Span::unknown(),
+                    })
+                },
+            },
+        ]
+    }
+}
+
+fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
+    match value {
+        Value::Date { val, span: _ } => _to_timezone(val, timezone, head),
+        Value::String { val, span: _ } => {
+            let time = parse_date_from_string(val);
+
+            if time.is_ok() {
+                let dt = time.unwrap();
+                _to_timezone(dt, timezone, head)
+            } else {
+                time.unwrap_err()
+            }
+        }
+
+        Value::Nothing { span: _ } => {
+            let dt = Local::now();
+
+            _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
+        }
+        _ => unsupported_input_error(),
+    }
+}
+
+fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
+    match datetime_in_timezone(&dt, &timezone.item.as_str()) {
+        Ok(dt) => Value::Date {
+            val: dt,
+            span: span,
+        },
+        Err(_) => Value::Error {
+            error: ShellError::UnsupportedInput(String::from("invalid time zone"), Span::unknown()),
+        },
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
+}
