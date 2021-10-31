@@ -218,8 +218,6 @@ pub fn parse_alias(
 
                 let replacement = spans[3..].to_vec();
 
-                //println!("{:?} {:?}", alias_name, replacement);
-
                 working_set.add_alias(alias_name, replacement);
             }
 
@@ -311,15 +309,15 @@ pub fn parse_export(
 
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    span: Span,
 ) -> (Block, Option<ParseError>) {
     let mut error = None;
 
     working_set.enter_scope();
 
-    let source = working_set.get_span_contents(spans[0]);
+    let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, spans[0].start, &[], &[]);
+    let (output, err) = lex(source, span.start, &[], &[]);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -380,8 +378,8 @@ pub fn parse_module_block(
 
                 stmt
             } else {
-                error = Some(ParseError::Expected("not a pipeline".into(), spans[0]));
-                garbage_statement(spans)
+                error = Some(ParseError::Expected("not a pipeline".into(), span));
+                garbage_statement(&[span])
             }
         })
         .into();
@@ -441,7 +439,7 @@ pub fn parse_module(
 
         let block_span = Span { start, end };
 
-        let (block, err) = parse_module_block(working_set, &[block_span]);
+        let (block, err) = parse_module_block(working_set, block_span);
         error = error.or(err);
 
         let block_id = working_set.add_module(&module_name, block);
@@ -530,7 +528,7 @@ pub fn parse_use(
                     let span_end = working_set.next_span_start();
 
                     let (block, err) =
-                        parse_module_block(working_set, &[Span::new(span_start, span_end)]);
+                        parse_module_block(working_set, Span::new(span_start, span_end));
                     error = error.or(err);
 
                     let block_id = working_set.add_module(&module_name, block);
