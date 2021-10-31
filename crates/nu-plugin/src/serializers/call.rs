@@ -1,21 +1,11 @@
+use crate::plugin::PluginError;
 use crate::plugin_capnp::{call, expression, option};
-use capnp::serialize_packed;
 use nu_protocol::{
     ast::{Call, Expr, Expression},
-    ShellError, Span, Spanned, Type,
+    Span, Spanned, Type,
 };
 
-pub fn write_buffer(call: &Call, writer: &mut impl std::io::Write) -> Result<(), ShellError> {
-    let mut message = ::capnp::message::Builder::new_default();
-
-    let builder = message.init_root::<call::Builder>();
-    serialize_call(call, builder)?;
-
-    serialize_packed::write_message(writer, &message)
-        .map_err(|e| ShellError::EncodingError(e.to_string()))
-}
-
-pub(crate) fn serialize_call(call: &Call, mut builder: call::Builder) -> Result<(), ShellError> {
+pub(crate) fn serialize_call(call: &Call, mut builder: call::Builder) -> Result<(), PluginError> {
     let mut head = builder.reborrow().init_head();
     head.set_start(call.head.start as u64);
     head.set_end(call.head.end as u64);
@@ -37,7 +27,7 @@ fn serialize_positional(positional: &[Expression], mut builder: call::Builder) {
 fn serialize_named(
     named: &[(Spanned<String>, Option<Expression>)],
     mut builder: call::Builder,
-) -> Result<(), ShellError> {
+) -> Result<(), PluginError> {
     let mut named_builder = builder
         .reborrow()
         .init_named()
@@ -48,7 +38,7 @@ fn serialize_named(
         entry_builder
             .reborrow()
             .set_key(key.item.as_str())
-            .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+            .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
         let mut value_builder = entry_builder.init_value();
         match expression {
@@ -84,21 +74,10 @@ fn serialize_expression(expression: &Expression, mut builder: expression::Builde
     }
 }
 
-pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Call, ShellError> {
-    let message_reader =
-        serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
-
-    let reader = message_reader
-        .get_root::<call::Reader>()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
-
-    deserialize_call(reader)
-}
-
-pub(crate) fn deserialize_call(reader: call::Reader) -> Result<Call, ShellError> {
+pub(crate) fn deserialize_call(reader: call::Reader) -> Result<Call, PluginError> {
     let head_reader = reader
         .get_head()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
     let head = Span {
         start: head_reader.get_start() as usize,
@@ -119,10 +98,10 @@ pub(crate) fn deserialize_call(reader: call::Reader) -> Result<Call, ShellError>
 fn deserialize_positionals(
     span: Span,
     reader: call::Reader,
-) -> Result<Vec<Expression>, ShellError> {
+) -> Result<Vec<Expression>, PluginError> {
     let positional_reader = reader
         .get_positional()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
     positional_reader
         .iter()
@@ -132,14 +111,14 @@ fn deserialize_positionals(
 
 type NamedList = Vec<(Spanned<String>, Option<Expression>)>;
 
-fn deserialize_named(span: Span, reader: call::Reader) -> Result<NamedList, ShellError> {
+fn deserialize_named(span: Span, reader: call::Reader) -> Result<NamedList, PluginError> {
     let named_reader = reader
         .get_named()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
     let entries_list = named_reader
         .get_entries()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
     let mut entries: Vec<(Spanned<String>, Option<Expression>)> =
         Vec::with_capacity(entries_list.len() as usize);
@@ -147,21 +126,21 @@ fn deserialize_named(span: Span, reader: call::Reader) -> Result<NamedList, Shel
     for entry_reader in entries_list {
         let item = entry_reader
             .get_key()
-            .map_err(|e| ShellError::DecodingError(e.to_string()))?
+            .map_err(|e| PluginError::DecodingError(e.to_string()))?
             .to_string();
 
         let value_reader = entry_reader
             .get_value()
-            .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+            .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
         let value = match value_reader.which() {
             Ok(option::None(())) => None,
             Ok(option::Some(expression_reader)) => {
                 let expression_reader =
-                    expression_reader.map_err(|e| ShellError::DecodingError(e.to_string()))?;
+                    expression_reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
                 let expression = deserialize_expression(span, expression_reader)
-                    .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+                    .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
                 Some(expression)
             }
@@ -179,7 +158,7 @@ fn deserialize_named(span: Span, reader: call::Reader) -> Result<NamedList, Shel
 fn deserialize_expression(
     span: Span,
     reader: expression::Reader,
-) -> Result<Expression, ShellError> {
+) -> Result<Expression, PluginError> {
     let expr = match reader.which() {
         Ok(expression::Garbage(())) => Expr::Garbage,
         Ok(expression::Bool(val)) => Expr::Bool(val),
@@ -187,18 +166,18 @@ fn deserialize_expression(
         Ok(expression::Float(val)) => Expr::Float(val),
         Ok(expression::String(val)) => {
             let string = val
-                .map_err(|e| ShellError::DecodingError(e.to_string()))?
+                .map_err(|e| PluginError::DecodingError(e.to_string()))?
                 .to_string();
 
             Expr::String(string)
         }
         Ok(expression::List(values)) => {
-            let values = values.map_err(|e| ShellError::DecodingError(e.to_string()))?;
+            let values = values.map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
             let values_list = values
                 .iter()
                 .map(|inner_reader| deserialize_expression(span, inner_reader))
-                .collect::<Result<Vec<Expression>, ShellError>>()?;
+                .collect::<Result<Vec<Expression>, PluginError>>()?;
 
             Expr::List(values_list)
         }
@@ -215,6 +194,7 @@ fn deserialize_expression(
 
 #[cfg(test)]
 mod tests {
+    use capnp::serialize_packed;
     use core::panic;
 
     use super::*;
@@ -222,6 +202,27 @@ mod tests {
         ast::{Call, Expr, Expression},
         Span, Spanned,
     };
+
+    fn write_buffer(call: &Call, writer: &mut impl std::io::Write) -> Result<(), PluginError> {
+        let mut message = ::capnp::message::Builder::new_default();
+
+        let builder = message.init_root::<call::Builder>();
+        serialize_call(call, builder)?;
+
+        serialize_packed::write_message(writer, &message)
+            .map_err(|e| PluginError::EncodingError(e.to_string()))
+    }
+
+    fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Call, PluginError> {
+        let message_reader =
+            serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+
+        let reader = message_reader
+            .get_root::<call::Reader>()
+            .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+
+        deserialize_call(reader)
+    }
 
     fn compare_expressions(lhs: &Expression, rhs: &Expression) {
         match (&lhs.expr, &rhs.expr) {

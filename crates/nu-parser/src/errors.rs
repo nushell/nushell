@@ -174,4 +174,12 @@ pub enum ParseError {
     #[error("Module export not found.")]
     #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
     ExportNotFound(#[label = "could not find imports"] Span),
+
+    #[error("File not found")]
+    #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
+    FileNotFound(String),
+
+    #[error("Plugin error")]
+    #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
+    PluginError(String),
 }

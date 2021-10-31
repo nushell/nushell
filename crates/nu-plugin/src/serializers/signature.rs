@@ -1,20 +1,6 @@
+use crate::plugin::PluginError;
 use crate::plugin_capnp::{argument, flag, option, signature, Shape};
-use capnp::serialize_packed;
-use nu_protocol::{Flag, PositionalArg, ShellError, Signature, SyntaxShape};
-
-pub fn write_buffer(
-    signature: &Signature,
-    writer: &mut impl std::io::Write,
-) -> Result<(), ShellError> {
-    let mut message = ::capnp::message::Builder::new_default();
-
-    let builder = message.init_root::<signature::Builder>();
-
-    serialize_signature(signature, builder);
-
-    serialize_packed::write_message(writer, &message)
-        .map_err(|e| ShellError::EncodingError(e.to_string()))
-}
+use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
 
 pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature::Builder) {
     builder.set_name(signature.name.as_str());
@@ -100,59 +86,48 @@ fn serialize_flag(arg: &Flag, mut builder: flag::Builder) {
     }
 }
 
-pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, ShellError> {
-    let message_reader =
-        serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
-
-    let reader = message_reader
-        .get_root::<signature::Reader>()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
-
-    deserialize_signature(reader)
-}
-
-pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signature, ShellError> {
+pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signature, PluginError> {
     let name = reader
         .get_name()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
     let usage = reader
         .get_usage()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
     let extra_usage = reader
         .get_extra_usage()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
     let is_filter = reader.get_is_filter();
 
     // Deserializing required arguments
     let required_list = reader
         .get_required_positional()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let required_positional = required_list
         .iter()
         .map(deserialize_argument)
-        .collect::<Result<Vec<PositionalArg>, ShellError>>()?;
+        .collect::<Result<Vec<PositionalArg>, PluginError>>()?;
 
     // Deserializing optional arguments
     let optional_list = reader
         .get_optional_positional()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let optional_positional = optional_list
         .iter()
         .map(deserialize_argument)
-        .collect::<Result<Vec<PositionalArg>, ShellError>>()?;
+        .collect::<Result<Vec<PositionalArg>, PluginError>>()?;
 
     // Deserializing rest arguments
     let rest_option = reader
         .get_rest()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let rest_positional = match rest_option.which() {
         Err(capnp::NotInSchema(_)) => None,
         Ok(option::None(())) => None,
         Ok(option::Some(rest_reader)) => {
-            let rest_reader = rest_reader.map_err(|e| ShellError::EncodingError(e.to_string()))?;
+            let rest_reader = rest_reader.map_err(|e| PluginError::EncodingError(e.to_string()))?;
             Some(deserialize_argument(rest_reader)?)
         }
     };
@@ -160,12 +135,12 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing named arguments
     let named_list = reader
         .get_named()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let named = named_list
         .iter()
         .map(deserialize_flag)
-        .collect::<Result<Vec<Flag>, ShellError>>()?;
+        .collect::<Result<Vec<Flag>, PluginError>>()?;
 
     Ok(Signature {
         name: name.to_string(),
@@ -180,18 +155,18 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     })
 }
 
-fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, ShellError> {
+fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, PluginError> {
     let name = reader
         .get_name()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let shape = reader
         .get_shape()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let shape = match shape {
         Shape::String => SyntaxShape::String,
@@ -210,33 +185,33 @@ fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, Shell
     })
 }
 
-fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
+fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
     let long = reader
         .get_long()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let required = reader.get_required();
 
     let short = reader
         .get_short()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let short = match short.which() {
         Err(capnp::NotInSchema(_)) => None,
         Ok(option::None(())) => None,
         Ok(option::Some(reader)) => {
-            let reader = reader.map_err(|e| ShellError::EncodingError(e.to_string()))?;
+            let reader = reader.map_err(|e| PluginError::EncodingError(e.to_string()))?;
             reader.chars().next()
         }
     };
 
     let arg = reader
         .get_arg()
-        .map_err(|e| ShellError::EncodingError(e.to_string()))?;
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
     let arg = match arg {
         Shape::None => None,
@@ -260,7 +235,33 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use capnp::serialize_packed;
     use nu_protocol::{Signature, SyntaxShape};
+
+    pub fn write_buffer(
+        signature: &Signature,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), PluginError> {
+        let mut message = ::capnp::message::Builder::new_default();
+
+        let builder = message.init_root::<signature::Builder>();
+
+        serialize_signature(signature, builder);
+
+        serialize_packed::write_message(writer, &message)
+            .map_err(|e| PluginError::EncodingError(e.to_string()))
+    }
+
+    pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, PluginError> {
+        let message_reader =
+            serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+
+        let reader = message_reader
+            .get_root::<signature::Reader>()
+            .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+
+        deserialize_signature(reader)
+    }
 
     #[test]
     fn value_round_trip() {

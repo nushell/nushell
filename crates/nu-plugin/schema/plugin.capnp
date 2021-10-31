@@ -6,10 +6,17 @@
 # required to comunicate with the plugins created for nushell
 
 # Generic structs used as helpers for the encoding
-struct Option(Value) {
+struct Option(T) {
 	union {
 		none @0 :Void;
-		some @1 :Value;
+		some @1 :T;
+	}
+}
+
+struct Err(T) {
+	union {
+		err @0 :Text;
+		ok @1 :T;
 	}
 }
 
@@ -27,6 +34,7 @@ struct Span {
 	end @1 :UInt64;
 }
 
+# Resulting value from plugin
 struct Value {
 	span @0: Span;
 
@@ -40,6 +48,7 @@ struct Value {
 	}
 }
 
+# Structs required to define the plugin signature
 struct Signature {
     name @0 :Text;
     usage @1 :Text;
@@ -76,6 +85,7 @@ enum Shape {
 	boolean @5;
 }
 
+# The next structs define the call information sent to th plugin
 struct Expression {
 	union {
 		garbage @0 :Void;
@@ -99,4 +109,19 @@ struct Call {
 struct CallInfo {
 	call @0: Call;
 	input @1: Value;
+}
+
+# Main communication structs with the plugin
+struct PluginCall {
+	union {
+		signature @0 :Void;
+		callInfo @1 :CallInfo;
+	}
+}
+
+struct PluginResponse {
+	union {
+		signature @0 :Signature;
+		value @1 :Value;
+	}
 }

@@ -1,20 +1,6 @@
+use crate::plugin::PluginError;
 use crate::plugin_capnp::value;
-use capnp::serialize_packed;
-use nu_protocol::{ShellError, Span, Value};
-
-pub fn write_buffer(value: &Value, writer: &mut impl std::io::Write) -> Result<(), ShellError> {
-    let mut message = ::capnp::message::Builder::new_default();
-
-    let mut builder = message.init_root::<value::Builder>();
-
-    let value_span = serialize_value(value, builder.reborrow());
-    let mut span = builder.reborrow().init_span();
-    span.set_start(value_span.start as u64);
-    span.set_end(value_span.end as u64);
-
-    serialize_packed::write_message(writer, &message)
-        .map_err(|e| ShellError::EncodingError(e.to_string()))
-}
+use nu_protocol::{Span, Value};
 
 pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) -> Span {
     match value {
@@ -55,21 +41,10 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) -> Spa
     }
 }
 
-pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Value, ShellError> {
-    let message_reader =
-        serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
-
-    let reader = message_reader
-        .get_root::<value::Reader>()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
-
-    deserialize_value(reader.reborrow())
-}
-
-pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellError> {
+pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, PluginError> {
     let span_reader = reader
         .get_span()
-        .map_err(|e| ShellError::DecodingError(e.to_string()))?;
+        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
     let span = Span {
         start: span_reader.get_start() as usize,
@@ -83,17 +58,17 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
         Ok(value::Float(val)) => Ok(Value::Float { val, span }),
         Ok(value::String(val)) => {
             let string = val
-                .map_err(|e| ShellError::DecodingError(e.to_string()))?
+                .map_err(|e| PluginError::DecodingError(e.to_string()))?
                 .to_string();
             Ok(Value::String { val: string, span })
         }
         Ok(value::List(vals)) => {
-            let values = vals.map_err(|e| ShellError::DecodingError(e.to_string()))?;
+            let values = vals.map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
             let values_list = values
                 .iter()
                 .map(deserialize_value)
-                .collect::<Result<Vec<Value>, ShellError>>()?;
+                .collect::<Result<Vec<Value>, PluginError>>()?;
 
             Ok(Value::List {
                 vals: values_list,
@@ -109,7 +84,36 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use capnp::serialize_packed;
     use nu_protocol::{Span, Value};
+
+    pub fn write_buffer(
+        value: &Value,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), PluginError> {
+        let mut message = ::capnp::message::Builder::new_default();
+
+        let mut builder = message.init_root::<value::Builder>();
+
+        let value_span = serialize_value(value, builder.reborrow());
+        let mut span = builder.reborrow().init_span();
+        span.set_start(value_span.start as u64);
+        span.set_end(value_span.end as u64);
+
+        serialize_packed::write_message(writer, &message)
+            .map_err(|e| PluginError::EncodingError(e.to_string()))
+    }
+
+    pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Value, PluginError> {
+        let message_reader =
+            serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+
+        let reader = message_reader
+            .get_root::<value::Reader>()
+            .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+
+        deserialize_value(reader.reborrow())
+    }
 
     #[test]
     fn value_round_trip() {
