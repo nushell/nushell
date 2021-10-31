@@ -58,6 +58,7 @@ pub fn create_default_context() -> EngineState {
             Mv,
             ParEach,
             Ps,
+            Range,
             Rm,
             Select,
             Size,
