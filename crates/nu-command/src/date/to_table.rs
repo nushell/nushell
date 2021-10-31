@@ -140,9 +140,12 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
                     span: head,
                 },
             ];
-            Value::Record {
-                cols,
-                vals,
+            Value::List {
+                vals: vec![Value::Record {
+                    cols,
+                    vals,
+                    span: head,
+                }],
                 span: head,
             }
         }
