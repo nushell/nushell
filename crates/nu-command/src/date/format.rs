@@ -77,18 +77,26 @@ fn format_helper(value: Value, formatter: &Spanned<String>, span: Span) -> Value
     match value {
         Value::Date { val, span: _ } => Value::String {
             val: val.format(formatter.item.as_str()).to_string(),
-            span: span,
+            span,
         },
         Value::String { val, span: _ } => {
             let dt = parse_date_from_string(val);
-            if dt.is_ok() {
-                Value::String {
-                    val: dt.unwrap().format(formatter.item.as_str()).to_string(),
-                    span: span,
-                }
-            } else {
-                dt.unwrap_err()
+            match dt {
+                Ok(x) => Value::String {
+                    val: x.format(formatter.item.as_str()).to_string(),
+                    span,
+                },
+                Err(e) => e,
             }
+            // if dt.is_ok() {
+
+            //     Value::String {
+            //         val: dt.unwrap().format(formatter.item.as_str()).to_string(),
+            //         span,
+            //     }
+            // } else {
+            //     dt.unwrap_err()
+            // }
         }
         Value::Nothing { span: _ } => {
             let dt = Local::now();
@@ -97,7 +105,7 @@ fn format_helper(value: Value, formatter: &Spanned<String>, span: Span) -> Value
                     .with_timezone(dt.offset())
                     .format(formatter.item.as_str())
                     .to_string(),
-                span: span,
+                span,
             }
         }
         _ => unsupported_input_error(),

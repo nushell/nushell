@@ -58,40 +58,18 @@ impl Command for SubCommand {
                         "timezone".into(),
                     ];
                     let vals = vec![
-                        Value::Int {
-                            val: 2020,
-                            span: span,
-                        },
-                        Value::Int {
-                            val: 04,
-                            span: span,
-                        },
-                        Value::Int {
-                            val: 12,
-                            span: span,
-                        },
-                        Value::Int {
-                            val: 22,
-                            span: span,
-                        },
-                        Value::Int {
-                            val: 10,
-                            span: span,
-                        },
-                        Value::Int {
-                            val: 57,
-                            span: span,
-                        },
+                        Value::Int { val: 2020, span },
+                        Value::Int { val: 4, span },
+                        Value::Int { val: 12, span },
+                        Value::Int { val: 22, span },
+                        Value::Int { val: 10, span },
+                        Value::Int { val: 57, span },
                         Value::String {
                             val: "+02:00".to_string(),
-                            span: span,
+                            span,
                         },
                     ];
-                    Some(Value::Record {
-                        cols: cols,
-                        vals: vals,
-                        span: span,
-                    })
+                    Some(Value::Record { cols, vals, span })
                 },
             },
         ]

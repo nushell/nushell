@@ -1,7 +1,7 @@
 use chrono::Local;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, Signature, Value};
 #[derive(Clone)]
 pub struct SubCommand;
 

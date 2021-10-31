@@ -93,12 +93,9 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
         Value::Date { val, span: _ } => _to_timezone(val, timezone, head),
         Value::String { val, span: _ } => {
             let time = parse_date_from_string(val);
-
-            if time.is_ok() {
-                let dt = time.unwrap();
-                _to_timezone(dt, timezone, head)
-            } else {
-                time.unwrap_err()
+            match time {
+                Ok(dt) => _to_timezone(dt, timezone, head),
+                Err(e) => e,
             }
         }
 
@@ -112,11 +109,8 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
 }
 
 fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Span) -> Value {
-    match datetime_in_timezone(&dt, &timezone.item.as_str()) {
-        Ok(dt) => Value::Date {
-            val: dt,
-            span: span,
-        },
+    match datetime_in_timezone(&dt, timezone.item.as_str()) {
+        Ok(dt) => Value::Date { val: dt, span },
         Err(_) => Value::Error {
             error: ShellError::UnsupportedInput(String::from("invalid time zone"), Span::unknown()),
         },

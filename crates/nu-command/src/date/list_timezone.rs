@@ -28,19 +28,16 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
 
-        let tzs: Vec<Value> = TZ_VARIANTS
+        Ok(TZ_VARIANTS
             .iter()
             .map(move |x| {
                 let cols = vec!["timezone".into()];
                 let vals = vec![Value::String {
                     val: x.name().to_string(),
-                    span: span,
+                    span,
                 }];
                 Value::Record { cols, vals, span }
             })
-            .collect();
-
-        Ok(tzs
             .into_iter()
             .into_pipeline_data(engine_state.ctrlc.clone()))
     }
