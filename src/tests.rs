@@ -249,7 +249,10 @@ fn alias_2() -> TestResult {
 
 #[test]
 fn alias_2_multi_word() -> TestResult {
-    run_test(r#"def "foo bar" [$x $y] { $x + $y + 10 }; alias f = foo bar 33; f 100"#, "143")
+    run_test(
+        r#"def "foo bar" [$x $y] { $x + $y + 10 }; alias f = foo bar 33; f 100"#,
+        "143",
+    )
 }
 
 #[test]
@@ -537,6 +540,14 @@ fn hides_import_4() -> TestResult {
 fn hides_import_5() -> TestResult {
     fail_test(
         r#"module spam { export def foo [] { "foo" } }; use spam *; hide foo; foo"#,
+        not_found_msg(),
+    )
+}
+
+#[test]
+fn hides_import_6() -> TestResult {
+    fail_test(
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; foo"#,
         not_found_msg(),
     )
 }

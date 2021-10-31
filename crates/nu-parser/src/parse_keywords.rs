@@ -502,51 +502,51 @@ pub fn parse_use(
         let (import_pattern, err) = parse_import_pattern(working_set, &spans[1..]);
         error = error.or(err);
 
-        let (import_pattern, exports) =
-            if let Some(block_id) = working_set.find_module(&import_pattern.head) {
+        let (import_pattern, exports) = if let Some(block_id) =
+            working_set.find_module(&import_pattern.head)
+        {
+            (
+                import_pattern,
+                working_set.get_block(block_id).exports.clone(),
+            )
+        } else {
+            // TODO: Handle invalid UTF-8 conversion
+            // It could be a file
+            let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
+            let module_path = Path::new(&module_filename);
+            let module_name = if let Some(stem) = module_path.file_stem() {
+                stem.to_string_lossy().to_string()
+            } else {
+                return (
+                    garbage_statement(spans),
+                    Some(ParseError::ModuleNotFound(spans[1])),
+                );
+            };
+
+            if let Ok(contents) = std::fs::read(module_path) {
+                let span_start = working_set.next_span_start();
+                working_set.add_file(module_filename, &contents);
+                let span_end = working_set.next_span_start();
+
+                let (block, err) = parse_module_block(working_set, Span::new(span_start, span_end));
+                error = error.or(err);
+
+                let block_id = working_set.add_module(&module_name, block);
+
                 (
-                    import_pattern,
+                    ImportPattern {
+                        head: module_name.into(),
+                        members: import_pattern.members,
+                    },
                     working_set.get_block(block_id).exports.clone(),
                 )
             } else {
-                //TODO: Fix this
-                // It could be a file
-                let module_filename = String::from_utf8_lossy(&import_pattern.head).to_string();
-                let module_path = Path::new(&module_filename);
-                let module_name = if let Some(stem) = module_path.file_stem() {
-                    stem.to_string_lossy().to_string()
-                } else {
-                    return (
-                        garbage_statement(spans),
-                        Some(ParseError::ModuleNotFound(spans[1])),
-                    );
-                };
-
-                if let Ok(contents) = std::fs::read(module_path) {
-                    let span_start = working_set.next_span_start();
-                    working_set.add_file(module_filename, &contents);
-                    let span_end = working_set.next_span_start();
-
-                    let (block, err) =
-                        parse_module_block(working_set, Span::new(span_start, span_end));
-                    error = error.or(err);
-
-                    let block_id = working_set.add_module(&module_name, block);
-
-                    (
-                        ImportPattern {
-                            head: module_name.into(),
-                            members: import_pattern.members,
-                        },
-                        working_set.get_block(block_id).exports.clone(),
-                    )
-                } else {
-                    return (
-                        garbage_statement(spans),
-                        Some(ParseError::ModuleNotFound(spans[1])),
-                    );
-                }
-            };
+                return (
+                    garbage_statement(spans),
+                    Some(ParseError::ModuleNotFound(spans[1])),
+                );
+            }
+        };
 
         let exports = if import_pattern.members.is_empty() {
             exports
@@ -641,17 +641,20 @@ pub fn parse_hide(
         let (import_pattern, err) = parse_import_pattern(working_set, &spans[1..]);
         error = error.or(err);
 
-        let exported_names: Vec<Vec<u8>> =
+        let (is_module, exported_names): (bool, Vec<Vec<u8>>) =
             if let Some(block_id) = working_set.find_module(&import_pattern.head) {
-                working_set
-                    .get_block(block_id)
-                    .exports
-                    .iter()
-                    .map(|(name, _)| name.clone())
-                    .collect()
+                (
+                    true,
+                    working_set
+                        .get_block(block_id)
+                        .exports
+                        .iter()
+                        .map(|(name, _)| name.clone())
+                        .collect(),
+                )
             } else if import_pattern.members.is_empty() {
                 // The pattern head can be e.g. a function name, not just a module
-                vec![import_pattern.head.clone()]
+                (false, vec![import_pattern.head.clone()])
             } else {
                 return (
                     garbage_statement(spans),
@@ -661,7 +664,19 @@ pub fn parse_hide(
 
         // This kind of inverts the import pattern matching found in parse_use()
         let names_to_hide = if import_pattern.members.is_empty() {
-            exported_names
+            if is_module {
+                exported_names
+                    .into_iter()
+                    .map(|name| {
+                        let mut new_name = import_pattern.head.to_vec();
+                        new_name.push(b' ');
+                        new_name.extend(&name);
+                        new_name
+                    })
+                    .collect()
+            } else {
+                exported_names
+            }
         } else {
             match &import_pattern.members[0] {
                 ImportPatternMember::Glob { .. } => exported_names
