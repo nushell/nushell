@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 #[allow(dead_code)]
 pub enum Reduce {
     Summation,
+    Product,
     Minimum,
     Maximum,
 }
@@ -14,6 +15,7 @@ pub type ReducerFunction =
 pub fn reducer_for(command: Reduce) -> ReducerFunction {
     match command {
         Reduce::Summation => Box::new(|_, values, head| sum(values, head)),
+        Reduce::Product => Box::new(|_, values, head| product(values, head)),
         Reduce::Minimum => Box::new(|_, values, head| min(values, head)),
         Reduce::Maximum => Box::new(|_, values, head| max(values, head)),
     }
@@ -105,6 +107,42 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
+                    other.span().unwrap_or_else(|_| Span::unknown()),
+                ));
+            }
+        }
+    }
+    Ok(acc)
+}
+
+pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
+    let initial_value = data.get(0);
+
+    let mut acc = match initial_value {
+        Some(Value::Int { span, .. }) | Some(Value::Float { span, .. }) => Ok(Value::Int {
+            val: 1,
+            span: *span,
+        }),
+        None => Err(ShellError::UnsupportedInput(
+            "Empty input".to_string(),
+            Span::unknown(),
+        )),
+        _ => Ok(Value::nothing()),
+    }?;
+
+    for value in &data {
+        match value {
+            Value::Int { .. } | Value::Float { .. } => {
+                let new_value = acc.mul(head, value);
+                if new_value.is_err() {
+                    return new_value;
+                }
+                acc = new_value.expect("This should never trigger")
+            }
+            other => {
+                return Err(ShellError::UnsupportedInput(
+                    "Attempted to compute the product of a value that cannot be multiplied"
+                        .to_string(),
                     other.span().unwrap_or_else(|_| Span::unknown()),
                 ));
             }
