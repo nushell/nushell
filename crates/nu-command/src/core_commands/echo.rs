@@ -1,6 +1,9 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
+};
 
 #[derive(Clone)]
 pub struct Echo;
@@ -20,12 +23,17 @@ impl Command for Echo {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        input: PipelineData,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(input)
+        call.rest(engine_state, stack, 0).map(|to_be_echoed| {
+            PipelineData::Stream(ValueStream::from_stream(
+                to_be_echoed.into_iter(),
+                engine_state.ctrlc.clone(),
+            ))
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -33,7 +41,10 @@ impl Command for Echo {
             Example {
                 description: "Put a hello message in the pipeline",
                 example: "echo 'hello'",
-                result: Some(Value::test_string("hello")),
+                result: Some(Value::List {
+                    vals: vec![Value::test_string("hello")],
+                    span: Span::new(0, 0),
+                }),
             },
             Example {
                 description: "Print the value of the special '$nu' variable",
