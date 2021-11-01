@@ -9,6 +9,7 @@ mod if_;
 mod let_;
 mod module;
 mod register;
+mod run_plugin;
 mod source;
 mod use_;
 
@@ -23,5 +24,6 @@ pub use if_::If;
 pub use let_::Let;
 pub use module::Module;
 pub use register::Register;
+pub use run_plugin::RunPlugin;
 pub use source::Source;
 pub use use_::Use;
