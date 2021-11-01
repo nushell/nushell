@@ -187,7 +187,7 @@ impl Command for PluginDeclaration {
                 }
 
                 // Deserialize response from plugin to extract the resulting value
-                let signature = if let Some(stdout_reader) = child.stdout.take() {
+                let pipeline_data = if let Some(stdout_reader) = child.stdout.take() {
                     let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout_reader);
                     let response = plugin_call::decode_response(&mut buf_read)
                         .map_err(|err| ShellError::PluginError(err.to_string()))?;
@@ -208,7 +208,7 @@ impl Command for PluginDeclaration {
 
                 match child.wait() {
                     Err(err) => Err(ShellError::PluginError(format!("{}", err))),
-                    Ok(_) => Ok(signature),
+                    Ok(_) => Ok(pipeline_data),
                 }
             }
         }

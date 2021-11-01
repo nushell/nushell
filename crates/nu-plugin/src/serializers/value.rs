@@ -2,8 +2,8 @@ use crate::plugin::PluginError;
 use crate::plugin_capnp::value;
 use nu_protocol::{Span, Value};
 
-pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) -> Span {
-    match value {
+pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) {
+    let value_span = match value {
         Value::Nothing { span } => {
             builder.set_void(());
             *span
@@ -38,7 +38,11 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) -> Spa
             // we have to define the encoding for that object in this match
             Span::unknown()
         }
-    }
+    };
+
+    let mut span = builder.reborrow().init_span();
+    span.set_start(value_span.start as u64);
+    span.set_end(value_span.end as u64);
 }
 
 pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, PluginError> {
@@ -95,10 +99,7 @@ mod tests {
 
         let mut builder = message.init_root::<value::Builder>();
 
-        let value_span = serialize_value(value, builder.reborrow());
-        let mut span = builder.reborrow().init_span();
-        span.set_start(value_span.start as u64);
-        span.set_end(value_span.end as u64);
+        serialize_value(value, builder.reborrow());
 
         serialize_packed::write_message(writer, &message)
             .map_err(|e| PluginError::EncodingError(e.to_string()))
