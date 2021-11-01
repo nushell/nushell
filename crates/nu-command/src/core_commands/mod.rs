@@ -1,6 +1,7 @@
 mod alias;
 mod def;
 mod do_;
+mod echo;
 mod export_def;
 mod for_;
 mod help;
@@ -14,6 +15,7 @@ mod use_;
 pub use alias::Alias;
 pub use def::Def;
 pub use do_::Do;
+pub use echo::Echo;
 pub use export_def::ExportDef;
 pub use for_::For;
 pub use help::Help;
