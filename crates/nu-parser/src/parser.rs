@@ -40,6 +40,26 @@ fn is_identifier_byte(b: u8) -> bool {
     b != b'.' && b != b'[' && b != b'(' && b != b'{'
 }
 
+fn is_math_expression_byte(b: u8) -> bool {
+    b == b'0'
+        || b == b'1'
+        || b == b'2'
+        || b == b'3'
+        || b == b'4'
+        || b == b'5'
+        || b == b'6'
+        || b == b'7'
+        || b == b'8'
+        || b == b'9'
+        || b == b'('
+        || b == b'{'
+        || b == b'['
+        || b == b'$'
+        || b == b'"'
+        || b == b'\''
+        || b == b'-'
+}
+
 fn is_identifier(bytes: &[u8]) -> bool {
     bytes.iter().all(|x| is_identifier_byte(*x))
 }
@@ -596,7 +616,16 @@ pub fn parse_call(
     spans: &[Span],
     expand_aliases: bool,
 ) -> (Expression, Option<ParseError>) {
-    // assume spans.len() > 0?
+    if spans.is_empty() {
+        return (
+            garbage(Span::unknown()),
+            Some(ParseError::UnknownState(
+                "Encountered command with zero spans".into(),
+                span(spans),
+            )),
+        );
+    }
+
     let mut pos = 0;
     let mut shorthand = vec![];
 
@@ -614,104 +643,82 @@ pub fn parse_call(
 
     if pos == spans.len() {
         return (
-            Expression::garbage(span(spans)),
+            garbage(span(spans)),
             Some(ParseError::UnknownCommand(spans[0])),
         );
     }
 
-    let name = working_set.get_span_contents(spans[pos]);
-
     let cmd_start = pos;
+    let mut name_spans = vec![];
 
-    if expand_aliases {
-        if let Some(expansion) = working_set.find_alias(name) {
-            let orig_span = spans[pos];
-            //let mut spans = spans.to_vec();
-            let mut new_spans: Vec<Span> = vec![];
-            new_spans.extend(&spans[0..pos]);
-            new_spans.extend(expansion);
-            if spans.len() > pos {
-                new_spans.extend(&spans[(pos + 1)..]);
-            }
+    for word_span in spans[cmd_start..].iter() {
+        // Find the longest group of words that could form a command
+        let bytes = working_set.get_span_contents(*word_span);
 
-            let (result, err) = parse_expression(working_set, &new_spans, false);
+        if is_math_expression_byte(bytes[0]) {
+            break;
+        }
 
-            let expression = match result {
-                Expression {
-                    expr: Expr::Call(mut call),
-                    span,
-                    ty,
-                    custom_completion: None,
-                } => {
-                    call.head = orig_span;
+        name_spans.push(*word_span);
+
+        let name = working_set.get_span_contents(span(&name_spans));
+
+        if expand_aliases {
+            // If the word is an alias, expand it and re-parse the expression
+            if let Some(expansion) = working_set.find_alias(name) {
+                let orig_span = spans[pos];
+                let mut new_spans: Vec<Span> = vec![];
+                new_spans.extend(&spans[0..pos]);
+                new_spans.extend(expansion);
+                if spans.len() > pos {
+                    new_spans.extend(&spans[(pos + 1)..]);
+                }
+
+                let (result, err) = parse_expression(working_set, &new_spans, false);
+
+                let expression = match result {
                     Expression {
-                        expr: Expr::Call(call),
+                        expr: Expr::Call(mut call),
                         span,
                         ty,
                         custom_completion: None,
-                    }
-                }
-                x => x,
-            };
-
-            return (expression, err);
-        }
-    }
-
-    pos += 1;
-
-    if let Some(mut decl_id) = working_set.find_decl(name) {
-        let mut name = name.to_vec();
-        while pos < spans.len() {
-            // look to see if it's a subcommand
-            let mut new_name = name.to_vec();
-            new_name.push(b' ');
-            new_name.extend(working_set.get_span_contents(spans[pos]));
-
-            if expand_aliases {
-                if let Some(expansion) = working_set.find_alias(&new_name) {
-                    let orig_span = span(&spans[cmd_start..pos + 1]);
-                    //let mut spans = spans.to_vec();
-                    let mut new_spans: Vec<Span> = vec![];
-                    new_spans.extend(&spans[0..cmd_start]);
-                    new_spans.extend(expansion);
-                    if spans.len() > pos {
-                        new_spans.extend(&spans[(pos + 1)..]);
-                    }
-
-                    let (result, err) = parse_expression(working_set, &new_spans, false);
-
-                    let expression = match result {
+                    } => {
+                        call.head = orig_span;
                         Expression {
-                            expr: Expr::Call(mut call),
+                            expr: Expr::Call(call),
                             span,
                             ty,
                             custom_completion: None,
-                        } => {
-                            call.head = orig_span;
-                            Expression {
-                                expr: Expr::Call(call),
-                                span,
-                                ty,
-                                custom_completion: None,
-                            }
                         }
-                        x => x,
-                    };
+                    }
+                    x => x,
+                };
 
-                    return (expression, err);
-                }
+                return (expression, err);
             }
-
-            if let Some(did) = working_set.find_decl(&new_name) {
-                decl_id = did;
-            } else {
-                break;
-            }
-            name = new_name;
-            pos += 1;
         }
 
+        pos += 1;
+    }
+
+    let name = working_set.get_span_contents(span(&name_spans));
+    let mut maybe_decl_id = working_set.find_decl(name);
+
+    while maybe_decl_id.is_none() {
+        // Find the longest command match
+        if name_spans.len() <= 1 {
+            // Keep the first word even if it does not match -- could be external command
+            break;
+        }
+
+        name_spans.pop();
+        pos -= 1;
+
+        let name = working_set.get_span_contents(span(&name_spans));
+        maybe_decl_id = working_set.find_decl(name);
+    }
+
+    if let Some(decl_id) = maybe_decl_id {
         // Before the internal parsing we check if there is no let or alias declarations
         // that are missing their name, e.g.: let = 1 or alias = 2
         if spans.len() > 1 {
@@ -719,7 +726,7 @@ pub fn parse_call(
 
             if test_equal == [b'='] {
                 return (
-                    garbage(Span::new(0, 0)),
+                    garbage(Span::unknown()),
                     Some(ParseError::UnknownState(
                         "Incomplete statement".into(),
                         span(spans),
@@ -729,8 +736,12 @@ pub fn parse_call(
         }
 
         // parse internal command
-        let (call, _, err) =
-            parse_internal_call(working_set, span(&spans[0..pos]), &spans[pos..], decl_id);
+        let (call, _, err) = parse_internal_call(
+            working_set,
+            span(&spans[cmd_start..pos]),
+            &spans[pos..],
+            decl_id,
+        );
         (
             Expression {
                 expr: Expr::Call(call),
@@ -749,6 +760,8 @@ pub fn parse_call(
                 return (range_expr, range_err);
             }
         }
+
+        // Otherwise, try external command
         parse_external_call(working_set, spans)
     }
 }
@@ -1704,40 +1717,36 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 
 pub fn parse_import_pattern(
     working_set: &mut StateWorkingSet,
-    span: Span,
+    spans: &[Span],
 ) -> (ImportPattern, Option<ParseError>) {
-    let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[], &[b'.']);
-    error = error.or(err);
-
-    if tokens.is_empty() {
+    let head = if let Some(head_span) = spans.get(0) {
+        working_set.get_span_contents(*head_span).to_vec()
+    } else {
         return (
             ImportPattern {
                 head: vec![],
                 members: vec![],
             },
-            Some(ParseError::MissingImportPattern(span)),
+            Some(ParseError::WrongImportPattern(span(spans))),
         );
-    }
+    };
 
-    let head = working_set.get_span_contents(tokens[0].span).to_vec();
-
-    if let Some(tail) = tokens.get(2) {
+    if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
-        let tail_span = tail.span;
-        let tail = working_set.get_span_contents(tail.span);
+        let tail = working_set.get_span_contents(*tail_span);
         if tail == b"*" {
             (
                 ImportPattern {
                     head,
-                    members: vec![ImportPatternMember::Glob { span: tail_span }],
+                    members: vec![ImportPatternMember::Glob { span: *tail_span }],
                 },
                 error,
             )
         } else if tail.starts_with(b"[") {
-            let (result, err) = parse_list_expression(working_set, tail_span, &SyntaxShape::String);
+            let (result, err) =
+                parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
             error = error.or(err);
 
             let mut output = vec![];
@@ -1774,7 +1783,7 @@ pub fn parse_import_pattern(
                     head,
                     members: vec![ImportPatternMember::Name {
                         name: tail.to_vec(),
-                        span: tail_span,
+                        span: *tail_span,
                     }],
                 },
                 error,
@@ -2946,10 +2955,10 @@ pub fn parse_expression(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(spans[0]);
 
-    match bytes[0] {
-        b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'(' | b'{'
-        | b'[' | b'$' | b'"' | b'\'' | b'-' => parse_math_expression(working_set, spans, None),
-        _ => parse_call(working_set, spans, expand_aliases),
+    if is_math_expression_byte(bytes[0]) {
+        parse_math_expression(working_set, spans, None)
+    } else {
+        parse_call(working_set, spans, expand_aliases)
     }
 }
 

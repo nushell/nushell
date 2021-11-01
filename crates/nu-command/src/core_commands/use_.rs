@@ -15,7 +15,7 @@ impl Command for Use {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").required("pattern", SyntaxShape::String, "import pattern")
+        Signature::build("use").rest("pattern", SyntaxShape::String, "import pattern parts")
     }
 
     fn run(
