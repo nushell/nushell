@@ -377,6 +377,9 @@ impl PartialOrd for Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 compare_floats(*lhs, *rhs)
             }
+            (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                lhs.date().to_string().partial_cmp(&rhs.date().to_string())
+            }
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 lhs.partial_cmp(rhs)
             }

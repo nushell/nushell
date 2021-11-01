@@ -1,5 +1,6 @@
 mod conversions;
 mod core_commands;
+mod date;
 mod default_context;
 mod env;
 mod example_test;
@@ -14,6 +15,7 @@ mod viewers;
 
 pub use conversions::*;
 pub use core_commands::*;
+pub use date::*;
 pub use default_context::*;
 pub use env::*;
 pub use example_test::test_examples;
