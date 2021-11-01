@@ -4,8 +4,10 @@
 # This schema, together with the command capnp proto is used to generate
 # the rust file that defines the serialization/deserialization objects
 # required to comunicate with the plugins created for nushell
+#
 # If you modify the schema remember to compile it to generate the corresponding
-# rust file and place that file into the main nu-plugin folder
+# rust file and place that file into the main nu-plugin folder.
+# After compiling, you may need to run cargo fmt on the file so it passes the CI
 
 # Generic structs used as helpers for the encoding
 struct Option(T) {
