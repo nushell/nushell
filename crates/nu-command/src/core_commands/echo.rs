@@ -1,7 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
-//TODO: add Example
+use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Echo;
@@ -28,5 +27,29 @@ impl Command for Echo {
     ) -> Result<PipelineData, ShellError> {
         Ok(input)
     }
-    //TODO: implement fn examples(&self) -> Vec<Example>
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Put a hello message in the pipeline",
+                example: "echo 'hello'",
+                result: Some(Value::test_string("hello")),
+            },
+            Example {
+                description: "Print the value of the special '$nu' variable",
+                example: "echo $nu",
+                result: None,
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::Echo;
+        use crate::test_examples;
+        test_examples(Echo {})
+    }
 }
