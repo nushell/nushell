@@ -1,4 +1,4 @@
-use nu_plugin::plugin::get_signature;
+use nu_plugin::plugin::{get_signature, PluginDeclaration};
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
@@ -887,12 +887,21 @@ pub fn parse_plugin(
                     if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
                         let source_file = Path::new(&filename);
 
-                        // get signature from plugin
-                        // create plugin command declaration (need struct impl Command)
-                        // store declaration in working set
-                        match get_signature(source_file) {
-                            Err(err) => Some(ParseError::PluginError(format!("{}", err))),
-                            Ok(_signature) => None,
+                        if source_file.exists() & source_file.is_file() {
+                            // get signature from plugin
+                            match get_signature(source_file) {
+                                Err(err) => Some(ParseError::PluginError(format!("{}", err))),
+                                Ok(signature) => {
+                                    // create plugin command declaration (need struct impl Command)
+                                    // store declaration in working set
+                                    let plugin_decl = PluginDeclaration::new(filename, signature);
+                                    working_set.add_decl(Box::new(plugin_decl));
+
+                                    None
+                                }
+                            }
+                        } else {
+                            Some(ParseError::FileNotFound(filename))
                         }
                     } else {
                         Some(ParseError::NonUtf8(spans[1]))

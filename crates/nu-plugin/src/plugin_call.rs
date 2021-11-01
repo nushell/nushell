@@ -81,6 +81,7 @@ pub fn encode_response(
     let mut builder = message.init_root::<plugin_response::Builder>();
 
     match &plugin_response {
+        PluginResponse::Error(msg) => builder.reborrow().set_error(msg.as_str()),
         PluginResponse::Signature(sign) => {
             let signature_builder = builder.reborrow().init_signature();
             signature::serialize_signature(sign, signature_builder)
@@ -105,6 +106,11 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 
     match reader.which() {
         Err(capnp::NotInSchema(_)) => Err(PluginError::DecodingError("value not in schema".into())),
+        Ok(plugin_response::Error(reader)) => {
+            let msg = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
+
+            Ok(PluginResponse::Error(msg.to_string()))
+        }
         Ok(plugin_response::Signature(reader)) => {
             let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
             let sign = signature::deserialize_signature(reader)
@@ -253,6 +259,7 @@ mod tests {
             decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
 
         match returned {
+            PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
                 assert_eq!(signature.name, returned_signature.name);
@@ -301,10 +308,28 @@ mod tests {
             decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
 
         match returned {
+            PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(returned_value) => {
                 assert_eq!(&value, returned_value.as_ref())
             }
+        }
+    }
+
+    #[test]
+    fn response_round_trip_error() {
+        let message = "some error".to_string();
+        let response = PluginResponse::Error(message.clone());
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_response(&response, &mut buffer).expect("unable to serialize message");
+        let returned =
+            decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginResponse::Error(msg) => assert_eq!(message, msg),
+            PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::Value(_) => panic!("returned wrong call type"),
         }
     }
 }

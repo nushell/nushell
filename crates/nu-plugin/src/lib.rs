@@ -1,7 +1,6 @@
 pub mod plugin;
 pub mod plugin_call;
+pub mod plugin_capnp;
 pub mod serializers;
 
-pub mod plugin_capnp {
-    include!(concat!(env!("OUT_DIR"), "/plugin_capnp.rs"));
-}
+pub use plugin::{serve_plugin, Plugin};

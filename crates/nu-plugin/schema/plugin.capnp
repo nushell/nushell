@@ -4,6 +4,8 @@
 # This schema, together with the command capnp proto is used to generate
 # the rust file that defines the serialization/deserialization objects
 # required to comunicate with the plugins created for nushell
+# If you modify the schema remember to compile it to generate the corresponding
+# rust file and place that file into the main nu-plugin folder
 
 # Generic structs used as helpers for the encoding
 struct Option(T) {
@@ -121,7 +123,8 @@ struct PluginCall {
 
 struct PluginResponse {
 	union {
-		signature @0 :Signature;
-		value @1 :Value;
+		error @0 :Text;
+		signature @1 :Signature;
+		value @2 :Value;
 	}
 }
