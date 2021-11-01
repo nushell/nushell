@@ -69,7 +69,10 @@ impl Command for SubCommand {
                             span,
                         },
                     ];
-                    Some(Value::Record { cols, vals, span })
+                    Some(Value::List {
+                        vals: vec![Value::Record { cols, vals, span }],
+                        span,
+                    })
                 },
             },
         ]
