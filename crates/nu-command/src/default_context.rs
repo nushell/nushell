@@ -103,9 +103,7 @@ pub fn create_default_context() -> EngineState {
         working_set.render()
     };
 
-    {
-        EngineState::merge_delta(&mut engine_state, delta);
-    }
+    engine_state.merge_delta(delta);
 
     engine_state
 }

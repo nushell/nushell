@@ -2,6 +2,24 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use crate::{ast::PathMember, ShellError, Span, Value, ValueStream};
 
+/// The foundational abstraction for input and output to commands
+///
+/// This represents either a single Value or a stream of values coming into the command or leaving a command.
+///
+/// A note on implementation:
+///
+/// We've tried a few variations of this structure. Listing these below so we have a record.
+///
+/// * We tried always assuming a stream in Nushell. This was a great 80% solution, but it had some rough edges.
+/// Namely, how do you know the difference between a single string and a list of one string. How do you know
+/// when to flatten the data given to you from a data source into the stream or to keep it as an unflattened
+/// list?
+/// * We tried putting the stream into Value. This had some interesting properties as now commands "just worked
+/// on values", but the inability to pass Value to threads as-is meant a lot of workarounds for dealing with
+/// Value's stream case
+/// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
+/// them into any sources. Streams are still available to model the infinite streams approach of original
+/// Nushell.
 pub enum PipelineData {
     Value(Value),
     Stream(ValueStream),

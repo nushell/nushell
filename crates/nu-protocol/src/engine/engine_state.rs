@@ -80,6 +80,48 @@ impl Default for ScopeFrame {
     }
 }
 
+/// The core global engine state. This includes all global definitions as well as any global state that
+/// will persist for the whole session.
+///
+/// Declarations, variables, blocks, and other forms of data are held in the global state and referenced
+/// elsewhere using their IDs. These IDs are simply their index into the global state. This allows us to
+/// more easily handle creating blocks, binding variables and callsites, and more, because each of these
+/// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
+/// less copying and smaller structures.
+///
+/// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
+/// but they also rely on using IDs rather than full definitions.
+///
+/// A note on implementation:
+///
+/// Much of the global definitions are built on the Bodil's 'im' crate. This gives us a way of working with
+/// lists of definitions in a way that is very cheap to access, while also allowing us to update them at
+/// key points in time (often, the transition between parsing and evaluation).
+///
+/// Over the last two years we tried a few different approaches to global state like this. I'll list them
+/// here for posterity, so we can more easily know how we got here:
+///
+/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with external processes, we
+/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn a thread to handle both.
+/// These threads would need access to the global state, as they'll need to process data as it streams out
+/// of the data pipeline. Because Rc isn't thread-safe, this breaks.
+///
+/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in combination with a Mutex or
+/// RwLock, but you can use Arc by itself. We did this a few places in the original Nushell. This *can* work
+/// but because of Arc's nature of not allowing mutation if there's a second copy of the Arc around, this
+/// ultimately becomes limiting.
+///
+/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers. Unfortunately, this would
+/// have meant we would incur a lock penalty every time we needed to access any declaration or block. As we
+/// would be reading far more often than writing, it made sense to explore solutions that favor large amounts
+/// of reads.
+///
+/// * `im` - the `im` crate was ultimately chosen because it has some very nice properties: it gives the
+/// ability to cheaply clone these structures, which is nice as EngineState may need to be cloned a fair bit
+/// to follow ownership rules for closures and iterators. It also is cheap to access. Favoring reads here fits
+/// more closely to what we need with Nushell. And, of course, it's still thread-safe, so we get the same
+/// benefits as above.
+///
 #[derive(Clone)]
 pub struct EngineState {
     files: im::Vector<(String, usize, usize)>,
@@ -107,15 +149,22 @@ impl EngineState {
         }
     }
 
-    pub fn merge_delta(this: &mut EngineState, mut delta: StateDelta) {
+    /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that
+    /// creates a new set of definitions and visible symbols in the current scope. We make this transactional
+    /// as there are times when we want to run the parser and immediately throw away the results (namely:
+    /// syntax highlighting and completions).
+    ///
+    /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
+    /// use this function to merge it into the global state.
+    pub fn merge_delta(&mut self, mut delta: StateDelta) {
         // Take the mutable reference and extend the permanent state from the working set
-        this.files.extend(delta.files);
-        this.file_contents.extend(delta.file_contents);
-        this.decls.extend(delta.decls);
-        this.vars.extend(delta.vars);
-        this.blocks.extend(delta.blocks);
+        self.files.extend(delta.files);
+        self.file_contents.extend(delta.file_contents);
+        self.decls.extend(delta.decls);
+        self.vars.extend(delta.vars);
+        self.blocks.extend(delta.blocks);
 
-        if let Some(last) = this.scope.back_mut() {
+        if let Some(last) = self.scope.back_mut() {
             let first = delta.scope.remove(0);
             for item in first.decls.into_iter() {
                 last.decls.insert(item.0, item.1);
@@ -322,11 +371,19 @@ impl Default for EngineState {
     }
 }
 
+/// A temporary extension to the global state. This handles bridging between the global state and the
+/// additional declarations and scope changes that are not yet part of the global scope.
+///
+/// This working set is created by the parser as a way of handling declarations and scope changes that
+/// may later be merged or dropped (and not merged) depending on the needs of the code calling the parser.
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
 }
 
+/// A delta (or change set) between the current global state and a possible future global state. Deltas
+/// can be applied to the global state to update it to contain both previous state and the state held
+/// within the delta.
 pub struct StateDelta {
     files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
@@ -921,7 +978,7 @@ mod engine_state_tests {
             working_set.render()
         };
 
-        EngineState::merge_delta(&mut engine_state, delta);
+        engine_state.merge_delta(delta);
 
         assert_eq!(engine_state.num_files(), 2);
         assert_eq!(&engine_state.files[0].0, "test.nu");
