@@ -1,15 +1,12 @@
-use nu_protocol::Value::Filesize;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-
-use nu_engine::CallExt;
-
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_bigint::{BigInt, BigUint};
 use num_format::Locale;
 use num_traits::{Pow, Signed};
 use std::iter;
@@ -165,7 +162,7 @@ pub fn action(
     group_digits: bool,
 ) -> Value {
     match input {
-        Value::Int { val, span } => {
+        Value::Int { val, span: _ } => {
             let res = if group_digits {
                 format_int(val) // int.to_formatted_string(*locale)
             } else {
@@ -177,18 +174,18 @@ pub fn action(
                 span: head,
             }
         }
-        Value::Float { val, span } => {
+        Value::Float { val, span: _ } => {
             if decimals {
                 let dec = BigDecimal::from_f64(val);
                 let decimal_value = digits.unwrap() as u64;
                 match dec {
                     Some(x) => Value::String {
                         val: format_decimal(x, Some(decimal_value), group_digits),
-                        span,
+                        span: head,
                     },
                     None => Value::Error {
                         error: ShellError::CantConvert(
-                            String::from(format!("cannot convert {}to BigDecimal", val)),
+                            format!("cannot convert {} to BigDecimal", val),
                             head,
                         ),
                     },
@@ -214,36 +211,33 @@ pub fn action(
         //     }
         //     .into_pipeline_data()
         // }
-        Value::Bool { val, span } => Value::String {
+        Value::Bool { val, span: _ } => Value::String {
             val: val.to_string(),
             span: head,
         },
 
-        Value::Date { val, span } => Value::String {
+        Value::Date { val, span: _ } => Value::String {
             val: val.format("%c").to_string(),
             span: head,
         },
 
-        Value::String { val, span } => Value::String { val, span: head },
+        Value::String { val, span: _ } => Value::String { val, span: head },
 
         // FIXME - we do not have a FilePath type anymore. Do we need to support this?
         // Value::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
-        Value::Filesize { val, span } => {
-            // let byte_string = InlineShape::format_bytes(*val, None);
-            // Ok(Value::String {
-            //     val: byte_string.1,
-            //     span,
-            // }
-            Value::String {
-                val: input.into_string(),
-                span: head,
-            }
-        }
-        Value::Nothing { span } => Value::String {
+        Value::Filesize { val: _, span: _ } => Value::String {
+            val: input.into_string(),
+            span: head,
+        },
+        Value::Nothing { span: _ } => Value::String {
             val: "nothing".to_string(),
             span: head,
         },
-        Value::Record { cols, vals, span } => Value::Error {
+        Value::Record {
+            cols: _,
+            vals: _,
+            span: _,
+        } => Value::Error {
             error: ShellError::UnsupportedInput(
                 "Cannot convert Record into string".to_string(),
                 head,
