@@ -138,7 +138,7 @@ impl Command for PluginDeclaration {
     }
 
     fn usage(&self) -> &str {
-        "plugin name plus arguments"
+        self.signature.usage.as_str()
     }
 
     fn run(

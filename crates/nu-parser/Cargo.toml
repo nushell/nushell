@@ -7,4 +7,7 @@ edition = "2018"
 miette = "3.0.0"
 thiserror = "1.0.29"
 nu-protocol = { path = "../nu-protocol"}
-nu-plugin = { path = "../nu-plugin"}
+nu-plugin = { path = "../nu-plugin", optional=true}
+
+[features]
+plugin = ["nu-plugin"]

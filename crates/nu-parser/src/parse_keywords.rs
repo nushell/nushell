@@ -1,10 +1,12 @@
-use nu_plugin::plugin::{get_signature, PluginDeclaration};
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPattern, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
     span, DeclId, Span, SyntaxShape, Type,
 };
 use std::path::Path;
+
+#[cfg(feature = "plugin")]
+use nu_plugin::plugin::{get_signature, PluginDeclaration};
 
 use crate::{
     lex, lite_parse,
@@ -925,6 +927,7 @@ pub fn parse_source(
     )
 }
 
+#[cfg(feature = "plugin")]
 pub fn parse_plugin(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
