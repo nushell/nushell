@@ -141,7 +141,7 @@ mod tests {
         match (&lhs.expr, &rhs.expr) {
             (Expr::Bool(a), Expr::Bool(b)) => assert_eq!(a, b),
             (Expr::Int(a), Expr::Int(b)) => assert_eq!(a, b),
-            (Expr::Float(a), Expr::Float(b)) => assert_eq!(a, b),
+            (Expr::Float(a), Expr::Float(b)) => assert!((a - b).abs() < f64::EPSILON),
             (Expr::String(a), Expr::String(b)) => assert_eq!(a, b),
             _ => panic!("not matching values"),
         }
