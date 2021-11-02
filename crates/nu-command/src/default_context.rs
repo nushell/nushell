@@ -40,6 +40,7 @@ pub fn create_default_context() -> EngineState {
             Echo,
             ExportDef,
             External,
+            First,
             For,
             From,
             FromJson,
