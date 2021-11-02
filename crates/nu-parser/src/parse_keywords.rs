@@ -963,11 +963,14 @@ pub fn parse_plugin(
                             // get signature from plugin
                             match get_signature(source_file) {
                                 Err(err) => Some(ParseError::PluginError(format!("{}", err))),
-                                Ok(signature) => {
-                                    // create plugin command declaration (need struct impl Command)
-                                    // store declaration in working set
-                                    let plugin_decl = PluginDeclaration::new(filename, signature);
-                                    working_set.add_decl(Box::new(plugin_decl));
+                                Ok(signatures) => {
+                                    for signature in signatures {
+                                        // create plugin command declaration (need struct impl Command)
+                                        // store declaration in working set
+                                        let plugin_decl =
+                                            PluginDeclaration::new(filename.clone(), signature);
+                                        working_set.add_decl(Box::new(plugin_decl));
+                                    }
 
                                     None
                                 }

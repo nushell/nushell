@@ -111,8 +111,9 @@ struct Call {
 }
 
 struct CallInfo {
-	call @0: Call;
-	input @1: Value;
+	name @0: Text;
+	call @1: Call;
+	input @2: Value;
 }
 
 # Main communication structs with the plugin
@@ -126,7 +127,7 @@ struct PluginCall {
 struct PluginResponse {
 	union {
 		error @0 :Text;
-		signature @1 :Signature;
+		signature @1 :List(Signature);
 		value @2 :Value;
 	}
 }
