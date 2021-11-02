@@ -225,21 +225,6 @@ fn main() -> Result<()> {
                 Ok(Signal::Success(s)) => {
                     if s.trim() == "exit" {
                         break;
-                    } else if s.trim() == "vars" {
-                        engine_state.print_vars();
-                        continue;
-                    } else if s.trim() == "decls" {
-                        engine_state.print_decls();
-                        continue;
-                    } else if s.trim() == "blocks" {
-                        engine_state.print_blocks();
-                        continue;
-                    } else if s.trim() == "stack" {
-                        stack.print_stack();
-                        continue;
-                    } else if s.trim() == "contents" {
-                        engine_state.print_contents();
-                        continue;
                     }
 
                     eval_source(

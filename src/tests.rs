@@ -801,3 +801,8 @@ fn long_flag() -> TestResult {
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "10")
 }
+
+#[test]
+fn scope_variable() -> TestResult {
+    run_test(r"let x = 3; $scope.vars.0", "$x")
+}

@@ -371,12 +371,12 @@ pub fn eval_block(
 }
 
 pub fn eval_variable(
-    _engine_state: &EngineState,
+    engine_state: &EngineState,
     stack: &Stack,
     var_id: VarId,
     span: Span,
 ) -> Result<Value, ShellError> {
-    if var_id == 0 {
+    if var_id == nu_protocol::NU_VARIABLE_ID {
         // $nu
         let mut output_cols = vec![];
         let mut output_vals = vec![];
@@ -424,6 +424,71 @@ pub fn eval_variable(
             output_cols.push("pwd".into());
             output_vals.push(Value::String { val: cwd, span })
         }
+
+        Ok(Value::Record {
+            cols: output_cols,
+            vals: output_vals,
+            span,
+        })
+    } else if var_id == nu_protocol::SCOPE_VARIABLE_ID {
+        let mut output_cols = vec![];
+        let mut output_vals = vec![];
+
+        let mut vars = vec![];
+        let mut commands = vec![];
+        let mut aliases = vec![];
+        let mut modules = vec![];
+
+        for frame in &engine_state.scope {
+            for var in &frame.vars {
+                vars.push(Value::String {
+                    val: String::from_utf8_lossy(var.0).to_string(),
+                    span,
+                });
+            }
+
+            for command in &frame.decls {
+                commands.push(Value::String {
+                    val: String::from_utf8_lossy(command.0).to_string(),
+                    span,
+                });
+            }
+
+            for alias in &frame.aliases {
+                aliases.push(Value::String {
+                    val: String::from_utf8_lossy(alias.0).to_string(),
+                    span,
+                });
+            }
+
+            for module in &frame.modules {
+                modules.push(Value::String {
+                    val: String::from_utf8_lossy(module.0).to_string(),
+                    span,
+                });
+            }
+        }
+
+        output_cols.push("vars".to_string());
+        output_vals.push(Value::List { vals: vars, span });
+
+        output_cols.push("commands".to_string());
+        output_vals.push(Value::List {
+            vals: commands,
+            span,
+        });
+
+        output_cols.push("aliases".to_string());
+        output_vals.push(Value::List {
+            vals: aliases,
+            span,
+        });
+
+        output_cols.push("modules".to_string());
+        output_vals.push(Value::List {
+            vals: modules,
+            span,
+        });
 
         Ok(Value::Record {
             cols: output_cols,
