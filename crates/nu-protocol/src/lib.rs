@@ -11,6 +11,7 @@ mod ty;
 mod value;
 pub use value::Value;
 
+pub use engine::{NU_VARIABLE_ID, SCOPE_VARIABLE_ID};
 pub use example::*;
 pub use id::*;
 pub use pipeline_data::*;

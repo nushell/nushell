@@ -1198,7 +1198,17 @@ pub fn parse_variable_expr(
     } else if contents == b"$nu" {
         return (
             Expression {
-                expr: Expr::Var(0),
+                expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
+                span,
+                ty: Type::Unknown,
+                custom_completion: None,
+            },
+            None,
+        );
+    } else if contents == b"$scope" {
+        return (
+            Expression {
+                expr: Expr::Var(nu_protocol::SCOPE_VARIABLE_ID),
                 span,
                 ty: Type::Unknown,
                 custom_completion: None,

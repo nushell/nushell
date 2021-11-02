@@ -95,16 +95,6 @@ pub fn create_default_context() -> EngineState {
 
         let sig = Signature::build("exit");
         working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("vars");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("decls");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("blocks");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("stack");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("contents");
-        working_set.add_decl(sig.predeclare());
 
         working_set.render()
     };

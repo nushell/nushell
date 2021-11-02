@@ -6,17 +6,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-#[derive(Clone)]
-pub struct EngineState {
-    files: im::Vector<(String, usize, usize)>,
-    file_contents: im::Vector<(Vec<u8>, usize, usize)>,
-    vars: im::Vector<Type>,
-    decls: im::Vector<Box<dyn Command + 'static>>,
-    blocks: im::Vector<Block>,
-    pub scope: im::Vector<ScopeFrame>,
-    pub ctrlc: Option<Arc<AtomicBool>>,
-}
-
 // Tells whether a decl etc. is visible or not
 // TODO: When adding new exportables (env vars, aliases, etc.), parametrize the ID type with generics
 #[derive(Debug, Clone)]
@@ -62,9 +51,9 @@ impl Visibility {
 pub struct ScopeFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
     predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
-    decls: HashMap<Vec<u8>, DeclId>,
-    aliases: HashMap<Vec<u8>, Vec<Span>>,
-    modules: HashMap<Vec<u8>, BlockId>,
+    pub decls: HashMap<Vec<u8>, DeclId>,
+    pub aliases: HashMap<Vec<u8>, Vec<Span>>,
+    pub modules: HashMap<Vec<u8>, BlockId>,
     visibility: Visibility,
 }
 
@@ -91,18 +80,26 @@ impl Default for ScopeFrame {
     }
 }
 
-impl Default for EngineState {
-    fn default() -> Self {
-        Self::new()
-    }
+#[derive(Clone)]
+pub struct EngineState {
+    files: im::Vector<(String, usize, usize)>,
+    file_contents: im::Vector<(Vec<u8>, usize, usize)>,
+    vars: im::Vector<Type>,
+    decls: im::Vector<Box<dyn Command + 'static>>,
+    blocks: im::Vector<Block>,
+    pub scope: im::Vector<ScopeFrame>,
+    pub ctrlc: Option<Arc<AtomicBool>>,
 }
+
+pub const NU_VARIABLE_ID: usize = 0;
+pub const SCOPE_VARIABLE_ID: usize = 1;
 
 impl EngineState {
     pub fn new() -> Self {
         Self {
             files: im::vector![],
             file_contents: im::vector![],
-            vars: im::vector![Type::Unknown],
+            vars: im::vector![Type::Unknown, Type::Unknown],
             decls: im::vector![],
             blocks: im::vector![],
             scope: im::vector![ScopeFrame::new()],
@@ -316,6 +313,12 @@ impl EngineState {
             .push_back((filename, next_span_start, next_span_end));
 
         self.num_files() - 1
+    }
+}
+
+impl Default for EngineState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
