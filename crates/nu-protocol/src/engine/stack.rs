@@ -2,6 +2,23 @@ use std::collections::HashMap;
 
 use crate::{ShellError, Value, VarId};
 
+/// A runtime value stack used during evaluation
+///
+/// A note on implementation:
+///
+/// We previously set up the stack in a traditional way, where stack frames had parents which would
+/// represent other frames that you might return to when exiting a function.
+///
+/// While experimenting with blocks, we found that we needed to have closure captures of variables
+/// seen outside of the blocks, so that they blocks could be run in a way that was both thread-safe
+/// and followed the restrictions for closures applied to iterators. The end result left us with
+/// closure-captured single stack frames that blocks could see.
+///
+/// Blocks make up the only scope and stack definition abstraction in Nushell. As a result, we were
+/// creating closure captures at any point we wanted to have a Block value we could safely evaluate
+/// in any context. This meant that the parents were going largely unused, with captured variables
+/// taking their place. The end result is this, where we no longer have separate frames, but instead
+/// use the Stack as a way of representing the local and closure-captured state.
 #[derive(Debug, Clone)]
 pub struct Stack {
     pub vars: HashMap<VarId, Value>,
@@ -50,40 +67,18 @@ impl Stack {
         output
     }
 
-    // pub fn enter_scope(&self) -> Stack {
-    //     // FIXME: VERY EXPENSIVE to clone entire stack
-    //     let mut output = self.clone();
-    //     output.0.push(StackFrame {
-    //         vars: HashMap::new(),
-    //         env_vars: HashMap::new(),
-    //     });
-
-    //     output
-    // }
-
     pub fn get_env_vars(&self) -> HashMap<String, String> {
-        // let mut output = HashMap::new();
-
-        // for frame in &self.0 {
-        //     output.extend(frame.env_vars.clone().into_iter());
-        // }
-
-        // output
         self.env_vars.clone()
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<String> {
-        // for frame in self.0.iter().rev() {
         if let Some(v) = self.env_vars.get(name) {
             return Some(v.to_string());
         }
-        // }
         None
     }
 
     pub fn print_stack(&self) {
-        // for frame in self.0.iter().rev() {
-        // println!("===frame===");
         println!("vars:");
         for (var, val) in &self.vars {
             println!("  {}: {:?}", var, val);
@@ -92,6 +87,5 @@ impl Stack {
         for (var, val) in &self.env_vars {
             println!("  {}: {:?}", var, val);
         }
-        // }
     }
 }

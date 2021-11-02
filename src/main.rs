@@ -118,7 +118,7 @@ fn main() -> Result<()> {
             (output, working_set.render())
         };
 
-        EngineState::merge_delta(&mut engine_state, delta);
+        engine_state.merge_delta(delta);
 
         let mut stack = nu_protocol::engine::Stack::new();
 
@@ -347,7 +347,7 @@ fn eval_source(
         (output, working_set.render())
     };
 
-    EngineState::merge_delta(engine_state, delta);
+    engine_state.merge_delta(delta);
 
     match eval_block(engine_state, stack, &block, PipelineData::new()) {
         Ok(pipeline_data) => {
