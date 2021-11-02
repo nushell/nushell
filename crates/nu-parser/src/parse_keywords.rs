@@ -1,3 +1,4 @@
+use nu_plugin::plugin::{get_signature, PluginDeclaration};
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPattern, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
@@ -922,4 +923,88 @@ pub fn parse_source(
             span(spans),
         )),
     )
+}
+
+pub fn parse_plugin(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    let name = working_set.get_span_contents(spans[0]);
+
+    if name != b"register" {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for parse plugin function".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    if let Some(decl_id) = working_set.find_decl(b"register") {
+        let (call, call_span, mut err) =
+            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+
+        let error = {
+            match spans.len() {
+                1 => Some(ParseError::MissingPositional(
+                    "plugin location".into(),
+                    spans[0],
+                )),
+                2 => {
+                    let name_expr = working_set.get_span_contents(spans[1]);
+                    if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
+                        let source_file = Path::new(&filename);
+
+                        if source_file.exists() & source_file.is_file() {
+                            // get signature from plugin
+                            match get_signature(source_file) {
+                                Err(err) => Some(ParseError::PluginError(format!("{}", err))),
+                                Ok(signature) => {
+                                    // create plugin command declaration (need struct impl Command)
+                                    // store declaration in working set
+                                    let plugin_decl = PluginDeclaration::new(filename, signature);
+                                    working_set.add_decl(Box::new(plugin_decl));
+
+                                    None
+                                }
+                            }
+                        } else {
+                            Some(ParseError::FileNotFound(filename))
+                        }
+                    } else {
+                        Some(ParseError::NonUtf8(spans[1]))
+                    }
+                }
+                _ => {
+                    let span = spans[2..].iter().fold(spans[2], |acc, next| Span {
+                        start: acc.start,
+                        end: next.end,
+                    });
+
+                    Some(ParseError::ExtraPositional(span))
+                }
+            }
+        };
+
+        err = error.or(err);
+
+        (
+            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: call_span,
+                ty: Type::Unknown,
+                custom_completion: None,
+            }])),
+            err,
+        )
+    } else {
+        (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Register declaration not found".into(),
+                span(spans),
+            )),
+        )
+    }
 }

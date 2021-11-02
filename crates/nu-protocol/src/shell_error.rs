@@ -169,6 +169,9 @@ pub enum ShellError {
     NoFileToBeMoved(),
     #[error("No file to be copied")]
     NoFileToBeCopied(),
+
+    #[error("Plugin error")]
+    PluginError(String),
 }
 
 impl From<std::io::Error> for ShellError {

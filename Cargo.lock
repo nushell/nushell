@@ -129,6 +129,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c58ec36aac5066d5ca17df51b3e70279f5670a72102f5752cb7e7c856adfc70"
 
 [[package]]
+name = "capnp"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae9b8a7119420b5279ddc2b4ee553ee15bcf4605df6135a26f03ffe153bee97c"
+
+[[package]]
+name = "capnpc"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b47bce811162518b5c38f746ed584bd2922ae7bb560ef64f230d2e4ee0d111fe"
+dependencies = [
+ "capnp",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -653,6 +668,7 @@ dependencies = [
  "nu-json",
  "nu-parser",
  "nu-path",
+ "nu-plugin",
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
@@ -694,6 +710,7 @@ name = "nu-parser"
 version = "0.1.0"
 dependencies = [
  "miette",
+ "nu-plugin",
  "nu-protocol",
  "thiserror",
 ]
@@ -704,6 +721,15 @@ version = "0.37.1"
 dependencies = [
  "dirs-next",
  "dunce",
+]
+
+[[package]]
+name = "nu-plugin"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
+ "nu-protocol",
 ]
 
 [[package]]
