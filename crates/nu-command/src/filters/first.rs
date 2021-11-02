@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct First;
@@ -61,17 +63,26 @@ fn first_helper(
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+    let head = call.head;
     let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
     let rows_desired: usize = match rows {
         Some(x) => x as usize,
         None => 1,
     };
 
-    Ok(Value::List {
-        vals: input.into_iter().take(rows_desired).collect(),
-        span: call.head,
+    if rows_desired == 1 {
+        let mut input_peek = input.into_iter().peekable();
+        match input_peek.next() {
+            Some(val) => Ok(val.into_pipeline_data()),
+            None => Err(ShellError::AccessBeyondEndOfStream(head)),
+        }
+    } else {
+        Ok(Value::List {
+            vals: input.into_iter().take(rows_desired).collect(),
+            span: head,
+        }
+        .into_pipeline_data())
     }
-    .into_pipeline_data())
 }
 
 #[cfg(test)]
