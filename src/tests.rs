@@ -806,3 +806,8 @@ fn help_works_with_missing_requirements() -> TestResult {
 fn scope_variable() -> TestResult {
     run_test(r"let x = 3; $scope.vars.0", "$x")
 }
+
+#[test]
+fn zip_ranges() -> TestResult {
+    run_test(r"1..3 | zip 4..6 | get 2.1", "6")
+}
