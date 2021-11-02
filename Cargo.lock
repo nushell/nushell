@@ -129,6 +129,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c58ec36aac5066d5ca17df51b3e70279f5670a72102f5752cb7e7c856adfc70"
 
 [[package]]
+name = "capnp"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae9b8a7119420b5279ddc2b4ee553ee15bcf4605df6135a26f03ffe153bee97c"
+
+[[package]]
+name = "capnpc"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b47bce811162518b5c38f746ed584bd2922ae7bb560ef64f230d2e4ee0d111fe"
+dependencies = [
+ "capnp",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -161,6 +176,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eddc119501d583fd930cb92144e605f44e0252c38dd89d9247fffa1993375cb"
 dependencies = [
  "chrono",
+]
+
+[[package]]
+name = "chrono-tz"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64c01c1c607d25c71bbaa67c113d6c6b36c434744b4fd66691d711b5b1bc0c8b"
+dependencies = [
+ "chrono",
+ "chrono-tz-build",
+ "phf",
+]
+
+[[package]]
+name = "chrono-tz-build"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db058d493fb2f65f41861bfed7e3fe6335264a9f0f92710cab5bdf01fef09069"
+dependencies = [
+ "parse-zoneinfo",
+ "phf",
+ "phf_codegen",
 ]
 
 [[package]]
@@ -622,6 +659,8 @@ version = "0.1.0"
 dependencies = [
  "bytesize",
  "chrono",
+ "chrono-humanize",
+ "chrono-tz",
  "dialoguer",
  "glob",
  "lscolors",
@@ -629,6 +668,7 @@ dependencies = [
  "nu-json",
  "nu-parser",
  "nu-path",
+ "nu-plugin",
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
@@ -636,6 +676,7 @@ dependencies = [
  "sysinfo",
  "terminal_size",
  "thiserror",
+ "titlecase",
  "trash",
  "unicode-segmentation",
 ]
@@ -669,6 +710,7 @@ name = "nu-parser"
 version = "0.1.0"
 dependencies = [
  "miette",
+ "nu-plugin",
  "nu-protocol",
  "thiserror",
 ]
@@ -679,6 +721,15 @@ version = "0.37.1"
 dependencies = [
  "dirs-next",
  "dunce",
+]
+
+[[package]]
+name = "nu-plugin"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
+ "nu-protocol",
 ]
 
 [[package]]
@@ -799,6 +850,54 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "winapi",
+]
+
+[[package]]
+name = "parse-zoneinfo"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
+dependencies = [
+ "regex",
+]
+
+[[package]]
+name = "phf"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9fc3db1018c4b59d7d582a739436478b6035138b6aecbce989fc91c3e98409f"
+dependencies = [
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_codegen"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb1c3a8bc4dd4e5cfce29b44ffc14bedd2ee294559a294e2a4d4c9e9a6a13cd"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_generator"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d5285893bb5eb82e6aaf5d59ee909a06a16737a8970984dd7746ba9283498d6"
+dependencies = [
+ "phf_shared",
+ "rand",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
+dependencies = [
+ "siphasher",
+ "uncased",
 ]
 
 [[package]]
@@ -1097,6 +1196,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "siphasher"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "533494a8f9b724d33625ab53c6c4800f7cc445895924a8ef649222dcb76e938b"
+
+[[package]]
 name = "sized-chunks"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1264,6 +1369,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "titlecase"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f565e410cfc24c2f2a89960b023ca192689d7f77d3f8d4f4af50c2d8affe1117"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "trash"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1277,6 +1392,15 @@ name = "typenum"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b63708a265f51345575b27fe43f9500ad611579e764c79edbc2037b1121959ec"
+
+[[package]]
+name = "uncased"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5baeed7327e25054889b9bd4f975f32e5f4c5d434042d59ab6cd4142c0a76ed0"
+dependencies = [
+ "version_check",
+]
 
 [[package]]
 name = "unicode-linebreak"

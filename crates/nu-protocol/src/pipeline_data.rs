@@ -116,6 +116,16 @@ impl IntoIterator for PipelineData {
                     ctrlc: None,
                 }))
             }
+            PipelineData::Value(Value::Range { val, .. }) => match val.into_range_iter() {
+                Ok(val) => PipelineIterator(PipelineData::Stream(ValueStream {
+                    stream: Box::new(val),
+                    ctrlc: None,
+                })),
+                Err(e) => PipelineIterator(PipelineData::Stream(ValueStream {
+                    stream: Box::new(vec![Value::Error { error: e }].into_iter()),
+                    ctrlc: None,
+                })),
+            },
             x => PipelineIterator(x),
         }
     }

@@ -3,19 +3,23 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
-pub struct Use;
+pub struct Register;
 
-impl Command for Use {
+impl Command for Register {
     fn name(&self) -> &str {
-        "use"
+        "register"
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module"
+        "Register a plugin"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").rest("pattern", SyntaxShape::String, "import pattern parts")
+        Signature::build("register").required(
+            "plugin",
+            SyntaxShape::Filepath,
+            "location of bin for plugin",
+        )
     }
 
     fn run(

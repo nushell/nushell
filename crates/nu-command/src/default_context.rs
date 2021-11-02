@@ -27,9 +27,17 @@ pub fn create_default_context() -> EngineState {
             BuildString,
             Cd,
             Cp,
+            Date,
+            DateFormat,
+            DateHumanize,
+            DateListTimezones,
+            DateNow,
+            DateToTable,
+            DateToTimezone,
             Def,
             Do,
             Each,
+            Echo,
             ExportDef,
             External,
             First,
@@ -54,13 +62,21 @@ pub fn create_default_context() -> EngineState {
             Math,
             MathAbs,
             MathAvg,
+            MathMax,
+            MathMin,
+            MathProduct,
+            MathRound,
+            MathSqrt,
+            MathSum,
             Mkdir,
             Module,
             Mv,
             ParEach,
             Ps,
+            Register,
             Range,
             Rm,
+            RunPlugin,
             Select,
             Size,
             Split,
@@ -74,23 +90,14 @@ pub fn create_default_context() -> EngineState {
             Touch,
             Use,
             Where,
-            Wrap
+            Wrap,
+            Zip
         );
 
         // This is a WIP proof of concept
         bind_command!(ListGitBranches, Git, GitCheckout, Source);
 
         let sig = Signature::build("exit");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("vars");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("decls");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("blocks");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("stack");
-        working_set.add_decl(sig.predeclare());
-        let sig = Signature::build("contents");
         working_set.add_decl(sig.predeclare());
 
         working_set.render()

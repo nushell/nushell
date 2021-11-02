@@ -1,26 +1,26 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{PipelineData, Signature};
 
 #[derive(Clone)]
-pub struct Use;
+pub struct RunPlugin;
 
-impl Command for Use {
+impl Command for RunPlugin {
     fn name(&self) -> &str {
-        "use"
+        "run_plugin"
     }
 
     fn usage(&self) -> &str {
-        "Use definitions from a module"
+        "test for plugin encoding"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").rest("pattern", SyntaxShape::String, "import pattern parts")
+        Signature::build("run_plugin")
     }
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        _context: &EngineState,
         _stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
