@@ -1,5 +1,4 @@
 use crate::date::utils::parse_date_from_string;
-use chrono::prelude::*;
 use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
 use nu_protocol::ast::Call;
@@ -45,13 +44,7 @@ impl Command for SubCommand {
             Example {
                 description: "Print a 'humanized' format for the date, relative to now.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,
-                result: {
-                    let s = Local.ymd(2021, 10, 22).and_hms(20, 00, 12);
-                    Some(Value::String {
-                        val: HumanTime::from(s).to_string(),
-                        span: Span::unknown(),
-                    })
-                },
+                result: None,
             },
         ]
     }

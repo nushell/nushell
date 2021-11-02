@@ -73,73 +73,10 @@ impl Command for Each {
         let span = call.head;
 
         match input {
-            PipelineData::Value(Value::Range { val, .. }) => Ok(val
-                .into_range_iter()?
-                .enumerate()
-                .map(move |(idx, x)| {
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x,
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x);
-                            }
-                        }
-                    }
-
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
-                        Err(error) => Value::Error { error },
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
+            PipelineData::Value(Value::Range { .. })
+            | PipelineData::Value(Value::List { .. })
+            | PipelineData::Stream { .. } => Ok(input
                 .into_iter()
-                .enumerate()
-                .map(move |(idx, x)| {
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x,
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x);
-                            }
-                        }
-                    }
-
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
-                        Err(error) => Value::Error { error },
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Stream(stream) => Ok(stream
                 .enumerate()
                 .map(move |(idx, x)| {
                     if let Some(var) = block.signature.get_positional(0) {

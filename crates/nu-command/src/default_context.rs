@@ -87,7 +87,8 @@ pub fn create_default_context() -> EngineState {
             Touch,
             Use,
             Where,
-            Wrap
+            Wrap,
+            Zip
         );
 
         // This is a WIP proof of concept
