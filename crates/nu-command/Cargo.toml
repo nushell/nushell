@@ -22,6 +22,10 @@ unicode-segmentation = "1.8.0"
 glob = "0.3.0"
 thiserror = "1.0.29"
 sysinfo = "0.20.4"
+bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
+num-bigint = { version="0.3.1", features=["serde"] }
+num-format = { version="0.4.0", features=["with-num-bigint"] }
+num-traits = "0.2.14"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.0"
