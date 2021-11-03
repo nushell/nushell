@@ -24,6 +24,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(Math));
         working_set.add_decl(Box::new(Date));
 
+        use super::Echo;
+        working_set.add_decl(Box::new(Echo));
         // Adding the command that is being tested to the working set
         working_set.add_decl(Box::new(cmd));
 

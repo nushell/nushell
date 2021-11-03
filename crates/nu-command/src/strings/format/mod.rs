@@ -1,3 +1,3 @@
-pub mod format;
+pub mod command;
 
-pub use format::Format;
+pub use command::Format;
