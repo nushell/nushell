@@ -7,6 +7,12 @@ use std::{
     },
 };
 
+/// A potentially infinite stream of values, optinally with a mean to send a Ctrl-C signal to stop
+/// the stream from continuing.
+///
+/// In practice, a "stream" here means anything which can be iterated and produce Values as it iterates.
+/// Like other iterators in Rust, observing values from this stream will drain the items as you view them
+/// and the stream cannot be replayed.
 pub struct ValueStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -60,62 +66,3 @@ impl Iterator for ValueStream {
         }
     }
 }
-
-// impl Serialize for ValueStream {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         let mut seq = serializer.serialize_seq(None)?;
-
-//         for element in self.0.borrow_mut().into_iter() {
-//             seq.serialize_element(&element)?;
-//         }
-//         seq.end()
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for ValueStream {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         deserializer.deserialize_seq(MySeqVisitor)
-//     }
-// }
-
-// struct MySeqVisitor;
-
-// impl<'a> serde::de::Visitor<'a> for MySeqVisitor {
-//     type Value = ValueStream;
-
-//     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         formatter.write_str("a value stream")
-//     }
-
-//     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-//     where
-//         A: serde::de::SeqAccess<'a>,
-//     {
-//         let mut output: Vec<Value> = vec![];
-
-//         while let Some(value) = seq.next_element()? {
-//             output.push(value);
-//         }
-
-//         Ok(ValueStream(Rc::new(RefCell::new(output.into_iter()))))
-//     }
-// }
-
-// pub trait IntoValueStream {
-//     fn into_value_stream(self) -> ValueStream;
-// }
-
-// impl<T> IntoValueStream for T
-// where
-//     T: Iterator<Item = Value> + 'static,
-// {
-//     fn into_value_stream(self) -> ValueStream {
-//         ValueStream::from_stream(self)
-//     }
-// }

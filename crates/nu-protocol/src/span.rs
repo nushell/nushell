@@ -1,6 +1,7 @@
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
+/// A spanned area of interest, generic over what kind of thing is of interest
 #[derive(Clone, Debug)]
 pub struct Spanned<T>
 where
@@ -10,6 +11,9 @@ where
     pub span: Span,
 }
 
+/// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
+/// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
+/// a given point of interest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,
