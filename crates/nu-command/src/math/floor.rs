@@ -61,13 +61,12 @@ fn operate(value: Value, head: Span) -> Value {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::ShellError;
-    use super::SubCommand;
+mod test {
+    use super::*;
 
     #[test]
-    fn examples_work_as_expected() -> Result<(), ShellError> {
-        use crate::examples::test as test_examples;
+    fn test_examples() {
+        use crate::test_examples;
 
         test_examples(SubCommand {})
     }
