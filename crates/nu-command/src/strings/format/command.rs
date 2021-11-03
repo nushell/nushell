@@ -36,7 +36,6 @@ impl Command for Format {
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
-                //  Handle the pattern
                 let string_pattern = pattern.as_string().unwrap();
                 let ops = extract_formatting_operations(string_pattern);
                 format(input, &ops)
@@ -69,6 +68,12 @@ enum FormatOperation {
     ValueFromColumn(String),
 }
 
+/// Given a pattern that is fed into the Format command, we can process it and subdivide it
+/// in two kind of operations.
+/// FormatOperation::FixedText contains a portion of the patter that has to be placed
+/// there without any further processing.
+/// FormatOperation::ValueFromColumn contains the name of a column whose values will be
+/// formatted according to the input pattern.
 fn extract_formatting_operations(input: String) -> Vec<FormatOperation> {
     let mut output = vec![];
 
@@ -107,12 +112,14 @@ fn extract_formatting_operations(input: String) -> Vec<FormatOperation> {
     output
 }
 
+/// Format the incoming PipelineData according to the pattern
 fn format(
     input_data: PipelineData,
     format_operations: &[FormatOperation],
 ) -> Result<PipelineData, ShellError> {
     let data_as_value = input_data.into_value();
-    eprintln!("{:#?}", data_as_value);
+
+    //  We can only handle a Record or a List of Record's
     match data_as_value {
         Value::Record { .. } => match format_record(format_operations, &data_as_value) {
             Ok(value) => Ok(PipelineData::Value(Value::string(value, Span::unknown()))),
