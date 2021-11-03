@@ -207,13 +207,13 @@ pub fn action(
         } => Value::Error {
             error: ShellError::UnsupportedInput(
                 "Cannot convert Record into string".to_string(),
-                head,
+                span,
             ),
         },
         _ => Value::Error {
             error: ShellError::CantConvert(
                 String::from(" into string. Probably this type is not supported yet"),
-                head,
+                span,
             ),
         },
     }
