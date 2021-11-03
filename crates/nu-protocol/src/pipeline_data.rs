@@ -14,9 +14,20 @@ use crate::{ast::PathMember, ShellError, Span, Value, ValueStream};
 /// Namely, how do you know the difference between a single string and a list of one string. How do you know
 /// when to flatten the data given to you from a data source into the stream or to keep it as an unflattened
 /// list?
+///
 /// * We tried putting the stream into Value. This had some interesting properties as now commands "just worked
-/// on values", but the inability to pass Value to threads as-is meant a lot of workarounds for dealing with
-/// Value's stream case
+/// on values", but lead to a few unfortunate issues.
+///
+/// The first is that you can't easily clone Values in a way that felt largely immutable. For example, if
+/// you cloned a Value which contained a stream, and in one variable drained some part of it, then the second
+/// variable would see different values based on what you did to the first.
+///
+/// To make this kind of mutation thread-safe, we would have had to produce a lock for the stream, which in
+/// practice would have meant always locking the stream before reading from it. But more fundamentally, it
+/// felt wrong in practice that observation of a value at runtime could affect other values which happen to
+/// alias the same stream. By separating these, we don't have this effect. Instead, variables could get
+/// concrete list values rather than streams, and be able to view them without non-local effects.
+///
 /// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
 /// them into any sources. Streams are still available to model the infinite streams approach of original
 /// Nushell.
