@@ -71,7 +71,7 @@ fn first_helper(
     if input_peek.peek().is_some() {
         match input_peek.peek().unwrap().get_type() {
             Type::Binary => {
-                match &mut input_peek.next_if(|val| val.get_type() == Type::Binary) {
+                match &mut input_peek.next() {
                     Some(v) => match &v {
                         Value::Binary { val, .. } => {
                             let bytes = val;
