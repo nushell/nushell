@@ -5,11 +5,6 @@ use nu_protocol::{
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
-use bigdecimal::{BigDecimal, FromPrimitive};
-use num_bigint::{BigInt, BigUint};
-use num_format::Locale;
-use num_traits::{Pow, Signed};
-use std::iter;
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
 
 #[derive(Clone)]
@@ -156,82 +151,54 @@ fn string_helper(
 
 pub fn action(
     input: Value,
-    head: Span,
+    span: Span,
     decimals: bool,
     digits: Option<i64>,
     group_digits: bool,
 ) -> Value {
     match input {
-        Value::Int { val, span: _ } => {
+        Value::Int { val, .. } => {
             let res = if group_digits {
                 format_int(val) // int.to_formatted_string(*locale)
             } else {
                 val.to_string()
             };
 
-            Value::String {
-                val: res,
-                span: head,
-            }
+            Value::String { val: res, span }
         }
-        Value::Float { val, span: _ } => {
+        Value::Float { val, .. } => {
             if decimals {
-                let dec = BigDecimal::from_f64(val);
-                let decimal_value = digits.unwrap() as u64;
-                match dec {
-                    Some(x) => Value::String {
-                        val: format_decimal(x, Some(decimal_value), group_digits),
-                        span: head,
-                    },
-                    None => Value::Error {
-                        error: ShellError::CantConvert(
-                            format!("cannot convert {} to BigDecimal", val),
-                            head,
-                        ),
-                    },
+                let decimal_value = digits.unwrap() as usize;
+                Value::String {
+                    val: format!("{:.*}", decimal_value, val),
+                    span,
                 }
             } else {
                 Value::String {
                     val: val.to_string(),
-                    span: head,
+                    span,
                 }
             }
         }
-        // We do not seem to have BigInt at the moment as a Value Type
-        // Value::BigInt { val, span } => {
-        //     let res = if group_digits {
-        //         format_bigint(val) // int.to_formatted_string(*locale)
-        //     } else {
-        //         int.to_string()
-        //     };
-
-        //     Value::String {
-        //         val: res,
-        //         span: head,
-        //     }
-        //     .into_pipeline_data()
-        // }
-        Value::Bool { val, span: _ } => Value::String {
+        Value::Bool { val, .. } => Value::String {
             val: val.to_string(),
-            span: head,
+            span,
         },
-
-        Value::Date { val, span: _ } => Value::String {
+        Value::Date { val, .. } => Value::String {
             val: val.format("%c").to_string(),
-            span: head,
+            span,
         },
-
-        Value::String { val, span: _ } => Value::String { val, span: head },
+        Value::String { val, .. } => Value::String { val, span },
 
         // FIXME - we do not have a FilePath type anymore. Do we need to support this?
         // Value::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
-        Value::Filesize { val: _, span: _ } => Value::String {
+        Value::Filesize { val: _, .. } => Value::String {
             val: input.into_string(),
-            span: head,
+            span,
         },
-        Value::Nothing { span: _ } => Value::String {
+        Value::Nothing { .. } => Value::String {
             val: "nothing".to_string(),
-            span: head,
+            span,
         },
         Value::Record {
             cols: _,
@@ -243,7 +210,6 @@ pub fn action(
                 head,
             ),
         },
-
         _ => Value::Error {
             error: ShellError::CantConvert(
                 String::from(" into string. Probably this type is not supported yet"),
@@ -267,95 +233,6 @@ fn format_int(int: i64) -> String {
     //         Err(_) => int.to_formatted_string(&Locale::en),
     //     }
     // }
-}
-
-fn format_bigint(int: &BigInt) -> String {
-    int.to_string()
-
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    // #[cfg(windows)]
-    // {
-    //     int.to_formatted_string(&Locale::en)
-    // }
-    // #[cfg(not(windows))]
-    // {
-    //     match SystemLocale::default() {
-    //         Ok(locale) => int.to_formatted_string(&locale),
-    //         Err(_) => int.to_formatted_string(&Locale::en),
-    //     }
-    // }
-}
-
-fn format_decimal(mut decimal: BigDecimal, digits: Option<u64>, group_digits: bool) -> String {
-    if let Some(n) = digits {
-        decimal = round_decimal(&decimal, n)
-    }
-
-    if decimal.is_integer() && (digits.is_none() || digits == Some(0)) {
-        let int = decimal.as_bigint_and_exponent().0;
-        // .expect("integer BigDecimal should convert to BigInt");
-        return if group_digits {
-            int.to_string()
-        } else {
-            format_bigint(&int)
-        };
-    }
-
-    let (int, exp) = decimal.as_bigint_and_exponent();
-    let factor = BigInt::from(10).pow(BigUint::from(exp as u64)); // exp > 0 for non-int decimal
-    let int_part = &int / &factor;
-    let dec_part = (&int % &factor)
-        .abs()
-        .to_biguint()
-        .expect("BigInt::abs should always produce positive signed BigInt and thus BigUInt")
-        .to_str_radix(10);
-
-    let dec_str = if let Some(n) = digits {
-        dec_part
-            .chars()
-            .chain(iter::repeat('0'))
-            .take(n as usize)
-            .collect()
-    } else {
-        String::from(dec_part.trim_end_matches('0'))
-    };
-
-    let format_default_loc = |int_part: BigInt| {
-        let loc = Locale::en;
-        //TODO: when num_format is available for recent bigint, replace this with the locale-based format
-        let (int_str, sep) = (int_part.to_string(), String::from(loc.decimal()));
-
-        format!("{}{}{}", int_str, sep, dec_str)
-    };
-
-    format_default_loc(int_part)
-
-    // TODO once platform-specific dependencies are stable (see Cargo.toml)
-    // #[cfg(windows)]
-    // {
-    //     format_default_loc(int_part)
-    // }
-    // #[cfg(not(windows))]
-    // {
-    //     match SystemLocale::default() {
-    //         Ok(sys_loc) => {
-    //             let int_str = int_part.to_formatted_string(&sys_loc);
-    //             let sep = String::from(sys_loc.decimal());
-    //             format!("{}{}{}", int_str, sep, dec_str)
-    //         }
-    //         Err(_) => format_default_loc(int_part),
-    //     }
-    // }
-}
-
-fn round_decimal(decimal: &BigDecimal, mut digits: u64) -> BigDecimal {
-    let mut mag = decimal.clone();
-    while mag >= BigDecimal::from(1) {
-        mag = mag / 10;
-        digits += 1;
-    }
-
-    decimal.with_prec(digits)
 }
 
 #[cfg(test)]
