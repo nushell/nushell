@@ -88,7 +88,7 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
     let hashable_values: Result<Vec<HashableType>, ShellError> = values
-        .into_iter()
+        .iter()
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_be_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {

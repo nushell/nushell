@@ -1,5 +1,6 @@
 mod abs;
 mod avg;
+mod ceil;
 pub mod command;
 mod floor;
 mod max;
@@ -14,6 +15,7 @@ mod utils;
 
 pub use abs::SubCommand as MathAbs;
 pub use avg::SubCommand as MathAvg;
+pub use ceil::SubCommand as MathCeil;
 pub use command::MathCommand as Math;
 pub use floor::SubCommand as MathFloor;
 pub use max::SubCommand as MathMax;
