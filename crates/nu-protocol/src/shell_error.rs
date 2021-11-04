@@ -4,6 +4,9 @@ use thiserror::Error;
 
 use crate::{ast::Operator, Span, Type};
 
+/// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
+/// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
+/// and pass it into an error viewer to display to the user.
 #[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ShellError {
     #[error("Type mismatch during operation.")]

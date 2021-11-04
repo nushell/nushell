@@ -29,10 +29,23 @@ impl Command for Echo {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         call.rest(engine_state, stack, 0).map(|to_be_echoed| {
-            PipelineData::Stream(ValueStream::from_stream(
-                to_be_echoed.into_iter(),
-                engine_state.ctrlc.clone(),
-            ))
+            let n = to_be_echoed.len();
+            match n.cmp(&1usize) {
+                //  More than one value is converted in a stream of values
+                std::cmp::Ordering::Greater => PipelineData::Stream(ValueStream::from_stream(
+                    to_be_echoed.into_iter(),
+                    engine_state.ctrlc.clone(),
+                )),
+
+                //  But a single value can be forwarded as it is
+                std::cmp::Ordering::Equal => PipelineData::Value(to_be_echoed[0].clone()),
+
+                //  When there are no elements, we echo the empty string
+                std::cmp::Ordering::Less => PipelineData::Value(Value::String {
+                    val: "".to_string(),
+                    span: Span::unknown(),
+                }),
+            }
         })
     }
 
@@ -41,10 +54,7 @@ impl Command for Echo {
             Example {
                 description: "Put a hello message in the pipeline",
                 example: "echo 'hello'",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("hello")],
-                    span: Span::new(0, 0),
-                }),
+                result: Some(Value::test_string("hello")),
             },
             Example {
                 description: "Print the value of the special '$nu' variable",

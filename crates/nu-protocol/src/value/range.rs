@@ -130,18 +130,6 @@ impl Range {
     }
 }
 
-// impl IntoIterator for Range {
-//     type Item = Value;
-
-//     type IntoIter = RangeIterator;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         let span = self.from.span();
-
-//         RangeIterator::new(self, span)
-//     }
-// }
-
 pub struct RangeIterator {
     curr: Value,
     end: Value,

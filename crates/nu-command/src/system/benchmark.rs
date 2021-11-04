@@ -3,7 +3,7 @@ use std::time::Instant;
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Benchmark;
@@ -42,7 +42,12 @@ impl Command for Benchmark {
         eval_block(engine_state, &mut stack, block, PipelineData::new())?.into_value();
 
         let end_time = Instant::now();
-        println!("{} ms", (end_time - start_time).as_millis());
-        Ok(PipelineData::new())
+
+        let output = Value::Duration {
+            val: (end_time - start_time).as_nanos() as i64,
+            span: call.head,
+        };
+
+        Ok(output.into_pipeline_data())
     }
 }
