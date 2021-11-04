@@ -42,6 +42,7 @@ pub fn create_default_context() -> EngineState {
             External,
             First,
             For,
+            Format,
             From,
             FromJson,
             Get,
