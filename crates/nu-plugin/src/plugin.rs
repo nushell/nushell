@@ -38,6 +38,7 @@ pub enum PluginError {
     UnableToSpawn(String),
     EncodingError(String),
     DecodingError(String),
+    RunTimeError(String),
 }
 
 impl Display for PluginError {
@@ -53,6 +54,9 @@ impl Display for PluginError {
             }
             PluginError::DecodingError(err) => {
                 write!(f, "error while decoding: {}", err)
+            }
+            PluginError::RunTimeError(err) => {
+                write!(f, "runtime error: {}", err)
             }
         }
     }
@@ -224,7 +228,7 @@ impl Command for PluginDeclaration {
 /// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
 pub trait Plugin {
     fn signature(&self) -> Vec<Signature>;
-    fn run(&self, name: &str, call: &Call, input: &Value) -> Result<Value, PluginError>;
+    fn run(&mut self, name: &str, call: &Call, input: &Value) -> Result<Value, PluginError>;
 }
 
 // Function used in the plugin definition for the communication protocol between

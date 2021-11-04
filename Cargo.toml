@@ -13,6 +13,7 @@ members = [
 	"crates/nu-command",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
+	"crates/nu_plugin_inc",
 ]
 
 [dependencies]
