@@ -64,6 +64,9 @@ impl Stack {
             }
         }
 
+        // FIXME: this is probably slow
+        output.env_vars = self.env_vars.clone();
+
         output
     }
 
