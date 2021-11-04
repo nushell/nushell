@@ -1559,11 +1559,16 @@ fn parse_internal_command(
                                     if error.is_none() {
                                         error = err;
                                     }
-                                } else if error.is_none() {
-                                    error = Some(ParseError::argument_error(
-                                        lite_cmd.parts[0].clone(),
-                                        ArgumentError::MissingValueForName(full_name.to_owned()),
-                                    ));
+                                } else {
+                                    if error.is_none() {
+                                        error = Some(ParseError::argument_error(
+                                            lite_cmd.parts[0].clone(),
+                                            ArgumentError::MissingValueForName(
+                                                full_name.to_owned(),
+                                            ),
+                                        ));
+                                    }
+                                    break;
                                 }
                             }
                         }
