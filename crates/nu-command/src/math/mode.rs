@@ -90,15 +90,15 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let hashable_values: Result<Vec<HashableType>, ShellError> = values
         .iter()
         .map(|val| match val {
-            Value::Int { val, .. } => Ok(HashableType::new(val.to_be_bytes(), NumberTypes::Int)),
+            Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {
-                Ok(HashableType::new(val.to_be_bytes(), NumberTypes::Duration))
+                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Duration))
             }
             Value::Float { val, .. } => {
-                Ok(HashableType::new(val.to_be_bytes(), NumberTypes::Float))
+                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Float))
             }
             Value::Filesize { val, .. } => {
-                Ok(HashableType::new(val.to_be_bytes(), NumberTypes::Filesize))
+                Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
@@ -143,19 +143,19 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
     let bytes = hashable_value.bytes;
     match &hashable_value.original_type {
         NumberTypes::Int => Value::Int {
-            val: i64::from_be_bytes(bytes),
+            val: i64::from_ne_bytes(bytes),
             span: head,
         },
         NumberTypes::Float => Value::Float {
-            val: f64::from_be_bytes(bytes),
+            val: f64::from_ne_bytes(bytes),
             span: head,
         },
         NumberTypes::Duration => Value::Duration {
-            val: i64::from_be_bytes(bytes),
+            val: i64::from_ne_bytes(bytes),
             span: head,
         },
         NumberTypes::Filesize => Value::Filesize {
-            val: i64::from_be_bytes(bytes),
+            val: i64::from_ne_bytes(bytes),
             span: head,
         },
     }
