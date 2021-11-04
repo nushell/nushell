@@ -91,6 +91,7 @@ pub fn create_default_context() -> EngineState {
             Touch,
             Use,
             Where,
+            WithEnv,
             Wrap,
             Zip
         );

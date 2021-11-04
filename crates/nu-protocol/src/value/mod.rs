@@ -199,8 +199,8 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format!("{} bytes", val),
-            Value::Duration { val, .. } => format!("{} ns", val),
+            Value::Filesize { val, .. } => format_filesize(val),
+            Value::Duration { val, .. } => format_duration(val),
             Value::Date { val, .. } => format!("{:?}", val),
             Value::Range { val, .. } => {
                 format!("{}..{}", val.from.into_string(), val.to.into_string())

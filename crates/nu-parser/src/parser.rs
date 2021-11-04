@@ -627,27 +627,6 @@ pub fn parse_call(
     }
 
     let mut pos = 0;
-    let mut shorthand = vec![];
-
-    while pos < spans.len() {
-        // Check if there is any environment shorthand
-        let name = working_set.get_span_contents(spans[pos]);
-        let split: Vec<_> = name.splitn(2, |x| *x == b'=').collect();
-        if split.len() == 2 {
-            shorthand.push(split);
-            pos += 1;
-        } else {
-            break;
-        }
-    }
-
-    if pos == spans.len() {
-        return (
-            garbage(span(spans)),
-            Some(ParseError::UnknownCommand(spans[0])),
-        );
-    }
-
     let cmd_start = pos;
     let mut name_spans = vec![];
 
@@ -1673,6 +1652,54 @@ pub fn parse_string(
             },
             None,
         )
+    } else {
+        (
+            garbage(span),
+            Some(ParseError::Expected("string".into(), span)),
+        )
+    }
+}
+
+pub fn parse_string_strict(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+    let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    {
+        (&bytes[1..(bytes.len() - 1)], true)
+    } else {
+        (bytes, false)
+    };
+
+    if let Ok(token) = String::from_utf8(bytes.into()) {
+        if quoted {
+            (
+                Expression {
+                    expr: Expr::String(token),
+                    span,
+                    ty: Type::String,
+                    custom_completion: None,
+                },
+                None,
+            )
+        } else if token.contains(' ') {
+            (
+                garbage(span),
+                Some(ParseError::Expected("string".into(), span)),
+            )
+        } else {
+            (
+                Expression {
+                    expr: Expr::String(token),
+                    span,
+                    ty: Type::String,
+                    custom_completion: None,
+                },
+                None,
+            )
+        }
     } else {
         (
             garbage(span),
@@ -2963,12 +2990,126 @@ pub fn parse_expression(
     spans: &[Span],
     expand_aliases: bool,
 ) -> (Expression, Option<ParseError>) {
-    let bytes = working_set.get_span_contents(spans[0]);
+    let mut pos = 0;
+    let mut shorthand = vec![];
 
-    if is_math_expression_byte(bytes[0]) {
-        parse_math_expression(working_set, spans, None)
+    while pos < spans.len() {
+        // Check if there is any environment shorthand
+        let name = working_set.get_span_contents(spans[pos]);
+        let split = name.split(|x| *x == b'=');
+        let split: Vec<_> = split.collect();
+        if split.len() == 2 && !split[0].is_empty() {
+            let point = split[0].len() + 1;
+
+            let lhs = parse_string_strict(
+                working_set,
+                Span {
+                    start: spans[pos].start,
+                    end: spans[pos].start + point - 1,
+                },
+            );
+            let rhs = if spans[pos].start + point < spans[pos].end {
+                parse_string_strict(
+                    working_set,
+                    Span {
+                        start: spans[pos].start + point,
+                        end: spans[pos].end,
+                    },
+                )
+            } else {
+                (
+                    Expression {
+                        expr: Expr::String(String::new()),
+                        span: spans[pos],
+                        ty: Type::Nothing,
+                        custom_completion: None,
+                    },
+                    None,
+                )
+            };
+
+            if lhs.1.is_none() && rhs.1.is_none() {
+                shorthand.push((lhs.0, rhs.0));
+                pos += 1;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    if pos == spans.len() {
+        return (
+            garbage(span(spans)),
+            Some(ParseError::UnknownCommand(spans[0])),
+        );
+    }
+
+    let bytes = working_set.get_span_contents(spans[pos]);
+
+    let (output, err) = if is_math_expression_byte(bytes[0]) {
+        parse_math_expression(working_set, &spans[pos..], None)
     } else {
-        parse_call(working_set, spans, expand_aliases)
+        parse_call(working_set, &spans[pos..], expand_aliases)
+    };
+
+    let with_env = working_set.find_decl(b"with-env");
+
+    if !shorthand.is_empty() {
+        if let Some(decl_id) = with_env {
+            let mut block = Block::default();
+            let ty = output.ty.clone();
+            block.stmts = vec![Statement::Pipeline(Pipeline {
+                expressions: vec![output],
+            })];
+
+            let mut seen = vec![];
+            let captures = find_captures_in_block(working_set, &block, &mut seen);
+            block.captures = captures;
+
+            let block_id = working_set.add_block(block);
+
+            let mut env_vars = vec![];
+            for sh in shorthand {
+                env_vars.push(sh.0);
+                env_vars.push(sh.1);
+            }
+
+            let positional = vec![
+                Expression {
+                    expr: Expr::List(env_vars),
+                    span: span(&spans[..pos]),
+                    ty: Type::Unknown,
+                    custom_completion: None,
+                },
+                Expression {
+                    expr: Expr::Block(block_id),
+                    span: span(&spans[pos..]),
+                    ty,
+                    custom_completion: None,
+                },
+            ];
+
+            (
+                Expression {
+                    expr: Expr::Call(Box::new(Call {
+                        head: span(spans),
+                        decl_id,
+                        named: vec![],
+                        positional,
+                    })),
+                    custom_completion: None,
+                    span: span(spans),
+                    ty: Type::Unknown,
+                },
+                err,
+            )
+        } else {
+            (output, err)
+        }
+    } else {
+        (output, err)
     }
 }
 

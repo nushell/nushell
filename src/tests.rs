@@ -804,10 +804,30 @@ fn help_works_with_missing_requirements() -> TestResult {
 
 #[test]
 fn scope_variable() -> TestResult {
-    run_test(r"let x = 3; $scope.vars.0", "$x")
+    run_test(r#"let x = 3; $scope.vars.0"#, "$x")
 }
 
 #[test]
 fn zip_ranges() -> TestResult {
-    run_test(r"1..3 | zip 4..6 | get 2.1", "6")
+    run_test(r#"1..3 | zip 4..6 | get 2.1"#, "6")
+}
+
+#[test]
+fn shorthand_env_1() -> TestResult {
+    run_test(r#"FOO=BAZ $nu.env.FOO"#, "BAZ")
+}
+
+#[test]
+fn shorthand_env_2() -> TestResult {
+    run_test(r#"FOO=BAZ FOO=MOO $nu.env.FOO"#, "MOO")
+}
+
+#[test]
+fn shorthand_env_3() -> TestResult {
+    run_test(r#"FOO=BAZ BAR=MOO $nu.env.FOO"#, "BAZ")
+}
+
+#[test]
+fn shorthand_env_4() -> TestResult {
+    fail_test(r#"FOO=BAZ FOO= $nu.env.FOO"#, "cannot find column")
 }
