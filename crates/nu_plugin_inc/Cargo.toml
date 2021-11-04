@@ -1,0 +1,17 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "A version incrementer plugin for Nushell"
+edition = "2018"
+license = "MIT"
+name = "nu_plugin_inc"
+version = "0.1.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-plugin = { path="../nu-plugin", version = "0.1.0" }
+nu-protocol = { path="../nu-protocol", version = "0.1.0" }
+nu-engine = { path="../nu-engine", version = "0.1.0" }
+
+semver = "0.11.0"
