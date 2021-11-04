@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 crossterm = "0.19"
-image = { version="0.22.4", default_features=false, features=["png_codec", "jpeg"] }
+image = { version = "0.23.14", default_features = false, features = ["png", "jpeg"] }
 neso = "0.5.0"
 nu-errors = { path="../nu-errors", version = "0.39.0" }
 nu-plugin = { path="../nu-plugin", version = "0.39.0" }
