@@ -111,6 +111,13 @@ pub enum ShellError {
         #[label = "value originates here"] Span,
     ),
 
+    #[error("Not a list value")]
+    #[diagnostic(code(nu::shell::not_a_list), url(docsrs))]
+    NotAList(
+        #[label = "value not a list"] Span,
+        #[label = "value originates here"] Span,
+    ),
+
     #[error("External command")]
     #[diagnostic(code(nu::shell::external_command), url(docsrs))]
     ExternalCommand(String, #[label("{0}")] Span),

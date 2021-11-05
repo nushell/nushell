@@ -70,6 +70,22 @@ impl PipelineData {
         }
     }
 
+    pub fn update_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        callback: Box<dyn FnOnce(&Value) -> Value>,
+    ) -> Result<(), ShellError> {
+        match self {
+            // FIXME: there are probably better ways of doing this
+            PipelineData::Stream(stream) => Value::List {
+                vals: stream.collect(),
+                span: Span::unknown(),
+            }
+            .update_cell_path(cell_path, callback),
+            PipelineData::Value(v) => v.update_cell_path(cell_path, callback),
+        }
+    }
+
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
     pub fn map<F>(
         self,

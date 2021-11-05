@@ -312,6 +312,78 @@ impl Value {
         Ok(current)
     }
 
+    /// Follow a given column path into the value: for example accessing nth elements in a stream or list
+    pub fn update_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        callback: Box<dyn FnOnce(&Value) -> Value>,
+    ) -> Result<(), ShellError> {
+        let orig = self.clone();
+
+        let new_val = callback(&orig.follow_cell_path(cell_path)?);
+
+        match new_val {
+            Value::Error { error } => Err(error),
+            new_val => self.replace_data_at_cell_path(cell_path, new_val),
+        }
+    }
+
+    pub fn replace_data_at_cell_path(
+        &mut self,
+        cell_path: &[PathMember],
+        new_val: Value,
+    ) -> Result<(), ShellError> {
+        match cell_path.first() {
+            Some(path_member) => match path_member {
+                PathMember::String {
+                    val: col_name,
+                    span,
+                } => match self {
+                    Value::List { vals, .. } => {
+                        for val in vals.iter_mut() {
+                            match val {
+                                Value::Record { cols, vals, .. } => {
+                                    for col in cols.iter().zip(vals) {
+                                        if col.0 == col_name {
+                                            col.1.replace_data_at_cell_path(
+                                                &cell_path[1..],
+                                                new_val.clone(),
+                                            )?
+                                        }
+                                    }
+                                }
+                                v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                            }
+                        }
+                    }
+                    Value::Record { cols, vals, .. } => {
+                        for col in cols.iter().zip(vals) {
+                            if col.0 == col_name {
+                                col.1
+                                    .replace_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                            }
+                        }
+                    }
+                    v => return Err(ShellError::CantFindColumn(*span, v.span()?)),
+                },
+                PathMember::Int { val: row_num, span } => match self {
+                    Value::List { vals, .. } => {
+                        if let Some(v) = vals.get_mut(*row_num) {
+                            v.replace_data_at_cell_path(&cell_path[1..], new_val)?
+                        } else {
+                            return Err(ShellError::AccessBeyondEnd(vals.len(), *span));
+                        }
+                    }
+                    v => return Err(ShellError::NotAList(*span, v.span()?)),
+                },
+            },
+            None => {
+                *self = new_val;
+            }
+        }
+        Ok(())
+    }
+
     pub fn is_true(&self) -> bool {
         matches!(self, Value::Bool { val: true, .. })
     }

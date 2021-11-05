@@ -1,5 +1,6 @@
+use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -27,33 +28,20 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_int(engine_state, call, input)
+        into_int(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // Example {
-            //     description: "Convert string to integer in table",
-            //     example: "echo [[num]; ['-5'] [4] [1.5]] | into int num",
-            //     result: Some(vec![
-            //         UntaggedValue::row(indexmap! {
-            //             "num".to_string() => UntaggedValue::int(-5).into(),
-            //         })
-            //         .into(),
-            //         UntaggedValue::row(indexmap! {
-            //             "num".to_string() => UntaggedValue::int(4).into(),
-            //         })
-            //         .into(),
-            //         UntaggedValue::row(indexmap! {
-            //             "num".to_string() => UntaggedValue::int(1).into(),
-            //         })
-            //         .into(),
-            //     ]),
-            // },
+            Example {
+                description: "Convert string to integer in table",
+                example: "echo [[num]; ['-5'] [4] [1.5]] | into int num",
+                result: None,
+            },
             Example {
                 description: "Convert string to integer",
                 example: "'2' | into int",
@@ -91,46 +79,48 @@ impl Command for SubCommand {
 
 fn into_int(
     engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    // let column_paths: Vec<CellPath> = call.rest(context, 0)?;
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     input.map(
         move |v| {
-            action(v, head)
-            // FIXME: Add back cell_path support
-            // if column_paths.is_empty() {
-            //     action(&v, v.tag())
-            // } else {
-            //     let mut ret = v;
-            //     for path in &column_paths {
-            //         ret = ret
-            //             .swap_data_by_column_path(path, Box::new(move |old| action(old, old.tag())))?;
-            //     }
+            if column_paths.is_empty() {
+                action(&v, head)
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let r =
+                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
 
-            //     Ok(ret)
-            // }
+                ret
+            }
         },
         engine_state.ctrlc.clone(),
     )
 }
 
-pub fn action(input: Value, span: Span) -> Value {
+pub fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Int { .. } => input,
-        Value::Filesize { val, .. } => Value::Int { val, span },
+        Value::Int { .. } => input.clone(),
+        Value::Filesize { val, .. } => Value::Int { val: *val, span },
         Value::Float { val, .. } => Value::Int {
-            val: val as i64,
+            val: *val as i64,
             span,
         },
-        Value::String { val, .. } => match int_from_string(&val, span) {
+        Value::String { val, .. } => match int_from_string(val, span) {
             Ok(val) => Value::Int { val, span },
             Err(error) => Value::Error { error },
         },
         Value::Bool { val, .. } => {
-            if val {
+            if *val {
                 Value::Int { val: 1, span }
             } else {
                 Value::Int { val: 0, span }
