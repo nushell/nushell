@@ -2,12 +2,10 @@ use nu_protocol::ast::Call;
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 
-pub type MathFunction = fn(values: &[Value], span: &Span) -> Result<Value, ShellError>;
-
 pub fn run_with_function(
     call: &Call,
     input: PipelineData,
-    mf: MathFunction,
+    mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name = call.head;
     let res = calculate(input, name, mf);
@@ -20,7 +18,7 @@ pub fn run_with_function(
 fn helper_for_tables(
     values: PipelineData,
     name: Span,
-    mf: MathFunction,
+    mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     // If we are not dealing with Primitives, then perhaps we are dealing with a table
     // Create a key for each column name
@@ -63,7 +61,11 @@ fn helper_for_tables(
     })
 }
 
-pub fn calculate(values: PipelineData, name: Span, mf: MathFunction) -> Result<Value, ShellError> {
+pub fn calculate(
+    values: PipelineData,
+    name: Span,
+    mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
+) -> Result<Value, ShellError> {
     match values {
         PipelineData::Stream(_) => helper_for_tables(values, name, mf),
         PipelineData::Value(Value::List { ref vals, .. }) => match &vals[..] {
