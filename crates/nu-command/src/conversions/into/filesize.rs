@@ -1,5 +1,6 @@
+use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -27,56 +28,20 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_filesize(engine_state, call, input)
+        into_filesize(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            // Example {
-            //     description: "Convert string to filesize in table",
-            //     example: "[[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
-            //     result: Some(Value::List {
-            //         vals: vec![
-            //             Value::Record {
-            //                 cols: vec!["bytes".to_string()],
-            //                 vals: vec![Value::Filesize {
-            //                     val: 5,
-            //                     span: Span::unknown(),
-            //                 }],
-            //                 span: Span::unknown(),
-            //             },
-            //             Value::Record {
-            //                 cols: vec!["bytes".to_string()],
-            //                 vals: vec![Value::Filesize {
-            //                     val: 3,
-            //                     span: Span::unknown(),
-            //                 }],
-            //                 span: Span::unknown(),
-            //             },
-            //             Value::Record {
-            //                 cols: vec!["bytes".to_string()],
-            //                 vals: vec![Value::Filesize {
-            //                     val: 4,
-            //                     span: Span::unknown(),
-            //                 }],
-            //                 span: Span::unknown(),
-            //             },
-            //             Value::Record {
-            //                 cols: vec!["bytes".to_string()],
-            //                 vals: vec![Value::Filesize {
-            //                     val: 2000,
-            //                     span: Span::unknown(),
-            //                 }],
-            //                 span: Span::unknown(),
-            //             },
-            //         ],
-            //         span: Span::unknown(),
-            //     }),
-            // },
+            Example {
+                description: "Convert string to filesize in table",
+                example: "[[bytes]; ['5'] [3.2] [4] [2kb]] | into filesize bytes",
+                result: None,
+            },
             Example {
                 description: "Convert string to filesize",
                 example: "'2' | into filesize",
@@ -115,44 +80,43 @@ impl Command for SubCommand {
 
 fn into_filesize(
     engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    // let call_paths: Vec<ColumnPath> = args.rest(0)?;
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     input.map(
         move |v| {
-            action(v, head)
+            if column_paths.is_empty() {
+                action(&v, head)
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let r =
+                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
 
-            // FIXME: Add back cell_path support
-            // if column_paths.is_empty() {
-            //     action(&v, v.tag())
-            // } else {
-            //     let mut ret = v;
-            //     for path in &column_paths {
-            //         ret = ret.swap_data_by_column_path(
-            //             path,
-            //             Box::new(move |old| action(old, old.tag())),
-            //         )?;
-            //     }
-
-            //     Ok(ret)
-            // }
+                ret
+            }
         },
         engine_state.ctrlc.clone(),
     )
 }
 
-pub fn action(input: Value, span: Span) -> Value {
+pub fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Filesize { .. } => input,
-        Value::Int { val, .. } => Value::Filesize { val, span },
+        Value::Filesize { .. } => input.clone(),
+        Value::Int { val, .. } => Value::Filesize { val: *val, span },
         Value::Float { val, .. } => Value::Filesize {
-            val: val as i64,
+            val: *val as i64,
             span,
         },
-        Value::String { val, .. } => match int_from_string(&val, span) {
+        Value::String { val, .. } => match int_from_string(val, span) {
             Ok(val) => Value::Filesize { val, span },
             Err(error) => Value::Error { error },
         },

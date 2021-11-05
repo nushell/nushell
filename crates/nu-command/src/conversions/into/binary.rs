@@ -1,5 +1,6 @@
+use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -27,11 +28,11 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        into_binary(engine_state, call, input)
+        into_binary(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -87,27 +88,29 @@ impl Command for SubCommand {
 
 fn into_binary(
     engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let head = call.head;
-    // let column_paths: Vec<CellPath> = call.rest(context, 0)?;
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     input.map(
         move |v| {
-            action(v, head)
-            // FIXME: Add back in cell_path support
-            // if column_paths.is_empty() {
-            //     action(v, head)
-            // } else {
-            //     let mut ret = v;
-            //     for path in &column_paths {
-            //         ret =
-            //             ret.swap_data_by_cell_path(path, Box::new(move |old| action(old, old.tag())))?;
-            //     }
+            if column_paths.is_empty() {
+                action(&v, head)
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let r =
+                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
 
-            //     Ok(ret)
-            // }
+                ret
+            }
         },
         engine_state.ctrlc.clone(),
     )
@@ -129,19 +132,19 @@ fn float_to_endian(n: f64) -> Vec<u8> {
     }
 }
 
-pub fn action(input: Value, span: Span) -> Value {
+pub fn action(input: &Value, span: Span) -> Value {
     match input {
-        Value::Binary { .. } => input,
+        Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::Binary {
-            val: int_to_endian(val),
+            val: int_to_endian(*val),
             span,
         },
         Value::Float { val, .. } => Value::Binary {
-            val: float_to_endian(val),
+            val: float_to_endian(*val),
             span,
         },
         Value::Filesize { val, .. } => Value::Binary {
-            val: int_to_endian(val),
+            val: int_to_endian(*val),
             span,
         },
         Value::String { val, .. } => Value::Binary {
@@ -149,7 +152,7 @@ pub fn action(input: Value, span: Span) -> Value {
             span,
         },
         Value::Bool { val, .. } => Value::Binary {
-            val: int_to_endian(if val { 1i64 } else { 0 }),
+            val: int_to_endian(if *val { 1i64 } else { 0 }),
             span,
         },
         Value::Date { val, .. } => Value::Binary {

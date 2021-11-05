@@ -86,7 +86,7 @@ impl Inc {
         match value {
             Value::Int { val, span } => Ok(Value::Int {
                 val: val + 1,
-                span: span.clone(),
+                span: *span,
             }),
             Value::String { val, .. } => Ok(self.apply(val)),
             _ => Err(PluginError::RunTimeError("incrementable value".to_string())),
