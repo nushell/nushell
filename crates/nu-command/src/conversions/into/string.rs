@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
     Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -18,11 +18,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into string")
             // FIXME - need to support column paths
-            // .rest(
-            //     "rest",
-            //     SyntaxShape::ColumnPaths(),
-            //     "column paths to convert to string (for table input)",
-            // )
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "column paths to convert to string (for table input)",
+            )
             .named(
                 "decimals",
                 SyntaxShape::Int,
@@ -135,6 +135,7 @@ fn string_helper(
     let decimals = call.has_flag("decimals");
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     if decimals && decimals_value.is_some() && decimals_value.unwrap().is_negative() {
         return Err(ShellError::UnsupportedInput(
@@ -144,13 +145,30 @@ fn string_helper(
     }
 
     input.map(
-        move |v| action(v, head, decimals, decimals_value, false),
+        move |v| {
+            if column_paths.is_empty() {
+                action(&v, head, decimals, decimals_value, false)
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let r = ret.update_cell_path(
+                        &path.members,
+                        Box::new(move |old| action(old, head, decimals, decimals_value, false)),
+                    );
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
+
+                ret
+            }
+        },
         engine_state.ctrlc.clone(),
     )
 }
 
 pub fn action(
-    input: Value,
+    input: &Value,
     span: Span,
     decimals: bool,
     digits: Option<i64>,
@@ -159,7 +177,7 @@ pub fn action(
     match input {
         Value::Int { val, .. } => {
             let res = if group_digits {
-                format_int(val) // int.to_formatted_string(*locale)
+                format_int(*val) // int.to_formatted_string(*locale)
             } else {
                 val.to_string()
             };
@@ -188,12 +206,13 @@ pub fn action(
             val: val.format("%c").to_string(),
             span,
         },
-        Value::String { val, .. } => Value::String { val, span },
+        Value::String { val, .. } => Value::String {
+            val: val.to_string(),
+            span,
+        },
 
-        // FIXME - we do not have a FilePath type anymore. Do we need to support this?
-        // Value::FilePath(a_filepath) => a_filepath.as_path().display().to_string(),
         Value::Filesize { val: _, .. } => Value::String {
-            val: input.into_string(),
+            val: input.clone().into_string(),
             span,
         },
         Value::Nothing { .. } => Value::String {
