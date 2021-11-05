@@ -11,6 +11,7 @@ const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 #[derive(Debug)]
 pub struct CallInfo {
+    pub name: String,
     pub call: Call,
     pub input: Value,
 }
@@ -26,7 +27,7 @@ pub enum PluginCall {
 #[derive(Debug)]
 pub enum PluginResponse {
     Error(String),
-    Signature(Box<Signature>),
+    Signature(Vec<Signature>),
     Value(Box<Value>),
 }
 
@@ -37,6 +38,7 @@ pub enum PluginError {
     UnableToSpawn(String),
     EncodingError(String),
     DecodingError(String),
+    RunTimeError(String),
 }
 
 impl Display for PluginError {
@@ -53,11 +55,14 @@ impl Display for PluginError {
             PluginError::DecodingError(err) => {
                 write!(f, "error while decoding: {}", err)
             }
+            PluginError::RunTimeError(err) => {
+                write!(f, "runtime error: {}", err)
+            }
         }
     }
 }
 
-pub fn get_signature(path: &Path) -> Result<Box<Signature>, PluginError> {
+pub fn get_signature(path: &Path) -> Result<Vec<Signature>, PluginError> {
     let mut plugin_cmd = create_command(path);
 
     // Both stdout and stdin are piped so we can get the information from the plugin
@@ -114,12 +119,12 @@ fn create_command(path: &Path) -> CommandSys {
 #[derive(Debug, Clone)]
 pub struct PluginDeclaration {
     name: String,
-    signature: Box<Signature>,
+    signature: Signature,
     filename: String,
 }
 
 impl PluginDeclaration {
-    pub fn new(filename: String, signature: Box<Signature>) -> Self {
+    pub fn new(filename: String, signature: Signature) -> Self {
         Self {
             name: signature.name.clone(),
             signature,
@@ -134,11 +139,11 @@ impl Command for PluginDeclaration {
     }
 
     fn signature(&self) -> Signature {
-        self.signature.as_ref().clone()
+        self.signature.clone()
     }
 
     fn usage(&self) -> &str {
-        "plugin name plus arguments"
+        self.signature.usage.as_str()
     }
 
     fn run(
@@ -175,6 +180,7 @@ impl Command for PluginDeclaration {
 
                 // PluginCall information
                 let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+                    name: self.name.clone(),
                     call: call.clone(),
                     input,
                 }));
@@ -221,8 +227,8 @@ impl Command for PluginDeclaration {
 
 /// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
 pub trait Plugin {
-    fn signature(&self) -> Signature;
-    fn run(&self, call: &Call, input: &Value) -> Result<Value, PluginError>;
+    fn signature(&self) -> Vec<Signature>;
+    fn run(&mut self, name: &str, call: &Call, input: &Value) -> Result<Value, PluginError>;
 }
 
 // Function used in the plugin definition for the communication protocol between
@@ -242,12 +248,12 @@ pub fn serve_plugin(plugin: &mut impl Plugin) {
             match plugin_call {
                 // Sending the signature back to nushell to create the declaration definition
                 PluginCall::Signature => {
-                    let response = PluginResponse::Signature(Box::new(plugin.signature()));
+                    let response = PluginResponse::Signature(plugin.signature());
                     encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");
                 }
                 PluginCall::CallInfo(call_info) => {
-                    let value = plugin.run(&call_info.call, &call_info.input);
+                    let value = plugin.run(&call_info.name, &call_info.call, &call_info.input);
 
                     let response = match value {
                         Ok(value) => PluginResponse::Value(Box::new(value)),

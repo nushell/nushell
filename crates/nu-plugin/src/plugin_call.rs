@@ -1,7 +1,9 @@
 use crate::plugin::{CallInfo, PluginCall, PluginError, PluginResponse};
 use crate::plugin_capnp::{plugin_call, plugin_response};
+use crate::serializers::signature::deserialize_signature;
 use crate::serializers::{call, signature, value};
 use capnp::serialize_packed;
+use nu_protocol::Signature;
 
 pub fn encode_call(
     plugin_call: &PluginCall,
@@ -15,6 +17,9 @@ pub fn encode_call(
         PluginCall::Signature => builder.set_signature(()),
         PluginCall::CallInfo(call_info) => {
             let mut call_info_builder = builder.reborrow().init_call_info();
+
+            // Serializing name from the call
+            call_info_builder.set_name(call_info.name.as_str());
 
             // Serializing argument information from the call
             let call_builder = call_info_builder
@@ -53,6 +58,10 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, Plu
         Ok(plugin_call::CallInfo(reader)) => {
             let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
+            let name = reader
+                .get_name()
+                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+
             let call_reader = reader
                 .get_call()
                 .map_err(|e| PluginError::DecodingError(e.to_string()))?;
@@ -67,7 +76,11 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, Plu
             let input = value::deserialize_value(input_reader)
                 .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
-            Ok(PluginCall::CallInfo(Box::new(CallInfo { call, input })))
+            Ok(PluginCall::CallInfo(Box::new(CallInfo {
+                name: name.to_string(),
+                call,
+                input,
+            })))
         }
     }
 }
@@ -82,9 +95,14 @@ pub fn encode_response(
 
     match &plugin_response {
         PluginResponse::Error(msg) => builder.reborrow().set_error(msg.as_str()),
-        PluginResponse::Signature(sign) => {
-            let signature_builder = builder.reborrow().init_signature();
-            signature::serialize_signature(sign, signature_builder)
+        PluginResponse::Signature(signatures) => {
+            let mut signature_list_builder =
+                builder.reborrow().init_signature(signatures.len() as u32);
+
+            for (index, signature) in signatures.iter().enumerate() {
+                let signature_builder = signature_list_builder.reborrow().get(index as u32);
+                signature::serialize_signature(signature, signature_builder)
+            }
         }
         PluginResponse::Value(val) => {
             let value_builder = builder.reborrow().init_value();
@@ -113,10 +131,13 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
         }
         Ok(plugin_response::Signature(reader)) => {
             let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
-            let sign = signature::deserialize_signature(reader)
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
 
-            Ok(PluginResponse::Signature(Box::new(sign)))
+            let signatures = reader
+                .iter()
+                .map(deserialize_signature)
+                .collect::<Result<Vec<Signature>, PluginError>>()?;
+
+            Ok(PluginResponse::Signature(signatures))
         }
         Ok(plugin_response::Value(reader)) => {
             let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
@@ -163,6 +184,8 @@ mod tests {
 
     #[test]
     fn callinfo_round_trip_callinfo() {
+        let name = "test".to_string();
+
         let input = Value::Bool {
             val: false,
             span: Span { start: 1, end: 20 },
@@ -200,6 +223,7 @@ mod tests {
         };
 
         let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+            name: name.clone(),
             call: call.clone(),
             input: input.clone(),
         }));
@@ -211,6 +235,7 @@ mod tests {
         match returned {
             PluginCall::Signature => panic!("returned wrong call type"),
             PluginCall::CallInfo(call_info) => {
+                assert_eq!(name, call_info.name);
                 assert_eq!(input, call_info.input);
                 assert_eq!(call.head, call_info.call.head);
                 assert_eq!(call.positional.len(), call_info.call.positional.len());
@@ -251,7 +276,7 @@ mod tests {
             )
             .rest("remaining", SyntaxShape::Int, "remaining");
 
-        let response = PluginResponse::Signature(Box::new(signature.clone()));
+        let response = PluginResponse::Signature(vec![signature.clone()]);
 
         let mut buffer: Vec<u8> = Vec::new();
         encode_response(&response, &mut buffer).expect("unable to serialize message");
@@ -262,32 +287,33 @@ mod tests {
             PluginResponse::Error(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
             PluginResponse::Signature(returned_signature) => {
-                assert_eq!(signature.name, returned_signature.name);
-                assert_eq!(signature.usage, returned_signature.usage);
-                assert_eq!(signature.extra_usage, returned_signature.extra_usage);
-                assert_eq!(signature.is_filter, returned_signature.is_filter);
+                assert!(returned_signature.len() == 1);
+                assert_eq!(signature.name, returned_signature[0].name);
+                assert_eq!(signature.usage, returned_signature[0].usage);
+                assert_eq!(signature.extra_usage, returned_signature[0].extra_usage);
+                assert_eq!(signature.is_filter, returned_signature[0].is_filter);
 
                 signature
                     .required_positional
                     .iter()
-                    .zip(returned_signature.required_positional.iter())
+                    .zip(returned_signature[0].required_positional.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 signature
                     .optional_positional
                     .iter()
-                    .zip(returned_signature.optional_positional.iter())
+                    .zip(returned_signature[0].optional_positional.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 signature
                     .named
                     .iter()
-                    .zip(returned_signature.named.iter())
+                    .zip(returned_signature[0].named.iter())
                     .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 assert_eq!(
                     signature.rest_positional,
-                    returned_signature.rest_positional,
+                    returned_signature[0].rest_positional,
                 );
             }
         }

@@ -1,10 +1,12 @@
-use nu_plugin::plugin::{get_signature, PluginDeclaration};
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPattern, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
     span, DeclId, Span, SyntaxShape, Type,
 };
 use std::path::Path;
+
+#[cfg(feature = "plugin")]
+use nu_plugin::plugin::{get_signature, PluginDeclaration};
 
 use crate::{
     lex, lite_parse,
@@ -925,6 +927,7 @@ pub fn parse_source(
     )
 }
 
+#[cfg(feature = "plugin")]
 pub fn parse_plugin(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -960,11 +963,14 @@ pub fn parse_plugin(
                             // get signature from plugin
                             match get_signature(source_file) {
                                 Err(err) => Some(ParseError::PluginError(format!("{}", err))),
-                                Ok(signature) => {
-                                    // create plugin command declaration (need struct impl Command)
-                                    // store declaration in working set
-                                    let plugin_decl = PluginDeclaration::new(filename, signature);
-                                    working_set.add_decl(Box::new(plugin_decl));
+                                Ok(signatures) => {
+                                    for signature in signatures {
+                                        // create plugin command declaration (need struct impl Command)
+                                        // store declaration in working set
+                                        let plugin_decl =
+                                            PluginDeclaration::new(filename.clone(), signature);
+                                        working_set.add_decl(Box::new(plugin_decl));
+                                    }
 
                                     None
                                 }

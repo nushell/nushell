@@ -3480,24 +3480,34 @@ pub mod call_info {
             self.reader.total_size()
         }
         #[inline]
-        pub fn get_call(self) -> ::capnp::Result<crate::plugin_capnp::call::Reader<'a>> {
+        pub fn get_name(self) -> ::capnp::Result<::capnp::text::Reader<'a>> {
             ::capnp::traits::FromPointerReader::get_from_pointer(
                 &self.reader.get_pointer_field(0),
                 ::core::option::Option::None,
             )
         }
-        pub fn has_call(&self) -> bool {
+        pub fn has_name(&self) -> bool {
             !self.reader.get_pointer_field(0).is_null()
         }
         #[inline]
-        pub fn get_input(self) -> ::capnp::Result<crate::plugin_capnp::value::Reader<'a>> {
+        pub fn get_call(self) -> ::capnp::Result<crate::plugin_capnp::call::Reader<'a>> {
             ::capnp::traits::FromPointerReader::get_from_pointer(
                 &self.reader.get_pointer_field(1),
                 ::core::option::Option::None,
             )
         }
-        pub fn has_input(&self) -> bool {
+        pub fn has_call(&self) -> bool {
             !self.reader.get_pointer_field(1).is_null()
+        }
+        #[inline]
+        pub fn get_input(self) -> ::capnp::Result<crate::plugin_capnp::value::Reader<'a>> {
+            ::capnp::traits::FromPointerReader::get_from_pointer(
+                &self.reader.get_pointer_field(2),
+                ::core::option::Option::None,
+            )
+        }
+        pub fn has_input(&self) -> bool {
+            !self.reader.get_pointer_field(2).is_null()
         }
     }
 
@@ -3571,9 +3581,27 @@ pub mod call_info {
             self.builder.into_reader().total_size()
         }
         #[inline]
-        pub fn get_call(self) -> ::capnp::Result<crate::plugin_capnp::call::Builder<'a>> {
+        pub fn get_name(self) -> ::capnp::Result<::capnp::text::Builder<'a>> {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
                 self.builder.get_pointer_field(0),
+                ::core::option::Option::None,
+            )
+        }
+        #[inline]
+        pub fn set_name(&mut self, value: ::capnp::text::Reader<'_>) {
+            self.builder.get_pointer_field(0).set_text(value);
+        }
+        #[inline]
+        pub fn init_name(self, size: u32) -> ::capnp::text::Builder<'a> {
+            self.builder.get_pointer_field(0).init_text(size)
+        }
+        pub fn has_name(&self) -> bool {
+            !self.builder.get_pointer_field(0).is_null()
+        }
+        #[inline]
+        pub fn get_call(self) -> ::capnp::Result<crate::plugin_capnp::call::Builder<'a>> {
+            ::capnp::traits::FromPointerBuilder::get_from_pointer(
+                self.builder.get_pointer_field(1),
                 ::core::option::Option::None,
             )
         }
@@ -3583,22 +3611,22 @@ pub mod call_info {
             value: crate::plugin_capnp::call::Reader<'_>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(0),
+                self.builder.get_pointer_field(1),
                 value,
                 false,
             )
         }
         #[inline]
         pub fn init_call(self) -> crate::plugin_capnp::call::Builder<'a> {
-            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(0), 0)
+            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(1), 0)
         }
         pub fn has_call(&self) -> bool {
-            !self.builder.get_pointer_field(0).is_null()
+            !self.builder.get_pointer_field(1).is_null()
         }
         #[inline]
         pub fn get_input(self) -> ::capnp::Result<crate::plugin_capnp::value::Builder<'a>> {
             ::capnp::traits::FromPointerBuilder::get_from_pointer(
-                self.builder.get_pointer_field(1),
+                self.builder.get_pointer_field(2),
                 ::core::option::Option::None,
             )
         }
@@ -3608,17 +3636,17 @@ pub mod call_info {
             value: crate::plugin_capnp::value::Reader<'_>,
         ) -> ::capnp::Result<()> {
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
-                self.builder.get_pointer_field(1),
+                self.builder.get_pointer_field(2),
                 value,
                 false,
             )
         }
         #[inline]
         pub fn init_input(self) -> crate::plugin_capnp::value::Builder<'a> {
-            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(1), 0)
+            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(2), 0)
         }
         pub fn has_input(&self) -> bool {
-            !self.builder.get_pointer_field(1).is_null()
+            !self.builder.get_pointer_field(2).is_null()
         }
     }
 
@@ -3634,17 +3662,17 @@ pub mod call_info {
     }
     impl Pipeline {
         pub fn get_call(&self) -> crate::plugin_capnp::call::Pipeline {
-            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(0))
+            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(1))
         }
         pub fn get_input(&self) -> crate::plugin_capnp::value::Pipeline {
-            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(1))
+            ::capnp::capability::FromTypelessPipeline::new(self._typeless.get_pointer_field(2))
         }
     }
     mod _private {
         use capnp::private::layout;
         pub const STRUCT_SIZE: layout::StructSize = layout::StructSize {
             data: 0,
-            pointers: 2,
+            pointers: 3,
         };
         pub const TYPE_ID: u64 = 0x8e03_127e_9170_7d6a;
     }
@@ -4073,7 +4101,7 @@ pub mod plugin_response {
         #[inline]
         pub fn set_signature(
             &mut self,
-            value: crate::plugin_capnp::signature::Reader<'_>,
+            value: ::capnp::struct_list::Reader<'a, crate::plugin_capnp::signature::Owned>,
         ) -> ::capnp::Result<()> {
             self.builder.set_data_field::<u16>(0, 1);
             ::capnp::traits::SetPointerBuilder::set_pointer_builder(
@@ -4083,9 +4111,15 @@ pub mod plugin_response {
             )
         }
         #[inline]
-        pub fn init_signature(self) -> crate::plugin_capnp::signature::Builder<'a> {
+        pub fn init_signature(
+            self,
+            size: u32,
+        ) -> ::capnp::struct_list::Builder<'a, crate::plugin_capnp::signature::Owned> {
             self.builder.set_data_field::<u16>(0, 1);
-            ::capnp::traits::FromPointerBuilder::init_pointer(self.builder.get_pointer_field(0), 0)
+            ::capnp::traits::FromPointerBuilder::init_pointer(
+                self.builder.get_pointer_field(0),
+                size,
+            )
         }
         pub fn has_signature(&self) -> bool {
             if self.builder.get_data_field::<u16>(0) != 1 {
@@ -4168,12 +4202,12 @@ pub mod plugin_response {
     }
     pub type WhichReader<'a> = Which<
         ::capnp::Result<::capnp::text::Reader<'a>>,
-        ::capnp::Result<crate::plugin_capnp::signature::Reader<'a>>,
+        ::capnp::Result<::capnp::struct_list::Reader<'a, crate::plugin_capnp::signature::Owned>>,
         ::capnp::Result<crate::plugin_capnp::value::Reader<'a>>,
     >;
     pub type WhichBuilder<'a> = Which<
         ::capnp::Result<::capnp::text::Builder<'a>>,
-        ::capnp::Result<crate::plugin_capnp::signature::Builder<'a>>,
+        ::capnp::Result<::capnp::struct_list::Builder<'a, crate::plugin_capnp::signature::Owned>>,
         ::capnp::Result<crate::plugin_capnp::value::Builder<'a>>,
     >;
 }

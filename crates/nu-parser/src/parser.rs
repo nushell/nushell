@@ -15,9 +15,11 @@ use nu_protocol::{
 };
 
 use crate::parse_keywords::{
-    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_plugin,
-    parse_use,
+    parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
 };
+
+#[cfg(feature = "plugin")]
+use crate::parse_keywords::parse_plugin;
 
 #[derive(Debug, Clone)]
 pub enum Import {}
@@ -3148,6 +3150,7 @@ pub fn parse_statement(
             Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
         ),
         b"hide" => parse_hide(working_set, spans),
+        #[cfg(feature = "plugin")]
         b"register" => parse_plugin(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans, true);

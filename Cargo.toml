@@ -13,6 +13,7 @@ members = [
 	"crates/nu-command",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
+	"crates/nu_plugin_inc",
 ]
 
 [dependencies]
@@ -26,11 +27,16 @@ nu-json = { path="./crates/nu-json" }
 nu-parser = { path="./crates/nu-parser" }
 nu-path = { path="./crates/nu-path" }
 nu-protocol = { path = "./crates/nu-protocol" }
+nu-plugin = { path = "./crates/nu-plugin", optional = true }
 nu-table = { path = "./crates/nu-table" }
 nu-term-grid = { path = "./crates/nu-term-grid" }
 miette = "3.0.0"
 ctrlc = "3.2.1"
 # mimalloc = { version = "*", default-features = false }
+
+[features]
+plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin"]
+default = ["plugin"]
 
 [dev-dependencies]
 tempfile = "3.2.0"

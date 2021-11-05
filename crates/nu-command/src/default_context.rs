@@ -79,10 +79,8 @@ pub fn create_default_context() -> EngineState {
             Mv,
             ParEach,
             Ps,
-            Register,
             Range,
             Rm,
-            RunPlugin,
             Select,
             Size,
             Split,
@@ -100,6 +98,9 @@ pub fn create_default_context() -> EngineState {
             Wrap,
             Zip
         );
+
+        #[cfg(feature = "plugin")]
+        bind_command!(Register);
 
         // This is a WIP proof of concept
         bind_command!(ListGitBranches, Git, GitCheckout, Source);
