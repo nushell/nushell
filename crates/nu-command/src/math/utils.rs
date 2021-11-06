@@ -84,6 +84,14 @@ pub fn calculate(
                 Err(err) => Err(err),
             }
         }
+        PipelineData::Value(Value::Range { val, .. }) => {
+            let new_vals: Result<Vec<Value>, ShellError> = val
+                .into_range_iter()?
+                .map(|val| mf(&[val], &name))
+                .collect();
+
+            mf(&new_vals?, &name)
+        }
         PipelineData::Value(val) => mf(&[val], &name),
     }
 }

@@ -839,3 +839,8 @@ fn update_cell_path_1() -> TestResult {
         "1",
     )
 }
+
+#[test]
+fn range_and_reduction() -> TestResult {
+    run_test(r#"1..6..36 | math sum"#, "148")
+}
