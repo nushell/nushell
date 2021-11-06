@@ -19,6 +19,7 @@ unicode-segmentation = "1.8.0"
 
 # Potential dependencies for extras
 glob = "0.3.0"
+Inflector = "0.11"
 thiserror = "1.0.29"
 sysinfo = "0.20.4"
 chrono = { version = "0.4.19", features = ["serde"] }
