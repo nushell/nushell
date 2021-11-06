@@ -2916,35 +2916,35 @@ pub fn parse_math_expression(
         let (rhs, err) = parse_value(working_set, spans[idx], &SyntaxShape::Any);
         error = error.or(err);
 
-        if op_prec <= last_prec {
-            while expr_stack.len() > 1 {
-                // Collapse the right associated operations first
-                // so that we can get back to a stack with a lower precedence
-                let mut rhs = expr_stack
-                    .pop()
-                    .expect("internal error: expression stack empty");
-                let mut op = expr_stack
-                    .pop()
-                    .expect("internal error: expression stack empty");
-                let mut lhs = expr_stack
-                    .pop()
-                    .expect("internal error: expression stack empty");
+        if op_prec <= last_prec && expr_stack.len() > 1 {
+            // Collapse the right associated operations first
+            // so that we can get back to a stack with a lower precedence
+            let mut rhs = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
+            let mut op = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
 
-                if let Some(row_var_id) = lhs_row_var_id {
-                    expand_to_cell_path(working_set, &mut lhs, row_var_id);
-                }
+            let mut lhs = expr_stack
+                .pop()
+                .expect("internal error: expression stack empty");
 
-                let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
-                error = error.or(err);
-
-                let op_span = span(&[lhs.span, rhs.span]);
-                expr_stack.push(Expression {
-                    expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
-                    span: op_span,
-                    ty: result_ty,
-                    custom_completion: None,
-                });
+            if let Some(row_var_id) = lhs_row_var_id {
+                expand_to_cell_path(working_set, &mut lhs, row_var_id);
             }
+
+            let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut op, &mut rhs);
+            error = error.or(err);
+
+            let op_span = span(&[lhs.span, rhs.span]);
+            expr_stack.push(Expression {
+                expr: Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
+                span: op_span,
+                ty: result_ty,
+                custom_completion: None,
+            });
+            // }
         }
         expr_stack.push(op);
         expr_stack.push(rhs);
