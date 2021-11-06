@@ -22,9 +22,9 @@ impl Command for Hide {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }

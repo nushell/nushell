@@ -48,7 +48,7 @@ impl Command for Table {
                     }
                     .into_pipeline_data())
                 } else {
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(call.head))
                 }
             }
             PipelineData::Stream(stream) => {
@@ -63,7 +63,7 @@ impl Command for Table {
                     }
                     .into_pipeline_data())
                 } else {
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(call.head))
                 }
             }
             PipelineData::Value(Value::Record { cols, vals, .. }) => {

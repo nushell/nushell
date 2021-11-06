@@ -43,6 +43,6 @@ impl Command for Cd {
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
         stack.add_env_var("PWD".into(), path);
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }

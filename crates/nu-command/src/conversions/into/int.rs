@@ -137,7 +137,11 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
         Ok(n) => Ok(n),
         Err(_) => match a_string.parse::<f64>() {
             Ok(f) => Ok(f as i64),
-            _ => Err(ShellError::CantConvert("into int".into(), span)),
+            _ => Err(ShellError::CantConvert(
+                "into int".into(),
+                "string".into(),
+                span,
+            )),
         },
     }
 }

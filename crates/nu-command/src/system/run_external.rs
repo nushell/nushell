@@ -161,9 +161,9 @@ impl ExternalCommand {
                     });
 
                     // The ValueStream is consumed by the next expression in the pipeline
-                    ChannelReceiver::new(rx).into_pipeline_data(ctrlc)
+                    ChannelReceiver::new(rx, self.name.span).into_pipeline_data(ctrlc)
                 } else {
-                    PipelineData::new()
+                    PipelineData::new(self.name.span)
                 };
 
                 match child.wait() {
@@ -214,11 +214,12 @@ enum Data {
 // It implements iterator so it can be used as a ValueStream
 struct ChannelReceiver {
     rx: mpsc::Receiver<Data>,
+    span: Span,
 }
 
 impl ChannelReceiver {
-    pub fn new(rx: mpsc::Receiver<Data>) -> Self {
-        Self { rx }
+    pub fn new(rx: mpsc::Receiver<Data>, span: Span) -> Self {
+        Self { rx, span }
     }
 }
 
@@ -230,11 +231,11 @@ impl Iterator for ChannelReceiver {
             Ok(v) => match v {
                 Data::String(s) => Some(Value::String {
                     val: s,
-                    span: Span::unknown(),
+                    span: self.span,
                 }),
                 Data::Bytes(b) => Some(Value::Binary {
                     val: b,
-                    span: Span::unknown(),
+                    span: self.span,
                 }),
             },
             Err(_) => None,

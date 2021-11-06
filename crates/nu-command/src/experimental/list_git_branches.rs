@@ -66,10 +66,10 @@ impl Command for ListGitBranches {
                     .into_iter()
                     .into_pipeline_data(engine_state.ctrlc.clone()))
             } else {
-                Ok(PipelineData::new())
+                Ok(PipelineData::new(call.head))
             }
         } else {
-            Ok(PipelineData::new())
+            Ok(PipelineData::new(call.head))
         }
     }
 }

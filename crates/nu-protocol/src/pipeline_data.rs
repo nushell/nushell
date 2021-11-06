@@ -37,16 +37,16 @@ pub enum PipelineData {
 }
 
 impl PipelineData {
-    pub fn new() -> PipelineData {
-        PipelineData::Value(Value::nothing())
+    pub fn new(span: Span) -> PipelineData {
+        PipelineData::Value(Value::Nothing { span })
     }
 
-    pub fn into_value(self) -> Value {
+    pub fn into_value(self, span: Span) -> Value {
         match self {
             PipelineData::Value(v) => v,
             PipelineData::Stream(s) => Value::List {
                 vals: s.collect(),
-                span: Span::unknown(), // FIXME?
+                span, // FIXME?
             },
         }
     }
@@ -140,11 +140,11 @@ impl PipelineData {
     }
 }
 
-impl Default for PipelineData {
-    fn default() -> Self {
-        PipelineData::new()
-    }
-}
+// impl Default for PipelineData {
+//     fn default() -> Self {
+//         PipelineData::new()
+//     }
+// }
 
 pub struct PipelineIterator(PipelineData);
 

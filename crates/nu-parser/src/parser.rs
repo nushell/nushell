@@ -1292,6 +1292,7 @@ pub fn parse_full_cell_path(
     if let Some(head) = tokens.peek() {
         let bytes = working_set.get_span_contents(head.span);
         let (head, expect_dot) = if bytes.starts_with(b"(") {
+            let head_span = head.span;
             let mut start = head.span.start;
             let mut end = head.span.end;
 
@@ -1331,7 +1332,7 @@ pub fn parse_full_cell_path(
             (
                 Expression {
                     expr: Expr::Subexpression(block_id),
-                    span,
+                    span: head_span,
                     ty: Type::Unknown, // FIXME
                     custom_completion: None,
                 },

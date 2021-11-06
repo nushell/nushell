@@ -24,7 +24,7 @@ pub fn reducer_for(command: Reduce) -> ReducerFunction {
 pub fn max(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
     let mut biggest = data
         .first()
-        .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), Span::unknown()))?
+        .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), head))?
         .clone();
 
     for value in &data {
@@ -48,7 +48,7 @@ pub fn max(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
 pub fn min(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
     let mut smallest = data
         .first()
-        .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), Span::unknown()))?
+        .ok_or_else(|| ShellError::UnsupportedInput("Empty input".to_string(), head))?
         .clone();
 
     for value in &data {
@@ -87,9 +87,9 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
         }),
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
-            Span::unknown(),
+            head,
         )),
-        _ => Ok(Value::nothing()),
+        _ => Ok(Value::nothing(head)),
     }?;
 
     for value in &data {
@@ -127,7 +127,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             "Empty input".to_string(),
             Span::unknown(),
         )),
-        _ => Ok(Value::nothing()),
+        _ => Ok(Value::nothing(head)),
     }?;
 
     for value in &data {

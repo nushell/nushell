@@ -39,7 +39,13 @@ impl Command for Benchmark {
 
         let mut stack = stack.collect_captures(&block.captures);
         let start_time = Instant::now();
-        eval_block(engine_state, &mut stack, block, PipelineData::new())?.into_value();
+        eval_block(
+            engine_state,
+            &mut stack,
+            block,
+            PipelineData::new(call.head),
+        )?
+        .into_value(call.head);
 
         let end_time = Instant::now();
 

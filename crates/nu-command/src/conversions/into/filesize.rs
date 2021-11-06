@@ -131,7 +131,7 @@ pub fn action(input: &Value, span: Span) -> Value {
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     match a_string.parse::<bytesize::ByteSize>() {
         Ok(n) => Ok(n.0 as i64),
-        Err(_) => Err(ShellError::CantConvert("int".into(), span)),
+        Err(_) => Err(ShellError::CantConvert("int".into(), "string".into(), span)),
     }
 }
 

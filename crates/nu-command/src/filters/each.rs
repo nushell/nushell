@@ -102,8 +102,8 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(v) => v.into_value(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(span)) {
+                        Ok(v) => v.into_value(span),
                         Err(error) => Value::Error { error },
                     }
                 })
@@ -136,7 +136,7 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new())? {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
                         PipelineData::Value(Value::Record {
                             mut cols, mut vals, ..
                         }) => {
@@ -146,7 +146,7 @@ impl Command for Each {
                         }
                         x => {
                             output_cols.push(col);
-                            output_vals.push(x.into_value());
+                            output_vals.push(x.into_value(span));
                         }
                     }
                 }
@@ -167,7 +167,7 @@ impl Command for Each {
                     }
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
             }
         }
     }

@@ -88,7 +88,7 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -129,7 +129,7 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -169,7 +169,7 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new()) {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -206,7 +206,7 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new())? {
+                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
                         PipelineData::Value(Value::Record {
                             mut cols, mut vals, ..
                         }) => {
@@ -216,7 +216,7 @@ impl Command for ParEach {
                         }
                         x => {
                             output_cols.push(col);
-                            output_vals.push(x.into_value());
+                            output_vals.push(x.into_value(span));
                         }
                     }
                 }
@@ -237,7 +237,7 @@ impl Command for ParEach {
                     }
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
             }
         }
     }

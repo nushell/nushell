@@ -19,7 +19,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    IntoPipelineData, PipelineData, ShellError, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, Value,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 
@@ -126,7 +126,12 @@ fn main() -> Result<()> {
             stack.env_vars.insert(k, v);
         }
 
-        match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
+        match eval_block(
+            &engine_state,
+            &mut stack,
+            &block,
+            PipelineData::new(Span::unknown()),
+        ) {
             Ok(pipeline_data) => {
                 println!("{}", pipeline_data.collect_string());
             }
@@ -312,7 +317,12 @@ fn update_prompt<'prompt>(
 
     let mut stack = stack.clone();
 
-    let evaluated_prompt = match eval_block(engine_state, &mut stack, &block, PipelineData::new()) {
+    let evaluated_prompt = match eval_block(
+        engine_state,
+        &mut stack,
+        &block,
+        PipelineData::new(Span::unknown()),
+    ) {
         Ok(pipeline_data) => pipeline_data.collect_string(),
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);
@@ -349,9 +359,14 @@ fn eval_source(
 
     engine_state.merge_delta(delta);
 
-    match eval_block(engine_state, stack, &block, PipelineData::new()) {
+    match eval_block(
+        engine_state,
+        stack,
+        &block,
+        PipelineData::new(Span::unknown()),
+    ) {
         Ok(pipeline_data) => {
-            if let Err(err) = print_value(pipeline_data.into_value(), engine_state) {
+            if let Err(err) = print_value(pipeline_data.into_value(Span::unknown()), engine_state) {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);

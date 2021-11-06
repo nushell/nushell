@@ -229,11 +229,8 @@ pub fn action(
                 span,
             ),
         },
-        _ => Value::Error {
-            error: ShellError::CantConvert(
-                String::from(" into string. Probably this type is not supported yet"),
-                span,
-            ),
+        x => Value::Error {
+            error: ShellError::CantConvert(String::from("string"), x.get_type().to_string(), span),
         },
     }
 }

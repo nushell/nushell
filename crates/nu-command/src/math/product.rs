@@ -42,7 +42,7 @@ impl Command for SubCommand {
 /// Calculate product of given values
 pub fn product(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let product_func = reducer_for(Reduce::Product);
-    product_func(Value::nothing(), values.to_vec(), *head)
+    product_func(Value::nothing(*head), values.to_vec(), *head)
 }
 
 #[cfg(test)]

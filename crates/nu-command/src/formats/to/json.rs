@@ -127,7 +127,11 @@ fn to_json(
                 }
                 .into_pipeline_data()),
                 _ => Ok(Value::Error {
-                    error: ShellError::CantConvert("JSON".into(), name_span),
+                    error: ShellError::CantConvert(
+                        "JSON".into(),
+                        value.get_type().to_string(),
+                        name_span,
+                    ),
                 }
                 .into_pipeline_data()),
             }
@@ -141,12 +145,20 @@ fn to_json(
                             span: name_span,
                         },
                         _ => Value::Error {
-                            error: ShellError::CantConvert("JSON".into(), name_span),
+                            error: ShellError::CantConvert(
+                                "JSON".into(),
+                                value.get_type().to_string(),
+                                name_span,
+                            ),
                         },
                     }
                 } else {
                     Value::Error {
-                        error: ShellError::CantConvert("JSON".into(), name_span),
+                        error: ShellError::CantConvert(
+                            "JSON".into(),
+                            value.get_type().to_string(),
+                            name_span,
+                        ),
                     }
                 }
             })

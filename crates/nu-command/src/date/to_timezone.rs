@@ -111,7 +111,7 @@ fn _to_timezone(dt: DateTime<FixedOffset>, timezone: &Spanned<String>, span: Spa
     match datetime_in_timezone(&dt, timezone.item.as_str()) {
         Ok(dt) => Value::Date { val: dt, span },
         Err(_) => Value::Error {
-            error: ShellError::UnsupportedInput(String::from("invalid time zone"), Span::unknown()),
+            error: ShellError::UnsupportedInput(String::from("invalid time zone"), span),
         },
     }
 }

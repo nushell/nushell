@@ -46,6 +46,6 @@ impl Command for LetEnv {
         //println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_env_var(env_var, rhs);
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }

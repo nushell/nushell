@@ -38,7 +38,7 @@ impl Command for Format {
             Ok(pattern) => {
                 let string_pattern = pattern.as_string().unwrap();
                 let ops = extract_formatting_operations(string_pattern);
-                format(input, &ops)
+                format(input, &ops, call.head)
             }
         }
     }
@@ -116,8 +116,9 @@ fn extract_formatting_operations(input: String) -> Vec<FormatOperation> {
 fn format(
     input_data: PipelineData,
     format_operations: &[FormatOperation],
+    span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let data_as_value = input_data.into_value();
+    let data_as_value = input_data.into_value(span);
 
     //  We can only handle a Record or a List of Record's
     match data_as_value {

@@ -44,6 +44,7 @@ impl Command for For {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let head = call.head;
         let var_id = call.positional[0]
             .as_var()
             .expect("internal error: missing variable");
@@ -69,8 +70,8 @@ impl Command for For {
                     stack.add_var(var_id, x);
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(pipeline_data) => pipeline_data.into_value(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
+                        Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
                     }
                 })
@@ -81,8 +82,8 @@ impl Command for For {
                     stack.add_var(var_id, x);
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new()) {
-                        Ok(pipeline_data) => pipeline_data.into_value(),
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
+                        Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
                     }
                 })
@@ -90,7 +91,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, &mut stack, &block, PipelineData::new())
+                eval_block(&engine_state, &mut stack, &block, PipelineData::new(head))
             }
         }
     }

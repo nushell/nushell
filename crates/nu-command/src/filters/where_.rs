@@ -29,6 +29,7 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let head = call.head;
         let cond = call.positional[0].clone();
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -79,7 +80,7 @@ impl Command for Where {
                 if result.is_true() {
                     Ok(x.into_pipeline_data())
                 } else {
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(head))
                 }
             }
         }

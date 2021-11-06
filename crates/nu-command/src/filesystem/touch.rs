@@ -49,6 +49,6 @@ impl Command for Touch {
             }
         }
 
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }

@@ -40,9 +40,9 @@ impl Command for If {
         let else_case = call.positional.get(2);
 
         let result = eval_expression(engine_state, stack, cond)?;
-        match result {
+        match &result {
             Value::Bool { val, .. } => {
-                if val {
+                if *val {
                     let block = engine_state.get_block(then_block);
                     let mut stack = stack.collect_captures(&block.captures);
                     eval_block(engine_state, &mut stack, block, input)
@@ -61,10 +61,14 @@ impl Command for If {
                             .map(|x| x.into_pipeline_data())
                     }
                 } else {
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(call.head))
                 }
             }
-            _ => Err(ShellError::CantConvert("bool".into(), result.span()?)),
+            x => Err(ShellError::CantConvert(
+                "bool".into(),
+                x.get_type().to_string(),
+                result.span()?,
+            )),
         }
     }
 }

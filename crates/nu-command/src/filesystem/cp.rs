@@ -204,6 +204,6 @@ impl Command for Cp {
             }
         }
 
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }

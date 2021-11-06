@@ -91,7 +91,11 @@ impl TryFrom<&Value> for EnvVar {
                 Ok(EnvVar::Proper(s))
             }
         } else {
-            Err(ShellError::CantConvert("string".into(), value.span()?))
+            Err(ShellError::CantConvert(
+                "string".into(),
+                value.get_type().to_string(),
+                value.span()?,
+            ))
         }
     }
 }
@@ -123,9 +127,10 @@ fn with_env(
                             env.insert(k.to_string(), v.try_into()?);
                         }
                     }
-                    _ => {
+                    x => {
                         return Err(ShellError::CantConvert(
                             "string list or single row".into(),
+                            x.get_type().to_string(),
                             call.positional[1].span,
                         ));
                     }
@@ -145,9 +150,10 @@ fn with_env(
                 env.insert(k.clone(), v.try_into()?);
             }
         }
-        _ => {
+        x => {
             return Err(ShellError::CantConvert(
                 "string list or single row".into(),
+                x.get_type().to_string(),
                 call.positional[1].span,
             ));
         }

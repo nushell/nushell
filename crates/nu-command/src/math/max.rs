@@ -41,7 +41,7 @@ impl Command for SubCommand {
 
 pub fn maximum(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let max_func = reducer_for(Reduce::Maximum);
-    max_func(Value::nothing(), values.to_vec(), *head)
+    max_func(Value::nothing(*head), values.to_vec(), *head)
 }
 
 #[cfg(test)]

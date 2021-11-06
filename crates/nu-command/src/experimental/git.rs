@@ -44,13 +44,13 @@ impl Command for Git {
                     }
                     Err(_err) => {
                         // FIXME: Move this to an external signature and add better error handling
-                        Ok(PipelineData::new())
+                        Ok(PipelineData::new(call.head))
                     }
                 }
             }
             Err(_err) => {
                 // FIXME: Move this to an external signature and add better error handling
-                Ok(PipelineData::new())
+                Ok(PipelineData::new(call.head))
             }
         }
     }

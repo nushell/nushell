@@ -70,7 +70,7 @@ prints out the list properly."#
                         separator_param,
                     ))
                 } else {
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(call.head))
                 }
             }
             PipelineData::Stream(stream) => {
@@ -86,7 +86,7 @@ prints out the list properly."#
                     ))
                 } else {
                     // dbg!(data);
-                    Ok(PipelineData::new())
+                    Ok(PipelineData::new(call.head))
                 }
             }
             PipelineData::Value(Value::Record { cols, vals, .. }) => {

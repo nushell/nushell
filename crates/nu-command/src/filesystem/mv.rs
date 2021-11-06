@@ -130,7 +130,7 @@ impl Command for Mv {
             move_file(call, &entry, &destination)?
         }
 
-        Ok(PipelineData::new())
+        Ok(PipelineData::new(call.head))
     }
 }
 

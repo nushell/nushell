@@ -128,7 +128,11 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
         nu_json::Value::U64(u) => {
             if *u > i64::MAX as u64 {
                 Value::Error {
-                    error: ShellError::CantConvert("i64 sized integer".into(), span),
+                    error: ShellError::CantConvert(
+                        "i64 sized integer".into(),
+                        "larger than i64".into(),
+                        span,
+                    ),
                 }
             } else {
                 Value::Int {
@@ -151,6 +155,7 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
 
         Err(_x) => Err(ShellError::CantConvert(
             "structured data from json".into(),
+            "string".into(),
             span,
         )),
     }

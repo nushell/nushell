@@ -178,7 +178,11 @@ pub fn eval_expression(
         }),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
             Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
-            _ => Err(ShellError::CantConvert("unit value".into(), e.span)),
+            x => Err(ShellError::CantConvert(
+                "unit value".into(),
+                x.get_type().to_string(),
+                e.span,
+            )),
         },
         Expr::Range(from, next, to, operator) => {
             let from = if let Some(f) = from {
@@ -224,7 +228,10 @@ pub fn eval_expression(
         Expr::RowCondition(_, expr) => eval_expression(engine_state, stack, expr),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
-            Ok(eval_call(engine_state, stack, call, PipelineData::new())?.into_value())
+            Ok(
+                eval_call(engine_state, stack, call, PipelineData::new(call.head))?
+                    .into_value(call.head),
+            )
         }
         Expr::ExternalCall(name, span, args) => {
             // FIXME: protect this collect with ctrl-c
@@ -234,10 +241,10 @@ pub fn eval_expression(
                 name,
                 span,
                 args,
-                PipelineData::new(),
+                PipelineData::new(*span),
                 true,
             )?
-            .into_value())
+            .into_value(*span))
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -271,7 +278,10 @@ pub fn eval_expression(
             let block = engine_state.get_block(*block_id);
 
             // FIXME: protect this collect with ctrl-c
-            Ok(eval_block(engine_state, stack, block, PipelineData::new())?.into_value())
+            Ok(
+                eval_subexpression(engine_state, stack, block, PipelineData::new(expr.span))?
+                    .into_value(expr.span),
+            )
         }
         Expr::Block(block_id) => Ok(Value::Block {
             val: *block_id,
@@ -357,6 +367,64 @@ pub fn eval_block(
                             input,
                             i == pipeline.expressions.len() - 1,
                         )?;
+                    }
+
+                    elem => {
+                        input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(input)
+}
+
+pub fn eval_subexpression(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    for stmt in block.stmts.iter() {
+        if let Statement::Pipeline(pipeline) = stmt {
+            for (i, elem) in pipeline.expressions.iter().enumerate() {
+                match elem {
+                    Expression {
+                        expr: Expr::Call(call),
+                        ..
+                    } => {
+                        input = eval_call(engine_state, stack, call, input)?;
+                    }
+                    Expression {
+                        expr: Expr::ExternalCall(name, name_span, args),
+                        ..
+                    } => {
+                        input = eval_external(
+                            engine_state,
+                            stack,
+                            name,
+                            name_span,
+                            args,
+                            input,
+                            false,
+                        )?;
+
+                        if i == pipeline.expressions.len() - 1 {
+                            // We're at the end, so drain as a string for the value
+                            // to be used later
+                            // FIXME: the trimming of the end probably needs to live in a better place
+
+                            let mut s = input.collect_string();
+                            if s.ends_with('\n') {
+                                s.pop();
+                            }
+                            input = Value::String {
+                                val: s.to_string(),
+                                span: *name_span,
+                            }
+                            .into_pipeline_data()
+                        }
                     }
 
                     elem => {

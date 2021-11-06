@@ -82,7 +82,7 @@ pub enum ShellError {
 
     #[error("Can't convert to {0}.")]
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
-    CantConvert(String, #[label("can't convert to {0}")] Span),
+    CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
 
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero), url(docsrs))]

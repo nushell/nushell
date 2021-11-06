@@ -72,8 +72,12 @@ impl Completer for NuCompleter {
                             parse(&mut working_set, None, custom_completion.as_bytes(), false);
 
                         let mut stack = Stack::default();
-                        let result =
-                            eval_block(&self.engine_state, &mut stack, &block, PipelineData::new());
+                        let result = eval_block(
+                            &self.engine_state,
+                            &mut stack,
+                            &block,
+                            PipelineData::new(flat.0),
+                        );
 
                         let v: Vec<_> = match result {
                             Ok(pd) => pd

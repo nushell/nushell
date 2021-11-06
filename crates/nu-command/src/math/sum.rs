@@ -48,7 +48,7 @@ impl Command for SubCommand {
 
 pub fn summation(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let sum_func = reducer_for(Reduce::Summation);
-    sum_func(Value::nothing(), values.to_vec(), *head)
+    sum_func(Value::nothing(*head), values.to_vec(), *head)
 }
 
 #[cfg(test)]

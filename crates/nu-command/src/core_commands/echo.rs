@@ -1,9 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream};
 
 #[derive(Clone)]
 pub struct Echo;
@@ -43,7 +41,7 @@ impl Command for Echo {
                 //  When there are no elements, we echo the empty string
                 std::cmp::Ordering::Less => PipelineData::Value(Value::String {
                     val: "".to_string(),
-                    span: Span::unknown(),
+                    span: call.head,
                 }),
             }
         })

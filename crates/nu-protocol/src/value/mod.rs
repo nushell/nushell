@@ -87,7 +87,14 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val.to_string()),
-            _ => Err(ShellError::CantConvert("string".into(), self.span()?)),
+            x => {
+                println!("{:?}", x);
+                Err(ShellError::CantConvert(
+                    "string".into(),
+                    x.get_type().to_string(),
+                    self.span()?,
+                ))
+            }
         }
     }
 
@@ -225,10 +232,8 @@ impl Value {
     }
 
     /// Create a new `Nothing` value
-    pub fn nothing() -> Value {
-        Value::Nothing {
-            span: Span::unknown(),
-        }
+    pub fn nothing(span: Span) -> Value {
+        Value::Nothing { span }
     }
 
     /// Follow a given column path into the value: for example accessing nth elements in a stream or list
@@ -425,7 +430,9 @@ impl Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Value::nothing()
+        Value::Nothing {
+            span: Span::unknown(),
+        }
     }
 }
 
