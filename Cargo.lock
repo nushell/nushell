@@ -695,6 +695,7 @@ dependencies = [
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
+ "rand",
  "rayon",
  "sysinfo",
  "terminal_size",
