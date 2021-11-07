@@ -282,7 +282,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "486d44227f71a1ef39554c0dc47e44b9f4139927c75043312690c3f476d1d788"
 dependencies = [
  "bitflags",
- "crossterm_winapi",
+ "crossterm_winapi 0.8.0",
+ "libc",
+ "mio",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c85525306c4291d1b73ce93c8acf9c339f9b213aef6c1d85c3830cbf1c16325c"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi 0.9.0",
  "libc",
  "mio",
  "parking_lot",
@@ -297,6 +313,15 @@ name = "crossterm_winapi"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a6966607622438301997d3dac0d2f6e9a90c68bb6bc1785ea98456ab93c0507"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
+name = "crossterm_winapi"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ae1b35a484aa10e07fe0638d02301c5ad24de82d310ccbd2f3693da5f09bf1c"
 dependencies = [
  "winapi",
 ]
@@ -395,7 +420,7 @@ name = "engine-q"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "crossterm",
+ "crossterm 0.21.0",
  "ctrlc",
  "dialoguer",
  "miette",
@@ -504,9 +529,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.106"
+version = "0.2.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a60553f9a9e039a333b4e9b20573b9e9b9c0bb3a11e201ccc48ef4283456d673"
+checksum = "fbe5e23404da5b4f555ef85ebed98fb4083e55a00c317800bc2a50ede9f3d219"
 
 [[package]]
 name = "linked-hash-map"
@@ -543,7 +568,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd0aa49b10c47f9a4391a99198b5e65c74f9ca771c0dcc856bb75a3f46c8627d"
 dependencies = [
  "ansi_term",
- "crossterm",
+ "crossterm 0.21.0",
 ]
 
 [[package]]
@@ -663,11 +688,10 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.36.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9997d7235160af8a18ea7744dd1be1f2abacc93908d263f748b9932e1bd0c85c"
+checksum = "e62e2187cbceeafee9fb7b5e5e182623e0628ebf430a479df4487beb8f92fd7a"
 dependencies = [
- "itertools",
  "overload",
  "winapi",
 ]
@@ -1119,10 +1143,10 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#ee0c274600e55e158082913233fdf796efe166b3"
+source = "git+https://github.com/nushell/reedline?branch=main#550ce9b486b4f1e979ddc37a50d95f27afe37ff3"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.22.1",
  "nu-ansi-term",
  "serde",
  "unicode-segmentation",
