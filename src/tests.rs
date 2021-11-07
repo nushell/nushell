@@ -730,7 +730,7 @@ fn earlier_errors() -> TestResult {
 fn missing_column_error() -> TestResult {
     fail_test(
         r#"([([[name, size]; [ABC, 10], [DEF, 20]]).1, ([[name]; [HIJ]]).0]).size | table"#,
-        "cannot find column",
+        "did you mean 'name'?",
     )
 }
 
@@ -829,7 +829,7 @@ fn shorthand_env_3() -> TestResult {
 
 #[test]
 fn shorthand_env_4() -> TestResult {
-    fail_test(r#"FOO=BAZ FOO= $nu.env.FOO"#, "cannot find column")
+    fail_test(r#"FOO=BAZ FOO= $nu.env.FOO"#, "did you mean")
 }
 
 #[test]

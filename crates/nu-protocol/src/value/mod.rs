@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
-use crate::{span, BlockId, Span, Spanned, Type};
+use crate::{did_you_mean, span, BlockId, Span, Spanned, Type};
 
 use crate::ShellError;
 
@@ -269,17 +269,16 @@ impl Value {
                     span: origin_span,
                 } => match &mut current {
                     Value::Record { cols, vals, span } => {
+                        let cols = cols.clone();
                         let span = *span;
-                        let mut found = false;
-                        for col in cols.iter().zip(vals.iter()) {
-                            if col.0 == column_name {
-                                current = col.1.clone();
-                                found = true;
-                                break;
-                            }
-                        }
 
-                        if !found {
+                        if let Some(found) =
+                            cols.iter().zip(vals.iter()).find(|x| x.0 == column_name)
+                        {
+                            current = found.1.clone();
+                        } else if let Some(suggestion) = did_you_mean(&cols, column_name) {
+                            return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                        } else {
                             return Err(ShellError::CantFindColumn(*origin_span, span));
                         }
                     }
