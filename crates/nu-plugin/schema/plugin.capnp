@@ -9,14 +9,6 @@
 # rust file and place that file into the main nu-plugin folder.
 # After compiling, you may need to run cargo fmt on the file so it passes the CI
 
-# Generic structs used as helpers for the encoding
-struct Option(T) {
-	union {
-		none @0 :Void;
-		some @1 :T;
-	}
-}
-
 struct Err(T) {
 	union {
 		err @0 :Text;
@@ -59,14 +51,14 @@ struct Signature {
     extraUsage @2 :Text;
     requiredPositional @3 :List(Argument);
     optionalPositional @4 :List(Argument);
-    rest @5 :Option(Argument);
+    rest @5 :Argument; # Optional value. Check for existence when deserializing
     named @6 :List(Flag);
     isFilter @7 :Bool;
 }
 
 struct Flag {
     long @0 :Text;
-    short @1 :Option(Text);
+    short @1 :Text; # Optional value. Check for existence when deserializing
     arg @2 :Shape;
     required @3 :Bool;
     desc @4 :Text;
@@ -107,7 +99,9 @@ struct Expression {
 struct Call {
 	head @0: Span;
 	positional @1 :List(Expression);
-	named @2 :Map(Text, Option(Expression));
+	# The expression in the map can be optional
+	# Check for existence when deserializing
+	named @2 :Map(Text, Expression);
 }
 
 struct CallInfo {

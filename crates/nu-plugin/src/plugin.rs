@@ -65,47 +65,42 @@ impl Display for PluginError {
 pub fn get_signature(path: &Path) -> Result<Vec<Signature>, PluginError> {
     let mut plugin_cmd = create_command(path);
 
-    // Both stdout and stdin are piped so we can get the information from the plugin
-    plugin_cmd.stdout(Stdio::piped());
-    plugin_cmd.stdin(Stdio::piped());
+    let mut child = plugin_cmd
+        .spawn()
+        .map_err(|err| PluginError::UnableToSpawn(format!("{}", err)))?;
 
-    match plugin_cmd.spawn() {
-        Err(err) => Err(PluginError::UnableToSpawn(format!("{}", err))),
-        Ok(mut child) => {
-            // Create message to plugin to indicate that signature is required and
-            // send call to plugin asking for signature
-            if let Some(mut stdin_writer) = child.stdin.take() {
-                plugin_call::encode_call(&PluginCall::Signature, &mut stdin_writer)?
-            }
-
-            // deserialize response from plugin to extract the signature
-            let signature = if let Some(stdout_reader) = child.stdout.take() {
-                let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout_reader);
-                let response = plugin_call::decode_response(&mut buf_read)?;
-
-                match response {
-                    PluginResponse::Signature(sign) => Ok(sign),
-                    PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
-                    _ => Err(PluginError::DecodingError("signature not found".into())),
-                }
-            } else {
-                Err(PluginError::UnableToGetStdout)
-            }?;
-
-            match child.wait() {
-                Err(err) => Err(PluginError::UnableToSpawn(format!("{}", err))),
-                Ok(_) => Ok(signature),
-            }
-        }
+    // Create message to plugin to indicate that signature is required and
+    // send call to plugin asking for signature
+    if let Some(stdin_writer) = &mut child.stdin {
+        let mut writer = stdin_writer;
+        plugin_call::encode_call(&PluginCall::Signature, &mut writer)?
     }
+
+    // deserialize response from plugin to extract the signature
+    let signature = if let Some(stdout_reader) = &mut child.stdout {
+        let reader = stdout_reader;
+        let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+        let response = plugin_call::decode_response(&mut buf_read)?;
+
+        match response {
+            PluginResponse::Signature(sign) => Ok(sign),
+            PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
+            _ => Err(PluginError::DecodingError("signature not found".into())),
+        }
+    } else {
+        Err(PluginError::UnableToGetStdout)
+    }?;
+
+    // There is no need to wait for the child process to finish since the
+    // signature has being collected
+    Ok(signature)
 }
 
 fn create_command(path: &Path) -> CommandSys {
     //TODO. The selection of shell could be modifiable from the config file.
-    if cfg!(windows) {
+    let mut process = if cfg!(windows) {
         let mut process = CommandSys::new("cmd");
-        process.arg("/c");
-        process.arg(path);
+        process.arg("/c").arg(path);
 
         process
     } else {
@@ -113,7 +108,12 @@ fn create_command(path: &Path) -> CommandSys {
         process.arg("-c").arg(path);
 
         process
-    }
+    };
+
+    // Both stdout and stdin are piped so we can receive information from the plugin
+    process.stdout(Stdio::piped()).stdin(Stdio::piped());
+
+    process
 }
 
 #[derive(Debug, Clone)]
@@ -159,65 +159,60 @@ impl Command for PluginDeclaration {
         let source_file = Path::new(&self.filename);
         let mut plugin_cmd = create_command(source_file);
 
-        // Both stdout and stdin are piped so we can get the information from the plugin
-        plugin_cmd.stdout(Stdio::piped());
-        plugin_cmd.stdin(Stdio::piped());
+        let mut child = plugin_cmd
+            .spawn()
+            .map_err(|err| ShellError::PluginError(format!("{}", err)))?;
 
-        match plugin_cmd.spawn() {
-            Err(err) => Err(ShellError::PluginError(format!("{}", err))),
-            Ok(mut child) => {
-                let input = match input {
-                    PipelineData::Value(value) => value,
-                    PipelineData::Stream(stream) => {
-                        let values = stream.collect::<Vec<Value>>();
+        let input = match input {
+            PipelineData::Value(value) => value,
+            PipelineData::Stream(stream) => {
+                let values = stream.collect::<Vec<Value>>();
 
-                        Value::List {
-                            vals: values,
-                            span: call.head,
-                        }
-                    }
-                };
-
-                // PluginCall information
-                let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
-                    name: self.name.clone(),
-                    call: call.clone(),
-                    input,
-                }));
-
-                // Create message to plugin to indicate that signature is required and
-                // send call to plugin asking for signature
-                if let Some(mut stdin_writer) = child.stdin.take() {
-                    plugin_call::encode_call(&plugin_call, &mut stdin_writer)
-                        .map_err(|err| ShellError::PluginError(err.to_string()))?
-                }
-
-                // Deserialize response from plugin to extract the resulting value
-                let pipeline_data = if let Some(stdout_reader) = child.stdout.take() {
-                    let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout_reader);
-                    let response = plugin_call::decode_response(&mut buf_read)
-                        .map_err(|err| ShellError::PluginError(err.to_string()))?;
-
-                    match response {
-                        PluginResponse::Value(value) => {
-                            Ok(PipelineData::Value(value.as_ref().clone()))
-                        }
-                        PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
-                        _ => Err(PluginError::DecodingError(
-                            "result value from plugin not found".into(),
-                        )),
-                    }
-                } else {
-                    Err(PluginError::UnableToGetStdout)
-                }
-                .map_err(|err| ShellError::PluginError(err.to_string()))?;
-
-                match child.wait() {
-                    Err(err) => Err(ShellError::PluginError(format!("{}", err))),
-                    Ok(_) => Ok(pipeline_data),
+                Value::List {
+                    vals: values,
+                    span: call.head,
                 }
             }
+        };
+
+        // Create message to plugin to indicate that signature is required and
+        // send call to plugin asking for signature
+        if let Some(stdin_writer) = &mut child.stdin {
+            // PluginCall information
+            let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
+                name: self.name.clone(),
+                call: call.clone(),
+                input,
+            }));
+
+            let mut writer = stdin_writer;
+
+            plugin_call::encode_call(&plugin_call, &mut writer)
+                .map_err(|err| ShellError::PluginError(err.to_string()))?;
         }
+
+        // Deserialize response from plugin to extract the resulting value
+        let pipeline_data = if let Some(stdout_reader) = &mut child.stdout {
+            let reader = stdout_reader;
+            let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+            let response = plugin_call::decode_response(&mut buf_read)
+                .map_err(|err| ShellError::PluginError(err.to_string()))?;
+
+            match response {
+                PluginResponse::Value(value) => Ok(PipelineData::Value(value.as_ref().clone())),
+                PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
+                _ => Err(PluginError::DecodingError(
+                    "result value from plugin not found".into(),
+                )),
+            }
+        } else {
+            Err(PluginError::UnableToGetStdout)
+        }
+        .map_err(|err| ShellError::PluginError(err.to_string()))?;
+
+        // There is no need to wait for the child process to finish
+        // The response has been collected from the plugin call
+        Ok(pipeline_data)
     }
 
     fn is_plugin(&self) -> bool {

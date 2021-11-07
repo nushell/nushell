@@ -1,5 +1,5 @@
 use crate::plugin::PluginError;
-use crate::plugin_capnp::{argument, flag, option, signature, Shape};
+use crate::plugin_capnp::{argument, flag, signature, Shape};
 use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
 
 pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature::Builder) {
@@ -29,13 +29,9 @@ pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature:
     }
 
     // Serializing rest argument
-    let mut rest_argument = builder.reborrow().init_rest();
-    match &signature.rest_positional {
-        None => rest_argument.set_none(()),
-        Some(arg) => {
-            let inner_builder = rest_argument.init_some();
-            serialize_argument(arg, inner_builder)
-        }
+    let rest_argument = builder.reborrow().init_rest();
+    if let Some(arg) = &signature.rest_positional {
+        serialize_argument(arg, rest_argument)
     }
 
     // Serializing the named arguments
@@ -65,13 +61,9 @@ fn serialize_flag(arg: &Flag, mut builder: flag::Builder) {
     builder.set_required(arg.required);
     builder.set_desc(arg.desc.as_str());
 
-    let mut short_builder = builder.reborrow().init_short();
-    match arg.short {
-        None => short_builder.set_none(()),
-        Some(val) => {
-            let mut inner_builder = short_builder.reborrow().initn_some(1);
-            inner_builder.push_str(format!("{}", val).as_str());
-        }
+    if let Some(val) = arg.short {
+        let mut inner_builder = builder.reborrow().init_short(1);
+        inner_builder.push_str(format!("{}", val).as_str());
     }
 
     match &arg.arg {
@@ -119,17 +111,14 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         .collect::<Result<Vec<PositionalArg>, PluginError>>()?;
 
     // Deserializing rest arguments
-    let rest_option = reader
-        .get_rest()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+    let rest_positional = if reader.has_rest() {
+        let argument_reader = reader
+            .get_rest()
+            .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
-    let rest_positional = match rest_option.which() {
-        Err(capnp::NotInSchema(_)) => None,
-        Ok(option::None(())) => None,
-        Ok(option::Some(rest_reader)) => {
-            let rest_reader = rest_reader.map_err(|e| PluginError::EncodingError(e.to_string()))?;
-            Some(deserialize_argument(rest_reader)?)
-        }
+        Some(deserialize_argument(argument_reader)?)
+    } else {
+        None
     };
 
     // Deserializing named arguments
@@ -196,17 +185,14 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
 
     let required = reader.get_required();
 
-    let short = reader
-        .get_short()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+    let short = if reader.has_short() {
+        let short_reader = reader
+            .get_short()
+            .map_err(|e| PluginError::EncodingError(e.to_string()))?;
 
-    let short = match short.which() {
-        Err(capnp::NotInSchema(_)) => None,
-        Ok(option::None(())) => None,
-        Ok(option::Some(reader)) => {
-            let reader = reader.map_err(|e| PluginError::EncodingError(e.to_string()))?;
-            reader.chars().next()
-        }
+        short_reader.chars().next()
+    } else {
+        None
     };
 
     let arg = reader
@@ -235,7 +221,7 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use capnp::serialize_packed;
+    use capnp::serialize;
     use nu_protocol::{Signature, SyntaxShape};
 
     pub fn write_buffer(
@@ -248,13 +234,13 @@ mod tests {
 
         serialize_signature(signature, builder);
 
-        serialize_packed::write_message(writer, &message)
+        serialize::write_message(writer, &message)
             .map_err(|e| PluginError::EncodingError(e.to_string()))
     }
 
     pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, PluginError> {
         let message_reader =
-            serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+            serialize::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
 
         let reader = message_reader
             .get_root::<signature::Reader>()
@@ -275,6 +261,7 @@ mod tests {
                 "second named",
                 Some('s'),
             )
+            .switch("switch", "some switch", None)
             .rest("remaining", SyntaxShape::Int, "remaining");
 
         let mut buffer: Vec<u8> = Vec::new();

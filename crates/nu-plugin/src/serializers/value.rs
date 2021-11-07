@@ -88,7 +88,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, PluginEr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use capnp::serialize_packed;
+    use capnp::serialize;
     use nu_protocol::{Span, Value};
 
     pub fn write_buffer(
@@ -101,13 +101,13 @@ mod tests {
 
         serialize_value(value, builder.reborrow());
 
-        serialize_packed::write_message(writer, &message)
+        serialize::write_message(writer, &message)
             .map_err(|e| PluginError::EncodingError(e.to_string()))
     }
 
     pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Value, PluginError> {
         let message_reader =
-            serialize_packed::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
+            serialize::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
 
         let reader = message_reader
             .get_root::<value::Reader>()
