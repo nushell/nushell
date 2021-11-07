@@ -804,7 +804,7 @@ fn help_works_with_missing_requirements() -> TestResult {
 
 #[test]
 fn scope_variable() -> TestResult {
-    run_test(r#"let x = 3; $scope.vars.0"#, "$x")
+    run_test(r#"let x = 3; $scope.vars.'$x'"#, "int")
 }
 
 #[test]
@@ -853,4 +853,9 @@ fn precedence_of_or_groups() -> TestResult {
 #[test]
 fn where_on_ranges() -> TestResult {
     run_test(r#"1..10 | where $it > 8 | math sum"#, "19")
+}
+
+#[test]
+fn index_on_list() -> TestResult {
+    run_test(r#"[1, 2, 3].1"#, "2")
 }

@@ -1302,15 +1302,8 @@ pub fn parse_full_cell_path(
             if bytes.ends_with(b")") {
                 end -= 1;
             } else {
-                error = error.or_else(|| {
-                    Some(ParseError::Unclosed(
-                        ")".into(),
-                        Span {
-                            start: end,
-                            end: end + 1,
-                        },
-                    ))
-                });
+                error = error
+                    .or_else(|| Some(ParseError::Unclosed(")".into(), Span { start: end, end })));
             }
 
             let span = Span { start, end };
@@ -1338,6 +1331,13 @@ pub fn parse_full_cell_path(
                 },
                 true,
             )
+        } else if bytes.starts_with(b"[") {
+            let (output, err) = parse_table_expression(working_set, head.span);
+            error = error.or(err);
+
+            tokens.next();
+
+            (output, true)
         } else if bytes.starts_with(b"$") {
             let (out, err) = parse_variable_expr(working_set, head.span);
             error = error.or(err);
@@ -1369,15 +1369,28 @@ pub fn parse_full_cell_path(
         let (tail, err) = parse_cell_path(working_set, tokens, expect_dot, span);
         error = error.or(err);
 
-        (
-            Expression {
-                expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
-                ty: Type::Unknown,
-                span: full_cell_span,
-                custom_completion: None,
-            },
-            error,
-        )
+        if !tail.is_empty() {
+            (
+                Expression {
+                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                    ty: Type::Unknown,
+                    span: full_cell_span,
+                    custom_completion: None,
+                },
+                error,
+            )
+        } else {
+            let ty = head.ty.clone();
+            (
+                Expression {
+                    expr: Expr::FullCellPath(Box::new(FullCellPath { head, tail })),
+                    ty,
+                    span: full_cell_span,
+                    custom_completion: None,
+                },
+                error,
+            )
+        }
     } else {
         (garbage(span), error)
     }
@@ -1963,15 +1976,7 @@ pub fn parse_signature(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                "]".into(),
-                Span {
-                    start: end,
-                    end: end + 1,
-                },
-            ))
-        });
+        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
     let (sig, err) = parse_signature_helper(working_set, Span { start, end });
@@ -2328,15 +2333,7 @@ pub fn parse_list_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                "]".into(),
-                Span {
-                    start: end,
-                    end: end + 1,
-                },
-            ))
-        });
+        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
     let span = Span { start, end };
@@ -2407,15 +2404,7 @@ pub fn parse_table_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                "]".into(),
-                Span {
-                    start: end,
-                    end: end + 1,
-                },
-            ))
-        });
+        error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
     let span = Span { start, end };
@@ -2530,15 +2519,7 @@ pub fn parse_block_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        error = error.or_else(|| {
-            Some(ParseError::Unclosed(
-                "}".into(),
-                Span {
-                    start: end,
-                    end: end + 1,
-                },
-            ))
-        });
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
     }
 
     let span = Span { start, end };
@@ -2798,7 +2779,8 @@ pub fn parse_value(
         }
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
-                parse_value(working_set, span, &SyntaxShape::Table)
+                //parse_value(working_set, span, &SyntaxShape::Table)
+                parse_full_cell_path(working_set, None, span)
             } else {
                 let shapes = [
                     SyntaxShape::Int,

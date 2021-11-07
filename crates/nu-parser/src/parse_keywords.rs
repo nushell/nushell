@@ -429,15 +429,8 @@ pub fn parse_module(
         if block_bytes.ends_with(b"}") {
             end -= 1;
         } else {
-            error = error.or_else(|| {
-                Some(ParseError::Unclosed(
-                    "}".into(),
-                    Span {
-                        start: end,
-                        end: end + 1,
-                    },
-                ))
-            });
+            error =
+                error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
         }
 
         let block_span = Span { start, end };

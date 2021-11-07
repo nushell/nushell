@@ -145,7 +145,7 @@ pub fn lex_item(
                 let _ = block_level.pop();
             }
         } else if c == b'(' {
-            // We enceountered an opening `(` delimiter.
+            // We encountered an opening `(` delimiter.
             block_level.push(BlockKind::Paren);
         } else if c == b')' {
             // We encountered a closing `)` delimiter. Pop off the opening `(`.

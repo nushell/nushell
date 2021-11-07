@@ -502,17 +502,18 @@ pub fn eval_variable(
         let mut output_cols = vec![];
         let mut output_vals = vec![];
 
-        let mut vars = vec![];
+        let mut var_names = vec![];
+        let mut var_types = vec![];
         let mut commands = vec![];
         let mut aliases = vec![];
         let mut modules = vec![];
 
         for frame in &engine_state.scope {
             for var in &frame.vars {
-                vars.push(Value::String {
-                    val: String::from_utf8_lossy(var.0).to_string(),
-                    span,
-                });
+                var_names.push(String::from_utf8_lossy(var.0).to_string());
+
+                let var = engine_state.get_var(*var.1);
+                var_types.push(Value::string(var.to_string(), span));
             }
 
             for command in &frame.decls {
@@ -538,7 +539,11 @@ pub fn eval_variable(
         }
 
         output_cols.push("vars".to_string());
-        output_vals.push(Value::List { vals: vars, span });
+        output_vals.push(Value::Record {
+            cols: var_names,
+            vals: var_types,
+            span,
+        });
 
         output_cols.push("commands".to_string());
         output_vals.push(Value::List {
