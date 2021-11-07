@@ -86,6 +86,7 @@ pub fn create_default_context() -> EngineState {
             ParEach,
             Ps,
             Range,
+            Reverse,
             Rm,
             Select,
             Shuffle,
