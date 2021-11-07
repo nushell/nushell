@@ -16,7 +16,7 @@ pub fn run_with_function(
 }
 
 fn helper_for_tables(
-    values: PipelineData,
+    values: &[Value],
     name: Span,
     mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
@@ -31,6 +31,9 @@ fn helper_for_tables(
                     .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
                     .or_insert_with(|| vec![value.clone()]);
             }
+        } else {
+            //Turns out we are not dealing with a table
+            return mf(values, &name);
         }
     }
     // The mathematical function operates over the columns of the table
@@ -67,9 +70,9 @@ pub fn calculate(
     mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     match values {
-        PipelineData::Stream(_) => helper_for_tables(values, name, mf),
+        PipelineData::Stream(s) => helper_for_tables(&s.collect::<Vec<Value>>(), name, mf),
         PipelineData::Value(Value::List { ref vals, .. }) => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper_for_tables(values, name, mf),
+            [Value::Record { .. }, _end @ ..] => helper_for_tables(vals, name, mf),
             _ => mf(vals, &name),
         },
         PipelineData::Value(Value::Record { vals, cols, span }) => {
