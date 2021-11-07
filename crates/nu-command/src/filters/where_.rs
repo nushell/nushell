@@ -1,10 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Value,
-};
+use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Where;
@@ -29,13 +26,12 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let head = call.head;
         let cond = call.positional[0].clone();
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        // FIXME: very expensive
+        // FIXME: expensive
         let mut stack = stack.clone();
 
         let (var_id, cond) = match cond {
@@ -46,43 +42,18 @@ impl Command for Where {
             _ => return Err(ShellError::InternalError("Expected row condition".into())),
         };
 
-        match input {
-            PipelineData::Stream(stream) => Ok(stream
-                .filter(move |value| {
-                    stack.add_var(var_id, value.clone());
+        input.filter(
+            move |value| {
+                stack.add_var(var_id, value.clone());
 
-                    let result = eval_expression(&engine_state, &mut stack, &cond);
+                let result = eval_expression(&engine_state, &mut stack, &cond);
 
-                    match result {
-                        Ok(result) => result.is_true(),
-                        _ => false,
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(Value::List { vals, .. }) => Ok(vals
-                .into_iter()
-                .filter(move |value| {
-                    stack.add_var(var_id, value.clone());
-
-                    let result = eval_expression(&engine_state, &mut stack, &cond);
-
-                    match result {
-                        Ok(result) => result.is_true(),
-                        _ => false,
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::Value(x) => {
-                stack.add_var(var_id, x.clone());
-
-                let result = eval_expression(&engine_state, &mut stack, &cond)?;
-
-                if result.is_true() {
-                    Ok(x.into_pipeline_data())
-                } else {
-                    Ok(PipelineData::new(head))
+                match result {
+                    Ok(result) => result.is_true(),
+                    _ => false,
                 }
-            }
-        }
+            },
+            ctrlc,
+        )
     }
 }

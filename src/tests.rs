@@ -849,3 +849,8 @@ fn range_and_reduction() -> TestResult {
 fn precedence_of_or_groups() -> TestResult {
     run_test(r#"4 mod 3 == 0 || 5 mod 5 == 0"#, "true")
 }
+
+#[test]
+fn where_on_ranges() -> TestResult {
+    run_test(r#"1..10 | where $it > 8 | math sum"#, "19")
+}

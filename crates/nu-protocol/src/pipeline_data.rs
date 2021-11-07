@@ -138,6 +138,34 @@ impl PipelineData {
             PipelineData::Value(v) => Ok(f(v).into_iter().into_pipeline_data(ctrlc)),
         }
     }
+
+    pub fn filter<F>(
+        self,
+        mut f: F,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> Result<PipelineData, ShellError>
+    where
+        Self: Sized,
+        F: FnMut(&Value) -> bool + 'static + Send,
+    {
+        match self {
+            PipelineData::Value(Value::List { vals, .. }) => {
+                Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
+            }
+            PipelineData::Stream(stream) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
+            PipelineData::Value(Value::Range { val, .. }) => match val.into_range_iter() {
+                Ok(iter) => Ok(iter.filter(f).into_pipeline_data(ctrlc)),
+                Err(error) => Err(error),
+            },
+            PipelineData::Value(v) => {
+                if f(&v) {
+                    Ok(v.into_pipeline_data())
+                } else {
+                    Ok(Value::Nothing { span: v.span()? }.into_pipeline_data())
+                }
+            }
+        }
+    }
 }
 
 // impl Default for PipelineData {
