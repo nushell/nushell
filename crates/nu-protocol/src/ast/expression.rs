@@ -217,13 +217,35 @@ impl Expression {
                 right.replace_in_variable(working_set, new_var_id);
             }
             Expr::Block(block_id) => {
+                let block = working_set.get_block(*block_id);
+
+                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                    if let Some(expr) = pipeline.expressions.get(0) {
+                        let mut new_expr = expr.clone();
+                        new_expr.replace_in_variable(working_set, new_var_id);
+                        Some(new_expr)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let block = working_set.get_block_mut(*block_id);
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
-                    if let Some(expr) = pipeline.expressions.get_mut(0) {
-                        expr.clone().replace_in_variable(working_set, new_var_id)
+                if let Some(new_expr) = new_expr {
+                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                        if let Some(expr) = pipeline.expressions.get_mut(0) {
+                            *expr = new_expr
+                        }
                     }
                 }
+
+                block.captures = block
+                    .captures
+                    .iter()
+                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .collect();
             }
             Expr::Bool(_) => {}
             Expr::Call(call) => {
@@ -274,13 +296,35 @@ impl Expression {
             Expr::Signature(_) => {}
             Expr::String(_) => {}
             Expr::Subexpression(block_id) => {
+                let block = working_set.get_block(*block_id);
+
+                let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
+                    if let Some(expr) = pipeline.expressions.get(0) {
+                        let mut new_expr = expr.clone();
+                        new_expr.replace_in_variable(working_set, new_var_id);
+                        Some(new_expr)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let block = working_set.get_block_mut(*block_id);
 
-                if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
-                    if let Some(expr) = pipeline.expressions.get_mut(0) {
-                        expr.clone().replace_in_variable(working_set, new_var_id)
+                if let Some(new_expr) = new_expr {
+                    if let Some(Statement::Pipeline(pipeline)) = block.stmts.get_mut(0) {
+                        if let Some(expr) = pipeline.expressions.get_mut(0) {
+                            *expr = new_expr
+                        }
                     }
                 }
+
+                block.captures = block
+                    .captures
+                    .iter()
+                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
+                    .collect();
             }
             Expr::Table(headers, cells) => {
                 for header in headers {

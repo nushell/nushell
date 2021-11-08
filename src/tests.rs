@@ -869,3 +869,23 @@ fn in_variable_1() -> TestResult {
 fn in_variable_2() -> TestResult {
     run_test(r#"3 | if $in > 2 { "yay!" } else { "boo" }"#, "yay!")
 }
+
+#[test]
+fn in_variable_3() -> TestResult {
+    run_test(r#"3 | if $in > 4 { "yay!" } else { $in }"#, "3")
+}
+
+#[test]
+fn in_variable_4() -> TestResult {
+    run_test(r#"3 | do { $in }"#, "3")
+}
+
+#[test]
+fn in_variable_5() -> TestResult {
+    run_test(r#"3 | if $in > 2 { $in - 10 } else { $in * 10 }"#, "-7")
+}
+
+#[test]
+fn in_variable_6() -> TestResult {
+    run_test(r#"3 | if $in > 6 { $in - 10 } else { $in * 10 }"#, "30")
+}

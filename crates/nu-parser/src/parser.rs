@@ -3197,6 +3197,7 @@ pub fn parse_block(
                         *expr = wrap_expr_with_collect(working_set, expr);
                     }
                 }
+
                 Statement::Pipeline(Pipeline {
                     expressions: output,
                 })
