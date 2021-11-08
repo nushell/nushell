@@ -535,16 +535,24 @@ impl Value {
                 span,
             }),
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: *lhs + *rhs,
-                    span,
-                })
+                if let Some(val) = lhs.checked_add(*rhs) {
+                    Ok(Value::Duration { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "add operation overflowed".into(),
+                        span,
+                    ))
+                }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: *lhs + *rhs,
-                    span,
-                })
+                if let Some(val) = lhs.checked_add(*rhs) {
+                    Ok(Value::Filesize { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "add operation overflowed".into(),
+                        span,
+                    ))
+                }
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -560,10 +568,16 @@ impl Value {
         let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                val: lhs - rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = lhs.checked_sub(*rhs) {
+                    Ok(Value::Int { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "subtraction operation overflowed".into(),
+                        span,
+                    ))
+                }
+            }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs as f64 - *rhs,
                 span,
@@ -577,16 +591,24 @@ impl Value {
                 span,
             }),
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: *lhs - *rhs,
-                    span,
-                })
+                if let Some(val) = lhs.checked_sub(*rhs) {
+                    Ok(Value::Duration { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "subtraction operation overflowed".into(),
+                        span,
+                    ))
+                }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: *lhs - *rhs,
-                    span,
-                })
+                if let Some(val) = lhs.checked_sub(*rhs) {
+                    Ok(Value::Filesize { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "add operation overflowed".into(),
+                        span,
+                    ))
+                }
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -602,10 +624,16 @@ impl Value {
         let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                val: lhs * rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = lhs.checked_mul(*rhs) {
+                    Ok(Value::Int { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "multiply operation overflowed".into(),
+                        span,
+                    ))
+                }
+            }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: *lhs as f64 * *rhs,
                 span,
@@ -983,10 +1011,16 @@ impl Value {
         let span = span(&[self.span()?, rhs.span()?]);
 
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                val: lhs.pow(*rhs as u32),
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = lhs.checked_pow(*rhs as u32) {
+                    Ok(Value::Int { val, span })
+                } else {
+                    Err(ShellError::OperatorOverflow(
+                        "pow operation overflowed".into(),
+                        span,
+                    ))
+                }
+            }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
                 val: (*lhs as f64).powf(*rhs),
                 span,

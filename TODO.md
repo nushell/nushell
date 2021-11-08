@@ -33,8 +33,8 @@
 - [x] block variable captures
 - [x] improved history and config paths
 - [x] ctrl-c support
+- [x] operator overflow
 - [ ] Support for `$in`
-- [ ] operator overflow
 - [ ] shells
 - [ ] plugins
 - [ ] dataframes
