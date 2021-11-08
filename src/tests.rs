@@ -859,3 +859,13 @@ fn where_on_ranges() -> TestResult {
 fn index_on_list() -> TestResult {
     run_test(r#"[1, 2, 3].1"#, "2")
 }
+
+#[test]
+fn in_variable_1() -> TestResult {
+    run_test(r#"[3] | if $in.0 > 4 { "yay!" } else { "boo" }"#, "boo")
+}
+
+#[test]
+fn in_variable_2() -> TestResult {
+    run_test(r#"3 | if $in > 2 { "yay!" } else { "boo" }"#, "yay!")
+}

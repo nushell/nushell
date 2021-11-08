@@ -27,6 +27,7 @@ pub fn create_default_context() -> EngineState {
             BuildString,
             CamelCase,
             Cd,
+            Collect,
             Cp,
             Date,
             DateFormat,

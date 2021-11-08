@@ -34,7 +34,7 @@
 - [x] improved history and config paths
 - [x] ctrl-c support
 - [x] operator overflow
-- [ ] Support for `$in`
+- [x] Support for `$in`
 - [ ] shells
 - [ ] plugins
 - [ ] dataframes

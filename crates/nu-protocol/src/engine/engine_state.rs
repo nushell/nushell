@@ -135,13 +135,14 @@ pub struct EngineState {
 
 pub const NU_VARIABLE_ID: usize = 0;
 pub const SCOPE_VARIABLE_ID: usize = 1;
+pub const IN_VARIABLE_ID: usize = 2;
 
 impl EngineState {
     pub fn new() -> Self {
         Self {
             files: im::vector![],
             file_contents: im::vector![],
-            vars: im::vector![Type::Unknown, Type::Unknown],
+            vars: im::vector![Type::Unknown, Type::Unknown, Type::Unknown],
             decls: im::vector![],
             blocks: im::vector![],
             scope: im::vector![ScopeFrame::new()],
@@ -853,6 +854,18 @@ impl<'a> StateWorkingSet<'a> {
             self.delta
                 .blocks
                 .get(block_id - num_permanent_blocks)
+                .expect("internal error: missing block")
+        }
+    }
+
+    pub fn get_block_mut(&mut self, block_id: BlockId) -> &mut Block {
+        let num_permanent_blocks = self.permanent_state.num_blocks();
+        if block_id < num_permanent_blocks {
+            panic!("Attempt to mutate a block that is in the permanent (immutable) state")
+        } else {
+            self.delta
+                .blocks
+                .get_mut(block_id - num_permanent_blocks)
                 .expect("internal error: missing block")
         }
     }
