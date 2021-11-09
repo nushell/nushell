@@ -415,7 +415,7 @@ pub fn eval_subexpression(
                             // to be used later
                             // FIXME: the trimming of the end probably needs to live in a better place
 
-                            let mut s = input.collect_string();
+                            let mut s = input.collect_string("");
                             if s.ends_with('\n') {
                                 s.pop();
                             }

@@ -133,7 +133,7 @@ fn main() -> Result<()> {
             PipelineData::new(Span::unknown()),
         ) {
             Ok(pipeline_data) => {
-                println!("{}", pipeline_data.collect_string());
+                println!("{}", pipeline_data.collect_string("\n"));
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(&engine_state);
@@ -273,7 +273,7 @@ fn print_value(value: Value, engine_state: &EngineState) -> Result<(), ShellErro
                 &Call::new(),
                 value.into_pipeline_data(),
             )?;
-            table.collect_string()
+            table.collect_string("\n")
         }
         None => value.into_string(", "),
     };
@@ -323,7 +323,7 @@ fn update_prompt<'prompt>(
         &block,
         PipelineData::new(Span::unknown()),
     ) {
-        Ok(pipeline_data) => pipeline_data.collect_string(),
+        Ok(pipeline_data) => pipeline_data.collect_string(""),
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &err);

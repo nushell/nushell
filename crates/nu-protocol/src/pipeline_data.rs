@@ -51,10 +51,10 @@ impl PipelineData {
         }
     }
 
-    pub fn collect_string(self) -> String {
+    pub fn collect_string(self, separator: &str) -> String {
         match self {
-            PipelineData::Value(v) => v.into_string("\n"),
-            PipelineData::Stream(s) => s.into_string("\n"),
+            PipelineData::Value(v) => v.into_string(separator),
+            PipelineData::Stream(s) => s.into_string(separator),
         }
     }
 

@@ -20,12 +20,9 @@ pub struct ValueStream {
 
 impl ValueStream {
     pub fn into_string(self, separator: &str) -> String {
-        format!(
-            "[{}]",
-            self.map(|x: Value| x.into_string(", "))
-                .collect::<Vec<String>>()
-                .join(separator)
-        )
+        self.map(|x: Value| x.into_string(", "))
+            .collect::<Vec<String>>()
+            .join(separator)
     }
 
     pub fn from_stream(

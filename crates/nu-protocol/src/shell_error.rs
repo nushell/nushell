@@ -60,6 +60,10 @@ pub enum ShellError {
         right_span: Span,
     },
 
+    #[error("Delimiter error")]
+    #[diagnostic(code(nu::shell::delimiter_error), url(docsrs))]
+    DelimiterError(String, #[label("{0}")] Span),
+
     #[error("Incompatible parameters.")]
     #[diagnostic(code(nu::shell::incompatible_parameters), url(docsrs))]
     IncompatibleParametersSingle(String, #[label = "{0}"] Span),
