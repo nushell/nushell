@@ -267,6 +267,23 @@ impl Value {
                                 return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
                             }
                         }
+                        Value::Binary { val, .. } => {
+                            if let Some(item) = val.get(*count) {
+                                current = Value::Int {
+                                    val: *item as i64,
+                                    span: *origin_span,
+                                };
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd(val.len(), *origin_span));
+                            }
+                        }
+                        Value::Range { val, .. } => {
+                            if let Some(item) = val.clone().into_range_iter()?.nth(*count) {
+                                current = item.clone();
+                            } else {
+                                return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
+                            }
+                        }
                         x => {
                             return Err(ShellError::IncompatiblePathAccess(
                                 format!("{}", x.get_type()),
