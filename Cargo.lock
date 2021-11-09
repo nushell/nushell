@@ -420,7 +420,7 @@ name = "engine-q"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
- "crossterm 0.21.0",
+ "crossterm 0.22.1",
  "ctrlc",
  "dialoguer",
  "miette",
