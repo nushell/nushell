@@ -97,6 +97,8 @@ pub fn create_default_context() -> EngineState {
             StrCamelCase,
             StrCapitalize,
             StrCollect,
+            StrContains,
+            StrDowncase,
             StrKebabCase,
             StrPascalCase,
             StrScreamingSnakeCase,
