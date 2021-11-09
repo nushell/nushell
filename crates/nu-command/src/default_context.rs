@@ -95,6 +95,7 @@ pub fn create_default_context() -> EngineState {
             SplitRow,
             Str,
             StrCamelCase,
+            StrCapitalize,
             StrCollect,
             StrKebabCase,
             StrPascalCase,
