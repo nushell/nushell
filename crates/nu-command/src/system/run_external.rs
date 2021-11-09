@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command as CommandSys, Stdio};
+use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 
 use nu_protocol::engine::{EngineState, Stack};
@@ -121,18 +122,26 @@ impl ExternalCommand {
                     });
                 }
 
-                // If this external is not the last expression, then its output is piped to a channel
-                // and we create a ValueStream that can be consumed
-                let value = if !self.last_expression {
-                    let (tx, rx) = mpsc::channel();
-                    let stdout = child.stdout.take().ok_or_else(|| {
-                        ShellError::ExternalCommand(
-                            "Error taking stdout from external".to_string(),
-                            self.name.span,
-                        )
-                    })?;
+                let last_expression = self.last_expression;
+                let span = self.name.span;
+                let output_ctrlc = ctrlc.clone();
+                let (tx, rx) = mpsc::channel();
 
-                    std::thread::spawn(move || {
+                std::thread::spawn(move || {
+                    // If this external is not the last expression, then its output is piped to a channel
+                    // and we create a ValueStream that can be consumed
+                    if !last_expression {
+                        let stdout = child
+                            .stdout
+                            .take()
+                            .ok_or_else(|| {
+                                ShellError::ExternalCommand(
+                                    "Error taking stdout from external".to_string(),
+                                    span,
+                                )
+                            })
+                            .unwrap();
+
                         // Stdout is read using the Buffer reader. It will do so until there is an
                         // error or there are no more bytes to read
                         let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
@@ -153,26 +162,29 @@ impl ExternalCommand {
                             let length = bytes.len();
                             buf_read.consume(length);
 
+                            if let Some(ctrlc) = &ctrlc {
+                                if ctrlc.load(Ordering::SeqCst) {
+                                    break;
+                                }
+                            }
+
                             match tx.send(data) {
                                 Ok(_) => continue,
                                 Err(_) => break,
                             }
                         }
-                    });
+                    }
 
-                    // The ValueStream is consumed by the next expression in the pipeline
-                    ChannelReceiver::new(rx, self.name.span).into_pipeline_data(ctrlc)
-                } else {
-                    PipelineData::new(self.name.span)
-                };
+                    match child.wait() {
+                        Err(err) => Err(ShellError::ExternalCommand(format!("{}", err), span)),
+                        Ok(_) => Ok(()),
+                    }
+                });
+                // The ValueStream is consumed by the next expression in the pipeline
+                let value =
+                    ChannelReceiver::new(rx, self.name.span).into_pipeline_data(output_ctrlc);
 
-                match child.wait() {
-                    Err(err) => Err(ShellError::ExternalCommand(
-                        format!("{}", err),
-                        self.name.span,
-                    )),
-                    Ok(_) => Ok(value),
-                }
+                Ok(value)
             }
         }
     }
@@ -205,6 +217,7 @@ impl ExternalCommand {
 
 // The piped data from stdout from the external command can be either String
 // or binary. We use this enum to pass the data from the spawned process
+#[derive(Debug)]
 enum Data {
     String(String),
     Bytes(Vec<u8>),

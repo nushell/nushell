@@ -3,6 +3,8 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
 use nu_table::StyledString;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use terminal_size::{Height, Width};
 
 #[derive(Clone)]
@@ -24,11 +26,13 @@ impl Command for Table {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let ctrlc = engine_state.ctrlc.clone();
+
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             w as usize
         } else {
@@ -37,7 +41,7 @@ impl Command for Table {
 
         match input {
             PipelineData::Value(Value::List { vals, .. }) => {
-                let table = convert_to_table(vals)?;
+                let table = convert_to_table(vals, ctrlc)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -52,7 +56,7 @@ impl Command for Table {
                 }
             }
             PipelineData::Stream(stream) => {
-                let table = convert_to_table(stream)?;
+                let table = convert_to_table(stream, ctrlc)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -104,6 +108,7 @@ impl Command for Table {
 
 fn convert_to_table(
     iter: impl IntoIterator<Item = Value>,
+    ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<Option<nu_table::Table>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
@@ -117,6 +122,11 @@ fn convert_to_table(
         let mut data = vec![];
 
         for (row_num, item) in iter.enumerate() {
+            if let Some(ctrlc) = &ctrlc {
+                if ctrlc.load(Ordering::SeqCst) {
+                    return Ok(None);
+                }
+            }
             if let Value::Error { error } = item {
                 return Err(error);
             }
