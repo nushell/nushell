@@ -34,31 +34,25 @@ impl Command for StrCollect {
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<String> = call.opt(engine_state, stack, 0)?;
 
+        // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
+        // which feels funny
         #[allow(clippy::needless_collect)]
-        let strings: Vec<Result<String, ShellError>> =
-            input.into_iter().map(|value| value.as_string()).collect();
-        let strings: Result<Vec<_>, _> = strings.into_iter().collect::<Result<_, _>>();
+        let strings: Vec<String> = input
+            .into_iter()
+            .map(|value| value.debug_string("\n"))
+            .collect();
 
-        match strings {
-            Ok(strings) => {
-                let output = if let Some(separator) = separator {
-                    strings.join(&separator)
-                } else {
-                    strings.join("")
-                };
+        let output = if let Some(separator) = separator {
+            strings.join(&separator)
+        } else {
+            strings.join("")
+        };
 
-                Ok(Value::String {
-                    val: output,
-                    span: call.head,
-                }
-                .into_pipeline_data())
-            }
-            _ => Err(ShellError::CantConvert(
-                "string".into(),
-                "non-string input".into(),
-                call.head,
-            )),
+        Ok(Value::String {
+            val: output,
+            span: call.head,
         }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

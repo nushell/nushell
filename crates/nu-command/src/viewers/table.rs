@@ -76,7 +76,7 @@ impl Command for Table {
                             style: nu_table::TextStyle::default_field(),
                         },
                         StyledString {
-                            contents: v.into_string(),
+                            contents: v.into_string(", "),
                             style: nu_table::TextStyle::default(),
                         },
                     ])
@@ -123,7 +123,7 @@ fn convert_to_table(
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string())
+                row.push(item.into_string(", "))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -137,7 +137,7 @@ fn convert_to_table(
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string()),
+                        Ok(value) => row.push(value.into_string(", ")),
                         Err(_) => row.push(String::new()),
                     }
                 }

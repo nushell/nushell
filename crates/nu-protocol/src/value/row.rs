@@ -16,7 +16,7 @@ impl RowStream {
                 .join(", "),
             self.map(|x: Vec<Value>| {
                 x.into_iter()
-                    .map(|x| x.into_string())
+                    .map(|x| x.into_string(", "))
                     .collect::<Vec<String>>()
                     .join(", ")
             })

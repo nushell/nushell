@@ -53,8 +53,8 @@ impl PipelineData {
 
     pub fn collect_string(self) -> String {
         match self {
-            PipelineData::Value(v) => v.collect_string(),
-            PipelineData::Stream(s) => s.collect_string(),
+            PipelineData::Value(v) => v.into_string("\n"),
+            PipelineData::Stream(s) => s.into_string("\n"),
         }
     }
 

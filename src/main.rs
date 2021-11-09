@@ -275,7 +275,7 @@ fn print_value(value: Value, engine_state: &EngineState) -> Result<(), ShellErro
             )?;
             table.collect_string()
         }
-        None => value.into_string(),
+        None => value.into_string(", "),
     };
     let stdout = std::io::stdout();
 

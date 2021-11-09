@@ -212,7 +212,7 @@ pub fn action(
         },
 
         Value::Filesize { val: _, .. } => Value::String {
-            val: input.clone().into_string(),
+            val: input.clone().into_string(", "),
             span,
         },
         Value::Nothing { .. } => Value::String {

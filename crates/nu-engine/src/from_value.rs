@@ -95,14 +95,14 @@ impl FromValue for f64 {
 impl FromValue for String {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
-        Ok(v.clone().into_string())
+        Ok(v.clone().into_string(", "))
     }
 }
 
 impl FromValue for Spanned<String> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         Ok(Spanned {
-            item: v.clone().into_string(),
+            item: v.clone().into_string(", "),
             span: v.span()?,
         })
     }

@@ -111,7 +111,7 @@ impl ExternalCommand {
                                     }
                                 }
                                 x => {
-                                    if stdin_write.write(x.into_string().as_bytes()).is_err() {
+                                    if stdin_write.write(x.into_string(", ").as_bytes()).is_err() {
                                         return Err(());
                                     }
                                 }

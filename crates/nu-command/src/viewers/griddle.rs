@@ -94,7 +94,7 @@ prints out the list properly."#
                 let mut items = vec![];
 
                 for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
-                    items.push((i, c, v.into_string()))
+                    items.push((i, c, v.into_string(", ")))
                 }
 
                 Ok(create_grid_output2(
@@ -187,7 +187,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string())
+                row.push(item.into_string(", "))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -201,7 +201,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string()),
+                        Ok(value) => row.push(value.into_string(", ")),
                         Err(_) => row.push(String::new()),
                     }
                 }
