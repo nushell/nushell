@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::To;
 
-use super::{Case, Date, From, Into, Math, Split};
+use super::{Date, From, Into, Math, Split, Str};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -17,7 +17,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         // Base functions that are needed for testing
         // Try to keep this working set small to keep tests running as fast as possible
         let mut working_set = StateWorkingSet::new(&*engine_state);
-        working_set.add_decl(Box::new(Case));
+        working_set.add_decl(Box::new(Str));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(To));
         working_set.add_decl(Box::new(Into));

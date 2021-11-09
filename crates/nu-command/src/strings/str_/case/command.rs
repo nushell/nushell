@@ -6,9 +6,9 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Case;
+pub struct Str;
 
-impl Command for Case {
+impl Command for Str {
     fn name(&self) -> &str {
         "str"
     }
@@ -18,7 +18,7 @@ impl Command for Case {
     }
 
     fn usage(&self) -> &str {
-        "Converts strings into different kind of cases: camel, kebab, pascal, snake, and screaming snake."
+        "Various commands for working with string data."
     }
 
     fn run(
@@ -29,7 +29,7 @@ impl Command for Case {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Case.signature(), &Case.examples(), engine_state),
+            val: get_full_help(&Str.signature(), &Str.examples(), engine_state),
             span: call.head,
         }
         .into_pipeline_data())
@@ -44,6 +44,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Case {})
+        test_examples(Str {})
     }
 }
