@@ -39,6 +39,7 @@
 - [ ] shells
 - [ ] plugins
 - [ ] dataframes
+- [ ] port over `which` logic
 
 ## Post-nushell merge:
 - [ ] Overlays (replacement for `autoenv`), adding modules to shells
