@@ -31,6 +31,7 @@ lscolors = { version = "0.8.0", features = ["crossterm"] }
 bytesize = "1.1.0"
 dialoguer = "0.9.0"
 rayon = "1.5.1"
+regex = "1.5.4"
 titlecase = "1.1.0"
 meval = "0.2.0"
 serde = { version="1.0.123", features=["derive"] }
