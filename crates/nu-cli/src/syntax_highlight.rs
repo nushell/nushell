@@ -38,12 +38,18 @@ impl Highlighter for NuHighlighter {
             match shape.1 {
                 FlatShape::Custom(..) => output.push((Style::new().bold(), next_token)),
                 FlatShape::External => {
-                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                    // nushell ExternalCommand
+                    output.push((Style::new().fg(nu_ansi_term::Color::Cyan), next_token))
                 }
                 FlatShape::ExternalArg => {
-                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                    // nushell ExternalWord
+                    output.push((
+                        Style::new().fg(nu_ansi_term::Color::Green).bold(),
+                        next_token,
+                    ))
                 }
                 FlatShape::Garbage => output.push((
+                    // nushell Garbage
                     Style::new()
                         .fg(nu_ansi_term::Color::White)
                         .on(nu_ansi_term::Color::Red)
@@ -51,50 +57,71 @@ impl Highlighter for NuHighlighter {
                     next_token,
                 )),
                 FlatShape::InternalCall => output.push((
-                    Style::new().fg(nu_ansi_term::Color::LightBlue).bold(),
+                    // nushell InternalCommand
+                    Style::new().fg(nu_ansi_term::Color::Cyan).bold(),
                     next_token,
                 )),
                 FlatShape::Int => {
-                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                    // nushell Int
+                    output.push((
+                        Style::new().fg(nu_ansi_term::Color::Purple).bold(),
+                        next_token,
+                    ))
                 }
                 FlatShape::Float => {
-                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                    // nushell Decimal
+                    output.push((
+                        Style::new().fg(nu_ansi_term::Color::Purple).bold(),
+                        next_token,
+                    ))
                 }
                 FlatShape::Range => output.push((
-                    Style::new().fg(nu_ansi_term::Color::LightPurple),
+                    // nushell DotDot ?
+                    Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
                     next_token,
                 )),
                 FlatShape::Bool => {
+                    // nushell ?
                     output.push((Style::new().fg(nu_ansi_term::Color::LightCyan), next_token))
                 }
                 FlatShape::Literal => {
+                    // nushell ?
                     output.push((Style::new().fg(nu_ansi_term::Color::Blue), next_token))
                 }
                 FlatShape::Operator => output.push((
-                    Style::new().fg(nu_ansi_term::Color::LightPurple).bold(),
+                    // nushell Operator
+                    Style::new().fg(nu_ansi_term::Color::Yellow),
                     next_token,
                 )),
                 FlatShape::Signature => output.push((
+                    // nushell ?
                     Style::new().fg(nu_ansi_term::Color::Green).bold(),
                     next_token,
                 )),
-                FlatShape::String => output.push((
-                    Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
-                    next_token,
-                )),
+                FlatShape::String => {
+                    // nushell String
+                    output.push((Style::new().fg(nu_ansi_term::Color::Green), next_token))
+                }
                 FlatShape::Flag => {
-                    output.push((Style::new().fg(nu_ansi_term::Color::Yellow), next_token))
+                    // nushell Flag
+                    output.push((
+                        Style::new().fg(nu_ansi_term::Color::Blue).bold(),
+                        next_token,
+                    ))
                 }
                 FlatShape::Filepath => output.push((
-                    Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
+                    // nushell Path
+                    Style::new().fg(nu_ansi_term::Color::Cyan),
                     next_token,
                 )),
                 FlatShape::GlobPattern => output.push((
-                    Style::new().fg(nu_ansi_term::Color::Yellow).bold(),
+                    // nushell GlobPattern
+                    Style::new().fg(nu_ansi_term::Color::Cyan).bold(),
                     next_token,
                 )),
                 FlatShape::Variable => output.push((
-                    Style::new().fg(nu_ansi_term::Color::Blue).bold(),
+                    // nushell Variable
+                    Style::new().fg(nu_ansi_term::Color::Purple),
                     next_token,
                 )),
             }
