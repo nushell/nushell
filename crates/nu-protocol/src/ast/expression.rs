@@ -170,6 +170,17 @@ impl Expression {
                 }
                 false
             }
+            Expr::Record(fields) => {
+                for (field_name, field_value) in fields {
+                    if field_name.has_in_variable(working_set) {
+                        return true;
+                    }
+                    if field_value.has_in_variable(working_set) {
+                        return true;
+                    }
+                }
+                false
+            }
             Expr::RowCondition(_, expr) => expr.has_in_variable(working_set),
             Expr::Signature(_) => false,
             Expr::String(_) => false,
@@ -290,6 +301,12 @@ impl Expression {
                 }
                 if let Some(right) = right {
                     right.replace_in_variable(working_set, new_var_id)
+                }
+            }
+            Expr::Record(fields) => {
+                for (field_name, field_value) in fields {
+                    field_name.replace_in_variable(working_set, new_var_id);
+                    field_value.replace_in_variable(working_set, new_var_id);
                 }
             }
             Expr::RowCondition(_, expr) => expr.replace_in_variable(working_set, new_var_id),

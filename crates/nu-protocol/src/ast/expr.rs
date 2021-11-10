@@ -23,6 +23,7 @@ pub enum Expr {
     Block(BlockId),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
+    Record(Vec<(Expression, Expression)>),
     Keyword(Vec<u8>, Span, Box<Expression>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     Filepath(String),

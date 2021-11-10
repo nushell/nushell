@@ -164,6 +164,14 @@ pub fn flatten_expression(
             }
             output
         }
+        Expr::Record(list) => {
+            let mut output = vec![];
+            for l in list {
+                output.extend(flatten_expression(working_set, &l.0));
+                output.extend(flatten_expression(working_set, &l.1));
+            }
+            output
+        }
         Expr::Keyword(_, span, expr) => {
             let mut output = vec![(*span, FlatShape::Operator)];
             output.extend(flatten_expression(working_set, expr));

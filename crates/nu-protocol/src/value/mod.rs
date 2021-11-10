@@ -95,6 +95,17 @@ impl Value {
         }
     }
 
+    pub fn as_block(&self) -> Result<BlockId, ShellError> {
+        match self {
+            Value::Block { val, .. } => Ok(*val),
+            x => Err(ShellError::CantConvert(
+                "block".into(),
+                x.get_type().to_string(),
+                self.span()?,
+            )),
+        }
+    }
+
     /// Get the span for the current value
     pub fn span(&self) -> Result<Span, ShellError> {
         match self {

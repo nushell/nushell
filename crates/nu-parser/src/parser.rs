@@ -1348,6 +1348,13 @@ pub fn parse_full_cell_path(
             tokens.next();
 
             (output, true)
+        } else if bytes.starts_with(b"{") {
+            let (output, err) = parse_record(working_set, head.span);
+            error = error.or(err);
+
+            tokens.next();
+
+            (output, true)
         } else if bytes.starts_with(b"$") {
             let (out, err) = parse_variable_expr(working_set, head.span);
             error = error.or(err);
@@ -2669,6 +2676,11 @@ pub fn parse_value(
             return parse_full_cell_path(working_set, None, span);
         }
     } else if bytes.starts_with(b"{") {
+        if !matches!(shape, SyntaxShape::Block(..)) {
+            if let (expr, None) = parse_full_cell_path(working_set, None, span) {
+                return (expr, None);
+            }
+        }
         if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
             return parse_block_expression(working_set, shape, span);
         } else {
@@ -3152,6 +3164,83 @@ pub fn parse_statement(
     }
 }
 
+pub fn parse_record(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> (Expression, Option<ParseError>) {
+    let bytes = working_set.get_span_contents(span);
+
+    let mut error = None;
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        error = error.or_else(|| {
+            Some(ParseError::Expected(
+                "{".into(),
+                Span {
+                    start,
+                    end: start + 1,
+                },
+            ))
+        });
+    }
+
+    if bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
+    }
+
+    let span = Span { start, end };
+    let source = working_set.get_span_contents(span);
+
+    let (tokens, err) = lex(source, start, &[b'\n', b','], &[b':']);
+    error = error.or(err);
+
+    let mut output = vec![];
+    let mut idx = 0;
+
+    while idx < tokens.len() {
+        let (field, err) = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        error = error.or(err);
+
+        idx += 1;
+        if idx == tokens.len() {
+            return (
+                garbage(span),
+                Some(ParseError::Expected("record".into(), span)),
+            );
+        }
+        let colon = working_set.get_span_contents(tokens[idx].span);
+        idx += 1;
+        if idx == tokens.len() || colon != b":" {
+            //FIXME: need better error
+            return (
+                garbage(span),
+                Some(ParseError::Expected("record".into(), span)),
+            );
+        }
+        let (value, err) = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        error = error.or(err);
+        idx += 1;
+
+        output.push((field, value));
+    }
+
+    (
+        Expression {
+            expr: Expr::Record(output),
+            span,
+            ty: Type::Unknown, //FIXME: but we don't know the contents of the fields, do we?
+            custom_completion: None,
+        },
+        error,
+    )
+}
+
 pub fn parse_block(
     working_set: &mut StateWorkingSet,
     lite_block: &LiteBlock,
@@ -3348,6 +3437,12 @@ pub fn find_captures_in_expr(
             if let Some(expr) = expr3 {
                 let result = find_captures_in_expr(working_set, expr, seen);
                 output.extend(&result);
+            }
+        }
+        Expr::Record(fields) => {
+            for (field_name, field_value) in fields {
+                output.extend(&find_captures_in_expr(working_set, field_name, seen));
+                output.extend(&find_captures_in_expr(working_set, field_value, seen));
             }
         }
         Expr::RowCondition(var_id, expr) => {

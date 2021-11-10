@@ -889,3 +889,13 @@ fn in_variable_5() -> TestResult {
 fn in_variable_6() -> TestResult {
     run_test(r#"3 | if $in > 6 { $in - 10 } else { $in * 10 }"#, "30")
 }
+
+#[test]
+fn record_1() -> TestResult {
+    run_test(r#"{'a': 'b'} | get a"#, "b")
+}
+
+#[test]
+fn record_2() -> TestResult {
+    run_test(r#"{'b': 'c'}.b"#, "c")
+}
