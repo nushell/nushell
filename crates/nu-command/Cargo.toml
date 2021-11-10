@@ -33,6 +33,9 @@ dialoguer = "0.9.0"
 rayon = "1.5.1"
 titlecase = "1.1.0"
 meval = "0.2.0"
+serde = { version="1.0.123", features=["derive"] }
+serde_yaml = "0.8.16"
+itertools = "0.10.0"
 rand = "0.8"
 
 [features]
