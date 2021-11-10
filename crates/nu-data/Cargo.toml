@@ -36,8 +36,5 @@ nu-test-support = { version = "0.39.0", path="../nu-test-support" }
 nu-value-ext = { version = "0.39.0", path="../nu-value-ext" }
 nu-ansi-term = { version = "0.39.0", path="../nu-ansi-term" }
 
-[target.'cfg(unix)'.dependencies]
-users = "0.11.0"
-
 [features]
 dataframe = ["nu-protocol/dataframe"]

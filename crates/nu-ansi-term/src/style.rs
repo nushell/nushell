@@ -613,7 +613,7 @@ mod serde_json_tests {
             let serialized = serde_json::to_string(&color).unwrap();
             let deserialized: Color = serde_json::from_str(&serialized).unwrap();
 
-            assert_eq!(color, &deserialized);
+            assert_eq!(color, deserialized);
         }
     }
 
