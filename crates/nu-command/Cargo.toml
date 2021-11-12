@@ -27,6 +27,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.0"
 terminal_size = "0.1.17"
+indexmap = { version="1.7", features=["serde-1"] }
 lscolors = { version = "0.8.0", features = ["crossterm"] }
 bytesize = "1.1.0"
 dialoguer = "0.9.0"
@@ -36,6 +37,8 @@ titlecase = "1.1.0"
 meval = "0.2.0"
 serde = { version="1.0.123", features=["derive"] }
 serde_yaml = "0.8.16"
+serde_urlencoded = "0.7.0"
+eml-parser = "0.1.0"
 itertools = "0.10.0"
 rand = "0.8"
 

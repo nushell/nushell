@@ -531,6 +531,7 @@ impl PartialOrd for Value {
             (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
                 lhs.partial_cmp(rhs)
             }
+            (Value::Nothing { .. }, Value::Nothing { .. }) => Some(Ordering::Equal),
             (_, _) => None,
         }
     }

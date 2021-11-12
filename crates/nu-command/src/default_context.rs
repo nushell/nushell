@@ -50,6 +50,8 @@ pub fn create_default_context() -> EngineState {
             FromYaml,
             FromYml,
             FromTsv,
+            FromUrl,
+            FromEml,
             Get,
             Griddle,
             Help,
