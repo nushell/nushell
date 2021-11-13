@@ -107,6 +107,7 @@ pub fn create_default_context() -> EngineState {
             StrDowncase,
             StrEndswith,
             StrIndexOf,
+            StrLength,
             StrFindReplace,
             StrKebabCase,
             StrPascalCase,
