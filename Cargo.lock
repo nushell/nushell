@@ -156,9 +156,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.71"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
+checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 
 [[package]]
 name = "cfg-if"
@@ -807,6 +807,7 @@ dependencies = [
  "nu-term-grid",
  "rand",
  "rayon",
+ "regex",
  "serde",
  "serde_urlencoded",
  "serde_yaml",
@@ -1227,7 +1228,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#1b244992981e392152b86ceed5c583c31150976c"
+source = "git+https://github.com/nushell/reedline?branch=main#c11aef2d9b4eaf0c762f1349f641534597815295"
 dependencies = [
  "chrono",
  "crossterm 0.22.1",

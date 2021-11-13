@@ -98,11 +98,7 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             | Value::Float { .. }
             | Value::Filesize { .. }
             | Value::Duration { .. } => {
-                let new_value = acc.add(head, value);
-                if new_value.is_err() {
-                    return new_value;
-                }
-                acc = new_value.expect("This should never trigger")
+                acc = acc.add(head, value)?;
             }
             other => {
                 return Err(ShellError::UnsupportedInput(
@@ -133,11 +129,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
     for value in &data {
         match value {
             Value::Int { .. } | Value::Float { .. } => {
-                let new_value = acc.mul(head, value);
-                if new_value.is_err() {
-                    return new_value;
-                }
-                acc = new_value.expect("This should never trigger")
+                acc = acc.mul(head, value)?;
             }
             other => {
                 return Err(ShellError::UnsupportedInput(

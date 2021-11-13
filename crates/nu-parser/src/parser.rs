@@ -24,12 +24,6 @@ use crate::parse_keywords::parse_plugin;
 #[derive(Debug, Clone)]
 pub enum Import {}
 
-#[derive(Debug, Clone)]
-pub struct VarDecl {
-    var_id: VarId,
-    expression: Expression,
-}
-
 pub fn garbage(span: Span) -> Expression {
     Expression::garbage(span)
 }
@@ -271,7 +265,7 @@ fn parse_short_flags(
                         error = error.or_else(|| {
                             Some(ParseError::UnknownFlag(
                                 sig.name.clone(),
-                                format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                                format!("-{}", String::from_utf8_lossy(contents)),
                                 *first,
                             ))
                         });
@@ -281,7 +275,7 @@ fn parse_short_flags(
                     error = error.or_else(|| {
                         Some(ParseError::UnknownFlag(
                             sig.name.clone(),
-                            format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                            format!("-{}", String::from_utf8_lossy(contents)),
                             *first,
                         ))
                     });
@@ -291,7 +285,7 @@ fn parse_short_flags(
                 error = error.or_else(|| {
                     Some(ParseError::UnknownFlag(
                         sig.name.clone(),
-                        format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                        format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
                     ))
                 });
@@ -302,7 +296,7 @@ fn parse_short_flags(
                 error = error.or_else(|| {
                     Some(ParseError::UnknownFlag(
                         sig.name.clone(),
-                        format!("-{}", String::from_utf8_lossy(contents).to_string()),
+                        format!("-{}", String::from_utf8_lossy(contents)),
                         *first,
                     ))
                 });
