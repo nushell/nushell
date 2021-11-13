@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
-bson = { version="0.14.1", features=["decimal128"] }
+bson = { version = "2.0.1", features = [ "chrono-0_4" ] }
 nu-errors = { path="../nu-errors", version = "0.39.0" }
 nu-plugin = { path="../nu-plugin", version = "0.39.0" }
 nu-protocol = { path="../nu-protocol", version = "0.39.0" }

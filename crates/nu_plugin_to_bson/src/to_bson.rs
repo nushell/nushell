@@ -1,4 +1,4 @@
-use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
+use bson::{oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
     Dictionary, Primitive, ReturnSuccess, ReturnValue, SpannedTypeName, UnspannedPathMember,
@@ -23,17 +23,19 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
         // FIXME: What about really big decimals?
-        UntaggedValue::Primitive(Primitive::Filesize(decimal)) => Bson::FloatingPoint(
+        UntaggedValue::Primitive(Primitive::Filesize(decimal)) => Bson::Double(
             (decimal)
                 .to_f64()
                 .expect("Unimplemented BUG: What about big decimals?"),
         ),
         UntaggedValue::Primitive(Primitive::Duration(i)) => Bson::String(i.to_string()),
-        UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime((*d).into()),
+        UntaggedValue::Primitive(Primitive::Date(d)) => {
+            Bson::DateTime(bson::DateTime::from_chrono(*d))
+        }
         UntaggedValue::Primitive(Primitive::EndOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::Decimal(d)) => {
-            Bson::FloatingPoint(d.to_f64().ok_or_else(|| {
+            Bson::Double(d.to_f64().ok_or_else(|| {
                 ShellError::labeled_error(
                     "Could not convert value to decimal",
                     "could not convert to decimal",
@@ -41,9 +43,9 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
                 )
             })?)
         }
-        UntaggedValue::Primitive(Primitive::Int(i)) => Bson::I64(*i),
+        UntaggedValue::Primitive(Primitive::Int(i)) => Bson::Int64(*i),
         UntaggedValue::Primitive(Primitive::BigInt(i)) => {
-            Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
+            Bson::Int64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
         UntaggedValue::Primitive(Primitive::Nothing) => Bson::Null,
         UntaggedValue::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
@@ -51,7 +53,7 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
             path.iter()
                 .map(|x| match &x.unspanned {
                     UnspannedPathMember::String(string) => Ok(Bson::String(string.clone())),
-                    UnspannedPathMember::Int(int) => Ok(Bson::I64(*int)),
+                    UnspannedPathMember::Int(int) => Ok(Bson::Int64(*int)),
                 })
                 .collect::<Result<Vec<Bson>, ShellError>>()?,
         ),
@@ -66,10 +68,13 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
         #[cfg(feature = "dataframe")]
         UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => Bson::Null,
         UntaggedValue::Error(e) => return Err(e.clone()),
-        UntaggedValue::Primitive(Primitive::Binary(b)) => {
-            Bson::Binary(BinarySubtype::Generic, b.clone())
-        }
+        UntaggedValue::Primitive(Primitive::Binary(b)) => Bson::Binary(bson::Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: b.clone(),
+        }),
         UntaggedValue::Row(o) => object_value_to_bson(o)?,
+        // TODO  Impelmenting Bson::Undefined, Bson::MaxKey, Bson::MinKey and Bson::DbPointer
+        // These Variants weren't present in the previous version.
     })
 }
 
@@ -86,7 +91,9 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
                 let r: Result<String, _> = tagged_regex_value.try_into();
                 let opts: Result<String, _> = tagged_opts_value.try_into();
                 match (r, opts) {
-                    (Ok(r), Ok(opts)) => Ok(Bson::RegExp(r, opts)),
+                    (Ok(pattern), Ok(options)) => {
+                        Ok(Bson::RegularExpression(bson::Regex { pattern, options }))
+                    }
                     _ => generic_object_value_to_bson(o),
                 }
             }
@@ -99,9 +106,11 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
                     let s: Result<&Dictionary, _> = tagged_scope_value.try_into();
 
                     match (js, s) {
-                        (Ok(js), Ok(s)) => {
-                            if let Bson::Document(doc) = object_value_to_bson(s)? {
-                                Ok(Bson::JavaScriptCodeWithScope(js, doc))
+                        (Ok(code), Ok(s)) => {
+                            if let Bson::Document(scope) = object_value_to_bson(s)? {
+                                Ok(Bson::JavaScriptCodeWithScope(
+                                    bson::JavaScriptCodeWithScope { code, scope },
+                                ))
                             } else {
                                 generic_object_value_to_bson(o)
                             }
@@ -122,8 +131,11 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
         }
         Some((timestamp, tagged_timestamp_value)) if timestamp == "$timestamp" => {
             let ts: Result<i64, _> = tagged_timestamp_value.try_into();
-            if let Ok(ts) = ts {
-                Ok(Bson::TimeStamp(ts))
+            if let Ok(time) = ts {
+                Ok(Bson::Timestamp(bson::Timestamp {
+                    time: time as u32,
+                    increment: Default::default(),
+                }))
             } else {
                 generic_object_value_to_bson(o)
             }
@@ -137,7 +149,10 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
                     let bin: Result<Vec<u8>, _> = tagged_bin_value.try_into();
 
                     match (bin, bst) {
-                        (Ok(bin), Ok(v)) => Ok(Bson::Binary(v, bin)),
+                        (Ok(bin), Ok(subtype)) => Ok(Bson::Binary(bson::Binary {
+                            subtype,
+                            bytes: bin,
+                        })),
                         _ => generic_object_value_to_bson(o),
                     }
                 }
@@ -148,7 +163,7 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
             let obj_id: Result<String, _> = tagged_object_id_value.try_into();
 
             if let Ok(obj_id) = obj_id {
-                let obj_id = ObjectId::with_string(&obj_id);
+                let obj_id = ObjectId::parse_str(&obj_id);
 
                 if let Ok(obj_id) = obj_id {
                     Ok(Bson::ObjectId(obj_id))
@@ -204,7 +219,7 @@ fn generic_object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
 }
 
 fn shell_encode_document(writer: &mut Vec<u8>, doc: Document, tag: Tag) -> Result<(), ShellError> {
-    match encode_document(writer, &doc) {
+    match doc.to_writer(writer) {
         Err(e) => Err(ShellError::labeled_error(
             format!("Failed to encode document due to: {:?}", e),
             "requires BSON-compatible document",
