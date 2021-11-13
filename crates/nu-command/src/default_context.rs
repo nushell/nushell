@@ -119,6 +119,7 @@ pub fn create_default_context() -> EngineState {
             ToJson,
             Touch,
             Use,
+            Update,
             Where,
             WithEnv,
             Wrap,
