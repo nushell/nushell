@@ -69,6 +69,16 @@ fn is_variable(bytes: &[u8]) -> bool {
     }
 }
 
+pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
+    if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    {
+        &bytes[1..(bytes.len() - 1)]
+    } else {
+        bytes
+    }
+}
+
 fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
     // Allow the call to pass if they pass in the help flag
     if call.named.iter().any(|(n, _)| n.item == "help") {
@@ -1423,13 +1433,7 @@ pub fn parse_filepath(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-    {
-        &bytes[1..(bytes.len() - 1)]
-    } else {
-        bytes
-    };
+    let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
         (
@@ -1641,13 +1645,7 @@ pub fn parse_glob_pattern(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-    {
-        &bytes[1..(bytes.len() - 1)]
-    } else {
-        bytes
-    };
+    let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
         (
@@ -1672,13 +1670,7 @@ pub fn parse_string(
     span: Span,
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
-    let bytes = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-    {
-        &bytes[1..(bytes.len() - 1)]
-    } else {
-        bytes
-    };
+    let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
         (
@@ -1853,6 +1845,7 @@ pub fn parse_import_pattern(
                 ),
             }
         } else {
+            let tail = trim_quotes(tail);
             (
                 ImportPattern {
                     head,

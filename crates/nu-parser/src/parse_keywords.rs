@@ -12,7 +12,7 @@ use crate::{
     lex, lite_parse,
     parser::{
         check_name, garbage, garbage_statement, parse, parse_block_expression,
-        parse_import_pattern, parse_internal_call, parse_signature, parse_string,
+        parse_import_pattern, parse_internal_call, parse_signature, parse_string, trim_quotes,
     },
     ParseError,
 };
@@ -356,6 +356,8 @@ pub fn parse_module_block(
                             let decl_name =
                                 // parts[2] is safe since it's checked in parse_export already
                                 working_set.get_span_contents(pipeline.commands[0].parts[2]);
+
+                            let decl_name = trim_quotes(decl_name);
 
                             let decl_id = working_set
                                 .find_decl(decl_name)

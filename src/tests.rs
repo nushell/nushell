@@ -901,6 +901,14 @@ fn record_2() -> TestResult {
 }
 
 #[test]
+fn multi_word_imports() -> TestResult {
+    run_test(
+        r#"module spam { export def "foo bar" [] { 10 } }; use spam "foo bar"; foo bar"#,
+        "10",
+    )
+}
+
+#[test]
 fn config_var_1() -> TestResult {
     // Note: this tests both the config variable and that it is properly captured into a block
     run_test(
