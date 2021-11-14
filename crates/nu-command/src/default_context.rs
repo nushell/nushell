@@ -113,6 +113,8 @@ pub fn create_default_context() -> EngineState {
             StrPascalCase,
             StrScreamingSnakeCase,
             StrSnakeCase,
+            StrLpad,
+            StrRpad,
             Sys,
             Table,
             To,
