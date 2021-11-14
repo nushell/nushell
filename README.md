@@ -68,7 +68,7 @@ cargo install nu
 To install Nu via the [Windows Package Manager](https://aka.ms/winget-cli):
 
 ```shell
-winget install nu
+winget install nushell
 ```
 
 You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/installation.html#dependencies) for your platform), once you have checked out this repo with git:
