@@ -15,6 +15,6 @@ nu-plugin = { path="../nu-plugin", version = "0.39.0" }
 nu-protocol = { path="../nu-protocol", version = "0.39.0" }
 nu-source = { path="../nu-source", version = "0.39.0" }
 tempfile = "3.2.0"
-mp4 = "0.8.2"
+mp4 = "0.9.0"
 
 [build-dependencies]

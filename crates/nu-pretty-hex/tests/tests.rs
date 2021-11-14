@@ -166,7 +166,7 @@ fn test_hex_write_with_simple_config() {
         core::str::from_utf8(b"00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f").unwrap();
     // let expected =
     //     "\u{1b}[38;5;242m00\u{1b}[0m \u{1b}[1;35m01\u{1b}[0m \u{1b}[1;35m02\u{1b}[0m \u{1b}[1;";
-    let mut buffer = heapless::Vec::<u8, heapless::consts::U50>::new();
+    let mut buffer = heapless::Vec::<u8, 50>::new();
 
     hex_write(&mut buffer, &bytes, config, None).unwrap();
 

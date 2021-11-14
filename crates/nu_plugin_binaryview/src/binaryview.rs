@@ -167,7 +167,7 @@ impl RenderContext {
 
 #[derive(Debug)]
 struct RawImageBuffer {
-    dimensions: (u64, u64),
+    dimensions: (u32, u32),
     colortype: image::ColorType,
     buffer: Vec<u8>,
 }
@@ -175,11 +175,12 @@ struct RawImageBuffer {
 fn load_from_png_buffer(buffer: &[u8]) -> Result<RawImageBuffer, Box<dyn std::error::Error>> {
     use image::ImageDecoder;
 
-    let decoder = image::png::PNGDecoder::new(buffer)?;
+    let decoder = image::codecs::png::PngDecoder::new(buffer)?;
 
     let dimensions = decoder.dimensions();
-    let colortype = decoder.colortype();
-    let buffer = decoder.read_image()?;
+    let colortype = decoder.color_type();
+    let mut buffer: Vec<u8> = vec![0; decoder.total_bytes() as usize];
+    decoder.read_image(&mut buffer)?;
 
     Ok(RawImageBuffer {
         dimensions,
@@ -191,11 +192,12 @@ fn load_from_png_buffer(buffer: &[u8]) -> Result<RawImageBuffer, Box<dyn std::er
 fn load_from_jpg_buffer(buffer: &[u8]) -> Result<RawImageBuffer, Box<dyn std::error::Error>> {
     use image::ImageDecoder;
 
-    let decoder = image::jpeg::JPEGDecoder::new(buffer)?;
+    let decoder = image::codecs::jpeg::JpegDecoder::new(buffer)?;
 
     let dimensions = decoder.dimensions();
-    let colortype = decoder.colortype();
-    let buffer = decoder.read_image()?;
+    let colortype = decoder.color_type();
+    let mut buffer: Vec<u8> = vec![0; decoder.total_bytes() as usize];
+    decoder.read_image(&mut buffer)?;
 
     Ok(RawImageBuffer {
         dimensions,
@@ -245,7 +247,7 @@ pub fn view_contents(
     render_context.clear();
 
     match raw_image_buffer.colortype {
-        image::ColorType::RGBA(8) => {
+        image::ColorType::Rgba8 => {
             let img = image::ImageBuffer::<image::Rgba<u8>, Vec<u8>>::from_vec(
                 raw_image_buffer.dimensions.0 as u32,
                 raw_image_buffer.dimensions.1 as u32,
@@ -257,7 +259,7 @@ pub fn view_contents(
                 &img,
                 render_context.width as u32,
                 render_context.height as u32,
-                image::FilterType::Lanczos3,
+                image::imageops::FilterType::Lanczos3,
             );
 
             for (count, pixel) in resized_img.pixels().enumerate() {
@@ -266,7 +268,7 @@ pub fn view_contents(
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
             }
         }
-        image::ColorType::RGB(8) => {
+        image::ColorType::Rgb8 => {
             let img = image::ImageBuffer::<image::Rgb<u8>, Vec<u8>>::from_vec(
                 raw_image_buffer.dimensions.0 as u32,
                 raw_image_buffer.dimensions.1 as u32,
@@ -278,7 +280,7 @@ pub fn view_contents(
                 &img,
                 render_context.width as u32,
                 render_context.height as u32,
-                image::FilterType::Lanczos3,
+                image::imageops::FilterType::Lanczos3,
             );
 
             for (count, pixel) in resized_img.pixels().enumerate() {
@@ -359,7 +361,7 @@ pub fn view_contents_interactive(
                 &img,
                 render_context.width as u32,
                 render_context.height as u32,
-                image::FilterType::Lanczos3,
+                image::imageops::FilterType::Lanczos3,
             );
 
             render_context.clear();

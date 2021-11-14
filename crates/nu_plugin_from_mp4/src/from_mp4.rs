@@ -27,7 +27,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
 
     // Build tracks table
     let mut tracks = Vec::new();
-    for track in mp4.tracks() {
+    for track in mp4.tracks().values() {
         let mut curr_track_dict = TaggedDictBuilder::new(tag.clone());
 
         curr_track_dict.insert_untagged("track id", UntaggedValue::int(track.track_id()));
