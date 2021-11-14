@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Config, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
@@ -57,10 +57,12 @@ prints out the list properly."#
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
 
+        let config = stack.get_config()?;
+
         match input {
             PipelineData::Value(Value::List { vals, .. }) => {
                 // dbg!("value::list");
-                let data = convert_to_list2(vals);
+                let data = convert_to_list2(vals, &config);
                 if let Some(items) = data {
                     Ok(create_grid_output2(
                         items,
@@ -75,7 +77,7 @@ prints out the list properly."#
             }
             PipelineData::Stream(stream) => {
                 // dbg!("value::stream");
-                let data = convert_to_list2(stream);
+                let data = convert_to_list2(stream, &config);
                 if let Some(items) = data {
                     Ok(create_grid_output2(
                         items,
@@ -94,7 +96,7 @@ prints out the list properly."#
                 let mut items = vec![];
 
                 for (i, (c, v)) in cols.into_iter().zip(vals.into_iter()).enumerate() {
-                    items.push((i, c, v.into_string(", ")))
+                    items.push((i, c, v.into_string(", ", &config)))
                 }
 
                 Ok(create_grid_output2(
@@ -171,7 +173,10 @@ fn create_grid_output2(
     .into_pipeline_data()
 }
 
-fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize, String, String)>> {
+fn convert_to_list2(
+    iter: impl IntoIterator<Item = Value>,
+    config: &Config,
+) -> Option<Vec<(usize, String, String)>> {
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
@@ -187,7 +192,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string(", "))
+                row.push(item.into_string(", ", config))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -201,7 +206,7 @@ fn convert_to_list2(iter: impl IntoIterator<Item = Value>) -> Option<Vec<(usize,
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string(", ")),
+                        Ok(value) => row.push(value.into_string(", ", config)),
                         Err(_) => row.push(String::new()),
                     }
                 }

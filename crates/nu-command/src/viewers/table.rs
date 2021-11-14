@@ -1,7 +1,7 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
-use nu_table::StyledString;
+use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
+use nu_table::{StyledString, Theme};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -27,11 +27,12 @@ impl Command for Table {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let ctrlc = engine_state.ctrlc.clone();
+        let config = stack.get_config()?;
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             w as usize
@@ -41,7 +42,7 @@ impl Command for Table {
 
         match input {
             PipelineData::Value(Value::List { vals, .. }) => {
-                let table = convert_to_table(vals, ctrlc)?;
+                let table = convert_to_table(vals, ctrlc, &config)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -56,7 +57,7 @@ impl Command for Table {
                 }
             }
             PipelineData::Stream(stream) => {
-                let table = convert_to_table(stream, ctrlc)?;
+                let table = convert_to_table(stream, ctrlc, &config)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -80,7 +81,7 @@ impl Command for Table {
                             style: nu_table::TextStyle::default_field(),
                         },
                         StyledString {
-                            contents: v.into_string(", "),
+                            contents: v.into_string(", ", &config),
                             style: nu_table::TextStyle::default(),
                         },
                     ])
@@ -89,7 +90,7 @@ impl Command for Table {
                 let table = nu_table::Table {
                     headers: vec![],
                     data: output,
-                    theme: nu_table::Theme::rounded(),
+                    theme: load_theme_from_config(&config),
                 };
 
                 let result = nu_table::draw_table(&table, term_width, &HashMap::new());
@@ -109,6 +110,7 @@ impl Command for Table {
 fn convert_to_table(
     iter: impl IntoIterator<Item = Value>,
     ctrlc: Option<Arc<AtomicBool>>,
+    config: &Config,
 ) -> Result<Option<nu_table::Table>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
@@ -133,7 +135,7 @@ fn convert_to_table(
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.into_string(", "))
+                row.push(item.into_string(", ", config))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -147,7 +149,7 @@ fn convert_to_table(
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string(", ")),
+                        Ok(value) => row.push(value.into_string(", ", config)),
                         Err(_) => row.push(String::new()),
                     }
                 }
@@ -185,9 +187,24 @@ fn convert_to_table(
                         .collect::<Vec<StyledString>>()
                 })
                 .collect(),
-            theme: nu_table::Theme::rounded(),
+            theme: load_theme_from_config(config),
         }))
     } else {
         Ok(None)
+    }
+}
+
+fn load_theme_from_config(config: &Config) -> Theme {
+    match config.table_mode.as_str() {
+        "basic" => nu_table::Theme::basic(),
+        "compact" => nu_table::Theme::compact(),
+        "compact_double" => nu_table::Theme::compact_double(),
+        "light" => nu_table::Theme::light(),
+        "with_love" => nu_table::Theme::with_love(),
+        "rounded" => nu_table::Theme::rounded(),
+        "reinforced" => nu_table::Theme::reinforced(),
+        "heavy" => nu_table::Theme::heavy(),
+        "none" => nu_table::Theme::none(),
+        _ => nu_table::Theme::rounded(),
     }
 }

@@ -49,10 +49,13 @@ impl Command for BuildString {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let config = stack.get_config()?;
         let output = call
             .positional
             .iter()
-            .map(|expr| eval_expression(engine_state, stack, expr).map(|val| val.into_string(", ")))
+            .map(|expr| {
+                eval_expression(engine_state, stack, expr).map(|val| val.into_string(", ", &config))
+            })
             .collect::<Result<Vec<String>, ShellError>>()?;
 
         Ok(Value::String {

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Block, Call, Expr, Expression, ImportPattern, ImportPatternMember, Pipeline, Statement},
     engine::StateWorkingSet,
-    span, DeclId, Span, SyntaxShape, Type,
+    span, DeclId, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
 };
 use std::path::Path;
 
@@ -800,7 +800,9 @@ pub fn parse_let(
                     .expect("internal error: expected variable");
                 let rhs_type = call.positional[1].ty.clone();
 
-                working_set.set_variable_type(var_id, rhs_type);
+                if var_id != CONFIG_VARIABLE_ID {
+                    working_set.set_variable_type(var_id, rhs_type);
+                }
             }
 
             return (

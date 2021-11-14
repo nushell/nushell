@@ -19,8 +19,8 @@ pub struct ValueStream {
 }
 
 impl ValueStream {
-    pub fn into_string(self, separator: &str) -> String {
-        self.map(|x: Value| x.into_string(", "))
+    pub fn into_string(self, separator: &str, config: &Config) -> String {
+        self.map(|x: Value| x.into_string(", ", config))
             .collect::<Vec<String>>()
             .join(separator)
     }

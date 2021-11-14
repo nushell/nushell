@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::{ast::PathMember, ShellError, Span, Value, ValueStream};
+use crate::{ast::PathMember, Config, ShellError, Span, Value, ValueStream};
 
 /// The foundational abstraction for input and output to commands
 ///
@@ -51,10 +51,10 @@ impl PipelineData {
         }
     }
 
-    pub fn collect_string(self, separator: &str) -> String {
+    pub fn collect_string(self, separator: &str, config: &Config) -> String {
         match self {
-            PipelineData::Value(v) => v.into_string(separator),
-            PipelineData::Stream(s) => s.into_string(separator),
+            PipelineData::Value(v) => v.into_string(separator, config),
+            PipelineData::Stream(s) => s.into_string(separator, config),
         }
     }
 

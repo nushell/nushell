@@ -8,7 +8,7 @@ use std::sync::mpsc;
 
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
+use nu_protocol::{Config, IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
 
 use nu_engine::CallExt;
 
@@ -44,13 +44,15 @@ impl Command for External {
         let last_expression = call.has_flag("last_expression");
         let env_vars = stack.get_env_vars();
 
+        let config = stack.get_config()?;
+
         let command = ExternalCommand {
             name,
             args,
             last_expression,
             env_vars,
         };
-        command.run_with_input(engine_state, input)
+        command.run_with_input(engine_state, input, config)
     }
 }
 
@@ -66,6 +68,7 @@ impl ExternalCommand {
         &self,
         engine_state: &EngineState,
         input: PipelineData,
+        config: Config,
     ) -> Result<PipelineData, ShellError> {
         let mut process = self.create_command();
 
@@ -112,7 +115,10 @@ impl ExternalCommand {
                                     }
                                 }
                                 x => {
-                                    if stdin_write.write(x.into_string(", ").as_bytes()).is_err() {
+                                    if stdin_write
+                                        .write(x.into_string(", ", &config).as_bytes())
+                                        .is_err()
+                                    {
                                         return Err(());
                                     }
                                 }

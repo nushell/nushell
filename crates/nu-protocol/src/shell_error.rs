@@ -80,7 +80,7 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::internal_error), url(docsrs))]
     InternalError(String),
 
-    #[error("Variable not found")]
+    #[error("Variable not found!!!")]
     #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
     VariableNotFoundAtRuntime(#[label = "variable not found"] Span),
 

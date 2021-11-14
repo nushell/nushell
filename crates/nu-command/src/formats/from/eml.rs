@@ -4,6 +4,7 @@ use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Config;
 use nu_protocol::{
     Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
@@ -41,7 +42,8 @@ impl Command for FromEml {
         let head = call.head;
         let preview_body: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "preview-body")?;
-        from_eml(input, preview_body, head)
+        let config = stack.get_config()?;
+        from_eml(input, preview_body, head, &config)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -176,8 +178,9 @@ fn from_eml(
     input: PipelineData,
     preview_body: Option<Spanned<i64>>,
     head: Span,
+    config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.collect_string("");
+    let value = input.collect_string("", config);
 
     let body_preview = preview_body
         .map(|b| b.item as usize)

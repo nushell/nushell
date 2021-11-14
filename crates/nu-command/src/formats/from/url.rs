@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Config, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -21,12 +21,13 @@ impl Command for FromUrl {
     fn run(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        from_url(input, head)
+        let config = stack.get_config()?;
+        from_url(input, head, &config)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -52,8 +53,8 @@ impl Command for FromUrl {
     }
 }
 
-fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("");
+fn from_url(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
+    let concat_string = input.collect_string("", config);
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 

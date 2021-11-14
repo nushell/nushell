@@ -19,7 +19,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 
@@ -81,7 +81,7 @@ impl CompletionActionHandler for FuzzyCompletion {
 }
 
 fn main() -> Result<()> {
-    miette::set_panic_hook();
+    // miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
         crossterm::terminal::disable_raw_mode().unwrap();
@@ -126,6 +126,16 @@ fn main() -> Result<()> {
             stack.env_vars.insert(k, v);
         }
 
+        // Set up our initial config to start from
+        stack.vars.insert(
+            CONFIG_VARIABLE_ID,
+            Value::Record {
+                cols: vec![],
+                vals: vec![],
+                span: Span::unknown(),
+            },
+        );
+
         match eval_block(
             &engine_state,
             &mut stack,
@@ -133,7 +143,8 @@ fn main() -> Result<()> {
             PipelineData::new(Span::unknown()),
         ) {
             Ok(pipeline_data) => {
-                println!("{}", pipeline_data.collect_string("\n"));
+                let config = stack.get_config()?;
+                println!("{}", pipeline_data.collect_string("\n", &config));
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(&engine_state);
@@ -158,6 +169,16 @@ fn main() -> Result<()> {
         for (k, v) in std::env::vars() {
             stack.env_vars.insert(k, v);
         }
+
+        // Set up our initial config to start from
+        stack.vars.insert(
+            CONFIG_VARIABLE_ID,
+            Value::Record {
+                cols: vec![],
+                vals: vec![],
+                span: Span::unknown(),
+            },
+        );
 
         // Load config startup file
         if let Some(mut config_path) = nu_path::config_dir() {
@@ -261,21 +282,27 @@ fn main() -> Result<()> {
     }
 }
 
-fn print_value(value: Value, engine_state: &EngineState) -> Result<(), ShellError> {
+fn print_value(
+    value: Value,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
     // If the table function is in the declarations, then we can use it
     // to create the table value that will be printed in the terminal
+
+    let config = stack.get_config()?;
+
     let output = match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
-            let mut stack = Stack::new();
             let table = engine_state.get_decl(decl_id).run(
                 engine_state,
-                &mut stack,
+                stack,
                 &Call::new(),
                 value.into_pipeline_data(),
             )?;
-            table.collect_string("\n")
+            table.collect_string("\n", &config)
         }
-        None => value.into_string(", "),
+        None => value.into_string(", ", &config),
     };
     let stdout = std::io::stdout();
 
@@ -323,7 +350,10 @@ fn update_prompt<'prompt>(
         &block,
         PipelineData::new(Span::unknown()),
     ) {
-        Ok(pipeline_data) => pipeline_data.collect_string(""),
+        Ok(pipeline_data) => {
+            let config = stack.get_config().unwrap_or_default();
+            pipeline_data.collect_string("", &config)
+        }
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &err);
@@ -366,7 +396,11 @@ fn eval_source(
         PipelineData::new(Span::unknown()),
     ) {
         Ok(pipeline_data) => {
-            if let Err(err) = print_value(pipeline_data.into_value(Span::unknown()), engine_state) {
+            if let Err(err) = print_value(
+                pipeline_data.into_value(Span::unknown()),
+                engine_state,
+                stack,
+            ) {
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);

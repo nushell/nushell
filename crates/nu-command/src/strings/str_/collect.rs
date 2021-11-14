@@ -34,12 +34,14 @@ impl Command for StrCollect {
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<String> = call.opt(engine_state, stack, 0)?;
 
+        let config = stack.get_config()?;
+
         // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
         // which feels funny
         #[allow(clippy::needless_collect)]
         let strings: Vec<String> = input
             .into_iter()
-            .map(|value| value.debug_string("\n"))
+            .map(|value| value.debug_string("\n", &config))
             .collect();
 
         let output = if let Some(separator) = separator {

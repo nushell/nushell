@@ -6,7 +6,7 @@ use crate::*;
 pub struct RowStream(Rc<RefCell<dyn Iterator<Item = Vec<Value>>>>);
 
 impl RowStream {
-    pub fn into_string(self, headers: Vec<String>) -> String {
+    pub fn into_string(self, headers: Vec<String>, config: &Config) -> String {
         format!(
             "[{}]\n[{}]",
             headers
@@ -16,7 +16,7 @@ impl RowStream {
                 .join(", "),
             self.map(|x: Vec<Value>| {
                 x.into_iter()
-                    .map(|x| x.into_string(", "))
+                    .map(|x| x.into_string(", ", config))
                     .collect::<Vec<String>>()
                     .join(", ")
             })

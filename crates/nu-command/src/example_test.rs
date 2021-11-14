@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span,
+    PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 
 use crate::To;
@@ -56,6 +56,16 @@ pub fn test_examples(cmd: impl Command + 'static) {
         engine_state.merge_delta(delta);
 
         let mut stack = Stack::new();
+
+        // Set up our initial config to start from
+        stack.vars.insert(
+            CONFIG_VARIABLE_ID,
+            Value::Record {
+                cols: vec![],
+                vals: vec![],
+                span: Span::unknown(),
+            },
+        );
 
         match eval_block(
             &engine_state,

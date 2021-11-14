@@ -72,12 +72,13 @@ impl Command for FromJson {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let mut string_input = input.collect_string("");
+        let config = stack.get_config()?;
+        let mut string_input = input.collect_string("", &config);
         string_input.push('\n');
 
         // TODO: turn this into a structured underline of the nu_json error

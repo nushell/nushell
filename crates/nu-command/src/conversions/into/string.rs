@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
@@ -136,6 +136,7 @@ fn string_helper(
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    let config = stack.get_config()?;
 
     if decimals && decimals_value.is_some() && decimals_value.unwrap().is_negative() {
         return Err(ShellError::UnsupportedInput(
@@ -147,13 +148,16 @@ fn string_helper(
     input.map(
         move |v| {
             if column_paths.is_empty() {
-                action(&v, head, decimals, decimals_value, false)
+                action(&v, head, decimals, decimals_value, false, &config)
             } else {
                 let mut ret = v;
                 for path in &column_paths {
+                    let config = config.clone();
                     let r = ret.update_cell_path(
                         &path.members,
-                        Box::new(move |old| action(old, head, decimals, decimals_value, false)),
+                        Box::new(move |old| {
+                            action(old, head, decimals, decimals_value, false, &config)
+                        }),
                     );
                     if let Err(error) = r {
                         return Value::Error { error };
@@ -173,6 +177,7 @@ pub fn action(
     decimals: bool,
     digits: Option<i64>,
     group_digits: bool,
+    config: &Config,
 ) -> Value {
     match input {
         Value::Int { val, .. } => {
@@ -212,7 +217,7 @@ pub fn action(
         },
 
         Value::Filesize { val: _, .. } => Value::String {
-            val: input.clone().into_string(", "),
+            val: input.clone().into_string(", ", config),
             span,
         },
         Value::Nothing { .. } => Value::String {

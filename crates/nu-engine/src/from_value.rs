@@ -95,14 +95,32 @@ impl FromValue for f64 {
 impl FromValue for String {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
-        Ok(v.clone().into_string(", "))
+        match v {
+            Value::CellPath { val, .. } => Ok(val.into_string()),
+            Value::String { val, .. } => Ok(val.clone()),
+            v => Err(ShellError::CantConvert(
+                "string".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
     }
 }
 
 impl FromValue for Spanned<String> {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         Ok(Spanned {
-            item: v.clone().into_string(", "),
+            item: match v {
+                Value::CellPath { val, .. } => val.into_string(),
+                Value::String { val, .. } => val.clone(),
+                v => {
+                    return Err(ShellError::CantConvert(
+                        "string".into(),
+                        v.get_type().to_string(),
+                        v.span()?,
+                    ))
+                }
+            },
             span: v.span()?,
         })
     }
