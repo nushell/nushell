@@ -8,8 +8,8 @@ use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use num_bigint::BigInt;
 use polars::prelude::{
-    DataFrame, DataType, Date64Type, Int64Type, IntoSeries, NamedFrom, NewChunkedArray, ObjectType,
-    PolarsNumericType, Series, TimeUnit,
+    DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, NamedFrom, NewChunkedArray,
+    ObjectType, PolarsNumericType, Series,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -310,8 +310,8 @@ pub fn create_column(
                 }
             }
         }
-        DataType::Date32 => {
-            let casted = series.date32().map_err(|e| {
+        DataType::Date => {
+            let casted = series.date().map_err(|e| {
                 ShellError::labeled_error(
                     "Casting error",
                     format!("casting error: {}", e),
@@ -347,8 +347,8 @@ pub fn create_column(
 
             Ok(Column::new(casted.name().into(), values))
         }
-        DataType::Date64 => {
-            let casted = series.date64().map_err(|e| {
+        DataType::Datetime => {
+            let casted = series.datetime().map_err(|e| {
                 ShellError::labeled_error(
                     "Casting error",
                     format!("casting error: {}", e),
@@ -384,8 +384,8 @@ pub fn create_column(
 
             Ok(Column::new(casted.name().into(), values))
         }
-        DataType::Time64(timeunit) | DataType::Duration(timeunit) => {
-            let casted = series.time64_nanosecond().map_err(|e| {
+        DataType::Time => {
+            let casted = series.time().map_err(|e| {
                 ShellError::labeled_error(
                     "Casting error",
                     format!("casting error: {}", e),
@@ -398,14 +398,7 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => {
-                        let nanoseconds = match timeunit {
-                            TimeUnit::Second => a / 1_000_000_000,
-                            TimeUnit::Millisecond => a / 1_000_000,
-                            TimeUnit::Microsecond => a / 1_000,
-                            TimeUnit::Nanosecond => a,
-                        };
-
+                    Some(nanoseconds) => {
                         let untagged = if let Some(bigint) = BigInt::from_i64(nanoseconds) {
                             UntaggedValue::Primitive(Primitive::Duration(bigint))
                         } else {
@@ -633,7 +626,8 @@ pub fn from_parsed_columns(
                         }
                     });
 
-                    let res = ChunkedArray::<Date64Type>::new_from_opt_iter(&name, it);
+                    let res: DatetimeChunked =
+                        ChunkedArray::<Int64Type>::new_from_opt_iter(&name, it).into();
 
                     df_series.push(res.into_series())
                 }

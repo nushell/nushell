@@ -78,7 +78,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let casted = match indices.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => indices
             .as_ref()
-            .cast_with_dtype(&DataType::UInt32)
+            .cast(&DataType::UInt32)
             .map_err(|e| parse_polars_error::<&str>(&e, &value.tag.span, None)),
         _ => Err(ShellError::labeled_error_with_secondary(
             "Incorrect type",
