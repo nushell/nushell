@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use lscolors::{LsColors, Style};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -32,6 +33,7 @@ impl Command for Ls {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let config = stack.get_config()?;
         let pattern = if let Some(expr) = call.positional.get(0) {
             let result = eval_expression(engine_state, stack, expr)?;
             let mut result = result.as_string()?;
@@ -51,6 +53,7 @@ impl Command for Ls {
 
         let call_span = call.head;
         let glob = glob::glob(&pattern).unwrap();
+        let ls_colors = LsColors::from_env().unwrap_or_default();
 
         Ok(glob
             .into_iter()
@@ -60,13 +63,22 @@ impl Command for Ls {
                         let is_file = metadata.is_file();
                         let is_dir = metadata.is_dir();
                         let filesize = metadata.len();
-
                         let mut cols = vec!["name".into(), "type".into(), "size".into()];
+                        let style = ls_colors.style_for_path(path.clone());
+                        let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
+                        let use_ls_colors = config.use_ls_colors;
 
                         let mut vals = vec![
-                            Value::String {
-                                val: path.to_string_lossy().to_string(),
-                                span: call_span,
+                            if use_ls_colors {
+                                Value::String {
+                                    val: ansi_style.apply(path.to_string_lossy()).to_string(),
+                                    span: call_span,
+                                }
+                            } else {
+                                Value::String {
+                                    val: path.to_string_lossy().to_string(),
+                                    span: call_span,
+                                }
                             },
                             if is_file {
                                 Value::string("file", call_span)
@@ -97,18 +109,31 @@ impl Command for Ls {
                             span: call_span,
                         }
                     }
-                    Err(_) => Value::Record {
-                        cols: vec!["name".into(), "type".into(), "size".into()],
-                        vals: vec![
-                            Value::String {
-                                val: path.to_string_lossy().to_string(),
-                                span: call_span,
-                            },
-                            Value::Nothing { span: call_span },
-                            Value::Nothing { span: call_span },
-                        ],
-                        span: call_span,
-                    },
+                    Err(_) => {
+                        let style = ls_colors.style_for_path(path.clone());
+                        let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
+                        let use_ls_colors = config.use_ls_colors;
+
+                        Value::Record {
+                            cols: vec!["name".into(), "type".into(), "size".into()],
+                            vals: vec![
+                                if use_ls_colors {
+                                    Value::String {
+                                        val: ansi_style.apply(path.to_string_lossy()).to_string(),
+                                        span: call_span,
+                                    }
+                                } else {
+                                    Value::String {
+                                        val: path.to_string_lossy().to_string(),
+                                        span: call_span,
+                                    }
+                                },
+                                Value::Nothing { span: call_span },
+                                Value::Nothing { span: call_span },
+                            ],
+                            span: call_span,
+                        }
+                    }
                 },
                 _ => Value::Nothing { span: call_span },
             })

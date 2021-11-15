@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 nu-ansi-term = "0.39.0"
-
 regex = "1.4"
 unicode-width = "0.1.8"
+strip-ansi-escapes = "0.1.1"
+ansi-cut = "0.1.1"

@@ -611,15 +611,15 @@ impl Table {
 }
 
 #[derive(Debug)]
-pub struct ProcessedTable<'a> {
-    pub headers: Vec<ProcessedCell<'a>>,
-    pub data: Vec<Vec<ProcessedCell<'a>>>,
+pub struct ProcessedTable {
+    pub headers: Vec<ProcessedCell>,
+    pub data: Vec<Vec<ProcessedCell>>,
     pub theme: Theme,
 }
 
 #[derive(Debug)]
-pub struct ProcessedCell<'a> {
-    pub contents: Vec<Vec<Subline<'a>>>,
+pub struct ProcessedCell {
+    pub contents: Vec<Vec<Subline>>,
     pub style: TextStyle,
 }
 
@@ -995,7 +995,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
 
         processed_table.headers.push(ProcessedCell {
             contents: vec![vec![Subline {
-                subline: "...",
+                subline: "...".to_string(),
                 width: 3,
             }]],
             style: TextStyle::basic_center(),
@@ -1004,7 +1004,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
         for entry in processed_table.data.iter_mut() {
             entry.push(ProcessedCell {
                 contents: vec![vec![Subline {
-                    subline: "...",
+                    subline: "...".to_string(),
                     width: 3,
                 }]],
                 style: TextStyle::basic_center(),

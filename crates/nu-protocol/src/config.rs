@@ -6,6 +6,7 @@ use crate::{ShellError, Value};
 pub struct Config {
     pub filesize_metric: bool,
     pub table_mode: String,
+    pub use_ls_colors: bool,
 }
 
 impl Default for Config {
@@ -13,6 +14,7 @@ impl Default for Config {
         Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
+            use_ls_colors: true,
         }
     }
 }
@@ -30,6 +32,9 @@ impl Value {
                 }
                 "table_mode" => {
                     config.table_mode = value.as_string()?;
+                }
+                "use_ls_colors" => {
+                    config.use_ls_colors = value.as_bool()?;
                 }
                 _ => {}
             }
