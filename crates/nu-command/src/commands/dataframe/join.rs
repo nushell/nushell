@@ -44,6 +44,12 @@ impl WholeStreamCommand for DataFrame {
                 "type of join. Inner by default",
                 Some('t'),
             )
+            .named(
+                "suffix",
+                SyntaxShape::String,
+                "suffix for the columns of the right dataframe",
+                Some('s'),
+            )
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -104,6 +110,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let r_df: Value = args.req(0)?;
     let l_col: Vec<Value> = args.req_named("left")?;
     let r_col: Vec<Value> = args.req_named("right")?;
+    let r_suffix: Option<Tagged<String>> = args.get_flag("suffix")?;
     let join_type_op: Option<Tagged<String>> = args.get_flag("type")?;
 
     let join_type = match join_type_op {
@@ -124,6 +131,8 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         },
     };
 
+    let suffix = r_suffix.map(|s| s.item);
+
     let (l_col_string, l_col_span) = convert_columns(&l_col, &tag)?;
     let (r_col_string, r_col_span) = convert_columns(&r_col, &tag)?;
 
@@ -142,7 +151,13 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             )?;
 
             df.as_ref()
-                .join(r_df.as_ref(), &l_col_string, &r_col_string, join_type)
+                .join(
+                    r_df.as_ref(),
+                    &l_col_string,
+                    &r_col_string,
+                    join_type,
+                    suffix,
+                )
                 .map_err(|e| parse_polars_error::<&str>(&e, &l_col_span, None))
         }
         _ => Err(ShellError::labeled_error(

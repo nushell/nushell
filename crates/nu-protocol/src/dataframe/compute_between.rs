@@ -603,7 +603,7 @@ where
 {
     match series.dtype() {
         DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
-            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+            let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
                 Ok(series) => {
@@ -661,7 +661,7 @@ where
 {
     match series.dtype() {
         DataType::Float32 => {
-            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+            let to_f64 = series.cast(&DataType::Float64);
 
             match to_f64 {
                 Ok(series) => {
@@ -731,7 +731,7 @@ where
 {
     match series.dtype() {
         DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
-            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+            let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
                 Ok(series) => {
@@ -789,7 +789,7 @@ where
 {
     match series.dtype() {
         DataType::Float32 => {
-            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+            let to_f64 = series.cast(&DataType::Float64);
 
             match to_f64 {
                 Ok(series) => {

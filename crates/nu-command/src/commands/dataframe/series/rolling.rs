@@ -6,7 +6,7 @@ use nu_protocol::{
     Signature, SyntaxShape, UntaggedValue,
 };
 use nu_source::Tagged;
-use polars::prelude::DataType;
+use polars::prelude::{DataType, RollingOptions};
 
 enum RollType {
     Min,
@@ -57,7 +57,6 @@ impl WholeStreamCommand for DataFrame {
         Signature::build("dataframe rolling")
             .required("type", SyntaxShape::String, "rolling operation")
             .required("window", SyntaxShape::Int, "Window size for rolling")
-            .switch("ignore_nulls", "Ignore nulls in column", Some('i'))
     }
 
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -112,7 +111,6 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tag = args.call_info.name_tag.clone();
     let roll_type: Tagged<String> = args.req(0)?;
     let window_size: Tagged<i64> = args.req(1)?;
-    let ignore_nulls = args.has_flag("ignore_nulls");
 
     let (df, df_tag) = NuDataFrame::try_from_stream(&mut args.input, &tag.span)?;
     let series = df.as_series(&df_tag.span)?;
@@ -126,31 +124,17 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     let roll_type = RollType::from_str(&roll_type.item, &roll_type.tag.span)?;
+    let rolling_opts = RollingOptions {
+        window_size: window_size.item as usize,
+        min_periods: window_size.item as usize,
+        weights: None,
+        center: false,
+    };
     let res = match roll_type {
-        RollType::Max => series.rolling_max(
-            window_size.item as u32,
-            None,
-            ignore_nulls,
-            window_size.item as u32,
-        ),
-        RollType::Min => series.rolling_min(
-            window_size.item as u32,
-            None,
-            ignore_nulls,
-            window_size.item as u32,
-        ),
-        RollType::Sum => series.rolling_sum(
-            window_size.item as u32,
-            None,
-            ignore_nulls,
-            window_size.item as u32,
-        ),
-        RollType::Mean => series.rolling_mean(
-            window_size.item as u32,
-            None,
-            ignore_nulls,
-            window_size.item as u32,
-        ),
+        RollType::Max => series.rolling_max(rolling_opts),
+        RollType::Min => series.rolling_min(rolling_opts),
+        RollType::Sum => series.rolling_sum(rolling_opts),
+        RollType::Mean => series.rolling_mean(rolling_opts),
     };
 
     let mut res = res.map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;

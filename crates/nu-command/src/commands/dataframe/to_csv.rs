@@ -73,9 +73,9 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let writer = CsvWriter::new(&mut file);
 
     let writer = if no_header {
-        writer.has_headers(false)
+        writer.has_header(false)
     } else {
-        writer.has_headers(true)
+        writer.has_header(true)
     };
 
     let writer = match delimiter {
