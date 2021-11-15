@@ -118,6 +118,7 @@ pub fn create_default_context() -> EngineState {
             StrSnakeCase,
             StrLpad,
             StrRpad,
+            StrStartsWith,
             StrReverse,
             Sys,
             Table,

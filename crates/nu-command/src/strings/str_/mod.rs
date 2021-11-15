@@ -10,6 +10,7 @@ mod length;
 mod lpad;
 mod reverse;
 mod rpad;
+mod starts_with;
 
 pub use capitalize::SubCommand as StrCapitalize;
 pub use case::*;
@@ -23,3 +24,4 @@ pub use length::SubCommand as StrLength;
 pub use lpad::SubCommand as StrLpad;
 pub use reverse::SubCommand as StrReverse;
 pub use rpad::SubCommand as StrRpad;
+pub use starts_with::SubCommand as StrStartsWith;
