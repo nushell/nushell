@@ -28,6 +28,9 @@ jobs:
           command: build
           args: --release --all --features=extra
 
+      - name: Strip release binary (linux)
+        run: strip "target/${{ matrix.target }}/release/nu*"          
+
       - name: Create output directory
         run: mkdir output
 
@@ -69,6 +72,9 @@ jobs:
         with:
           command: build
           args: --release --all --features=extra
+
+      - name: Strip release binary (macos)
+        run: strip "target/${{ matrix.target }}/release/nu*"          
 
       - name: Create output directory
         run: mkdir output
