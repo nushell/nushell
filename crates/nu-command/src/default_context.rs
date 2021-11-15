@@ -127,6 +127,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(AnsiStrip),
             whole_stream_command(AnsiGradient),
             whole_stream_command(Char),
+            whole_stream_command(DetectColumns),
             // Column manipulation
             whole_stream_command(DropColumn),
             whole_stream_command(MoveColumn),
