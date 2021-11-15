@@ -73,7 +73,12 @@ jobs:
         uses: svenstaro/upx-action@v2
         with:
           file: target/release/nu_plugin_from_sqlite
-        
+
+      - name: Compress binaries (nu_plugin_from_mp4)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_from_mp4
+          
       - name: Compress binaries (nu_plugin_query_json)
         uses: svenstaro/upx-action@v2
         with:
@@ -200,7 +205,12 @@ jobs:
         uses: svenstaro/upx-action@v2
         with:
           file: target/release/nu_plugin_from_sqlite
-        
+
+      - name: Compress binaries (nu_plugin_from_mp4)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_from_mp4
+          
       - name: Compress binaries (nu_plugin_query_json)
         uses: svenstaro/upx-action@v2
         with:
@@ -329,7 +339,12 @@ jobs:
         uses: svenstaro/upx-action@v2
         with:
           file: target/release/nu_plugin_from_sqlite.exe
-        
+
+      - name: Compress binaries (nu_plugin_from_mp4.exe)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_from_mp4.exe
+          
       - name: Compress binaries (nu_plugin_query_json.exe)
         uses: svenstaro/upx-action@v2
         with:
