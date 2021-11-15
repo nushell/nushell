@@ -81,6 +81,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::module_not_found), url(docsrs))]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Not found.")]
+    #[diagnostic(code(nu::parser::not_found), url(docsrs))]
+    NotFound(#[label = "did not find anything under this name"] Span),
+
     #[error("Duplicate command definition within a block.")]
     #[diagnostic(code(nu::parser::duplicate_command_def), url(docsrs))]
     DuplicateCommandDef(#[label = "defined more than once"] Span),
@@ -141,6 +145,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::unknown_state), url(docsrs))]
     UnknownState(String, #[label("{0}")] Span),
 
+    #[error("Internal error.")]
+    #[diagnostic(code(nu::parser::unknown_state), url(docsrs))]
+    InternalError(String, #[label("{0}")] Span),
+
     #[error("Parser incomplete.")]
     #[diagnostic(code(nu::parser::parser_incomplete), url(docsrs))]
     IncompleteParser(#[label = "parser support missing for this expression"] Span),
@@ -175,7 +183,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::missing_import_pattern), url(docsrs))]
     WrongImportPattern(#[label = "invalid import pattern structure"] Span),
 
-    #[error("Module export not found.")]
+    #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
     ExportNotFound(#[label = "could not find imports"] Span),
 

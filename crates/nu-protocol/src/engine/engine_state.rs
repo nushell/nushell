@@ -7,41 +7,41 @@ use std::{
 };
 
 // Tells whether a decl etc. is visible or not
-// TODO: When adding new exportables (env vars, aliases, etc.), parametrize the ID type with generics
 #[derive(Debug, Clone)]
 struct Visibility {
-    ids: HashMap<DeclId, bool>,
+    decl_ids: HashMap<DeclId, bool>,
 }
 
 impl Visibility {
     fn new() -> Self {
         Visibility {
-            ids: HashMap::new(),
+            decl_ids: HashMap::new(),
         }
     }
 
-    fn is_id_visible(&self, id: &DeclId) -> bool {
-        *self.ids.get(id).unwrap_or(&true) // by default it's visible
+    fn is_decl_id_visible(&self, decl_id: &DeclId) -> bool {
+        *self.decl_ids.get(decl_id).unwrap_or(&true) // by default it's visible
     }
 
-    fn hide_id(&mut self, id: &DeclId) {
-        self.ids.insert(*id, false);
+    fn hide_decl_id(&mut self, decl_id: &DeclId) {
+        self.decl_ids.insert(*decl_id, false);
     }
 
-    fn use_id(&mut self, id: &DeclId) {
-        self.ids.insert(*id, true);
+    fn use_decl_id(&mut self, decl_id: &DeclId) {
+        self.decl_ids.insert(*decl_id, true);
     }
 
     fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
-        self.ids.extend(other.ids);
+        self.decl_ids.extend(other.decl_ids);
+        // self.env_var_ids.extend(other.env_var_ids);
     }
 
     fn append(&mut self, other: &Visibility) {
         // take new values from other but keep own values
-        for (id, visible) in other.ids.iter() {
-            if !self.ids.contains_key(id) {
-                self.ids.insert(*id, *visible);
+        for (decl_id, visible) in other.decl_ids.iter() {
+            if !self.decl_ids.contains_key(decl_id) {
+                self.decl_ids.insert(*decl_id, *visible);
             }
         }
     }
@@ -53,6 +53,7 @@ pub struct ScopeFrame {
     predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub aliases: HashMap<Vec<u8>, Vec<Span>>,
+    pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub modules: HashMap<Vec<u8>, BlockId>,
     visibility: Visibility,
 }
@@ -64,6 +65,7 @@ impl ScopeFrame {
             predecls: HashMap::new(),
             decls: HashMap::new(),
             aliases: HashMap::new(),
+            env_vars: HashMap::new(),
             modules: HashMap::new(),
             visibility: Visibility::new(),
         }
@@ -232,9 +234,19 @@ impl EngineState {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                if visibility.is_id_visible(decl_id) {
+                if visibility.is_decl_id_visible(decl_id) {
                     return Some(*decl_id);
                 }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_module(&self, name: &[u8]) -> Option<BlockId> {
+        for scope in self.scope.iter().rev() {
+            if let Some(block_id) = scope.modules.get(name) {
+                return Some(*block_id);
             }
         }
 
@@ -457,9 +469,22 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing required scope frame");
 
         scope_frame.decls.insert(name, decl_id);
-        scope_frame.visibility.use_id(&decl_id);
+        scope_frame.visibility.use_decl_id(&decl_id);
 
         decl_id
+    }
+
+    pub fn add_decls(&mut self, decls: Vec<(Vec<u8>, DeclId)>) {
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for (name, decl_id) in decls {
+            scope_frame.decls.insert(name, decl_id);
+            scope_frame.visibility.use_decl_id(&decl_id);
+        }
     }
 
     pub fn add_predecl(&mut self, decl: Box<dyn Command>) -> Option<DeclId> {
@@ -486,7 +511,7 @@ impl<'a> StateWorkingSet<'a> {
 
         if let Some(decl_id) = scope_frame.predecls.remove(name) {
             scope_frame.decls.insert(name.into(), decl_id);
-            scope_frame.visibility.use_id(&decl_id);
+            scope_frame.visibility.use_decl_id(&decl_id);
 
             return Some(decl_id);
         }
@@ -517,9 +542,9 @@ impl<'a> StateWorkingSet<'a> {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                if visibility.is_id_visible(decl_id) {
+                if visibility.is_decl_id_visible(decl_id) {
                     // Hide decl only if it's not already hidden
-                    last_scope_frame.visibility.hide_id(decl_id);
+                    last_scope_frame.visibility.hide_decl_id(decl_id);
                     return Some(*decl_id);
                 }
             }
@@ -528,10 +553,32 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    pub fn hide_decls(&mut self, decls: &[(Vec<u8>, DeclId)]) {
+        for decl in decls.iter() {
+            self.hide_decl(&decl.0); // let's assume no errors
+        }
+    }
+
     pub fn add_block(&mut self, block: Block) -> BlockId {
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
+    }
+
+    pub fn add_env_var(&mut self, name_span: Span, block: Block) -> BlockId {
+        self.delta.blocks.push(block);
+        let block_id = self.num_blocks() - 1;
+        let name = self.get_span_contents(name_span).to_vec();
+
+        let scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        scope_frame.env_vars.insert(name, block_id);
+
+        block_id
     }
 
     pub fn add_module(&mut self, name: &str, block: Block) -> BlockId {
@@ -549,19 +596,6 @@ impl<'a> StateWorkingSet<'a> {
         scope_frame.modules.insert(name, block_id);
 
         block_id
-    }
-
-    pub fn activate_overlay(&mut self, overlay: Vec<(Vec<u8>, DeclId)>) {
-        let scope_frame = self
-            .delta
-            .scope
-            .last_mut()
-            .expect("internal error: missing required scope frame");
-
-        for (name, decl_id) in overlay {
-            scope_frame.decls.insert(name, decl_id);
-            scope_frame.visibility.use_id(&decl_id);
-        }
     }
 
     pub fn next_span_start(&self) -> usize {
@@ -665,7 +699,7 @@ impl<'a> StateWorkingSet<'a> {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.decls.get(name) {
-                if visibility.is_id_visible(decl_id) {
+                if visibility.is_decl_id_visible(decl_id) {
                     return Some(*decl_id);
                 }
             }

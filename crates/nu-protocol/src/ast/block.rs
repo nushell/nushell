@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{DeclId, Signature, VarId};
+use crate::{Overlay, Signature, VarId};
 
 use super::Statement;
 
@@ -8,7 +8,7 @@ use super::Statement;
 pub struct Block {
     pub signature: Box<Signature>,
     pub stmts: Vec<Statement>,
-    pub exports: Vec<(Vec<u8>, DeclId)>, // Assuming just defs for now
+    pub overlay: Overlay,
     pub captures: Vec<VarId>,
 }
 
@@ -47,16 +47,16 @@ impl Block {
         Self {
             signature: Box::new(Signature::new("")),
             stmts: vec![],
-            exports: vec![],
+            overlay: Overlay::new(),
             captures: vec![],
         }
     }
 
-    pub fn with_exports(self, exports: Vec<(Vec<u8>, DeclId)>) -> Self {
+    pub fn with_overlay(self, overlay: Overlay) -> Self {
         Self {
             signature: self.signature,
             stmts: self.stmts,
-            exports,
+            overlay,
             captures: self.captures,
         }
     }
@@ -70,7 +70,7 @@ where
         Self {
             signature: Box::new(Signature::new("")),
             stmts: stmts.collect(),
-            exports: vec![],
+            overlay: Overlay::new(),
             captures: vec![],
         }
     }

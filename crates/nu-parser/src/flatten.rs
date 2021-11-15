@@ -1,4 +1,6 @@
-use nu_protocol::ast::{Block, Expr, Expression, PathMember, Pipeline, Statement};
+use nu_protocol::ast::{
+    Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, Statement,
+};
 use nu_protocol::{engine::StateWorkingSet, Span};
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -131,6 +133,25 @@ pub fn flatten_expression(
                     PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
                 }
             }
+            output
+        }
+        Expr::ImportPattern(import_pattern) => {
+            let mut output = vec![(import_pattern.head.span, FlatShape::String)];
+
+            for member in &import_pattern.members {
+                match member {
+                    ImportPatternMember::Glob { span } => output.push((*span, FlatShape::String)),
+                    ImportPatternMember::Name { span, .. } => {
+                        output.push((*span, FlatShape::String))
+                    }
+                    ImportPatternMember::List { names } => {
+                        for (_, span) in names {
+                            output.push((*span, FlatShape::String));
+                        }
+                    }
+                }
+            }
+
             output
         }
         Expr::Range(from, next, to, op) => {

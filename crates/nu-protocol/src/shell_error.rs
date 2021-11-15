@@ -84,6 +84,18 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
     VariableNotFoundAtRuntime(#[label = "variable not found"] Span),
 
+    #[error("Environment variable not found")]
+    #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
+    EnvVarNotFoundAtRuntime(#[label = "environment variable not found"] Span),
+
+    #[error("Environment variable is not a string")]
+    #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
+    EnvVarNotAString(#[label = "does not evaluate to a string"] Span),
+
+    #[error("Not found.")]
+    #[diagnostic(code(nu::parser::not_found), url(docsrs))]
+    NotFound(#[label = "did not find anything under this name"] Span),
+
     #[error("Can't convert to {0}.")]
     #[diagnostic(code(nu::shell::cant_convert), url(docsrs))]
     CantConvert(String, String, #[label("can't convert {1} to {0}")] Span),
@@ -190,6 +202,10 @@ pub enum ShellError {
     #[error("Name not found")]
     #[diagnostic(code(nu::shell::name_not_found), url(docsrs))]
     DidYouMean(String, #[label("did you mean '{0}'?")] Span),
+
+    #[error("Non-UTF8 string.")]
+    #[diagnostic(code(nu::parser::non_utf8), url(docsrs))]
+    NonUtf8(#[label = "non-UTF8 string"] Span),
 }
 
 impl From<std::io::Error> for ShellError {

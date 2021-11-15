@@ -225,6 +225,9 @@ pub fn eval_expression(
 
             value.follow_cell_path(&cell_path.tail)
         }
+        Expr::ImportPattern(_) => Ok(Value::Nothing {
+            span: Span::unknown(),
+        }),
         Expr::RowCondition(_, expr) => eval_expression(engine_state, stack, expr),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c

@@ -7,8 +7,9 @@ use crate::{
 
 use nu_protocol::{
     ast::{
-        Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternMember,
-        Operator, PathMember, Pipeline, RangeInclusion, RangeOperator, Statement,
+        Block, Call, CellPath, Expr, Expression, FullCellPath, ImportPattern, ImportPatternHead,
+        ImportPatternMember, Operator, PathMember, Pipeline, RangeInclusion, RangeOperator,
+        Statement,
     },
     engine::StateWorkingSet,
     span, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
@@ -1788,12 +1789,18 @@ pub fn parse_import_pattern(
 ) -> (ImportPattern, Option<ParseError>) {
     let mut error = None;
 
-    let head = if let Some(head_span) = spans.get(0) {
-        working_set.get_span_contents(*head_span).to_vec()
+    let (head, head_span) = if let Some(head_span) = spans.get(0) {
+        (
+            working_set.get_span_contents(*head_span).to_vec(),
+            head_span,
+        )
     } else {
         return (
             ImportPattern {
-                head: vec![],
+                head: ImportPatternHead {
+                    name: vec![],
+                    span: Span::unknown(),
+                },
                 members: vec![],
             },
             Some(ParseError::WrongImportPattern(span(spans))),
@@ -1806,7 +1813,10 @@ pub fn parse_import_pattern(
         if tail == b"*" {
             (
                 ImportPattern {
-                    head,
+                    head: ImportPatternHead {
+                        name: head,
+                        span: *head_span,
+                    },
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
                 },
                 error,
@@ -1830,7 +1840,10 @@ pub fn parse_import_pattern(
 
                     (
                         ImportPattern {
-                            head,
+                            head: ImportPatternHead {
+                                name: head,
+                                span: *head_span,
+                            },
                             members: vec![ImportPatternMember::List { names: output }],
                         },
                         error,
@@ -1838,7 +1851,10 @@ pub fn parse_import_pattern(
                 }
                 _ => (
                     ImportPattern {
-                        head,
+                        head: ImportPatternHead {
+                            name: head,
+                            span: *head_span,
+                        },
                         members: vec![],
                     },
                     Some(ParseError::ExportNotFound(result.span)),
@@ -1848,7 +1864,10 @@ pub fn parse_import_pattern(
             let tail = trim_quotes(tail);
             (
                 ImportPattern {
-                    head,
+                    head: ImportPatternHead {
+                        name: head,
+                        span: *head_span,
+                    },
                     members: vec![ImportPatternMember::Name {
                         name: tail.to_vec(),
                         span: *tail_span,
@@ -1860,7 +1879,10 @@ pub fn parse_import_pattern(
     } else {
         (
             ImportPattern {
-                head,
+                head: ImportPatternHead {
+                    name: head,
+                    span: *head_span,
+                },
                 members: vec![],
             },
             None,
@@ -3419,6 +3441,7 @@ pub fn find_captures_in_expr(
             let result = find_captures_in_expr(working_set, &cell_path.head, seen);
             output.extend(&result);
         }
+        Expr::ImportPattern(_) => {}
         Expr::Garbage => {}
         Expr::GlobPattern(_) => {}
         Expr::Int(_) => {}

@@ -131,6 +131,7 @@ impl Expression {
                 }
                 false
             }
+            Expr::ImportPattern(_) => false,
             Expr::Filepath(_) => false,
             Expr::Float(_) => false,
             Expr::FullCellPath(full_cell_path) => {
@@ -282,6 +283,7 @@ impl Expression {
                     .head
                     .replace_in_variable(working_set, new_var_id);
             }
+            Expr::ImportPattern(_) => {}
             Expr::Garbage => {}
             Expr::GlobPattern(_) => {}
             Expr::Int(_) => {}
