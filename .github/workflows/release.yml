@@ -29,9 +29,93 @@ jobs:
           command: build
           args: --release --all --features=extra
 
-      - name: Strip release binary (linux)
-        run: strip "target/release/nu*"          
+      #- name: Strip release binary (linux)
+      #  run: strip "target/release/nu*"          
+      - name: Compress binaries (nu)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu
 
+      - name: Compress binaries (nu_plugin_inc)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_inc
+        
+      - name: Compress binaries (nu_plugin_match)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_match
+
+      - name: Compress binaries (nu_plugin_textview)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_textview
+          
+      - name: Compress binaries (nu_plugin_binaryview)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_binaryview
+        
+      - name: Compress binaries (nu_plugin_chart_bar)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_chart_bar
+        
+      - name: Compress binaries (nu_plugin_chart_line)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_chart_line
+
+      - name: Compress binaries (nu_plugin_from_bson)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_from_bson
+        
+      - name: Compress binaries (nu_plugin_from_sqlite)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_from_sqlite
+        
+      - name: Compress binaries (nu_plugin_query_json)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_query_json
+          
+      - name: Compress binaries (nu_plugin_s3)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_s3
+        
+      - name: Compress binaries (nu_plugin_selector)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_selector
+        
+      - name: Compress binaries (nu_plugin_start)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_start
+                
+      - name: Compress binaries (nu_plugin_to_bson)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_to_bson
+        
+      - name: Compress binaries (nu_plugin_to_sqlite)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_to_sqlite
+        
+      - name: Compress binaries (nu_plugin_tree)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_tree
+        
+      - name: Compress binaries (nu_plugin_xpath)
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/nu_plugin_xpath
+                  
       - name: Create output directory
         run: mkdir output
 
