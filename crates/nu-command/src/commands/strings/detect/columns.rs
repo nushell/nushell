@@ -1,16 +1,10 @@
-use std::{
-    iter::Peekable,
-    str::{Bytes, CharIndices, Chars},
-};
+use std::{iter::Peekable, str::CharIndices};
 
 use crate::prelude::*;
-use log::trace;
 use nu_engine::WholeStreamCommand;
-use nu_errors::{ParseError, ShellError};
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue,
-};
-use nu_source::{Spanned, Tagged};
+use nu_errors::ShellError;
+use nu_protocol::{Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue};
+use nu_source::Spanned;
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
@@ -133,7 +127,7 @@ pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
     let mut chars = input.char_indices().peekable();
     let mut output = vec![];
 
-    while let Some((idx, c)) = chars.peek() {
+    while let Some((_, c)) = chars.peek() {
         if c.is_whitespace() {
             // If the next character is non-newline whitespace, skip it.
 
@@ -157,16 +151,6 @@ enum BlockKind {
     SquareBracket,
 }
 
-impl BlockKind {
-    fn closing(self) -> char {
-        match self {
-            BlockKind::Paren => ')',
-            BlockKind::SquareBracket => ']',
-            BlockKind::CurlyBracket => '}',
-        }
-    }
-}
-
 fn baseline(src: &mut Input) -> Spanned<String> {
     let mut token_contents = String::new();
 
@@ -180,8 +164,6 @@ fn baseline(src: &mut Input) -> Spanned<String> {
     // we remain inside the string literal lexer mode until we encounter the
     // closing quote.
     let mut quote_start: Option<char> = None;
-
-    let mut in_comment = false;
 
     // This Vec tracks paired delimiters
     let mut block_level: Vec<BlockKind> = vec![];
@@ -204,7 +186,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
     //   character (whitespace, `|`, `;` or `#`) is encountered, the baseline
     //   token is done.
     // - Otherwise, accumulate the character into the current baseline token.
-    while let Some((idx, c)) = src.peek() {
+    while let Some((_, c)) = src.peek() {
         let c = *c;
 
         if quote_start.is_some() {
@@ -214,7 +196,6 @@ fn baseline(src: &mut Input) -> Spanned<String> {
                 quote_start = None;
             }
         } else if c == '\n' {
-            in_comment = false;
             if is_termination(&block_level, c) {
                 break;
             }
@@ -261,7 +242,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
 
     // If there is still unclosed opening delimiters, close them and add
     // synthetic closing characters to the accumulated token.
-    if let Some(block) = block_level.last() {
+    if block_level.last().is_some() {
         // let delim: char = (*block).closing();
         // let cause = ParseError::unexpected_eof(delim.to_string(), span);
 
@@ -272,7 +253,7 @@ fn baseline(src: &mut Input) -> Spanned<String> {
         return token_contents.spanned(span);
     }
 
-    if let Some(delimiter) = quote_start {
+    if quote_start.is_some() {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
         // anyone wanting to consume this partial parse (e.g., completions) will be able to get
         // correct information from the non-lite parse.
