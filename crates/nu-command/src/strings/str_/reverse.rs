@@ -1,0 +1,106 @@
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+
+#[derive(Clone)]
+pub struct SubCommand;
+
+impl Command for SubCommand {
+    fn name(&self) -> &str {
+        "str reverse"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("str reverse").rest(
+            "rest",
+            SyntaxShape::CellPath,
+            "optionally reverse text by column paths",
+        )
+    }
+
+    fn usage(&self) -> &str {
+        "outputs the reversals of the strings in the pipeline"
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        operate(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Return the reversals of multiple strings",
+            example: "'Nushell' | str reverse",
+            result: Some(Value::String {
+                val: "llehsuN".to_string(),
+                span: Span::unknown(),
+            }),
+        }]
+    }
+}
+
+fn operate(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+    input.map(
+        move |v| {
+            if column_paths.is_empty() {
+                action(&v, head)
+            } else {
+                let mut ret = v;
+                for path in &column_paths {
+                    let r =
+                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
+                ret
+            }
+        },
+        engine_state.ctrlc.clone(),
+    )
+}
+
+fn action(input: &Value, head: Span) -> Value {
+    match input {
+        Value::String { val, .. } => Value::String {
+            val: val.chars().rev().collect::<String>(),
+            span: head,
+        },
+
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with strings.",
+                    other.get_type()
+                ),
+                Span::unknown(),
+            ),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
+}

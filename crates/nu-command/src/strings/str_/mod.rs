@@ -8,6 +8,7 @@ mod find_replace;
 mod index_of;
 mod length;
 mod lpad;
+mod reverse;
 mod rpad;
 
 pub use capitalize::SubCommand as StrCapitalize;
@@ -20,4 +21,5 @@ pub use find_replace::SubCommand as StrFindReplace;
 pub use index_of::SubCommand as StrIndexOf;
 pub use length::SubCommand as StrLength;
 pub use lpad::SubCommand as StrLpad;
+pub use reverse::SubCommand as StrReverse;
 pub use rpad::SubCommand as StrRpad;
