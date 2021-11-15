@@ -37,6 +37,7 @@
 - [x] Support for `$in`
 - [x] config system
 - [ ] shells
+- [ ] autoenv
 - [ ] plugins
 - [ ] dataframes
 - [ ] port over `which` logic
