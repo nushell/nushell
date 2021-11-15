@@ -34,3 +34,21 @@ fn compare_to_nothing() {
     );
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn compare_nothing_and_boolean() {
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        if $true == $nothing {echo $true} {echo $false}
+        "#
+    );
+    assert_eq!(actual.out, "false");
+    let actual = nu!(
+        cwd: ".",
+        r#"
+        if $false == $nothing {echo $true} {echo $false}
+        "#
+    );
+    assert_eq!(actual.out, "false");
+}

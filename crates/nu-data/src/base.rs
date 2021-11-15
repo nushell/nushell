@@ -164,8 +164,8 @@ pub fn coerce_compare_primitive(
         (Date(left), Date(right)) => CompareValues::Date(*left, *right),
         (Date(left), Duration(right)) => CompareValues::DateDuration(*left, right.clone()),
         (Boolean(left), Boolean(right)) => CompareValues::Booleans(*left, *right),
-        (Boolean(left), Nothing) => CompareValues::Booleans(*left, false),
-        (Nothing, Boolean(right)) => CompareValues::Booleans(false, *right),
+        (Boolean(left), Nothing) => CompareValues::Ints(if *left { 1 } else { 0 }, -1),
+        (Nothing, Boolean(right)) => CompareValues::Ints(-1, if *right { 1 } else { 0 }),
         (String(left), Nothing) => CompareValues::String(left.clone(), std::string::String::new()),
         (Nothing, String(right)) => {
             CompareValues::String(std::string::String::new(), right.clone())
