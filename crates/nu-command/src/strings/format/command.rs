@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
 };
 
 #[derive(Clone)]
@@ -14,11 +14,13 @@ impl Command for Format {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("format").required(
-            "pattern",
-            SyntaxShape::String,
-            "the pattern to output. e.g.) \"{foo}: {bar}\"",
-        )
+        Signature::build("format")
+            .required(
+                "pattern",
+                SyntaxShape::String,
+                "the pattern to output. e.g.) \"{foo}: {bar}\"",
+            )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

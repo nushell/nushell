@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -15,11 +15,13 @@ impl Command for Select {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("select").rest(
-            "rest",
-            SyntaxShape::CellPath,
-            "the columns to select from the table",
-        )
+        Signature::build("select")
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "the columns to select from the table",
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{
+    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+};
 
 #[derive(Clone)]
 pub struct Lines;
@@ -17,7 +19,7 @@ impl Command for Lines {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("lines")
+        Signature::build("lines").category(Category::Filters)
     }
 
     fn run(

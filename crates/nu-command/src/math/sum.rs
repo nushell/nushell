@@ -2,7 +2,7 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,7 +13,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math sum")
+        Signature::build("math sum").category(Category::Math)
     }
 
     fn usage(&self) -> &str {

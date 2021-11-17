@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
@@ -29,6 +29,7 @@ impl Command for SubCommand {
                 "decimal digits to which to round",
                 Some('d'),
             )
+            .category(Category::Conversions)
     }
 
     fn usage(&self) -> &str {

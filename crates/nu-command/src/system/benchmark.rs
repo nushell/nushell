@@ -3,7 +3,7 @@ use std::time::Instant;
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Benchmark;
@@ -18,11 +18,13 @@ impl Command for Benchmark {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("benchmark").required(
-            "block",
-            SyntaxShape::Block(Some(vec![])),
-            "the block to run",
-        )
+        Signature::build("benchmark")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![])),
+                "the block to run",
+            )
+            .category(Category::System)
     }
 
     fn run(

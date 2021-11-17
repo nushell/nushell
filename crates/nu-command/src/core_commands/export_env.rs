@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct ExportEnv;
@@ -26,6 +26,7 @@ impl Command for ExportEnv {
                 SyntaxShape::Block(Some(vec![])),
                 "body of the environment variable definition",
             )
+            .category(Category::Core)
     }
 
     fn run(

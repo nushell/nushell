@@ -1,12 +1,28 @@
 use crate::plugin::PluginError;
-use crate::plugin_capnp::{argument, flag, signature, Shape};
-use nu_protocol::{Flag, PositionalArg, Signature, SyntaxShape};
+use crate::plugin_capnp::{argument, flag, signature, Category as PluginCategory, Shape};
+use nu_protocol::{Category, Flag, PositionalArg, Signature, SyntaxShape};
 
 pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature::Builder) {
     builder.set_name(signature.name.as_str());
     builder.set_usage(signature.usage.as_str());
     builder.set_extra_usage(signature.extra_usage.as_str());
     builder.set_is_filter(signature.is_filter);
+
+    match signature.category {
+        Category::Default => builder.set_category(PluginCategory::Default),
+        Category::Conversions => builder.set_category(PluginCategory::Conversions),
+        Category::Core => builder.set_category(PluginCategory::Core),
+        Category::Date => builder.set_category(PluginCategory::Date),
+        Category::Env => builder.set_category(PluginCategory::Env),
+        Category::Experimental => builder.set_category(PluginCategory::Experimental),
+        Category::FileSystem => builder.set_category(PluginCategory::Filesystem),
+        Category::Filters => builder.set_category(PluginCategory::Filters),
+        Category::Formats => builder.set_category(PluginCategory::Formats),
+        Category::Math => builder.set_category(PluginCategory::Math),
+        Category::Strings => builder.set_category(PluginCategory::Strings),
+        Category::System => builder.set_category(PluginCategory::System),
+        Category::Viewers => builder.set_category(PluginCategory::Viewers),
+    }
 
     // Serializing list of required arguments
     let mut required_list = builder
@@ -90,6 +106,25 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         .map_err(|e| PluginError::EncodingError(e.to_string()))?;
     let is_filter = reader.get_is_filter();
 
+    let category = match reader
+        .get_category()
+        .map_err(|e| PluginError::EncodingError(e.to_string()))?
+    {
+        PluginCategory::Default => Category::Default,
+        PluginCategory::Conversions => Category::Conversions,
+        PluginCategory::Core => Category::Core,
+        PluginCategory::Date => Category::Date,
+        PluginCategory::Env => Category::Env,
+        PluginCategory::Experimental => Category::Experimental,
+        PluginCategory::Filesystem => Category::FileSystem,
+        PluginCategory::Filters => Category::Filters,
+        PluginCategory::Formats => Category::Formats,
+        PluginCategory::Math => Category::Math,
+        PluginCategory::Strings => Category::Strings,
+        PluginCategory::System => Category::System,
+        PluginCategory::Viewers => Category::Viewers,
+    };
+
     // Deserializing required arguments
     let required_list = reader
         .get_required_positional()
@@ -141,6 +176,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         named,
         is_filter,
         creates_scope: false,
+        category,
     })
 }
 
@@ -222,7 +258,7 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
 mod tests {
     use super::*;
     use capnp::serialize;
-    use nu_protocol::{Signature, SyntaxShape};
+    use nu_protocol::{Category, Signature, SyntaxShape};
 
     pub fn write_buffer(
         signature: &Signature,
@@ -262,7 +298,8 @@ mod tests {
                 Some('s'),
             )
             .switch("switch", "some switch", None)
-            .rest("remaining", SyntaxShape::Int, "remaining");
+            .rest("remaining", SyntaxShape::Int, "remaining")
+            .category(Category::Conversions);
 
         let mut buffer: Vec<u8> = Vec::new();
         write_buffer(&signature, &mut buffer).expect("unable to serialize message");
@@ -273,6 +310,7 @@ mod tests {
         assert_eq!(signature.usage, returned_signature.usage);
         assert_eq!(signature.extra_usage, returned_signature.extra_usage);
         assert_eq!(signature.is_filter, returned_signature.is_filter);
+        assert_eq!(signature.category, returned_signature.category);
 
         signature
             .required_positional

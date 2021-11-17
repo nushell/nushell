@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -18,11 +18,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math eval").optional(
-            "math expression",
-            SyntaxShape::String,
-            "the math expression to evaluate",
-        )
+        Signature::build("math eval")
+            .optional(
+                "math expression",
+                SyntaxShape::String,
+                "the math expression to evaluate",
+            )
+            .category(Category::Math)
     }
 
     fn run(

@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 use regex::Regex;
@@ -32,6 +33,7 @@ impl Command for SubCommand {
                 "optionally find and replace text by column paths",
             )
             .switch("all", "replace all occurrences of find string", Some('a'))
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

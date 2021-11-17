@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -13,11 +14,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str reverse").rest(
-            "rest",
-            SyntaxShape::CellPath,
-            "optionally reverse text by column paths",
-        )
+        Signature::build("str reverse")
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "optionally reverse text by column paths",
+            )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

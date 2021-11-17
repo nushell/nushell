@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Signature, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Command for Date {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date")
+        Signature::build("date").category(Category::Date)
     }
 
     fn usage(&self) -> &str {

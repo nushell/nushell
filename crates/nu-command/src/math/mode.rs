@@ -1,7 +1,7 @@
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math mode")
+        Signature::build("math mode").category(Category::Math)
     }
 
     fn usage(&self) -> &str {

@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, Value};
 
 #[derive(Clone)]
 pub struct Git;
@@ -15,7 +15,7 @@ impl Command for Git {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("git")
+        Signature::build("git").category(Category::Experimental)
     }
 
     fn run(

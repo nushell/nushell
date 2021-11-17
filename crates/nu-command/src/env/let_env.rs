@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct LetEnv;
@@ -23,6 +23,7 @@ impl Command for LetEnv {
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::String)),
                 "equals sign followed by value",
             )
+            .category(Category::Env)
     }
 
     fn run(

@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature};
+use nu_protocol::{Category, PipelineData, ShellError, Signature};
 
 #[derive(Clone)]
 pub struct To;
@@ -15,7 +15,7 @@ impl Command for To {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("to")
+        Signature::build("to").category(Category::Formats)
     }
 
     fn run(

@@ -54,6 +54,23 @@ struct Signature {
     rest @5 :Argument; # Optional value. Check for existence when deserializing
     named @6 :List(Flag);
     isFilter @7 :Bool;
+	category @8 :Category;
+}
+
+enum Category {
+	default @0;
+	conversions @1;
+	core @2;
+	date @3;
+	env @4;
+	experimental @5;
+	filesystem @6;
+	filters @7;
+	formats @8;
+	math @9;
+	strings @10;
+	system @11;
+	viewers @12;
 }
 
 struct Flag {

@@ -27,6 +27,45 @@ pub struct PositionalArg {
     pub var_id: Option<VarId>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Category {
+    Default,
+    Conversions,
+    Core,
+    Date,
+    Env,
+    Experimental,
+    FileSystem,
+    Filters,
+    Formats,
+    Math,
+    Strings,
+    System,
+    Viewers,
+}
+
+impl std::fmt::Display for Category {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            Category::Default => "default",
+            Category::Conversions => "conversions",
+            Category::Core => "core",
+            Category::Date => "date",
+            Category::Env => "env",
+            Category::Experimental => "experimental",
+            Category::FileSystem => "filesystem",
+            Category::Filters => "filters",
+            Category::Formats => "formats",
+            Category::Math => "math",
+            Category::Strings => "strings",
+            Category::System => "system",
+            Category::Viewers => "viewers",
+        };
+
+        write!(f, "{}", msg)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Signature {
     pub name: String,
@@ -38,6 +77,8 @@ pub struct Signature {
     pub named: Vec<Flag>,
     pub is_filter: bool,
     pub creates_scope: bool,
+    // Signature category used to classify commands stored in the list of declarations
+    pub category: Category,
 }
 
 impl PartialEq for Signature {
@@ -75,6 +116,7 @@ impl Signature {
             named: vec![flag],
             is_filter: false,
             creates_scope: false,
+            category: Category::Default,
         }
     }
     pub fn build(name: impl Into<String>) -> Signature {
@@ -198,6 +240,13 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
         });
+
+        self
+    }
+
+    /// Changes the signature category
+    pub fn category(mut self, category: Category) -> Signature {
+        self.category = category;
 
         self
     }

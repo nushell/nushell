@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -13,11 +13,13 @@ impl Command for Source {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("source").required(
-            "filename",
-            SyntaxShape::Filepath,
-            "the filepath to the script file to source",
-        )
+        Signature::build("source")
+            .required(
+                "filename",
+                SyntaxShape::Filepath,
+                "the filepath to the script file to source",
+            )
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {

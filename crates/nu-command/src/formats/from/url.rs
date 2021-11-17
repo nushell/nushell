@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Config, Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Config, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -11,7 +11,7 @@ impl Command for FromUrl {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from url")
+        Signature::build("from url").category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

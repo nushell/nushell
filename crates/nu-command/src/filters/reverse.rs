@@ -1,7 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Value,
 };
 
 #[derive(Clone)]
@@ -13,7 +14,7 @@ impl Command for Reverse {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("reverse")
+        Signature::build("reverse").category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

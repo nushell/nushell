@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -12,12 +14,14 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math round").named(
-            "precision",
-            SyntaxShape::Number,
-            "digits of precision",
-            Some('p'),
-        )
+        Signature::build("math round")
+            .named(
+                "precision",
+                SyntaxShape::Number,
+                "digits of precision",
+                Some('p'),
+            )
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {

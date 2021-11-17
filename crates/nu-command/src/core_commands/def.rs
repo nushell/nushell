@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Def;
@@ -23,6 +23,7 @@ impl Command for Def {
                 SyntaxShape::Block(Some(vec![])),
                 "body of the definition",
             )
+            .category(Category::Core)
     }
 
     fn run(

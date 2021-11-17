@@ -5,7 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -24,6 +25,7 @@ impl Command for Mkdir {
                 "the name(s) of the path(s) to create",
             )
             .switch("show-created-paths", "show the path(s) created.", Some('s'))
+            .category(Category::FileSystem)
     }
 
     fn usage(&self) -> &str {

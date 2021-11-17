@@ -2,7 +2,8 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, Value,
 };
 use serde::de::Deserialize;
 use std::collections::HashMap;
@@ -16,7 +17,7 @@ impl Command for FromYaml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yaml")
+        Signature::build("from yaml").category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -84,7 +85,7 @@ impl Command for FromYml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yml")
+        Signature::build("from yml").category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

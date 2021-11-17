@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value,
+    Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -18,7 +19,9 @@ impl Command for Wrap {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("wrap").required("name", SyntaxShape::String, "the name of the column")
+        Signature::build("wrap")
+            .required("name", SyntaxShape::String, "the name of the column")
+            .category(Category::Filters)
     }
 
     fn run(

@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, Span, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, Span, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Use;
@@ -16,7 +16,9 @@ impl Command for Use {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("use").rest("pattern", SyntaxShape::String, "import pattern parts")
+        Signature::build("use")
+            .rest("pattern", SyntaxShape::String, "import pattern parts")
+            .category(Category::Core)
     }
 
     fn run(

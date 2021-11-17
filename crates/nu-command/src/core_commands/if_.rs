@@ -1,7 +1,9 @@
 use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct If;
@@ -24,6 +26,7 @@ impl Command for If {
                 SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
                 "optional else followed by else block",
             )
+            .category(Category::Core)
     }
 
     fn run(

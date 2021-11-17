@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{
     Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
@@ -23,6 +24,7 @@ impl Command for SubCommand {
                 "optionally check if string contains pattern by column paths",
             )
             .switch("insensitive", "search is case insensitive", Some('i'))
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

@@ -2,7 +2,8 @@ use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -35,6 +36,7 @@ impl Command for For {
                 "the block to run",
             )
             .creates_scope()
+            .category(Category::Core)
     }
 
     fn run(

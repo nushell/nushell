@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
 use std::sync::Arc;
@@ -43,6 +44,7 @@ impl Command for SubCommand {
                 Some('r'),
             )
             .switch("end", "search from the end of the string", Some('e'))
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

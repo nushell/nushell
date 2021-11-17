@@ -1,7 +1,9 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
+};
 
 #[derive(Clone)]
 pub struct Echo;
@@ -16,7 +18,9 @@ impl Command for Echo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest("rest", SyntaxShape::Any, "the values to echo")
+        Signature::build("echo")
+            .rest("rest", SyntaxShape::Any, "the values to echo")
+            .category(Category::Core)
     }
 
     fn run(

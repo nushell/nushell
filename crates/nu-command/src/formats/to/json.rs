@@ -1,8 +1,8 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Command for ToJson {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to json")
+        Signature::build("to json").category(Category::Formats)
         // .named(
         //     "pretty",
         //     SyntaxShape::Int,

@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, Value};
 
 #[derive(Clone)]
 pub struct Length;
@@ -15,7 +15,7 @@ impl Command for Length {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("length")
+        Signature::build("length").category(Category::Filters)
     }
 
     fn run(

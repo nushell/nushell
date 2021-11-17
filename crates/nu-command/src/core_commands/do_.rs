@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Do;
@@ -24,6 +24,7 @@ impl Command for Do {
                 "the block to run",
             )
             .rest("rest", SyntaxShape::Any, "the parameter(s) for the block")
+            .category(Category::Core)
     }
 
     fn run(

@@ -2,7 +2,8 @@ use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -18,7 +19,9 @@ impl Command for BuildString {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("build-string").rest("rest", SyntaxShape::String, "list of string")
+        Signature::build("build-string")
+            .rest("rest", SyntaxShape::String, "list of string")
+            .category(Category::Strings)
     }
 
     fn examples(&self) -> Vec<Example> {

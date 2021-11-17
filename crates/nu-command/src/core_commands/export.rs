@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Command for ExportCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("export")
+        Signature::build("export").category(Category::Core)
     }
 
     fn usage(&self) -> &str {

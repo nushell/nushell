@@ -1,6 +1,8 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{
+    Category, Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+};
 use nu_table::{StyledString, Theme};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,7 +23,7 @@ impl Command for Table {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("table")
+        Signature::build("table").category(Category::Viewers)
     }
 
     fn run(

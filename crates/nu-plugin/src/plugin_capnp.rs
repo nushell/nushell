@@ -1652,6 +1652,12 @@ pub mod signature {
         pub fn get_is_filter(self) -> bool {
             self.reader.get_bool_field(0)
         }
+        #[inline]
+        pub fn get_category(
+            self,
+        ) -> ::core::result::Result<crate::plugin_capnp::Category, ::capnp::NotInSchema> {
+            ::capnp::traits::FromU16::from_u16(self.reader.get_data_field::<u16>(1))
+        }
     }
 
     pub struct Builder<'a> {
@@ -1912,6 +1918,16 @@ pub mod signature {
         pub fn set_is_filter(&mut self, value: bool) {
             self.builder.set_bool_field(0, value);
         }
+        #[inline]
+        pub fn get_category(
+            self,
+        ) -> ::core::result::Result<crate::plugin_capnp::Category, ::capnp::NotInSchema> {
+            ::capnp::traits::FromU16::from_u16(self.builder.get_data_field::<u16>(1))
+        }
+        #[inline]
+        pub fn set_category(&mut self, value: crate::plugin_capnp::Category) {
+            self.builder.set_data_field::<u16>(1, value as u16)
+        }
     }
 
     pub struct Pipeline {
@@ -1936,6 +1952,57 @@ pub mod signature {
             pointers: 7,
         };
         pub const TYPE_ID: u64 = 0xec96_eeb4_8cb7_90fa;
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Category {
+    Default = 0,
+    Conversions = 1,
+    Core = 2,
+    Date = 3,
+    Env = 4,
+    Experimental = 5,
+    Filesystem = 6,
+    Filters = 7,
+    Formats = 8,
+    Math = 9,
+    Strings = 10,
+    System = 11,
+    Viewers = 12,
+}
+impl ::capnp::traits::FromU16 for Category {
+    #[inline]
+    fn from_u16(value: u16) -> ::core::result::Result<Category, ::capnp::NotInSchema> {
+        match value {
+            0 => ::core::result::Result::Ok(Category::Default),
+            1 => ::core::result::Result::Ok(Category::Conversions),
+            2 => ::core::result::Result::Ok(Category::Core),
+            3 => ::core::result::Result::Ok(Category::Date),
+            4 => ::core::result::Result::Ok(Category::Env),
+            5 => ::core::result::Result::Ok(Category::Experimental),
+            6 => ::core::result::Result::Ok(Category::Filesystem),
+            7 => ::core::result::Result::Ok(Category::Filters),
+            8 => ::core::result::Result::Ok(Category::Formats),
+            9 => ::core::result::Result::Ok(Category::Math),
+            10 => ::core::result::Result::Ok(Category::Strings),
+            11 => ::core::result::Result::Ok(Category::System),
+            12 => ::core::result::Result::Ok(Category::Viewers),
+            n => ::core::result::Result::Err(::capnp::NotInSchema(n)),
+        }
+    }
+}
+impl ::capnp::traits::ToU16 for Category {
+    #[inline]
+    fn to_u16(self) -> u16 {
+        self as u16
+    }
+}
+impl ::capnp::traits::HasTypeId for Category {
+    #[inline]
+    fn type_id() -> u64 {
+        0x8920_14c1_76ba_5343u64
     }
 }
 

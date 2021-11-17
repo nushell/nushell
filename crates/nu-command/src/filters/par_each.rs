@@ -2,8 +2,8 @@ use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    SyntaxShape, Value,
 };
 use rayon::prelude::*;
 
@@ -27,6 +27,7 @@ impl Command for ParEach {
                 "the block to run",
             )
             .switch("numbered", "iterate with an index", Some('n'))
+            .category(Category::Filters)
     }
 
     fn examples(&self) -> Vec<Example> {

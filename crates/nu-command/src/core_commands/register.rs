@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Register;
@@ -15,11 +15,13 @@ impl Command for Register {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("register").required(
-            "plugin",
-            SyntaxShape::Filepath,
-            "location of bin for plugin",
-        )
+        Signature::build("register")
+            .required(
+                "plugin",
+                SyntaxShape::Filepath,
+                "location of bin for plugin",
+            )
+            .category(Category::Core)
     }
 
     fn run(

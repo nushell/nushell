@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 use super::utils::{parse_date_from_string, unsupported_input_error};
@@ -17,11 +17,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date format").required(
-            "format string",
-            SyntaxShape::String,
-            "the desired date format",
-        )
+        Signature::build("date format")
+            .required(
+                "format string",
+                SyntaxShape::String,
+                "the desired date format",
+            )
+            .category(Category::Date)
     }
 
     fn usage(&self) -> &str {

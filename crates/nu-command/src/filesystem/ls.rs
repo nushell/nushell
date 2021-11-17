@@ -3,7 +3,9 @@ use lscolors::{LsColors, Style};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -19,11 +21,13 @@ impl Command for Ls {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("ls").optional(
-            "pattern",
-            SyntaxShape::GlobPattern,
-            "the glob pattern to use",
-        )
+        Signature::build("ls")
+            .optional(
+                "pattern",
+                SyntaxShape::GlobPattern,
+                "the glob pattern to use",
+            )
+            .category(Category::FileSystem)
     }
 
     fn run(

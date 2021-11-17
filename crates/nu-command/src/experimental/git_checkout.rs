@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct GitCheckout;
@@ -16,11 +16,13 @@ impl Command for GitCheckout {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("git checkout").required(
-            "branch",
-            SyntaxShape::Custom(Box::new(SyntaxShape::String), "list-git-branches".into()),
-            "the branch to checkout",
-        )
+        Signature::build("git checkout")
+            .required(
+                "branch",
+                SyntaxShape::Custom(Box::new(SyntaxShape::String), "list-git-branches".into()),
+                "the branch to checkout",
+            )
+            .category(Category::Experimental)
     }
 
     fn run(

@@ -1,6 +1,6 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Hide;
@@ -10,12 +10,14 @@ impl Command for Hide {
         "hide"
     }
 
-    fn usage(&self) -> &str {
-        "Hide definitions in the current scope"
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build("hide")
+            .required("pattern", SyntaxShape::String, "import pattern")
+            .category(Category::Core)
     }
 
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("hide").required("pattern", SyntaxShape::String, "import pattern")
+    fn usage(&self) -> &str {
+        "Hide definitions in the current scope"
     }
 
     fn run(

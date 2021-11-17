@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Collect;
@@ -12,11 +12,13 @@ impl Command for Collect {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("collect").required(
-            "block",
-            SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
-            "the block to run once the stream is collected",
-        )
+        Signature::build("collect")
+            .required(
+                "block",
+                SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
+                "the block to run once the stream is collected",
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

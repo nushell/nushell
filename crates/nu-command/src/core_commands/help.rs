@@ -1,8 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Spanned, SyntaxShape, Value,
+    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Spanned, SyntaxShape, Value,
 };
 
 use nu_engine::{get_full_help, CallExt};
@@ -28,6 +28,7 @@ impl Command for Help {
                 "string to find in command usage",
                 Some('f'),
             )
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {
@@ -107,6 +108,12 @@ fn help(
                     span: head,
                 });
 
+                cols.push("category".into());
+                vals.push(Value::String {
+                    val: cmd.0.category.to_string(),
+                    span: head,
+                });
+
                 cols.push("usage".into());
                 vals.push(Value::String { val: c, span: head });
 
@@ -141,6 +148,12 @@ fn help(
                 cols.push("name".into());
                 vals.push(Value::String {
                     val: key,
+                    span: head,
+                });
+
+                cols.push("category".into());
+                vals.push(Value::String {
+                    val: cmd.0.category.to_string(),
                     span: head,
                 });
 

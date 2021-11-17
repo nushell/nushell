@@ -1,7 +1,7 @@
 use chrono_tz::TZ_VARIANTS;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoInterruptiblePipelineData, PipelineData, Signature, Value};
+use nu_protocol::{Category, IntoInterruptiblePipelineData, PipelineData, Signature, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -12,7 +12,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date list-timezone")
+        Signature::build("date list-timezone").category(Category::Date)
     }
 
     fn usage(&self) -> &str {

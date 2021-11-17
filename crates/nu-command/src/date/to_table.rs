@@ -2,7 +2,7 @@ use crate::date::utils::{parse_date_from_string, unsupported_input_error};
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,7 +13,7 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date to-table")
+        Signature::build("date to-table").category(Category::Date)
     }
 
     fn usage(&self) -> &str {

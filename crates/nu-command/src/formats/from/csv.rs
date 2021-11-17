@@ -3,7 +3,7 @@ use super::delimited::from_delimited_data;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct FromCsv;
@@ -26,6 +26,7 @@ impl Command for FromCsv {
                 "don't treat the first row as column names",
                 Some('n'),
             )
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

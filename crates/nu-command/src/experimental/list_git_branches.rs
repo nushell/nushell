@@ -7,6 +7,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::Command;
 use nu_protocol::engine::EngineState;
 use nu_protocol::engine::Stack;
+use nu_protocol::Category;
 use nu_protocol::IntoInterruptiblePipelineData;
 use nu_protocol::PipelineData;
 use nu_protocol::{Signature, Value};
@@ -25,7 +26,7 @@ impl Command for ListGitBranches {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("list-git-branches")
+        Signature::build("list-git-branches").category(Category::Experimental)
     }
 
     fn run(

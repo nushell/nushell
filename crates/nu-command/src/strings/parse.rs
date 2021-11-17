@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-    ValueStream,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value, ValueStream,
 };
 use regex::Regex;
 
@@ -27,6 +27,7 @@ impl Command for Parse {
                 "the pattern to match. Eg) \"{foo}: {bar}\"",
             )
             .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .category(Category::Strings)
     }
 
     fn examples(&self) -> Vec<Example> {

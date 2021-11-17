@@ -9,7 +9,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -55,6 +56,7 @@ impl Command for Rm {
                 SyntaxShape::GlobPattern,
                 "the file path(s) to remove",
             )
+            .category(Category::FileSystem)
     }
 
     fn run(

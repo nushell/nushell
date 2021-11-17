@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 use std::convert::TryInto;
 
@@ -17,11 +17,13 @@ impl Command for Last {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("last").optional(
-            "rows",
-            SyntaxShape::Int,
-            "starting from the back, the number of rows to return",
-        )
+        Signature::build("last")
+            .optional(
+                "rows",
+                SyntaxShape::Int,
+                "starting from the back, the number of rows to return",
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

@@ -1,7 +1,9 @@
 use inflector::cases::kebabcase::to_kebab_case;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 
 use crate::operate;
 
@@ -14,11 +16,13 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str kebab-case").rest(
-            "rest",
-            SyntaxShape::CellPath,
-            "optionally convert text to kebab-case by column paths",
-        )
+        Signature::build("str kebab-case")
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "optionally convert text to kebab-case by column paths",
+            )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

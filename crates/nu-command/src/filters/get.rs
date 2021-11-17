@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Get;
@@ -16,11 +16,13 @@ impl Command for Get {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("get").required(
-            "cell_path",
-            SyntaxShape::CellPath,
-            "the cell path to the data",
-        )
+        Signature::build("get")
+            .required(
+                "cell_path",
+                SyntaxShape::CellPath,
+                "the cell path to the data",
+            )
+            .category(Category::Filters)
     }
 
     fn run(

@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +15,13 @@ impl Command for First {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("first").optional(
-            "rows",
-            SyntaxShape::Int,
-            "starting from the front, the number of rows to return",
-        )
+        Signature::build("first")
+            .optional(
+                "rows",
+                SyntaxShape::Int,
+                "starting from the front, the number of rows to return",
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

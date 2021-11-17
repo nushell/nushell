@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 use chrono::{FixedOffset, TimeZone};
@@ -19,11 +19,9 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date to-timezone").required(
-            "time zone",
-            SyntaxShape::String,
-            "time zone description",
-        )
+        Signature::build("date to-timezone")
+            .required("time zone", SyntaxShape::String, "time zone description")
+            .category(Category::Date)
     }
 
     fn usage(&self) -> &str {

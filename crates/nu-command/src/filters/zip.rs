@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -19,7 +19,9 @@ impl Command for Zip {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("zip").required("other", SyntaxShape::Any, "the other input")
+        Signature::build("zip")
+            .required("other", SyntaxShape::Any, "the other input")
+            .category(Category::Filters)
     }
 
     fn examples(&self) -> Vec<Example> {

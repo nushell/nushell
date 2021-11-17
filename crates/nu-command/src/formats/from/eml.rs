@@ -4,6 +4,7 @@ use indexmap::map::IndexMap;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::Config;
 use nu_protocol::{
     Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
@@ -20,12 +21,14 @@ impl Command for FromEml {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from eml").named(
-            "preview-body",
-            SyntaxShape::Int,
-            "How many bytes of the body to preview",
-            Some('b'),
-        )
+        Signature::build("from eml")
+            .named(
+                "preview-body",
+                SyntaxShape::Int,
+                "How many bytes of the body to preview",
+                Some('b'),
+            )
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

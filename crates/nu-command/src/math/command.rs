@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, Signature, Value,
+    Category, IntoPipelineData, PipelineData, Signature, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,7 @@ impl Command for MathCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math")
+        Signature::build("math").category(Category::Math)
     }
 
     fn usage(&self) -> &str {

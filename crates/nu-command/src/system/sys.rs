@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, ProcessorExt, System, SystemExt, UserExt};
 
@@ -17,6 +17,7 @@ impl Command for Sys {
         Signature::build("sys")
             .desc("View information about the current system.")
             .filter()
+            .category(Category::System)
     }
 
     fn usage(&self) -> &str {

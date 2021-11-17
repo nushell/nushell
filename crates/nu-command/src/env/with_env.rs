@@ -7,7 +7,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -30,6 +30,7 @@ impl Command for WithEnv {
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
                 "the block to run once the variable is set",
             )
+            .category(Category::Env)
     }
 
     fn usage(&self) -> &str {

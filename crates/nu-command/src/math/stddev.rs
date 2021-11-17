@@ -2,7 +2,7 @@ use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,11 +13,9 @@ impl Command for SubCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("math stddev").switch(
-            "sample",
-            "calculate sample standard deviation",
-            Some('s'),
-        )
+        Signature::build("math stddev")
+            .switch("sample", "calculate sample standard deviation", Some('s'))
+            .category(Category::Math)
     }
 
     fn usage(&self) -> &str {

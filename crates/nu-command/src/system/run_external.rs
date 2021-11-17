@@ -8,7 +8,7 @@ use std::sync::mpsc;
 
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Config, IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
+use nu_protocol::{Category, Config, IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
 
 use nu_engine::CallExt;
 
@@ -26,10 +26,15 @@ impl Command for External {
         "Runs external command"
     }
 
+    fn is_private(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("run_external")
             .switch("last_expression", "last_expression", None)
             .rest("rest", SyntaxShape::Any, "external command to run")
+            .category(Category::System)
     }
 
     fn run(

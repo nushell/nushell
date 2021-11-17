@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -16,11 +16,13 @@ impl Command for Range {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("range").optional(
-            "rows",
-            SyntaxShape::Range,
-            "range of rows to return: Eg) 4..7 (=> from 4 to 7)",
-        )
+        Signature::build("range")
+            .optional(
+                "rows",
+                SyntaxShape::Range,
+                "range of rows to return: Eg) 4..7 (=> from 4 to 7)",
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {

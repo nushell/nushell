@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,6 +26,7 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "column names to give the new columns",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

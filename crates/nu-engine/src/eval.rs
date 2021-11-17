@@ -536,10 +536,72 @@ pub fn eval_variable(
             }
 
             for command in &frame.decls {
-                commands.push(Value::String {
+                let mut cols = vec![];
+                let mut vals = vec![];
+
+                cols.push("command".into());
+                vals.push(Value::String {
                     val: String::from_utf8_lossy(command.0).to_string(),
                     span,
                 });
+
+                let decl = engine_state.get_decl(*command.1);
+                let signature = decl.signature();
+                cols.push("category".to_string());
+                vals.push(Value::String {
+                    val: signature.category.to_string(),
+                    span,
+                });
+
+                cols.push("usage".to_string());
+                vals.push(Value::String {
+                    val: decl.usage().into(),
+                    span,
+                });
+
+                cols.push("is_binary".to_string());
+                vals.push(Value::Bool {
+                    val: decl.is_binary(),
+                    span,
+                });
+
+                cols.push("is_private".to_string());
+                vals.push(Value::Bool {
+                    val: decl.is_private(),
+                    span,
+                });
+
+                cols.push("is_builtin".to_string());
+                vals.push(Value::Bool {
+                    val: decl.is_builtin(),
+                    span,
+                });
+
+                cols.push("is_sub".to_string());
+                vals.push(Value::Bool {
+                    val: decl.is_sub(),
+                    span,
+                });
+
+                cols.push("is_plugin".to_string());
+                vals.push(Value::Bool {
+                    val: decl.is_plugin(),
+                    span,
+                });
+
+                cols.push("creates_scope".to_string());
+                vals.push(Value::Bool {
+                    val: signature.creates_scope,
+                    span,
+                });
+
+                cols.push("extra_usage".to_string());
+                vals.push(Value::String {
+                    val: decl.extra_usage().into(),
+                    span,
+                });
+
+                commands.push(Value::Record { cols, vals, span })
             }
 
             for alias in &frame.aliases {

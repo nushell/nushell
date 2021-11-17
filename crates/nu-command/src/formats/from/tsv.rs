@@ -2,7 +2,7 @@ use super::delimited::from_delimited_data;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Config, PipelineData, ShellError, Signature};
+use nu_protocol::{Category, Config, PipelineData, ShellError, Signature};
 
 #[derive(Clone)]
 pub struct FromTsv;
@@ -13,11 +13,13 @@ impl Command for FromTsv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from csv").switch(
-            "noheaders",
-            "don't treat the first row as column names",
-            Some('n'),
-        )
+        Signature::build("from csv")
+            .switch(
+                "noheaders",
+                "don't treat the first row as column names",
+                Some('n'),
+            )
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {

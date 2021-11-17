@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -18,11 +18,9 @@ impl Command for FromJson {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("from json").switch(
-            "objects",
-            "treat each line as a separate value",
-            Some('o'),
-        )
+        Signature::build("from json")
+            .switch("objects", "treat each line as a separate value", Some('o'))
+            .category(Category::Formats)
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -14,11 +15,13 @@ impl Command for StrCollect {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str collect").optional(
-            "separator",
-            SyntaxShape::String,
-            "optional separator to use when creating string",
-        )
+        Signature::build("str collect")
+            .optional(
+                "separator",
+                SyntaxShape::String,
+                "optional separator to use when creating string",
+            )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

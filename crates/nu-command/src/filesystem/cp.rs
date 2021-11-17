@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 use crate::filesystem::util::FileStructure;
 
@@ -34,6 +34,7 @@ impl Command for Cp {
             )
             .switch("force", "suppress error when no file", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .category(Category::FileSystem)
     }
 
     fn run(

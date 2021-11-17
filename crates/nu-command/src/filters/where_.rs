@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Where;
@@ -16,7 +16,9 @@ impl Command for Where {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("where").required("cond", SyntaxShape::RowCondition, "condition")
+        Signature::build("where")
+            .required("cond", SyntaxShape::RowCondition, "condition")
+            .category(Category::Filters)
     }
 
     fn run(

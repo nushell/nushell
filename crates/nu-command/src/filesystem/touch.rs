@@ -3,7 +3,7 @@ use std::fs::OpenOptions;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Touch;
@@ -21,6 +21,7 @@ impl Command for Touch {
                 "the path of the file you want to create",
             )
             .rest("rest", SyntaxShape::Filepath, "additional files to create")
+            .category(Category::FileSystem)
     }
 
     fn usage(&self) -> &str {

@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 
@@ -22,6 +22,7 @@ impl Command for Ps {
                 Some('l'),
             )
             .filter()
+            .category(Category::System)
     }
 
     fn usage(&self) -> &str {

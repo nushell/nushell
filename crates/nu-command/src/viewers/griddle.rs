@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
-    Config, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Config, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
@@ -35,6 +35,7 @@ impl Command for Griddle {
                 "character to separate grid with",
                 Some('s'),
             )
+            .category(Category::Viewers)
     }
 
     fn extra_usage(&self) -> &str {

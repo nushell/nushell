@@ -5,7 +5,7 @@ use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Mv;
@@ -34,6 +34,7 @@ impl Command for Mv {
             )
             .switch("interactive", "ask user to confirm action", Some('i'))
             .switch("force", "suppress error when no file", Some('f'))
+            .category(Category::FileSystem)
     }
 
     fn run(
