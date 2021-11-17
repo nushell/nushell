@@ -481,7 +481,7 @@ pub fn parse_export(
 pub fn parse_module_block(
     working_set: &mut StateWorkingSet,
     span: Span,
-) -> (Block, Option<ParseError>) {
+) -> (Block, Overlay, Option<ParseError>) {
     let mut error = None;
 
     working_set.enter_scope();
@@ -508,8 +508,6 @@ pub fn parse_module_block(
         .iter()
         .map(|pipeline| {
             if pipeline.commands.len() == 1 {
-                // this one here is doing parse_statement() equivalent
-                // let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
                 let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
 
                 let (stmt, err) = match name {
@@ -571,7 +569,7 @@ pub fn parse_module_block(
 
     working_set.exit_scope();
 
-    (block.with_overlay(overlay), error)
+    (block, overlay, error)
 }
 
 pub fn parse_module(
@@ -584,7 +582,6 @@ pub fn parse_module(
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
-    // parse_def() equivalent
     if bytes == b"module" && spans.len() >= 3 {
         let (module_name_expr, err) = parse_string(working_set, spans[1]);
         error = error.or(err);
@@ -593,7 +590,6 @@ pub fn parse_module(
             .as_string()
             .expect("internal error: module name is not a string");
 
-        // parse_block_expression() equivalent
         let block_span = spans[2];
         let block_bytes = working_set.get_span_contents(block_span);
         let mut start = block_span.start;
@@ -617,10 +613,11 @@ pub fn parse_module(
 
         let block_span = Span { start, end };
 
-        let (block, err) = parse_module_block(working_set, block_span);
+        let (block, overlay, err) = parse_module_block(working_set, block_span);
         error = error.or(err);
 
-        let block_id = working_set.add_module(&module_name, block);
+        let block_id = working_set.add_block(block);
+        let _ = working_set.add_overlay(&module_name, overlay);
 
         let block_expr = Expression {
             expr: Expr::Block(block_id),
@@ -679,11 +676,8 @@ pub fn parse_use(
         error = error.or(err);
 
         let (import_pattern, overlay) =
-            if let Some(block_id) = working_set.find_module(&import_pattern.head.name) {
-                (
-                    import_pattern,
-                    working_set.get_block(block_id).overlay.clone(),
-                )
+            if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
+                (import_pattern, working_set.get_overlay(overlay_id).clone())
             } else {
                 // TODO: Do not close over when loading module from file
                 // It could be a file
@@ -703,11 +697,12 @@ pub fn parse_use(
                         working_set.add_file(module_filename, &contents);
                         let span_end = working_set.next_span_start();
 
-                        let (block, err) =
+                        let (block, overlay, err) =
                             parse_module_block(working_set, Span::new(span_start, span_end));
                         error = error.or(err);
 
-                        let block_id = working_set.add_module(&module_name, block);
+                        let _ = working_set.add_block(block);
+                        let _ = working_set.add_overlay(&module_name, overlay.clone());
 
                         (
                             ImportPattern {
@@ -717,7 +712,7 @@ pub fn parse_use(
                                 },
                                 members: import_pattern.members,
                             },
-                            working_set.get_block(block_id).overlay.clone(),
+                            overlay,
                         )
                     } else {
                         return (
@@ -825,8 +820,8 @@ pub fn parse_hide(
         error = error.or(err);
 
         let (is_module, overlay) =
-            if let Some(block_id) = working_set.find_module(&import_pattern.head.name) {
-                (true, working_set.get_block(block_id).overlay.clone())
+            if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
+                (true, working_set.get_overlay(overlay_id).clone())
             } else if import_pattern.members.is_empty() {
                 // The pattern head can be e.g. a function name, not just a module
                 if let Some(id) = working_set.find_decl(&import_pattern.head.name) {

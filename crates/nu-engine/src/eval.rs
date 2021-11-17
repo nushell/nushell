@@ -525,7 +525,7 @@ pub fn eval_variable(
         let mut var_types = vec![];
         let mut commands = vec![];
         let mut aliases = vec![];
-        let mut modules = vec![];
+        let mut overlays = vec![];
 
         for frame in &engine_state.scope {
             for var in &frame.vars {
@@ -611,9 +611,9 @@ pub fn eval_variable(
                 });
             }
 
-            for module in &frame.modules {
-                modules.push(Value::String {
-                    val: String::from_utf8_lossy(module.0).to_string(),
+            for overlay in &frame.overlays {
+                overlays.push(Value::String {
+                    val: String::from_utf8_lossy(overlay.0).to_string(),
                     span,
                 });
             }
@@ -638,9 +638,9 @@ pub fn eval_variable(
             span,
         });
 
-        output_cols.push("modules".to_string());
+        output_cols.push("overlays".to_string());
         output_vals.push(Value::List {
-            vals: modules,
+            vals: overlays,
             span,
         });
 

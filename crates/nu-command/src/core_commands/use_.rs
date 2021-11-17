@@ -40,8 +40,8 @@ impl Command for Use {
             ));
         };
 
-        if let Some(block_id) = engine_state.find_module(&import_pattern.head.name) {
-            let overlay = &engine_state.get_block(block_id).overlay;
+        if let Some(overlay_id) = engine_state.find_overlay(&import_pattern.head.name) {
+            let overlay = engine_state.get_overlay(overlay_id);
 
             let env_vars_to_use = if import_pattern.members.is_empty() {
                 overlay.env_vars_with_head(&import_pattern.head.name)
