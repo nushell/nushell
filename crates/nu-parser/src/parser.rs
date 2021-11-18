@@ -1437,9 +1437,11 @@ pub fn parse_filepath(
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        let filepath = nu_path::expand_path(token);
+        let filepath = filepath.to_string_lossy().to_string();
         (
             Expression {
-                expr: Expr::Filepath(token),
+                expr: Expr::Filepath(filepath),
                 span,
                 ty: Type::String,
                 custom_completion: None,
@@ -1449,7 +1451,7 @@ pub fn parse_filepath(
     } else {
         (
             garbage(span),
-            Some(ParseError::Expected("string".into(), span)),
+            Some(ParseError::Expected("filepath".into(), span)),
         )
     }
 }
@@ -1649,9 +1651,12 @@ pub fn parse_glob_pattern(
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        let filepath = nu_path::expand_path(token);
+        let filepath = filepath.to_string_lossy().to_string();
+
         (
             Expression {
-                expr: Expr::GlobPattern(token),
+                expr: Expr::GlobPattern(filepath),
                 span,
                 ty: Type::String,
                 custom_completion: None,

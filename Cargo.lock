@@ -945,6 +945,7 @@ name = "nu-parser"
 version = "0.1.0"
 dependencies = [
  "miette",
+ "nu-path",
  "nu-plugin",
  "nu-protocol",
  "thiserror",
