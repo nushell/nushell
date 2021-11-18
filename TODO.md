@@ -36,17 +36,36 @@
 - [x] operator overflow
 - [x] Support for `$in`
 - [x] config system
+- [x] plugins
+- [ ] external plugin signatures
+- [ ] external command signatures
 - [ ] shells
 - [ ] autoenv
-- [ ] plugins
 - [ ] dataframes
+- [ ] overlays (replacement for `autoenv`), adding modules to shells
 - [ ] port over `which` logic
+- [ ] port test support crate so we can test against sample files, including multiple inputs into the CLI
+- [ ] benchmarking
+- [ ] finish adding config properties
+- [ ] system-agnostic test cases
+- [ ] exit codes
+- [ ] length of time the command runs put in the env (CMD_DURATION_MS)
 
 ## Post-nushell merge:
-- [ ] Overlays (replacement for `autoenv`), adding modules to shells
 - [ ] Input/output types
 - [ ] let [first, rest] = [1, 2, 3] (design question: how do you pattern match a table?)
 
 ## Maybe: 
 - [ ] default param values?
 - [ ] Unary not?
+
+
+
+module git {
+    external fn "git clone" [
+        arg: int,
+        --flag: string(custom-completion),   ????
+    ] ;
+}
+
+plugin git { ... }

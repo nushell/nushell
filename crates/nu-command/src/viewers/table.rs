@@ -37,7 +37,7 @@ impl Command for Table {
         let config = stack.get_config()?;
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
-            w as usize
+            (w - 1) as usize
         } else {
             80usize
         };
