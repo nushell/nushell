@@ -181,9 +181,12 @@ impl Value {
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
-            Value::Record { cols, vals, .. } => {
-                Type::Record(cols.clone(), vals.iter().map(|x| x.get_type()).collect())
-            }
+            Value::Record { cols, vals, .. } => Type::Record(
+                cols.iter()
+                    .zip(vals.iter())
+                    .map(|(x, y)| (x.clone(), y.get_type()))
+                    .collect(),
+            ),
             Value::List { .. } => Type::List(Box::new(Type::Unknown)), // FIXME
             Value::Nothing { .. } => Type::Nothing,
             Value::Block { .. } => Type::Block,
