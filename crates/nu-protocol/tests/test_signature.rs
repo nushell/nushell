@@ -120,3 +120,51 @@ fn test_signature_same_name() {
         )
         .named("name", SyntaxShape::String, "named description", Some('n'));
 }
+
+#[test]
+fn test_signature_round_trip() {
+    let signature = Signature::new("new_signature")
+        .desc("description")
+        .required("first", SyntaxShape::String, "first required")
+        .required("second", SyntaxShape::Int, "second required")
+        .optional("optional", SyntaxShape::String, "optional description")
+        .required_named(
+            "req_named",
+            SyntaxShape::String,
+            "required named description",
+            Some('r'),
+        )
+        .named("named", SyntaxShape::String, "named description", Some('n'))
+        .switch("switch", "switch description", None)
+        .rest("rest", SyntaxShape::String, "rest description")
+        .category(nu_protocol::Category::Conversions);
+
+    let string = serde_json::to_string_pretty(&signature).unwrap();
+    let returned: Signature = serde_json::from_str(&string).unwrap();
+
+    assert_eq!(signature.name, returned.name);
+    assert_eq!(signature.usage, returned.usage);
+    assert_eq!(signature.extra_usage, returned.extra_usage);
+    assert_eq!(signature.is_filter, returned.is_filter);
+    assert_eq!(signature.category, returned.category);
+
+    signature
+        .required_positional
+        .iter()
+        .zip(returned.required_positional.iter())
+        .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+    signature
+        .optional_positional
+        .iter()
+        .zip(returned.optional_positional.iter())
+        .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+    signature
+        .named
+        .iter()
+        .zip(returned.named.iter())
+        .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+    assert_eq!(signature.rest_positional, returned.rest_positional,);
+}

@@ -146,7 +146,7 @@ pub fn create_default_context() -> EngineState {
         working_set.render()
     };
 
-    engine_state.merge_delta(delta);
+    let _ = engine_state.merge_delta(delta);
 
     engine_state
 }

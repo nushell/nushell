@@ -585,7 +585,7 @@ pub fn eval_variable(
 
                 cols.push("is_plugin".to_string());
                 vals.push(Value::Bool {
-                    val: decl.is_plugin(),
+                    val: decl.is_plugin().is_some(),
                     span,
                 });
 

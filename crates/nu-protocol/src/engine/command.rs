@@ -47,8 +47,8 @@ pub trait Command: Send + Sync + CommandClone {
     }
 
     // Is a plugin command
-    fn is_plugin(&self) -> bool {
-        false
+    fn is_plugin(&self) -> Option<&str> {
+        None
     }
 
     // If command is a block i.e. def blah [] { }, get the block id

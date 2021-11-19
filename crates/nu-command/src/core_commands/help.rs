@@ -114,6 +114,12 @@ fn help(
                     span: head,
                 });
 
+                cols.push("is_plugin".into());
+                vals.push(Value::Bool {
+                    val: cmd.2,
+                    span: head,
+                });
+
                 cols.push("usage".into());
                 vals.push(Value::String { val: c, span: head });
 
@@ -154,6 +160,12 @@ fn help(
                 cols.push("category".into());
                 vals.push(Value::String {
                     val: cmd.0.category.to_string(),
+                    span: head,
+                });
+
+                cols.push("is_plugin".into());
+                vals.push(Value::Bool {
+                    val: cmd.2,
                     span: head,
                 });
 

@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::Type;
 
 /// The syntactic shapes that values must match to be passed into a command. You can think of this as the type-checking that occurs when you call a function.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
     /// A specific match to a word or symbol
     Keyword(Vec<u8>, Box<SyntaxShape>),

@@ -118,7 +118,10 @@ fn main() -> Result<()> {
             (output, working_set.render())
         };
 
-        engine_state.merge_delta(delta);
+        if let Err(err) = engine_state.merge_delta(delta) {
+            let working_set = StateWorkingSet::new(&engine_state);
+            report_error(&working_set, &err);
+        }
 
         let mut stack = nu_protocol::engine::Stack::new();
 
@@ -185,10 +188,9 @@ fn main() -> Result<()> {
             config_path.push("nushell");
             config_path.push("config.nu");
 
-            // FIXME: remove this message when we're ready
-            println!("Loading config from: {:?}", config_path);
-
             if config_path.exists() {
+                // FIXME: remove this message when we're ready
+                println!("Loading config from: {:?}", config_path);
                 let config_filename = config_path.to_string_lossy().to_owned();
 
                 if let Ok(contents) = std::fs::read_to_string(&config_path) {
@@ -205,6 +207,24 @@ fn main() -> Result<()> {
         } else {
             None
         };
+
+        #[cfg(feature = "plugin")]
+        {
+            // Reading signatures from signature file
+            // The plugin.nu file stores the parsed signature collected from each registered plugin
+            if let Some(mut plugin_path) = nu_path::config_dir() {
+                // Path to store plugins signatures
+                plugin_path.push("nushell");
+                plugin_path.push("plugin.nu");
+                engine_state.plugin_signatures = Some(plugin_path.clone());
+
+                let plugin_filename = plugin_path.to_string_lossy().to_owned();
+
+                if let Ok(contents) = std::fs::read_to_string(&plugin_path) {
+                    eval_source(&mut engine_state, &mut stack, &contents, &plugin_filename);
+                }
+            }
+        }
 
         loop {
             //Reset the ctrl-c handler
@@ -387,7 +407,10 @@ fn eval_source(
         (output, working_set.render())
     };
 
-    engine_state.merge_delta(delta);
+    if let Err(err) = engine_state.merge_delta(delta) {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, &err);
+    }
 
     match eval_block(
         engine_state,

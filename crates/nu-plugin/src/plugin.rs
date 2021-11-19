@@ -215,8 +215,8 @@ impl Command for PluginDeclaration {
         Ok(pipeline_data)
     }
 
-    fn is_plugin(&self) -> bool {
-        true
+    fn is_plugin(&self) -> Option<&str> {
+        Some(self.filename.as_str())
     }
 }
 

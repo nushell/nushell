@@ -948,6 +948,7 @@ dependencies = [
  "nu-path",
  "nu-plugin",
  "nu-protocol",
+ "serde_json",
  "thiserror",
 ]
 
@@ -978,6 +979,7 @@ dependencies = [
  "im",
  "miette",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

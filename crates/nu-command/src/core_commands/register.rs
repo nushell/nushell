@@ -21,6 +21,7 @@ impl Command for Register {
                 SyntaxShape::Filepath,
                 "location of bin for plugin",
             )
+            .optional("signature", SyntaxShape::Any, "plugin signature")
             .category(Category::Core)
     }
 

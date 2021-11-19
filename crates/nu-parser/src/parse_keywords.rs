@@ -1085,6 +1085,8 @@ pub fn parse_plugin(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
+    use nu_protocol::Signature;
+
     let name = working_set.get_span_contents(spans[0]);
 
     if name != b"register" {
@@ -1122,7 +1124,8 @@ pub fn parse_plugin(
                                         // store declaration in working set
                                         let plugin_decl =
                                             PluginDeclaration::new(filename.clone(), signature);
-                                        working_set.add_decl(Box::new(plugin_decl));
+
+                                        working_set.add_plugin_decl(Box::new(plugin_decl));
                                     }
 
                                     None
@@ -1135,8 +1138,27 @@ pub fn parse_plugin(
                         Some(ParseError::NonUtf8(spans[1]))
                     }
                 }
+                3 => {
+                    let filename = working_set.get_span_contents(spans[1]);
+                    let signature = working_set.get_span_contents(spans[2]);
+
+                    if let Ok(filename) = String::from_utf8(filename.to_vec()) {
+                        if let Ok(signature) = serde_json::from_slice::<Signature>(signature) {
+                            let plugin_decl = PluginDeclaration::new(filename, signature);
+                            working_set.add_plugin_decl(Box::new(plugin_decl));
+
+                            None
+                        } else {
+                            Some(ParseError::PluginError(
+                                "unable to deserialize signature".into(),
+                            ))
+                        }
+                    } else {
+                        Some(ParseError::NonUtf8(spans[1]))
+                    }
+                }
                 _ => {
-                    let span = spans[2..].iter().fold(spans[2], |acc, next| Span {
+                    let span = spans[3..].iter().fold(spans[3], |acc, next| Span {
                         start: acc.start,
                         end: next.end,
                     });

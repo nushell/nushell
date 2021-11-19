@@ -1,6 +1,7 @@
 use super::Command;
 use crate::{
-    ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, Signature, Span, Type, VarId,
+    ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span, Type,
+    VarId,
 };
 use core::panic;
 use std::{
@@ -8,6 +9,8 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
+#[cfg(feature = "plugin")]
+use std::path::PathBuf;
 // Tells whether a decl etc. is visible or not
 #[derive(Debug, Clone)]
 struct Visibility {
@@ -136,6 +139,8 @@ pub struct EngineState {
     overlays: im::Vector<Overlay>,
     pub scope: im::Vector<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    #[cfg(feature = "plugin")]
+    pub plugin_signatures: Option<PathBuf>,
 }
 
 pub const NU_VARIABLE_ID: usize = 0;
@@ -154,6 +159,8 @@ impl EngineState {
             overlays: im::vector![],
             scope: im::vector![ScopeFrame::new()],
             ctrlc: None,
+            #[cfg(feature = "plugin")]
+            plugin_signatures: None,
         }
     }
 
@@ -164,7 +171,7 @@ impl EngineState {
     ///
     /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
     /// use this function to merge it into the global state.
-    pub fn merge_delta(&mut self, mut delta: StateDelta) {
+    pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
@@ -188,6 +195,53 @@ impl EngineState {
                 last.overlays.insert(item.0, item.1);
             }
             last.visibility.merge_with(first.visibility);
+
+            #[cfg(feature = "plugin")]
+            if !delta.plugin_decls.is_empty() {
+                for decl in delta.plugin_decls {
+                    let name = decl.name().as_bytes().to_vec();
+                    self.decls.push_back(decl);
+                    let decl_id = self.decls.len() - 1;
+
+                    last.decls.insert(name, decl_id);
+                    last.visibility.use_decl_id(&decl_id);
+                }
+
+                return self.update_plugin_file();
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn update_plugin_file(&self) -> Result<(), ShellError> {
+        use std::io::Write;
+
+        // Updating the signatures plugin file with the added signatures
+        if let Some(plugin_path) = &self.plugin_signatures {
+            // Always creating the file which will erase previous signatures
+            let mut plugin_file = std::fs::File::create(plugin_path.as_path())
+                .map_err(|err| ShellError::PluginError(err.to_string()))?;
+
+            // Plugin definitions with parsed signature
+            for decl in self.plugin_decls() {
+                // A successful plugin registration already includes the plugin filename
+                // No need to check the None option
+                let file_name = decl.is_plugin().expect("plugin should have file name");
+
+                let line = serde_json::to_string_pretty(&decl.signature())
+                    .map(|signature| format!("register {} {}\n", file_name, signature))
+                    .map_err(|err| ShellError::PluginError(err.to_string()))?;
+
+                plugin_file
+                    .write_all(line.as_bytes())
+                    .map_err(|err| ShellError::PluginError(err.to_string()))?;
+            }
+
+            Ok(())
+        } else {
+            Err(ShellError::PluginError("Plugin file not found".into()))
         }
     }
 
@@ -252,6 +306,10 @@ impl EngineState {
         None
     }
 
+    pub fn plugin_decls(&self) -> impl Iterator<Item = &Box<dyn Command + 'static>> {
+        self.decls.iter().filter(|decl| decl.is_plugin().is_some())
+    }
+
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         for scope in self.scope.iter().rev() {
             if let Some(overlay_id) = scope.overlays.get(name) {
@@ -314,7 +372,7 @@ impl EngineState {
         output
     }
 
-    pub fn get_signatures_with_examples(&self) -> Vec<(Signature, Vec<Example>)> {
+    pub fn get_signatures_with_examples(&self) -> Vec<(Signature, Vec<Example>, bool)> {
         let mut output = vec![];
         for decl in self.decls.iter() {
             if decl.get_block_id().is_none() {
@@ -322,7 +380,7 @@ impl EngineState {
                 signature.usage = decl.usage().to_string();
                 signature.extra_usage = decl.extra_usage().to_string();
 
-                output.push((signature, decl.examples()));
+                output.push((signature, decl.examples(), decl.is_plugin().is_some()));
             }
         }
 
@@ -418,6 +476,8 @@ pub struct StateDelta {
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Type>,              // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
+    #[cfg(feature = "plugin")]
+    plugin_decls: Vec<Box<dyn Command>>, // indexed by DeclId
     blocks: Vec<Block>,           // indexed by BlockId
     overlays: Vec<Overlay>,       // indexed by OverlayId
     pub scope: Vec<ScopeFrame>,
@@ -457,6 +517,8 @@ impl<'a> StateWorkingSet<'a> {
                 file_contents: vec![],
                 vars: vec![],
                 decls: vec![],
+                #[cfg(feature = "plugin")]
+                plugin_decls: vec![],
                 blocks: vec![],
                 overlays: vec![],
                 scope: vec![ScopeFrame::new()],
@@ -525,6 +587,11 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing required scope frame");
 
         scope_frame.predecls.insert(name, decl_id)
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn add_plugin_decl(&mut self, decl: Box<dyn Command>) {
+        self.delta.plugin_decls.push(decl);
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {

@@ -33,7 +33,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.render()
     };
 
-    engine_state.merge_delta(delta);
+    let _ = engine_state.merge_delta(delta);
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -53,7 +53,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
             (output, working_set.render())
         };
 
-        engine_state.merge_delta(delta);
+        let _ = engine_state.merge_delta(delta);
 
         let mut stack = Stack::new();
 

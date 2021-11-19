@@ -35,7 +35,7 @@ ctrlc = "3.2.1"
 # mimalloc = { version = "*", default-features = false }
 
 [features]
-plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin"]
+plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin"]
 default = ["plugin"]
 
 [dev-dependencies]

@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::ast::Call;
 use crate::engine::Command;
 use crate::engine::EngineState;
@@ -7,7 +10,7 @@ use crate::PipelineData;
 use crate::SyntaxShape;
 use crate::VarId;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Flag {
     pub long: String,
     pub short: Option<char>,
@@ -18,7 +21,7 @@ pub struct Flag {
     pub var_id: Option<VarId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PositionalArg {
     pub name: String,
     pub desc: String,
@@ -27,7 +30,7 @@ pub struct PositionalArg {
     pub var_id: Option<VarId>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Category {
     Default,
     Conversions,
@@ -66,7 +69,7 @@ impl std::fmt::Display for Category {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub name: String,
     pub usage: String,

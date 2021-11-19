@@ -192,6 +192,6 @@ pub enum ParseError {
     FileNotFound(String),
 
     #[error("Plugin error")]
-    #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
+    #[diagnostic(code(nu::parser::plugin_error), url(docsrs))]
     PluginError(String),
 }
