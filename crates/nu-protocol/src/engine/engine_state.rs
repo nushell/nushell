@@ -1120,7 +1120,7 @@ mod engine_state_tests {
     }
 
     #[test]
-    fn merge_states() {
+    fn merge_states() -> Result<(), ShellError> {
         let mut engine_state = EngineState::new();
         engine_state.add_file("test.nu".into(), vec![]);
 
@@ -1130,10 +1130,12 @@ mod engine_state_tests {
             working_set.render()
         };
 
-        engine_state.merge_delta(delta);
+        engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
         assert_eq!(&engine_state.files[0].0, "test.nu");
         assert_eq!(&engine_state.files[1].0, "child.nu");
+
+        Ok(())
     }
 }

@@ -1,5 +1,7 @@
 mod alias;
+mod debug;
 mod def;
+mod describe;
 mod do_;
 mod echo;
 mod export;
@@ -15,7 +17,9 @@ mod source;
 mod use_;
 
 pub use alias::Alias;
+pub use debug::Debug;
 pub use def::Def;
+pub use describe::Describe;
 pub use do_::Do;
 pub use echo::Echo;
 pub use export::ExportCommand;
