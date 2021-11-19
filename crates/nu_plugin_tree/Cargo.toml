@@ -14,7 +14,7 @@ derive-new = "0.5.8"
 nu-errors = { path="../nu-errors", version = "0.40.0" }
 nu-plugin = { path="../nu-plugin", version = "0.40.0" }
 nu-protocol = { path="../nu-protocol", version = "0.40.0" }
-ptree = { version = "0.3.1", default-features = false }
+ptree = { version = "0.4.0", default-features = false }
 
 
 [build-dependencies]

@@ -61,7 +61,7 @@ pub fn convert_sqlite_file_to_nu_value(
 
 fn convert_sqlite_row_to_nu_value(row: &Row, tag: impl Into<Tag> + Clone) -> Value {
     let mut collected = TaggedDictBuilder::new(tag.clone());
-    for (i, c) in row.column_names().iter().enumerate() {
+    for (i, c) in row.as_ref().column_names().iter().enumerate() {
         collected.insert_value(
             c.to_string(),
             convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), tag.clone()),

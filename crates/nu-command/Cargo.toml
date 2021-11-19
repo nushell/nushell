@@ -74,7 +74,7 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
-sysinfo = { version = "0.20.2", optional = true }
+sysinfo = { version = "0.21.1", optional = true }
 thiserror = "1.0.26"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
@@ -105,7 +105,7 @@ users = "0.11.0"
 # num-format = { version = "0.4", features = ["with-system-locale"] }
 
 [build-dependencies]
-shadow-rs = "0.6"
+shadow-rs = "0.8.1"
 
 [dev-dependencies]
 quickcheck = "1.0.3"

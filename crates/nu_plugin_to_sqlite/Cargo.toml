@@ -19,6 +19,6 @@ tempfile = "3.2.0"
 
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
-version = "0.25.3"
+version = "0.26.1"
 
 [build-dependencies]
