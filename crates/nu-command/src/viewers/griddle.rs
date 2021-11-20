@@ -60,6 +60,8 @@ prints out the list properly."#
 
         let config = stack.get_config()?;
 
+        let env_str = stack.get_env_var("LS_COLORS");
+
         match input {
             PipelineData::Value(Value::List { vals, .. }) => {
                 // dbg!("value::list");
@@ -71,6 +73,7 @@ prints out the list properly."#
                         width_param,
                         color_param,
                         separator_param,
+                        env_str,
                     ))
                 } else {
                     Ok(PipelineData::new(call.head))
@@ -86,6 +89,7 @@ prints out the list properly."#
                         width_param,
                         color_param,
                         separator_param,
+                        env_str,
                     ))
                 } else {
                     // dbg!(data);
@@ -106,6 +110,7 @@ prints out the list properly."#
                     width_param,
                     color_param,
                     separator_param,
+                    env_str,
                 ))
             }
             x => {
@@ -123,8 +128,13 @@ fn create_grid_output2(
     width_param: Option<String>,
     color_param: bool,
     separator_param: Option<String>,
+    env_str: Option<String>,
 ) -> PipelineData {
-    let ls_colors = LsColors::from_env().unwrap_or_default();
+    let ls_colors = match env_str {
+        Some(s) => LsColors::from_string(&s),
+        None => LsColors::default(),
+    };
+
     let cols = if let Some(col) = width_param {
         col.parse::<u16>().unwrap_or(80)
     } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {

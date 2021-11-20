@@ -57,18 +57,23 @@ impl Command for Ls {
 
         let call_span = call.head;
         let glob = glob::glob(&pattern).unwrap();
-        let ls_colors = LsColors::from_env().unwrap_or_default();
+        let ls_colors = match stack.get_env_var("LS_COLORS") {
+            Some(s) => LsColors::from_string(&s),
+            None => LsColors::default(),
+        };
 
         Ok(glob
             .into_iter()
             .map(move |x| match x {
                 Ok(path) => match std::fs::symlink_metadata(&path) {
                     Ok(metadata) => {
+                        let is_symlink = metadata.file_type().is_symlink();
                         let is_file = metadata.is_file();
                         let is_dir = metadata.is_dir();
                         let filesize = metadata.len();
                         let mut cols = vec!["name".into(), "type".into(), "size".into()];
-                        let style = ls_colors.style_for_path(path.clone());
+                        let style =
+                            ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata));
                         let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
                         let use_ls_colors = config.use_ls_colors;
 
@@ -84,7 +89,9 @@ impl Command for Ls {
                                     span: call_span,
                                 }
                             },
-                            if is_file {
+                            if is_symlink {
+                                Value::string("symlink", call_span)
+                            } else if is_file {
                                 Value::string("file", call_span)
                             } else if is_dir {
                                 Value::string("dir", call_span)
