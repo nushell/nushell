@@ -1,3 +1,4 @@
+mod color_config;
 mod griddle;
 mod table;
 

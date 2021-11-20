@@ -1,13 +1,15 @@
+use crate::viewers::color_config::get_color_config;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
-use nu_table::{StyledString, Theme};
-use std::collections::HashMap;
+use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use terminal_size::{Height, Width};
+
+use super::color_config::style_primitive;
 
 #[derive(Clone)]
 pub struct Table;
@@ -35,6 +37,7 @@ impl Command for Table {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let ctrlc = engine_state.ctrlc.clone();
         let config = stack.get_config()?;
+        let color_hm = get_color_config(&config);
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             (w - 1) as usize
@@ -47,7 +50,7 @@ impl Command for Table {
                 let table = convert_to_table(vals, ctrlc, &config)?;
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, term_width, &HashMap::new());
+                    let result = nu_table::draw_table(&table, term_width, &color_hm);
 
                     Ok(Value::String {
                         val: result,
@@ -62,7 +65,7 @@ impl Command for Table {
                 let table = convert_to_table(stream, ctrlc, &config)?;
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, term_width, &HashMap::new());
+                    let result = nu_table::draw_table(&table, term_width, &color_hm);
 
                     Ok(Value::String {
                         val: result,
@@ -80,11 +83,11 @@ impl Command for Table {
                     output.push(vec![
                         StyledString {
                             contents: c,
-                            style: nu_table::TextStyle::default_field(),
+                            style: TextStyle::default_field(),
                         },
                         StyledString {
                             contents: v.into_string(", ", &config),
-                            style: nu_table::TextStyle::default(),
+                            style: TextStyle::default(),
                         },
                     ])
                 }
@@ -95,7 +98,7 @@ impl Command for Table {
                     theme: load_theme_from_config(&config),
                 };
 
-                let result = nu_table::draw_table(&table, term_width, &HashMap::new());
+                let result = nu_table::draw_table(&table, term_width, &color_hm);
 
                 Ok(Value::String {
                     val: result,
@@ -123,7 +126,8 @@ fn convert_to_table(
             headers.insert(0, "#".into());
         }
 
-        let mut data = vec![];
+        // Vec of Vec of String1, String2 where String1 is datatype and String2 is value
+        let mut data: Vec<Vec<(String, String)>> = Vec::new();
 
         for (row_num, item) in iter.enumerate() {
             if let Some(ctrlc) = &ctrlc {
@@ -134,10 +138,11 @@ fn convert_to_table(
             if let Value::Error { error } = item {
                 return Err(error);
             }
-            let mut row = vec![row_num.to_string()];
+            // String1 = datatype, String2 = value as string
+            let mut row: Vec<(String, String)> = vec![("string".to_string(), row_num.to_string())];
 
             if headers.is_empty() {
-                row.push(item.into_string(", ", config))
+                row.push(("header".to_string(), item.into_string(", ", config)))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -151,8 +156,11 @@ fn convert_to_table(
                     };
 
                     match result {
-                        Ok(value) => row.push(value.into_string(", ", config)),
-                        Err(_) => row.push(String::new()),
+                        Ok(value) => row.push((
+                            (&value.get_type()).to_string(),
+                            value.into_string(", ", config),
+                        )),
+                        Err(_) => row.push(("empty".to_string(), String::new())),
                     }
                 }
             }
@@ -160,12 +168,16 @@ fn convert_to_table(
             data.push(row);
         }
 
+        let color_hm = get_color_config(config);
         Ok(Some(nu_table::Table {
             headers: headers
                 .into_iter()
                 .map(|x| StyledString {
                     contents: x,
-                    style: nu_table::TextStyle::default_header(),
+                    style: TextStyle {
+                        alignment: nu_table::Alignment::Center,
+                        color_style: Some(color_hm["header"]),
+                    },
                 })
                 .collect(),
             data: data
@@ -176,13 +188,16 @@ fn convert_to_table(
                         .map(|(col, y)| {
                             if col == 0 {
                                 StyledString {
-                                    contents: y,
-                                    style: nu_table::TextStyle::default_header(),
+                                    contents: y.1,
+                                    style: TextStyle {
+                                        alignment: nu_table::Alignment::Center,
+                                        color_style: Some(color_hm["header"]),
+                                    },
                                 }
                             } else {
                                 StyledString {
-                                    contents: y,
-                                    style: nu_table::TextStyle::basic_left(),
+                                    contents: y.1,
+                                    style: style_primitive(&y.0, &color_hm),
                                 }
                             }
                         })

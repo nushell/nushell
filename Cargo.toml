@@ -30,6 +30,7 @@ nu-protocol = { path = "./crates/nu-protocol" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true }
 nu-table = { path = "./crates/nu-table" }
 nu-term-grid = { path = "./crates/nu-term-grid" }
+nu-ansi-term = { path = "./crates/nu-ansi-term" }
 miette = "3.0.0"
 ctrlc = "3.2.1"
 # mimalloc = { version = "*", default-features = false }

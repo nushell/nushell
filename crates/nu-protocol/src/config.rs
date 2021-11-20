@@ -1,12 +1,13 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{ShellError, Value};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
     pub table_mode: String,
     pub use_ls_colors: bool,
+    pub color_config: HashMap<String, String>,
 }
 
 impl Default for Config {
@@ -15,6 +16,7 @@ impl Default for Config {
             filesize_metric: false,
             table_mode: "rounded".into(),
             use_ls_colors: true,
+            color_config: HashMap::new(),
         }
     }
 }
@@ -35,6 +37,14 @@ impl Value {
                 }
                 "use_ls_colors" => {
                     config.use_ls_colors = value.as_bool()?;
+                }
+                "color_config" => {
+                    let (cols, vals) = value.as_record()?;
+                    let mut hm = HashMap::new();
+                    for (k, v) in cols.iter().zip(vals) {
+                        hm.insert(k.to_string(), v.as_string().unwrap());
+                    }
+                    config.color_config = hm;
                 }
                 _ => {}
             }

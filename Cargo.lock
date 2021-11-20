@@ -542,6 +542,7 @@ dependencies = [
  "ctrlc",
  "dialoguer",
  "miette",
+ "nu-ansi-term 0.39.0",
  "nu-cli",
  "nu-command",
  "nu-engine",
@@ -911,6 +912,18 @@ dependencies = [
 [[package]]
 name = "nu-ansi-term"
 version = "0.39.0"
+dependencies = [
+ "doc-comment",
+ "overload",
+ "regex",
+ "serde",
+ "serde_json",
+ "winapi",
+]
+
+[[package]]
+name = "nu-ansi-term"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e62e2187cbceeafee9fb7b5e5e182623e0628ebf430a479df4487beb8f92fd7a"
 dependencies = [
@@ -923,7 +936,7 @@ name = "nu-cli"
 version = "0.1.0"
 dependencies = [
  "miette",
- "nu-ansi-term",
+ "nu-ansi-term 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nu-engine",
  "nu-parser",
  "nu-path",
@@ -950,6 +963,7 @@ dependencies = [
  "itertools",
  "lscolors",
  "meval",
+ "nu-ansi-term 0.39.0",
  "nu-engine",
  "nu-json",
  "nu-parser",
@@ -1044,7 +1058,7 @@ name = "nu-table"
 version = "0.36.0"
 dependencies = [
  "ansi-cut",
- "nu-ansi-term",
+ "nu-ansi-term 0.39.0",
  "regex",
  "strip-ansi-escapes",
  "unicode-width",
@@ -1400,7 +1414,7 @@ source = "git+https://github.com/nushell/reedline?branch=main#c11aef2d9b4eaf0c76
 dependencies = [
  "chrono",
  "crossterm 0.22.1",
- "nu-ansi-term",
+ "nu-ansi-term 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "unicode-segmentation",
  "unicode-width",
