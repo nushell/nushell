@@ -10,7 +10,7 @@ version = "0.40.0"
 doctest = false
 
 [dependencies]
-gjson = "0.7.1"
+gjson = "0.8.0"
 nu-errors = { version = "0.40.0", path="../nu-errors" }
 nu-plugin = { version = "0.40.0", path="../nu-plugin" }
 nu-protocol = { version = "0.40.0", path="../nu-protocol" }

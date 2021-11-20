@@ -7,11 +7,11 @@ name = "nu-parser"
 version = "0.40.0"
 
 [dependencies]
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
+bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
 derive-new = "0.5.8"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4"
-num-bigint = { version="0.3.1", features=["serde"] }
+num-bigint = { version="0.4.3", features=["serde"] }
 itertools = "0.10.0"
 smart-default = "0.6.0"
 

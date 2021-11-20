@@ -10,7 +10,7 @@ version = "0.40.0"
 doctest = false
 
 [dependencies]
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
+bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
 byte-unit = "4.0.9"
 chrono = "0.4.19"
 common-path = "1.0.0"
@@ -19,7 +19,7 @@ directories-next = "2.0.0"
 getset = "0.1.1"
 indexmap = { version="1.6.1", features=["serde-1"] }
 log = "0.4.14"
-num-bigint = { version="0.3.1", features=["serde"] }
+num-bigint = { version="0.4.3", features=["serde"] }
 num-format = "0.4.0"
 num-traits = "0.2.14"
 serde = { version="1.0.123", features=["derive"] }
