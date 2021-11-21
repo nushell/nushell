@@ -5,7 +5,7 @@ use nu_protocol::Span;
 fn lex_basic() {
     let file = b"let x = 4";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     assert!(output.1.is_none());
 }
@@ -14,7 +14,7 @@ fn lex_basic() {
 fn lex_newline() {
     let file = b"let x = 300\nlet y = 500;";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     assert!(output.0.contains(&Token {
         contents: TokenContents::Eol,
@@ -26,7 +26,7 @@ fn lex_newline() {
 fn lex_empty() {
     let file = b"";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     assert!(output.0.is_empty());
     assert!(output.1.is_none());
@@ -37,7 +37,7 @@ fn lex_parenthesis() {
     // The whole parenthesis is an item for the lexer
     let file = b"let x = (300 + (322 * 444));";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     assert_eq!(
         output.0.get(3).unwrap(),
@@ -52,7 +52,7 @@ fn lex_parenthesis() {
 fn lex_comment() {
     let file = b"let x = 300 # a comment \n $x + 444";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], false);
 
     assert_eq!(
         output.0.get(4).unwrap(),
@@ -67,7 +67,7 @@ fn lex_comment() {
 fn lex_is_incomplete() {
     let file = b"let x = 300 | ;";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     let err = output.1.unwrap();
     assert!(matches!(err, ParseError::ExtraTokens(_)));
@@ -77,7 +77,7 @@ fn lex_is_incomplete() {
 fn lex_incomplete_paren() {
     let file = b"let x = (300 + ( 4 + 1)";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     let err = output.1.unwrap();
     assert!(matches!(err, ParseError::UnexpectedEof(v, _) if v == ")"));
@@ -87,7 +87,7 @@ fn lex_incomplete_paren() {
 fn lex_incomplete_quote() {
     let file = b"let x = '300 + 4 + 1";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], true);
 
     let err = output.1.unwrap();
     assert!(matches!(err, ParseError::UnexpectedEof(v, _) if v == "'"));
@@ -102,7 +102,7 @@ fn lex_comments() {
     // let y = 1 # comment
     let file = b"let z = 4 #comment \n let x = 4 # comment\n let y = 1 # comment";
 
-    let output = lex(file, 0, &[], &[]);
+    let output = lex(file, 0, &[], &[], false);
 
     assert_eq!(
         output.0.get(4).unwrap(),

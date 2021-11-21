@@ -1120,3 +1120,26 @@ fn config_var_2() -> TestResult {
         "40.0 KB",
     )
 }
+
+#[test]
+fn comment_skipping_1() -> TestResult {
+    run_test(
+        r#"let x = {
+        y: 20
+        # foo
+    }; $x.y"#,
+        "20",
+    )
+}
+
+#[test]
+fn comment_skipping_2() -> TestResult {
+    run_test(
+        r#"let x = {
+        y: 20
+        # foo
+        z: 40
+    }; $x.z"#,
+        "40",
+    )
+}

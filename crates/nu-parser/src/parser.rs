@@ -1311,7 +1311,7 @@ pub fn parse_full_cell_path(
     let source = working_set.get_span_contents(span);
     let mut error = None;
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.']);
+    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
     error = error.or(err);
 
     let mut tokens = tokens.into_iter().peekable();
@@ -1336,7 +1336,7 @@ pub fn parse_full_cell_path(
 
             let source = working_set.get_span_contents(span);
 
-            let (output, err) = lex(source, span.start, &[b'\n', b'\r'], &[]);
+            let (output, err) = lex(source, span.start, &[b'\n', b'\r'], &[], true);
             error = error.or(err);
 
             let (output, err) = lite_parse(&output);
@@ -2062,7 +2062,7 @@ pub fn parse_signature_helper(
     let mut error = None;
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[b':']);
+    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[b':'], false);
     error = error.or(err);
 
     let mut args: Vec<Arg> = vec![];
@@ -2391,7 +2391,7 @@ pub fn parse_list_expression(
     let span = Span { start, end };
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[]);
+    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -2463,7 +2463,7 @@ pub fn parse_table_expression(
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, start, &[b'\n', b'\r', b','], &[]);
+    let (output, err) = lex(source, start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -2578,7 +2578,7 @@ pub fn parse_block_expression(
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, start, &[], &[]);
+    let (output, err) = lex(source, start, &[], &[], true);
     error = error.or(err);
 
     working_set.enter_scope();
@@ -2797,7 +2797,7 @@ pub fn parse_value(
             let source = working_set.get_span_contents(span);
             let mut error = None;
 
-            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.']);
+            let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.'], true);
             error = error.or(err);
 
             let tokens = tokens.into_iter().peekable();
@@ -3232,7 +3232,7 @@ pub fn parse_record(
     let span = Span { start, end };
     let source = working_set.get_span_contents(span);
 
-    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':']);
+    let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
     error = error.or(err);
 
     let mut output = vec![];
@@ -3598,7 +3598,7 @@ pub fn parse(
 
     working_set.add_file(name, contents);
 
-    let (output, err) = lex(contents, span_offset, &[], &[]);
+    let (output, err) = lex(contents, span_offset, &[], &[], true);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);

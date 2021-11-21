@@ -488,7 +488,7 @@ pub fn parse_module_block(
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, span.start, &[], &[]);
+    let (output, err) = lex(source, span.start, &[], &[], true);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);

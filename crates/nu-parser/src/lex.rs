@@ -207,6 +207,7 @@ pub fn lex(
     span_offset: usize,
     additional_whitespace: &[u8],
     special_tokens: &[u8],
+    skip_comment: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut error = None;
 
@@ -277,24 +278,26 @@ pub fn lex(
             while let Some(input) = input.get(curr_offset) {
                 curr_offset += 1;
                 if *input == b'\n' || *input == b'\r' {
-                    output.push(Token::new(
-                        TokenContents::Comment,
-                        Span::new(start, curr_offset - 1),
-                    ));
+                    if !skip_comment {
+                        output.push(Token::new(
+                            TokenContents::Comment,
+                            Span::new(start, curr_offset - 1),
+                        ));
 
-                    // Adding an end of line token after a comment
-                    // This helps during lite_parser to avoid losing a command
-                    // in a statement
-                    output.push(Token::new(
-                        TokenContents::Eol,
-                        Span::new(curr_offset - 1, curr_offset),
-                    ));
+                        // Adding an end of line token after a comment
+                        // This helps during lite_parser to avoid losing a command
+                        // in a statement
+                        output.push(Token::new(
+                            TokenContents::Eol,
+                            Span::new(curr_offset - 1, curr_offset),
+                        ));
+                    }
                     start = curr_offset;
 
                     break;
                 }
             }
-            if start != curr_offset {
+            if start != curr_offset && !skip_comment {
                 output.push(Token::new(
                     TokenContents::Comment,
                     Span::new(span_offset + start, span_offset + curr_offset),
