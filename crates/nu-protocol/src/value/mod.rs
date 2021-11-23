@@ -1,3 +1,5 @@
+mod custom_value;
+mod from;
 mod range;
 mod stream;
 mod unit;
@@ -15,10 +17,16 @@ use std::{cmp::Ordering, fmt::Debug};
 use crate::ast::{CellPath, PathMember};
 use crate::{did_you_mean, span, BlockId, Config, Span, Spanned, Type};
 
+#[cfg(feature = "custom")]
+use crate::ast::Operator;
+
+#[cfg(feature = "custom")]
+pub use custom_value::CustomValue;
+
 use crate::ShellError;
 
 /// Core structured values that pass through the pipeline in engine-q
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
     Bool {
         val: bool,
@@ -79,6 +87,77 @@ pub enum Value {
         val: CellPath,
         span: Span,
     },
+    #[cfg(feature = "custom")]
+    CustomValue {
+        val: Box<dyn CustomValue>,
+        span: Span,
+    },
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match self {
+            Value::Bool { val, span } => Value::Bool {
+                val: *val,
+                span: *span,
+            },
+            Value::Int { val, span } => Value::Int {
+                val: *val,
+                span: *span,
+            },
+            Value::Filesize { val, span } => Value::Filesize {
+                val: *val,
+                span: *span,
+            },
+            Value::Duration { val, span } => Value::Duration {
+                val: *val,
+                span: *span,
+            },
+            Value::Date { val, span } => Value::Date {
+                val: *val,
+                span: *span,
+            },
+            Value::Range { val, span } => Value::Range {
+                val: val.clone(),
+                span: *span,
+            },
+            Value::Float { val, span } => Value::Float {
+                val: *val,
+                span: *span,
+            },
+            Value::String { val, span } => Value::String {
+                val: val.clone(),
+                span: *span,
+            },
+            Value::Record { cols, vals, span } => Value::Record {
+                cols: cols.clone(),
+                vals: vals.clone(),
+                span: *span,
+            },
+            Value::List { vals, span } => Value::List {
+                vals: vals.clone(),
+                span: *span,
+            },
+            Value::Block { val, span } => Value::Block {
+                val: *val,
+                span: *span,
+            },
+            Value::Nothing { span } => Value::Nothing { span: *span },
+            Value::Error { error } => Value::Error {
+                error: error.clone(),
+            },
+            Value::Binary { val, span } => Value::Binary {
+                val: val.clone(),
+                span: *span,
+            },
+            Value::CellPath { val, span } => Value::CellPath {
+                val: val.clone(),
+                span: *span,
+            },
+            #[cfg(feature = "custom")]
+            Value::CustomValue { val, span } => val.clone_value(*span),
+        }
+    }
 }
 
 impl Value {
@@ -144,6 +223,8 @@ impl Value {
             Value::Nothing { span, .. } => Ok(*span),
             Value::Binary { span, .. } => Ok(*span),
             Value::CellPath { span, .. } => Ok(*span),
+            #[cfg(feature = "custom")]
+            Value::CustomValue { span, .. } => Ok(*span),
         }
     }
 
@@ -165,6 +246,8 @@ impl Value {
             Value::Error { .. } => {}
             Value::Binary { span, .. } => *span = new_span,
             Value::CellPath { span, .. } => *span = new_span,
+            #[cfg(feature = "custom")]
+            Value::CustomValue { span, .. } => *span = new_span,
         }
 
         self
@@ -193,6 +276,8 @@ impl Value {
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
+            #[cfg(feature = "custom")]
+            Value::CustomValue { .. } => Type::Custom,
         }
     }
 
@@ -233,6 +318,8 @@ impl Value {
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
+            #[cfg(feature = "custom")]
+            Value::CustomValue { val, .. } => val.value_string(),
         }
     }
 
@@ -273,6 +360,8 @@ impl Value {
             Value::Error { error } => format!("{:?}", error),
             Value::Binary { val, .. } => format!("{:?}", val),
             Value::CellPath { val, .. } => val.into_string(),
+            #[cfg(feature = "custom")]
+            Value::CustomValue { val, .. } => val.value_string(),
         }
     }
 
@@ -317,6 +406,10 @@ impl Value {
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream(*origin_span));
                             }
+                        }
+                        #[cfg(feature = "custom")]
+                        Value::CustomValue { val, .. } => {
+                            current = val.follow_path_int(*count, *origin_span)?;
                         }
                         x => {
                             return Err(ShellError::IncompatiblePathAccess(
@@ -364,6 +457,10 @@ impl Value {
                             vals: output,
                             span: *span,
                         };
+                    }
+                    #[cfg(feature = "custom")]
+                    Value::CustomValue { val, .. } => {
+                        current = val.follow_path_string(column_name.clone(), *origin_span)?;
                     }
                     x => {
                         return Err(ShellError::IncompatiblePathAccess(
@@ -627,6 +724,11 @@ impl Value {
                 }
             }
 
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Plus, op, rhs)
+            }
+
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -692,6 +794,11 @@ impl Value {
                 }
             }
 
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Minus, op, rhs)
+            }
+
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -727,6 +834,10 @@ impl Value {
                 val: lhs * rhs,
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Multiply, op, rhs)
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -788,6 +899,10 @@ impl Value {
                     Err(ShellError::DivisionByZero(op))
                 }
             }
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Divide, op, rhs)
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -800,6 +915,11 @@ impl Value {
     }
     pub fn lt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
+
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::LessThan, op, rhs);
+        }
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -818,6 +938,11 @@ impl Value {
     pub fn lte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
 
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::LessThanOrEqual, op, rhs);
+        }
+
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Less | Ordering::Equal),
@@ -834,6 +959,11 @@ impl Value {
     }
     pub fn gt(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
+
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::GreaterThan, op, rhs);
+        }
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -852,6 +982,11 @@ impl Value {
     pub fn gte(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
 
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::GreaterThanOrEqual, op, rhs);
+        }
+
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Greater | Ordering::Equal),
@@ -869,6 +1004,11 @@ impl Value {
     pub fn eq(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
 
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::Equal, op, rhs);
+        }
+
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
                 val: matches!(ordering, Ordering::Equal),
@@ -885,6 +1025,11 @@ impl Value {
     }
     pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
         let span = span(&[self.span()?, rhs.span()?]);
+
+        #[cfg(feature = "custom")]
+        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+            return lhs.operation(*span, Operator::NotEqual, op, rhs);
+        }
 
         match self.partial_cmp(rhs) {
             Some(ordering) => Ok(Value::Bool {
@@ -921,6 +1066,10 @@ impl Value {
                 val: rhs.contains(lhs),
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::In, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -951,6 +1100,10 @@ impl Value {
                 val: !rhs.contains(lhs),
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::NotIn, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -969,6 +1122,10 @@ impl Value {
                 val: lhs.contains(rhs),
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Contains, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -987,6 +1144,10 @@ impl Value {
                 val: !lhs.contains(rhs),
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::NotContains, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -1041,6 +1202,10 @@ impl Value {
                     Err(ShellError::DivisionByZero(op))
                 }
             }
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Modulo, op, rhs)
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -1060,6 +1225,10 @@ impl Value {
                 val: *lhs && *rhs,
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::And, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -1078,6 +1247,10 @@ impl Value {
                 val: *lhs || *rhs,
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Or, op, rhs)
+            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type(),
@@ -1114,6 +1287,10 @@ impl Value {
                 val: lhs.powf(*rhs),
                 span,
             }),
+            #[cfg(feature = "custom")]
+            (Value::CustomValue { val: lhs, span }, rhs) => {
+                lhs.operation(*span, Operator::Pow, op, rhs)
+            }
 
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

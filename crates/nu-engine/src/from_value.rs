@@ -1,5 +1,8 @@
 // use std::path::PathBuf;
 
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use chrono::{DateTime, FixedOffset};
 // use nu_path::expand_path;
 use nu_protocol::ast::{CellPath, PathMember};
@@ -92,6 +95,47 @@ impl FromValue for f64 {
     }
 }
 
+impl FromValue for Spanned<usize> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Int { val, span } => Ok(Spanned {
+                item: *val as usize,
+                span: *span,
+            }),
+            Value::Filesize { val, span } => Ok(Spanned {
+                item: *val as usize,
+                span: *span,
+            }),
+            Value::Duration { val, span } => Ok(Spanned {
+                item: *val as usize,
+                span: *span,
+            }),
+
+            v => Err(ShellError::CantConvert(
+                "integer".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
+impl FromValue for usize {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Int { val, .. } => Ok(*val as usize),
+            Value::Filesize { val, .. } => Ok(*val as usize),
+            Value::Duration { val, .. } => Ok(*val as usize),
+
+            v => Err(ShellError::CantConvert(
+                "integer".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
 impl FromValue for String {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
@@ -123,6 +167,30 @@ impl FromValue for Spanned<String> {
             },
             span: v.span()?,
         })
+    }
+}
+
+impl FromValue for Vec<String> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::List { vals, .. } => vals
+                .iter()
+                .map(|val| match val {
+                    Value::String { val, .. } => Ok(val.clone()),
+                    c => Err(ShellError::CantConvert(
+                        "string".into(),
+                        c.get_type().to_string(),
+                        c.span()?,
+                    )),
+                })
+                .collect::<Result<Vec<String>, ShellError>>(),
+            v => Err(ShellError::CantConvert(
+                "string".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
     }
 }
 
@@ -246,6 +314,23 @@ impl FromValue for Vec<u8> {
             Value::String { val, .. } => Ok(val.bytes().collect()),
             v => Err(ShellError::CantConvert(
                 "binary data".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
+impl FromValue for Spanned<PathBuf> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String { val, span } => Ok(Spanned {
+                item: PathBuf::from_str(val)
+                    .map_err(|err| ShellError::FileNotFoundCustom(err.to_string(), *span))?,
+                span: *span,
+            }),
+            v => Err(ShellError::CantConvert(
+                "range".into(),
                 v.get_type().to_string(),
                 v.span()?,
             )),

@@ -70,8 +70,6 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
         Value::Error { error } => return Err(error.clone()),
         Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
-        #[cfg(feature = "dataframe")]
-        UntaggedValue::DataFrame(_) | UntaggedValue::FrameStruct(_) => serde_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
@@ -82,6 +80,8 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             }
             nu_json::Value::Object(m)
         }
+        #[cfg(feature = "custom")]
+        Value::CustomValue { val, .. } => val.to_json(),
     })
 }
 

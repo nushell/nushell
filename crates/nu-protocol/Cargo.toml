@@ -14,9 +14,12 @@ chrono-humanize = "0.2.1"
 byte-unit = "4.0.9"
 im = "15.0.0"
 serde_json = { version = "1.0", optional = true }
+nu-json = { path = "../nu-json" }
+typetag = "0.1.8"
 
 [features]
 plugin = ["serde_json"]
+custom = []
 
 [dev-dependencies]
 serde_json = "1.0"

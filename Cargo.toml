@@ -13,6 +13,7 @@ members = [
 	"crates/nu-command",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
+	"crates/nu-dataframe",
 	"crates/nu_plugin_inc",
 ]
 
@@ -37,7 +38,9 @@ ctrlc = "3.2.1"
 
 [features]
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin"]
-default = ["plugin"]
+custom = ["nu-command/custom", "nu-protocol/custom"]
+dataframe = ["custom", "nu-command/dataframe"]
+default = ["plugin", "custom"]
 
 [dev-dependencies]
 tempfile = "3.2.0"

@@ -203,9 +203,13 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::name_not_found), url(docsrs))]
     DidYouMean(String, #[label("did you mean '{0}'?")] Span),
 
-    #[error("Non-UTF8 string.")]
+    #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8), url(docsrs))]
     NonUtf8(#[label = "non-UTF8 string"] Span),
+
+    #[error("Casting error")]
+    #[diagnostic(code(nu::parser::downcast_not_possible), url(docsrs))]
+    DowncastNotPossible(String, #[label("{0}")] Span),
 }
 
 impl From<std::io::Error> for ShellError {

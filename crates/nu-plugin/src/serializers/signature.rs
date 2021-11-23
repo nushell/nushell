@@ -22,6 +22,7 @@ pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature:
         Category::Strings => builder.set_category(PluginCategory::Strings),
         Category::System => builder.set_category(PluginCategory::System),
         Category::Viewers => builder.set_category(PluginCategory::Viewers),
+        _ => builder.set_category(PluginCategory::Default),
     }
 
     // Serializing list of required arguments

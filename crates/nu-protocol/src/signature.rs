@@ -45,6 +45,7 @@ pub enum Category {
     Strings,
     System,
     Viewers,
+    Custom(String),
 }
 
 impl std::fmt::Display for Category {
@@ -63,6 +64,7 @@ impl std::fmt::Display for Category {
             Category::Strings => "strings",
             Category::System => "system",
             Category::Viewers => "viewers",
+            Category::Custom(name) => name,
         };
 
         write!(f, "{}", msg)

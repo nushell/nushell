@@ -1,0 +1,14 @@
+[package]
+name = "nu-dataframe"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+chrono = { version="0.4.19", features=["serde"] }
+serde = {version = "1.0.130", features = ["derive"]}
+num = "0.4.0"
+nu-protocol = { path = "../nu-protocol", features = ["custom"] }
+nu-json = { path = "../nu-json"}
+indexmap = { version="1.7.0", features=["serde-1"] }
+polars = { version = "0.17.0", features = ["default", "serde", "object", "checked_arithmetic", "strings"] }
+

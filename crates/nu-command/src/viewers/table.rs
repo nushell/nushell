@@ -107,6 +107,11 @@ impl Command for Table {
                 .into_pipeline_data())
             }
             PipelineData::Value(Value::Error { error }) => Err(error),
+            #[cfg(feature = "custom")]
+            PipelineData::Value(Value::CustomValue { val, span }) => {
+                let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
+                self.run(engine_state, stack, call, base_pipeline)
+            }
             x => Ok(x),
         }
     }

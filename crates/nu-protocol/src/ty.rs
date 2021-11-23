@@ -23,6 +23,7 @@ pub enum Type {
     Unknown,
     Error,
     Binary,
+    Custom,
 }
 
 impl Display for Type {
@@ -55,6 +56,7 @@ impl Display for Type {
             Type::Unknown => write!(f, "unknown"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
+            Type::Custom => write!(f, "custom"),
         }
     }
 }
