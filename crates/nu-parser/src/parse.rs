@@ -901,7 +901,7 @@ fn parse_arg(
         return parse_dollar_expr(lite_arg, scope);
     }
 
-    // before anything else, try to see if this is a number in paranthesis
+    // before anything else, try to see if this is a number in parenthesis
     if lite_arg.item.starts_with('(') {
         return parse_full_column_path(lite_arg, scope);
     }
