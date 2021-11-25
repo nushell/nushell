@@ -6,6 +6,7 @@ mod unit;
 
 use chrono::{DateTime, FixedOffset};
 use chrono_humanize::HumanTime;
+use indexmap::map::IndexMap;
 pub use range::*;
 use serde::{Deserialize, Serialize};
 pub use stream::*;
@@ -1306,6 +1307,23 @@ impl Value {
 /// Create a Value::Record from a spanned hashmap
 impl From<Spanned<HashMap<String, Value>>> for Value {
     fn from(input: Spanned<HashMap<String, Value>>) -> Self {
+        let span = input.span;
+        let (cols, vals) = input
+            .item
+            .into_iter()
+            .fold((vec![], vec![]), |mut acc, (k, v)| {
+                acc.0.push(k);
+                acc.1.push(v);
+                acc
+            });
+
+        Value::Record { cols, vals, span }
+    }
+}
+
+/// Create a Value::Record from a spanned indexmap
+impl From<Spanned<IndexMap<String, Value>>> for Value {
+    fn from(input: Spanned<IndexMap<String, Value>>) -> Self {
         let span = input.span;
         let (cols, vals) = input
             .item

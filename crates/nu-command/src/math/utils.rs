@@ -1,6 +1,6 @@
+use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
-use std::collections::HashMap;
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Spanned, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -22,7 +22,7 @@ fn helper_for_tables(
 ) -> Result<Value, ShellError> {
     // If we are not dealing with Primitives, then perhaps we are dealing with a table
     // Create a key for each column name
-    let mut column_values = HashMap::new();
+    let mut column_values = IndexMap::new();
     for val in values {
         if let Value::Record { cols, vals, .. } = val {
             for (key, value) in cols.iter().zip(vals.iter()) {
@@ -37,7 +37,7 @@ fn helper_for_tables(
         }
     }
     // The mathematical function operates over the columns of the table
-    let mut column_totals = HashMap::new();
+    let mut column_totals = IndexMap::new();
     for (col_name, col_vals) in column_values {
         if let Ok(out) = mf(&col_vals, &name) {
             column_totals.insert(col_name, out);
@@ -49,19 +49,11 @@ fn helper_for_tables(
             name,
         ));
     }
-    let (cols, vals) = column_totals
-        .into_iter()
-        .fold((vec![], vec![]), |mut acc, (k, v)| {
-            acc.0.push(k);
-            acc.1.push(v);
-            acc
-        });
 
-    Ok(Value::Record {
-        cols,
-        vals,
+    Ok(Value::from(Spanned {
+        item: column_totals,
         span: name,
-    })
+    }))
 }
 
 pub fn calculate(

@@ -39,9 +39,11 @@ meval = "0.2.0"
 serde = { version="1.0.123", features=["derive"] }
 serde_yaml = "0.8.16"
 serde_urlencoded = "0.7.0"
+serde_ini = "0.2.0"
 eml-parser = "0.1.0"
 toml = "0.5.8"
 itertools = "0.10.0"
+ical = "0.7.0"
 calamine = "0.18.0"
 rand = "0.8"
 

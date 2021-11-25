@@ -230,21 +230,10 @@ fn from_eml(
         );
     }
 
-    let (cols, vals) = collected
-        .into_iter()
-        .fold((vec![], vec![]), |mut acc, (k, v)| {
-            acc.0.push(k);
-            acc.1.push(v);
-            acc
-        });
-
-    let record = Value::Record {
-        cols,
-        vals,
+    Ok(PipelineData::Value(Value::from(Spanned {
+        item: collected,
         span: head,
-    };
-
-    Ok(PipelineData::Value(record))
+    })))
 }
 
 #[cfg(test)]
