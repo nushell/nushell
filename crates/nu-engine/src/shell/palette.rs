@@ -238,7 +238,7 @@ impl Default for Theme {
             variable: ThemeColor(Color::Purple),
             whitespace: ThemeColor(Color::White),
             word: ThemeColor(Color::Green),
-            // These should really be Syles and not colors
+            // These should really be Styles and not colors
             // leave this here for the next change to make
             // ThemeColor, ThemeStyle.
             // open_delimiter: ThemeColor(Color::White.normal()),

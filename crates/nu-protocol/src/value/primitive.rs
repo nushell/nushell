@@ -290,7 +290,7 @@ impl Primitive {
                         .expect("Internal error: conversion from u32 failed"),
                 );
                 let secs = match secs.to_i64() {
-                    //The duration crate doesnt accept seconds bigger than i64::MAX / 1000
+                    //The duration crate doesn't accept seconds bigger than i64::MAX / 1000
                     Some(secs) => match secs.checked_mul(1000) {
                         Some(_) => secs,
                         None => {

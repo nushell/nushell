@@ -144,7 +144,7 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
             let re_str = format!("{}{{2,}}", reg);
             // create the regex
             let re = regex::Regex::new(&re_str).expect("Error creating regular expression");
-            // replace all mutliple occurances with single occurences represented by r
+            // replace all multiple occurrences with single occurrences represented by r
             let new_str = re.replace_all(&return_string, r.to_string());
             // update the return string so the next loop has the latest changes
             return_string = new_str.to_string();

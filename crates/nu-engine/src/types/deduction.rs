@@ -597,7 +597,7 @@ impl VarSyntaxShapeDeductor {
             }
             Expression::Table(header, _rows) => {
                 self.infer_shapes_in_table_header(header)?;
-                // Shapes within columns can be heterogenous as long as
+                // Shapes within columns can be heterogeneous as long as
                 // https://github.com/nushell/rfcs/pull/3
                 // didn't land
                 // self.infer_shapes_in_rows(_rows)?;

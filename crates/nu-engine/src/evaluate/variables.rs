@@ -60,7 +60,7 @@ pub fn nu(scope: &Scope, ctx: &EvaluationContext) -> Result<Value, ShellError> {
     // std::env::vars(), rather than the case-sensitive Environment.GetEnvironmentVariables() of .NET that PowerShell
     // uses.
     //
-    // For now, we work around the discrepency as best we can by merging the two into what is shown to the user as the
+    // For now, we work around the discrepancy as best we can by merging the two into what is shown to the user as the
     // 'path' column of `$nu`
     let mut table = vec![];
     for v in env {
