@@ -884,7 +884,7 @@ impl Shell for FilesystemShell {
     ) -> Result<OutputStream, ShellError> {
         let mut options = OpenOptions::new();
         if append {
-            options.append(true)
+            options.append(true).create(true)
         } else {
             options.write(true).create(true).truncate(true)
         };

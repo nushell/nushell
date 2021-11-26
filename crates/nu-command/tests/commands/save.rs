@@ -47,3 +47,21 @@ fn writes_out_csv() {
         assert!(actual.contains("nu,0.14,A new type of shell,MIT,2018"));
     })
 }
+
+#[test]
+fn save_append_will_create_file_if_not_exists() {
+    Playground::setup("save_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![]);
+
+        let expected_file = dirs.test().join("new-file.txt");
+
+        nu!(
+            cwd: dirs.root(),
+            r#"echo hello | save --raw --append save_test_3/new-file.txt"#,
+        );
+
+        let actual = file_contents(expected_file);
+        println!("{}", actual);
+        assert!(actual == "hello");
+    })
+}
