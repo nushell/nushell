@@ -51,6 +51,7 @@ fn trim_double_quotes(input: &str) -> String {
 
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => chars.collect(),
+        (Some('\''), Some('\'')) => chars.collect(),
         _ => input.to_string(),
     }
 }
@@ -112,8 +113,7 @@ fn run_with_stdin(
             #[cfg(not(windows))]
             {
                 if !_is_literal {
-                    let escaped = escape_double_quotes(&arg);
-                    add_double_quotes(&escaped)
+                    arg.to_string()
                 } else {
                     trim_double_quotes(&arg)
                 }
@@ -177,7 +177,7 @@ fn shell_arg_escape(arg: &str) -> String {
         "" => String::from("''"),
         s if !has_unsafe_shell_characters(s) => String::from(s),
         _ => {
-            let single_quotes_escaped = arg.split('\'').join("\\'");
+            let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
             format!("'{}'", single_quotes_escaped)
         }
     }
