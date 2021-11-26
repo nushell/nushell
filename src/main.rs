@@ -269,10 +269,6 @@ fn main() -> Result<()> {
             let input = line_editor.read_line(prompt);
             match input {
                 Ok(Signal::Success(s)) => {
-                    if s.trim() == "exit" {
-                        break;
-                    }
-
                     eval_source(
                         &mut engine_state,
                         &mut stack,
