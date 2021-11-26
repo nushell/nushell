@@ -46,7 +46,7 @@ pub(crate) fn run_external_command(
 }
 
 #[allow(unused)]
-fn trim_double_quotes(input: &str) -> String {
+fn trim_enclosing_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
     match (chars.next(), chars.next_back()) {
@@ -113,17 +113,17 @@ fn run_with_stdin(
             #[cfg(not(windows))]
             {
                 if !_is_literal {
-                    arg.to_string()
+                    arg
                 } else {
-                    trim_double_quotes(&arg)
+                    trim_enclosing_quotes(&arg)
                 }
             }
             #[cfg(windows)]
             {
                 if let Some(unquoted) = remove_quotes(&arg) {
-                    unquoted.to_string()
+                    unquoted
                 } else {
-                    arg.to_string()
+                    arg
                 }
             }
         })
@@ -166,7 +166,7 @@ fn spawn_cmd_command(command: &ExternalCommand, args: &[String]) -> Command {
 
 fn has_unsafe_shell_characters(arg: &str) -> bool {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"[^\w@%+=:,./-]").unwrap();
+        static ref RE: Regex = Regex::new(r"[^\w@%+=:,./-]").expect("regex to be valid");
     }
 
     RE.is_match(arg)
