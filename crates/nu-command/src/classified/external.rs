@@ -121,7 +121,7 @@ fn run_with_stdin(
             #[cfg(windows)]
             {
                 if let Some(unquoted) = remove_quotes(&arg) {
-                    unquoted
+                    unquoted.to_string()
                 } else {
                     arg
                 }
