@@ -55,7 +55,11 @@ fn trim_double_quotes(input: &str) -> String {
 
 #[allow(unused)]
 fn escape_where_needed(input: &str) -> String {
-    input.split(' ').join("\\ ").split('\'').join("\\'")
+    input
+        .split(' ').join("\\ ")
+        .split('\'').join("\\'")
+        .split(';').join("\\;")
+        .split('&').join("\\&")
 }
 
 fn run_with_stdin(
@@ -588,7 +592,7 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{add_double_quotes, argument_is_quoted, escape_double_quotes, remove_quotes};
+    use super::{add_double_quotes, argument_is_quoted, escape_double_quotes, remove_quotes, escape_where_needed};
     #[cfg(feature = "which")]
     use super::{run_external_command, InputStream};
 
@@ -709,5 +713,13 @@ mod tests {
         assert_eq!(remove_quotes(r#"andrés""#), None);
         assert_eq!(remove_quotes("'andrés'"), Some("andrés"));
         assert_eq!(remove_quotes(r#""andrés""#), Some("andrés"));
+    }
+
+    #[test]
+    fn escape_where_needed_handles_for_arguments() {
+        assert_eq!(escape_where_needed("a b"), "a\\ b");
+        assert_eq!(escape_where_needed("aaa;bbb"), "aaa\\;bbb");
+        assert_eq!(escape_where_needed("a b& ;'c"),
+                   r#"a\ b\&\ \;\'c"#);
     }
 }
