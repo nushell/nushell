@@ -228,7 +228,6 @@ pub fn eval_expression(
         Expr::ImportPattern(_) => Ok(Value::Nothing {
             span: Span::unknown(),
         }),
-        Expr::RowCondition(_, expr) => eval_expression(engine_state, stack, expr),
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
             Ok(
@@ -277,7 +276,7 @@ pub fn eval_expression(
                 Operator::Pow => lhs.pow(op_span, &rhs),
             }
         }
-        Expr::Subexpression(block_id) => {
+        Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
 
             // FIXME: protect this collect with ctrl-c

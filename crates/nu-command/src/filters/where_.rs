@@ -1,4 +1,4 @@
-use nu_engine::eval_expression;
+use nu_engine::eval_block;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
@@ -28,30 +28,34 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let span = call.head;
         let cond = call.positional[0].clone();
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        // FIXME: expensive
-        let mut stack = stack.clone();
-
-        let (var_id, cond) = match cond {
+        let block_id = match cond {
             Expression {
-                expr: Expr::RowCondition(var_id, expr),
+                expr: Expr::RowCondition(block_id),
                 ..
-            } => (var_id, expr),
+            } => block_id,
             _ => return Err(ShellError::InternalError("Expected row condition".into())),
         };
 
+        let block = engine_state.get_block(block_id).clone();
+        let mut stack = stack.collect_captures(&block.captures);
+
         input.filter(
             move |value| {
-                stack.add_var(var_id, value.clone());
-
-                let result = eval_expression(&engine_state, &mut stack, &cond);
+                if let Some(var) = block.signature.get_positional(0) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, value.clone());
+                    }
+                }
+                let result = eval_block(&engine_state, &mut stack, &block, PipelineData::new(span));
 
                 match result {
-                    Ok(result) => result.is_true(),
+                    Ok(result) => result.into_value(span).is_true(),
                     _ => false,
                 }
             },

@@ -1,8 +1,7 @@
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
 };
 
 #[derive(Clone)]
@@ -15,12 +14,6 @@ impl Command for ToJson {
 
     fn signature(&self) -> Signature {
         Signature::build("to json").category(Category::Formats)
-        // .named(
-        //     "pretty",
-        //     SyntaxShape::Int,
-        //     "Formats the JSON text with the provided indentation setting",
-        //     Some('p'),
-        // )
     }
 
     fn usage(&self) -> &str {
@@ -29,12 +22,12 @@ impl Command for ToJson {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        to_json(engine_state, call, input)
+        to_json(call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -95,143 +88,23 @@ fn json_list(input: &[Value]) -> Result<Vec<nu_json::Value>, ShellError> {
     Ok(out)
 }
 
-fn to_json(
-    engine_state: &EngineState,
-    call: &Call,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    let name_span = call.head;
-    // let pretty: Option<Value> = args.get_flag("pretty")?;
+fn to_json(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let span = call.head;
 
-    //let input: Vec<Value> = input.collect();
+    let value = input.into_value(span);
 
-    // let to_process_input = match input.len() {
-    //     x if x > 1 => {
-    //         let tag = input[0].tag.clone();
-    //         vec![Value:: {
-    //             value: UntaggedValue::Table(input),
-    //             tag,
-    //         }]
-    //     }
-    //     1 => input,
-    //     _ => vec![],
-    // };
-
-    match input {
-        PipelineData::Value(value) => {
-            let json_value = value_to_json_value(&value)?;
-            match nu_json::to_string(&json_value) {
-                Ok(serde_json_string) => Ok(Value::String {
-                    val: serde_json_string,
-                    span: name_span,
-                }
-                .into_pipeline_data()),
-                _ => Ok(Value::Error {
-                    error: ShellError::CantConvert(
-                        "JSON".into(),
-                        value.get_type().to_string(),
-                        name_span,
-                    ),
-                }
-                .into_pipeline_data()),
-            }
+    let json_value = value_to_json_value(&value)?;
+    match nu_json::to_string(&json_value) {
+        Ok(serde_json_string) => Ok(Value::String {
+            val: serde_json_string,
+            span,
         }
-        PipelineData::Stream(stream) => Ok(stream
-            .map(move |value| {
-                if let Ok(json_value) = value_to_json_value(&value) {
-                    match nu_json::to_string(&json_value) {
-                        Ok(serde_json_string) => Value::String {
-                            val: serde_json_string,
-                            span: name_span,
-                        },
-                        _ => Value::Error {
-                            error: ShellError::CantConvert(
-                                "JSON".into(),
-                                value.get_type().to_string(),
-                                name_span,
-                            ),
-                        },
-                    }
-                } else {
-                    Value::Error {
-                        error: ShellError::CantConvert(
-                            "JSON".into(),
-                            value.get_type().to_string(),
-                            name_span,
-                        ),
-                    }
-                }
-            })
-            .into_pipeline_data(engine_state.ctrlc.clone())),
+        .into_pipeline_data()),
+        _ => Ok(Value::Error {
+            error: ShellError::CantConvert("JSON".into(), value.get_type().to_string(), span),
+        }
+        .into_pipeline_data()),
     }
-    // input
-    //     // .into_iter()
-    //     .map(
-    //         move |value| {
-    //             let value_span = value.span().expect("non-error");
-    //             match value_to_json_value(&value) {
-    //                 Ok(json_value) => {
-    //                     match nu_json::to_string(&json_value) {
-    //                         Ok(serde_json_string) => {
-    //                             // if let Some(pretty_value) = &pretty {
-    //                             //     let mut pretty_format_failed = true;
-
-    //                             //     if let Ok(pretty_u64) = pretty_value.as_u64() {
-    //                             //         if let Ok(serde_json_value) =
-    //                             //             serde_json::from_str::<serde_json::Value>(&serde_json_string)
-    //                             //         {
-    //                             //             let indentation_string = " ".repeat(pretty_u64 as usize);
-    //                             //             let serde_formatter =
-    //                             //                 serde_json::ser::PrettyFormatter::with_indent(
-    //                             //                     indentation_string.as_bytes(),
-    //                             //                 );
-    //                             //             let serde_buffer = Vec::new();
-    //                             //             let mut serde_serializer =
-    //                             //                 serde_json::Serializer::with_formatter(
-    //                             //                     serde_buffer,
-    //                             //                     serde_formatter,
-    //                             //                 );
-    //                             //             let serde_json_object = json!(serde_json_value);
-
-    //                             //             if let Ok(()) =
-    //                             //                 serde_json_object.serialize(&mut serde_serializer)
-    //                             //             {
-    //                             //                 if let Ok(ser_json_string) =
-    //                             //                     String::from_utf8(serde_serializer.into_inner())
-    //                             //                 {
-    //                             //                     pretty_format_failed = false;
-    //                             //                     serde_json_string = ser_json_string
-    //                             //                 }
-    //                             //             }
-    //                             //         }
-    //                             //     }
-
-    //                             //     if pretty_format_failed {
-    //                             //         return Value::error(ShellError::labeled_error(
-    //                             //             "Pretty formatting failed",
-    //                             //             "failed",
-    //                             //             pretty_value.tag(),
-    //                             //         ));
-    //                             //     }
-    //                             // }
-
-    //                             Value::String {
-    //                                 val: serde_json_string,
-    //                                 span: value_span,
-    //                             }
-    //                         }
-    //                         _ => Value::Error {
-    //                             error: ShellError::CantConvert("JSON".into(), value_span),
-    //                         },
-    //                     }
-    //                 }
-    //                 _ => Value::Error {
-    //                     error: ShellError::CantConvert("JSON".into(), value_span),
-    //                 },
-    //             }
-    //         },
-    //         engine_state.ctrlc.clone(),
-    //     )
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@ pub enum Expr {
     Call(Box<Call>),
     ExternalCall(String, Span, Vec<Expression>),
     Operator(Operator),
-    RowCondition(VarId, Box<Expression>),
+    RowCondition(BlockId),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(BlockId),
     Block(BlockId),

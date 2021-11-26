@@ -1990,11 +1990,38 @@ pub fn parse_row_condition(
     let var_id = working_set.add_variable(b"$it".to_vec(), Type::Unknown);
     let (expression, err) = parse_math_expression(working_set, spans, Some(var_id));
     let span = span(spans);
+
+    let block_id = match expression.expr {
+        Expr::Block(block_id) => block_id,
+        _ => {
+            // We have an expression, so let's convert this into a block.
+            let mut block = Block::new();
+            let mut pipeline = Pipeline::new();
+            pipeline.expressions.push(expression);
+
+            block.stmts.push(Statement::Pipeline(pipeline));
+
+            block.signature.required_positional.push(PositionalArg {
+                name: "$it".into(),
+                desc: "row condition".into(),
+                shape: SyntaxShape::Any,
+                var_id: Some(var_id),
+            });
+
+            let mut seen = vec![];
+            let captures = find_captures_in_block(working_set, &block, &mut seen);
+
+            block.captures = captures;
+
+            working_set.add_block(block)
+        }
+    };
+
     (
         Expression {
             ty: Type::Bool,
             span,
-            expr: Expr::RowCondition(var_id, Box::new(expression)),
+            expr: Expr::RowCondition(block_id),
             custom_completion: None,
         },
         err,
@@ -3481,15 +3508,9 @@ pub fn find_captures_in_expr(
                 output.extend(&find_captures_in_expr(working_set, field_value, seen));
             }
         }
-        Expr::RowCondition(var_id, expr) => {
-            seen.push(*var_id);
-
-            let result = find_captures_in_expr(working_set, expr, seen);
-            output.extend(&result);
-        }
         Expr::Signature(_) => {}
         Expr::String(_) => {}
-        Expr::Subexpression(block_id) => {
+        Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             let result = find_captures_in_block(working_set, block, seen);
             output.extend(&result);

@@ -182,10 +182,9 @@ impl Expression {
                 }
                 false
             }
-            Expr::RowCondition(_, expr) => expr.has_in_variable(working_set),
             Expr::Signature(_) => false,
             Expr::String(_) => false,
-            Expr::Subexpression(block_id) => {
+            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
                 if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
@@ -311,10 +310,9 @@ impl Expression {
                     field_value.replace_in_variable(working_set, new_var_id);
                 }
             }
-            Expr::RowCondition(_, expr) => expr.replace_in_variable(working_set, new_var_id),
             Expr::Signature(_) => {}
             Expr::String(_) => {}
-            Expr::Subexpression(block_id) => {
+            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
                 let new_expr = if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
