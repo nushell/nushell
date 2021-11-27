@@ -2,7 +2,7 @@ use nu_engine::{eval_block, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -19,12 +19,16 @@ impl Command for If {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
-            .required("cond", SyntaxShape::Expression, "condition")
-            .required("then_block", SyntaxShape::Block(Some(vec![])), "then block")
+            .required("cond", SyntaxShape::Expression, "condition to check")
+            .required(
+                "then_block",
+                SyntaxShape::Block(Some(vec![])),
+                "block to run if check succeeds",
+            )
             .optional(
-                "else",
+                "else_expression",
                 SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
-                "optional else followed by else block",
+                "expression or block to run if check fails",
             )
             .category(Category::Core)
     }
@@ -73,5 +77,37 @@ impl Command for If {
                 result.span()?,
             )),
         }
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Output a value if a condition matches, otherwise return nothing",
+                example: "if 2 < 3 { 'yes!' }",
+                result: Some(Value::test_string("yes!")),
+            },
+            Example {
+                description: "Output a value if a condition matches, else return another value",
+                example: "if 5 < 3 { 'yes!' } else { 'no!' }",
+                result: Some(Value::test_string("no!")),
+            },
+            Example {
+                description: "Chain multiple if's together",
+                example: "if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }",
+                result: Some(Value::test_string("no!")),
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(If {})
     }
 }

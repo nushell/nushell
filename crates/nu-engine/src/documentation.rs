@@ -1,5 +1,7 @@
 use itertools::Itertools;
-use nu_protocol::{engine::EngineState, Example, Signature, Span, Value};
+use nu_protocol::{
+    engine::EngineState, Example, PositionalArg, Signature, Span, SyntaxShape, Value,
+};
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -171,10 +173,10 @@ pub fn get_documentation(
     one_liner.push(' ');
 
     for positional in &sig.required_positional {
-        one_liner.push_str(&format!("<{}> ", positional.name));
+        one_liner.push_str(&get_positional_short_name(positional, true));
     }
     for positional in &sig.optional_positional {
-        one_liner.push_str(&format!("({}) ", positional.name));
+        one_liner.push_str(&get_positional_short_name(positional, false));
     }
 
     if sig.rest_positional.is_some() {
@@ -204,10 +206,13 @@ pub fn get_documentation(
     {
         long_desc.push_str("\nParameters:\n");
         for positional in &sig.required_positional {
-            long_desc.push_str(&format!("  <{}> {}\n", positional.name, positional.desc));
+            long_desc.push_str(&format!("  {}: {}\n", positional.name, positional.desc));
         }
         for positional in &sig.optional_positional {
-            long_desc.push_str(&format!("  ({}) {}\n", positional.name, positional.desc));
+            long_desc.push_str(&format!(
+                "  (optional) {}: {}\n",
+                positional.name, positional.desc
+            ));
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
@@ -239,6 +244,25 @@ pub fn get_documentation(
     long_desc.push('\n');
 
     long_desc
+}
+
+fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
+    match &arg.shape {
+        SyntaxShape::Keyword(name, ..) => {
+            if is_required {
+                format!("{} <{}> ", String::from_utf8_lossy(name), arg.name)
+            } else {
+                format!("({} <{}>) ", String::from_utf8_lossy(name), arg.name)
+            }
+        }
+        _ => {
+            if is_required {
+                format!("<{}> ", arg.name)
+            } else {
+                format!("({}) ", arg.name)
+            }
+        }
+    }
 }
 
 fn get_flags_section(signature: &Signature) -> String {

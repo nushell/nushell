@@ -1,7 +1,7 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Let;
@@ -47,5 +47,32 @@ impl Command for Let {
 
         stack.add_var(var_id, rhs);
         Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Set a variable to a value",
+                example: "let x = 10",
+                result: None,
+            },
+            Example {
+                description: "Set a variable to the result of an expression",
+                example: "let x = 10 + 100",
+                result: None,
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Let {})
     }
 }
