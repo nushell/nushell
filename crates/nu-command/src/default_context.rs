@@ -20,6 +20,7 @@ pub fn create_default_context() -> EngineState {
         // TODO: sort default context items categorically
         bind_command!(
             Alias,
+            All,
             Append,
             Benchmark,
             BuildString,
