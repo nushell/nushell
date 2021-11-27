@@ -49,6 +49,7 @@
 - [ ] finish adding config properties
 - [ ] system-agnostic test cases
 - [ ] exit codes
+- [ ] auto-cd
 - [ ] length of time the command runs put in the env (CMD_DURATION_MS)
 
 ## Post-nushell merge:
