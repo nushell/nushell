@@ -26,6 +26,7 @@ pub fn create_default_context() -> EngineState {
             Benchmark,
             BuildString,
             Cd,
+            Clear,
             Collect,
             Cp,
             Date,
