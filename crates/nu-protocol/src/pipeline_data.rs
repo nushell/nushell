@@ -31,6 +31,7 @@ use crate::{ast::PathMember, Config, ShellError, Span, Value, ValueStream};
 /// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
 /// them into any sources. Streams are still available to model the infinite streams approach of original
 /// Nushell.
+#[derive(Debug)]
 pub enum PipelineData {
     Value(Value),
     Stream(ValueStream),

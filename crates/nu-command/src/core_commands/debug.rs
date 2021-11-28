@@ -15,7 +15,7 @@ impl Command for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("describe").category(Category::Core)
+        Signature::build("debug").category(Category::Core)
     }
 
     fn run(

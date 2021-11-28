@@ -1,6 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
-use nu_dataframe::NuDataFrame;
+use super::objects::nu_dataframe::NuDataFrame;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -23,7 +23,7 @@ impl Command for OpenDataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("open-df")
+        Signature::build(self.name().to_string())
             .required(
                 "file",
                 SyntaxShape::Filepath,
@@ -64,7 +64,7 @@ impl Command for OpenDataFrame {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Takes a file name and creates a dataframe",
-            example: "dataframe open test.csv",
+            example: "open-df test.csv",
             result: None,
         }]
     }

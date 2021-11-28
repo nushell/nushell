@@ -1,7 +1,7 @@
-use nu_protocol::{ast::Operator, span, ShellError, Span, Spanned, Value};
+use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
 use polars::prelude::{DataFrame, Series};
 
-use crate::between_values::{
+use super::between_values::{
     between_dataframes, compute_between_series, compute_series_single_value,
 };
 
@@ -9,18 +9,18 @@ use super::NuDataFrame;
 
 pub enum Axis {
     Row,
-    Column,
+    //Column,
 }
 
-impl Axis {
-    pub fn try_from_str(axis: &str, span: Span) -> Result<Axis, ShellError> {
-        match axis {
-            "row" => Ok(Axis::Row),
-            "col" => Ok(Axis::Column),
-            _ => Err(ShellError::DidYouMean("'row' or 'col'".into(), span)),
-        }
-    }
-}
+//impl Axis {
+//    pub fn try_from_str(axis: &str, span: Span) -> Result<Axis, ShellError> {
+//        match axis {
+//            "row" => Ok(Axis::Row),
+//            "col" => Ok(Axis::Column),
+//            _ => Err(ShellError::DidYouMean("'row' or 'col'".into(), span)),
+//        }
+//    }
+//}
 
 impl NuDataFrame {
     pub fn compute_with_value(
@@ -42,7 +42,6 @@ impl NuDataFrame {
                     )
                 })?;
 
-                let operation_span = span(&[lhs_span, *rhs_span]);
                 match (self.is_series(), rhs.is_series()) {
                     (true, true) => {
                         let lhs = &self
@@ -77,11 +76,10 @@ impl NuDataFrame {
 
                         compute_between_series(
                             op,
-                            NuDataFrame::default_value(lhs_span),
+                            &NuDataFrame::default_value(lhs_span),
                             lhs,
                             right,
                             rhs,
-                            operation_span,
                         )
                     }
                     _ => {
@@ -101,11 +99,10 @@ impl NuDataFrame {
 
                         between_dataframes(
                             op,
-                            NuDataFrame::default_value(lhs_span),
+                            &NuDataFrame::default_value(lhs_span),
                             self,
                             right,
                             rhs,
-                            operation_span,
                         )
                     }
                 }
@@ -116,13 +113,7 @@ impl NuDataFrame {
                     span: op_span,
                 };
 
-                compute_series_single_value(
-                    op,
-                    self,
-                    &lhs_span,
-                    NuDataFrame::default_value(lhs_span),
-                    right,
-                )
+                compute_series_single_value(op, &NuDataFrame::default_value(lhs_span), self, right)
             }
         }
     }
@@ -131,7 +122,7 @@ impl NuDataFrame {
         &self,
         other: &NuDataFrame,
         axis: Axis,
-        span: Span,
+        _span: Span,
     ) -> Result<Self, ShellError> {
         match axis {
             Axis::Row => {
@@ -160,61 +151,60 @@ impl NuDataFrame {
                     .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
                 Ok(NuDataFrame::new(df_new))
-            }
-            Axis::Column => {
-                if self.0.width() != other.0.width() {
-                    return Err(ShellError::IncompatibleParametersSingle(
-                        "Dataframes with different number of columns".into(),
-                        span,
-                    ));
-                }
+            } //Axis::Column => {
+              //    if self.0.width() != other.0.width() {
+              //        return Err(ShellError::IncompatibleParametersSingle(
+              //            "Dataframes with different number of columns".into(),
+              //            span,
+              //        ));
+              //    }
 
-                if !self
-                    .0
-                    .get_column_names()
-                    .iter()
-                    .all(|col| other.0.get_column_names().contains(col))
-                {
-                    return Err(ShellError::IncompatibleParametersSingle(
-                        "Dataframes with different columns names".into(),
-                        span,
-                    ));
-                }
+              //    if !self
+              //        .0
+              //        .get_column_names()
+              //        .iter()
+              //        .all(|col| other.0.get_column_names().contains(col))
+              //    {
+              //        return Err(ShellError::IncompatibleParametersSingle(
+              //            "Dataframes with different columns names".into(),
+              //            span,
+              //        ));
+              //    }
 
-                let new_cols = self
-                    .0
-                    .get_columns()
-                    .iter()
-                    .map(|s| {
-                        let other_col = other
-                            .0
-                            .column(s.name())
-                            .expect("Already checked that dataframes have same columns");
+              //    let new_cols = self
+              //        .0
+              //        .get_columns()
+              //        .iter()
+              //        .map(|s| {
+              //            let other_col = other
+              //                .0
+              //                .column(s.name())
+              //                .expect("Already checked that dataframes have same columns");
 
-                        let mut tmp = s.clone();
-                        let res = tmp.append(other_col);
+              //            let mut tmp = s.clone();
+              //            let res = tmp.append(other_col);
 
-                        match res {
-                            Ok(s) => Ok(s.clone()),
-                            Err(e) => Err({
-                                ShellError::InternalError(format!(
-                                    "Unable to append dataframes: {}",
-                                    e
-                                ))
-                            }),
-                        }
-                    })
-                    .collect::<Result<Vec<Series>, ShellError>>()?;
+              //            match res {
+              //                Ok(s) => Ok(s.clone()),
+              //                Err(e) => Err({
+              //                    ShellError::InternalError(format!(
+              //                        "Unable to append dataframes: {}",
+              //                        e
+              //                    ))
+              //                }),
+              //            }
+              //        })
+              //        .collect::<Result<Vec<Series>, ShellError>>()?;
 
-                let df_new = DataFrame::new(new_cols).map_err(|e| {
-                    ShellError::InternalError(format!(
-                        "Unable to append dataframes: {}",
-                        e.to_string()
-                    ))
-                })?;
+              //    let df_new = DataFrame::new(new_cols).map_err(|e| {
+              //        ShellError::InternalError(format!(
+              //            "Unable to append dataframes: {}",
+              //            e.to_string()
+              //        ))
+              //    })?;
 
-                Ok(NuDataFrame::new(df_new))
-            }
+              //    Ok(NuDataFrame::new(df_new))
+              //}
         }
     }
 }

@@ -24,7 +24,8 @@ fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let decl = engine_state.get_decl(call.decl_id);
+    let decl = engine_state.get_decl_with_input(call.decl_id, &input);
+
     if call.named.iter().any(|(flag, _)| flag.item == "help") {
         let full_help = get_full_help(&decl.signature(), &decl.examples(), engine_state);
         Ok(Value::String {

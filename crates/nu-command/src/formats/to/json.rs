@@ -73,7 +73,6 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             }
             nu_json::Value::Object(m)
         }
-        #[cfg(feature = "custom")]
         Value::CustomValue { val, .. } => val.to_json(),
     })
 }

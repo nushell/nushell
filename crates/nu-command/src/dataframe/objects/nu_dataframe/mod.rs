@@ -5,9 +5,9 @@ mod operations;
 
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
-use conversion::{Column, ColumnMap};
+pub use conversion::{Column, ColumnMap};
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, ShellError, Span, Value};
 use polars::prelude::{DataFrame, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 
@@ -62,12 +62,24 @@ impl std::hash::Hash for DataFrameValue {
 
 impl PolarsObject for DataFrameValue {
     fn type_name() -> &'static str {
-        "value"
+        "object"
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NuDataFrame(DataFrame);
+
+impl AsRef<DataFrame> for NuDataFrame {
+    fn as_ref(&self) -> &polars::prelude::DataFrame {
+        &self.0
+    }
+}
+
+impl AsMut<DataFrame> for NuDataFrame {
+    fn as_mut(&mut self) -> &mut polars::prelude::DataFrame {
+        &mut self.0
+    }
+}
 
 impl NuDataFrame {
     pub fn new(dataframe: DataFrame) -> Self {
@@ -131,12 +143,12 @@ impl NuDataFrame {
         conversion::from_parsed_columns(column_values)
     }
 
-    pub fn try_from_series(columns: Vec<Series>) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns)
-            .map_err(|e| ShellError::InternalError(format!("Unable to create DataFrame: {}", e)))?;
+    //pub fn try_from_series(columns: Vec<Series>) -> Result<Self, ShellError> {
+    //    let dataframe = DataFrame::new(columns)
+    //        .map_err(|e| ShellError::InternalError(format!("Unable to create DataFrame: {}", e)))?;
 
-        Ok(Self::new(dataframe))
-    }
+    //    Ok(Self::new(dataframe))
+    //}
 
     pub fn try_from_columns(columns: Vec<Column>) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
@@ -149,6 +161,24 @@ impl NuDataFrame {
         }
 
         conversion::from_parsed_columns(column_values)
+    }
+
+    pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        match input.into_value(span) {
+            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuDataFrame>() {
+                Some(df) => Ok(NuDataFrame(df.0.clone())),
+                None => Err(ShellError::CantConvert(
+                    "Dataframe not found".into(),
+                    "value is not a dataframe".into(),
+                    span,
+                )),
+            },
+            _ => Err(ShellError::CantConvert(
+                "Dataframe not found".into(),
+                "value is not a dataframe".into(),
+                span,
+            )),
+        }
     }
 
     pub fn column(&self, column: &str, span: Span) -> Result<Self, ShellError> {

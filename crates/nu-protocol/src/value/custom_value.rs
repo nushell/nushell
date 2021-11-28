@@ -1,11 +1,13 @@
 use std::fmt;
 
-use crate::{ast::Operator, ShellError, Span, Value};
+use crate::{ast::Operator, Category, ShellError, Span, Value};
 
 // Trait definition for a custom value
 #[typetag::serde(tag = "type")]
 pub trait CustomValue: fmt::Debug + Send + Sync {
     fn clone_value(&self, span: Span) -> Value;
+
+    fn category(&self) -> Category;
 
     // Define string representation of the custom value
     fn value_string(&self) -> String;

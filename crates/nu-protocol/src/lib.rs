@@ -26,7 +26,5 @@ pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
-pub use value::*;
-
-#[cfg(feature = "custom")]
 pub use value::CustomValue;
+pub use value::*;

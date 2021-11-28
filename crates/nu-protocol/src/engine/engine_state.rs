@@ -1,7 +1,7 @@
 use super::Command;
 use crate::{
-    ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span, Type,
-    VarId,
+    ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, PipelineData, ShellError, Signature,
+    Span, Type, Value, VarId,
 };
 use core::panic;
 use std::{
@@ -357,6 +357,39 @@ impl EngineState {
             .expect("internal error: missing declaration")
     }
 
+    #[allow(clippy::borrowed_box)]
+    pub fn get_decl_with_input(&self, decl_id: DeclId, input: &PipelineData) -> &Box<dyn Command> {
+        let decl = self.get_decl(decl_id);
+
+        match input {
+            PipelineData::Stream(_) => decl,
+            PipelineData::Value(value) => match value {
+                Value::CustomValue { val, .. } => {
+                    // This filter works because the custom definitions were declared
+                    // before the default nushell declarations. This means that the custom
+                    // declarations that get overridden by the default declarations can only
+                    // be accessed if the input value has the required category
+                    let decls = self
+                        .decls
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, decl_inner)| {
+                            decl.name() == decl_inner.name()
+                                && decl_inner.signature().category == val.category()
+                        })
+                        .map(|(index, _)| index)
+                        .collect::<Vec<usize>>();
+
+                    match decls.first() {
+                        Some(index) => self.get_decl(*index),
+                        None => decl,
+                    }
+                }
+                _ => decl,
+            },
+        }
+    }
+
     pub fn get_signatures(&self) -> Vec<Signature> {
         let mut output = vec![];
         for decl in self.decls.iter() {
@@ -384,6 +417,7 @@ impl EngineState {
             }
         }
 
+        output.sort_by(|a, b| a.0.name.cmp(&b.0.name));
         output
     }
 

@@ -210,6 +210,10 @@ pub enum ShellError {
     #[error("Casting error")]
     #[diagnostic(code(nu::parser::downcast_not_possible), url(docsrs))]
     DowncastNotPossible(String, #[label("{0}")] Span),
+
+    #[error("{0}")]
+    #[diagnostic()]
+    LabeledError(String, String, #[label("{1}")] Span),
 }
 
 impl From<std::io::Error> for ShellError {

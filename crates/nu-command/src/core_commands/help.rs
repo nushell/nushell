@@ -187,7 +187,6 @@ fn help(
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         } else {
             let mut name = String::new();
-            let mut output = String::new();
 
             for r in &rest {
                 if !name.is_empty() {
@@ -196,16 +195,15 @@ fn help(
                 name.push_str(&r.item);
             }
 
-            for cmd in full_commands {
-                if cmd.0.name == name {
-                    let help = get_full_help(&cmd.0, &cmd.1, engine_state);
-                    output.push_str(&help);
-                }
-            }
+            let output = full_commands
+                .iter()
+                .filter(|(signature, _, _)| signature.name == name)
+                .map(|(signature, examples, _)| get_full_help(signature, examples, engine_state))
+                .collect::<Vec<String>>();
 
             if !output.is_empty() {
                 Ok(Value::String {
-                    val: output,
+                    val: output.join("======================\n\n"),
                     span: call.head,
                 }
                 .into_pipeline_data())
