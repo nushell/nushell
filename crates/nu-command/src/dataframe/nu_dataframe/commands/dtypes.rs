@@ -1,8 +1,8 @@
-use super::objects::nu_dataframe::{Column, NuDataFrame};
+use super::super::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -24,8 +24,21 @@ impl Command for DataTypes {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | to-df | dtypes",
-            result: None,
+            example: "[[a b]; [1 2] [3 4]] | to df | dtypes",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "column".to_string(),
+                        vec!["a".to_string().into(), "b".to_string().into()],
+                    ),
+                    Column::new(
+                        "dtype".to_string(),
+                        vec!["i64".to_string().into(), "i64".to_string().into()],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::unknown()),
+            ),
         }]
     }
 
@@ -78,5 +91,16 @@ fn command(
     let dtypes_col = Column::new("dtype".to_string(), dtypes);
 
     let df = NuDataFrame::try_from_columns(vec![names_col, dtypes_col])?;
-    Ok(PipelineData::Value(df.to_value(call.head)))
+    Ok(PipelineData::Value(df.into_value(call.head)))
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::test_dataframe::test_dataframe;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(DataTypes {})
+    }
 }

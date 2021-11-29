@@ -1,12 +1,11 @@
-use std::{fs::File, path::PathBuf};
-
-use super::objects::nu_dataframe::NuDataFrame;
+use super::super::NuDataFrame;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
 };
+use std::{fs::File, path::PathBuf};
 
 use polars::prelude::{CsvEncoding, CsvReader, JsonReader, ParquetReader, SerReader};
 

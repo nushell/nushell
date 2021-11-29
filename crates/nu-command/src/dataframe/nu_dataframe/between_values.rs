@@ -18,7 +18,7 @@ pub fn between_dataframes(
     let operation_span = span(&[left.span()?, right.span()?]);
     match operator.item {
         Operator::Plus => match lhs.append_df(rhs, Axis::Row, operation_span) {
-            Ok(df) => Ok(df.to_value(operation_span)),
+            Ok(df) => Ok(df.into_value(operation_span)),
             Err(e) => Err(e),
         },
         _ => Err(ShellError::OperatorMismatch {

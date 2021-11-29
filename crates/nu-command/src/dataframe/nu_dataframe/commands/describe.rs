@@ -1,9 +1,11 @@
-use super::objects::nu_dataframe::NuDataFrame;
+use crate::dataframe::nu_dataframe::Column;
+
+use super::super::NuDataFrame;
 
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature,
+    Category, Example, PipelineData, ShellError, Signature, Span,
 };
 use polars::{
     chunked_array::ChunkedArray,
@@ -31,8 +33,58 @@ impl Command for DescribeDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "dataframe description",
-            example: "[[a b]; [1 1] [1 1]] | to-df | describe",
-            result: None,
+            example: "[[a b]; [1 1] [1 1]] | to df | describe",
+            result: Some(
+                NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "descriptor".to_string(),
+                        vec![
+                            "count".to_string().into(),
+                            "sum".to_string().into(),
+                            "mean".to_string().into(),
+                            "median".to_string().into(),
+                            "std".to_string().into(),
+                            "min".to_string().into(),
+                            "25%".to_string().into(),
+                            "50%".to_string().into(),
+                            "75%".to_string().into(),
+                            "max".to_string().into(),
+                        ],
+                    ),
+                    Column::new(
+                        "a (i64)".to_string(),
+                        vec![
+                            2.0.into(),
+                            2.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            0.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                        ],
+                    ),
+                    Column::new(
+                        "b (i64)".to_string(),
+                        vec![
+                            2.0.into(),
+                            2.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            0.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                            1.0.into(),
+                        ],
+                    ),
+                ])
+                .expect("simple df for test should not fail")
+                .into_value(Span::unknown()),
+            ),
         }]
     }
 
@@ -180,4 +232,15 @@ fn command(
     Ok(PipelineData::Value(NuDataFrame::dataframe_into_value(
         df, call.head,
     )))
+}
+
+#[cfg(test)]
+mod test {
+    use super::super::test_dataframe::test_dataframe;
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        test_dataframe(DescribeDF {})
+    }
 }

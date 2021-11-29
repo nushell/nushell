@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 use crate::{ast::Operator, Category, ShellError, Span, Value};
 
@@ -28,6 +28,9 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     // Follow cell path functions
     fn follow_path_int(&self, count: usize, span: Span) -> Result<Value, ShellError>;
     fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError>;
+
+    // ordering with other value
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering>;
 
     // Definition of an operation between the object that implements the trait
     // and another Value.

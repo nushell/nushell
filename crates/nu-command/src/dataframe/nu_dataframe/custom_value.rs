@@ -48,7 +48,17 @@ impl CustomValue for NuDataFrame {
 
     fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError> {
         let column = self.column(&column_name, span)?;
-        Ok(column.to_value(span))
+        Ok(column.into_value(span))
+    }
+
+    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
+        match other {
+            Value::CustomValue { val, .. } => val
+                .as_any()
+                .downcast_ref::<Self>()
+                .and_then(|other| self.is_equal(other)),
+            _ => None,
+        }
     }
 
     fn operation(
