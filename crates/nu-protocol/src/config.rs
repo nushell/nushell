@@ -8,6 +8,7 @@ pub struct Config {
     pub table_mode: String,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, String>,
+    pub use_grid_icons: bool,
 }
 
 impl Default for Config {
@@ -17,6 +18,7 @@ impl Default for Config {
             table_mode: "rounded".into(),
             use_ls_colors: true,
             color_config: HashMap::new(),
+            use_grid_icons: false,
         }
     }
 }
@@ -45,6 +47,9 @@ impl Value {
                         hm.insert(k.to_string(), v.as_string().unwrap());
                     }
                     config.color_config = hm;
+                }
+                "use_grid_icons" => {
+                    config.use_grid_icons = value.as_bool()?;
                 }
                 _ => {}
             }
