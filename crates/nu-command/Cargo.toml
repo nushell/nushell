@@ -44,6 +44,7 @@ toml = "0.5.8"
 itertools = "0.10.0"
 ical = "0.7.0"
 calamine = "0.18.0"
+roxmltree = "0.14.0"
 rand = "0.8"
 
 num = {version="0.4.0", optional=true}
