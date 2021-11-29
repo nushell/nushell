@@ -1,5 +1,5 @@
 use nu_engine::eval_block;
-use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
@@ -29,18 +29,13 @@ impl Command for Where {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let span = call.head;
-        let cond = call.positional[0].clone();
+        let cond = &call.positional[0];
+        let block_id = cond
+            .as_row_condition_block()
+            .ok_or_else(|| ShellError::InternalError("Expected row condition".to_owned()))?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-
-        let block_id = match cond {
-            Expression {
-                expr: Expr::RowCondition(block_id),
-                ..
-            } => block_id,
-            _ => return Err(ShellError::InternalError("Expected row condition".into())),
-        };
 
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);

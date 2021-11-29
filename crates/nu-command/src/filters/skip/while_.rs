@@ -2,15 +2,16 @@ use nu_engine::eval_block;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
-pub struct Any;
+pub struct SkipWhile;
 
-impl Command for Any {
+impl Command for SkipWhile {
     fn name(&self) -> &str {
-        "any?"
+        "skip while"
     }
 
     fn signature(&self) -> Signature {
@@ -18,30 +19,24 @@ impl Command for Any {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate that must match",
+                "the predicate that skipped element must match",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Tests if any element of the input matches a predicate."
+        "Skip elements of the input while a predicate is true."
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::Value;
-
-        vec![
-            Example {
-                description: "Find if a service is not running",
-                example: "echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN",
-                result: Some(Value::from(true)),
-            },
-            Example {
-                description: "Check if any of the values is odd",
-                example: "echo [2 4 1 6 8] | any? ($it mod 2) == 1",
-                result: Some(Value::from(true)),
-            },
-        ]
+        vec![Example {
+            description: "Skip while the element is negative",
+            example: "echo [-2 0 2 -1] | skip while $it < 0",
+            result: Some(Value::List {
+                vals: vec![Value::from(0), Value::from(2), Value::from(-1)],
+                span: Span::unknown(),
+            }),
+        }]
     }
 
     fn run(
@@ -58,7 +53,7 @@ impl Command for Any {
 
         let span = call.head;
 
-        let block = engine_state.get_block(block_id);
+        let block = engine_state.get_block(block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
         let mut stack = stack.collect_captures(&block.captures);
 
@@ -66,18 +61,18 @@ impl Command for Any {
         let engine_state = engine_state.clone();
 
         Ok(input
-            .into_interruptible_iter(ctrlc)
-            .any(move |value| {
+            .into_iter()
+            .skip_while(move |value| {
                 if let Some(var_id) = var_id {
-                    stack.add_var(var_id, value);
+                    stack.add_var(var_id, value.clone());
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
+                eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))
                     .map_or(false, |pipeline_data| {
                         pipeline_data.into_value(span).is_true()
                     })
             })
-            .into_pipeline_data())
+            .into_pipeline_data(ctrlc))
     }
 }
 
@@ -89,6 +84,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Any)
+        test_examples(SkipWhile)
     }
 }

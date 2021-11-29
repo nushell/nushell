@@ -53,6 +53,13 @@ impl Expression {
         }
     }
 
+    pub fn as_row_condition_block(&self) -> Option<BlockId> {
+        match self.expr {
+            Expr::RowCondition(block_id) => Some(block_id),
+            _ => None,
+        }
+    }
+
     pub fn as_signature(&self) -> Option<Box<Signature>> {
         match &self.expr {
             Expr::Signature(sig) => Some(sig.clone()),
