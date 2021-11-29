@@ -46,6 +46,16 @@ impl Call {
         None
     }
 
+    pub fn get_named_arg(&self, flag_name: &str) -> Option<Spanned<String>> {
+        for name in &self.named {
+            if flag_name == name.0.item {
+                return Some(name.0.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn nth(&self, pos: usize) -> Option<Expression> {
         self.positional.get(pos).cloned()
     }

@@ -82,6 +82,7 @@ pub fn create_default_context() -> EngineState {
             IntoFilesize,
             IntoInt,
             IntoString,
+            Kill,
             Last,
             Length,
             Let,
