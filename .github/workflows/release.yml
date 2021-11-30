@@ -223,7 +223,6 @@ jobs:
           command: build
           args: --release --all --features=extra
 
-      # I don't think there's a strip in windows but let's try and see
       # - name: Strip binaries (nu.exe)
       #   run: strip target/release/nu.exe
 
