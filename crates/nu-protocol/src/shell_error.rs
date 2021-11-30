@@ -76,6 +76,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::external_commands), url(docsrs))]
     ExternalNotSupported(#[label = "external not supported"] Span),
 
+    #[error("Invalid Probability.")]
+    #[diagnostic(code(nu::shell::invalid_probability), url(docsrs))]
+    InvalidProbability(#[label = "invalid probability"] Span),
+
     #[error("Internal error: {0}.")]
     #[diagnostic(code(nu::shell::internal_error), url(docsrs))]
     InternalError(String),

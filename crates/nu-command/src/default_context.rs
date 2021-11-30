@@ -114,6 +114,7 @@ pub fn create_default_context() -> EngineState {
             Parse,
             Ps,
             Range,
+            Random,
             Reverse,
             Rm,
             Select,
