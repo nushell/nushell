@@ -163,10 +163,10 @@ fn with_env(
     for (k, v) in env {
         match v {
             EnvVar::Nothing => {
-                stack.env_vars.remove(&k);
+                stack.remove_env_var(&k);
             }
             EnvVar::Proper(s) => {
-                stack.env_vars.insert(k, s);
+                stack.add_env_var(k, s);
             }
         }
     }

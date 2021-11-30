@@ -126,7 +126,7 @@ fn main() -> Result<()> {
         let mut stack = nu_protocol::engine::Stack::new();
 
         for (k, v) in std::env::vars() {
-            stack.env_vars.insert(k, v);
+            stack.add_env_var(k, v);
         }
 
         // Set up our initial config to start from
@@ -170,7 +170,7 @@ fn main() -> Result<()> {
         let mut stack = nu_protocol::engine::Stack::new();
 
         for (k, v) in std::env::vars() {
-            stack.env_vars.insert(k, v);
+            stack.add_env_var(k, v);
         }
 
         // Set up our initial config to start from

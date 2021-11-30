@@ -20,6 +20,8 @@ use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
 };
 
+use std::collections::HashSet;
+
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_plugin;
 
@@ -1807,6 +1809,7 @@ pub fn parse_import_pattern(
                     span: Span::unknown(),
                 },
                 members: vec![],
+                hidden: HashSet::new(),
             },
             Some(ParseError::WrongImportPattern(span(spans))),
         );
@@ -1823,6 +1826,7 @@ pub fn parse_import_pattern(
                         span: *head_span,
                     },
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
+                    hidden: HashSet::new(),
                 },
                 error,
             )
@@ -1850,6 +1854,7 @@ pub fn parse_import_pattern(
                                 span: *head_span,
                             },
                             members: vec![ImportPatternMember::List { names: output }],
+                            hidden: HashSet::new(),
                         },
                         error,
                     )
@@ -1861,6 +1866,7 @@ pub fn parse_import_pattern(
                             span: *head_span,
                         },
                         members: vec![],
+                        hidden: HashSet::new(),
                     },
                     Some(ParseError::ExportNotFound(result.span)),
                 ),
@@ -1877,6 +1883,7 @@ pub fn parse_import_pattern(
                         name: tail.to_vec(),
                         span: *tail_span,
                     }],
+                    hidden: HashSet::new(),
                 },
                 error,
             )
@@ -1889,6 +1896,7 @@ pub fn parse_import_pattern(
                     span: *head_span,
                 },
                 members: vec![],
+                hidden: HashSet::new(),
             },
             None,
         )

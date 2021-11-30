@@ -468,9 +468,9 @@ pub fn eval_variable(
         let mut output_cols = vec![];
         let mut output_vals = vec![];
 
-        let env_columns: Vec<_> = stack.get_env_vars().keys().map(|x| x.to_string()).collect();
-        let env_values: Vec<_> = stack
-            .get_env_vars()
+        let env_vars = stack.get_env_vars();
+        let env_columns: Vec<_> = env_vars.keys().map(|x| x.to_string()).collect();
+        let env_values: Vec<_> = env_vars
             .values()
             .map(|x| Value::String {
                 val: x.to_string(),
