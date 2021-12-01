@@ -89,7 +89,6 @@ extra = [
     "inc",
     "tree",
     "textview",
-    "clipboard-cli",
     "trash-support",
     "uuid-support",
     "start",
@@ -113,7 +112,6 @@ textview = ["nu_plugin_textview"]
 binaryview = ["nu_plugin_binaryview"]
 bson = ["nu_plugin_from_bson", "nu_plugin_to_bson"]
 chart = ["nu_plugin_chart"]
-clipboard-cli = ["nu-command/clipboard-cli"]
 query-json = ["nu_plugin_query_json"]
 s3 = ["nu_plugin_s3"]
 selector = ["nu_plugin_selector"]

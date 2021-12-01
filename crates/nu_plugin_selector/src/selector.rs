@@ -208,7 +208,7 @@ pub fn css(selector: &str) -> ScraperSelector {
 mod tests {
     use super::*;
 
-    const SIMPLE_LIST: &'static str = r#"
+    const SIMPLE_LIST: &str = r#"
     <ul>
         <li>Coffee</li>
         <li>Tea</li>
