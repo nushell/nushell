@@ -1,3 +1,4 @@
+use super::color_config::style_primitive;
 use crate::viewers::color_config::get_color_config;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -8,8 +9,6 @@ use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use terminal_size::{Height, Width};
-
-use super::color_config::style_primitive;
 
 #[derive(Clone)]
 pub struct Table;
@@ -50,7 +49,7 @@ impl Command for Table {
                 let table = convert_to_table(vals, ctrlc, &config)?;
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, term_width, &color_hm);
+                    let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
 
                     Ok(Value::String {
                         val: result,
@@ -65,7 +64,7 @@ impl Command for Table {
                 let table = convert_to_table(stream, ctrlc, &config)?;
 
                 if let Some(table) = table {
-                    let result = nu_table::draw_table(&table, term_width, &color_hm);
+                    let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
 
                     Ok(Value::String {
                         val: result,
@@ -98,7 +97,7 @@ impl Command for Table {
                     theme: load_theme_from_config(&config),
                 };
 
-                let result = nu_table::draw_table(&table, term_width, &color_hm);
+                let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
 
                 Ok(Value::String {
                     val: result,

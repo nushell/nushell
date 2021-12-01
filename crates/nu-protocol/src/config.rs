@@ -9,6 +9,7 @@ pub struct Config {
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, String>,
     pub use_grid_icons: bool,
+    pub footer_mode: FooterMode,
 }
 
 impl Default for Config {
@@ -19,8 +20,21 @@ impl Default for Config {
             use_ls_colors: true,
             color_config: HashMap::new(),
             use_grid_icons: false,
+            footer_mode: FooterMode::Never,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum FooterMode {
+    /// Never show the footer
+    Never,
+    /// Always show the footer
+    Always,
+    /// Only show the footer if there are more than RowCount rows
+    RowCount(u64),
+    /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
+    Auto,
 }
 
 impl Value {
@@ -50,6 +64,18 @@ impl Value {
                 }
                 "use_grid_icons" => {
                     config.use_grid_icons = value.as_bool()?;
+                }
+                "footer_mode" => {
+                    let val_str = value.as_string()?;
+                    config.footer_mode = match val_str.as_ref() {
+                        "auto" => FooterMode::Auto,
+                        "never" => FooterMode::Never,
+                        "always" => FooterMode::Always,
+                        _ => match &val_str.parse::<u64>() {
+                            Ok(number) => FooterMode::RowCount(*number),
+                            _ => FooterMode::Never,
+                        },
+                    };
                 }
                 _ => {}
             }

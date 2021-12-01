@@ -1549,6 +1549,7 @@ version = "0.36.0"
 dependencies = [
  "ansi-cut",
  "nu-ansi-term 0.39.0",
+ "nu-protocol",
  "regex",
  "strip-ansi-escapes",
  "unicode-width",
