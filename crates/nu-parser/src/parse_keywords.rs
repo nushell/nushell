@@ -763,7 +763,7 @@ pub fn parse_use(
         };
 
         // Extend the current scope with the module's overlay
-        working_set.add_decls(decls_to_use);
+        working_set.use_decls(decls_to_use);
 
         // Create the Use command call
         let use_decl_id = working_set

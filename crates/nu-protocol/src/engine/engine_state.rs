@@ -595,7 +595,7 @@ impl<'a> StateWorkingSet<'a> {
         decl_id
     }
 
-    pub fn add_decls(&mut self, decls: Vec<(Vec<u8>, DeclId)>) {
+    pub fn use_decls(&mut self, decls: Vec<(Vec<u8>, DeclId)>) {
         let scope_frame = self
             .delta
             .scope
