@@ -31,7 +31,6 @@ nu-pretty-hex = { version = "0.40.0", path="../nu-pretty-hex" }
 url = "2.2.1"
 mime = "0.3.16"
 Inflector = "0.11"
-arboard = { version = "2.0.1", optional = true }
 base64 = "0.13.0"
 bigdecimal = { version = "0.3.0", features = ["serde"] }
 calamine = "0.18.0"
@@ -113,7 +112,6 @@ quickcheck_macros = "1.0.0"
 hamcrest2 = "0.3.0"
 
 [features]
-clipboard-cli = ["arboard"]
 rustyline-support = ["rustyline"]
 stable = []
 trash-support = ["trash"]

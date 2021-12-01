@@ -366,14 +366,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameCumulative),
             whole_stream_command(DataFrameRename),
         ]);
-
-        #[cfg(feature = "clipboard-cli")]
-        {
-            context.add_commands(vec![
-                whole_stream_command(crate::commands::Clip),
-                whole_stream_command(crate::commands::Paste),
-            ]);
-        }
     }
 
     Ok(context)
