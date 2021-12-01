@@ -640,7 +640,7 @@ impl WrappedTable {
         let column_count = self.column_widths.len();
         let mut output = String::new();
         let sep_color = color_hm
-            .get("separator_color")
+            .get("separator")
             .unwrap_or(&Style::default())
             .to_owned();
 
@@ -789,7 +789,7 @@ impl WrappedTable {
         color_hm: &HashMap<String, Style>,
     ) -> String {
         let sep_color = color_hm
-            .get("separator_color")
+            .get("separator")
             .unwrap_or(&Style::default())
             .to_owned();
 

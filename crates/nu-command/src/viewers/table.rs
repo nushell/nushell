@@ -194,8 +194,8 @@ fn convert_to_table(
                                 StyledString {
                                     contents: y.1,
                                     style: TextStyle {
-                                        alignment: nu_table::Alignment::Center,
-                                        color_style: Some(color_hm["header"]),
+                                        alignment: nu_table::Alignment::Right,
+                                        color_style: Some(color_hm["row_index"]),
                                     },
                                 }
                             } else {

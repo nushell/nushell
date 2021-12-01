@@ -162,6 +162,7 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     hm.insert("nothing".to_string(), Color::White.normal());
     hm.insert("binary".to_string(), Color::White.normal());
     hm.insert("cellpath".to_string(), Color::White.normal());
+    hm.insert("row_index".to_string(), Color::Green.bold());
 
     for (key, value) in &config.color_config {
         update_hashmap(key, value, &mut hm);
@@ -369,11 +370,11 @@ fn test_hm() {
     hm.insert("primitive_range".to_string(), Color::White.normal());
     hm.insert("primitive_path".to_string(), Color::White.normal());
     hm.insert("primitive_binary".to_string(), Color::White.normal());
-    hm.insert("separator_color".to_string(), Color::White.normal());
+    hm.insert("separator".to_string(), Color::White.normal());
     hm.insert("header_align".to_string(), Color::Green.bold());
-    hm.insert("header_color".to_string(), Color::Green.bold());
+    hm.insert("header".to_string(), Color::Green.bold());
     hm.insert("header_style".to_string(), Style::default());
-    hm.insert("index_color".to_string(), Color::Green.bold());
+    hm.insert("row_index".to_string(), Color::Green.bold());
     hm.insert(
         "leading_trailing_space_bg".to_string(),
         Style::default().on(Color::Rgb(128, 128, 128)),
