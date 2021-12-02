@@ -317,6 +317,11 @@ impl Value {
         }
     }
 
+    /// Convert Value into a debug string
+    pub fn debug_value(self) -> String {
+        format!("{:#?}", self)
+    }
+
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn debug_string(self, separator: &str, config: &Config) -> String {
         match self {

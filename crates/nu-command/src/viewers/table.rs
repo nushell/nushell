@@ -224,7 +224,8 @@ fn convert_to_table(
             let mut row: Vec<(String, String)> = vec![("string".to_string(), row_num.to_string())];
 
             if headers.is_empty() {
-                row.push(("header".to_string(), item.into_string(", ", config)))
+                // if header row is empty, this is probably a list so format it that way
+                row.push(("list".to_string(), item.into_string(", ", config)))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {

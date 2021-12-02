@@ -15,7 +15,11 @@ impl Command for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("debug").category(Category::Core)
+        Signature::build("debug").category(Category::Core).switch(
+            "raw",
+            "Prints the raw value representation",
+            Some('r'),
+        )
     }
 
     fn run(
@@ -27,11 +31,21 @@ impl Command for Debug {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let config = stack.get_config()?;
+        let raw = call.has_flag("raw");
 
         input.map(
-            move |x| Value::String {
-                val: x.debug_string(", ", &config),
-                span: head,
+            move |x| {
+                if raw {
+                    Value::String {
+                        val: x.debug_value(),
+                        span: head,
+                    }
+                } else {
+                    Value::String {
+                        val: x.debug_string(", ", &config),
+                        span: head,
+                    }
+                }
             },
             engine_state.ctrlc.clone(),
         )

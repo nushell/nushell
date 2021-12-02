@@ -163,6 +163,9 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     hm.insert("binary".to_string(), Color::White.normal());
     hm.insert("cellpath".to_string(), Color::White.normal());
     hm.insert("row_index".to_string(), Color::Green.bold());
+    hm.insert("record".to_string(), Color::White.normal());
+    hm.insert("list".to_string(), Color::White.normal());
+    hm.insert("block".to_string(), Color::White.normal());
 
     for (key, value) in &config.color_config {
         update_hashmap(key, value, &mut hm);
@@ -244,10 +247,14 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             }
         }
 
-        // i think these are made up of other primitives
-        // "record" => {}
-        // "list" => {}
-        // "block" => {}
+        "record" | "list" | "block" => {
+            let style = color_hm.get(primitive);
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Left, *s),
+                None => TextStyle::basic_left(),
+            }
+        }
+
         "nothing" => {
             let style = color_hm.get(primitive);
             match style {
@@ -271,6 +278,17 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Left, *s),
                 None => TextStyle::basic_left(),
+            }
+        }
+
+        "row_index" => {
+            let style = color_hm.get(primitive);
+            match style {
+                Some(s) => TextStyle::with_style(Alignment::Right, *s),
+                None => TextStyle::new()
+                    .alignment(Alignment::Right)
+                    .fg(Color::Green)
+                    .bold(Some(true)),
             }
         }
 
@@ -338,17 +356,7 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
         //         None => TextStyle::default_header(),
         //     }
         // }
-        // "index_color" => {
-        //     let style = color_hm.get("index_color");
-        //     match style {
-        //         Some(s) => TextStyle::with_style(Alignment::Right, *s),
-        //         None => TextStyle::new()
-        //             .alignment(Alignment::Right)
-        //             .fg(Color::Green)
-        //             .bold(Some(true)),
-        //     }
-        // }
-        _ => TextStyle::basic_center(),
+        _ => TextStyle::basic_left(),
     }
 }
 
