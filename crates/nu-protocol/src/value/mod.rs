@@ -345,8 +345,16 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val,
-            Value::List { vals: val, .. } => format!("[list {} items]", val.len()),
-            Value::Record { cols, .. } => format!("{{record {} fields}}", cols.len()),
+            Value::List { vals: val, .. } => format!(
+                "[list {} item{}]",
+                val.len(),
+                if val.len() == 1 { "" } else { "s" }
+            ),
+            Value::Record { cols, .. } => format!(
+                "{{record {} field{}}}",
+                cols.len(),
+                if cols.len() == 1 { "" } else { "s" }
+            ),
             Value::Block { val, .. } => format!("<Block {}>", val),
             Value::Nothing { .. } => String::new(),
             Value::Error { error } => format!("{:?}", error),
