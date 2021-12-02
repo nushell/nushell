@@ -152,6 +152,8 @@ pub fn create_default_context() -> EngineState {
             Table,
             To,
             ToJson,
+            ToUrl,
+            ToToml,
             Touch,
             Use,
             Update,
