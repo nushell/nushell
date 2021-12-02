@@ -34,7 +34,7 @@ impl FileStructure {
         self.resources
             .iter()
             .map(|f| (PathBuf::from(&f.loc), f.at))
-            .map(|f| to(f))
+            .map(to)
             .collect()
     }
 

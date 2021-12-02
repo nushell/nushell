@@ -33,7 +33,7 @@ pub struct NuError {
     pub output: Option<Outcome>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct NuProcess {
     pub arguments: Vec<OsString>,
     pub environment_vars: Vec<EnvironmentVariable>,
@@ -49,16 +49,6 @@ impl fmt::Display for NuProcess {
         }
 
         write!(f, "`")
-    }
-}
-
-impl Default for NuProcess {
-    fn default() -> Self {
-        Self {
-            arguments: vec![],
-            environment_vars: Vec::default(),
-            cwd: None,
-        }
     }
 }
 
