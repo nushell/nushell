@@ -37,7 +37,7 @@ pub fn get_signature(path: &Path) -> Result<Vec<Signature>, ShellError> {
     let mut plugin_cmd = create_command(path);
 
     let mut child = plugin_cmd.spawn().map_err(|err| {
-        ShellError::InternalError(format!("Error spawning child process: {}", err))
+        ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))
     })?;
 
     // Create message to plugin to indicate that signature is required and
@@ -55,14 +55,16 @@ pub fn get_signature(path: &Path) -> Result<Vec<Signature>, ShellError> {
 
         match response {
             PluginResponse::Signature(sign) => Ok(sign),
-            PluginResponse::Error(msg) => Err(ShellError::InternalError(format!(
+            PluginResponse::Error(msg) => Err(ShellError::PluginFailedToLoad(format!(
                 "Plugin response error {}",
                 msg,
             ))),
-            _ => Err(ShellError::InternalError("Plugin missing signature".into())),
+            _ => Err(ShellError::PluginFailedToLoad(
+                "Plugin missing signature".into(),
+            )),
         }
     } else {
-        Err(ShellError::InternalError(
+        Err(ShellError::PluginFailedToLoad(
             "Plugin missing stdout reader".into(),
         ))
     }?;
@@ -285,7 +287,7 @@ pub fn eval_plugin_signatures(working_set: &mut StateWorkingSet) -> Result<(), S
                         plugin_decl
                     })
                     .collect::<Vec<Box<dyn Command>>>()),
-                Err(err) => Err(ShellError::InternalError(format!("{}", err))),
+                Err(err) => Err(ShellError::PluginFailedToLoad(format!("{}", err))),
             },
         })
         // Need to collect the vector in order to check the error from getting the signature

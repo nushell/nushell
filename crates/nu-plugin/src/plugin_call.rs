@@ -25,55 +25,56 @@ pub fn encode_call(
             let call_builder = call_info_builder
                 .reborrow()
                 .get_call()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             call::serialize_call(&call_info.call, call_builder)
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             // Serializing the input value from the call info
             let value_builder = call_info_builder
                 .reborrow()
                 .get_input()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             value::serialize_value(&call_info.input, value_builder);
         }
     };
 
-    serialize::write_message(writer, &message).map_err(|e| ShellError::InternalError(e.to_string()))
+    serialize::write_message(writer, &message)
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
 }
 
 pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_call::Reader>()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => Err(ShellError::InternalError("value not in schema".into())),
+        Err(capnp::NotInSchema(_)) => {
+            Err(ShellError::PluginFailedToLoad("value not in schema".into()))
+        }
         Ok(plugin_call::Signature(())) => Ok(PluginCall::Signature),
         Ok(plugin_call::CallInfo(reader)) => {
-            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let name = reader
                 .get_name()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let call_reader = reader
                 .get_call()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
-            let call = call::deserialize_call(call_reader)
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let call = call::deserialize_call(call_reader)?;
 
             let input_reader = reader
                 .get_input()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
-            let input = value::deserialize_value(input_reader)
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let input = value::deserialize_value(input_reader)?;
 
             Ok(PluginCall::CallInfo(Box::new(CallInfo {
                 name: name.to_string(),
@@ -109,26 +110,29 @@ pub fn encode_response(
         }
     };
 
-    serialize::write_message(writer, &message).map_err(|e| ShellError::InternalError(e.to_string()))
+    serialize::write_message(writer, &message)
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
 }
 
 pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginResponse, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_response::Reader>()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => Err(ShellError::InternalError("value not in schema".into())),
+        Err(capnp::NotInSchema(_)) => {
+            Err(ShellError::PluginFailedToLoad("value not in schema".into()))
+        }
         Ok(plugin_response::Error(reader)) => {
-            let msg = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let msg = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             Ok(PluginResponse::Error(msg.to_string()))
         }
         Ok(plugin_response::Signature(reader)) => {
-            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let signatures = reader
                 .iter()
@@ -138,9 +142,9 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
             Ok(PluginResponse::Signature(signatures))
         }
         Ok(plugin_response::Value(reader)) => {
-            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
             let val = value::deserialize_value(reader)
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             Ok(PluginResponse::Value(Box::new(val)))
         }

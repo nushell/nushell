@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -69,11 +69,7 @@ fn split_row_helper(v: &Value, separator: &Spanned<String>, name: Span) -> Vec<V
                     .collect()
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch {
-                        expected: Type::String,
-                        expected_span: name,
-                        origin: v_span,
-                    },
+                    error: ShellError::PipelineMismatch("string".into(), name, v_span),
                 }]
             }
         }

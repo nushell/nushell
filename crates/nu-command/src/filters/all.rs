@@ -52,11 +52,11 @@ impl Command for All {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let predicate = &call.positional[0];
+        let span = call.head;
+
         let block_id = predicate
             .as_row_condition_block()
-            .ok_or_else(|| ShellError::InternalError("Expected row condition".to_owned()))?;
-
-        let span = call.head;
+            .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), span))?;
 
         let block = engine_state.get_block(block_id);
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);

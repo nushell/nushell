@@ -44,8 +44,10 @@ impl Plugin for Example {
         match name {
             "test-1" => test1(call, input),
             "test-2" => test2(call, input),
-            _ => Err(ShellError::InternalError(
+            _ => Err(ShellError::LabeledError(
                 "Plugin call with wrong name signature".into(),
+                "using the wrong signature".into(),
+                call.head,
             )),
         }
     }

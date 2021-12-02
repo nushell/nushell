@@ -35,8 +35,10 @@ impl Command for Use {
         {
             pat
         } else {
-            return Err(ShellError::InternalError(
-                "Got something else than import pattern".into(),
+            return Err(ShellError::LabeledError(
+                "Unexpected import".into(),
+                "import pattern not supported".into(),
+                call.head,
             ));
         };
 

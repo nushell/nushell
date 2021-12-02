@@ -46,7 +46,7 @@ impl Stack {
             return Ok(v.clone());
         }
 
-        Err(ShellError::InternalError("variable not found".into()))
+        Err(ShellError::NushellFailed("variable not found".into()))
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {

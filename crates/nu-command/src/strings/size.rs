@@ -4,7 +4,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Value};
 
 #[derive(Clone)]
 pub struct Size;
@@ -110,11 +110,7 @@ fn size(
         move |v| match v.as_string() {
             Ok(s) => count(&s, span),
             Err(_) => Value::Error {
-                error: ShellError::PipelineMismatch {
-                    expected: Type::String,
-                    expected_span: span,
-                    origin: span,
-                },
+                error: ShellError::PipelineMismatch("string".into(), span, span),
             },
         },
         engine_state.ctrlc.clone(),

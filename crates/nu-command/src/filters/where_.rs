@@ -28,11 +28,12 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let span = call.head;
         let cond = &call.positional[0];
+        let span = call.head;
+
         let block_id = cond
             .as_row_condition_block()
-            .ok_or_else(|| ShellError::InternalError("Expected row condition".to_owned()))?;
+            .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), span))?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();

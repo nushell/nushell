@@ -46,6 +46,6 @@ impl Plugin for Inc {
             self.for_semver(SemVerAction::Patch);
         }
 
-        self.inc(input)
+        self.inc(call.head, input)
     }
 }

@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value, ValueStream,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    ValueStream,
 };
 use regex::Regex;
 
@@ -117,11 +117,11 @@ fn operate(
                 }
             }
             Err(_) => {
-                return Err(ShellError::PipelineMismatch {
-                    expected: Type::String,
-                    expected_span: head,
-                    origin: v.span()?,
-                })
+                return Err(ShellError::PipelineMismatch(
+                    "string".into(),
+                    head,
+                    v.span()?,
+                ))
             }
         }
     }

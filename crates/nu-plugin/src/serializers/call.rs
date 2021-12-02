@@ -38,7 +38,7 @@ fn serialize_named(
         entry_builder
             .reborrow()
             .set_key(key.item.as_str())
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         if let Some(value) = expression {
             let value_builder = entry_builder.init_value();
@@ -54,7 +54,7 @@ pub(crate) fn deserialize_call(
 ) -> Result<EvaluatedCall, ShellError> {
     let head_reader = reader
         .get_head()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let head = Span {
         start: head_reader.get_start() as usize,
@@ -77,7 +77,7 @@ fn deserialize_positionals(
 ) -> Result<Vec<Value>, ShellError> {
     let positional_reader = reader
         .get_positional()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     positional_reader
         .iter()
@@ -90,11 +90,11 @@ type NamedList = Vec<(Spanned<String>, Option<Value>)>;
 fn deserialize_named(span: Span, reader: evaluated_call::Reader) -> Result<NamedList, ShellError> {
     let named_reader = reader
         .get_named()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let entries_list = named_reader
         .get_entries()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let mut entries: Vec<(Spanned<String>, Option<Value>)> =
         Vec::with_capacity(entries_list.len() as usize);
@@ -102,16 +102,16 @@ fn deserialize_named(span: Span, reader: evaluated_call::Reader) -> Result<Named
     for entry_reader in entries_list {
         let item = entry_reader
             .get_key()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?
             .to_string();
 
         let value = if entry_reader.has_value() {
             let value_reader = entry_reader
                 .get_value()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let value = value::deserialize_value(value_reader)
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             Some(value)
         } else {
@@ -144,7 +144,7 @@ mod tests {
         serialize_call(call, builder)?;
 
         serialize::write_message(writer, &message)
-            .map_err(|e| ShellError::InternalError(e.to_string()))
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
     }
 
     fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<EvaluatedCall, ShellError> {
@@ -153,7 +153,7 @@ mod tests {
 
         let reader = message_reader
             .get_root::<evaluated_call::Reader>()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         deserialize_call(reader)
     }

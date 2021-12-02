@@ -63,7 +63,7 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) {
 pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellError> {
     let span_reader = reader
         .get_span()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let span = Span {
         start: span_reader.get_start() as usize,
@@ -77,26 +77,26 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
         Ok(value::Float(val)) => Ok(Value::Float { val, span }),
         Ok(value::String(val)) => {
             let string = val
-                .map_err(|e| ShellError::InternalError(e.to_string()))?
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?
                 .to_string();
             Ok(Value::String { val: string, span })
         }
         Ok(value::Record(record)) => {
-            let record = record.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let record = record.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let cols = record
                 .get_cols()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?
                 .iter()
                 .map(|col| {
-                    col.map_err(|e| ShellError::InternalError(e.to_string()))
+                    col.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
                         .map(|col| col.to_string())
                 })
                 .collect::<Result<Vec<String>, ShellError>>()?;
 
             let vals = record
                 .get_vals()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?
+                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?
                 .iter()
                 .map(deserialize_value)
                 .collect::<Result<Vec<Value>, ShellError>>()?;
@@ -104,7 +104,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
             Ok(Value::Record { cols, vals, span })
         }
         Ok(value::List(vals)) => {
-            let values = vals.map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let values = vals.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
             let values_list = values
                 .iter()
@@ -136,7 +136,7 @@ mod tests {
         serialize_value(value, builder.reborrow());
 
         serialize::write_message(writer, &message)
-            .map_err(|e| ShellError::InternalError(e.to_string()))
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
     }
 
     pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Value, ShellError> {
@@ -145,7 +145,7 @@ mod tests {
 
         let reader = message_reader
             .get_root::<value::Reader>()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         deserialize_value(reader.reborrow())
     }

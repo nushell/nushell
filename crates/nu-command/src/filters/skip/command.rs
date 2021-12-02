@@ -59,6 +59,7 @@ impl Command for Skip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let span = call.head;
 
         let n: usize = match n {
             Some(Value::Int { val, span }) => val.try_into().map_err(|err| {
@@ -67,7 +68,7 @@ impl Command for Skip {
                     span,
                 )
             })?,
-            Some(_) => return Err(ShellError::InternalError("Expected integer".into())),
+            Some(_) => return Err(ShellError::TypeMismatch("expected integer".into(), span)),
             None => 1,
         };
 

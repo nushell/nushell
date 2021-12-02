@@ -81,14 +81,28 @@ impl Inc {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
-    pub fn inc(&self, value: &Value) -> Result<Value, ShellError> {
+    pub fn inc(&self, head: Span, value: &Value) -> Result<Value, ShellError> {
         match value {
             Value::Int { val, span } => Ok(Value::Int {
                 val: val + 1,
                 span: *span,
             }),
             Value::String { val, .. } => Ok(self.apply(val)),
-            _ => Err(ShellError::InternalError("incrementable value".to_string())),
+            x => {
+                if let Ok(span) = x.span() {
+                    Err(ShellError::PipelineMismatch(
+                        "incrementable value".into(),
+                        head,
+                        span,
+                    ))
+                } else {
+                    Err(ShellError::LabeledError(
+                        "Expected incrementable value".into(),
+                        "incrementable value".into(),
+                        head,
+                    ))
+                }
+            }
         }
     }
 }

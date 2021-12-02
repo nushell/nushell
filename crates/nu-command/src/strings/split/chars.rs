@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -72,11 +72,7 @@ fn split_chars_helper(v: &Value, name: Span) -> Vec<Value> {
                     .collect()
             } else {
                 vec![Value::Error {
-                    error: ShellError::PipelineMismatch {
-                        expected: Type::String,
-                        expected_span: name,
-                        origin: v_span,
-                    },
+                    error: ShellError::PipelineMismatch("string".into(), name, v_span),
                 }]
             }
         }

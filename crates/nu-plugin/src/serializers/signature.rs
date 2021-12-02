@@ -96,18 +96,18 @@ fn serialize_flag(arg: &Flag, mut builder: flag::Builder) {
 pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signature, ShellError> {
     let name = reader
         .get_name()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
     let usage = reader
         .get_usage()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
     let extra_usage = reader
         .get_extra_usage()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
     let is_filter = reader.get_is_filter();
 
     let category = match reader
         .get_category()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?
     {
         PluginCategory::Default => Category::Default,
         PluginCategory::Conversions => Category::Conversions,
@@ -127,7 +127,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing required arguments
     let required_list = reader
         .get_required_positional()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let required_positional = required_list
         .iter()
@@ -137,7 +137,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing optional arguments
     let optional_list = reader
         .get_optional_positional()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let optional_positional = optional_list
         .iter()
@@ -148,7 +148,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     let rest_positional = if reader.has_rest() {
         let argument_reader = reader
             .get_rest()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         Some(deserialize_argument(argument_reader)?)
     } else {
@@ -158,7 +158,7 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing named arguments
     let named_list = reader
         .get_named()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let named = named_list
         .iter()
@@ -182,15 +182,15 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
 fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, ShellError> {
     let name = reader
         .get_name()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let shape = reader
         .get_shape()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let shape = match shape {
         Shape::String => SyntaxShape::String,
@@ -212,18 +212,18 @@ fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, Shell
 fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
     let long = reader
         .get_long()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let required = reader.get_required();
 
     let short = if reader.has_short() {
         let short_reader = reader
             .get_short()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         short_reader.chars().next()
     } else {
@@ -232,7 +232,7 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
 
     let arg = reader
         .get_arg()
-        .map_err(|e| ShellError::InternalError(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
     let arg = match arg {
         Shape::None => None,
@@ -270,7 +270,7 @@ mod tests {
         serialize_signature(signature, builder);
 
         serialize::write_message(writer, &message)
-            .map_err(|e| ShellError::InternalError(e.to_string()))
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
     }
 
     pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, ShellError> {
@@ -279,7 +279,7 @@ mod tests {
 
         let reader = message_reader
             .get_root::<signature::Reader>()
-            .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
 
         deserialize_signature(reader)
     }
