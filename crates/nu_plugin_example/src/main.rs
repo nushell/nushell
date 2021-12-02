@@ -126,14 +126,14 @@ fn test2(call: &EvaluatedCall, input: &Value) -> Result<Value, ShellError> {
             let vals = (0..3)
                 .map(|v| Value::Int {
                     val: v * i,
-                    span: call.head.clone(),
+                    span: call.head,
                 })
                 .collect::<Vec<Value>>();
 
             Value::Record {
                 cols: cols.clone(),
                 vals,
-                span: call.head.clone(),
+                span: call.head,
             }
         })
         .collect::<Vec<Value>>();

@@ -363,8 +363,8 @@ impl EngineState {
         let decl = self.get_decl(decl_id);
 
         match input {
-            PipelineData::Stream(_) => decl,
-            PipelineData::Value(value) => match value {
+            PipelineData::Stream(..) => decl,
+            PipelineData::Value(value, ..) => match value {
                 Value::CustomValue { val, .. } => {
                     // This filter works because the custom definitions were declared
                     // before the default nushell declarations. This means that the custom

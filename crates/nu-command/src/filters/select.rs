@@ -68,10 +68,13 @@ fn select(
     }
 
     match input {
-        PipelineData::Value(Value::List {
-            vals: input_vals,
-            span,
-        }) => {
+        PipelineData::Value(
+            Value::List {
+                vals: input_vals,
+                span,
+            },
+            ..,
+        ) => {
             let mut output = vec![];
 
             for input_val in input_vals {
@@ -92,7 +95,7 @@ fn select(
                 .into_iter()
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        PipelineData::Stream(stream) => Ok(stream
+        PipelineData::Stream(stream, ..) => Ok(stream
             .map(move |x| {
                 let mut cols = vec![];
                 let mut vals = vec![];
@@ -113,7 +116,7 @@ fn select(
                 Value::Record { cols, vals, span }
             })
             .into_pipeline_data(engine_state.ctrlc.clone())),
-        PipelineData::Value(v) => {
+        PipelineData::Value(v, ..) => {
             let mut cols = vec![];
             let mut vals = vec![];
 

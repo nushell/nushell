@@ -57,14 +57,14 @@ pub fn eval(
 ) -> Result<PipelineData, ShellError> {
     if let Some(expr) = spanned_expr {
         match parse(&expr.item, &expr.span) {
-            Ok(value) => Ok(PipelineData::Value(value)),
+            Ok(value) => Ok(PipelineData::Value(value, None)),
             Err(err) => Err(ShellError::UnsupportedInput(
                 format!("Math evaluation error: {}", err),
                 expr.span,
             )),
         }
     } else {
-        if let PipelineData::Value(Value::Nothing { .. }) = input {
+        if let PipelineData::Value(Value::Nothing { .. }, ..) = input {
             return Ok(input);
         }
         input.map(

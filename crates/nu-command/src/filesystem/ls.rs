@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
-use lscolors::{LsColors, Style};
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, IntoInterruptiblePipelineData, PipelineData, Signature, SyntaxShape, Value,
+    Category, DataSource, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata, Signature,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -37,7 +37,6 @@ impl Command for Ls {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let config = stack.get_config()?;
         let pattern = if let Some(expr) = call.positional.get(0) {
             let result = eval_expression(engine_state, stack, expr)?;
             let mut result = result.as_string()?;
@@ -57,10 +56,6 @@ impl Command for Ls {
 
         let call_span = call.head;
         let glob = glob::glob(&pattern).unwrap();
-        let ls_colors = match stack.get_env_var("LS_COLORS") {
-            Some(s) => LsColors::from_string(&s),
-            None => LsColors::default(),
-        };
 
         Ok(glob
             .into_iter()
@@ -72,22 +67,11 @@ impl Command for Ls {
                         let is_dir = metadata.is_dir();
                         let filesize = metadata.len();
                         let mut cols = vec!["name".into(), "type".into(), "size".into()];
-                        let style =
-                            ls_colors.style_for_path_with_metadata(path.clone(), Some(&metadata));
-                        let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
-                        let use_ls_colors = config.use_ls_colors;
 
                         let mut vals = vec![
-                            if use_ls_colors {
-                                Value::String {
-                                    val: ansi_style.apply(path.to_string_lossy()).to_string(),
-                                    span: call_span,
-                                }
-                            } else {
-                                Value::String {
-                                    val: path.to_string_lossy().to_string(),
-                                    span: call_span,
-                                }
+                            Value::String {
+                                val: path.to_string_lossy().to_string(),
+                                span: call_span,
                             },
                             if is_symlink {
                                 Value::string("symlink", call_span)
@@ -120,34 +104,26 @@ impl Command for Ls {
                             span: call_span,
                         }
                     }
-                    Err(_) => {
-                        let style = ls_colors.style_for_path(path.clone());
-                        let ansi_style = style.map(Style::to_crossterm_style).unwrap_or_default();
-                        let use_ls_colors = config.use_ls_colors;
-
-                        Value::Record {
-                            cols: vec!["name".into(), "type".into(), "size".into()],
-                            vals: vec![
-                                if use_ls_colors {
-                                    Value::String {
-                                        val: ansi_style.apply(path.to_string_lossy()).to_string(),
-                                        span: call_span,
-                                    }
-                                } else {
-                                    Value::String {
-                                        val: path.to_string_lossy().to_string(),
-                                        span: call_span,
-                                    }
-                                },
-                                Value::Nothing { span: call_span },
-                                Value::Nothing { span: call_span },
-                            ],
-                            span: call_span,
-                        }
-                    }
+                    Err(_) => Value::Record {
+                        cols: vec!["name".into(), "type".into(), "size".into()],
+                        vals: vec![
+                            Value::String {
+                                val: path.to_string_lossy().to_string(),
+                                span: call_span,
+                            },
+                            Value::Nothing { span: call_span },
+                            Value::Nothing { span: call_span },
+                        ],
+                        span: call_span,
+                    },
                 },
                 _ => Value::Nothing { span: call_span },
             })
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(
+                PipelineMetadata {
+                    data_source: DataSource::Ls,
+                },
+                engine_state.ctrlc.clone(),
+            ))
     }
 }

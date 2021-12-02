@@ -70,10 +70,13 @@ fn chars(
         .map(char::from)
         .collect::<String>();
 
-    Ok(PipelineData::Value(Value::String {
-        val: random_string,
-        span,
-    }))
+    Ok(PipelineData::Value(
+        Value::String {
+            val: random_string,
+            span,
+        },
+        None,
+    ))
 }
 
 #[cfg(test)]

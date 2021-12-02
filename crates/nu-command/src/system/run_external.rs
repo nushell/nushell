@@ -94,7 +94,7 @@ impl ExternalCommand {
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
-        if !matches!(input, PipelineData::Value(Value::Nothing { .. })) {
+        if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
             process.stdin(Stdio::piped());
         }
 

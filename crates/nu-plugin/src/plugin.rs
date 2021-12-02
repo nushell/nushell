@@ -145,8 +145,8 @@ impl Command for PluginDeclaration {
         })?;
 
         let input = match input {
-            PipelineData::Value(value) => value,
-            PipelineData::Stream(stream) => {
+            PipelineData::Value(value, ..) => value,
+            PipelineData::Stream(stream, ..) => {
                 let values = stream.collect::<Vec<Value>>();
 
                 Value::List {
@@ -192,7 +192,9 @@ impl Command for PluginDeclaration {
             })?;
 
             match response {
-                PluginResponse::Value(value) => Ok(PipelineData::Value(value.as_ref().clone())),
+                PluginResponse::Value(value) => {
+                    Ok(PipelineData::Value(value.as_ref().clone(), None))
+                }
                 PluginResponse::Error(msg) => Err(ShellError::LabeledError(
                     "Error received from plugin".into(),
                     msg,

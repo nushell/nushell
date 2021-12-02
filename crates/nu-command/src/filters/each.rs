@@ -74,8 +74,8 @@ impl Command for Each {
         let span = call.head;
 
         match input {
-            PipelineData::Value(Value::Range { .. })
-            | PipelineData::Value(Value::List { .. })
+            PipelineData::Value(Value::Range { .. }, ..)
+            | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::Stream { .. } => Ok(input
                 .into_iter()
                 .enumerate()
@@ -109,7 +109,7 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::Value(Value::Record { cols, vals, .. }) => {
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output_cols = vec![];
                 let mut output_vals = vec![];
 
@@ -138,9 +138,12 @@ impl Command for Each {
                     }
 
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
-                        PipelineData::Value(Value::Record {
-                            mut cols, mut vals, ..
-                        }) => {
+                        PipelineData::Value(
+                            Value::Record {
+                                mut cols, mut vals, ..
+                            },
+                            ..,
+                        ) => {
                             // TODO check that the lengths match when traversing record
                             output_cols.append(&mut cols);
                             output_vals.append(&mut vals);
@@ -159,7 +162,7 @@ impl Command for Each {
                 }
                 .into_pipeline_data())
             }
-            PipelineData::Value(x) => {
+            PipelineData::Value(x, ..) => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {

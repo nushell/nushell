@@ -34,7 +34,7 @@ impl Command for Lines {
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
-            PipelineData::Value(Value::String { val, span }) => {
+            PipelineData::Value(Value::String { val, span }, ..) => {
                 let lines = val
                     .split(SPLIT_CHAR)
                     .map(|s| s.to_string())
@@ -50,7 +50,7 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            PipelineData::Stream(stream) => {
+            PipelineData::Stream(stream, ..) => {
                 let iter = stream
                     .into_iter()
                     .filter_map(|value| {
@@ -78,7 +78,7 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            PipelineData::Value(val) => Err(ShellError::UnsupportedInput(
+            PipelineData::Value(val, ..) => Err(ShellError::UnsupportedInput(
                 format!("Not supported input: {}", val.as_string()?),
                 call.head,
             )),

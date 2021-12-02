@@ -67,11 +67,14 @@ fn from_url(input: PipelineData, head: Span, config: &Config) -> Result<Pipeline
                 vals.push(Value::String { val: v, span: head })
             }
 
-            Ok(PipelineData::Value(Value::Record {
-                cols,
-                vals,
-                span: head,
-            }))
+            Ok(PipelineData::Value(
+                Value::Record {
+                    cols,
+                    vals,
+                    span: head,
+                },
+                None,
+            ))
         }
         _ => Err(ShellError::UnsupportedInput(
             "String not compatible with url-encoding".to_string(),

@@ -1,9 +1,11 @@
 use super::color_config::style_primitive;
 use crate::viewers::color_config::get_color_config;
+use lscolors::{LsColors, Style};
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Value, ValueStream,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -45,7 +47,7 @@ impl Command for Table {
         };
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }) => {
+            PipelineData::Value(Value::List { vals, .. }, ..) => {
                 let table = convert_to_table(vals, ctrlc, &config)?;
 
                 if let Some(table) = table {
@@ -60,7 +62,84 @@ impl Command for Table {
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Stream(stream) => {
+            PipelineData::Stream(stream, metadata) => {
+                let stream = match metadata {
+                    Some(PipelineMetadata {
+                        data_source: DataSource::Ls,
+                    }) => {
+                        let config = config.clone();
+                        let ctrlc = ctrlc.clone();
+
+                        let ls_colors = match stack.get_env_var("LS_COLORS") {
+                            Some(s) => LsColors::from_string(&s),
+                            None => LsColors::default(),
+                        };
+
+                        ValueStream::from_stream(
+                            stream.map(move |mut x| match &mut x {
+                                Value::Record { cols, vals, .. } => {
+                                    let mut idx = 0;
+
+                                    while idx < cols.len() {
+                                        if cols[idx] == "name" {
+                                            if let Some(Value::String { val: path, span }) =
+                                                vals.get(idx)
+                                            {
+                                                match std::fs::symlink_metadata(&path) {
+                                                    Ok(metadata) => {
+                                                        let style = ls_colors
+                                                            .style_for_path_with_metadata(
+                                                                path.clone(),
+                                                                Some(&metadata),
+                                                            );
+                                                        let ansi_style = style
+                                                            .map(Style::to_crossterm_style)
+                                                            .unwrap_or_default();
+                                                        let use_ls_colors = config.use_ls_colors;
+
+                                                        if use_ls_colors {
+                                                            vals[idx] = Value::String {
+                                                                val: ansi_style
+                                                                    .apply(path)
+                                                                    .to_string(),
+                                                                span: *span,
+                                                            };
+                                                        }
+                                                    }
+                                                    Err(_) => {
+                                                        let style =
+                                                            ls_colors.style_for_path(path.clone());
+                                                        let ansi_style = style
+                                                            .map(Style::to_crossterm_style)
+                                                            .unwrap_or_default();
+                                                        let use_ls_colors = config.use_ls_colors;
+
+                                                        if use_ls_colors {
+                                                            vals[idx] = Value::String {
+                                                                val: ansi_style
+                                                                    .apply(path)
+                                                                    .to_string(),
+                                                                span: *span,
+                                                            };
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        idx += 1;
+                                    }
+
+                                    x
+                                }
+                                _ => x,
+                            }),
+                            ctrlc,
+                        )
+                    }
+                    _ => stream,
+                };
+
                 let table = convert_to_table(stream, ctrlc, &config)?;
 
                 if let Some(table) = table {
@@ -75,7 +154,7 @@ impl Command for Table {
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }) => {
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output = vec![];
 
                 for (c, v) in cols.into_iter().zip(vals.into_iter()) {
@@ -105,8 +184,8 @@ impl Command for Table {
                 }
                 .into_pipeline_data())
             }
-            PipelineData::Value(Value::Error { error }) => Err(error),
-            PipelineData::Value(Value::CustomValue { val, span }) => {
+            PipelineData::Value(Value::Error { error }, ..) => Err(error),
+            PipelineData::Value(Value::CustomValue { val, span }, ..) => {
                 let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
                 self.run(engine_state, stack, call, base_pipeline)
             }

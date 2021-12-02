@@ -147,7 +147,7 @@ mod test {
         assert!(call.has_flag("flag"));
 
         let required: f64 = call.req(0).unwrap();
-        assert_eq!(required, 1.0);
+        assert!((required - 1.0).abs() < f64::EPSILON);
 
         let optional: Option<String> = call.opt(1).unwrap();
         assert_eq!(optional, Some("something".to_string()));

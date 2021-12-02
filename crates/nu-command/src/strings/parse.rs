@@ -74,6 +74,7 @@ fn operate(
     let head = call.head;
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
     let regex: bool = call.has_flag("regex");
+    let ctrlc = engine_state.ctrlc.clone();
 
     let pattern_item = pattern.item;
     let pattern_span = pattern.span;
@@ -125,10 +126,10 @@ fn operate(
         }
     }
 
-    Ok(PipelineData::Stream(ValueStream::from_stream(
-        parsed.into_iter(),
+    Ok(PipelineData::Stream(
+        ValueStream::from_stream(parsed.into_iter(), ctrlc),
         None,
-    )))
+    ))
 }
 
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {

@@ -78,10 +78,13 @@ fn bool(
     let mut rng = thread_rng();
     let bool_result: bool = rng.gen_bool(probability);
 
-    Ok(PipelineData::Value(Value::Bool {
-        val: bool_result,
-        span,
-    }))
+    Ok(PipelineData::Value(
+        Value::Bool {
+            val: bool_result,
+            span,
+        },
+        None,
+    ))
 }
 
 #[cfg(test)]

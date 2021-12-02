@@ -57,7 +57,7 @@ impl Command for ParEach {
         let span = call.head;
 
         match input {
-            PipelineData::Value(Value::Range { val, .. }) => Ok(val
+            PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
                 .into_range_iter()?
                 .enumerate()
                 .par_bridge()
@@ -98,7 +98,7 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::Value(Value::List { vals: val, .. }) => Ok(val
+            PipelineData::Value(Value::List { vals: val, .. }, ..) => Ok(val
                 .into_iter()
                 .enumerate()
                 .par_bridge()
@@ -139,7 +139,7 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::Stream(stream) => Ok(stream
+            PipelineData::Stream(stream, ..) => Ok(stream
                 .enumerate()
                 .par_bridge()
                 .map(move |(idx, x)| {
@@ -179,7 +179,7 @@ impl Command for ParEach {
                 .into_iter()
                 .flatten()
                 .into_pipeline_data(ctrlc)),
-            PipelineData::Value(Value::Record { cols, vals, .. }) => {
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output_cols = vec![];
                 let mut output_vals = vec![];
 
@@ -208,9 +208,12 @@ impl Command for ParEach {
                     }
 
                     match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
-                        PipelineData::Value(Value::Record {
-                            mut cols, mut vals, ..
-                        }) => {
+                        PipelineData::Value(
+                            Value::Record {
+                                mut cols, mut vals, ..
+                            },
+                            ..,
+                        ) => {
                             // TODO check that the lengths match when traversing record
                             output_cols.append(&mut cols);
                             output_vals.append(&mut vals);
@@ -229,7 +232,7 @@ impl Command for ParEach {
                 }
                 .into_pipeline_data())
             }
-            PipelineData::Value(x) => {
+            PipelineData::Value(x, ..) => {
                 let block = engine_state.get_block(block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {

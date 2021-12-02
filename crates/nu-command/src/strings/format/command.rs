@@ -125,7 +125,10 @@ fn format(
     //  We can only handle a Record or a List of Record's
     match data_as_value {
         Value::Record { .. } => match format_record(format_operations, &data_as_value) {
-            Ok(value) => Ok(PipelineData::Value(Value::string(value, Span::unknown()))),
+            Ok(value) => Ok(PipelineData::Value(
+                Value::string(value, Span::unknown()),
+                None,
+            )),
             Err(value) => Err(value),
         },
 
@@ -151,10 +154,10 @@ fn format(
                 }
             }
 
-            Ok(PipelineData::Stream(ValueStream::from_stream(
-                list.into_iter(),
+            Ok(PipelineData::Stream(
+                ValueStream::from_stream(list.into_iter(), None),
                 None,
-            )))
+            ))
         }
         _ => Err(ShellError::UnsupportedInput(
             "Input data is not supported by this command.".to_string(),

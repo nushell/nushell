@@ -26,7 +26,7 @@ impl Command for Length {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         match input {
-            PipelineData::Value(Value::Nothing { .. }) => Ok(Value::Int {
+            PipelineData::Value(Value::Nothing { .. }, ..) => Ok(Value::Int {
                 val: 0,
                 span: call.head,
             }

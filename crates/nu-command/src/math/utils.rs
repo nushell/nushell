@@ -62,12 +62,12 @@ pub fn calculate(
     mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     match values {
-        PipelineData::Stream(s) => helper_for_tables(&s.collect::<Vec<Value>>(), name, mf),
-        PipelineData::Value(Value::List { ref vals, .. }) => match &vals[..] {
+        PipelineData::Stream(s, ..) => helper_for_tables(&s.collect::<Vec<Value>>(), name, mf),
+        PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(vals, name, mf),
             _ => mf(vals, &name),
         },
-        PipelineData::Value(Value::Record { vals, cols, span }) => {
+        PipelineData::Value(Value::Record { vals, cols, span }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> =
                 vals.into_iter().map(|val| mf(&[val], &name)).collect();
             match new_vals {
@@ -79,7 +79,7 @@ pub fn calculate(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::Value(Value::Range { val, .. }) => {
+        PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter()?
                 .map(|val| mf(&[val], &name))
@@ -87,6 +87,6 @@ pub fn calculate(
 
             mf(&new_vals?, &name)
         }
-        PipelineData::Value(val) => mf(&[val], &name),
+        PipelineData::Value(val, ..) => mf(&[val], &name),
     }
 }

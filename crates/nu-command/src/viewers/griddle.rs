@@ -64,7 +64,7 @@ prints out the list properly."#
         let use_grid_icons = config.use_grid_icons;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }) => {
+            PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
                 let data = convert_to_list(vals, &config);
                 if let Some(items) = data {
@@ -81,7 +81,7 @@ prints out the list properly."#
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Stream(stream) => {
+            PipelineData::Stream(stream, ..) => {
                 // dbg!("value::stream");
                 let data = convert_to_list(stream, &config);
                 if let Some(items) = data {
@@ -99,7 +99,7 @@ prints out the list properly."#
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Value(Value::Record { cols, vals, .. }) => {
+            PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 

@@ -194,7 +194,7 @@ fn from_xlsx(
         span: head,
     };
 
-    Ok(PipelineData::Value(record))
+    Ok(PipelineData::Value(record, None))
 }
 
 #[cfg(test)]
