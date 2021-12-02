@@ -164,7 +164,7 @@ impl Command for Table {
                             style: TextStyle::default_field(),
                         },
                         StyledString {
-                            contents: v.into_string(", ", &config),
+                            contents: v.into_abbreviated_string(&config),
                             style: TextStyle::default(),
                         },
                     ])
@@ -225,7 +225,7 @@ fn convert_to_table(
 
             if headers.is_empty() {
                 // if header row is empty, this is probably a list so format it that way
-                row.push(("list".to_string(), item.into_string(", ", config)))
+                row.push(("list".to_string(), item.into_abbreviated_string(config)))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
@@ -241,7 +241,7 @@ fn convert_to_table(
                     match result {
                         Ok(value) => row.push((
                             (&value.get_type()).to_string(),
-                            value.into_string(", ", config),
+                            value.into_abbreviated_string(config),
                         )),
                         Err(_) => row.push(("empty".to_string(), String::new())),
                     }

@@ -328,6 +328,34 @@ impl Value {
         }
     }
 
+    /// Convert Value into string. Note that Streams will be consumed.
+    pub fn into_abbreviated_string(self, config: &Config) -> String {
+        match self {
+            Value::Bool { val, .. } => val.to_string(),
+            Value::Int { val, .. } => val.to_string(),
+            Value::Float { val, .. } => val.to_string(),
+            Value::Filesize { val, .. } => format_filesize(val, config),
+            Value::Duration { val, .. } => format_duration(val),
+            Value::Date { val, .. } => HumanTime::from(val).to_string(),
+            Value::Range { val, .. } => {
+                format!(
+                    "{}..{}",
+                    val.from.into_string(", ", config),
+                    val.to.into_string(", ", config)
+                )
+            }
+            Value::String { val, .. } => val,
+            Value::List { vals: val, .. } => format!("[list {} items]", val.len()),
+            Value::Record { cols, .. } => format!("{{record {} fields}}", cols.len()),
+            Value::Block { val, .. } => format!("<Block {}>", val),
+            Value::Nothing { .. } => String::new(),
+            Value::Error { error } => format!("{:?}", error),
+            Value::Binary { val, .. } => format!("{:?}", val),
+            Value::CellPath { val, .. } => val.into_string(),
+            Value::CustomValue { val, .. } => val.value_string(),
+        }
+    }
+
     /// Convert Value into a debug string
     pub fn debug_value(self) -> String {
         format!("{:#?}", self)
