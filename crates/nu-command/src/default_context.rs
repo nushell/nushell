@@ -148,6 +148,7 @@ pub fn create_default_context() -> EngineState {
             StrStartsWith,
             StrReverse,
             StrSubstring,
+            StrTrim,
             Sys,
             Table,
             To,
