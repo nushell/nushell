@@ -19,7 +19,7 @@ Kill a process using the process id.
 ## Examples
   Kill the pid using the most memory
 ```shell
-> ps | sort-by mem | last | kill $it.pid
+> ps | sort-by mem | last | each { kill $it.pid }
  ```
 
   Force kill a given pid
