@@ -513,11 +513,6 @@ mod tests {
             let args = format!("nu --loglevel={}", level);
             ui.parse(&args)?;
             assert_eq!(ui.loglevel().unwrap(), Ok(level.to_string()));
-
-            let ui = cli_app();
-            let args = format!("nu -l {}", level);
-            ui.parse(&args)?;
-            assert_eq!(ui.loglevel().unwrap(), Ok(level.to_string()));
         }
 
         let ui = cli_app();
@@ -526,6 +521,17 @@ mod tests {
             ui.loglevel().unwrap(),
             Err(ShellError::untagged_runtime_error("nada is not supported."))
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn can_be_login() -> Result<(), ShellError> {
+        let ui = cli_app();
+        ui.parse("nu -l")?;
+
+        let ui = cli_app();
+        ui.parse("nu --login")?;
 
         Ok(())
     }
