@@ -230,19 +230,10 @@ fn main() -> Result<()> {
         }
 
         loop {
+            let config = stack.get_config()?;
+
             //Reset the ctrl-c handler
             ctrlc.store(false, Ordering::SeqCst);
-
-            const EQ_PROMPT_ANIMATE_DEFAULT: bool = true;
-            // Toggle prompt animation
-            let animate = match std::env::var("EQ_PROMPT_ANIMATE") {
-                Ok(ms_str) => match ms_str.as_str() {
-                    "ON" | "1" => true,
-                    "OFF" | "0" => false,
-                    _ => EQ_PROMPT_ANIMATE_DEFAULT,
-                },
-                _ => EQ_PROMPT_ANIMATE_DEFAULT,
-            };
 
             let line_editor = Reedline::create()
                 .into_diagnostic()?
@@ -252,7 +243,7 @@ fn main() -> Result<()> {
                 .with_highlighter(Box::new(NuHighlighter {
                     engine_state: engine_state.clone(),
                 }))
-                .with_animation(animate)
+                .with_animation(config.animate_prompt)
                 // .with_completion_action_handler(Box::new(
                 //     ListCompletionHandler::default().with_completer(Box::new(completer)),
                 // ))

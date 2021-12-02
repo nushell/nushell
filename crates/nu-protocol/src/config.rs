@@ -2,6 +2,8 @@ use crate::{ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+const ANIMATE_PROMPT_DEFAULT: bool = true;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
@@ -10,6 +12,7 @@ pub struct Config {
     pub color_config: HashMap<String, String>,
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
+    pub animate_prompt: bool,
 }
 
 impl Default for Config {
@@ -21,6 +24,7 @@ impl Default for Config {
             color_config: HashMap::new(),
             use_grid_icons: false,
             footer_mode: FooterMode::Never,
+            animate_prompt: ANIMATE_PROMPT_DEFAULT,
         }
     }
 }
@@ -76,6 +80,11 @@ impl Value {
                             _ => FooterMode::Never,
                         },
                     };
+                }
+                "animate_prompt" => {
+                    let val = value.as_bool()?;
+
+                    config.animate_prompt = val;
                 }
                 _ => {}
             }
