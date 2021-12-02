@@ -41,7 +41,13 @@ struct Value {
 		float @4 :Float64;
 		string @5 :Text;
 		list @6 :List(Value);
+		record @7: Record;
 	}
+}
+
+struct Record {
+	cols @0 :List(Text);
+	vals @1 :List(Value);
 }
 
 # Structs required to define the plugin signature
@@ -98,32 +104,17 @@ enum Shape {
 	boolean @5;
 }
 
-# The next structs define the call information sent to th plugin
-struct Expression {
-	union {
-		garbage @0 :Void;
-		bool @1 :Bool;
-		int @2 :Int64;
-		float @3 :Float64;
-		string @4 :Text;
-		list @5 :List(Expression);
-		# The expression list can be exteded based on the user need
-		# If a plugin requires something from the expression object, it
-		# will need to be added to this list
-	}
-}
-
-struct Call {
+struct EvaluatedCall {
 	head @0: Span;
-	positional @1 :List(Expression);
-	# The expression in the map can be optional
+	positional @1 :List(Value);
+	# The value in the map can be optional
 	# Check for existence when deserializing
-	named @2 :Map(Text, Expression);
+	named @2 :Map(Text, Value);
 }
 
 struct CallInfo {
 	name @0: Text;
-	call @1: Call;
+	call @1: EvaluatedCall;
 	input @2: Value;
 }
 

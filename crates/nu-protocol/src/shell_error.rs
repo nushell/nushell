@@ -200,9 +200,6 @@ pub enum ShellError {
     #[error("No file to be copied")]
     NoFileToBeCopied(),
 
-    #[error("Plugin error")]
-    PluginError(String),
-
     #[error("Name not found")]
     #[diagnostic(code(nu::shell::name_not_found), url(docsrs))]
     DidYouMean(String, #[label("did you mean '{0}'?")] Span),

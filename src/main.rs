@@ -23,6 +23,9 @@ use nu_protocol::{
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 
+#[cfg(feature = "plugin")]
+use nu_plugin::plugin::eval_plugin_signatures;
+
 #[cfg(test)]
 mod tests;
 
@@ -412,6 +415,12 @@ fn eval_source(
             report_error(&working_set, &err);
             return false;
         }
+
+        #[cfg(feature = "plugin")]
+        if let Err(err) = eval_plugin_signatures(&mut working_set) {
+            report_error(&working_set, &err);
+        }
+
         (output, working_set.render())
     };
 

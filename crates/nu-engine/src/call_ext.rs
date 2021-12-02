@@ -1,10 +1,10 @@
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    ShellError,
+    FromValue, ShellError,
 };
 
-use crate::{eval_expression, FromValue};
+use crate::eval_expression;
 
 pub trait CallExt {
     fn get_flag<T: FromValue>(

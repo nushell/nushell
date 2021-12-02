@@ -1,14 +1,14 @@
-use crate::plugin::{CallInfo, PluginCall, PluginError, PluginResponse};
+use crate::plugin::{CallInfo, PluginCall, PluginResponse};
 use crate::plugin_capnp::{plugin_call, plugin_response};
 use crate::serializers::signature::deserialize_signature;
 use crate::serializers::{call, signature, value};
 use capnp::serialize;
-use nu_protocol::Signature;
+use nu_protocol::{ShellError, Signature};
 
 pub fn encode_call(
     plugin_call: &PluginCall,
     writer: &mut impl std::io::Write,
-) -> Result<(), PluginError> {
+) -> Result<(), ShellError> {
     let mut message = ::capnp::message::Builder::new_default();
 
     let mut builder = message.init_root::<plugin_call::Builder>();
@@ -25,56 +25,55 @@ pub fn encode_call(
             let call_builder = call_info_builder
                 .reborrow()
                 .get_call()
-                .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             call::serialize_call(&call_info.call, call_builder)
-                .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             // Serializing the input value from the call info
             let value_builder = call_info_builder
                 .reborrow()
                 .get_input()
-                .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             value::serialize_value(&call_info.input, value_builder);
         }
     };
 
-    serialize::write_message(writer, &message)
-        .map_err(|e| PluginError::EncodingError(e.to_string()))
+    serialize::write_message(writer, &message).map_err(|e| ShellError::InternalError(e.to_string()))
 }
 
-pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, PluginError> {
+pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_call::Reader>()
-        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => Err(PluginError::DecodingError("value not in schema".into())),
+        Err(capnp::NotInSchema(_)) => Err(ShellError::InternalError("value not in schema".into())),
         Ok(plugin_call::Signature(())) => Ok(PluginCall::Signature),
         Ok(plugin_call::CallInfo(reader)) => {
-            let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let name = reader
                 .get_name()
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let call_reader = reader
                 .get_call()
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let call = call::deserialize_call(call_reader)
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let input_reader = reader
                 .get_input()
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let input = value::deserialize_value(input_reader)
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             Ok(PluginCall::CallInfo(Box::new(CallInfo {
                 name: name.to_string(),
@@ -88,7 +87,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, Plu
 pub fn encode_response(
     plugin_response: &PluginResponse,
     writer: &mut impl std::io::Write,
-) -> Result<(), PluginError> {
+) -> Result<(), ShellError> {
     let mut message = ::capnp::message::Builder::new_default();
 
     let mut builder = message.init_root::<plugin_response::Builder>();
@@ -110,39 +109,38 @@ pub fn encode_response(
         }
     };
 
-    serialize::write_message(writer, &message)
-        .map_err(|e| PluginError::EncodingError(e.to_string()))
+    serialize::write_message(writer, &message).map_err(|e| ShellError::InternalError(e.to_string()))
 }
 
-pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginResponse, PluginError> {
+pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginResponse, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_response::Reader>()
-        .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => Err(PluginError::DecodingError("value not in schema".into())),
+        Err(capnp::NotInSchema(_)) => Err(ShellError::InternalError("value not in schema".into())),
         Ok(plugin_response::Error(reader)) => {
-            let msg = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
+            let msg = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             Ok(PluginResponse::Error(msg.to_string()))
         }
         Ok(plugin_response::Signature(reader)) => {
-            let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             let signatures = reader
                 .iter()
                 .map(deserialize_signature)
-                .collect::<Result<Vec<Signature>, PluginError>>()?;
+                .collect::<Result<Vec<Signature>, ShellError>>()?;
 
             Ok(PluginResponse::Signature(signatures))
         }
         Ok(plugin_response::Value(reader)) => {
-            let reader = reader.map_err(|e| PluginError::DecodingError(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::InternalError(e.to_string()))?;
             let val = value::deserialize_value(reader)
-                .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+                .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
             Ok(PluginResponse::Value(Box::new(val)))
         }
@@ -152,21 +150,9 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::evaluated_call::EvaluatedCall;
     use crate::plugin::{PluginCall, PluginResponse};
-    use nu_protocol::{
-        ast::{Call, Expr, Expression},
-        Signature, Span, Spanned, SyntaxShape, Value,
-    };
-
-    fn compare_expressions(lhs: &Expression, rhs: &Expression) {
-        match (&lhs.expr, &rhs.expr) {
-            (Expr::Bool(a), Expr::Bool(b)) => assert_eq!(a, b),
-            (Expr::Int(a), Expr::Int(b)) => assert_eq!(a, b),
-            (Expr::Float(a), Expr::Float(b)) => assert!((a - b).abs() < f64::EPSILON),
-            (Expr::String(a), Expr::String(b)) => assert_eq!(a, b),
-            _ => panic!("not matching values"),
-        }
-    }
+    use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
     fn callinfo_round_trip_signature() {
@@ -191,21 +177,16 @@ mod tests {
             span: Span { start: 1, end: 20 },
         };
 
-        let call = Call {
-            decl_id: 1,
+        let call = EvaluatedCall {
             head: Span { start: 0, end: 10 },
             positional: vec![
-                Expression {
-                    expr: Expr::Float(1.0),
+                Value::Float {
+                    val: 1.0,
                     span: Span { start: 0, end: 10 },
-                    ty: nu_protocol::Type::Float,
-                    custom_completion: None,
                 },
-                Expression {
-                    expr: Expr::String("something".into()),
+                Value::String {
+                    val: "something".into(),
                     span: Span { start: 0, end: 10 },
-                    ty: nu_protocol::Type::Float,
-                    custom_completion: None,
                 },
             ],
             named: vec![(
@@ -213,11 +194,9 @@ mod tests {
                     item: "name".to_string(),
                     span: Span { start: 0, end: 10 },
                 },
-                Some(Expression {
-                    expr: Expr::Float(1.0),
+                Some(Value::Float {
+                    val: 1.0,
                     span: Span { start: 0, end: 10 },
-                    ty: nu_protocol::Type::Float,
-                    custom_completion: None,
                 }),
             )],
         };
@@ -243,7 +222,7 @@ mod tests {
                 call.positional
                     .iter()
                     .zip(call_info.call.positional.iter())
-                    .for_each(|(lhs, rhs)| compare_expressions(lhs, rhs));
+                    .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                 call.named
                     .iter()
@@ -254,7 +233,7 @@ mod tests {
 
                         match (&lhs.1, &rhs.1) {
                             (None, None) => {}
-                            (Some(a), Some(b)) => compare_expressions(a, b),
+                            (Some(a), Some(b)) => assert_eq!(a, b),
                             _ => panic!("not matching values"),
                         }
                     });

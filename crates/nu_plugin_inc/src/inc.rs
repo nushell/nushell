@@ -1,5 +1,4 @@
-use nu_plugin::plugin::PluginError;
-use nu_protocol::{Span, Value};
+use nu_protocol::{ShellError, Span, Value};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Action {
@@ -82,14 +81,14 @@ impl Inc {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
-    pub fn inc(&self, value: &Value) -> Result<Value, PluginError> {
+    pub fn inc(&self, value: &Value) -> Result<Value, ShellError> {
         match value {
             Value::Int { val, span } => Ok(Value::Int {
                 val: val + 1,
                 span: *span,
             }),
             Value::String { val, .. } => Ok(self.apply(val)),
-            _ => Err(PluginError::RunTimeError("incrementable value".to_string())),
+            _ => Err(ShellError::InternalError("incrementable value".to_string())),
         }
     }
 }

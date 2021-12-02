@@ -1,11 +1,13 @@
 mod custom_value;
 mod from;
+mod from_value;
 mod range;
 mod stream;
 mod unit;
 
 use chrono::{DateTime, FixedOffset};
 use chrono_humanize::HumanTime;
+pub use from_value::FromValue;
 use indexmap::map::IndexMap;
 pub use range::*;
 use serde::{Deserialize, Serialize};

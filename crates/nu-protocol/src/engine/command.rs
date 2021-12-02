@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{ast::Call, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack};
@@ -47,7 +49,7 @@ pub trait Command: Send + Sync + CommandClone {
     }
 
     // Is a plugin command
-    fn is_plugin(&self) -> Option<&str> {
+    fn is_plugin(&self) -> Option<&PathBuf> {
         None
     }
 

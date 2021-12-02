@@ -6,10 +6,9 @@ edition = "2018"
 [dependencies]
 miette = "3.0.0"
 thiserror = "1.0.29"
-nu-protocol = { path = "../nu-protocol"}
-nu-plugin = { path = "../nu-plugin", optional=true}
 serde_json = "1.0"
 nu-path = {path = "../nu-path"}
+nu-protocol = { path = "../nu-protocol"}
 
 [features]
-plugin = ["nu-plugin"]
+plugin = []

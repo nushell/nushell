@@ -1503,7 +1503,6 @@ version = "0.1.0"
 dependencies = [
  "miette",
  "nu-path",
- "nu-plugin",
  "nu-protocol",
  "serde_json",
  "thiserror",
@@ -1523,6 +1522,7 @@ version = "0.1.0"
 dependencies = [
  "capnp",
  "capnpc",
+ "nu-engine",
  "nu-protocol",
 ]
 
@@ -1564,10 +1564,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu_plugin_example"
+version = "0.1.0"
+dependencies = [
+ "nu-plugin",
+ "nu-protocol",
+]
+
+[[package]]
 name = "nu_plugin_inc"
 version = "0.1.0"
 dependencies = [
- "nu-engine",
  "nu-plugin",
  "nu-protocol",
  "semver",

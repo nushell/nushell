@@ -5,9 +5,9 @@ use std::str::FromStr;
 
 use chrono::{DateTime, FixedOffset};
 // use nu_path::expand_path;
-use nu_protocol::ast::{CellPath, PathMember};
-use nu_protocol::ShellError;
-use nu_protocol::{Range, Spanned, Value};
+use crate::ast::{CellPath, PathMember};
+use crate::ShellError;
+use crate::{Range, Spanned, Value};
 
 pub trait FromValue: Sized {
     fn from_value(v: &Value) -> Result<Self, ShellError>;
@@ -337,53 +337,3 @@ impl FromValue for Spanned<PathBuf> {
         }
     }
 }
-
-// impl FromValue for Dictionary {
-//     fn from_value(v: &Value) -> Result<Self, ShellError> {
-//         match v {
-//             Value {
-//                 value: UntaggedValue::Row(r),
-//                 ..
-//             } => Ok(r.clone()),
-//             v => Err(ShellError::type_error("row", v.spanned_type_name())),
-//         }
-//     }
-// }
-
-// impl FromValue for CapturedBlock {
-//     fn from_value(v: &Value) -> Result<Self, ShellError> {
-//         match v {
-//             Value {
-//                 value: UntaggedValue::Block(b),
-//                 ..
-//             } => Ok((**b).clone()),
-//             Value {
-//                 value: UntaggedValue::Row(_),
-//                 ..
-//             } => {
-//                 let mut shell_error = ShellError::type_error("block", v.spanned_type_name());
-//                 shell_error.notes.push(
-//                     "Note: you can access columns using dot. eg) $it.column or (ls).column".into(),
-//                 );
-//                 Err(shell_error)
-//             }
-//             v => Err(ShellError::type_error("block", v.spanned_type_name())),
-//         }
-//     }
-// }
-
-// impl FromValue for Vec<Value> {
-//     fn from_value(v: &Value) -> Result<Self, ShellError> {
-//         match v {
-//             Value {
-//                 value: UntaggedValue::Table(t),
-//                 ..
-//             } => Ok(t.clone()),
-//             Value {
-//                 value: UntaggedValue::Row(_),
-//                 ..
-//             } => Ok(vec![v.clone()]),
-//             v => Err(ShellError::type_error("table", v.spanned_type_name())),
-//         }
-//     }
-// }

@@ -1,18 +1,20 @@
 use crate::plugin_call::{self, decode_call, encode_response};
 use std::io::BufReader;
+use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
-use std::{fmt::Display, path::Path};
 
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{ast::Call, Signature, Value};
 use nu_protocol::{PipelineData, ShellError};
+
+use super::evaluated_call::EvaluatedCall;
 
 const OUTPUT_BUFFER_SIZE: usize = 8192;
 
 #[derive(Debug)]
 pub struct CallInfo {
     pub name: String,
-    pub call: Call,
+    pub call: EvaluatedCall,
     pub input: Value,
 }
 
@@ -31,43 +33,12 @@ pub enum PluginResponse {
     Value(Box<Value>),
 }
 
-#[derive(Debug)]
-pub enum PluginError {
-    MissingSignature,
-    UnableToGetStdout,
-    UnableToSpawn(String),
-    EncodingError(String),
-    DecodingError(String),
-    RunTimeError(String),
-}
-
-impl Display for PluginError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            PluginError::MissingSignature => write!(f, "missing signature in plugin"),
-            PluginError::UnableToGetStdout => write!(f, "couldn't get stdout from child process"),
-            PluginError::UnableToSpawn(err) => {
-                write!(f, "error in spawned child process: {}", err)
-            }
-            PluginError::EncodingError(err) => {
-                write!(f, "error while encoding: {}", err)
-            }
-            PluginError::DecodingError(err) => {
-                write!(f, "error while decoding: {}", err)
-            }
-            PluginError::RunTimeError(err) => {
-                write!(f, "runtime error: {}", err)
-            }
-        }
-    }
-}
-
-pub fn get_signature(path: &Path) -> Result<Vec<Signature>, PluginError> {
+pub fn get_signature(path: &Path) -> Result<Vec<Signature>, ShellError> {
     let mut plugin_cmd = create_command(path);
 
-    let mut child = plugin_cmd
-        .spawn()
-        .map_err(|err| PluginError::UnableToSpawn(format!("{}", err)))?;
+    let mut child = plugin_cmd.spawn().map_err(|err| {
+        ShellError::InternalError(format!("Error spawning child process: {}", err))
+    })?;
 
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
@@ -84,11 +55,16 @@ pub fn get_signature(path: &Path) -> Result<Vec<Signature>, PluginError> {
 
         match response {
             PluginResponse::Signature(sign) => Ok(sign),
-            PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
-            _ => Err(PluginError::DecodingError("signature not found".into())),
+            PluginResponse::Error(msg) => Err(ShellError::InternalError(format!(
+                "Plugin response error {}",
+                msg,
+            ))),
+            _ => Err(ShellError::InternalError("Plugin missing signature".into())),
         }
     } else {
-        Err(PluginError::UnableToGetStdout)
+        Err(ShellError::InternalError(
+            "Plugin missing stdout reader".into(),
+        ))
     }?;
 
     // There is no need to wait for the child process to finish since the
@@ -120,11 +96,11 @@ fn create_command(path: &Path) -> CommandSys {
 pub struct PluginDeclaration {
     name: String,
     signature: Signature,
-    filename: String,
+    filename: PathBuf,
 }
 
 impl PluginDeclaration {
-    pub fn new(filename: String, signature: Signature) -> Self {
+    pub fn new(filename: PathBuf, signature: Signature) -> Self {
         Self {
             name: signature.name.clone(),
             signature,
@@ -148,8 +124,8 @@ impl Command for PluginDeclaration {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -159,9 +135,14 @@ impl Command for PluginDeclaration {
         let source_file = Path::new(&self.filename);
         let mut plugin_cmd = create_command(source_file);
 
-        let mut child = plugin_cmd
-            .spawn()
-            .map_err(|err| ShellError::PluginError(format!("{}", err)))?;
+        let mut child = plugin_cmd.spawn().map_err(|err| {
+            let decl = engine_state.get_decl(call.decl_id);
+            ShellError::LabeledError(
+                format!("Unable to spawn plugin for {}", decl.name()),
+                format!("{}", err),
+                call.head,
+            )
+        })?;
 
         let input = match input {
             PipelineData::Value(value) => value,
@@ -181,49 +162,71 @@ impl Command for PluginDeclaration {
             // PluginCall information
             let plugin_call = PluginCall::CallInfo(Box::new(CallInfo {
                 name: self.name.clone(),
-                call: call.clone(),
+                call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
                 input,
             }));
 
             let mut writer = stdin_writer;
 
-            plugin_call::encode_call(&plugin_call, &mut writer)
-                .map_err(|err| ShellError::PluginError(err.to_string()))?;
+            plugin_call::encode_call(&plugin_call, &mut writer).map_err(|err| {
+                let decl = engine_state.get_decl(call.decl_id);
+                ShellError::LabeledError(
+                    format!("Unable to encode call for {}", decl.name()),
+                    err.to_string(),
+                    call.head,
+                )
+            })?;
         }
 
         // Deserialize response from plugin to extract the resulting value
         let pipeline_data = if let Some(stdout_reader) = &mut child.stdout {
             let reader = stdout_reader;
             let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-            let response = plugin_call::decode_response(&mut buf_read)
-                .map_err(|err| ShellError::PluginError(err.to_string()))?;
+            let response = plugin_call::decode_response(&mut buf_read).map_err(|err| {
+                let decl = engine_state.get_decl(call.decl_id);
+                ShellError::LabeledError(
+                    format!("Unable to decode call for {}", decl.name()),
+                    err.to_string(),
+                    call.head,
+                )
+            })?;
 
             match response {
                 PluginResponse::Value(value) => Ok(PipelineData::Value(value.as_ref().clone())),
-                PluginResponse::Error(msg) => Err(PluginError::DecodingError(msg)),
-                _ => Err(PluginError::DecodingError(
-                    "result value from plugin not found".into(),
+                PluginResponse::Error(msg) => Err(ShellError::LabeledError(
+                    "Error received from plugin".into(),
+                    msg,
+                    call.head,
+                )),
+                _ => Err(ShellError::LabeledError(
+                    "Plugin missing value".into(),
+                    "No value received from plugin".into(),
+                    call.head,
                 )),
             }
         } else {
-            Err(PluginError::UnableToGetStdout)
-        }
-        .map_err(|err| ShellError::PluginError(err.to_string()))?;
+            Err(ShellError::LabeledError(
+                "Error with stdout reader".into(),
+                "no stdout reader".into(),
+                call.head,
+            ))
+        }?;
 
         // There is no need to wait for the child process to finish
         // The response has been collected from the plugin call
         Ok(pipeline_data)
     }
 
-    fn is_plugin(&self) -> Option<&str> {
-        Some(self.filename.as_str())
+    fn is_plugin(&self) -> Option<&PathBuf> {
+        Some(&self.filename)
     }
 }
 
 /// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
 pub trait Plugin {
     fn signature(&self) -> Vec<Signature>;
-    fn run(&mut self, name: &str, call: &Call, input: &Value) -> Result<Value, PluginError>;
+    fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
+        -> Result<Value, ShellError>;
 }
 
 // Function used in the plugin definition for the communication protocol between
@@ -260,4 +263,38 @@ pub fn serve_plugin(plugin: &mut impl Plugin) {
             }
         }
     }
+}
+
+pub fn eval_plugin_signatures(working_set: &mut StateWorkingSet) -> Result<(), ShellError> {
+    let decls = working_set
+        .get_signatures()
+        .map(|(path, signature)| match signature {
+            Some(signature) => {
+                let plugin_decl = PluginDeclaration::new(path.clone(), signature.clone());
+                let plugin_decl: Box<dyn Command> = Box::new(plugin_decl);
+                Ok(vec![plugin_decl])
+            }
+            None => match get_signature(path.as_path()) {
+                Ok(signatures) => Ok(signatures
+                    .into_iter()
+                    .map(|signature| {
+                        let plugin_decl = PluginDeclaration::new(path.clone(), signature);
+                        let plugin_decl: Box<dyn Command> = Box::new(plugin_decl);
+                        plugin_decl
+                    })
+                    .collect::<Vec<Box<dyn Command>>>()),
+                Err(err) => Err(ShellError::InternalError(format!("{}", err))),
+            },
+        })
+        // Need to collect the vector in order to check the error from getting the signature
+        .collect::<Result<Vec<Vec<Box<dyn Command>>>, ShellError>>()?;
+
+    let decls = decls
+        .into_iter()
+        .flatten()
+        .collect::<Vec<Box<dyn Command>>>();
+
+    working_set.add_plugin_decls(decls);
+
+    Ok(())
 }

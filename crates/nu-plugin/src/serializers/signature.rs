@@ -1,6 +1,5 @@
-use crate::plugin::PluginError;
 use crate::plugin_capnp::{argument, flag, signature, Category as PluginCategory, Shape};
-use nu_protocol::{Category, Flag, PositionalArg, Signature, SyntaxShape};
+use nu_protocol::{Category, Flag, PositionalArg, ShellError, Signature, SyntaxShape};
 
 pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature::Builder) {
     builder.set_name(signature.name.as_str());
@@ -46,14 +45,13 @@ pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature:
     }
 
     // Serializing rest argument
-    let rest_argument = builder.reborrow().init_rest();
     if let Some(arg) = &signature.rest_positional {
+        let rest_argument = builder.reborrow().init_rest();
         serialize_argument(arg, rest_argument)
     }
 
     // Serializing the named arguments
     let mut named_list = builder.reborrow().init_named(signature.named.len() as u32);
-
     for (index, arg) in signature.named.iter().enumerate() {
         let inner_builder = named_list.reborrow().get(index as u32);
         serialize_flag(arg, inner_builder)
@@ -95,21 +93,21 @@ fn serialize_flag(arg: &Flag, mut builder: flag::Builder) {
     }
 }
 
-pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signature, PluginError> {
+pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signature, ShellError> {
     let name = reader
         .get_name()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
     let usage = reader
         .get_usage()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
     let extra_usage = reader
         .get_extra_usage()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
     let is_filter = reader.get_is_filter();
 
     let category = match reader
         .get_category()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?
+        .map_err(|e| ShellError::InternalError(e.to_string()))?
     {
         PluginCategory::Default => Category::Default,
         PluginCategory::Conversions => Category::Conversions,
@@ -129,28 +127,28 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing required arguments
     let required_list = reader
         .get_required_positional()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let required_positional = required_list
         .iter()
         .map(deserialize_argument)
-        .collect::<Result<Vec<PositionalArg>, PluginError>>()?;
+        .collect::<Result<Vec<PositionalArg>, ShellError>>()?;
 
     // Deserializing optional arguments
     let optional_list = reader
         .get_optional_positional()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let optional_positional = optional_list
         .iter()
         .map(deserialize_argument)
-        .collect::<Result<Vec<PositionalArg>, PluginError>>()?;
+        .collect::<Result<Vec<PositionalArg>, ShellError>>()?;
 
     // Deserializing rest arguments
     let rest_positional = if reader.has_rest() {
         let argument_reader = reader
             .get_rest()
-            .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+            .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
         Some(deserialize_argument(argument_reader)?)
     } else {
@@ -160,12 +158,12 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     // Deserializing named arguments
     let named_list = reader
         .get_named()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let named = named_list
         .iter()
         .map(deserialize_flag)
-        .collect::<Result<Vec<Flag>, PluginError>>()?;
+        .collect::<Result<Vec<Flag>, ShellError>>()?;
 
     Ok(Signature {
         name: name.to_string(),
@@ -181,18 +179,18 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
     })
 }
 
-fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, PluginError> {
+fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, ShellError> {
     let name = reader
         .get_name()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let shape = reader
         .get_shape()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let shape = match shape {
         Shape::String => SyntaxShape::String,
@@ -211,21 +209,21 @@ fn deserialize_argument(reader: argument::Reader) -> Result<PositionalArg, Plugi
     })
 }
 
-fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
+fn deserialize_flag(reader: flag::Reader) -> Result<Flag, ShellError> {
     let long = reader
         .get_long()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let desc = reader
         .get_desc()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let required = reader.get_required();
 
     let short = if reader.has_short() {
         let short_reader = reader
             .get_short()
-            .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+            .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
         short_reader.chars().next()
     } else {
@@ -234,7 +232,7 @@ fn deserialize_flag(reader: flag::Reader) -> Result<Flag, PluginError> {
 
     let arg = reader
         .get_arg()
-        .map_err(|e| PluginError::EncodingError(e.to_string()))?;
+        .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
     let arg = match arg {
         Shape::None => None,
@@ -264,7 +262,7 @@ mod tests {
     pub fn write_buffer(
         signature: &Signature,
         writer: &mut impl std::io::Write,
-    ) -> Result<(), PluginError> {
+    ) -> Result<(), ShellError> {
         let mut message = ::capnp::message::Builder::new_default();
 
         let builder = message.init_root::<signature::Builder>();
@@ -272,16 +270,16 @@ mod tests {
         serialize_signature(signature, builder);
 
         serialize::write_message(writer, &message)
-            .map_err(|e| PluginError::EncodingError(e.to_string()))
+            .map_err(|e| ShellError::InternalError(e.to_string()))
     }
 
-    pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, PluginError> {
+    pub fn read_buffer(reader: &mut impl std::io::BufRead) -> Result<Signature, ShellError> {
         let message_reader =
             serialize::read_message(reader, ::capnp::message::ReaderOptions::new()).unwrap();
 
         let reader = message_reader
             .get_root::<signature::Reader>()
-            .map_err(|e| PluginError::DecodingError(e.to_string()))?;
+            .map_err(|e| ShellError::InternalError(e.to_string()))?;
 
         deserialize_signature(reader)
     }
@@ -292,15 +290,58 @@ mod tests {
             .required("first", SyntaxShape::String, "first required")
             .required("second", SyntaxShape::Int, "second required")
             .required_named("first_named", SyntaxShape::String, "first named", Some('f'))
-            .required_named(
-                "second_named",
-                SyntaxShape::String,
-                "second named",
-                Some('s'),
-            )
+            .required_named("second_named", SyntaxShape::Int, "first named", Some('s'))
+            .required_named("name", SyntaxShape::String, "first named", Some('n'))
+            .required_named("string", SyntaxShape::String, "second named", Some('x'))
             .switch("switch", "some switch", None)
             .rest("remaining", SyntaxShape::Int, "remaining")
             .category(Category::Conversions);
+
+        let mut buffer: Vec<u8> = Vec::new();
+        write_buffer(&signature, &mut buffer).expect("unable to serialize message");
+        let returned_signature =
+            read_buffer(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        assert_eq!(signature.name, returned_signature.name);
+        assert_eq!(signature.usage, returned_signature.usage);
+        assert_eq!(signature.extra_usage, returned_signature.extra_usage);
+        assert_eq!(signature.is_filter, returned_signature.is_filter);
+        assert_eq!(signature.category, returned_signature.category);
+
+        signature
+            .required_positional
+            .iter()
+            .zip(returned_signature.required_positional.iter())
+            .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+        signature
+            .optional_positional
+            .iter()
+            .zip(returned_signature.optional_positional.iter())
+            .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+        signature
+            .named
+            .iter()
+            .zip(returned_signature.named.iter())
+            .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
+
+        assert_eq!(
+            signature.rest_positional,
+            returned_signature.rest_positional,
+        );
+    }
+
+    #[test]
+    fn value_round_trip_2() {
+        let signature = Signature::build("test-1")
+            .desc("Signature test 1 for plugin. Returns Value::Nothing")
+            .required("a", SyntaxShape::Int, "required integer value")
+            .required("b", SyntaxShape::String, "required string value")
+            .optional("opt", SyntaxShape::Boolean, "Optional boolean")
+            .switch("flag", "a flag for the signature", Some('f'))
+            .named("named", SyntaxShape::String, "named string", Some('n'))
+            .category(Category::Experimental);
 
         let mut buffer: Vec<u8> = Vec::new();
         write_buffer(&signature, &mut buffer).expect("unable to serialize message");
