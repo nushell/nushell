@@ -4,19 +4,17 @@ description = "A converter plugin to the bson format for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_from_bson"
-version = "0.36.1"
+version = "0.40.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
-bson = { version="0.14.1", features=["decimal128"] }
-nu-errors = { path="../nu-errors", version = "0.36.1" }
-nu-plugin = { path="../nu-plugin", version = "0.36.1" }
-nu-protocol = { path="../nu-protocol", version = "0.36.1" }
-nu-source = { path="../nu-source", version = "0.36.1" }
-nu-value-ext = { path="../nu-value-ext", version = "0.36.1" }
-num-traits = "0.2.14"
+bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
+bson = { version = "2.0.1", features = [ "chrono-0_4" ] }
+nu-errors = { path="../nu-errors", version = "0.40.0" }
+nu-plugin = { path="../nu-plugin", version = "0.40.0" }
+nu-protocol = { path="../nu-protocol", version = "0.40.0" }
+nu-source = { path="../nu-source", version = "0.40.0" }
 
 [build-dependencies]

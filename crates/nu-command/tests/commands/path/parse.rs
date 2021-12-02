@@ -48,7 +48,7 @@ fn parses_custom_extension_gets_extension() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo 'home/viking/spam.tar.gz' 
+            echo 'home/viking/spam.tar.gz'
             | path parse -e tar.gz
             | get extension
         "#
@@ -62,7 +62,7 @@ fn parses_custom_extension_gets_stem() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo 'home/viking/spam.tar.gz' 
+            echo 'home/viking/spam.tar.gz'
             | path parse -e tar.gz
             | get stem
         "#
@@ -76,7 +76,7 @@ fn parses_ignoring_extension_gets_extension() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo 'home/viking/spam.tar.gz' 
+            echo 'home/viking/spam.tar.gz'
             | path parse -e ''
             | get extension
         "#
@@ -90,7 +90,7 @@ fn parses_ignoring_extension_gets_stem() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
-            echo 'home/viking/spam.tar.gz' 
+            echo 'home/viking/spam.tar.gz'
             | path parse -e ""
             | get stem
         "#
@@ -105,7 +105,7 @@ fn parses_column_path_extension() {
         cwd: "tests", pipeline(
         r#"
             echo [[home, barn]; ['home/viking/spam.txt', 'barn/cow/moo.png']]
-            | path parse home barn
+            | path parse -c [ home barn ]
             | get barn
             | get extension
         "#

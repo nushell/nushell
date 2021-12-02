@@ -47,7 +47,7 @@ impl TreeView {
                 _ => value.clone(),
             };
             builder = builder.begin_child(desc.clone());
-            Self::from_value_helper(&value, &mut builder);
+            Self::from_value_helper(&value, builder);
             builder = builder.end_child();
             //entries.push((desc.name.clone(), value.borrow().copy()))
         }

@@ -1,6 +1,6 @@
 [package]
 name = "nu-serde"
-version = "0.36.1"
+version = "0.40.0"
 edition = "2018"
 authors = ["The Nu Project Contributors"]
 description = "Turn any value into a nu-protocol::Value with serde"
@@ -9,9 +9,9 @@ repository = "https://github.com/nushell/nushell"
 documentation = "https://docs.rs/nu-serde"
 
 [dependencies]
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
-nu-protocol = { version = "0.36.1", path = "../nu-protocol" }
-nu-source = { version = "0.36.1", path = "../nu-source" }
+bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
+nu-protocol = { version = "0.40.0", path = "../nu-protocol" }
+nu-source = { version = "0.40.0", path = "../nu-source" }
 serde = "1"
 thiserror = "1"
 

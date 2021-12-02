@@ -77,6 +77,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             // Shells
             whole_stream_command(Next),
             whole_stream_command(Previous),
+            whole_stream_command(Goto),
             whole_stream_command(Shells),
             whole_stream_command(Enter),
             whole_stream_command(Exit),
@@ -126,6 +127,7 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(AnsiStrip),
             whole_stream_command(AnsiGradient),
             whole_stream_command(Char),
+            whole_stream_command(DetectColumns),
             // Column manipulation
             whole_stream_command(DropColumn),
             whole_stream_command(MoveColumn),
@@ -133,9 +135,11 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(Select),
             whole_stream_command(Get),
             whole_stream_command(Update),
+            whole_stream_command(UpdateCells),
             whole_stream_command(Insert),
             whole_stream_command(Into),
             whole_stream_command(IntoBinary),
+            whole_stream_command(IntoColumnPath),
             whole_stream_command(IntoInt),
             whole_stream_command(IntoFilepath),
             whole_stream_command(IntoFilesize),
@@ -362,14 +366,6 @@ pub fn create_default_context(interactive: bool) -> Result<EvaluationContext, Bo
             whole_stream_command(DataFrameCumulative),
             whole_stream_command(DataFrameRename),
         ]);
-
-        #[cfg(feature = "clipboard-cli")]
-        {
-            context.add_commands(vec![
-                whole_stream_command(crate::commands::Clip),
-                whole_stream_command(crate::commands::Paste),
-            ]);
-        }
     }
 
     Ok(context)

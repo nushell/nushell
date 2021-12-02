@@ -1,8 +1,10 @@
 # Nu-Engine
+
 Nu-engine handles most of the core logic of nushell. For example, engine handles:
-    - Passing of data between commands
-    - Evaluating a commands return values
-    - Loading of user configurations
+
+- Passing of data between commands
+- Evaluating a commands return values
+- Loading of user configurations
 
 ## Top level introduction
 The following topics shall give the reader a top level understanding how various topics are handled in nushell.

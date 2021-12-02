@@ -69,13 +69,11 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
         for lib_path in dir {
             match lib_path {
                 Ok(name) => {
-                    let path = canonicalize_with(&source_file, name).map_err(|e| {
-                        ShellError::labeled_error(
-                            format!("Can't load source file. Reason: {}", e.to_string()),
-                            "Can't load this file",
-                            filename.span(),
-                        )
-                    })?;
+                    let path = if let Ok(p) = canonicalize_with(&source_file, name) {
+                        p
+                    } else {
+                        continue;
+                    };
 
                     if let Ok(contents) = std::fs::read_to_string(path) {
                         let result = script::run_script_standalone(contents, true, ctx, false);

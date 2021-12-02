@@ -11,12 +11,6 @@ use nu_protocol::{
 
 pub struct WithEnv;
 
-#[derive(Deserialize, Debug)]
-struct WithEnvArgs {
-    variable: Value,
-    block: CapturedBlock,
-}
-
 impl WholeStreamCommand for WithEnv {
     fn name(&self) -> &str {
         "with-env"

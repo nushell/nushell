@@ -132,7 +132,7 @@ mod tests {
 
         match spec {
             NamedType::Optional(_, _) => {}
-            _ => panic!("optional flag didn't parse succesfully"),
+            _ => panic!("optional flag didn't parse successfully"),
         }
     }
 }

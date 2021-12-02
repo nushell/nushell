@@ -24,6 +24,7 @@ use rustyline::{self, error::ReadlineError};
 
 use nu_errors::ShellError;
 use nu_parser::ParserScope;
+use nu_path::expand_tilde;
 use nu_protocol::{hir::ExternalRedirection, ConfigPath, UntaggedValue, Value};
 
 use log::trace;
@@ -33,7 +34,7 @@ use std::path::PathBuf;
 
 // Name of environment variable where the prompt could be stored
 #[cfg(feature = "rustyline-support")]
-const PROMPT_STRING: &str = "PROMPT_STRING";
+const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
 
 pub fn search_paths() -> Vec<std::path::PathBuf> {
     use std::env;
@@ -54,7 +55,7 @@ pub fn search_paths() -> Vec<std::path::PathBuf> {
         {
             for pipeline in pipelines {
                 if let Ok(plugin_dir) = pipeline.as_string() {
-                    search_paths.push(PathBuf::from(plugin_dir));
+                    search_paths.push(expand_tilde(plugin_dir));
                 }
             }
         }
@@ -301,9 +302,9 @@ pub fn cli(
 
         let cwd = context.shell_manager().path();
 
-        // Check if the PROMPT_STRING env variable is set. This env variable
+        // Check if the PROMPT_COMMAND env variable is set. This env variable
         // contains nu code that is used to overwrite the prompt
-        let colored_prompt = match context.scope.get_env(PROMPT_STRING) {
+        let colored_prompt = match context.scope.get_env(PROMPT_COMMAND) {
             Some(env_prompt) => evaluate_prompt_string(&env_prompt, &context, &cwd),
             None => {
                 if let Some(prompt) = &prompt {
@@ -371,7 +372,7 @@ pub fn cli(
             LineResult::ClearHistory => {
                 if options.save_history {
                     rl.clear_history();
-                    let _ = rl.append_history(&history_path);
+                    std::fs::remove_file(&history_path)?;
                 }
             }
 

@@ -21,7 +21,7 @@ pub fn compute_between_dataframes(
     if let (UntaggedValue::DataFrame(lhs), UntaggedValue::DataFrame(rhs)) =
         (&left.value, &right.value)
     {
-        let operation_span = left.tag.span.until(right.tag.span);
+        let operation_span = right.tag.span.merge(left.tag.span);
         match (lhs.is_series(), rhs.is_series()) {
             (true, true) => {
                 let lhs = &lhs
@@ -603,7 +603,7 @@ where
 {
     match series.dtype() {
         DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
-            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+            let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
                 Ok(series) => {
@@ -661,7 +661,7 @@ where
 {
     match series.dtype() {
         DataType::Float32 => {
-            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+            let to_f64 = series.cast(&DataType::Float64);
 
             match to_f64 {
                 Ok(series) => {
@@ -731,7 +731,7 @@ where
 {
     match series.dtype() {
         DataType::UInt32 | DataType::Int32 | DataType::UInt64 => {
-            let to_i64 = series.cast_with_dtype(&DataType::Int64);
+            let to_i64 = series.cast(&DataType::Int64);
 
             match to_i64 {
                 Ok(series) => {
@@ -789,7 +789,7 @@ where
 {
     match series.dtype() {
         DataType::Float32 => {
-            let to_f64 = series.cast_with_dtype(&DataType::Float64);
+            let to_f64 = series.cast(&DataType::Float64);
 
             match to_f64 {
                 Ok(series) => {

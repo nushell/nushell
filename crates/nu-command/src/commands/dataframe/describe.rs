@@ -121,7 +121,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let tail = df.as_ref().get_columns().iter().map(|col| {
         let count = col.len() as f64;
 
-        let sum = match col.sum_as_series().cast_with_dtype(&DataType::Float64) {
+        let sum = match col.sum_as_series().cast(&DataType::Float64) {
             Ok(ca) => match ca.get(0) {
                 AnyValue::Float64(v) => Some(v),
                 _ => None,
@@ -144,7 +144,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             _ => None,
         };
 
-        let min = match col.min_as_series().cast_with_dtype(&DataType::Float64) {
+        let min = match col.min_as_series().cast(&DataType::Float64) {
             Ok(ca) => match ca.get(0) {
                 AnyValue::Float64(v) => Some(v),
                 _ => None,
@@ -153,7 +153,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         };
 
         let q_25 = match col.quantile_as_series(0.25) {
-            Ok(ca) => match ca.cast_with_dtype(&DataType::Float64) {
+            Ok(ca) => match ca.cast(&DataType::Float64) {
                 Ok(ca) => match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
@@ -164,7 +164,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         };
 
         let q_50 = match col.quantile_as_series(0.50) {
-            Ok(ca) => match ca.cast_with_dtype(&DataType::Float64) {
+            Ok(ca) => match ca.cast(&DataType::Float64) {
                 Ok(ca) => match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
@@ -175,7 +175,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
         };
 
         let q_75 = match col.quantile_as_series(0.75) {
-            Ok(ca) => match ca.cast_with_dtype(&DataType::Float64) {
+            Ok(ca) => match ca.cast(&DataType::Float64) {
                 Ok(ca) => match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
@@ -185,7 +185,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             Err(_) => None,
         };
 
-        let max = match col.max_as_series().cast_with_dtype(&DataType::Float64) {
+        let max = match col.max_as_series().cast(&DataType::Float64) {
             Ok(ca) => match ca.get(0) {
                 AnyValue::Float64(v) => Some(v),
                 _ => None,

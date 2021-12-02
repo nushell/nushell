@@ -8,20 +8,11 @@ use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
 
+#[derive(Default)]
 pub struct DocumentationConfig {
     no_subcommands: bool,
     no_color: bool,
     brief: bool,
-}
-
-impl Default for DocumentationConfig {
-    fn default() -> Self {
-        DocumentationConfig {
-            no_subcommands: false,
-            no_color: false,
-            brief: false,
-        }
-    }
 }
 
 fn generate_doc(name: &str, scope: &Scope) -> IndexMap<String, Value> {

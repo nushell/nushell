@@ -221,11 +221,6 @@ fn features_enabled() -> Vec<String> {
         names.push("zip".to_string());
     }
 
-    #[cfg(feature = "clipboard-cli")]
-    {
-        names.push("clipboard-cli".to_string());
-    }
-
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());

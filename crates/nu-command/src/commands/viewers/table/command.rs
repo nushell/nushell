@@ -11,13 +11,6 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-#[cfg(feature = "table-pager")]
-use {
-    futures::future::join,
-    minus::{ExitStrategy, Pager},
-    std::fmt::Write,
-};
-
 const STREAM_PAGE_SIZE: usize = 1000;
 const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
@@ -186,28 +179,9 @@ fn table(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let term_width = args.host().lock().width();
 
-    #[cfg(feature = "table-pager")]
-    let pager = Pager::new()
-        .set_exit_strategy(ExitStrategy::PagerQuit)
-        .set_searchable(true)
-        .set_page_if_havent_overflowed(false)
-        .set_input_handler(Box::new(input_handling::MinusInputHandler {}))
-        .finish();
-
     let stream_data = async {
         let finished = Arc::new(AtomicBool::new(false));
         // we are required to clone finished, for use within the callback, otherwise we get borrow errors
-        #[cfg(feature = "table-pager")]
-        let finished_within_callback = finished.clone();
-        #[cfg(feature = "table-pager")]
-        {
-            // This is called when the pager finishes, to indicate to the
-            // while loop below to finish, in case of long running InputStream consumer
-            // that doesn't finish by the time the user quits out of the pager
-            pager.lock().await.add_exit_callback(move || {
-                finished_within_callback.store(true, Ordering::Relaxed);
-            });
-        }
         while !finished.clone().load(Ordering::Relaxed) {
             let mut new_input: VecDeque<Value> = VecDeque::new();
 
@@ -263,159 +237,20 @@ fn table(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
             if !input.is_empty() {
                 let t = from_list(&input, &configuration, start_number, &color_hm);
                 let output = draw_table(&t, term_width, &color_hm);
-                #[cfg(feature = "table-pager")]
-                {
-                    let mut pager = pager.lock().await;
-                    writeln!(pager.lines, "{}", output).map_err(|_| {
-                        ShellError::untagged_runtime_error("Error writing to pager")
-                    })?;
-                }
 
-                #[cfg(not(feature = "table-pager"))]
                 println!("{}", output);
             }
 
             start_number += input.len();
         }
 
-        #[cfg(feature = "table-pager")]
-        {
-            let mut pager_lock = pager.lock().await;
-            pager_lock.data_finished();
-        }
-
         Result::<_, ShellError>::Ok(())
     };
 
-    #[cfg(feature = "table-pager")]
-    {
-        let (minus_result, streaming_result) =
-            block_on(join(minus::async_std_updating(pager.clone()), stream_data));
-        minus_result.map_err(|_| ShellError::untagged_runtime_error("Error paging data"))?;
-        streaming_result?;
-    }
-
-    #[cfg(not(feature = "table-pager"))]
     block_on(stream_data)
         .map_err(|_| ShellError::untagged_runtime_error("Error streaming data"))?;
 
     Ok(OutputStream::empty())
-}
-
-#[cfg(feature = "table-pager")]
-mod input_handling {
-    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-    use minus::{InputEvent, InputHandler, LineNumbers, SearchMode};
-    pub struct MinusInputHandler;
-
-    impl InputHandler for MinusInputHandler {
-        fn handle_input(
-            &self,
-            ev: Event,
-            upper_mark: usize,
-            search_mode: SearchMode,
-            ln: LineNumbers,
-            rows: usize,
-        ) -> Option<InputEvent> {
-            match ev {
-                // Scroll up by one.
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
-
-                // Scroll down by one.
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
-
-                // Mouse scroll up/down
-                Event::Mouse(MouseEvent {
-                    kind: MouseEventKind::ScrollUp,
-                    ..
-                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5))),
-                Event::Mouse(MouseEvent {
-                    kind: MouseEventKind::ScrollDown,
-                    ..
-                }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5))),
-                // Go to top.
-                Event::Key(KeyEvent {
-                    code: KeyCode::Home,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(0)),
-                // Go to bottom.
-                Event::Key(KeyEvent {
-                    code: KeyCode::End,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
-
-                // Page Up/Down
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageUp,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(
-                    upper_mark.saturating_sub(rows - 1),
-                )),
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageDown,
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::UpdateUpperMark(
-                    upper_mark.saturating_add(rows - 1),
-                )),
-
-                // Resize event from the terminal.
-                Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
-                // Switch line number display.
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('l'),
-                    modifiers: KeyModifiers::CONTROL,
-                }) => Some(InputEvent::UpdateLineNumber(!ln)),
-                // Quit.
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('q'),
-                    modifiers: KeyModifiers::NONE,
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Char('Q'),
-                    modifiers: KeyModifiers::SHIFT,
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Esc,
-                    modifiers: KeyModifiers::NONE,
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL,
-                }) => Some(InputEvent::Exit),
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('/'),
-                    modifiers: KeyModifiers::NONE,
-                }) => Some(InputEvent::Search(SearchMode::Unknown)),
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::CONTROL,
-                }) => {
-                    if search_mode == SearchMode::Unknown {
-                        Some(InputEvent::NextMatch)
-                    } else {
-                        None
-                    }
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::CONTROL,
-                }) => {
-                    if search_mode == SearchMode::Unknown {
-                        Some(InputEvent::PrevMatch)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            }
-        }
-    }
 }
 
 #[cfg(test)]

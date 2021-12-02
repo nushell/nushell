@@ -15,6 +15,7 @@ impl WholeStreamCommand for Command {
             .switch("skip-plugins", "do not load plugins", None)
             .switch("no-history", "don't save history", None)
             .switch("perf", "show startup performance metrics", None)
+            .switch("login", "start Nu as if it was a login shell", Some('l'))
             .named(
                 "commands",
                 SyntaxShape::String,
@@ -33,7 +34,7 @@ impl WholeStreamCommand for Command {
                 "loglevel",
                 SyntaxShape::String,
                 "LEVEL: error, warn, info, debug, trace",
-                Some('l'),
+                None,
             )
             .named(
                 "config-file",

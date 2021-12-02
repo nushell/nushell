@@ -5,54 +5,47 @@ description = "CLI for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-command"
-version = "0.36.1"
+version = "0.40.0"
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-data = { version = "0.36.1", path="../nu-data" }
-nu-engine = { version = "0.36.1", path="../nu-engine" }
-nu-errors = { version = "0.36.1", path="../nu-errors" }
-nu-json = { version = "0.36.1", path="../nu-json" }
-nu-path = { version = "0.36.1", path="../nu-path" }
-nu-parser = { version = "0.36.1", path="../nu-parser" }
-nu-plugin = { version = "0.36.1", path="../nu-plugin" }
-nu-protocol = { version = "0.36.1", path="../nu-protocol" }
-nu-serde = { version = "0.36.1", path="../nu-serde" }
-nu-source = { version = "0.36.1", path="../nu-source" }
-nu-stream = { version = "0.36.1", path="../nu-stream" }
-nu-table = { version = "0.36.1", path="../nu-table" }
-nu-test-support = { version = "0.36.1", path="../nu-test-support" }
-nu-value-ext = { version = "0.36.1", path="../nu-value-ext" }
-nu-ansi-term = { version = "0.36.1", path="../nu-ansi-term" }
-nu-pretty-hex = { version = "0.36.1", path="../nu-pretty-hex" }
+nu-data = { version = "0.40.0", path="../nu-data" }
+nu-engine = { version = "0.40.0", path="../nu-engine" }
+nu-errors = { version = "0.40.0", path="../nu-errors" }
+nu-json = { version = "0.40.0", path="../nu-json" }
+nu-path = { version = "0.40.0", path="../nu-path" }
+nu-parser = { version = "0.40.0", path="../nu-parser" }
+nu-plugin = { version = "0.40.0", path="../nu-plugin" }
+nu-protocol = { version = "0.40.0", path="../nu-protocol" }
+nu-serde = { version = "0.40.0", path="../nu-serde" }
+nu-source = { version = "0.40.0", path="../nu-source" }
+nu-stream = { version = "0.40.0", path="../nu-stream" }
+nu-table = { version = "0.40.0", path="../nu-table" }
+nu-test-support = { version = "0.40.0", path="../nu-test-support" }
+nu-value-ext = { version = "0.40.0", path="../nu-value-ext" }
+nu-ansi-term = { version = "0.40.0", path="../nu-ansi-term" }
+nu-pretty-hex = { version = "0.40.0", path="../nu-pretty-hex" }
 
 url = "2.2.1"
 mime = "0.3.16"
 Inflector = "0.11"
-arboard = { version="1.1.0", optional=true }
 base64 = "0.13.0"
-bigdecimal = { package = "bigdecimal-rs", version = "0.2.1", features = ["serde"] }
-byte-unit = "4.0.9"
-bytes = "1.0.1"
+bigdecimal = { version = "0.3.0", features = ["serde"] }
 calamine = "0.18.0"
 chrono = { version="0.4.19", features=["serde"] }
 chrono-tz = "0.5.3"
-codespan-reporting = "0.11.0"
 crossterm = { version="0.19.0", optional=true }
 csv = "1.1.3"
 ctrlc = { version="3.1.7", optional=true }
 derive-new = "0.5.8"
-directories-next = "2.0.0"
 dirs-next = "2.0.0"
 dtparse = "1.2.0"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.28"
 filesize = "0.2.0"
-fs_extra = "1.2.0"
 futures = { version="0.3.12", features=["compat", "io-compat"] }
-getset = "0.1.1"
 glob = "0.3.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
@@ -62,41 +55,32 @@ lazy_static = "1.*"
 log = "0.4.14"
 md-5 = "0.9.1"
 meval = "0.2.0"
-minus = { version="3.4.0", optional=true, features=["async_std_lib", "search"] }
-num-bigint = { version="0.3.1", features=["serde"] }
+num-bigint = { version="0.4.3", features=["serde"] }
 num-format = { version="0.4.0", features=["with-num-bigint"] }
 num-traits = "0.2.14"
 parking_lot = "0.11.1"
-pin-utils = "0.1.0"
-query_interface = "0.3.5"
 quick-xml = "0.22"
 rand = "0.8"
-rayon = "1.5.0"
 regex = "1.4.3"
 reqwest = {version = "0.11", optional = true }
 roxmltree = "0.14.0"
 rust-embed = "5.9.0"
 rustyline = { version="9.0.0", optional=true }
 serde = { version="1.0.123", features=["derive"] }
-serde_bytes = "0.11.5"
 serde_ini = "0.2.0"
 serde_json = "1.0.61"
 serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
-sxd-document = "0.3.2"
-sxd-xpath = "0.4.2"
-sysinfo = { version = "0.20.2", optional = true }
+sysinfo = { version = "0.21.1", optional = true }
 thiserror = "1.0.26"
-tempfile = "3.2.0"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
-termcolor = "1.1.2"
 titlecase = "1.1.0"
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 toml = "0.5.8"
-trash = { version="1.3.0", optional=true }
+trash = { version = "2.0.2", optional = true }
 unicode-segmentation = "1.8"
 uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
 which = { version="4.1.0", optional=true }
@@ -104,9 +88,10 @@ zip = { version="0.5.9", optional=true }
 digest = "0.9.0"
 
 [dependencies.polars]
-version = "0.15.1"
+version = "0.17.0"
 optional = true
-features = ["parquet", "json", "random", "pivot", "strings", "is_in", "temporal"]
+default-features = false
+features = ["docs", "zip_with", "csv-file", "temporal", "performant", "pretty_fmt", "dtype-slim", "parquet", "json", "random", "pivot", "strings", "is_in", "cum_agg", "rolling_window"]
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
@@ -115,16 +100,11 @@ users = "0.11.0"
 # TODO this will be possible with new dependency resolver
 #   (currently on nightly behind -Zfeatures=itarget):
 #   https://github.com/rust-lang/cargo/issues/7914
-#[target.'cfg(not(windows))'.dependencies]
-#num-format = {version = "0.4", features = ["with-system-locale"]}
-
-[dependencies.rusqlite]
-features = ["bundled", "blob"]
-optional = true
-version = "0.25.3"
+# [target.'cfg(not(windows))'.dependencies]
+# num-format = { version = "0.4", features = ["with-system-locale"] }
 
 [build-dependencies]
-shadow-rs = "0.6"
+shadow-rs = "0.8.1"
 
 [dev-dependencies]
 quickcheck = "1.0.3"
@@ -132,11 +112,9 @@ quickcheck_macros = "1.0.0"
 hamcrest2 = "0.3.0"
 
 [features]
-clipboard-cli = ["arboard"]
 rustyline-support = ["rustyline"]
 stable = []
 trash-support = ["trash"]
-table-pager = ["minus", "crossterm"]
 dataframe = ["nu-protocol/dataframe", "polars"]
 fetch = ["reqwest", "tokio"]
 post = ["reqwest", "tokio"]

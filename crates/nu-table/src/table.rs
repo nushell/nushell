@@ -918,7 +918,17 @@ impl WrappedTable {
             output.push_str(&self.print_separator(SeparatorPosition::Bottom, color_hm));
         }
 
-        output
+        if atty::is(atty::Stream::Stdout) {
+            // Draw the table with ansi colors
+            output
+        } else {
+            // Draw the table without ansi colors
+            if let Ok(bytes) = strip_ansi_escapes::strip(&output) {
+                String::from_utf8_lossy(&bytes).to_string()
+            } else {
+                output
+            }
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 mod build_string;
 mod char_;
+mod detect;
 mod format;
 mod lines;
 mod parse;
@@ -10,6 +11,7 @@ mod str_;
 
 pub use build_string::BuildString;
 pub use char_::Char;
+pub use detect::DetectColumns;
 pub use format::*;
 pub use lines::Lines;
 pub use parse::*;

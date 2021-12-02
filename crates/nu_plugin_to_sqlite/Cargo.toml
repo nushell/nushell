@@ -1,26 +1,24 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "A converter plugin to the bson format for Nushell"
+description = "A converter plugin to the SQLite format for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu_plugin_to_sqlite"
-version = "0.36.1"
+version = "0.40.0"
 
 [lib]
 doctest = false
 
 [dependencies]
 hex = "0.4.2"
-nu-errors = { path="../nu-errors", version = "0.36.1" }
-nu-plugin = { path="../nu-plugin", version = "0.36.1" }
-nu-protocol = { path="../nu-protocol", version = "0.36.1" }
-nu-source = { path="../nu-source", version = "0.36.1" }
-nu-value-ext = { path="../nu-value-ext", version = "0.36.1" }
-num-traits = "0.2.14"
+nu-errors = { path="../nu-errors", version = "0.40.0" }
+nu-plugin = { path="../nu-plugin", version = "0.40.0" }
+nu-protocol = { path="../nu-protocol", version = "0.40.0" }
+nu-source = { path="../nu-source", version = "0.40.0" }
 tempfile = "3.2.0"
 
 [dependencies.rusqlite]
 features = ["bundled", "blob"]
-version = "0.25.3"
+version = "0.26.1"
 
 [build-dependencies]

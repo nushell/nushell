@@ -18,7 +18,7 @@ fn splits_correctly_single_path() {
         cwd: "tests", pipeline(
         r#"
             echo ['home/viking/spam.txt']
-            | path split 
+            | path split
             | last
         "#
     ));
@@ -37,7 +37,7 @@ fn splits_correctly_with_column_path() {
                 ['home/viking/spam.txt', 'barn/cow/moo.png']
                 ['home/viking/eggs.txt', 'barn/goat/cheese.png']
             ]
-            | path split home barn
+            | path split -c [ home barn ]
             | get barn
             | length
         "#

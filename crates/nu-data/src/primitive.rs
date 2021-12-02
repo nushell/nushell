@@ -102,7 +102,6 @@ pub fn string_to_lookup_value(str_prim: &str) -> String {
         "separator_color" => "separator_color".to_string(),
         "header_align" => "header_align".to_string(),
         "header_color" => "header_color".to_string(),
-        "header_bold" => "header_bold".to_string(),
         "header_style" => "header_style".to_string(),
         "index_color" => "index_color".to_string(),
         "leading_trailing_space_bg" => "leading_trailing_space_bg".to_string(),
@@ -144,7 +143,6 @@ pub fn get_color_config(config: &NuConfig) -> HashMap<String, Style> {
     hm.insert("separator_color".to_string(), Color::White.normal());
     hm.insert("header_align".to_string(), Color::Green.bold());
     hm.insert("header_color".to_string(), Color::Green.bold());
-    hm.insert("header_bold".to_string(), Color::Green.bold());
     hm.insert("header_style".to_string(), Style::default());
     hm.insert("index_color".to_string(), Color::Green.bold());
     hm.insert(
@@ -202,9 +200,6 @@ pub fn get_color_config(config: &NuConfig) -> HashMap<String, Style> {
                     update_hashmap(key, value, &mut hm);
                 }
                 "header_color" => {
-                    update_hashmap(key, value, &mut hm);
-                }
-                "header_bold" => {
                     update_hashmap(key, value, &mut hm);
                 }
                 "header_style" => {
@@ -358,14 +353,7 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             let style = color_hm.get("header_color");
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Center, *s),
-                None => TextStyle::default_header(),
-            }
-        }
-        "header_bold" => {
-            let style = color_hm.get("header_bold");
-            match style {
-                Some(s) => TextStyle::with_style(Alignment::Center, *s),
-                None => TextStyle::default_header(),
+                None => TextStyle::default_header().bold(Some(true)),
             }
         }
         "header_style" => {

@@ -401,4 +401,48 @@ mod external_command_arguments {
             },
         )
     }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn semicolons_are_sanitized_before_passing_to_subshell() {
+        let actual = nu!(
+            cwd: ".",
+            "^echo \"a;b\""
+        );
+
+        assert_eq!(actual.out, "a;b");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn ampersands_are_sanitized_before_passing_to_subshell() {
+        let actual = nu!(
+            cwd: ".",
+            "^echo \"a&b\""
+        );
+
+        assert_eq!(actual.out, "a&b");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn subcommands_are_sanitized_before_passing_to_subshell() {
+        let actual = nu!(
+            cwd: ",",
+            "^echo \"$(ls)\""
+        );
+
+        assert_eq!(actual.out, "$(ls)");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn shell_arguments_are_sanitized_even_if_coming_from_other_commands() {
+        let actual = nu!(
+            cwd: ",",
+            "^echo (echo \"a;&$(hello)\")"
+        );
+
+        assert_eq!(actual.out, "a;&$(hello)");
+    }
 }

@@ -56,7 +56,7 @@ fn command(mut args: CommandArgs) -> Result<OutputStream, ShellError> {
     let series = df.as_series(&df_tag.span)?;
 
     let casted = series
-        .date64()
+        .datetime()
         .map_err(|e| parse_polars_error::<&str>(&e, &df_tag.span, None))?;
 
     let res = casted.year().into_series();

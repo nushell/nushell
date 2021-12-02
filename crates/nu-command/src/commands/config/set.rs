@@ -38,7 +38,7 @@ impl WholeStreamCommand for SubCommand {
             },
             Example {
                 description: "Set coloring options",
-                example: "config set color_config [[header_align header_bold]; [left $true]]",
+                example: "config set color_config [[header_align header_color]; [left white_bold]]",
                 result: None,
             },
             Example {

@@ -20,8 +20,7 @@ const DEFAULT_LINE_COLORS: [Color; 5] = [
 ];
 
 #[derive(Debug)]
-pub struct Line<'a> {
-    title: &'a str,
+pub struct Line {
     x_labels: Vec<String>,
     x_range: [f64; 2],
     y_range: [f64; 2],
@@ -29,10 +28,9 @@ pub struct Line<'a> {
     data: Vec<Vec<(f64, f64)>>,
 }
 
-impl<'a> Line<'a> {
-    pub fn from_model(model: &'a Model) -> Result<Line<'a>, ShellError> {
+impl<'a> Line {
+    pub fn from_model(model: &'a Model) -> Result<Line, ShellError> {
         Ok(Line {
-            title: "Line Chart",
             x_labels: model.labels.x.to_vec(),
             x_range: [
                 model.ranges.0.start.as_u64()? as f64,

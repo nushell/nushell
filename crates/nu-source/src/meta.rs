@@ -605,6 +605,16 @@ impl Span {
         Span::new(self.start, other.end)
     }
 
+    pub fn merge(&self, other: impl Into<Span>) -> Span {
+        let other = other.into();
+
+        if other.end < self.start {
+            other.until(self)
+        } else {
+            self.until(other)
+        }
+    }
+
     /// Returns a new Span by merging a later Span with the current Span.
     ///
     /// If the given Span is of the None variant,

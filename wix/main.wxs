@@ -297,10 +297,6 @@
             <ComponentRef Id='binary18'/>
             <ComponentRef Id='binary19'/>
             <ComponentRef Id='binary20'/>
-            <ComponentRef Id='binary21'/>
-            <ComponentRef Id='binary22'/>
-            <ComponentRef Id='binary23'/>
-            <ComponentRef Id='binary24'/>
 
             <Feature
                 Id='Environment'

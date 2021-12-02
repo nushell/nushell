@@ -87,7 +87,7 @@ impl PartialEq for NuDataFrame {
                 // Casting needed to compare other numeric types with nushell numeric type.
                 // In nushell we only have i64 integer numeric types and any array created
                 // with nushell untagged primitives will be of type i64
-                DataType::UInt32 => match self_series.cast_with_dtype(&DataType::Int64) {
+                DataType::UInt32 => match self_series.cast(&DataType::Int64) {
                     Ok(series) => series,
                     Err(_) => return false,
                 },

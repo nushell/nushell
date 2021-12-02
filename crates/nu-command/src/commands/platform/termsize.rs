@@ -6,12 +6,6 @@ use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct TermSize;
 
-#[derive(Deserialize, Clone)]
-pub struct TermSizeArgs {
-    wide: bool,
-    tall: bool,
-}
-
 impl WholeStreamCommand for TermSize {
     fn name(&self) -> &str {
         "term size"

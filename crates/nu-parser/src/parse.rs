@@ -901,7 +901,7 @@ fn parse_arg(
         return parse_dollar_expr(lite_arg, scope);
     }
 
-    // before anything else, try to see if this is a number in paranthesis
+    // before anything else, try to see if this is a number in parenthesis
     if lite_arg.item.starts_with('(') {
         return parse_full_column_path(lite_arg, scope);
     }
@@ -1559,11 +1559,16 @@ fn parse_internal_command(
                                     if error.is_none() {
                                         error = err;
                                     }
-                                } else if error.is_none() {
-                                    error = Some(ParseError::argument_error(
-                                        lite_cmd.parts[0].clone(),
-                                        ArgumentError::MissingValueForName(full_name.to_owned()),
-                                    ));
+                                } else {
+                                    if error.is_none() {
+                                        error = Some(ParseError::argument_error(
+                                            lite_cmd.parts[0].clone(),
+                                            ArgumentError::MissingValueForName(
+                                                full_name.to_owned(),
+                                            ),
+                                        ));
+                                    }
+                                    break;
                                 }
                             }
                         }

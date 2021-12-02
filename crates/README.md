@@ -10,4 +10,4 @@ Foundational libraries are split into two kinds of crates:
 Plugins are likewise also split into two types:
 
 * Core plugins - plugins that provide part of the default experience of Nu, including access to the system properties, processes, and web-connectivity features.
-* Extra plugins - these plugins run a wide range of differnt capabilities like working with different file types, charting, viewing binary data, and more.
+* Extra plugins - these plugins run a wide range of different capabilities like working with different file types, charting, viewing binary data, and more.
