@@ -5,7 +5,10 @@ edition = "2018"
 
 [dependencies]
 nu-parser = { path = "../nu-parser" }
-nu-protocol = { path = "../nu-protocol" }
+nu-protocol = { path = "../nu-protocol", features = ["plugin"] }
 nu-path = { path = "../nu-path" }
 itertools = "0.10.1"
 chrono = { version="0.4.19", features=["serde"] }
+
+[features]
+plugin = []
