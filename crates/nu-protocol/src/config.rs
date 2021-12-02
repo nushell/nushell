@@ -2,7 +2,7 @@ use crate::{ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-const ANIMATE_PROMPT_DEFAULT: bool = true;
+const ANIMATE_PROMPT_DEFAULT: bool = false;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
