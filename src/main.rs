@@ -150,7 +150,16 @@ fn main() -> Result<()> {
         ) {
             Ok(pipeline_data) => {
                 let config = stack.get_config()?;
-                println!("{}", pipeline_data.collect_string("\n", &config));
+                for item in pipeline_data {
+                    if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(&engine_state);
+
+                        report_error(&working_set, &error);
+
+                        std::process::exit(1);
+                    }
+                    println!("{}", item.into_string("\n", &config));
+                }
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(&engine_state);
@@ -314,21 +323,46 @@ fn print_pipeline_data(
 
     let config = stack.get_config()?;
 
-    let output = match engine_state.find_decl("table".as_bytes()) {
+    match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
             let table =
                 engine_state
                     .get_decl(decl_id)
                     .run(engine_state, stack, &Call::new(), input)?;
-            table.collect_string("\n", &config)
-        }
-        None => input.collect_string(", ", &config),
-    };
-    let stdout = std::io::stdout();
 
-    match stdout.lock().write_all(output.as_bytes()) {
-        Ok(_) => (),
-        Err(err) => eprintln!("{}", err),
+            for item in table {
+                let stdout = std::io::stdout();
+
+                if let Value::Error { error } = item {
+                    return Err(error);
+                }
+
+                let mut out = item.into_string("\n", &config);
+                out.push('\n');
+
+                match stdout.lock().write_all(out.as_bytes()) {
+                    Ok(_) => (),
+                    Err(err) => eprintln!("{}", err),
+                };
+            }
+        }
+        None => {
+            for item in input {
+                let stdout = std::io::stdout();
+
+                if let Value::Error { error } = item {
+                    return Err(error);
+                }
+
+                let mut out = item.into_string("\n", &config);
+                out.push('\n');
+
+                match stdout.lock().write_all(out.as_bytes()) {
+                    Ok(_) => (),
+                    Err(err) => eprintln!("{}", err),
+                };
+            }
+        }
     };
 
     Ok(())
