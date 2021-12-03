@@ -631,6 +631,14 @@ impl Value {
             span: Span::unknown(),
         }
     }
+
+    // Only use these for test data. Span::unknown() should not be used in user data
+    pub fn test_float(val: f64) -> Value {
+        Value::Float {
+            val,
+            span: Span::unknown(),
+        }
+    }
 }
 
 impl Default for Value {
