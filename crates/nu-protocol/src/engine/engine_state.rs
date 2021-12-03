@@ -440,37 +440,71 @@ impl EngineState {
         }
     }
 
-    pub fn get_signatures(&self) -> Vec<Signature> {
-        let mut output = vec![];
-        for decl in self.decls.iter() {
-            if decl.get_block_id().is_none() {
-                let mut signature = (*decl).signature();
-                signature.usage = decl.usage().to_string();
-                signature.extra_usage = decl.extra_usage().to_string();
+    /// Get all IDs of all commands within scope, sorted by the commads' names
+    pub fn get_decl_ids_sorted(&self, include_hidden: bool) -> impl Iterator<Item = DeclId> {
+        let mut decls_map = HashMap::new();
 
-                output.push(signature);
-            }
+        for frame in &self.scope {
+            let frame_decls = if include_hidden {
+                frame.decls.clone()
+            } else {
+                frame
+                    .decls
+                    .clone()
+                    .into_iter()
+                    .filter(|(_, id)| frame.visibility.is_decl_id_visible(id))
+                    .collect()
+            };
+
+            decls_map.extend(frame_decls);
         }
 
-        output
+        let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
+
+        decls.sort_by(|a, b| a.0.cmp(&b.0));
+        decls.into_iter().map(|(_, id)| id)
     }
 
-    pub fn get_signatures_with_examples(&self) -> Vec<(Signature, Vec<Example>, bool)> {
-        let mut output = vec![];
-        for decl in self.decls.iter() {
-            if decl.get_block_id().is_none() {
+    /// Get signatures of all commands within scope.
+    pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
+        self.get_decl_ids_sorted(include_hidden)
+            .map(|id| {
+                let decl = self.get_decl(id);
+
                 let mut signature = (*decl).signature();
                 signature.usage = decl.usage().to_string();
                 signature.extra_usage = decl.extra_usage().to_string();
 
-                output.push((signature, decl.examples(), decl.is_plugin().is_some()));
-            }
-        }
+                signature
+            })
+            .collect()
+    }
 
-        output.sort_by(|a, b| a.0.name.cmp(&b.0.name));
-        output.dedup_by(|a, b| a.0.name.cmp(&b.0.name).is_eq());
+    /// Get signatures of all commands within scope.
+    ///
+    /// In addition to signatures, it returns whether each command is:
+    ///     a) a plugin
+    ///     b) custom
+    pub fn get_signatures_with_examples(
+        &self,
+        include_hidden: bool,
+    ) -> Vec<(Signature, Vec<Example>, bool, bool)> {
+        self.get_decl_ids_sorted(include_hidden)
+            .map(|id| {
+                let decl = self.get_decl(id);
 
-        output
+                let mut signature = (*decl).signature();
+                signature.usage = decl.usage().to_string();
+                signature.extra_usage = decl.extra_usage().to_string();
+
+                (
+                    signature,
+                    decl.examples(),
+                    decl.is_plugin().is_some(),
+                    decl.get_block_id().is_some(),
+                )
+            })
+            .collect()
     }
 
     pub fn get_block(&self, block_id: BlockId) -> &Block {

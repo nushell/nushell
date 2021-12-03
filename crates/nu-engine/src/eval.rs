@@ -602,6 +602,12 @@ pub fn eval_variable(
                     span,
                 });
 
+                cols.push("is_custom".to_string());
+                vals.push(Value::Bool {
+                    val: decl.get_block_id().is_some(),
+                    span,
+                });
+
                 cols.push("creates_scope".to_string());
                 vals.push(Value::Bool {
                     val: signature.creates_scope,

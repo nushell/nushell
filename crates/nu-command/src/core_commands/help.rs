@@ -85,19 +85,19 @@ fn help(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    let full_commands = engine_state.get_signatures_with_examples();
+    let full_commands = engine_state.get_signatures_with_examples(false);
 
     if let Some(f) = find {
         let search_string = f.item;
         let mut found_cmds_vec = Vec::new();
 
-        for cmd in full_commands {
+        for (sig, _, is_plugin, is_custom) in full_commands {
             let mut cols = vec![];
             let mut vals = vec![];
 
-            let key = cmd.0.name.clone();
-            let c = cmd.0.usage.clone();
-            let e = cmd.0.extra_usage.clone();
+            let key = sig.name.clone();
+            let c = sig.usage.clone();
+            let e = sig.extra_usage.clone();
             if key.to_lowercase().contains(&search_string)
                 || c.to_lowercase().contains(&search_string)
                 || e.to_lowercase().contains(&search_string)
@@ -110,13 +110,19 @@ fn help(
 
                 cols.push("category".into());
                 vals.push(Value::String {
-                    val: cmd.0.category.to_string(),
+                    val: sig.category.to_string(),
                     span: head,
                 });
 
                 cols.push("is_plugin".into());
                 vals.push(Value::Bool {
-                    val: cmd.2,
+                    val: is_plugin,
+                    span: head,
+                });
+
+                cols.push("is_custom".into());
+                vals.push(Value::Bool {
+                    val: is_custom,
                     span: head,
                 });
 
@@ -143,13 +149,13 @@ fn help(
         let mut found_cmds_vec = Vec::new();
 
         if rest[0].item == "commands" {
-            for cmd in full_commands {
+            for (sig, _, is_plugin, is_custom) in full_commands {
                 let mut cols = vec![];
                 let mut vals = vec![];
 
-                let key = cmd.0.name.clone();
-                let c = cmd.0.usage.clone();
-                let e = cmd.0.extra_usage.clone();
+                let key = sig.name.clone();
+                let c = sig.usage.clone();
+                let e = sig.extra_usage.clone();
 
                 cols.push("name".into());
                 vals.push(Value::String {
@@ -159,13 +165,19 @@ fn help(
 
                 cols.push("category".into());
                 vals.push(Value::String {
-                    val: cmd.0.category.to_string(),
+                    val: sig.category.to_string(),
                     span: head,
                 });
 
                 cols.push("is_plugin".into());
                 vals.push(Value::Bool {
-                    val: cmd.2,
+                    val: is_plugin,
+                    span: head,
+                });
+
+                cols.push("is_custom".into());
+                vals.push(Value::Bool {
+                    val: is_custom,
                     span: head,
                 });
 
@@ -197,8 +209,8 @@ fn help(
 
             let output = full_commands
                 .iter()
-                .filter(|(signature, _, _)| signature.name == name)
-                .map(|(signature, examples, _)| get_full_help(signature, examples, engine_state))
+                .filter(|(signature, _, _, _)| signature.name == name)
+                .map(|(signature, examples, _, _)| get_full_help(signature, examples, engine_state))
                 .collect::<Vec<String>>();
 
             if !output.is_empty() {

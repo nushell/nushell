@@ -64,7 +64,7 @@ fn generate_doc(name: &str, engine_state: &EngineState) -> (Vec<String>, Vec<Val
 
 // generate_docs gets the documentation from each command and returns a Table as output
 pub fn generate_docs(engine_state: &EngineState) -> Value {
-    let signatures = engine_state.get_signatures();
+    let signatures = engine_state.get_signatures(true);
 
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
     let mut cmap: HashMap<String, Vec<String>> = HashMap::new();
@@ -160,7 +160,7 @@ pub fn get_documentation(
 
     let mut subcommands = vec![];
     if !config.no_subcommands {
-        let signatures = engine_state.get_signatures();
+        let signatures = engine_state.get_signatures(true);
         for sig in signatures {
             if sig.name.starts_with(&format!("{} ", cmd_name)) {
                 subcommands.push(format!("  {} - {}", sig.name, sig.usage));
