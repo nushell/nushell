@@ -711,6 +711,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "crossterm",
+ "crossterm_winapi",
  "ctrlc",
  "dialoguer",
  "miette",

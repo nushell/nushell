@@ -1,11 +1,5 @@
-use std::{
-    io::Write,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-};
-
+#[cfg(windows)]
+use crossterm_winapi::{ConsoleMode, Handle};
 use dialoguer::{
     console::{Style, Term},
     theme::ColorfulTheme,
@@ -22,6 +16,13 @@ use nu_protocol::{
     PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
+use std::{
+    io::Write,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 #[cfg(test)]
 mod tests;
@@ -455,16 +456,56 @@ fn eval_source(
                 let working_set = StateWorkingSet::new(engine_state);
 
                 report_error(&working_set, &err);
+
+                // reset vt processing, aka ansi because illbehaved externals can break it
+                #[cfg(windows)]
+                {
+                    let _ = enable_vt_processing();
+                }
+
                 return false;
+            }
+
+            // reset vt processing, aka ansi because illbehaved externals can break it
+            #[cfg(windows)]
+            {
+                let _ = enable_vt_processing();
             }
         }
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);
 
             report_error(&working_set, &err);
+
+            // reset vt processing, aka ansi because illbehaved externals can break it
+            #[cfg(windows)]
+            {
+                let _ = enable_vt_processing();
+            }
             return false;
         }
     }
 
     true
+}
+
+#[cfg(windows)]
+fn enable_vt_processing() -> Result<(), ShellError> {
+    pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
+    pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
+    // let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+
+    let console_mode = ConsoleMode::from(Handle::current_out_handle()?);
+    let old_mode = console_mode.mode()?;
+
+    // researching odd ansi behavior in windows terminal repo revealed that
+    // enable_processed_output and enable_virtual_terminal_processing should be used
+    // also, instead of checking old_mode & mask, just set the mode already
+
+    // if old_mode & mask == 0 {
+    console_mode
+        .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?;
+    // }
+
+    Ok(())
 }
