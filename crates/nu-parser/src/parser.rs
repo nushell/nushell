@@ -23,7 +23,7 @@ use crate::parse_keywords::{
 use std::collections::HashSet;
 
 #[cfg(feature = "plugin")]
-use crate::parse_keywords::parse_plugin;
+use crate::parse_keywords::parse_register;
 
 #[derive(Debug, Clone)]
 pub enum Import {}
@@ -3226,7 +3226,7 @@ pub fn parse_statement(
         ),
         b"hide" => parse_hide(working_set, spans),
         #[cfg(feature = "plugin")]
-        b"register" => parse_plugin(working_set, spans),
+        b"register" => parse_register(working_set, spans),
         _ => {
             let (expr, err) = parse_expression(working_set, spans, true);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)

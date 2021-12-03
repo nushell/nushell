@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
@@ -637,18 +639,37 @@ pub fn eval_variable(
             span,
         });
 
+        commands.sort_by(|a, b| match (a, b) {
+            (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
+                // Comparing the first value from the record
+                // It is expected that the first value is the name of the column
+                // The names of the commands should be a value string
+                match (rec_a.get(0), rec_b.get(0)) {
+                    (Some(val_a), Some(val_b)) => match (val_a, val_b) {
+                        (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
+                            str_a.cmp(str_b)
+                        }
+                        _ => Ordering::Equal,
+                    },
+                    _ => Ordering::Equal,
+                }
+            }
+            _ => Ordering::Equal,
+        });
         output_cols.push("commands".to_string());
         output_vals.push(Value::List {
             vals: commands,
             span,
         });
 
+        aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         output_cols.push("aliases".to_string());
         output_vals.push(Value::List {
             vals: aliases,
             span,
         });
 
+        overlays.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         output_cols.push("overlays".to_string());
         output_vals.push(Value::List {
             vals: overlays,

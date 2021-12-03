@@ -16,4 +16,4 @@ pub use parse_keywords::{
 pub use parser::{find_captures_in_expr, parse, Import};
 
 #[cfg(feature = "plugin")]
-pub use parse_keywords::parse_plugin;
+pub use parse_keywords::parse_register;

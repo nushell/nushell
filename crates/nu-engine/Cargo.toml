@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-nu-parser = { path = "../nu-parser" }
 nu-protocol = { path = "../nu-protocol", features = ["plugin"] }
 nu-path = { path = "../nu-path" }
 itertools = "0.10.1"

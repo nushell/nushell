@@ -3,7 +3,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, Signature, Value};
 use nu_protocol::{PipelineData, ShellError};
 
@@ -267,38 +267,4 @@ pub fn serve_plugin(plugin: &mut impl Plugin) {
             }
         }
     }
-}
-
-pub fn eval_plugin_signatures(working_set: &mut StateWorkingSet) -> Result<(), ShellError> {
-    let decls = working_set
-        .get_signatures()
-        .map(|(path, signature)| match signature {
-            Some(signature) => {
-                let plugin_decl = PluginDeclaration::new(path.clone(), signature.clone());
-                let plugin_decl: Box<dyn Command> = Box::new(plugin_decl);
-                Ok(vec![plugin_decl])
-            }
-            None => match get_signature(path.as_path()) {
-                Ok(signatures) => Ok(signatures
-                    .into_iter()
-                    .map(|signature| {
-                        let plugin_decl = PluginDeclaration::new(path.clone(), signature);
-                        let plugin_decl: Box<dyn Command> = Box::new(plugin_decl);
-                        plugin_decl
-                    })
-                    .collect::<Vec<Box<dyn Command>>>()),
-                Err(err) => Err(ShellError::PluginFailedToLoad(format!("{}", err))),
-            },
-        })
-        // Need to collect the vector in order to check the error from getting the signature
-        .collect::<Result<Vec<Vec<Box<dyn Command>>>, ShellError>>()?;
-
-    let decls = decls
-        .into_iter()
-        .flatten()
-        .collect::<Vec<Box<dyn Command>>>();
-
-    working_set.add_plugin_decls(decls);
-
-    Ok(())
 }

@@ -1479,7 +1479,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "itertools",
- "nu-parser",
  "nu-path",
  "nu-protocol",
 ]
@@ -1503,6 +1502,7 @@ version = "0.1.0"
 dependencies = [
  "miette",
  "nu-path",
+ "nu-plugin",
  "nu-protocol",
  "serde_json",
  "thiserror",

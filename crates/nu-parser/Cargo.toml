@@ -9,6 +9,7 @@ thiserror = "1.0.29"
 serde_json = "1.0"
 nu-path = {path = "../nu-path"}
 nu-protocol = { path = "../nu-protocol"}
+nu-plugin = { path = "../nu-plugin", optional = true }
 
 [features]
-plugin = []
+plugin = ["nu-plugin"]
