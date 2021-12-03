@@ -187,7 +187,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
     ExportNotFound(#[label = "could not find imports"] Span),
 
-    #[error("File not found")]
+    #[error("File not found: {0}")]
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
     FileNotFound(String),
 

@@ -1,3 +1,4 @@
+use nu_path::canonicalize;
 use nu_protocol::{
     ast::{
         Block, Call, Expr, Expression, ImportPattern, ImportPatternHead, ImportPatternMember,
@@ -7,7 +8,6 @@ use nu_protocol::{
     span, Exportable, Overlay, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
 };
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 use crate::{
     lex, lite_parse,
@@ -679,44 +679,48 @@ pub fn parse_use(
                 // TODO: Do not close over when loading module from file
                 // It could be a file
                 if let Ok(module_filename) = String::from_utf8(import_pattern.head.name) {
-                    let module_path = Path::new(&module_filename);
-                    let module_name = if let Some(stem) = module_path.file_stem() {
-                        stem.to_string_lossy().to_string()
-                    } else {
-                        return (
-                            garbage_statement(spans),
-                            Some(ParseError::ModuleNotFound(spans[1])),
-                        );
-                    };
+                    if let Ok(module_path) = canonicalize(&module_filename) {
+                        let module_name = if let Some(stem) = module_path.file_stem() {
+                            stem.to_string_lossy().to_string()
+                        } else {
+                            return (
+                                garbage_statement(spans),
+                                Some(ParseError::ModuleNotFound(spans[1])),
+                            );
+                        };
 
-                    if let Ok(contents) = std::fs::read(module_path) {
-                        let span_start = working_set.next_span_start();
-                        working_set.add_file(module_filename, &contents);
-                        let span_end = working_set.next_span_start();
+                        if let Ok(contents) = std::fs::read(module_path) {
+                            let span_start = working_set.next_span_start();
+                            working_set.add_file(module_filename, &contents);
+                            let span_end = working_set.next_span_start();
 
-                        let (block, overlay, err) =
-                            parse_module_block(working_set, Span::new(span_start, span_end));
-                        error = error.or(err);
+                            let (block, overlay, err) =
+                                parse_module_block(working_set, Span::new(span_start, span_end));
+                            error = error.or(err);
 
-                        let _ = working_set.add_block(block);
-                        let _ = working_set.add_overlay(&module_name, overlay.clone());
+                            let _ = working_set.add_block(block);
+                            let _ = working_set.add_overlay(&module_name, overlay.clone());
 
-                        (
-                            ImportPattern {
-                                head: ImportPatternHead {
-                                    name: module_name.into(),
-                                    span: spans[1],
+                            (
+                                ImportPattern {
+                                    head: ImportPatternHead {
+                                        name: module_name.into(),
+                                        span: spans[1],
+                                    },
+                                    members: import_pattern.members,
+                                    hidden: HashSet::new(),
                                 },
-                                members: import_pattern.members,
-                                hidden: HashSet::new(),
-                            },
-                            overlay,
-                        )
+                                overlay,
+                            )
+                        } else {
+                            return (
+                                garbage_statement(spans),
+                                Some(ParseError::ModuleNotFound(spans[1])),
+                            );
+                        }
                     } else {
-                        return (
-                            garbage_statement(spans),
-                            Some(ParseError::ModuleNotFound(spans[1])),
-                        );
+                        error = error.or(Some(ParseError::FileNotFound(module_filename)));
+                        (ImportPattern::new(), Overlay::new())
                     }
                 } else {
                     return (
@@ -990,6 +994,7 @@ pub fn parse_source(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
+    let mut error = None;
     let name = working_set.get_span_contents(spans[0]);
 
     if name == b"source" {
@@ -998,63 +1003,63 @@ pub fn parse_source(
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let (call, call_span, err) =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            error = error.or(err);
 
             // Command and one file name
             if spans.len() >= 2 {
                 let name_expr = working_set.get_span_contents(spans[1]);
                 if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
-                    let source_file = Path::new(&filename);
+                    if let Ok(path) = canonicalize(&filename) {
+                        if let Ok(contents) = std::fs::read(&path) {
+                            // This will load the defs from the file into the
+                            // working set, if it was a successful parse.
+                            let (block, err) = parse(
+                                working_set,
+                                path.file_name().and_then(|x| x.to_str()),
+                                &contents,
+                                false,
+                            );
 
-                    let path = source_file;
-                    let contents = std::fs::read(path);
+                            if err.is_some() {
+                                // Unsuccessful parse of file
+                                return (
+                                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                        expr: Expr::Call(call),
+                                        span: span(&spans[1..]),
+                                        ty: Type::Unknown,
+                                        custom_completion: None,
+                                    }])),
+                                    // Return the file parse error
+                                    err,
+                                );
+                            } else {
+                                // Save the block into the working set
+                                let block_id = working_set.add_block(block);
 
-                    if let Ok(contents) = contents {
-                        // This will load the defs from the file into the
-                        // working set, if it was a successful parse.
-                        let (block, err) = parse(
-                            working_set,
-                            path.file_name().and_then(|x| x.to_str()),
-                            &contents,
-                            false,
-                        );
+                                let mut call_with_block = call;
 
-                        if err.is_some() {
-                            // Unsuccessful parse of file
-                            return (
-                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                                    expr: Expr::Call(call),
-                                    span: span(&spans[1..]),
+                                // Adding this expression to the positional creates a syntax highlighting error
+                                // after writing `source example.nu`
+                                call_with_block.positional.push(Expression {
+                                    expr: Expr::Int(block_id as i64),
+                                    span: spans[1],
                                     ty: Type::Unknown,
                                     custom_completion: None,
-                                }])),
-                                // Return the file parse error
-                                err,
-                            );
-                        } else {
-                            // Save the block into the working set
-                            let block_id = working_set.add_block(block);
+                                });
 
-                            let mut call_with_block = call;
-
-                            // Adding this expression to the positional creates a syntax highlighting error
-                            // after writing `source example.nu`
-                            call_with_block.positional.push(Expression {
-                                expr: Expr::Int(block_id as i64),
-                                span: spans[1],
-                                ty: Type::Unknown,
-                                custom_completion: None,
-                            });
-
-                            return (
-                                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                                    expr: Expr::Call(call_with_block),
-                                    span: call_span,
-                                    ty: Type::Unknown,
-                                    custom_completion: None,
-                                }])),
-                                None,
-                            );
+                                return (
+                                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                        expr: Expr::Call(call_with_block),
+                                        span: call_span,
+                                        ty: Type::Unknown,
+                                        custom_completion: None,
+                                    }])),
+                                    None,
+                                );
+                            }
                         }
+                    } else {
+                        error = error.or(Some(ParseError::FileNotFound(filename)));
                     }
                 } else {
                     return (
@@ -1070,7 +1075,7 @@ pub fn parse_source(
                     ty: Type::Unknown,
                     custom_completion: None,
                 }])),
-                err,
+                error,
             );
         }
     }
@@ -1090,7 +1095,6 @@ pub fn parse_register(
 ) -> (Statement, Option<ParseError>) {
     use std::{path::PathBuf, str::FromStr};
 
-    use nu_path::canonicalize;
     use nu_plugin::plugin::{get_signature, PluginDeclaration};
     use nu_protocol::Signature;
 

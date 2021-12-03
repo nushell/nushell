@@ -24,6 +24,17 @@ pub struct ImportPattern {
 }
 
 impl ImportPattern {
+    pub fn new() -> Self {
+        ImportPattern {
+            head: ImportPatternHead {
+                name: vec![],
+                span: Span::unknown(),
+            },
+            members: vec![],
+            hidden: HashSet::new(),
+        }
+    }
+
     pub fn span(&self) -> Span {
         let mut spans = vec![self.head.span];
 
@@ -48,5 +59,11 @@ impl ImportPattern {
             members: self.members,
             hidden,
         }
+    }
+}
+
+impl Default for ImportPattern {
+    fn default() -> Self {
+        Self::new()
     }
 }
