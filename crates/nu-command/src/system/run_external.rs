@@ -227,6 +227,10 @@ impl ExternalCommand {
 
         for arg in &self.args {
             let arg = trim_enclosing_quotes(arg);
+            let arg = nu_path::expand_path(arg).to_string_lossy().to_string();
+
+            let arg = arg.replace("\\", "\\\\");
+
             process.arg(&arg);
         }
 
