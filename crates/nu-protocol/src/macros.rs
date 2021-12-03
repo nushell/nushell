@@ -47,4 +47,3 @@ macro_rules! row {
          ::nu_protocol::UntaggedValue::row(map).into_untagged_value()
     }}
 }
-
