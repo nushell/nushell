@@ -13,6 +13,7 @@ mod rpad;
 mod starts_with;
 mod substring;
 mod trim;
+mod upcase;
 
 pub use capitalize::SubCommand as StrCapitalize;
 pub use case::*;
@@ -29,3 +30,4 @@ pub use rpad::SubCommand as StrRpad;
 pub use starts_with::SubCommand as StrStartsWith;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;
+pub use upcase::SubCommand as StrUpcase;
