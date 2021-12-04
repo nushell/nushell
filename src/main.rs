@@ -6,7 +6,7 @@ use dialoguer::{
     Select,
 };
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{report_error, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
+use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -457,12 +457,6 @@ fn eval_source(
 
                 report_error(&working_set, &err);
 
-                // reset vt processing, aka ansi because illbehaved externals can break it
-                #[cfg(windows)]
-                {
-                    let _ = enable_vt_processing();
-                }
-
                 return false;
             }
 
@@ -477,11 +471,6 @@ fn eval_source(
 
             report_error(&working_set, &err);
 
-            // reset vt processing, aka ansi because illbehaved externals can break it
-            #[cfg(windows)]
-            {
-                let _ = enable_vt_processing();
-            }
             return false;
         }
     }
@@ -490,7 +479,7 @@ fn eval_source(
 }
 
 #[cfg(windows)]
-fn enable_vt_processing() -> Result<(), ShellError> {
+pub fn enable_vt_processing() -> Result<(), ShellError> {
     pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
     pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
     // let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
@@ -508,4 +497,16 @@ fn enable_vt_processing() -> Result<(), ShellError> {
     // }
 
     Ok(())
+}
+
+pub fn report_error(
+    working_set: &StateWorkingSet,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) {
+    eprintln!("Error: {:?}", CliError(error, working_set));
+    // reset vt processing, aka ansi because illbehaved externals can break it
+    #[cfg(windows)]
+    {
+        let _ = enable_vt_processing();
+    }
 }

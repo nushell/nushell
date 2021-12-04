@@ -6,9 +6,9 @@ use thiserror::Error;
 /// forwards most methods, except for `.source_code()`, which we provide.
 #[derive(Error)]
 #[error("{0}")]
-struct CliError<'src>(
-    &'src (dyn miette::Diagnostic + Send + Sync + 'static),
-    &'src StateWorkingSet<'src>,
+pub struct CliError<'src>(
+    pub &'src (dyn miette::Diagnostic + Send + Sync + 'static),
+    pub &'src StateWorkingSet<'src>,
 );
 
 impl std::fmt::Debug for CliError<'_> {
@@ -43,11 +43,4 @@ impl<'src> miette::Diagnostic for CliError<'src> {
     fn source_code(&self) -> Option<&dyn SourceCode> {
         Some(&self.1)
     }
-}
-
-pub fn report_error(
-    working_set: &StateWorkingSet,
-    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
-) {
-    eprintln!("Error: {:?}", CliError(error, working_set));
 }
