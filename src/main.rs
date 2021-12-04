@@ -158,6 +158,59 @@ fn main() -> Result<()> {
                     }
                     println!("{}", item.into_string("\n", &config));
                 }
+
+                // Next, let's check if there are any flags we want to pass to the main function
+                let args: Vec<String> = std::env::args().skip(2).collect();
+
+                if args.is_empty() {
+                    return Ok(());
+                }
+
+                let args = format!("main {}", args.join(" ")).as_bytes().to_vec();
+
+                let (block, delta) = {
+                    let mut working_set = StateWorkingSet::new(&engine_state);
+                    let (output, err) = parse(&mut working_set, Some("<cmdline>"), &args, false);
+                    if let Some(err) = err {
+                        report_error(&working_set, &err);
+
+                        std::process::exit(1);
+                    }
+                    (output, working_set.render())
+                };
+
+                if let Err(err) = engine_state.merge_delta(delta) {
+                    let working_set = StateWorkingSet::new(&engine_state);
+                    report_error(&working_set, &err);
+                }
+
+                match eval_block(
+                    &engine_state,
+                    &mut stack,
+                    &block,
+                    PipelineData::new(Span::unknown()),
+                ) {
+                    Ok(pipeline_data) => {
+                        let config = stack.get_config()?;
+                        for item in pipeline_data {
+                            if let Value::Error { error } = item {
+                                let working_set = StateWorkingSet::new(&engine_state);
+
+                                report_error(&working_set, &error);
+
+                                std::process::exit(1);
+                            }
+                            println!("{}", item.into_string("\n", &config));
+                        }
+                    }
+                    Err(err) => {
+                        let working_set = StateWorkingSet::new(&engine_state);
+
+                        report_error(&working_set, &err);
+
+                        std::process::exit(1);
+                    }
+                }
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(&engine_state);
