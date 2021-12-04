@@ -81,6 +81,7 @@ pub fn create_default_context() -> EngineState {
             If,
             Into,
             IntoBinary,
+            IntoDatetime,
             IntoDecimal,
             IntoFilesize,
             IntoInt,

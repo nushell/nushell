@@ -24,6 +24,7 @@ sysinfo = "0.20.4"
 chrono = { version = "0.4.19", features = ["serde"] }
 chrono-humanize = "0.2.1"
 chrono-tz = "0.6.0"
+dtparse = "1.2.0"
 terminal_size = "0.1.17"
 indexmap = { version="1.7", features=["serde-1"] }
 lscolors = { version = "0.8.0", features = ["crossterm"] }
