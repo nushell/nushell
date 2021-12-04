@@ -49,7 +49,7 @@ impl Command for Cp {
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 
-        let path: PathBuf = current_dir().unwrap();
+        let path = current_dir()?;
         let source = path.join(source.as_str());
         let destination = path.join(destination.as_str());
 
@@ -83,12 +83,36 @@ impl Command for Cp {
                 let prompt = format!(
                     "Are you shure that you want to copy {} to {}?",
                     file.as_ref()
-                        .unwrap()
+                        .map_err(|err| ShellError::LabeledError(
+                            "Reference error".into(),
+                            err.to_string(),
+                            call.head
+                        ))?
                         .file_name()
-                        .unwrap()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "File name error".into(),
+                            "Unable to get file name".into(),
+                            call.head
+                        ))?
                         .to_str()
-                        .unwrap(),
-                    destination.file_name().unwrap().to_str().unwrap()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "Unable to get str error".into(),
+                            "Unable to convert to str file name".into(),
+                            call.head
+                        ))?,
+                    destination
+                        .file_name()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "File name error".into(),
+                            "Unable to get file name".into(),
+                            call.head
+                        ))?
+                        .to_str()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "Unable to get str error".into(),
+                            "Unable to convert to str file name".into(),
+                            call.head
+                        ))?,
                 );
 
                 let input = get_interactive_confirmation(prompt)?;

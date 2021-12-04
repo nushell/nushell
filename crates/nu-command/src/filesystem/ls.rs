@@ -55,7 +55,13 @@ impl Command for Ls {
         };
 
         let call_span = call.head;
-        let glob = glob::glob(&pattern).unwrap();
+        let glob = glob::glob(&pattern).map_err(|err| {
+            nu_protocol::ShellError::LabeledError(
+                "Error extracting glob pattern".into(),
+                err.to_string(),
+                call.head,
+            )
+        })?;
 
         Ok(glob
             .into_iter()

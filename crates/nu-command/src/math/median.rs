@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::math::avg::average;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
@@ -72,14 +74,14 @@ pub fn median(values: &[Value], head: &Span) -> Result<Value, ShellError> {
                     rhs_span: elem[1].span()?,
                 });
             }
-            Ok(elem[0].partial_cmp(&elem[1]).unwrap())
+            Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
         })
         .find(|elem| elem.is_err())
     {
         return Err(values);
     }
 
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
     match take {
         Pick::Median => {

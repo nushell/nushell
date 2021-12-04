@@ -875,7 +875,7 @@ impl WrappedTable {
                 break;
             }
 
-            writeln!(&mut total_output, "{}", output).unwrap();
+            writeln!(&mut total_output, "{}", output).expect("writing should be done to buffer");
         }
         total_output
     }

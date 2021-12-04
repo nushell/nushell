@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use nu_protocol::{ShellError, Span};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -129,23 +130,47 @@ lazy_static! {
     };
 }
 
-pub fn icon_for_file(file_path: &Path) -> char {
+pub fn icon_for_file(file_path: &Path) -> Result<char, ShellError> {
     let extensions = Box::new(FileExtensions);
     let fp = format!("{}", file_path.display());
 
     if let Some(icon) = MAP_BY_NAME.get(&fp[..]) {
-        *icon
+        Ok(*icon)
     } else if file_path.is_dir() {
-        match file_path.file_name().unwrap().to_str().unwrap() {
+        let str = file_path
+            .file_name()
+            .ok_or_else(|| {
+                ShellError::LabeledError(
+                    "File name error".into(),
+                    "Unable to get file name".into(),
+                    Span::unknown(),
+                )
+            })?
+            .to_str()
+            .ok_or_else(|| {
+                ShellError::LabeledError(
+                    "Unable to get str error".into(),
+                    "Unable to convert to str file name".into(),
+                    Span::unknown(),
+                )
+            })?;
+        Ok(match str {
             "bin" => '\u{e5fc}',   // 
             ".git" => '\u{f1d3}',  // 
             ".idea" => '\u{e7b5}', // 
             _ => '\u{f115}',       // 
-        }
+        })
     } else if let Some(icon) = extensions.icon_file(file_path) {
-        icon
+        Ok(icon)
     } else if let Some(ext) = file_path.extension().as_ref() {
-        match ext.to_str().unwrap() {
+        let str = ext.to_str().ok_or_else(|| {
+            ShellError::LabeledError(
+                "Unable to get str error".into(),
+                "Unable to convert to str file name".into(),
+                Span::unknown(),
+            )
+        })?;
+        Ok(match str {
             "ai" => '\u{e7b4}',             // 
             "android" => '\u{e70e}',        // 
             "apk" => '\u{e70e}',            // 
@@ -372,9 +397,9 @@ pub fn icon_for_file(file_path: &Path) -> char {
             "zsh-theme" => '\u{f489}',      // 
             "zshrc" => '\u{f489}',          // 
             _ => '\u{f15b}',                // 
-        }
+        })
     } else {
-        '\u{f016}'
+        Ok('\u{f016}')
     }
 }
 

@@ -38,7 +38,7 @@ impl Command for Format {
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
-                let string_pattern = pattern.as_string().unwrap();
+                let string_pattern = pattern.as_string()?;
                 let ops = extract_formatting_operations(string_pattern);
                 format(input, &ops, call.head)
             }
@@ -184,9 +184,7 @@ fn format_record(
                         val: col_name.clone(),
                         span: Span::unknown(),
                     }]) {
-                    Ok(value_at_column) => {
-                        output.push_str(value_at_column.as_string().unwrap().as_str())
-                    }
+                    Ok(value_at_column) => output.push_str(value_at_column.as_string()?.as_str()),
                     Err(se) => return Err(se),
                 }
             }

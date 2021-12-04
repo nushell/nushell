@@ -6,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Value,
 };
-use std::convert::TryInto;
 
 #[derive(Clone)]
 pub struct Drop;
@@ -90,7 +89,7 @@ impl Command for Drop {
                 vlen - rows_to_drop
             };
 
-            let iter = v.into_iter().take(k.try_into().unwrap());
+            let iter = v.into_iter().take(k as usize);
             Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
         }
     }

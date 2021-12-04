@@ -62,7 +62,7 @@ impl Value {
                     let (cols, vals) = value.as_record()?;
                     let mut hm = HashMap::new();
                     for (k, v) in cols.iter().zip(vals) {
-                        hm.insert(k.to_string(), v.as_string().unwrap());
+                        hm.insert(k.to_string(), v.as_string()?);
                     }
                     config.color_config = hm;
                 }

@@ -114,11 +114,13 @@ fn into_int(
         None => 10,
     };
 
-    if !(2..=36).contains(&radix) {
-        return Err(ShellError::UnsupportedInput(
-            "Radix must lie in the range [2, 36]".to_string(),
-            options.radix.unwrap().span().unwrap(),
-        ));
+    if let Some(val) = &options.radix {
+        if !(2..=36).contains(&radix) {
+            return Err(ShellError::UnsupportedInput(
+                "Radix must lie in the range [2, 36]".to_string(),
+                val.span()?,
+            ));
+        }
     }
 
     input.map(

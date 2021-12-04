@@ -227,13 +227,14 @@ impl EngineState {
                     let path = decl.is_plugin().expect("plugin should have file name");
                     let file_name = path.to_str().expect("path should be a str");
 
-                    let line = serde_json::to_string_pretty(&decl.signature())
+                    serde_json::to_string_pretty(&decl.signature())
                         .map(|signature| format!("register {} {}\n\n", file_name, signature))
-                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))?;
-
-                    plugin_file
-                        .write_all(line.as_bytes())
-                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))?;
+                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        .and_then(|line| {
+                            plugin_file
+                                .write_all(line.as_bytes())
+                                .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        })?;
                 }
                 Ok(())
             } else {
@@ -241,40 +242,6 @@ impl EngineState {
                     "Plugin file not found".into(),
                 ))
             }
-        } else {
-            Err(ShellError::PluginFailedToLoad(
-                "Plugin file not found".into(),
-            ))
-        }
-    }
-
-    #[cfg(feature = "plugin")]
-    pub fn update_plugin_file_1(&self) -> Result<(), ShellError> {
-        use std::io::Write;
-
-        // Updating the signatures plugin file with the added signatures
-        if let Some(plugin_path) = &self.plugin_signatures {
-            // Always creating the file which will erase previous signatures
-            let mut plugin_file = std::fs::File::create(plugin_path.as_path())
-                .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))?;
-
-            // Plugin definitions with parsed signature
-            for decl in self.plugin_decls() {
-                // A successful plugin registration already includes the plugin filename
-                // No need to check the None option
-                let path = decl.is_plugin().expect("plugin should have file name");
-                let file_name = path.to_str().expect("path should be a str");
-
-                let line = serde_json::to_string_pretty(&decl.signature())
-                    .map(|signature| format!("register {} {}\n\n", file_name, signature))
-                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))?;
-
-                plugin_file
-                    .write_all(line.as_bytes())
-                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))?;
-            }
-
-            Ok(())
         } else {
             Err(ShellError::PluginFailedToLoad(
                 "Plugin file not found".into(),

@@ -139,11 +139,13 @@ fn string_helper(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let config = stack.get_config()?;
 
-    if decimals && decimals_value.is_some() && decimals_value.unwrap().is_negative() {
-        return Err(ShellError::UnsupportedInput(
-            "Cannot accept negative integers for decimals arguments".to_string(),
-            head,
-        ));
+    if let Some(decimal_val) = decimals_value {
+        if decimals && decimal_val.is_negative() {
+            return Err(ShellError::UnsupportedInput(
+                "Cannot accept negative integers for decimals arguments".to_string(),
+                head,
+            ));
+        }
     }
 
     input.map(
@@ -192,7 +194,7 @@ pub fn action(
         }
         Value::Float { val, .. } => {
             if decimals {
-                let decimal_value = digits.unwrap() as usize;
+                let decimal_value = digits.unwrap_or(2) as usize;
                 Value::String {
                     val: format!("{:.*}", decimal_value, val),
                     span,

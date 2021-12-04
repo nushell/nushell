@@ -39,4 +39,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect

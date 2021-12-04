@@ -78,7 +78,7 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
                     rhs_span: elem[1].span()?,
                 });
             }
-            Ok(elem[0].partial_cmp(&elem[1]).unwrap())
+            Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
         })
         .find(|elem| elem.is_err())
     {
@@ -87,7 +87,7 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
-    let hashable_values: Result<Vec<HashableType>, ShellError> = values
+    let hashable_values = values
         .iter()
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
@@ -102,16 +102,13 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
             }
             other => Err(ShellError::UnsupportedInput(
                 "Unable to give a result with this input".to_string(),
-                other.span().unwrap(),
+                other.span()?,
             )),
         })
-        .collect::<Result<Vec<HashableType>, ShellError>>();
-    if let Err(not_hashable) = hashable_values {
-        return Err(not_hashable);
-    }
+        .collect::<Result<Vec<HashableType>, ShellError>>()?;
 
     let mut frequency_map = std::collections::HashMap::new();
-    for v in hashable_values.unwrap() {
+    for v in hashable_values {
         let counter = frequency_map.entry(v).or_insert(0);
         *counter += 1;
     }
@@ -132,7 +129,7 @@ pub fn mode(values: &[Value], head: &Span) -> Result<Value, ShellError> {
         }
     }
 
-    modes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     Ok(Value::List {
         vals: modes,
         span: *head,

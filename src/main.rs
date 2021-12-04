@@ -64,7 +64,7 @@ impl CompletionActionHandler for FuzzyCompletion {
                 .default(0)
                 .items(&selections[..])
                 .interact_on_opt(&Term::stdout())
-                .unwrap();
+                .expect("Fuzzy completion interact on operation");
             let _ = crossterm::terminal::enable_raw_mode();
 
             if let Some(result) = result {
@@ -85,7 +85,7 @@ fn main() -> Result<()> {
     // miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
-        crossterm::terminal::disable_raw_mode().unwrap();
+        crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
         miette_hook(x);
     }));
 

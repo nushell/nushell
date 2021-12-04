@@ -59,19 +59,21 @@ impl Command for External {
             args,
             last_expression,
             env_vars,
+            call,
         };
         command.run_with_input(engine_state, input, config)
     }
 }
 
-pub struct ExternalCommand {
+pub struct ExternalCommand<'call> {
     pub name: Spanned<String>,
     pub args: Vec<String>,
     pub last_expression: bool,
     pub env_vars: HashMap<String, String>,
+    pub call: &'call Call,
 }
 
-impl ExternalCommand {
+impl<'call> ExternalCommand<'call> {
     pub fn run_with_input(
         &self,
         engine_state: &EngineState,
@@ -84,7 +86,8 @@ impl ExternalCommand {
 
         // TODO. We don't have a way to know the current directory
         // This should be information from the EvaluationContex or EngineState
-        let path = env::current_dir().unwrap();
+        let path = env::current_dir()?;
+
         process.current_dir(path);
 
         process.envs(&self.env_vars);
@@ -145,16 +148,12 @@ impl ExternalCommand {
                     // If this external is not the last expression, then its output is piped to a channel
                     // and we create a ValueStream that can be consumed
                     if !last_expression {
-                        let stdout = child
-                            .stdout
-                            .take()
-                            .ok_or_else(|| {
-                                ShellError::ExternalCommand(
-                                    "Error taking stdout from external".to_string(),
-                                    span,
-                                )
-                            })
-                            .unwrap();
+                        let stdout = child.stdout.take().ok_or_else(|| {
+                            ShellError::ExternalCommand(
+                                "Error taking stdout from external".to_string(),
+                                span,
+                            )
+                        })?;
 
                         // Stdout is read using the Buffer reader. It will do so until there is an
                         // error or there are no more bytes to read

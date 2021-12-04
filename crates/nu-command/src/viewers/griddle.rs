@@ -5,7 +5,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
     engine::{Command, EngineState, Stack},
-    Category, Config, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    Category, Config, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use terminal_size::{Height, Width};
@@ -76,7 +77,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                    ))
+                    )?)
                 } else {
                     Ok(PipelineData::new(call.head))
                 }
@@ -93,7 +94,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                    ))
+                    )?)
                 } else {
                     // dbg!(data);
                     Ok(PipelineData::new(call.head))
@@ -115,7 +116,7 @@ prints out the list properly."#
                     separator_param,
                     env_str,
                     use_grid_icons,
-                ))
+                )?)
             }
             x => {
                 // dbg!("other value");
@@ -142,7 +143,7 @@ fn create_grid_output(
     separator_param: Option<String>,
     env_str: Option<String>,
     use_grid_icons: bool,
-) -> PipelineData {
+) -> Result<PipelineData, ShellError> {
     let ls_colors = match env_str {
         Some(s) => LsColors::from_string(&s),
         None => LsColors::default(),
@@ -173,7 +174,7 @@ fn create_grid_output(
                 if use_grid_icons {
                     let no_ansi = strip_ansi(&value);
                     let path = std::path::Path::new(&no_ansi);
-                    let icon = icon_for_file(path);
+                    let icon = icon_for_file(path)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
                     // eprintln!("ls_colors_style: {:?}", &ls_colors_style);
 
@@ -212,18 +213,20 @@ fn create_grid_output(
         }
     }
 
-    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-        Value::String {
-            val: grid_display.to_string(),
-            span: call.head,
+    Ok(
+        if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+            Value::String {
+                val: grid_display.to_string(),
+                span: call.head,
+            }
+        } else {
+            Value::String {
+                val: format!("Couldn't fit grid into {} columns!", cols),
+                span: call.head,
+            }
         }
-    } else {
-        Value::String {
-            val: format!("Couldn't fit grid into {} columns!", cols),
-            span: call.head,
-        }
-    }
-    .into_pipeline_data()
+        .into_pipeline_data(),
+    )
 }
 
 fn convert_to_list(

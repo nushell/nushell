@@ -84,23 +84,6 @@ fn rm(
             "Can't use \"--trash\" with \"--permanent\"".to_string(),
             call.head,
         ));
-
-        //     let trash_span = call.get_flag_expr("trash").unwrap().span;
-        //     let perm_span = call.get_flag_expr("permanent").unwrap().span;
-
-        //     let left_message = "cannot use".to_string();
-        //     let right_message = "with".to_string();
-        //     let (left_span, right_span) = match trash_span.start < perm_span.start {
-        //         true => (trash_span, perm_span),
-        //         false => (perm_span, trash_span),
-        //     };
-
-        //     return Err(ShellError::IncompatibleParameters {
-        //         left_message,
-        //         left_span,
-        //         right_message,
-        //         right_span,
-        //     });
     }
 
     let current_path = current_dir()?;
@@ -141,7 +124,19 @@ fn rm(
         for (index, file) in targets.iter().enumerate() {
             let prompt: String = format!(
                 "Are you sure that you what to delete {}?",
-                file.1.file_name().unwrap().to_str().unwrap()
+                file.1
+                    .file_name()
+                    .ok_or_else(|| ShellError::LabeledError(
+                        "File name error".into(),
+                        "Unable to get file name".into(),
+                        call.head
+                    ))?
+                    .to_str()
+                    .ok_or_else(|| ShellError::LabeledError(
+                        "Unable to get str error".into(),
+                        "Unable to convert to str file name".into(),
+                        call.head
+                    ))?,
             );
 
             let input = get_interactive_confirmation(prompt)?;
@@ -192,9 +187,18 @@ fn rm_helper(call: &Call, args: RmArgs) -> Vec<Value> {
     #[cfg(not(feature = "trash-support"))]
     {
         if trash {
-            return vec![Value::Error {
-                error: ShellError::FeatureNotEnabled(call.get_flag_expr("trash").unwrap().span),
-            }];
+            let error = match call.get_flag_expr("trash").ok_or_else(|| {
+                ShellError::LabeledError(
+                    "Flag not found".into(),
+                    "trash flag not found".into(),
+                    call.head,
+                )
+            }) {
+                Ok(expr) => ShellError::FeatureNotEnabled(expr.span),
+                Err(err) => err,
+            };
+
+            return vec![Value::Error { error }];
         }
     }
 

@@ -84,10 +84,27 @@ impl Command for Kill {
                 {
                     return Err(ShellError::IncompatibleParameters {
                         left_message: "force".to_string(),
-                        left_span: call.get_named_arg("force").unwrap().span,
+                        left_span: call
+                            .get_named_arg("force")
+                            .ok_or_else(|| {
+                                ShellError::LabeledError(
+                                    "Flag error".into(),
+                                    "flag force not found".into(),
+                                    call.head,
+                                )
+                            })?
+                            .span,
                         right_message: "signal".to_string(),
                         right_span: span(&[
-                            call.get_named_arg("signal").unwrap().span,
+                            call.get_named_arg("signal")
+                                .ok_or_else(|| {
+                                    ShellError::LabeledError(
+                                        "Flag error".into(),
+                                        "flag signal not found".into(),
+                                        call.head,
+                                    )
+                                })?
+                                .span,
                             signal_span,
                         ]),
                     });

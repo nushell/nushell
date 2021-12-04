@@ -143,7 +143,7 @@ fn action(
                     }
                 } else {
                     let mut res = val.to_string();
-                    res += &character.as_ref().unwrap().repeat(s - val.chars().count());
+                    res += &character.as_ref().expect("we already know this flag needs to exist because the command is type checked before we call the action function").repeat(s - val.chars().count());
                     Value::String {
                         val: res,
                         span: head,

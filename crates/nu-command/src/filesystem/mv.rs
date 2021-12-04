@@ -5,7 +5,7 @@ use super::util::get_interactive_confirmation;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Mv;
@@ -45,22 +45,20 @@ impl Command for Mv {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let source: String = call.req(engine_state, stack, 0)?;
+        let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let destination: String = call.req(engine_state, stack, 1)?;
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 
-        let path: PathBuf = current_dir().unwrap();
-        let source = path.join(source.as_str());
+        let path: PathBuf = current_dir()?;
+        let source = path.join(spanned_source.item.as_str());
         let destination = path.join(destination.as_str());
 
         let mut sources =
             glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::FileNotFound(
-                call.positional.first().unwrap().span,
-            ));
+            return Err(ShellError::FileNotFound(spanned_source.span));
         }
 
         if interactive && !force {
@@ -69,12 +67,36 @@ impl Command for Mv {
                 let prompt = format!(
                     "Are you shure that you want to move {} to {}?",
                     file.as_ref()
-                        .unwrap()
+                        .map_err(|err| ShellError::LabeledError(
+                            "Reference error".into(),
+                            err.to_string(),
+                            call.head
+                        ))?
                         .file_name()
-                        .unwrap()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "File name error".into(),
+                            "Unable to get file name".into(),
+                            call.head
+                        ))?
                         .to_str()
-                        .unwrap(),
-                    destination.file_name().unwrap().to_str().unwrap()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "Unable to get str error".into(),
+                            "Unable to convert to str file name".into(),
+                            call.head
+                        ))?,
+                    destination
+                        .file_name()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "File name error".into(),
+                            "Unable to get file name".into(),
+                            call.head
+                        ))?
+                        .to_str()
+                        .ok_or_else(|| ShellError::LabeledError(
+                            "Unable to get str error".into(),
+                            "Unable to convert to str file name".into(),
+                            call.head
+                        ))?,
                 );
 
                 let input = get_interactive_confirmation(prompt)?;

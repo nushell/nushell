@@ -142,7 +142,7 @@ fn action(
                         span: head,
                     }
                 } else {
-                    let c = character.as_ref().unwrap(); // we already know this flag needs to exist because the command is type checked before we call the action function
+                    let c = character.as_ref().expect("we already know this flag needs to exist because the command is type checked before we call the action function");
                     let mut res = c.repeat(s - val.chars().count());
                     res += val;
                     Value::String {

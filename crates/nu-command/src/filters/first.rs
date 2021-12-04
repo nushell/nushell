@@ -72,7 +72,17 @@ fn first_helper(
 
     let mut input_peek = input.into_iter().peekable();
     if input_peek.peek().is_some() {
-        match input_peek.peek().unwrap().get_type() {
+        match input_peek
+            .peek()
+            .ok_or_else(|| {
+                ShellError::LabeledError(
+                    "Error in first".into(),
+                    "unable to pick on next value".into(),
+                    call.head,
+                )
+            })?
+            .get_type()
+        {
             Type::Binary => {
                 match &mut input_peek.next() {
                     Some(v) => match &v {

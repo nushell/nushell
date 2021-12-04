@@ -143,7 +143,7 @@ where
         input,
     );
     let to_trim = match options.character.as_ref() {
-        Some(v) => v.as_string().unwrap().chars().next(),
+        Some(v) => v.as_string()?.chars().next(),
         None => None,
     };
 

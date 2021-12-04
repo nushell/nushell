@@ -6,7 +6,6 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Value,
 };
-use std::convert::TryInto;
 
 #[derive(Clone)]
 pub struct Last;
@@ -53,9 +52,7 @@ impl Command for Last {
         let vlen: i64 = v.len() as i64;
         let beginning_rows_to_skip = rows_to_skip(vlen, rows);
 
-        let iter = v
-            .into_iter()
-            .skip(beginning_rows_to_skip.try_into().unwrap());
+        let iter = v.into_iter().skip(beginning_rows_to_skip as usize);
 
         Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
     }
