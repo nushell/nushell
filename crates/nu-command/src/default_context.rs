@@ -32,6 +32,7 @@ pub fn create_default_context() -> EngineState {
             Append,
             Benchmark,
             BuildString,
+            Cal,
             Cd,
             Clear,
             Collect,

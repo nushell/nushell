@@ -1,3 +1,4 @@
+mod calendar;
 mod conversions;
 mod core_commands;
 mod date;
@@ -18,7 +19,7 @@ mod viewers;
 
 #[cfg(feature = "dataframe")]
 mod dataframe;
-
+pub use calendar::*;
 pub use conversions::*;
 pub use core_commands::*;
 pub use date::*;
