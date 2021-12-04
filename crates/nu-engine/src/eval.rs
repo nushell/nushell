@@ -566,6 +566,128 @@ pub fn eval_variable(
                     span,
                 });
 
+                // signature
+                let mut sig_records = vec![];
+                {
+                    let sig_cols = vec![
+                        "command".to_string(),
+                        "parameter_name".to_string(),
+                        "parameter_type".to_string(),
+                        "syntax_shape".to_string(),
+                        "is_optional".to_string(),
+                        "short_flag".to_string(),
+                        "description".to_string(),
+                    ];
+
+                    // required_positional
+                    for req in signature.required_positional {
+                        let sig_vals = vec![
+                            Value::string(&signature.name, span),
+                            Value::string(req.name, span),
+                            Value::string("positional", span),
+                            Value::string(req.shape.to_type().to_string(), span),
+                            Value::boolean(false, span),
+                            Value::nothing(span),
+                            Value::string(req.desc, span),
+                        ];
+
+                        sig_records.push(Value::Record {
+                            cols: sig_cols.clone(),
+                            vals: sig_vals,
+                            span,
+                        });
+                    }
+
+                    // optional_positional
+                    for opt in signature.optional_positional {
+                        let sig_vals = vec![
+                            Value::string(&signature.name, span),
+                            Value::string(opt.name, span),
+                            Value::string("positional", span),
+                            Value::string(opt.shape.to_type().to_string(), span),
+                            Value::boolean(true, span),
+                            Value::nothing(span),
+                            Value::string(opt.desc, span),
+                        ];
+
+                        sig_records.push(Value::Record {
+                            cols: sig_cols.clone(),
+                            vals: sig_vals,
+                            span,
+                        });
+                    }
+
+                    {
+                        // rest_positional
+                        let (name, shape, desc) = if let Some(rest) = signature.rest_positional {
+                            (
+                                Value::string(rest.name, span),
+                                Value::string(rest.shape.to_type().to_string(), span),
+                                Value::string(rest.desc, span),
+                            )
+                        } else {
+                            (
+                                Value::nothing(span),
+                                Value::nothing(span),
+                                Value::nothing(span),
+                            )
+                        };
+
+                        let sig_vals = vec![
+                            Value::string(&signature.name, span),
+                            name,
+                            Value::string("rest", span),
+                            shape,
+                            Value::boolean(false, span),
+                            Value::nothing(span),
+                            desc,
+                        ];
+
+                        sig_records.push(Value::Record {
+                            cols: sig_cols.clone(),
+                            vals: sig_vals,
+                            span,
+                        });
+                    }
+
+                    // named flags
+                    for named in signature.named {
+                        let shape = if let Some(arg) = named.arg {
+                            Value::string(arg.to_type().to_string(), span)
+                        } else {
+                            Value::nothing(span)
+                        };
+
+                        let short_flag = if let Some(c) = named.short {
+                            Value::string(c, span)
+                        } else {
+                            Value::nothing(span)
+                        };
+
+                        let sig_vals = vec![
+                            Value::string(&signature.name, span),
+                            Value::string(named.long, span),
+                            Value::string("named", span),
+                            shape,
+                            Value::boolean(!named.required, span),
+                            short_flag,
+                            Value::string(named.desc, span),
+                        ];
+
+                        sig_records.push(Value::Record {
+                            cols: sig_cols.clone(),
+                            vals: sig_vals,
+                            span,
+                        });
+                    }
+                }
+
+                cols.push("signature".to_string());
+                vals.push(Value::List {
+                    vals: sig_records,
+                    span,
+                });
+
                 cols.push("usage".to_string());
                 vals.push(Value::String {
                     val: decl.usage().into(),

@@ -648,6 +648,10 @@ impl Value {
         Value::Float { val, span }
     }
 
+    pub fn boolean(val: bool, span: Span) -> Value {
+        Value::Bool { val, span }
+    }
+
     // Only use these for test data. Span::unknown() should not be used in user data
     pub fn test_string(s: impl Into<String>) -> Value {
         Value::String {
