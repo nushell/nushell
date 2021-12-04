@@ -162,7 +162,7 @@ fn main() -> Result<()> {
                 // Next, let's check if there are any flags we want to pass to the main function
                 let args: Vec<String> = std::env::args().skip(2).collect();
 
-                if args.is_empty() {
+                if args.is_empty() && engine_state.find_decl(b"main").is_none() {
                     return Ok(());
                 }
 
