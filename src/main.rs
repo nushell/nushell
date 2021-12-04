@@ -406,9 +406,8 @@ fn update_prompt<'prompt>(
             let config = stack.get_config().unwrap_or_default();
             pipeline_data.collect_string("", &config)
         }
-        Err(err) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &err);
+        Err(..) => {
+            // If we can't run the custom prompt, give them the default
             return default_prompt as &dyn Prompt;
         }
     };
