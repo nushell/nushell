@@ -38,22 +38,20 @@ body:
     id: config
     attributes:
       label: Configuration
-      description: "Please run `> version | pivot key value | to md` and paste the output to show OS, features, etc"
+      description: "Please run `version | pivot key value | to md --pretty` and paste the output to show OS, features, etc."
       placeholder: |
-        > version | pivot key value | to md
-        ╭───┬────────────────────┬───────────────────────────────────────────────────────────────────────╮
-        │ # │ key                │ value                                                                 │
-        ├───┼────────────────────┼───────────────────────────────────────────────────────────────────────┤
-        │ 0 │ version            │ 0.24.1                                                                │
-        │ 1 │ build_os           │ macos-x86_64                                                          │
-        │ 2 │ rust_version       │ rustc 1.48.0                                                          │
-        │ 3 │ cargo_version      │ cargo 1.48.0                                                          │
-        │ 4 │ pkg_version        │ 0.24.1                                                                │
-        │ 5 │ build_time         │ 2020-12-18 09:54:09                                                   │
-        │ 6 │ build_rust_channel │ release                                                               │
-        │ 7 │ features           │ ctrlc, default, directories, dirs, git, ichwh, rich-benchmark,        │
-        │   │                    │ rustyline, term, uuid, which, zip                                     │
-        ╰───┴────────────────────┴───────────────────────────────────────────────────────────────────────╯
+        > version | pivot key value | to md --pretty
+        | key                | value                                  |
+        | ------------------ | -------------------------------------- |
+        | version            | 0.40.0                                 |
+        | build_os           | linux-x86_64                           |
+        | rust_version       | rustc 1.56.1                           |
+        | cargo_version      | cargo 1.56.0                           |
+        | pkg_version        | 0.40.0                                 |
+        | build_time         | 1980-01-01 00:00:00 +00:00             |
+        | build_rust_channel | release                                |
+        | features           | clipboard-cli, ctrlc, dataframe, ...   |
+        | installed_plugins  | binaryview, chart bar, chart line, ... |
     validations:
       required: false
   - type: textarea
