@@ -1,4 +1,4 @@
-use super::nu_dataframe::{Column, NuDataFrame};
+use super::values::{Column, NuDataFrame};
 
 use nu_protocol::{
     ast::Call,
@@ -103,7 +103,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head.clone())?;
+    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let names = ChunkedArray::<Utf8Type>::new_from_opt_slice(
         "descriptor",

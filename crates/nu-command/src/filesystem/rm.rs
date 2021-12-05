@@ -242,6 +242,7 @@ fn rm_helper(call: &Call, args: RmArgs) -> Vec<Value> {
                         use std::io::Error;
                         result = if trash {
                             trash::delete(&f).map_err(|e: trash::Error| {
+                                use std::io::ErrorKind;
                                 Error::new(ErrorKind::Other, format!("{:?}", e))
                             })
                         } else if metadata.is_file() {

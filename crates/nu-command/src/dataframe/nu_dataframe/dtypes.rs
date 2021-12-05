@@ -1,4 +1,4 @@
-use super::nu_dataframe::{Column, NuDataFrame};
+use super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -60,7 +60,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head.clone())?;
+    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut dtypes: Vec<Value> = Vec::new();
     let names: Vec<Value> = df
@@ -76,12 +76,12 @@ fn command(
 
             let dtype_str = dtype.to_string();
             dtypes.push(Value::String {
-                val: dtype_str.into(),
+                val: dtype_str,
                 span: call.head,
             });
 
             Value::String {
-                val: v.to_string().into(),
+                val: v.to_string(),
                 span: call.head,
             }
         })

@@ -1,4 +1,4 @@
-use super::nu_dataframe::{Column, NuDataFrame};
+use super::values::{Column, NuDataFrame};
 
 use nu_protocol::{
     ast::Call,
