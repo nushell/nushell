@@ -62,40 +62,10 @@ impl InputStream {
 
         loop {
             match self.values.next() {
-                Some(Value {
-                    value: UntaggedValue::Primitive(Primitive::String(s)),
-                    tag: value_t,
-                }) => {
-                    value_tag = value_t;
-                    bytes.extend_from_slice(&s.into_bytes());
-                }
-                Some(Value {
-                    value: UntaggedValue::Primitive(Primitive::Binary(b)),
-                    tag: value_t,
-                }) => {
-                    value_tag = value_t;
-                    bytes.extend_from_slice(&b);
-                }
-                Some(Value {
-                    value: UntaggedValue::Primitive(Primitive::Nothing),
-                    tag: value_t,
-                }) => {
-                    value_tag = value_t;
-                }
-                Some(Value {
-                    tag: value_tag,
-                    value,
-                }) => {
-                    return Err(ShellError::labeled_error_with_secondary(
-                        "Expected a string from pipeline",
-                        "requires string input",
-                        tag,
-                        format!(
-                            "{} originates from here",
-                            Type::from_value(&value).plain_string(100000)
-                        ),
-                        value_tag,
-                    ))
+                Some(v) => {
+                    value_tag = v.tag.clone();
+                    let s = v.convert_to_string();
+                    bytes.extend_from_slice(&s.into_bytes())
                 }
                 None => break,
             }
