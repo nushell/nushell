@@ -118,6 +118,7 @@ pub fn create_default_context() -> EngineState {
             Ps,
             Range,
             Random,
+            Reject,
             Reverse,
             Rm,
             Select,
