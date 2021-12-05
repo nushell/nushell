@@ -66,17 +66,21 @@ pub fn compute_between_series(
                     res.rename(&name);
                     NuDataFrame::series_to_value(res, operation_span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Division error".into(),
+                    e.to_string(),
+                    right.span()?,
+                )),
             }
         }
         Operator::Equal => {
-            let mut res = Series::eq(lhs, rhs).into_series();
+            let mut res = Series::equal(lhs, rhs).into_series();
             let name = format!("eq_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::NotEqual => {
-            let mut res = Series::neq(lhs, rhs).into_series();
+            let mut res = Series::not_equal(lhs, rhs).into_series();
             let name = format!("neq_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
@@ -117,8 +121,10 @@ pub fn compute_between_series(
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }
-                    _ => Err(ShellError::InternalError(
+                    _ => Err(ShellError::SpannedLabeledError(
+                        "Incompatible types".into(),
                         "unable to cast to boolean".into(),
+                        right.span()?,
                     )),
                 }
             }
@@ -142,8 +148,10 @@ pub fn compute_between_series(
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }
-                    _ => Err(ShellError::InternalError(
+                    _ => Err(ShellError::SpannedLabeledError(
+                        "Incompatible types".into(),
                         "unable to cast to boolean".into(),
+                        right.span()?,
                     )),
                 }
             }
@@ -254,9 +262,9 @@ pub fn compute_series_single_value(
             }),
         },
         Operator::Equal => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::eq, lhs_span),
+            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::eq, lhs_span)
+                compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -267,9 +275,11 @@ pub fn compute_series_single_value(
             }),
         },
         Operator::NotEqual => match &right {
-            Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::neq, lhs_span),
+            Value::Int { val, .. } => {
+                compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span)
+            }
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::neq, lhs_span)
+                compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -364,17 +374,25 @@ where
                     let casted = series.i64();
                     compute_casted_i64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Unable to cast to i64".into(),
+                    e.to_string(),
+                    span,
+                )),
             }
         }
         DataType::Int64 => {
             let casted = series.i64();
             compute_casted_i64(casted, val, f, span)
         }
-        _ => Err(ShellError::InternalError(format!(
-            "Series of type {} can not be used for operations with an i64 value",
-            series.dtype()
-        ))),
+        _ => Err(ShellError::SpannedLabeledError(
+            "Incorrect type".into(),
+            format!(
+                "Series of type {} can not be used for operations with an i64 value",
+                series.dtype()
+            ),
+            span,
+        )),
     }
 }
 
@@ -393,7 +411,11 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
+        Err(e) => Err(ShellError::SpannedLabeledError(
+            "Unable to cast to i64".into(),
+            e.to_string(),
+            span,
+        )),
     }
 }
 
@@ -415,17 +437,25 @@ where
                     let casted = series.f64();
                     compute_casted_f64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Unable to cast to f64".into(),
+                    e.to_string(),
+                    span,
+                )),
             }
         }
         DataType::Float64 => {
             let casted = series.f64();
             compute_casted_f64(casted, val, f, span)
         }
-        _ => Err(ShellError::InternalError(format!(
-            "Series of type {} can not be used for operations with a decimal value",
-            series.dtype()
-        ))),
+        _ => Err(ShellError::SpannedLabeledError(
+            "Incorrect type".into(),
+            format!(
+                "Series of type {} can not be used for operations with a decimal value",
+                series.dtype()
+            ),
+            span,
+        )),
     }
 }
 
@@ -444,7 +474,11 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
+        Err(e) => Err(ShellError::SpannedLabeledError(
+            "Unable to cast to f64".into(),
+            e.to_string(),
+            span,
+        )),
     }
 }
 
@@ -461,17 +495,25 @@ where
                     let casted = series.i64();
                     compare_casted_i64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Unable to cast to f64".into(),
+                    e.to_string(),
+                    span,
+                )),
             }
         }
         DataType::Int64 => {
             let casted = series.i64();
             compare_casted_i64(casted, val, f, span)
         }
-        _ => Err(ShellError::InternalError(format!(
-            "Series of type {} can not be used for operations with an i64 value",
-            series.dtype()
-        ))),
+        _ => Err(ShellError::SpannedLabeledError(
+            "Incorrect type".into(),
+            format!(
+                "Series of type {} can not be used for operations with an i64 value",
+                series.dtype()
+            ),
+            span,
+        )),
     }
 }
 
@@ -490,7 +532,11 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
+        Err(e) => Err(ShellError::SpannedLabeledError(
+            "Unable to cast to i64".into(),
+            e.to_string(),
+            span,
+        )),
     }
 }
 
@@ -512,17 +558,25 @@ where
                     let casted = series.f64();
                     compare_casted_f64(casted, val, f, span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Unable to cast to i64".into(),
+                    e.to_string(),
+                    span,
+                )),
             }
         }
         DataType::Float64 => {
             let casted = series.f64();
             compare_casted_f64(casted, val, f, span)
         }
-        _ => Err(ShellError::InternalError(format!(
-            "Series of type {} can not be used for operations with a decimal value",
-            series.dtype()
-        ))),
+        _ => Err(ShellError::SpannedLabeledError(
+            "Incorrect type".into(),
+            format!(
+                "Series of type {} can not be used for operations with a decimal value",
+                series.dtype()
+            ),
+            span,
+        )),
     }
 }
 
@@ -541,7 +595,11 @@ where
             let res = res.into_series();
             NuDataFrame::series_to_value(res, span)
         }
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
+        Err(e) => Err(ShellError::SpannedLabeledError(
+            "Unable to cast to f64".into(),
+            e.to_string(),
+            span,
+        )),
     }
 }
 
@@ -556,9 +614,17 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
                     let res = res.into_series();
                     NuDataFrame::series_to_value(res, span)
                 }
-                Err(e) => Err(ShellError::InternalError(e.to_string())),
+                Err(e) => Err(ShellError::SpannedLabeledError(
+                    "Error using contains".into(),
+                    e.to_string(),
+                    span,
+                )),
             }
         }
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
+        Err(e) => Err(ShellError::SpannedLabeledError(
+            "Unable to cast to string".into(),
+            e.to_string(),
+            span,
+        )),
     }
 }

@@ -122,69 +122,69 @@ pub fn create_column(
             Ok(Column::new(series.name().into(), values))
         }
         DataType::UInt8 => {
-            let casted = series
-                .u8()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.u8().map_err(|e| {
+                ShellError::LabeledError("Error casting column to u8".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::UInt16 => {
-            let casted = series
-                .u16()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.u16().map_err(|e| {
+                ShellError::LabeledError("Error casting column to u16".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::UInt32 => {
-            let casted = series
-                .u32()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.u32().map_err(|e| {
+                ShellError::LabeledError("Error casting column to u32".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::UInt64 => {
-            let casted = series
-                .u64()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.u64().map_err(|e| {
+                ShellError::LabeledError("Error casting column to u64".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Int8 => {
-            let casted = series
-                .i8()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.i8().map_err(|e| {
+                ShellError::LabeledError("Error casting column to i8".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Int16 => {
-            let casted = series
-                .i16()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.i16().map_err(|e| {
+                ShellError::LabeledError("Error casting column to i16".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Int32 => {
-            let casted = series
-                .i32()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.i32().map_err(|e| {
+                ShellError::LabeledError("Error casting column to i32".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Int64 => {
-            let casted = series
-                .i64()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.i64().map_err(|e| {
+                ShellError::LabeledError("Error casting column to i64".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Float32 => {
-            let casted = series
-                .f32()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.f32().map_err(|e| {
+                ShellError::LabeledError("Error casting column to f32".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Float64 => {
-            let casted = series
-                .f64()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.f64().map_err(|e| {
+                ShellError::LabeledError("Error casting column to f64".into(), e.to_string())
+            })?;
             Ok(column_from_casted(casted, from_row, size))
         }
         DataType::Boolean => {
-            let casted = series
-                .bool()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.bool().map_err(|e| {
+                ShellError::LabeledError("Error casting column to bool".into(), e.to_string())
+            })?;
 
             let values = casted
                 .into_iter()
@@ -204,9 +204,9 @@ pub fn create_column(
             Ok(Column::new(casted.name().into(), values))
         }
         DataType::Utf8 => {
-            let casted = series
-                .utf8()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.utf8().map_err(|e| {
+                ShellError::LabeledError("Error casting column to string".into(), e.to_string())
+            })?;
 
             let values = casted
                 .into_iter()
@@ -231,10 +231,10 @@ pub fn create_column(
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
 
             match casted {
-                None => Err(ShellError::InternalError(format!(
-                    "Object not supported for conversion: {}",
-                    x
-                ))),
+                None => Err(ShellError::LabeledError(
+                    "Error casting object from series".into(),
+                    format!("Object not supported for conversion: {}", x),
+                )),
                 Some(ca) => {
                     let values = ca
                         .into_iter()
@@ -253,9 +253,9 @@ pub fn create_column(
             }
         }
         DataType::Date => {
-            let casted = series
-                .date()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.date().map_err(|e| {
+                ShellError::LabeledError("Error casting column to date".into(), e.to_string())
+            })?;
 
             let values = casted
                 .into_iter()
@@ -285,9 +285,9 @@ pub fn create_column(
             Ok(Column::new(casted.name().into(), values))
         }
         DataType::Datetime => {
-            let casted = series
-                .datetime()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.datetime().map_err(|e| {
+                ShellError::LabeledError("Error casting column to datetime".into(), e.to_string())
+            })?;
 
             let values = casted
                 .into_iter()
@@ -317,9 +317,9 @@ pub fn create_column(
             Ok(Column::new(casted.name().into(), values))
         }
         DataType::Time => {
-            let casted = series
-                .time()
-                .map_err(|e| ShellError::InternalError(e.to_string()))?;
+            let casted = series.time().map_err(|e| {
+                ShellError::LabeledError("Error casting column to time".into(), e.to_string())
+            })?;
 
             let values = casted
                 .into_iter()
@@ -338,10 +338,10 @@ pub fn create_column(
 
             Ok(Column::new(casted.name().into(), values))
         }
-        e => Err(ShellError::InternalError(format!(
-            "Value not supported in nushell: {}",
-            e
-        ))),
+        e => Err(ShellError::LabeledError(
+            "Error creating Dataframe".into(),
+            format!("Value not supported in nushell: {}", e),
+        )),
     }
 }
 
@@ -530,8 +530,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         }
     }
 
-    match DataFrame::new(df_series) {
-        Ok(df) => Ok(NuDataFrame::new(df)),
-        Err(e) => Err(ShellError::InternalError(e.to_string())),
-    }
+    DataFrame::new(df_series)
+        .map(|df| NuDataFrame::new(df))
+        .map_err(|e| ShellError::LabeledError("Error creating dataframe".into(), e.to_string()))
 }

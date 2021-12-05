@@ -122,7 +122,7 @@ impl NuDataFrame {
         &self,
         other: &NuDataFrame,
         axis: Axis,
-        _span: Span,
+        span: Span,
     ) -> Result<Self, ShellError> {
         match axis {
             Axis::Row => {
@@ -147,8 +147,13 @@ impl NuDataFrame {
                     })
                     .collect::<Vec<Series>>();
 
-                let df_new = DataFrame::new(new_cols)
-                    .map_err(|e| ShellError::InternalError(e.to_string()))?;
+                let df_new = DataFrame::new(new_cols).map_err(|e| {
+                    ShellError::SpannedLabeledError(
+                        "Error creating dataframe".into(),
+                        e.to_string(),
+                        span,
+                    )
+                })?;
 
                 Ok(NuDataFrame::new(df_new))
             } //Axis::Column => {

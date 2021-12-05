@@ -1,4 +1,4 @@
-use super::super::{Column, NuDataFrame};
+use super::nu_dataframe::{Column, NuDataFrame};
 
 use nu_protocol::{
     ast::Call,
@@ -19,7 +19,7 @@ impl Command for ToDataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name().to_string()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -94,8 +94,8 @@ impl Command for ToDataFrame {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let df = NuDataFrame::try_from_iter(input.into_iter())?;
-        Ok(PipelineData::Value(NuDataFrame::into_value(df, call.head)))
+        NuDataFrame::try_from_iter(input.into_iter())
+            .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
     }
 }
 

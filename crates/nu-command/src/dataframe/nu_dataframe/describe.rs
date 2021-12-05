@@ -1,6 +1,4 @@
-use crate::dataframe::nu_dataframe::Column;
-
-use super::super::NuDataFrame;
+use super::nu_dataframe::{Column, NuDataFrame};
 
 use nu_protocol::{
     ast::Call,
@@ -19,7 +17,7 @@ pub struct DescribeDF;
 
 impl Command for DescribeDF {
     fn name(&self) -> &str {
-        "describe"
+        "describe-df"
     }
 
     fn usage(&self) -> &str {
@@ -27,13 +25,13 @@ impl Command for DescribeDF {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name().to_string()).category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "dataframe description",
-            example: "[[a b]; [1 1] [1 1]] | to df | describe",
+            example: "[[a b]; [1 1] [1 1]] | to df | describe-df",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -134,13 +132,14 @@ fn command(
         .map(|col| {
             let count = col.len() as f64;
 
-            let sum = match col.sum_as_series().cast(&DataType::Float64) {
-                Ok(ca) => match ca.get(0) {
+            let sum = col
+                .sum_as_series()
+                .cast(&DataType::Float64)
+                .ok()
+                .and_then(|ca| match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
-                },
-                Err(_) => None,
-            };
+                });
 
             let mean = match col.mean_as_series().get(0) {
                 AnyValue::Float64(v) => Some(v),
@@ -157,54 +156,50 @@ fn command(
                 _ => None,
             };
 
-            let min = match col.min_as_series().cast(&DataType::Float64) {
-                Ok(ca) => match ca.get(0) {
+            let min = col
+                .min_as_series()
+                .cast(&DataType::Float64)
+                .ok()
+                .and_then(|ca| match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
-                },
-                Err(_) => None,
-            };
+                });
 
-            let q_25 = match col.quantile_as_series(0.25) {
-                Ok(ca) => match ca.cast(&DataType::Float64) {
-                    Ok(ca) => match ca.get(0) {
-                        AnyValue::Float64(v) => Some(v),
-                        _ => None,
-                    },
-                    Err(_) => None,
-                },
-                Err(_) => None,
-            };
-
-            let q_50 = match col.quantile_as_series(0.50) {
-                Ok(ca) => match ca.cast(&DataType::Float64) {
-                    Ok(ca) => match ca.get(0) {
-                        AnyValue::Float64(v) => Some(v),
-                        _ => None,
-                    },
-                    Err(_) => None,
-                },
-                Err(_) => None,
-            };
-
-            let q_75 = match col.quantile_as_series(0.75) {
-                Ok(ca) => match ca.cast(&DataType::Float64) {
-                    Ok(ca) => match ca.get(0) {
-                        AnyValue::Float64(v) => Some(v),
-                        _ => None,
-                    },
-                    Err(_) => None,
-                },
-                Err(_) => None,
-            };
-
-            let max = match col.max_as_series().cast(&DataType::Float64) {
-                Ok(ca) => match ca.get(0) {
+            let q_25 = col
+                .quantile_as_series(0.25)
+                .ok()
+                .and_then(|ca| ca.cast(&DataType::Float64).ok())
+                .and_then(|ca| match ca.get(0) {
                     AnyValue::Float64(v) => Some(v),
                     _ => None,
-                },
-                Err(_) => None,
-            };
+                });
+
+            let q_50 = col
+                .quantile_as_series(0.50)
+                .ok()
+                .and_then(|ca| ca.cast(&DataType::Float64).ok())
+                .and_then(|ca| match ca.get(0) {
+                    AnyValue::Float64(v) => Some(v),
+                    _ => None,
+                });
+
+            let q_75 = col
+                .quantile_as_series(0.75)
+                .ok()
+                .and_then(|ca| ca.cast(&DataType::Float64).ok())
+                .and_then(|ca| match ca.get(0) {
+                    AnyValue::Float64(v) => Some(v),
+                    _ => None,
+                });
+
+            let max = col
+                .max_as_series()
+                .cast(&DataType::Float64)
+                .ok()
+                .and_then(|ca| match ca.get(0) {
+                    AnyValue::Float64(v) => Some(v),
+                    _ => None,
+                });
 
             let name = format!("{} ({})", col.name(), col.dtype());
             ChunkedArray::<Float64Type>::new_from_opt_slice(
@@ -226,12 +221,12 @@ fn command(
         });
 
     let res = head.chain(tail).collect::<Vec<Series>>();
-    let df = DataFrame::new(res).map_err(|e| {
-        ShellError::LabeledError("Dataframe Error".into(), e.to_string(), call.head)
-    })?;
-    Ok(PipelineData::Value(NuDataFrame::dataframe_into_value(
-        df, call.head,
-    )))
+
+    DataFrame::new(res)
+        .map_err(|e| {
+            ShellError::SpannedLabeledError("Dataframe Error".into(), e.to_string(), call.head)
+        })
+        .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }
 
 #[cfg(test)]

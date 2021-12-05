@@ -1,4 +1,4 @@
-use super::super::NuDataFrame;
+use super::nu_dataframe::NuDataFrame;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -22,7 +22,7 @@ impl Command for OpenDataFrame {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name().to_string())
+        Signature::build(self.name())
             .required(
                 "file",
                 SyntaxShape::Filepath,
@@ -54,7 +54,7 @@ impl Command for OpenDataFrame {
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Columns to be selected from csv file. CSV file",
+                "Columns to be selected from csv file. CSV and Parquet file",
                 None,
             )
             .category(Category::Custom("dataframe".into()))
@@ -87,7 +87,7 @@ fn command(
     let span = call.head;
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
 
-    let df = match file.item.extension() {
+    match file.item.extension() {
         Some(e) => match e.to_str() {
             Some("csv") => from_csv(engine_state, stack, call),
             Some("parquet") => from_parquet(engine_state, stack, call),
@@ -101,11 +101,8 @@ fn command(
             "File without extension".into(),
             file.span,
         )),
-    }?;
-
-    Ok(PipelineData::Value(NuDataFrame::dataframe_into_value(
-        df, span,
-    )))
+    }
+    .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, span), None))
 }
 
 fn from_parquet(
@@ -114,12 +111,25 @@ fn from_parquet(
     call: &Call,
 ) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
-    let r = File::open(&file.item).map_err(|e| ShellError::InternalError(e.to_string()))?;
+    let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
+
+    let r = File::open(&file.item).map_err(|e| {
+        ShellError::SpannedLabeledError("Error opening file".into(), e.to_string(), file.span)
+    })?;
     let reader = ParquetReader::new(r);
 
-    reader
-        .finish()
-        .map_err(|e| ShellError::InternalError(format!("{:?}", e)))
+    let reader = match columns {
+        None => reader,
+        Some(columns) => reader.with_columns(Some(columns)),
+    };
+
+    reader.finish().map_err(|e| {
+        ShellError::SpannedLabeledError(
+            "Parquet reader error".into(),
+            format!("{:?}", e),
+            call.head,
+        )
+    })
 }
 
 fn from_json(
@@ -129,13 +139,15 @@ fn from_json(
 ) -> Result<polars::prelude::DataFrame, ShellError> {
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
 
-    let r = File::open(&file.item).map_err(|e| ShellError::InternalError(e.to_string()))?;
+    let r = File::open(&file.item).map_err(|e| {
+        ShellError::SpannedLabeledError("Error opening file".into(), e.to_string(), file.span)
+    })?;
 
     let reader = JsonReader::new(r);
 
-    reader
-        .finish()
-        .map_err(|e| ShellError::InternalError(e.to_string()))
+    reader.finish().map_err(|e| {
+        ShellError::SpannedLabeledError("Json reader error".into(), format!("{:?}", e), call.head)
+    })
 }
 
 fn from_csv(
@@ -151,15 +163,23 @@ fn from_csv(
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
     let csv_reader = CsvReader::from_path(&file.item)
-        .map_err(|e| ShellError::InternalError(e.to_string()))?
+        .map_err(|e| {
+            ShellError::SpannedLabeledError(
+                "Error creating CSV reader".into(),
+                e.to_string(),
+                file.span,
+            )
+        })?
         .with_encoding(CsvEncoding::LossyUtf8);
 
     let csv_reader = match delimiter {
         None => csv_reader,
         Some(d) => {
             if d.item.len() != 1 {
-                return Err(ShellError::InternalError(
-                    "Delimiter has to be one char".into(),
+                return Err(ShellError::SpannedLabeledError(
+                    "Incorrect delimiter".into(),
+                    "Delimiter has to be one character".into(),
+                    d.span,
                 ));
             } else {
                 let delimiter = match d.item.chars().next() {
@@ -188,7 +208,11 @@ fn from_csv(
         Some(columns) => csv_reader.with_columns(Some(columns)),
     };
 
-    csv_reader
-        .finish()
-        .map_err(|e| ShellError::InternalError(e.to_string()))
+    csv_reader.finish().map_err(|e| {
+        ShellError::SpannedLabeledError(
+            "Parquet reader error".into(),
+            format!("{:?}", e),
+            call.head,
+        )
+    })
 }

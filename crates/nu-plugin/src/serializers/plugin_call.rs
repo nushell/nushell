@@ -382,4 +382,25 @@ mod tests {
             PluginResponse::Value(_) => panic!("returned wrong call type"),
         }
     }
+
+    #[test]
+    fn response_round_trip_error_none() {
+        let error = LabeledError {
+            label: "label".into(),
+            msg: "msg".into(),
+            span: None,
+        };
+        let response = PluginResponse::Error(error.clone());
+
+        let mut buffer: Vec<u8> = Vec::new();
+        encode_response(&response, &mut buffer).expect("unable to serialize message");
+        let returned =
+            decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
+
+        match returned {
+            PluginResponse::Error(msg) => assert_eq!(error, msg),
+            PluginResponse::Signature(_) => panic!("returned wrong call type"),
+            PluginResponse::Value(_) => panic!("returned wrong call type"),
+        }
+    }
 }
