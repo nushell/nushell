@@ -5,6 +5,10 @@ use nu_protocol::{
     FromValue, ShellError, Span, Spanned, Value,
 };
 
+// The evaluated call is used with the Plugins because the plugin doesn't have
+// access to the Stack and the EngineState. For that reason, before encoding the
+// message to the plugin all the arguments to the original call (which are expressions)
+// are evaluated and passed to Values
 #[derive(Debug, Clone)]
 pub struct EvaluatedCall {
     pub head: Span,

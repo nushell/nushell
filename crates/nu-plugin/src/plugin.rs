@@ -1,11 +1,11 @@
-use crate::plugin_call::{self, decode_call, encode_response};
+use crate::serializers::{decode_call, decode_response, encode_call, encode_response};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, Signature, Value};
-use nu_protocol::{PipelineData, ShellError};
+use nu_protocol::{PipelineData, ShellError, Span};
 
 use super::evaluated_call::EvaluatedCall;
 
@@ -25,10 +25,73 @@ pub enum PluginCall {
     CallInfo(Box<CallInfo>),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct LabeledError {
+    pub label: String,
+    pub msg: String,
+    pub span: Option<Span>,
+}
+
+impl From<LabeledError> for ShellError {
+    fn from(error: LabeledError) -> Self {
+        match error.span {
+            Some(span) => ShellError::SpannedLabeledError(error.label, error.msg, span),
+            None => ShellError::LabeledError(error.label, error.msg),
+        }
+    }
+}
+
+impl From<ShellError> for LabeledError {
+    fn from(error: ShellError) -> Self {
+        match error {
+            ShellError::SpannedLabeledError(label, msg, span) => LabeledError {
+                label,
+                msg,
+                span: Some(span),
+            },
+            ShellError::LabeledError(label, msg) => LabeledError {
+                label,
+                msg,
+                span: None,
+            },
+            ShellError::CantConvert(expected, input, span) => LabeledError {
+                label: format!("Can't convert to {}", expected),
+                msg: format!("can't convert {} to {}", expected, input),
+                span: Some(span),
+            },
+            ShellError::DidYouMean(suggestion, span) => LabeledError {
+                label: "Name not found".into(),
+                msg: format!("did you mean '{}'", suggestion),
+                span: Some(span),
+            },
+            ShellError::PluginFailedToLoad(msg) => LabeledError {
+                label: "Plugin failed to load".into(),
+                msg,
+                span: None,
+            },
+            ShellError::PluginFailedToEncode(msg) => LabeledError {
+                label: "Plugin failed to encode".into(),
+                msg,
+                span: None,
+            },
+            ShellError::PluginFailedToDecode(msg) => LabeledError {
+                label: "Plugin failed to decode".into(),
+                msg,
+                span: None,
+            },
+            err => LabeledError {
+                label: "Error - Add to LabeledError From<ShellError>".into(),
+                msg: err.to_string(),
+                span: None,
+            },
+        }
+    }
+}
+
 // Information received from the plugin
 #[derive(Debug)]
 pub enum PluginResponse {
-    Error(String),
+    Error(LabeledError),
     Signature(Vec<Signature>),
     Value(Box<Value>),
 }
@@ -44,21 +107,18 @@ pub fn get_signature(path: &Path) -> Result<Vec<Signature>, ShellError> {
     // send call to plugin asking for signature
     if let Some(stdin_writer) = &mut child.stdin {
         let mut writer = stdin_writer;
-        plugin_call::encode_call(&PluginCall::Signature, &mut writer)?
+        encode_call(&PluginCall::Signature, &mut writer)?
     }
 
     // deserialize response from plugin to extract the signature
     let signature = if let Some(stdout_reader) = &mut child.stdout {
         let reader = stdout_reader;
         let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-        let response = plugin_call::decode_response(&mut buf_read)?;
+        let response = decode_response(&mut buf_read)?;
 
         match response {
             PluginResponse::Signature(sign) => Ok(sign),
-            PluginResponse::Error(msg) => Err(ShellError::PluginFailedToLoad(format!(
-                "Plugin response error {}",
-                msg,
-            ))),
+            PluginResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToLoad(
                 "Plugin missing signature".into(),
             )),
@@ -139,7 +199,7 @@ impl Command for PluginDeclaration {
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::LabeledError(
+            ShellError::SpannedLabeledError(
                 format!("Unable to spawn plugin for {}", decl.name()),
                 format!("{}", err),
                 call.head,
@@ -170,9 +230,9 @@ impl Command for PluginDeclaration {
 
             let mut writer = stdin_writer;
 
-            plugin_call::encode_call(&plugin_call, &mut writer).map_err(|err| {
+            encode_call(&plugin_call, &mut writer).map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);
-                ShellError::LabeledError(
+                ShellError::SpannedLabeledError(
                     format!("Unable to encode call for {}", decl.name()),
                     err.to_string(),
                     call.head,
@@ -184,9 +244,9 @@ impl Command for PluginDeclaration {
         let pipeline_data = if let Some(stdout_reader) = &mut child.stdout {
             let reader = stdout_reader;
             let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
-            let response = plugin_call::decode_response(&mut buf_read).map_err(|err| {
+            let response = decode_response(&mut buf_read).map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);
-                ShellError::LabeledError(
+                ShellError::SpannedLabeledError(
                     format!("Unable to decode call for {}", decl.name()),
                     err.to_string(),
                     call.head,
@@ -197,19 +257,15 @@ impl Command for PluginDeclaration {
                 PluginResponse::Value(value) => {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
                 }
-                PluginResponse::Error(msg) => Err(ShellError::LabeledError(
-                    "Error received from plugin".into(),
-                    msg,
-                    call.head,
-                )),
-                _ => Err(ShellError::LabeledError(
+                PluginResponse::Error(err) => Err(err.into()),
+                PluginResponse::Signature(..) => Err(ShellError::SpannedLabeledError(
                     "Plugin missing value".into(),
-                    "No value received from plugin".into(),
+                    "Received a signature from plugin instead of value".into(),
                     call.head,
                 )),
             }
         } else {
-            Err(ShellError::LabeledError(
+            Err(ShellError::SpannedLabeledError(
                 "Error with stdout reader".into(),
                 "no stdout reader".into(),
                 call.head,
@@ -226,24 +282,43 @@ impl Command for PluginDeclaration {
     }
 }
 
-/// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
+// The next trait and functions are part of the plugin that is being created
+// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
 pub trait Plugin {
     fn signature(&self) -> Vec<Signature>;
-    fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
-        -> Result<Value, ShellError>;
+    fn run(
+        &mut self,
+        name: &str,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError>;
 }
 
 // Function used in the plugin definition for the communication protocol between
 // nushell and the external plugin.
-// If you want to create a new plugin you have to use this function as the main
-// entry point for the plugin
+// When creating a new plugin you have to use this function as the main
+// entry point for the plugin, e.g.
+//
+// fn main() {
+//    serve_plugin(plugin)
+// }
+//
+// where plugin is your struct that implements the Plugin trait
+//
+// Note. When defining a plugin in other language but Rust, you will have to compile
+// the plugin.capnp schema to create the object definitions that will be returned from
+// the plugin.
+// The object that is expected to be received by nushell is the PluginResponse struct.
+// That should be encoded correctly and sent to StdOut for nushell to decode and
+// and present its result
+//
 pub fn serve_plugin(plugin: &mut impl Plugin) {
     let mut stdin_buf = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, std::io::stdin());
     let plugin_call = decode_call(&mut stdin_buf);
 
     match plugin_call {
         Err(err) => {
-            let response = PluginResponse::Error(err.to_string());
+            let response = PluginResponse::Error(err.into());
             encode_response(&response, &mut std::io::stdout()).expect("Error encoding response");
         }
         Ok(plugin_call) => {
@@ -259,7 +334,7 @@ pub fn serve_plugin(plugin: &mut impl Plugin) {
 
                     let response = match value {
                         Ok(value) => PluginResponse::Value(Box::new(value)),
-                        Err(err) => PluginResponse::Error(err.to_string()),
+                        Err(err) => PluginResponse::Error(err),
                     };
                     encode_response(&response, &mut std::io::stdout())
                         .expect("Error encoding response");

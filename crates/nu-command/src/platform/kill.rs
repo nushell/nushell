@@ -87,7 +87,7 @@ impl Command for Kill {
                         left_span: call
                             .get_named_arg("force")
                             .ok_or_else(|| {
-                                ShellError::LabeledError(
+                                ShellError::SpannedLabeledError(
                                     "Flag error".into(),
                                     "flag force not found".into(),
                                     call.head,
@@ -98,7 +98,7 @@ impl Command for Kill {
                         right_span: span(&[
                             call.get_named_arg("signal")
                                 .ok_or_else(|| {
-                                    ShellError::LabeledError(
+                                    ShellError::SpannedLabeledError(
                                         "Flag error".into(),
                                         "flag signal not found".into(),
                                         call.head,

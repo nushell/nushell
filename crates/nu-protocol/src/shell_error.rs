@@ -170,8 +170,16 @@ pub enum ShellError {
     FileNotFoundCustom(String, #[label("{0}")] Span),
 
     #[error("Plugin failed to load")]
-    #[diagnostic(code(nu::shell::plugin_fialed_to_load), url(docsrs))]
+    #[diagnostic(code(nu::shell::plugin_failed_to_load), url(docsrs))]
     PluginFailedToLoad(String),
+
+    #[error("Plugin failed to encode")]
+    #[diagnostic(code(nu::shell::plugin_failed_to_encode), url(docsrs))]
+    PluginFailedToEncode(String),
+
+    #[error("Plugin failed to decode")]
+    #[diagnostic(code(nu::shell::plugin_failed_to_decode), url(docsrs))]
+    PluginFailedToDecode(String),
 
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error), url(docsrs))]
@@ -224,12 +232,16 @@ pub enum ShellError {
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
     #[error("Casting error")]
-    #[diagnostic(code(nu::parser::downcast_not_possible), url(docsrs))]
+    #[diagnostic(code(nu::shell::downcast_not_possible), url(docsrs))]
     DowncastNotPossible(String, #[label("{0}")] Span),
 
     #[error("{0}")]
     #[diagnostic()]
-    LabeledError(String, String, #[label("{1}")] Span),
+    SpannedLabeledError(String, String, #[label("{1}")] Span),
+
+    #[error("{0}")]
+    #[diagnostic()]
+    LabeledError(String, String),
 }
 
 impl From<std::io::Error> for ShellError {

@@ -35,7 +35,7 @@ impl Command for Use {
         {
             pat
         } else {
-            return Err(ShellError::LabeledError(
+            return Err(ShellError::SpannedLabeledError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),
                 call.head,

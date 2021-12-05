@@ -1,9 +1,9 @@
-use crate::plugin::{CallInfo, PluginCall, PluginResponse};
+use crate::plugin::{CallInfo, LabeledError, PluginCall, PluginResponse};
 use crate::plugin_capnp::{plugin_call, plugin_response};
 use crate::serializers::signature::deserialize_signature;
 use crate::serializers::{call, signature, value};
 use capnp::serialize;
-use nu_protocol::{ShellError, Signature};
+use nu_protocol::{ShellError, Signature, Span};
 
 pub fn encode_call(
     plugin_call: &PluginCall,
@@ -25,54 +25,54 @@ pub fn encode_call(
             let call_builder = call_info_builder
                 .reborrow()
                 .get_call()
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
             call::serialize_call(&call_info.call, call_builder)
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
             // Serializing the input value from the call info
             let value_builder = call_info_builder
                 .reborrow()
                 .get_input()
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))?;
 
             value::serialize_value(&call_info.input, value_builder);
         }
     };
 
     serialize::write_message(writer, &message)
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
+        .map_err(|e| ShellError::PluginFailedToEncode(e.to_string()))
 }
 
 pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_call::Reader>()
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => {
-            Err(ShellError::PluginFailedToLoad("value not in schema".into()))
-        }
+        Err(capnp::NotInSchema(_)) => Err(ShellError::PluginFailedToDecode(
+            "value not in schema".into(),
+        )),
         Ok(plugin_call::Signature(())) => Ok(PluginCall::Signature),
         Ok(plugin_call::CallInfo(reader)) => {
-            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             let name = reader
                 .get_name()
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             let call_reader = reader
                 .get_call()
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             let call = call::deserialize_call(call_reader)?;
 
             let input_reader = reader
                 .get_input()
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             let input = value::deserialize_value(input_reader)?;
 
@@ -94,7 +94,17 @@ pub fn encode_response(
     let mut builder = message.init_root::<plugin_response::Builder>();
 
     match &plugin_response {
-        PluginResponse::Error(msg) => builder.reborrow().set_error(msg.as_str()),
+        PluginResponse::Error(msg) => {
+            let mut error_builder = builder.reborrow().init_error();
+            error_builder.set_label(&msg.label);
+            error_builder.set_msg(&msg.msg);
+
+            if let Some(span) = msg.span {
+                let mut span_builder = error_builder.reborrow().init_span();
+                span_builder.set_start(span.start as u64);
+                span_builder.set_end(span.end as u64);
+            }
+        }
         PluginResponse::Signature(signatures) => {
             let mut signature_list_builder =
                 builder.reborrow().init_signature(signatures.len() as u32);
@@ -111,28 +121,55 @@ pub fn encode_response(
     };
 
     serialize::write_message(writer, &message)
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))
 }
 
 pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginResponse, ShellError> {
     let message_reader = serialize::read_message(reader, ::capnp::message::ReaderOptions::new())
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
     let reader = message_reader
         .get_root::<plugin_response::Reader>()
-        .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+        .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
     match reader.which() {
-        Err(capnp::NotInSchema(_)) => {
-            Err(ShellError::PluginFailedToLoad("value not in schema".into()))
-        }
+        Err(capnp::NotInSchema(_)) => Err(ShellError::PluginFailedToDecode(
+            "value not in schema".into(),
+        )),
         Ok(plugin_response::Error(reader)) => {
-            let msg = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            Ok(PluginResponse::Error(msg.to_string()))
+            let msg = reader
+                .get_msg()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let label = reader
+                .get_label()
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let span = if reader.has_span() {
+                let span = reader
+                    .get_span()
+                    .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+                Some(Span {
+                    start: span.get_start() as usize,
+                    end: span.get_end() as usize,
+                })
+            } else {
+                None
+            };
+
+            let error = LabeledError {
+                label: label.into(),
+                msg: msg.into(),
+                span,
+            };
+
+            Ok(PluginResponse::Error(error))
         }
         Ok(plugin_response::Signature(reader)) => {
-            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             let signatures = reader
                 .iter()
@@ -142,9 +179,9 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
             Ok(PluginResponse::Signature(signatures))
         }
         Ok(plugin_response::Value(reader)) => {
-            let reader = reader.map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+            let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
             let val = value::deserialize_value(reader)
-                .map_err(|e| ShellError::PluginFailedToLoad(e.to_string()))?;
+                .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             Ok(PluginResponse::Value(Box::new(val)))
         }
@@ -327,8 +364,12 @@ mod tests {
 
     #[test]
     fn response_round_trip_error() {
-        let message = "some error".to_string();
-        let response = PluginResponse::Error(message.clone());
+        let error = LabeledError {
+            label: "label".into(),
+            msg: "msg".into(),
+            span: Some(Span { start: 2, end: 30 }),
+        };
+        let response = PluginResponse::Error(error.clone());
 
         let mut buffer: Vec<u8> = Vec::new();
         encode_response(&response, &mut buffer).expect("unable to serialize message");
@@ -336,7 +377,7 @@ mod tests {
             decode_response(&mut buffer.as_slice()).expect("unable to deserialize message");
 
         match returned {
-            PluginResponse::Error(msg) => assert_eq!(message, msg),
+            PluginResponse::Error(msg) => assert_eq!(error, msg),
             PluginResponse::Signature(_) => panic!("returned wrong call type"),
             PluginResponse::Value(_) => panic!("returned wrong call type"),
         }

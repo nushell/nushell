@@ -57,7 +57,8 @@ struct Signature {
     extraUsage @2 :Text;
     requiredPositional @3 :List(Argument);
     optionalPositional @4 :List(Argument);
-    rest @5 :Argument; # Optional value. Check for existence when deserializing
+	# Optional value. Check for existence when deserializing
+    rest @5 :Argument;
     named @6 :List(Flag);
     isFilter @7 :Bool;
 	category @8 :Category;
@@ -81,7 +82,8 @@ enum Category {
 
 struct Flag {
     long @0 :Text;
-    short @1 :Text; # Optional value. Check for existence when deserializing
+	# Optional value. Check for existence when deserializing (has_short)
+    short @1 :Text;
     arg @2 :Shape;
     required @3 :Bool;
     desc @4 :Text;
@@ -113,9 +115,9 @@ struct EvaluatedCall {
 }
 
 struct CallInfo {
-	name @0: Text;
-	call @1: EvaluatedCall;
-	input @2: Value;
+	name @0 :Text;
+	call @1 :EvaluatedCall;
+	input @2 :Value;
 }
 
 # Main communication structs with the plugin
@@ -128,8 +130,15 @@ struct PluginCall {
 
 struct PluginResponse {
 	union {
-		error @0 :Text;
+		error @0 :LabeledError;
 		signature @1 :List(Signature);
 		value @2 :Value;
 	}
+}
+
+struct LabeledError {
+	label @0 :Text;
+	msg @1 :Text;
+	# Optional Value. When decoding check if it exists (has_span)
+	span @2 :Span;
 }

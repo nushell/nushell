@@ -1,7 +1,7 @@
 use crate::inc::SemVerAction;
 use crate::Inc;
-use nu_plugin::{EvaluatedCall, Plugin};
-use nu_protocol::{ShellError, Signature, Span, Value};
+use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_protocol::{Signature, Span, Value};
 
 impl Plugin for Inc {
     fn signature(&self) -> Vec<Signature> {
@@ -29,7 +29,7 @@ impl Plugin for Inc {
         name: &str,
         call: &EvaluatedCall,
         input: &Value,
-    ) -> Result<Value, ShellError> {
+    ) -> Result<Value, LabeledError> {
         if name != "inc" {
             return Ok(Value::Nothing {
                 span: Span::unknown(),

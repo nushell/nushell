@@ -217,11 +217,17 @@ impl EngineState {
         use std::io::Write;
 
         // Updating the signatures plugin file with the added signatures
-        if let Some(plugin_path) = &self.plugin_signatures {
-            // Always create the file, which will erase previous signatures
-            if let Ok(mut plugin_file) = std::fs::File::create(plugin_path.as_path()) {
+        self.plugin_signatures
+            .as_ref()
+            .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin file not found".into()))
+            .and_then(|plugin_path| {
+                // Always create the file, which will erase previous signatures
+                std::fs::File::create(plugin_path.as_path())
+                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+            })
+            .and_then(|mut plugin_file| {
                 // Plugin definitions with parsed signature
-                for decl in self.plugin_decls() {
+                self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
                     let path = decl.is_plugin().expect("plugin should have file name");
@@ -234,19 +240,9 @@ impl EngineState {
                             plugin_file
                                 .write_all(line.as_bytes())
                                 .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
-                        })?;
-                }
-                Ok(())
-            } else {
-                Err(ShellError::PluginFailedToLoad(
-                    "Plugin file not found".into(),
-                ))
-            }
-        } else {
-            Err(ShellError::PluginFailedToLoad(
-                "Plugin file not found".into(),
-            ))
-        }
+                        })
+                })
+            })
     }
 
     pub fn num_files(&self) -> usize {

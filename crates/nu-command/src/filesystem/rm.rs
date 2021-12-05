@@ -126,13 +126,13 @@ fn rm(
                 "Are you sure that you what to delete {}?",
                 file.1
                     .file_name()
-                    .ok_or_else(|| ShellError::LabeledError(
+                    .ok_or_else(|| ShellError::SpannedLabeledError(
                         "File name error".into(),
                         "Unable to get file name".into(),
                         call.head
                     ))?
                     .to_str()
-                    .ok_or_else(|| ShellError::LabeledError(
+                    .ok_or_else(|| ShellError::SpannedLabeledError(
                         "Unable to get str error".into(),
                         "Unable to convert to str file name".into(),
                         call.head
@@ -188,7 +188,7 @@ fn rm_helper(call: &Call, args: RmArgs) -> Vec<Value> {
     {
         if trash {
             let error = match call.get_flag_expr("trash").ok_or_else(|| {
-                ShellError::LabeledError(
+                ShellError::SpannedLabeledError(
                     "Flag not found".into(),
                     "trash flag not found".into(),
                     call.head,

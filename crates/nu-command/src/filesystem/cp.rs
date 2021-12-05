@@ -83,32 +83,32 @@ impl Command for Cp {
                 let prompt = format!(
                     "Are you shure that you want to copy {} to {}?",
                     file.as_ref()
-                        .map_err(|err| ShellError::LabeledError(
+                        .map_err(|err| ShellError::SpannedLabeledError(
                             "Reference error".into(),
                             err.to_string(),
                             call.head
                         ))?
                         .file_name()
-                        .ok_or_else(|| ShellError::LabeledError(
+                        .ok_or_else(|| ShellError::SpannedLabeledError(
                             "File name error".into(),
                             "Unable to get file name".into(),
                             call.head
                         ))?
                         .to_str()
-                        .ok_or_else(|| ShellError::LabeledError(
+                        .ok_or_else(|| ShellError::SpannedLabeledError(
                             "Unable to get str error".into(),
                             "Unable to convert to str file name".into(),
                             call.head
                         ))?,
                     destination
                         .file_name()
-                        .ok_or_else(|| ShellError::LabeledError(
+                        .ok_or_else(|| ShellError::SpannedLabeledError(
                             "File name error".into(),
                             "Unable to get file name".into(),
                             call.head
                         ))?
                         .to_str()
-                        .ok_or_else(|| ShellError::LabeledError(
+                        .ok_or_else(|| ShellError::SpannedLabeledError(
                             "Unable to get str error".into(),
                             "Unable to convert to str file name".into(),
                             call.head
