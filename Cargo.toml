@@ -14,6 +14,7 @@ members = [
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
+	"crates/nu_plugin_gstat",
 	"crates/nu_plugin_example",
 ]
 
