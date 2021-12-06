@@ -55,6 +55,7 @@ fn plugins_are_declared_with_wix() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn do_not_panic_if_broken_pipe() {
     // `nu -h | false`
     // used to panic with a BrokenPipe error
