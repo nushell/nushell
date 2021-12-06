@@ -8,7 +8,7 @@ use polars::prelude::{
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
-pub fn between_dataframes(
+pub(super) fn between_dataframes(
     operator: Spanned<Operator>,
     left: &Value,
     lhs: &NuDataFrame,
@@ -31,7 +31,7 @@ pub fn between_dataframes(
     }
 }
 
-pub fn compute_between_series(
+pub(super) fn compute_between_series(
     operator: Spanned<Operator>,
     left: &Value,
     lhs: &Series,
@@ -173,7 +173,7 @@ pub fn compute_between_series(
     }
 }
 
-pub fn compute_series_single_value(
+pub(super) fn compute_series_single_value(
     operator: Spanned<Operator>,
     left: &Value,
     lhs: &NuDataFrame,

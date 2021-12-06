@@ -30,7 +30,9 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError>;
 
     // ordering with other value
-    fn partial_cmp(&self, other: &Value) -> Option<Ordering>;
+    fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {
+        None
+    }
 
     // Definition of an operation between the object that implements the trait
     // and another Value.

@@ -22,7 +22,7 @@ pub fn create_default_context() -> EngineState {
         // them only accessible if the correct input value category is used with the
         // declaration
         #[cfg(feature = "dataframe")]
-        bind_command!(DataTypes, DescribeDF, OpenDataFrame, ToDataFrame);
+        add_dataframe_decls(&mut working_set);
 
         // TODO: sort default context items categorically
         bind_command!(

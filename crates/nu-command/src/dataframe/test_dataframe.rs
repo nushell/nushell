@@ -6,6 +6,7 @@ use nu_protocol::{
 };
 
 use super::ToDataFrame;
+use crate::Let;
 
 pub fn test_dataframe(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -15,6 +16,7 @@ pub fn test_dataframe(cmd: impl Command + 'static) {
         // Base functions that are needed for testing
         // Try to keep this working set small to keep tests running as fast as possible
         let mut working_set = StateWorkingSet::new(&*engine_state);
+        working_set.add_decl(Box::new(Let));
         working_set.add_decl(Box::new(ToDataFrame));
 
         // Adding the command that is being tested to the working set

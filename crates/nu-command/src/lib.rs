@@ -17,8 +17,6 @@ mod strings;
 mod system;
 mod viewers;
 
-#[cfg(feature = "dataframe")]
-mod dataframe;
 pub use calendar::*;
 pub use conversions::*;
 pub use core_commands::*;
@@ -37,6 +35,9 @@ pub use shells::*;
 pub use strings::*;
 pub use system::*;
 pub use viewers::*;
+
+#[cfg(feature = "dataframe")]
+mod dataframe;
 
 #[cfg(feature = "dataframe")]
 pub use dataframe::*;
