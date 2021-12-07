@@ -115,6 +115,7 @@ pub fn create_default_context() -> EngineState {
             Mv,
             ParEach,
             Parse,
+            Prepend,
             Ps,
             Range,
             Random,
