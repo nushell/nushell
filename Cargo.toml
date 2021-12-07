@@ -38,12 +38,69 @@ ctrlc = "3.2.1"
 crossterm_winapi = "0.9.0"
 # mimalloc = { version = "*", default-features = false }
 
-[features]
-plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-dataframe = ["nu-command/dataframe"]
-default = ["plugin"]
+
+nu_plugin_inc = { version = "0.1.0", path = "./crates/nu_plugin_inc", optional = true }
+nu_plugin_example = { version = "0.1.0", path = "./crates/nu_plugin_example", optional = true }
+nu_plugin_gstat = { version = "0.1.0", path = "./crates/nu_plugin_gstat", optional = true }
+
 
 [dev-dependencies]
 tempfile = "3.2.0"
 assert_cmd = "1.0.7"
 pretty_assertions = "0.7.2"
+
+[build-dependencies]
+
+[features]
+plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+
+default = [
+	"plugin",
+	"inc",
+	"example",
+	]
+
+stable = ["default"]
+
+extra = [
+	"default",
+	"dataframe",
+	"gstat",
+]
+
+wasi = ["inc"]
+
+# Stable (Default)
+inc = ["nu_plugin_inc"]
+example = ["nu_plugin_example"]
+
+# Extra
+gstat = ["nu_plugin_gstat"]
+
+# Dataframe feature for nushell
+dataframe = ["nu-command/dataframe"]
+
+[profile.release]
+opt-level = "s" # Optimize for size
+
+# Build plugins
+[[bin]]
+name = "nu_plugin_inc"
+path = "src/plugins/nu_plugin_core_inc.rs"
+required-features = ["inc"]
+
+[[bin]]
+name = "nu_plugin_example"
+path = "src/plugins/nu_plugin_core_example.rs"
+required-features = ["example"]
+
+# Extra plugins
+[[bin]]
+name = "nu_plugin_gstat"
+path = "src/plugins/nu_plugin_extra_gstat.rs"
+required-features = ["gstat"]
+
+# Main nu binary
+[[bin]]
+name = "engine-q"
+path = "src/main.rs"
