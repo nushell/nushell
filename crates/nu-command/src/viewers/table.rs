@@ -216,6 +216,8 @@ fn convert_to_table(
     config: &Config,
 ) -> Result<Option<nu_table::Table>, ShellError> {
     let mut iter = iter.into_iter().peekable();
+    let color_hm = get_color_config(config);
+    let float_precision = config.float_precision as usize;
 
     if let Some(first) = iter.peek() {
         let mut headers = first.columns();
@@ -268,7 +270,6 @@ fn convert_to_table(
             data.push(row);
         }
 
-        let color_hm = get_color_config(config);
         Ok(Some(nu_table::Table {
             headers: headers
                 .into_iter()
@@ -294,6 +295,17 @@ fn convert_to_table(
                                         color_style: Some(color_hm["row_index"]),
                                     },
                                 }
+                            } else if &y.0 == "float" {
+                                // set dynamic precision from config
+                                let precise_number =
+                                    match convert_with_precision(&y.1, float_precision) {
+                                        Ok(num) => num,
+                                        Err(e) => e.to_string(),
+                                    };
+                                StyledString {
+                                    contents: precise_number,
+                                    style: style_primitive(&y.0, &color_hm),
+                                }
                             } else {
                                 StyledString {
                                     contents: y.1,
@@ -309,6 +321,20 @@ fn convert_to_table(
     } else {
         Ok(None)
     }
+}
+
+fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellError> {
+    // vall will always be a f64 so convert it with precision formatting
+    let val_float = match val.trim().parse::<f64>() {
+        Ok(f) => f,
+        Err(e) => {
+            return Err(ShellError::LabeledError(
+                format!("error converting string [{}] to f64", &val),
+                e.to_string(),
+            ));
+        }
+    };
+    Ok(format!("{:.prec$}", val_float, prec = precision))
 }
 
 struct PagingTableCreator {

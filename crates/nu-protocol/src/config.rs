@@ -13,6 +13,7 @@ pub struct Config {
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
     pub animate_prompt: bool,
+    pub float_precision: i64,
 }
 
 impl Default for Config {
@@ -25,6 +26,7 @@ impl Default for Config {
             use_grid_icons: false,
             footer_mode: FooterMode::Never,
             animate_prompt: ANIMATE_PROMPT_DEFAULT,
+            float_precision: 4,
         }
     }
 }
@@ -83,8 +85,11 @@ impl Value {
                 }
                 "animate_prompt" => {
                     let val = value.as_bool()?;
-
                     config.animate_prompt = val;
+                }
+                "float_precision" => {
+                    let val = value.as_integer()?;
+                    config.float_precision = val;
                 }
                 _ => {}
             }
