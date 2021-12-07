@@ -4,7 +4,7 @@ description = "Path handling library for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-path"
-version = "0.40.0"
+version = "0.41.0"
 
 [dependencies]
 dirs-next = "2.0.0"
