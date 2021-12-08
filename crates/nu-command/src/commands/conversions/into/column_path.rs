@@ -7,14 +7,14 @@ pub struct SubCommand;
 
 impl WholeStreamCommand for SubCommand {
     fn name(&self) -> &str {
-        "into column_path"
+        "into column-path"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into column_path").rest(
+        Signature::build("into column-path").rest(
             "rest",
             SyntaxShape::ColumnPath,
-            "values to convert to column_path",
+            "values to convert to column path",
         )
     }
 
@@ -29,8 +29,8 @@ impl WholeStreamCommand for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to column_path in table",
-                example: "echo [[name]; ['/dev/null'] ['C:\\Program Files'] ['../../Cargo.toml']] | into column_path name",
+                description: "Convert string to column path in table",
+                example: "echo [[name]; ['/dev/null'] ['C:\\Program Files'] ['../../Cargo.toml']] | into column-path name",
                 result: Some(vec![
                     UntaggedValue::row(indexmap! {
                         "name".to_string() => UntaggedValue::column_path("/dev/null", Span::unknown()).into(),
@@ -47,8 +47,8 @@ impl WholeStreamCommand for SubCommand {
                 ]),
             },
             Example {
-                description: "Convert string to column_path",
-                example: "echo 'Cargo.toml' | into column_path",
+                description: "Convert string to column path",
+                example: "echo 'Cargo.toml' | into column-path",
                 result: Some(vec![UntaggedValue::column_path("Cargo.toml", Span::unknown()).into()]),
             },
         ]
@@ -86,7 +86,7 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
                 Primitive::String(a_string) => a_string,
                 _ => {
                     return Err(ShellError::unimplemented(
-                        "'into column_path' for non-string primitives",
+                        "'into column-path' for non-string primitives",
                     ))
                 }
             },
@@ -94,12 +94,12 @@ pub fn action(input: &Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
         )
         .into_value(&tag)),
         UntaggedValue::Row(_) => Err(ShellError::labeled_error(
-            "specify column name to use, with 'into column_path COLUMN'",
+            "specify column name to use, with 'into column-path COLUMN'",
             "found table",
             tag,
         )),
         _ => Err(ShellError::unimplemented(
-            "'into column_path' for unsupported type",
+            "'into column-path' for unsupported type",
         )),
     }
 }
