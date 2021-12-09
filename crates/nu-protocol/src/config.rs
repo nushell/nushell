@@ -15,7 +15,7 @@ pub struct Config {
     pub animate_prompt: bool,
     pub float_precision: i64,
     pub filesize_format: String,
-    pub without_color: bool,
+    pub use_ansi_coloring: bool,
 }
 
 impl Default for Config {
@@ -30,7 +30,7 @@ impl Default for Config {
             animate_prompt: ANIMATE_PROMPT_DEFAULT,
             float_precision: 4,
             filesize_format: "auto".into(),
-            without_color: false,
+            use_ansi_coloring: true,
         }
     }
 }
@@ -93,8 +93,8 @@ impl Value {
                 "float_precision" => {
                     config.float_precision = value.as_integer()?;
                 }
-                "without_color" => {
-                    config.without_color = value.as_bool()?;
+                "use_ansi_coloring" => {
+                    config.use_ansi_coloring = value.as_bool()?;
                 }
                 "filesize_format" => {
                     config.filesize_format = value.as_string()?.to_lowercase();

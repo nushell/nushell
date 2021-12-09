@@ -2368,12 +2368,13 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#2bc7046066f3d3f2a9a538fc3d546adf1e5d4b28"
+source = "git+https://github.com/nushell/reedline?branch=main#6884ec4062a1b2184a6d47553101d3575d4e8b61"
 dependencies = [
  "chrono",
  "crossterm",
  "nu-ansi-term 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
+ "strip-ansi-escapes",
  "unicode-segmentation",
  "unicode-width",
 ]

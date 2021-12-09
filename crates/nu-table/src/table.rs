@@ -954,7 +954,7 @@ impl WrappedTable {
         }
 
         // the atty is for when people do ls from vim, there should be no coloring there
-        if config.without_color || !atty::is(atty::Stream::Stdout) {
+        if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
             // Draw the table without ansi colors
             if let Ok(bytes) = strip_ansi_escapes::strip(&output) {
                 String::from_utf8_lossy(&bytes).to_string()

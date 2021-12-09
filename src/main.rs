@@ -309,7 +309,10 @@ fn main() -> Result<()> {
                 // ))
                 .with_validator(Box::new(NuValidator {
                     engine_state: engine_state.clone(),
-                }));
+                }))
+                .with_ansi_colors(config.use_ansi_coloring);
+            //FIXME: if config.use_ansi_coloring is false then we should
+            // turn off the hinter but I don't see any way to do that yet.
 
             let mut line_editor = if let Some(history_path) = history_path.clone() {
                 line_editor
