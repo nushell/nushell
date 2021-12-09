@@ -5,13 +5,16 @@ mod range;
 mod stream;
 mod unit;
 
+use byte_unit::ByteUnit;
 use chrono::{DateTime, FixedOffset};
 use chrono_humanize::HumanTime;
 pub use from_value::FromValue;
 use indexmap::map::IndexMap;
+use num_format::{Locale, ToFormattedString};
 pub use range::*;
 use serde::{Deserialize, Serialize};
 pub use stream::*;
+use sys_locale::get_locale;
 pub use unit::*;
 
 use std::collections::HashMap;
@@ -1474,16 +1477,114 @@ pub fn format_duration(duration: i64) -> String {
 }
 
 fn format_filesize(num_bytes: i64, config: &Config) -> String {
+    // Allow the user to specify how they want their numbers formatted
+    let filesize_format_var = get_config_filesize_format(config);
+
     let byte = byte_unit::Byte::from_bytes(num_bytes as u128);
+    let adj_byte =
+        if filesize_format_var.0 == byte_unit::ByteUnit::B && filesize_format_var.1 == "auto" {
+            byte.get_appropriate_unit(!config.filesize_metric)
+        } else {
+            byte.get_adjusted_unit(filesize_format_var.0)
+        };
 
-    if byte.get_bytes() == 0u128 {
-        return "—".to_string();
+    match adj_byte.get_unit() {
+        byte_unit::ByteUnit::B => {
+            let locale_string = get_locale().unwrap_or_else(|| String::from("en-US"));
+            // Since get_locale() and Locale::from_name() don't always return the same items
+            // we need to try and parse it to match. For instance, a valid locale is de_DE
+            // however Locale::from_name() wants only de so we split and parse it out.
+            let locale_string = locale_string.replace("_", "-"); // en_AU -> en-AU
+            let locale = match Locale::from_name(&locale_string) {
+                Ok(loc) => loc,
+                _ => {
+                    let all = num_format::Locale::available_names();
+                    let locale_prefix = &locale_string.split('-').collect::<Vec<&str>>();
+                    if all.contains(&locale_prefix[0]) {
+                        // eprintln!("Found alternate: {}", &locale_prefix[0]);
+                        Locale::from_name(locale_prefix[0]).unwrap_or(Locale::en)
+                    } else {
+                        // eprintln!("Unable to find matching locale. Defaulting to en-US");
+                        Locale::en
+                    }
+                }
+            };
+            let locale_byte = adj_byte.get_value() as u64;
+            let locale_byte_string = locale_byte.to_formatted_string(&locale);
+
+            if filesize_format_var.1 == "auto" {
+                format!("{} B", locale_byte_string)
+            } else {
+                locale_byte_string
+            }
+        }
+        _ => adj_byte.format(1),
     }
+}
 
-    let byte = byte.get_appropriate_unit(config.filesize_metric);
+fn get_config_filesize_format(config: &Config) -> (ByteUnit, &str) {
+    // We need to take into account config.filesize_metric so, if someone asks for KB
+    // filesize_metric is true, return KiB
+    let filesize_format = match config.filesize_format.as_str() {
+        "b" => (byte_unit::ByteUnit::B, ""),
+        "kb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::KiB, "")
+            } else {
+                (byte_unit::ByteUnit::KB, "")
+            }
+        }
+        "kib" => (byte_unit::ByteUnit::KiB, ""),
+        "mb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::MiB, "")
+            } else {
+                (byte_unit::ByteUnit::MB, "")
+            }
+        }
+        "mib" => (byte_unit::ByteUnit::MiB, ""),
+        "gb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::GiB, "")
+            } else {
+                (byte_unit::ByteUnit::GB, "")
+            }
+        }
+        "gib" => (byte_unit::ByteUnit::GiB, ""),
+        "tb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::TiB, "")
+            } else {
+                (byte_unit::ByteUnit::TB, "")
+            }
+        }
+        "tib" => (byte_unit::ByteUnit::TiB, ""),
+        "pb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::PiB, "")
+            } else {
+                (byte_unit::ByteUnit::PB, "")
+            }
+        }
+        "pib" => (byte_unit::ByteUnit::PiB, ""),
+        "eb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::EiB, "")
+            } else {
+                (byte_unit::ByteUnit::EB, "")
+            }
+        }
+        "eib" => (byte_unit::ByteUnit::EiB, ""),
+        "zb" => {
+            if config.filesize_metric {
+                (byte_unit::ByteUnit::ZiB, "")
+            } else {
+                (byte_unit::ByteUnit::ZB, "")
+            }
+        }
+        "zib" => (byte_unit::ByteUnit::ZiB, ""),
+        _ => (byte_unit::ByteUnit::B, "auto"),
+    };
 
-    match byte.get_unit() {
-        byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
-        _ => byte.format(1),
-    }
+    filesize_format
 }

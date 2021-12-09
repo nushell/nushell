@@ -17,6 +17,8 @@ im = "15.0.0"
 serde_json = { version = "1.0", optional = true }
 nu-json = { path = "../nu-json" }
 typetag = "0.1.8"
+num-format = "0.4.0"
+sys-locale = "0.1.0"
 
 [features]
 plugin = ["serde_json"]
