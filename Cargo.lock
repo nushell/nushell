@@ -1642,6 +1642,7 @@ name = "nu-table"
 version = "0.36.0"
 dependencies = [
  "ansi-cut",
+ "atty",
  "nu-ansi-term 0.39.0",
  "nu-protocol",
  "regex",

@@ -14,6 +14,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub animate_prompt: bool,
     pub float_precision: i64,
+    pub without_color: bool,
 }
 
 impl Default for Config {
@@ -27,6 +28,7 @@ impl Default for Config {
             footer_mode: FooterMode::Never,
             animate_prompt: ANIMATE_PROMPT_DEFAULT,
             float_precision: 4,
+            without_color: false,
         }
     }
 }
@@ -84,12 +86,13 @@ impl Value {
                     };
                 }
                 "animate_prompt" => {
-                    let val = value.as_bool()?;
-                    config.animate_prompt = val;
+                    config.animate_prompt = value.as_bool()?;
                 }
                 "float_precision" => {
-                    let val = value.as_integer()?;
-                    config.float_precision = val;
+                    config.float_precision = value.as_integer()?;
+                }
+                "without_color" => {
+                    config.without_color = value.as_bool()?;
                 }
                 _ => {}
             }

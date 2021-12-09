@@ -12,10 +12,10 @@ name = "table"
 path = "src/main.rs"
 
 [dependencies]
-# nu-ansi-term = "0.39.0"
 nu-ansi-term = { path = "../nu-ansi-term" }
 nu-protocol = { path = "../nu-protocol"}
 regex = "1.4"
 unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"
 ansi-cut = "0.1.1"
+atty = "0.2.14"

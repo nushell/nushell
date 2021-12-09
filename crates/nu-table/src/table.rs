@@ -883,10 +883,11 @@ impl WrappedTable {
     fn print_table(&self, color_hm: &HashMap<String, Style>, config: &Config) -> String {
         let mut output = String::new();
 
-        #[cfg(windows)]
-        {
-            let _ = nu_ansi_term::enable_ansi_support();
-        }
+        // TODO: This may be unnecessary after JTs changes. Let's remove it and see.
+        // #[cfg(windows)]
+        // {
+        //     let _ = nu_ansi_term::enable_ansi_support();
+        // }
 
         if self.data.is_empty() {
             return output;
@@ -952,7 +953,18 @@ impl WrappedTable {
             output.push_str(&self.print_separator(SeparatorPosition::Bottom, color_hm));
         }
 
-        output
+        // the atty is for when people do ls from vim, there should be no coloring there
+        if config.without_color || !atty::is(atty::Stream::Stdout) {
+            // Draw the table without ansi colors
+            if let Ok(bytes) = strip_ansi_escapes::strip(&output) {
+                String::from_utf8_lossy(&bytes).to_string()
+            } else {
+                output
+            }
+        } else {
+            // Draw the table with ansi colors
+            output
+        }
     }
 }
 
