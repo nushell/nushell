@@ -373,7 +373,7 @@ dependencies = [
  "codepage",
  "encoding_rs",
  "log",
- "quick-xml",
+ "quick-xml 0.19.0",
  "serde",
  "zip",
 ]
@@ -1623,6 +1623,7 @@ dependencies = [
  "num 0.4.0",
  "polars",
  "pretty-hex",
+ "quick-xml 0.22.0",
  "rand",
  "rayon",
  "regex",
@@ -2275,6 +2276,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d72d5477478f85bd00b6521780dfba1ec6cdaadcf90b8b181c36d7de561f9b"
 dependencies = [
  "encoding_rs",
+ "memchr",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8533f14c8382aaad0d592c812ac3b826162128b65662331e1127b45c3d18536b"
+dependencies = [
  "memchr",
 ]
 

@@ -7,6 +7,8 @@ mod md;
 mod toml;
 mod tsv;
 mod url;
+mod xml;
+mod yaml;
 
 pub use self::csv::ToCsv;
 pub use self::toml::ToToml;
@@ -16,3 +18,5 @@ pub use html::ToHtml;
 pub use json::ToJson;
 pub use md::ToMd;
 pub use tsv::ToTsv;
+pub use xml::ToXml;
+pub use yaml::ToYaml;
