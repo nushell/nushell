@@ -9,10 +9,7 @@ pub fn create_default_context() -> EngineState {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         macro_rules! bind_command {
-            ( $command:expr ) => {
-                working_set.add_decl(Box::new($command));
-            };
-            ( $( $command:expr ),* ) => {
+            ( $( $command:expr ),* $(,)? ) => {
                 $( working_set.add_decl(Box::new($command)); )*
             };
         }
@@ -175,7 +172,11 @@ pub fn create_default_context() -> EngineState {
             Where,
             WithEnv,
             Wrap,
-            Zip
+            Zip,
+            // Hash
+            Hash,
+            HashMd5::default(),
+            HashSha256::default(),
         );
 
         #[cfg(feature = "plugin")]

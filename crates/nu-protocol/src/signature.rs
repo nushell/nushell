@@ -49,6 +49,7 @@ pub enum Category {
     Strings,
     System,
     Viewers,
+    Hash,
     Custom(String),
 }
 
@@ -72,6 +73,7 @@ impl std::fmt::Display for Category {
             Category::Strings => "strings",
             Category::System => "system",
             Category::Viewers => "viewers",
+            Category::Hash => "hash",
             Category::Custom(name) => name,
         };
 
