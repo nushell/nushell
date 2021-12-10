@@ -17,6 +17,7 @@ mod yaml;
 
 pub use self::csv::FromCsv;
 pub use self::toml::FromToml;
+pub use self::url::FromUrl;
 pub use command::From;
 pub use eml::FromEml;
 pub use ics::FromIcs;
@@ -25,7 +26,6 @@ pub use json::FromJson;
 pub use ods::FromOds;
 pub use ssv::FromSsv;
 pub use tsv::FromTsv;
-pub use url::FromUrl;
 pub use vcf::FromVcf;
 pub use xlsx::FromXlsx;
 pub use xml::FromXml;

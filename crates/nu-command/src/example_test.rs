@@ -7,7 +7,7 @@ use nu_protocol::{
 
 use crate::To;
 
-use super::{Date, From, Into, Math, Random, Split, Str};
+use super::{Date, From, Into, Math, Random, Split, Str, Url};
 
 pub fn test_examples(cmd: impl Command + 'static) {
     let examples = cmd.examples();
@@ -25,6 +25,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(Split));
         working_set.add_decl(Box::new(Math));
         working_set.add_decl(Box::new(Date));
+        working_set.add_decl(Box::new(Url));
 
         use super::Echo;
         working_set.add_decl(Box::new(Echo));
