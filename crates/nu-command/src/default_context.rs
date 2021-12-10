@@ -164,6 +164,8 @@ pub fn create_default_context() -> EngineState {
             ToToml,
             ToTsv,
             ToCsv,
+            ToHtml,
+            ToMd,
             Touch,
             Uniq,
             Use,

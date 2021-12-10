@@ -78,6 +78,8 @@ example = ["nu_plugin_example"]
 # Extra
 gstat = ["nu_plugin_gstat"]
 
+zip-support = ["nu-command/zip"]
+
 # Dataframe feature for nushell
 dataframe = ["nu-command/dataframe"]
 

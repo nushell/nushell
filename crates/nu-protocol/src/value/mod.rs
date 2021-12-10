@@ -391,11 +391,18 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val,
-            Value::List { vals: val, .. } => format!(
-                "[list {} item{}]",
-                val.len(),
-                if val.len() == 1 { "" } else { "s" }
-            ),
+            Value::List { ref vals, .. } => match &vals[..] {
+                [Value::Record { .. }, _end @ ..] => format!(
+                    "[table {} row{}]",
+                    vals.len(),
+                    if vals.len() == 1 { "" } else { "s" }
+                ),
+                _ => format!(
+                    "[list {} item{}]",
+                    vals.len(),
+                    if vals.len() == 1 { "" } else { "s" }
+                ),
+            },
             Value::Record { cols, .. } => format!(
                 "{{record {} field{}}}",
                 cols.len(),
