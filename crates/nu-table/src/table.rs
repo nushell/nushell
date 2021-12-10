@@ -1062,7 +1062,7 @@ pub fn draw_table(
 ) -> String {
     // Remove the edges, if used
     let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
-        termwidth - 2
+        termwidth - 3
     } else if table.theme.print_left_border || table.theme.print_right_border {
         termwidth - 1
     } else {
