@@ -113,6 +113,7 @@ pub fn create_default_context() -> EngineState {
             Mkdir,
             Module,
             Mv,
+            Nth,
             ParEach,
             Parse,
             Prepend,
