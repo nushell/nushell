@@ -1,7 +1,9 @@
+mod series;
 mod values;
 
 mod append;
 mod column;
+mod command;
 mod describe;
 mod drop;
 mod dtypes;
@@ -10,6 +12,7 @@ mod to_df;
 
 pub use append::AppendDF;
 pub use column::ColumnDF;
+pub use command::Dataframe;
 pub use describe::DescribeDF;
 pub use drop::DropDF;
 pub use dtypes::DataTypes;
@@ -31,6 +34,7 @@ pub fn add_dataframe_decls(working_set: &mut StateWorkingSet) {
     bind_command!(
         AppendDF,
         ColumnDF,
+        Dataframe,
         DataTypes,
         DescribeDF,
         DropDF,

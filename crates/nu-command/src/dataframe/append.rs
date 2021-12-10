@@ -12,7 +12,7 @@ pub struct AppendDF;
 
 impl Command for AppendDF {
     fn name(&self) -> &str {
-        "append-df"
+        "dataframe append"
     }
 
     fn usage(&self) -> &str {
@@ -30,8 +30,8 @@ impl Command for AppendDF {
         vec![
             Example {
                 description: "Appends a dataframe as new columns",
-                example: r#"let a = ([[a b]; [1 2] [3 4]] | to df);
-$a | append-df $a"#,
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | dataframe to-df);
+$a | dataframe append $a"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![1.into(), 3.into()]),
@@ -46,8 +46,8 @@ $a | append-df $a"#,
             Example {
                 description: "Appends a dataframe merging at the end of columns",
                 //example: r#"let a = ([[a b]; [1 2] [3 4]] | to df); $a | append-df $a -col"#,
-                example: r#"let a = ([[a b]; [1 2] [3 4]] | to df);
-$a | append-df $a --col"#,
+                example: r#"let a = ([[a b]; [1 2] [3 4]] | dataframe to-df);
+$a | dataframe append $a --col"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(

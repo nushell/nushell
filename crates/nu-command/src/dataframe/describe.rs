@@ -17,7 +17,7 @@ pub struct DescribeDF;
 
 impl Command for DescribeDF {
     fn name(&self) -> &str {
-        "describe-df"
+        "dataframe describe"
     }
 
     fn usage(&self) -> &str {
@@ -31,7 +31,7 @@ impl Command for DescribeDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "dataframe description",
-            example: "[[a b]; [1 1] [1 1]] | to df | describe-df",
+            example: "[[a b]; [1 1] [1 1]] | dataframe to-df | dataframe describe",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

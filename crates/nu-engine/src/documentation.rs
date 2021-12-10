@@ -273,7 +273,7 @@ fn get_flags_section(signature: &Signature) -> String {
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  -{}{} (required parameter){:?} {}\n",
+                        "  -{}{} (required parameter) {:?} {}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!(", --{}", flag.long)
@@ -298,7 +298,7 @@ fn get_flags_section(signature: &Signature) -> String {
                 }
             } else if flag.required {
                 format!(
-                    "  --{} (required parameter){:?} {}\n",
+                    "  --{} (required parameter) {:?} {}\n",
                     flag.long, arg, flag.desc
                 )
             } else {
