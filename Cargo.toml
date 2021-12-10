@@ -67,6 +67,7 @@ extra = [
 	"default",
 	"dataframe",
 	"gstat",
+	"zip-support",
 ]
 
 wasi = ["inc"]
