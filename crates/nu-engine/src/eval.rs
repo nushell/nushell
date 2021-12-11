@@ -520,6 +520,16 @@ pub fn eval_variable(
             }
         }
 
+        if let Some(home_path) = nu_path::home_dir() {
+            if let Some(home_path_str) = home_path.to_str() {
+                output_cols.push("home-path".into());
+                output_vals.push(Value::String {
+                    val: home_path_str.into(),
+                    span,
+                })
+            }
+        }
+
         if let Ok(cwd) = std::env::var("PWD") {
             output_cols.push("pwd".into());
             output_vals.push(Value::String { val: cwd, span })
