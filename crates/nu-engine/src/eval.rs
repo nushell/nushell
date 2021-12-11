@@ -552,6 +552,15 @@ pub fn eval_variable(
             }
         }
 
+        let temp = std::env::temp_dir();
+        if let Some(temp_path) = temp.to_str() {
+            output_cols.push("temp-path".into());
+            output_vals.push(Value::String {
+                val: temp_path.into(),
+                span,
+            })
+        }
+
         Ok(Value::Record {
             cols: output_cols,
             vals: output_vals,
