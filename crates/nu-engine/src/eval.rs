@@ -491,6 +491,7 @@ pub fn eval_variable(
             config_path.push("nushell");
 
             let mut history_path = config_path.clone();
+            let mut keybinding_path = config_path.clone();
 
             history_path.push("history.txt");
 
@@ -507,6 +508,15 @@ pub fn eval_variable(
                 val: config_path.to_string_lossy().to_string(),
                 span,
             });
+
+            // TODO: keybindings don't exist yet but lets add a file
+            // path for them to be stored in. It doesn't have to be yml.
+            keybinding_path.push("keybindings.yml");
+            output_cols.push("keybinding-path".into());
+            output_vals.push(Value::String {
+                val: keybinding_path.to_string_lossy().to_string(),
+                span,
+            })
         }
 
         #[cfg(feature = "plugin")]
