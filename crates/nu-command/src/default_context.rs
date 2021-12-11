@@ -21,113 +21,72 @@ pub fn create_default_context() -> EngineState {
         #[cfg(feature = "dataframe")]
         add_dataframe_decls(&mut working_set);
 
-        // TODO: sort default context items categorically
-        bind_command!(
+        // Core
+        bind_command! {
             Alias,
-            All,
-            Any,
-            Append,
-            Benchmark,
-            BuildString,
-            Cal,
-            Cd,
-            Clear,
-            Collect,
-            Cp,
-            Date,
-            DateFormat,
-            DateHumanize,
-            DateListTimezones,
-            DateNow,
-            DateToTable,
-            DateToTimezone,
             Debug,
             Def,
             Describe,
             Do,
-            Drop,
-            Each,
             Echo,
-            Exit,
             ExportCommand,
             ExportDef,
             ExportEnv,
-            External,
-            First,
             For,
-            Format,
-            From,
-            FromCsv,
-            FromJson,
-            FromYaml,
-            FromYml,
-            FromTsv,
-            FromToml,
-            FromUrl,
-            FromEml,
-            FromOds,
-            FromIcs,
-            FromIni,
-            FromVcf,
-            FromSsv,
-            FromXml,
-            FromXlsx,
-            Get,
-            Griddle,
             Help,
             Hide,
             If,
-            Into,
-            IntoBinary,
-            IntoDatetime,
-            IntoDecimal,
-            IntoFilesize,
-            IntoInt,
-            IntoString,
-            Kill,
+            Let,
+            Module,
+            Source,
+            Use,
+        };
+
+        // Filters
+        bind_command! {
+            All,
+            Any,
+            Append,
+            Collect,
+            Drop,
+            Each,
+            First,
+            Get,
             Last,
             Length,
-            Let,
-            LetEnv,
             Lines,
-            Ls,
-            Math,
-            MathAbs,
-            MathAvg,
-            MathCeil,
-            MathFloor,
-            MathEval,
-            MathMax,
-            MathMedian,
-            MathMin,
-            MathMode,
-            MathProduct,
-            MathRound,
-            MathSqrt,
-            MathStddev,
-            MathSum,
-            MathVariance,
-            Mkdir,
-            Module,
-            Mv,
             Nth,
             ParEach,
-            Parse,
             Prepend,
-            Ps,
             Range,
-            Random,
             Reject,
             Reverse,
-            Rm,
             Select,
             Shuffle,
-            Size,
             Skip,
             SkipUntil,
             SkipWhile,
-            Sleep,
-            Source,
+            Uniq,
+            Update,
+            Where,
+            Wrap,
+            Zip,
+        };
+
+        // System
+        bind_command! {
+            Benchmark,
+            External,
+            Ps,
+            Sys,
+        };
+
+        // Strings
+        bind_command! {
+            BuildString,
+            Format,
+            Parse,
+            Size,
             Split,
             SplitChars,
             SplitColumn,
@@ -139,45 +98,145 @@ pub fn create_default_context() -> EngineState {
             StrContains,
             StrDowncase,
             StrEndswith,
-            StrIndexOf,
-            StrLength,
             StrFindReplace,
+            StrIndexOf,
             StrKebabCase,
+            StrLength,
+            StrLpad,
             StrPascalCase,
+            StrReverse,
+            StrRpad,
             StrScreamingSnakeCase,
             StrSnakeCase,
-            StrLpad,
-            StrRpad,
             StrStartsWith,
-            StrReverse,
             StrSubstring,
-            StrUpcase,
             StrTrim,
-            Sys,
-            Table,
+            StrUpcase,
+        };
+
+        // FileSystem
+        bind_command! {
+            Cd,
+            Cp,
+            Ls,
+            Mkdir,
+            Mv,
+            Rm,
+            Touch,
+        };
+
+        // Platform
+        bind_command! {
+            Clear,
+            Kill,
+            Sleep,
+        };
+
+        // Date
+        bind_command! {
+            Date,
+            DateFormat,
+            DateHumanize,
+            DateListTimezones,
+            DateNow,
+            DateToTable,
+            DateToTimezone,
+        };
+
+        // Shells
+        bind_command! {
+            Exit,
+        };
+
+        // Formats
+        bind_command! {
+            From,
+            FromCsv,
+            FromEml,
+            FromIcs,
+            FromIni,
+            FromJson,
+            FromOds,
+            FromSsv,
+            FromToml,
+            FromTsv,
+            FromUrl,
+            FromVcf,
+            FromXlsx,
+            FromXml,
+            FromYaml,
+            FromYml,
             To,
-            ToJson,
-            ToUrl,
-            ToToml,
-            ToTsv,
             ToCsv,
             ToHtml,
+            ToJson,
             ToMd,
-            ToYaml,
+            ToToml,
+            ToTsv,
+            ToUrl,
             ToXml,
-            Touch,
-            Uniq,
-            Use,
-            Update,
-            Where,
+            ToYaml,
+        };
+
+        // Viewers
+        bind_command! {
+            Griddle,
+            Table,
+        };
+
+        // Conversions
+        bind_command! {
+            Into,
+            IntoBinary,
+            IntoDatetime,
+            IntoDecimal,
+            IntoFilesize,
+            IntoInt,
+            IntoString,
+        };
+
+        // Env
+        bind_command! {
+            LetEnv,
             WithEnv,
-            Wrap,
-            Zip,
-            // Hash
+        };
+
+        // Math
+        bind_command! {
+            Math,
+            MathAbs,
+            MathAvg,
+            MathCeil,
+            MathEval,
+            MathFloor,
+            MathMax,
+            MathMedian,
+            MathMin,
+            MathMode,
+            MathProduct,
+            MathRound,
+            MathSqrt,
+            MathStddev,
+            MathSum,
+            MathVariance,
+        };
+
+        // Random
+        bind_command! {
+            Random,
+        };
+
+        // Generators
+        bind_command! {
+            Cal,
+        };
+
+        // Hash
+        bind_command! {
             Hash,
             HashMd5::default(),
             HashSha256::default(),
-        );
+        };
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);

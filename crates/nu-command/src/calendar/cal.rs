@@ -1,14 +1,13 @@
-use std::collections::VecDeque;
-
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Value,
 };
+use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Cal;
@@ -49,6 +48,7 @@ impl Command for Cal {
                 "Display the month names instead of integers",
                 None,
             )
+            .category(Category::Generators)
     }
 
     fn usage(&self) -> &str {
