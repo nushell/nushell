@@ -40,6 +40,7 @@ pub fn create_default_context() -> EngineState {
             Module,
             Source,
             Use,
+            Version,
         };
 
         // Filters
@@ -173,6 +174,11 @@ pub fn create_default_context() -> EngineState {
             ToMd,
             ToToml,
             ToTsv,
+            ToCsv,
+            Touch,
+            Use,
+            Update,
+            Where,
             ToUrl,
             ToXml,
             ToYaml,

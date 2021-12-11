@@ -2,6 +2,8 @@
 name = "nu-command"
 version = "0.1.0"
 edition = "2018"
+build = "build.rs"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -56,12 +58,12 @@ zip = { version="0.5.9", optional=true }
 lazy_static = "1.4.0"
 strip-ansi-escapes = "0.1.1"
 crossterm = "0.22.1"
+shadow-rs = "0.8.1"
 quick-xml = "0.22"
 digest = "0.10.0"
 md5 = { package = "md-5", version = "0.10.0" }
 sha2 = "0.10.0"
 base64 = "0.13.0"
-
 num = { version = "0.4.0", optional = true }
 
 [dependencies.polars]
@@ -73,3 +75,6 @@ features = ["default", "parquet", "json", "serde", "object", "checked_arithmetic
 trash-support = ["trash"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
+
+[build-dependencies]
+shadow-rs = "0.8.1"

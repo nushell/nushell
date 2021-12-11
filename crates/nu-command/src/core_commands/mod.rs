@@ -15,6 +15,7 @@ mod let_;
 mod module;
 mod source;
 mod use_;
+mod version;
 
 pub use alias::Alias;
 pub use debug::Debug;
@@ -33,7 +34,7 @@ pub use let_::Let;
 pub use module::Module;
 pub use source::Source;
 pub use use_::Use;
-
+pub use version::Version;
 #[cfg(feature = "plugin")]
 mod register;
 
