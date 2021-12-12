@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -47,12 +48,30 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let mut name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let args: Vec<String> = call.rest(engine_state, stack, 1)?;
         let last_expression = call.has_flag("last_expression");
         let env_vars = stack.get_env_vars();
 
         let config = stack.get_config()?;
+
+        // Check if this is a single call to a directory, if so auto-cd
+        let path = nu_path::expand_path(&name.item);
+        name.item = path.to_string_lossy().to_string();
+
+        let path = Path::new(&name.item);
+        if (name.item.starts_with('.') || name.item.starts_with('/') || name.item.starts_with('\\'))
+            && path.is_dir()
+            && args.is_empty()
+        {
+            // We have an auto-cd
+            let _ = std::env::set_current_dir(&path);
+
+            //FIXME: this only changes the current scope, but instead this environment variable
+            //should probably be a block that loads the information from the state in the overlay
+            stack.add_env_var("PWD".into(), name.item.clone());
+            return Ok(PipelineData::new(call.head));
+        }
 
         let command = ExternalCommand {
             name,
