@@ -1,8 +1,9 @@
 use nu_engine::eval_block;
-use nu_parser::{flatten_block, parse};
+use nu_parser::{flatten_expression, parse};
 use nu_protocol::{
+    ast::Statement,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData,
+    PipelineData, Span,
 };
 use reedline::Completer;
 
@@ -26,121 +27,172 @@ impl Completer for NuCompleter {
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
-        let flattened = flatten_block(&working_set, &output);
+        for stmt in output.stmts.into_iter() {
+            if let Statement::Pipeline(pipeline) = stmt {
+                for expr in pipeline.expressions {
+                    if pos >= expr.span.start
+                        && (pos <= (line.len() + offset) || pos <= expr.span.end)
+                    {
+                        let possible_cmd = working_set.get_span_contents(Span {
+                            start: expr.span.start,
+                            end: pos,
+                        });
 
-        for flat in flattened {
-            if pos >= flat.0.start && pos <= flat.0.end {
-                let prefix = working_set.get_span_contents(flat.0);
-                if prefix.starts_with(b"$") {
-                    let mut output = vec![];
+                        let results = working_set.find_commands_by_prefix(possible_cmd);
 
-                    for scope in &working_set.delta.scope {
-                        for v in &scope.vars {
-                            if v.0.starts_with(prefix) {
-                                output.push((
-                                    reedline::Span {
-                                        start: flat.0.start - offset,
-                                        end: flat.0.end - offset,
-                                    },
-                                    String::from_utf8_lossy(v.0).to_string(),
-                                ));
-                            }
-                        }
-                    }
-                    for scope in &self.engine_state.scope {
-                        for v in &scope.vars {
-                            if v.0.starts_with(prefix) {
-                                output.push((
-                                    reedline::Span {
-                                        start: flat.0.start - offset,
-                                        end: flat.0.end - offset,
-                                    },
-                                    String::from_utf8_lossy(v.0).to_string(),
-                                ));
-                            }
-                        }
-                    }
-
-                    return output;
-                }
-
-                match &flat.1 {
-                    nu_parser::FlatShape::Custom(custom_completion) => {
-                        let prefix = working_set.get_span_contents(flat.0).to_vec();
-
-                        let (block, ..) =
-                            parse(&mut working_set, None, custom_completion.as_bytes(), false);
-
-                        let mut stack = Stack::default();
-                        let result = eval_block(
-                            &self.engine_state,
-                            &mut stack,
-                            &block,
-                            PipelineData::new(flat.0),
-                        );
-
-                        let v: Vec<_> = match result {
-                            Ok(pd) => pd
+                        if !results.is_empty() {
+                            return results
                                 .into_iter()
                                 .map(move |x| {
-                                    let s = x.as_string().expect(
+                                    (
+                                        reedline::Span {
+                                            start: expr.span.start - offset,
+                                            end: pos - offset,
+                                        },
+                                        String::from_utf8_lossy(&x).to_string(),
+                                    )
+                                })
+                                .collect();
+                        }
+                    }
+
+                    let flattened = flatten_expression(&working_set, &expr);
+                    for flat in flattened {
+                        if pos >= flat.0.start && pos <= flat.0.end {
+                            match &flat.1 {
+                                nu_parser::FlatShape::Custom(custom_completion) => {
+                                    let prefix = working_set.get_span_contents(flat.0).to_vec();
+
+                                    let (block, ..) = parse(
+                                        &mut working_set,
+                                        None,
+                                        custom_completion.as_bytes(),
+                                        false,
+                                    );
+
+                                    let mut stack = Stack::default();
+                                    let result = eval_block(
+                                        &self.engine_state,
+                                        &mut stack,
+                                        &block,
+                                        PipelineData::new(flat.0),
+                                    );
+
+                                    let v: Vec<_> = match result {
+                                        Ok(pd) => pd
+                                            .into_iter()
+                                            .map(move |x| {
+                                                let s = x.as_string().expect(
                                         "FIXME: better error handling for custom completions",
                                     );
 
-                                    (
-                                        reedline::Span {
-                                            start: flat.0.start - offset,
-                                            end: flat.0.end - offset,
-                                        },
-                                        s,
-                                    )
-                                })
-                                .filter(|x| x.1.as_bytes().starts_with(&prefix))
-                                .collect(),
-                            _ => vec![],
-                        };
+                                                (
+                                                    reedline::Span {
+                                                        start: flat.0.start - offset,
+                                                        end: flat.0.end - offset,
+                                                    },
+                                                    s,
+                                                )
+                                            })
+                                            .filter(|x| x.1.as_bytes().starts_with(&prefix))
+                                            .collect(),
+                                        _ => vec![],
+                                    };
 
-                        return v;
+                                    return v;
+                                }
+                                nu_parser::FlatShape::External
+                                | nu_parser::FlatShape::InternalCall
+                                | nu_parser::FlatShape::String => {
+                                    let prefix = working_set.get_span_contents(flat.0);
+                                    let results = working_set.find_commands_by_prefix(prefix);
+
+                                    let prefix = String::from_utf8_lossy(prefix).to_string();
+                                    let results2 = file_path_completion(flat.0, &prefix)
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
+                                            )
+                                        });
+
+                                    return results
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: flat.0.start - offset,
+                                                    end: flat.0.end - offset,
+                                                },
+                                                String::from_utf8_lossy(&x).to_string(),
+                                            )
+                                        })
+                                        .chain(results2.into_iter())
+                                        .collect();
+                                }
+                                nu_parser::FlatShape::Filepath
+                                | nu_parser::FlatShape::GlobPattern
+                                | nu_parser::FlatShape::ExternalArg => {
+                                    let prefix = working_set.get_span_contents(flat.0);
+                                    let prefix = String::from_utf8_lossy(prefix).to_string();
+
+                                    let results = file_path_completion(flat.0, &prefix);
+
+                                    return results
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
+                                            )
+                                        })
+                                        .collect();
+                                }
+                                _ => {
+                                    let prefix = working_set.get_span_contents(flat.0);
+
+                                    if prefix.starts_with(b"$") {
+                                        let mut output = vec![];
+
+                                        for scope in &working_set.delta.scope {
+                                            for v in &scope.vars {
+                                                if v.0.starts_with(prefix) {
+                                                    output.push((
+                                                        reedline::Span {
+                                                            start: flat.0.start - offset,
+                                                            end: flat.0.end - offset,
+                                                        },
+                                                        String::from_utf8_lossy(v.0).to_string(),
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                        for scope in &self.engine_state.scope {
+                                            for v in &scope.vars {
+                                                if v.0.starts_with(prefix) {
+                                                    output.push((
+                                                        reedline::Span {
+                                                            start: flat.0.start - offset,
+                                                            end: flat.0.end - offset,
+                                                        },
+                                                        String::from_utf8_lossy(v.0).to_string(),
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                        return output;
+                                    }
+                                }
+                            }
+                        }
                     }
-                    nu_parser::FlatShape::External | nu_parser::FlatShape::InternalCall => {
-                        let prefix = working_set.get_span_contents(flat.0);
-                        let results = working_set.find_commands_by_prefix(prefix);
-
-                        return results
-                            .into_iter()
-                            .map(move |x| {
-                                (
-                                    reedline::Span {
-                                        start: flat.0.start - offset,
-                                        end: flat.0.end - offset,
-                                    },
-                                    String::from_utf8_lossy(&x).to_string(),
-                                )
-                            })
-                            .collect();
-                    }
-                    nu_parser::FlatShape::Filepath
-                    | nu_parser::FlatShape::GlobPattern
-                    | nu_parser::FlatShape::ExternalArg => {
-                        let prefix = working_set.get_span_contents(flat.0);
-                        let prefix = String::from_utf8_lossy(prefix).to_string();
-
-                        let results = file_path_completion(flat.0, &prefix);
-
-                        return results
-                            .into_iter()
-                            .map(move |x| {
-                                (
-                                    reedline::Span {
-                                        start: x.0.start - offset,
-                                        end: x.0.end - offset,
-                                    },
-                                    x.1,
-                                )
-                            })
-                            .collect();
-                    }
-                    _ => {}
                 }
             }
         }

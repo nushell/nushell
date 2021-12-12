@@ -225,7 +225,6 @@ fn main() -> Result<()> {
     } else {
         use reedline::{FileBackedHistory, Reedline, Signal};
 
-        let completer = NuCompleter::new(engine_state.clone());
         let mut entry_num = 0;
 
         let default_prompt = DefaultPrompt::new(1);
@@ -298,7 +297,7 @@ fn main() -> Result<()> {
             let line_editor = Reedline::create()
                 .into_diagnostic()?
                 .with_completion_action_handler(Box::new(FuzzyCompletion {
-                    completer: Box::new(completer.clone()),
+                    completer: Box::new(NuCompleter::new(engine_state.clone())),
                 }))
                 .with_highlighter(Box::new(NuHighlighter {
                     engine_state: engine_state.clone(),
