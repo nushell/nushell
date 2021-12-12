@@ -5,7 +5,7 @@ body:
     id: problem
     attributes:
       label: Related problem
-      description: Is your feature request related to a problem? Please describe.
+      description: Thank you for your feature request. We are working diligently with our community to integrate our latest code base that we call [engine-q](https://github.com/nushell/engine-q). We would like your help with this by checking to see if this feature request is still needed in engine-q. Thank you for your patience while we ready the next version of nushell.
       placeholder: |
         A clear and concise description of what the problem is.
         Example: I am trying to do [...] but [...]
