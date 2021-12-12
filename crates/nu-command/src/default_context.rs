@@ -227,9 +227,24 @@ pub fn create_default_context() -> EngineState {
             MathVariance,
         };
 
+        // Network
+        bind_command! {
+            Url,
+            UrlHost,
+            UrlPath,
+            UrlQuery,
+            UrlScheme,
+        }
+
         // Random
         bind_command! {
             Random,
+            RandomBool,
+            RandomChars,
+            RandomDecimal,
+            RandomDice,
+            RandomInteger,
+            RandomUuid,
         };
 
         // Generators
