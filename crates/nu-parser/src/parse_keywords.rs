@@ -1130,7 +1130,7 @@ pub fn parse_register(
             let decl = working_set.get_decl(decl_id);
 
             err = check_call(call_span, &decl.signature(), &call).or(err);
-            if err.is_some() {
+            if err.is_some() || call.has_flag("help") {
                 return (
                     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
