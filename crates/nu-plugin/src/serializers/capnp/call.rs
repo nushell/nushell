@@ -1,5 +1,5 @@
 use super::value;
-use crate::{evaluated_call::EvaluatedCall, plugin_capnp::evaluated_call};
+use crate::{plugin_capnp::evaluated_call, EvaluatedCall};
 use nu_protocol::{ShellError, Span, Spanned, Value};
 
 pub(crate) fn serialize_call(

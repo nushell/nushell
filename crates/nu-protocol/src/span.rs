@@ -2,7 +2,7 @@ use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
 /// A spanned area of interest, generic over what kind of thing is of interest
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Spanned<T>
 where
     T: Clone + std::fmt::Debug,

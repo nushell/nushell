@@ -82,7 +82,7 @@ pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
     }
 }
 
-fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
+pub fn check_call(command: Span, sig: &Signature, call: &Call) -> Option<ParseError> {
     // Allow the call to pass if they pass in the help flag
     if call.named.iter().any(|(n, _)| n.item == "help") {
         return None;

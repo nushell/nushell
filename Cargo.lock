@@ -394,15 +394,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae9b8a7119420b5279ddc2b4ee553ee15bcf4605df6135a26f03ffe153bee97c"
 
 [[package]]
-name = "capnpc"
-version = "0.14.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b47bce811162518b5c38f746ed584bd2922ae7bb560ef64f230d2e4ee0d111fe"
-dependencies = [
- "capnp",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1752,9 +1743,10 @@ name = "nu-plugin"
 version = "0.1.0"
 dependencies = [
  "capnp",
- "capnpc",
  "nu-engine",
  "nu-protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

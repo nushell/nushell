@@ -1,7 +1,7 @@
-use crate::plugin::{CallInfo, LabeledError, PluginCall, PluginResponse};
+use super::signature::deserialize_signature;
+use super::{call, signature, value};
 use crate::plugin_capnp::{plugin_call, plugin_response};
-use crate::serializers::signature::deserialize_signature;
-use crate::serializers::{call, signature, value};
+use crate::protocol::{CallInfo, LabeledError, PluginCall, PluginResponse};
 use capnp::serialize;
 use nu_protocol::{ShellError, Signature, Span};
 
@@ -191,8 +191,7 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evaluated_call::EvaluatedCall;
-    use crate::plugin::{PluginCall, PluginResponse};
+    use crate::protocol::{EvaluatedCall, LabeledError, PluginCall, PluginResponse};
     use nu_protocol::{Signature, Span, Spanned, SyntaxShape, Value};
 
     #[test]

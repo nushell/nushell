@@ -7,8 +7,8 @@ edition = "2018"
 capnp = "0.14.3"
 nu-protocol = { path = "../nu-protocol" }
 nu-engine = { path = "../nu-engine" }
+serde = {version = "1.0.130", features = ["derive"]}
+serde_json = { version = "1.0"}
 
-[build-dependencies]
-capnpc = "0.14.3"
 
 

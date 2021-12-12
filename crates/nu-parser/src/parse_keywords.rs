@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     lex, lite_parse,
     parser::{
-        check_name, garbage, garbage_statement, parse, parse_block_expression,
+        check_call, check_name, garbage, garbage_statement, parse, parse_block_expression,
         parse_import_pattern, parse_internal_call, parse_signature, parse_string, trim_quotes,
     },
     ParseError,
@@ -719,7 +719,10 @@ pub fn parse_use(
                             );
                         }
                     } else {
-                        error = error.or(Some(ParseError::FileNotFound(module_filename)));
+                        error = error.or(Some(ParseError::FileNotFound(
+                            module_filename,
+                            import_pattern.head.span,
+                        )));
                         (ImportPattern::new(), Overlay::new())
                     }
                 } else {
@@ -1059,7 +1062,7 @@ pub fn parse_source(
                             }
                         }
                     } else {
-                        error = error.or(Some(ParseError::FileNotFound(filename)));
+                        error = error.or(Some(ParseError::FileNotFound(filename, spans[1])));
                     }
                 } else {
                     return (
@@ -1093,14 +1096,12 @@ pub fn parse_register(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    use std::{path::PathBuf, str::FromStr};
-
-    use nu_plugin::plugin::{get_signature, PluginDeclaration};
+    use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
     use nu_protocol::Signature;
 
-    let name = working_set.get_span_contents(spans[0]);
-
-    if name != b"register" {
+    // Checking that the function is used with the correct name
+    // Maybe this is not necessary but it is a sanity check
+    if working_set.get_span_contents(spans[0]) != b"register" {
         return (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
@@ -1110,119 +1111,132 @@ pub fn parse_register(
         );
     }
 
-    if let Some(decl_id) = working_set.find_decl(b"register") {
-        let (call, call_span, mut err) =
-            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
-
-        let error = {
-            match spans.len() {
-                1 => Some(ParseError::MissingPositional(
-                    "plugin location".into(),
-                    spans[0],
+    // Parsing the spans and checking that they match the register signature
+    // Using a parsed call makes more sense than checking for how many spans are in the call
+    // Also, by creating a call, it can be checked if it matches the declaration signature
+    let (call, call_span) = match working_set.find_decl(b"register") {
+        None => {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Register declaration not found".into(),
+                    span(spans),
                 )),
-                2 => {
-                    let name_expr = working_set.get_span_contents(spans[1]);
-                    String::from_utf8(name_expr.to_vec())
-                        .map_err(|_| ParseError::NonUtf8(spans[1]))
-                        .and_then(|name| {
-                            canonicalize(&name).map_err(|e| ParseError::FileNotFound(e.to_string()))
-                        })
-                        .and_then(|path| {
-                            if path.exists() & path.is_file() {
-                                get_signature(path.as_path())
-                                    .map_err(|err| {
-                                        ParseError::LabeledError(
-                                            "Error getting signatures".into(),
-                                            err.to_string(),
-                                            spans[0],
-                                        )
-                                    })
-                                    .map(|signatures| (path, signatures))
-                            } else {
-                                Err(ParseError::FileNotFound(format!("{:?}", path)))
-                            }
-                        })
-                        .map(|(path, signatures)| {
-                            for signature in signatures {
-                                // create plugin command declaration (need struct impl Command)
-                                // store declaration in working set
-                                let plugin_decl = PluginDeclaration::new(path.clone(), signature);
+            )
+        }
+        Some(decl_id) => {
+            let (call, call_span, mut err) =
+                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let decl = working_set.get_decl(decl_id);
 
-                                working_set.add_decl(Box::new(plugin_decl));
-                            }
-
-                            working_set.mark_plugins_file_dirty();
-                        })
-                        .err()
-                }
-                3 => {
-                    let filename_slice = working_set.get_span_contents(spans[1]);
-                    let signature = working_set.get_span_contents(spans[2]);
-
-                    String::from_utf8(filename_slice.to_vec())
-                        .map_err(|_| ParseError::NonUtf8(spans[1]))
-                        .and_then(|name| {
-                            PathBuf::from_str(name.as_str()).map_err(|_| {
-                                ParseError::InternalError(
-                                    format!("Unable to create path from string {}", name),
-                                    spans[0],
-                                )
-                            })
-                        })
-                        .and_then(|path_inner| {
-                            serde_json::from_slice::<Signature>(signature)
-                                .map_err(|_| {
-                                    ParseError::LabeledError(
-                                        "Signature deserialization error".into(),
-                                        "unable to deserialize signature".into(),
-                                        spans[0],
-                                    )
-                                })
-                                .map(|signature| (path_inner, signature))
-                        })
-                        .and_then(|(path, signature)| {
-                            if path.exists() & path.is_file() {
-                                let plugin_decl = PluginDeclaration::new(path, signature);
-
-                                working_set.add_decl(Box::new(plugin_decl));
-
-                                working_set.mark_plugins_file_dirty();
-                                Ok(())
-                            } else {
-                                Err(ParseError::FileNotFound(format!("{:?}", path)))
-                            }
-                        })
-                        .err()
-                }
-                _ => {
-                    let span = spans[3..].iter().fold(spans[3], |acc, next| Span {
-                        start: acc.start,
-                        end: next.end,
-                    });
-
-                    Some(ParseError::ExtraPositional(span))
-                }
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() {
+                return (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }])),
+                    err,
+                );
             }
-        };
 
-        err = error.or(err);
+            (call, call_span)
+        }
+    };
 
-        (
-            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: call_span,
-                ty: Type::Unknown,
-                custom_completion: None,
-            }])),
-            err,
-        )
-    } else {
-        (
-            garbage_statement(spans),
-            Some(ParseError::UnknownState(
-                "internal error: Register declaration not found".into(),
-                span(spans),
-            )),
-        )
+    // Extracting the required arguments from the call and keeping them together in a tuple
+    // The ? operator is not used because the error has to be kept to be printed in the shell
+    // For that reason the values are kept in a result that will be passed at the end of this call
+    let arguments = call
+        .positional
+        .get(0)
+        .map(|expr| {
+            let name_expr = working_set.get_span_contents(expr.span);
+            String::from_utf8(name_expr.to_vec())
+                .map_err(|_| ParseError::NonUtf8(spans[1]))
+                .and_then(|name| {
+                    canonicalize(&name).map_err(|_| ParseError::FileNotFound(name, expr.span))
+                })
+                .and_then(|path| {
+                    if path.exists() & path.is_file() {
+                        Ok(path)
+                    } else {
+                        Err(ParseError::FileNotFound(format!("{:?}", path), expr.span))
+                    }
+                })
+        })
+        .expect("required positional has being checked")
+        .and_then(|path| {
+            call.get_flag_expr("encoding")
+                .map(|expr| {
+                    EncodingType::try_from_bytes(working_set.get_span_contents(expr.span))
+                        .ok_or_else(|| {
+                            ParseError::IncorrectValue(
+                                "wrong encoding".into(),
+                                expr.span,
+                                "Encodings available: capnp and json".into(),
+                            )
+                        })
+                })
+                .expect("required named has being checked")
+                .map(|encoding| (path, encoding))
+        });
+
+    // Signature is the only optional value from the call and will be used to decide if
+    // the plugin is called to get the signatures or to use the given signature
+    let signature = call.positional.get(1).map(|expr| {
+        let signature = working_set.get_span_contents(expr.span);
+        serde_json::from_slice::<Signature>(signature).map_err(|_| {
+            ParseError::LabeledError(
+                "Signature deserialization error".into(),
+                "unable to deserialize signature".into(),
+                spans[0],
+            )
+        })
+    });
+
+    let error = match signature {
+        Some(signature) => arguments.and_then(|(path, encoding)| {
+            signature.map(|signature| {
+                let plugin_decl = PluginDeclaration::new(path, signature, encoding);
+                working_set.add_decl(Box::new(plugin_decl));
+                working_set.mark_plugins_file_dirty();
+            })
+        }),
+        None => arguments.and_then(|(path, encoding)| {
+            get_signature(path.as_path(), &encoding)
+                .map_err(|err| {
+                    ParseError::LabeledError(
+                        "Error getting signatures".into(),
+                        err.to_string(),
+                        spans[0],
+                    )
+                })
+                .map(|signatures| {
+                    for signature in signatures {
+                        // create plugin command declaration (need struct impl Command)
+                        // store declaration in working set
+                        let plugin_decl =
+                            PluginDeclaration::new(path.clone(), signature, encoding.clone());
+
+                        working_set.add_decl(Box::new(plugin_decl));
+                    }
+
+                    working_set.mark_plugins_file_dirty();
+                })
+        }),
     }
+    .err();
+
+    (
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: call_span,
+            ty: Type::Nothing,
+            custom_completion: None,
+        }])),
+        error,
+    )
 }

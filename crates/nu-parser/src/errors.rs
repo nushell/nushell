@@ -65,6 +65,10 @@ pub enum ParseError {
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
 
+    #[error("Incorrect value")]
+    #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
+    IncorrectValue(String, #[label("unexpected {0}")] Span, String),
+
     #[error("Multiple rest params.")]
     #[diagnostic(code(nu::parser::multiple_rest_params), url(docsrs))]
     MultipleRestParams(#[label = "multiple rest params"] Span),
@@ -187,9 +191,9 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::export_not_found), url(docsrs))]
     ExportNotFound(#[label = "could not find imports"] Span),
 
-    #[error("File not found: {0}")]
+    #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
-    FileNotFound(String),
+    FileNotFound(String, #[label("File not found: {0}")] Span),
 
     #[error("{0}")]
     #[diagnostic()]

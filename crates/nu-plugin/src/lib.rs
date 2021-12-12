@@ -1,7 +1,10 @@
-pub mod evaluated_call;
-pub mod plugin;
-pub mod plugin_capnp;
-pub mod serializers;
+mod plugin;
+mod protocol;
+mod serializers;
 
-pub use evaluated_call::EvaluatedCall;
-pub use plugin::{serve_plugin, LabeledError, Plugin};
+#[allow(dead_code)]
+mod plugin_capnp;
+
+pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
+pub use protocol::{EvaluatedCall, LabeledError};
+pub use serializers::{capnp::CapnpSerializer, json::JsonSerializer, EncodingType};
