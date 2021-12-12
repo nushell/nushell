@@ -1,5 +1,6 @@
 name: Bug Report
 description: Create a report to help us improve
+title: Thank you for your bug report. We are working diligently with our community to integrate our latest code base that we call [engine-q](https://github.com/nushell/engine-q). We would like your help with this by checking to see if this bug is still needed in engine-q. Thank you for your patience while we ready the next version of nushell.
 body:
   - type: textarea
     id: description
