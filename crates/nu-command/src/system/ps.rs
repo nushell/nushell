@@ -54,11 +54,15 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
     let mut sys = System::new_all();
     sys.refresh_all();
 
+    let duration = std::time::Duration::from_millis(500);
+    std::thread::sleep(duration);
+
     let mut output = vec![];
 
     let result: Vec<_> = sys.processes().iter().map(|x| *x.0).collect();
 
     for pid in result {
+        sys.refresh_process(pid);
         if let Some(result) = sys.process(pid) {
             let mut cols = vec![];
             let mut vals = vec![];
