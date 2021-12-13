@@ -57,10 +57,14 @@ impl Command for External {
 
         // Check if this is a single call to a directory, if so auto-cd
         let path = nu_path::expand_path(&name.item);
+        let orig = name.item.clone();
         name.item = path.to_string_lossy().to_string();
 
         let path = Path::new(&name.item);
-        if (name.item.starts_with('.') || name.item.starts_with('/') || name.item.starts_with('\\'))
+        if (orig.starts_with('.')
+            || orig.starts_with('~')
+            || orig.starts_with('/')
+            || orig.starts_with('\\'))
             && path.is_dir()
             && args.is_empty()
         {
