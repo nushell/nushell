@@ -267,7 +267,7 @@ fn from_ssv(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let config = stack.get_config()?;
+    let config = stack.get_config().unwrap_or_default();
     let name = call.head;
 
     let noheaders = call.has_flag("noheaders");

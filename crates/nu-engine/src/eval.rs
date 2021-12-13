@@ -434,7 +434,7 @@ pub fn eval_subexpression(
                             // to be used later
                             // FIXME: the trimming of the end probably needs to live in a better place
 
-                            let config = stack.get_config()?;
+                            let config = stack.get_config().unwrap_or_default();
 
                             let mut s = input.collect_string("", &config);
                             if s.ends_with('\n') {

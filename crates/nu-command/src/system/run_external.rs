@@ -53,7 +53,7 @@ impl Command for External {
         let last_expression = call.has_flag("last_expression");
         let env_vars = stack.get_env_vars();
 
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
 
         // Check if this is a single call to a directory, if so auto-cd
         let path = nu_path::expand_path(&name.item);

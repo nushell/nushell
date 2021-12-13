@@ -67,7 +67,7 @@ impl Command for ToMd {
         let head = call.head;
         let pretty = call.has_flag("pretty");
         let per_element = call.has_flag("per-element");
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         to_md(input, pretty, per_element, config, head)
     }
 }

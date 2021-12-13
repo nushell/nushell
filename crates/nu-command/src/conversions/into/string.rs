@@ -137,7 +137,7 @@ fn string_helper(
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let config = stack.get_config()?;
+    let config = stack.get_config().unwrap_or_default();
 
     if let Some(decimal_val) = decimals_value {
         if decimals && decimal_val.is_negative() {

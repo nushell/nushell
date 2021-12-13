@@ -61,7 +61,7 @@ impl Command for ToXml {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
         to_xml(input, head, pretty, &config)
     }

@@ -41,7 +41,7 @@ impl Command for Table {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let ctrlc = engine_state.ctrlc.clone();
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let color_hm = get_color_config(&config);
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {

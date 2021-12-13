@@ -42,7 +42,7 @@ impl Command for ToTsv {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let noheaders = call.has_flag("noheaders");
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         to_tsv(input, noheaders, head, config)
     }
 }

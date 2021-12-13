@@ -30,7 +30,7 @@ impl Command for Debug {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let raw = call.has_flag("raw");
 
         input.map(

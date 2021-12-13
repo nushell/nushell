@@ -33,7 +33,7 @@ impl Command for FromTsv {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         from_tsv(call, input, &config)
     }
 }

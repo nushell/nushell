@@ -13,7 +13,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
+    Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
 use std::{
@@ -140,6 +140,16 @@ fn main() -> Result<()> {
             },
         );
 
+        let config = match stack.get_config() {
+            Ok(config) => config,
+            Err(e) => {
+                let working_set = StateWorkingSet::new(&engine_state);
+
+                report_error(&working_set, &e);
+                Config::default()
+            }
+        };
+
         match eval_block(
             &engine_state,
             &mut stack,
@@ -147,7 +157,6 @@ fn main() -> Result<()> {
             PipelineData::new(Span::unknown()),
         ) {
             Ok(pipeline_data) => {
-                let config = stack.get_config()?;
                 for item in pipeline_data {
                     if let Value::Error { error } = item {
                         let working_set = StateWorkingSet::new(&engine_state);
@@ -191,7 +200,6 @@ fn main() -> Result<()> {
                     PipelineData::new(Span::unknown()),
                 ) {
                     Ok(pipeline_data) => {
-                        let config = stack.get_config()?;
                         for item in pipeline_data {
                             if let Value::Error { error } = item {
                                 let working_set = StateWorkingSet::new(&engine_state);
@@ -289,7 +297,15 @@ fn main() -> Result<()> {
         }
 
         loop {
-            let config = stack.get_config()?;
+            let config = match stack.get_config() {
+                Ok(config) => config,
+                Err(e) => {
+                    let working_set = StateWorkingSet::new(&engine_state);
+
+                    report_error(&working_set, &e);
+                    Config::default()
+                }
+            };
 
             //Reset the ctrl-c handler
             ctrlc.store(false, Ordering::SeqCst);
@@ -374,7 +390,7 @@ fn print_pipeline_data(
     // If the table function is in the declarations, then we can use it
     // to create the table value that will be printed in the terminal
 
-    let config = stack.get_config()?;
+    let config = stack.get_config().unwrap_or_default();
 
     match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {

@@ -60,7 +60,7 @@ prints out the list properly."#
         let width_param: Option<String> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let env_str = stack.get_env_var("LS_COLORS");
         let use_grid_icons = config.use_grid_icons;
 

@@ -299,7 +299,7 @@ fn to_html(
     let partial = call.has_flag("partial");
     let list = call.has_flag("list");
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
-    let config = stack.get_config()?;
+    let config = stack.get_config().unwrap_or_default();
 
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
     let headers = merge_descriptors(&vec_of_values);

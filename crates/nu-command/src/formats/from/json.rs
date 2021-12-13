@@ -75,7 +75,7 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let mut string_input = input.collect_string("", &config);
         string_input.push('\n');
 

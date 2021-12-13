@@ -52,7 +52,7 @@ impl Command for BuildString {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         let output = call
             .positional
             .iter()

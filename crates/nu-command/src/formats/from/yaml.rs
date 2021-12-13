@@ -71,7 +71,7 @@ impl Command for FromYaml {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         from_yaml(input, head, &config)
     }
 }
@@ -100,7 +100,7 @@ impl Command for FromYml {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        let config = stack.get_config()?;
+        let config = stack.get_config().unwrap_or_default();
         from_yaml(input, head, &config)
     }
 }
