@@ -6,6 +6,7 @@ This file attempts to list all breaking changes that came with the new engine up
 
 * `$nu.home-dir` is now called `$nu.home-path`
 * `$nu.temp-dir` is now called `$nu.temp-path`
+* `$nu.path` is a regular environment variable: `$nu.env.PATH` (Unix) or `$nu.env.Path` (Windows)
 * All config is now contained within `$config` which can be initialized by `config.nu`. There is no `config.toml` anymore.
 
 ## `main` Command in Scripts
