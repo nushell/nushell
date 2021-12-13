@@ -650,7 +650,7 @@ fn hides_def_import_1() -> TestResult {
 #[test]
 fn hides_def_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam *; spam foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; spam foo"#,
         not_found_msg(),
     )
 }
@@ -682,7 +682,7 @@ fn hides_def_import_5() -> TestResult {
 #[test]
 fn hides_def_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export def foo [] { "foo" } }; use spam; hide spam; spam foo"#,
+        r#"module spam { export def foo [] { "foo" } }; use spam *; hide spam *; foo"#,
         not_found_msg(),
     )
 }
@@ -698,7 +698,7 @@ fn hides_env_import_1() -> TestResult {
 #[test]
 fn hides_env_import_2() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide spam *; $nu.env.'spam foo'"#,
+        r#"module spam { export env foo { "foo" } }; use spam; hide spam; $nu.env.'spam foo'"#,
         "did you mean",
     )
 }
@@ -730,7 +730,7 @@ fn hides_env_import_5() -> TestResult {
 #[test]
 fn hides_env_import_6() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "foo" } }; use spam; hide spam; $nu.env.'spam foo'"#,
+        r#"module spam { export env foo { "foo" } }; use spam *; hide spam *; $nu.env.foo"#,
         "did you mean",
     )
 }

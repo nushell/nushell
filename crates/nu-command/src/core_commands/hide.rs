@@ -59,9 +59,7 @@ impl Command for Hide {
                 overlay.env_vars_with_head(&import_pattern.head.name)
             } else {
                 match &import_pattern.members[0] {
-                    ImportPatternMember::Glob { .. } => {
-                        overlay.env_vars_with_head(&import_pattern.head.name)
-                    }
+                    ImportPatternMember::Glob { .. } => overlay.env_vars(),
                     ImportPatternMember::Name { name, span } => {
                         let mut output = vec![];
 

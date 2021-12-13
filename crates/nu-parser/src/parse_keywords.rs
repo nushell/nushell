@@ -866,9 +866,7 @@ pub fn parse_hide(
             }
         } else {
             match &import_pattern.members[0] {
-                ImportPatternMember::Glob { .. } => {
-                    overlay.decls_with_head(&import_pattern.head.name)
-                }
+                ImportPatternMember::Glob { .. } => overlay.decls(),
                 ImportPatternMember::Name { name, span } => {
                     let mut output = vec![];
 

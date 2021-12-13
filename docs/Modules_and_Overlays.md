@@ -306,7 +306,6 @@ It creates the `$config` variable using the module system.
 
 ## Known Issues
 
-* Hiding from a module needs to be improved: https://github.com/nushell/engine-q/issues/445
 * It might be more appropriate to use `$scope.modules` instead of `$scope.overlays`
 
 ## Future Design Ideas
