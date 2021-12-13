@@ -430,7 +430,7 @@ mod tests {
         );
 
         assert_eq!(
-            table(value.clone().into_pipeline_data(), true, &Config::default()),
+            table(value.into_pipeline_data(), true, &Config::default()),
             one(r#"
             | country     |
             | ----------- |
