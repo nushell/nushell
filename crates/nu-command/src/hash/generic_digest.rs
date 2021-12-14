@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, SyntaxShape, Value};
 use std::marker::PhantomData;
 
 pub trait HashDigest: digest::Digest + Clone {
@@ -90,6 +90,11 @@ where
         Value::String { val, span } => (val.as_bytes(), *span),
         Value::Binary { val, span } => (val.as_slice(), *span),
         other => {
+            let span = match input.span() {
+                Ok(span) => span,
+                Err(error) => return Value::Error { error },
+            };
+
             return Value::Error {
                 error: ShellError::UnsupportedInput(
                     format!(
@@ -97,7 +102,7 @@ where
                         other.get_type(),
                         D::name()
                     ),
-                    input.span().unwrap_or_else(|_| Span::unknown()),
+                    span,
                 ),
             };
         }
