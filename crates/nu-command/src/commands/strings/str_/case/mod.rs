@@ -16,6 +16,24 @@ pub use pascal_case::SubCommand as PascalCase;
 pub use screaming_snake_case::SubCommand as ScreamingSnakeCase;
 pub use snake_case::SubCommand as SnakeCase;
 
+use heck::ToKebabCase;
+use heck::ToLowerCamelCase;
+use heck::ToShoutySnakeCase;
+use heck::ToSnakeCase;
+use heck::ToUpperCamelCase;
+macro_rules! create_heck_function {
+    ($func_name:ident) => {
+        pub fn $func_name(a_slice: &str) -> String {
+            a_slice.$func_name()
+        }
+    };
+}
+create_heck_function!(to_upper_camel_case);
+create_heck_function!(to_lower_camel_case);
+create_heck_function!(to_kebab_case);
+create_heck_function!(to_shouty_snake_case);
+create_heck_function!(to_snake_case);
+
 struct Arguments {
     column_paths: Vec<ColumnPath>,
 }

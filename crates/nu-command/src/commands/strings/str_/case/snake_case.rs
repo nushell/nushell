@@ -1,6 +1,5 @@
-use super::operate;
+use super::{operate, to_snake_case};
 use crate::prelude::*;
-use inflector::cases::snakecase::to_snake_case;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape, Value};
