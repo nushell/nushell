@@ -1234,6 +1234,18 @@ fn command_filter_reject_3() -> TestResult {
 }
 
 #[test]
+fn command_drop_column_1() -> TestResult {
+    run_test(
+        "[[lang, gems, grade]; [nu, 100, a]] | drop column 2 | to json",
+        r#"[
+  {
+    "lang": "nu"
+  }
+]"#,
+    )
+}
+
+#[test]
 fn chained_operator_typecheck() -> TestResult {
     run_test("1 != 2 && 3 != 4 && 5 != 6", "true")
 }
