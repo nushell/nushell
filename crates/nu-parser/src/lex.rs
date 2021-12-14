@@ -112,7 +112,7 @@ pub fn lex_item(
                 break;
             }
             in_comment = true;
-        } else if c == b'\n' {
+        } else if c == b'\n' || c == b'\r' {
             in_comment = false;
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
                 break;
