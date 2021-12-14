@@ -131,7 +131,7 @@ pub fn math_result_type(
                 }
             },
             Operator::And | Operator::Or => match (&lhs.ty, &rhs.ty) {
-                (Type::Bool, Type::Bool) => (Type::Int, None),
+                (Type::Bool, Type::Bool) => (Type::Bool, None),
 
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),

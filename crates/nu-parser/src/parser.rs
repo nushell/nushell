@@ -3018,7 +3018,6 @@ pub fn parse_math_expression(
                 ty: result_ty,
                 custom_completion: None,
             });
-            // }
         }
         expr_stack.push(op);
         expr_stack.push(rhs);

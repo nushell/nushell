@@ -1232,3 +1232,8 @@ fn command_filter_reject_3() -> TestResult {
 ]"#,
     )
 }
+
+#[test]
+fn chained_operator_typecheck() -> TestResult {
+    run_test("1 != 2 && 3 != 4 && 5 != 6", "true")
+}
