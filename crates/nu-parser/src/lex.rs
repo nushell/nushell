@@ -276,25 +276,18 @@ pub fn lex(
             let mut start = curr_offset;
 
             while let Some(input) = input.get(curr_offset) {
-                curr_offset += 1;
                 if *input == b'\n' || *input == b'\r' {
                     if !skip_comment {
                         output.push(Token::new(
                             TokenContents::Comment,
-                            Span::new(start, curr_offset - 1),
-                        ));
-
-                        // Adding an end of line token after a comment
-                        // This helps during lite_parser to avoid losing a command
-                        // in a statement
-                        output.push(Token::new(
-                            TokenContents::Eol,
-                            Span::new(curr_offset - 1, curr_offset),
+                            Span::new(start, curr_offset),
                         ));
                     }
                     start = curr_offset;
 
                     break;
+                } else {
+                    curr_offset += 1;
                 }
             }
             if start != curr_offset && !skip_comment {

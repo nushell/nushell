@@ -388,7 +388,7 @@ fn calculate_end_span(
     }
 }
 
-fn parse_multispan_value(
+pub fn parse_multispan_value(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     spans_idx: &mut usize,

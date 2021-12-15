@@ -1249,3 +1249,20 @@ fn command_drop_column_1() -> TestResult {
 fn chained_operator_typecheck() -> TestResult {
     run_test("1 != 2 && 3 != 4 && 5 != 6", "true")
 }
+
+#[test]
+fn proper_shadow() -> TestResult {
+    run_test("let x = 10; let x = $x + 9; $x", "19")
+}
+
+#[test]
+fn comment_multiline() -> TestResult {
+    run_test(
+        r#"def foo [] {
+        let x = 1 + 2 # comment
+        let y = 3 + 4 # another comment
+        $x + $y
+    }; foo"#,
+        "10",
+    )
+}

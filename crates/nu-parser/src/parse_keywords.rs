@@ -13,7 +13,8 @@ use crate::{
     lex, lite_parse,
     parser::{
         check_call, check_name, garbage, garbage_statement, parse, parse_block_expression,
-        parse_import_pattern, parse_internal_call, parse_signature, parse_string, trim_quotes,
+        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_string, parse_var_with_opt_type, trim_quotes,
     },
     ParseError,
 };
@@ -956,28 +957,68 @@ pub fn parse_let(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"let") {
-            let (call, call_span, err) =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            if spans.len() >= 4 {
+                // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
+                // so that the var-id created by the variable isn't visible in the expression that init it
+                for span in spans.iter().enumerate() {
+                    let item = working_set.get_span_contents(*span.1);
+                    if item == b"=" && spans.len() > (span.0 + 1) {
+                        let mut error = None;
 
-            // Update the variable to the known type if we can.
-            if err.is_none() {
-                let var_id = call.positional[0]
-                    .as_var()
-                    .expect("internal error: expected variable");
-                let rhs_type = call.positional[1].ty.clone();
+                        let mut idx = span.0;
+                        let (rvalue, err) = parse_multispan_value(
+                            working_set,
+                            spans,
+                            &mut idx,
+                            &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                        );
+                        error = error.or(err);
 
-                if var_id != CONFIG_VARIABLE_ID {
-                    working_set.set_variable_type(var_id, rhs_type);
+                        let mut idx = 0;
+                        let (lvalue, err) =
+                            parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
+                        error = error.or(err);
+
+                        let var_id = lvalue.as_var();
+
+                        let rhs_type = rvalue.ty.clone();
+
+                        if let Some(var_id) = var_id {
+                            if var_id != CONFIG_VARIABLE_ID {
+                                working_set.set_variable_type(var_id, rhs_type);
+                            }
+                        }
+
+                        let call = Box::new(Call {
+                            decl_id,
+                            head: spans[0],
+                            positional: vec![lvalue, rvalue],
+                            named: vec![],
+                        });
+
+                        return (
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: nu_protocol::span(spans),
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            }])),
+                            error,
+                        );
+                    }
                 }
             }
+            let (call, _, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
             return (
-                Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: Type::Unknown,
-                    custom_completion: None,
-                }])),
+                Statement::Pipeline(Pipeline {
+                    expressions: vec![Expression {
+                        expr: Expr::Call(call),
+                        span: nu_protocol::span(spans),
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }],
+                }),
                 err,
             );
         }
