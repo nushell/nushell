@@ -9,6 +9,10 @@ This file attempts to list all breaking changes that came with the new engine up
 * `$nu.path` is a regular environment variable: `$nu.env.PATH` (Unix) or `$nu.env.Path` (Windows)
 * All config is now contained within `$config` which can be initialized by `config.nu`. There is no `config.toml` anymore.
 
+## `if`
+
+`if {} {}` is now `if {} else {}`
+
 ## `main` Command in Scripts
 
 If the script contains `main` it will be ran after all the script is executed.
