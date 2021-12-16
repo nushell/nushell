@@ -3,7 +3,7 @@ use indexmap::map::IndexMap;
 use lazy_static::lazy_static;
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, engine::Command, Example, IntoInterruptiblePipelineData, IntoPipelineData,
+    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
@@ -132,6 +132,7 @@ impl Command for Char {
             .rest("rest", SyntaxShape::String, "multiple Unicode bytes")
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
