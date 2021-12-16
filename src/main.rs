@@ -64,7 +64,7 @@ impl CompletionActionHandler for FuzzyCompletion {
                 .default(0)
                 .items(&selections[..])
                 .interact_on_opt(&Term::stdout())
-                .expect("Fuzzy completion interact on operation");
+                .unwrap_or(None);
             let _ = crossterm::terminal::enable_raw_mode();
 
             if let Some(result) = result {
