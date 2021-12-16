@@ -317,6 +317,7 @@ fn main() -> Result<()> {
                 }))
                 .with_highlighter(Box::new(NuHighlighter {
                     engine_state: engine_state.clone(),
+                    config: config.clone(),
                 }))
                 .with_animation(config.animate_prompt)
                 // .with_completion_action_handler(Box::new(

@@ -15,7 +15,9 @@ nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 nu-term-grid = { path = "../nu-term-grid" }
 nu-parser = { path = "../nu-parser" }
-nu-ansi-term = { path = "../nu-ansi-term" }
+# nu-ansi-term = { path = "../nu-ansi-term" }
+nu-ansi-term = "0.39.0"
+nu-color-config = { path = "../nu-color-config" }
 
 # Potential dependencies for extras
 url = "2.2.1"

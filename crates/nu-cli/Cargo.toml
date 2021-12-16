@@ -8,8 +8,10 @@ nu-engine = { path = "../nu-engine" }
 nu-path = { path = "../nu-path" }
 nu-parser = { path = "../nu-parser" }
 nu-protocol = { path = "../nu-protocol" }
+# nu-ansi-term = { path = "../nu-ansi-term" }
+nu-ansi-term = "0.39.0"
+nu-color-config = { path = "../nu-color-config" }
 
 miette = { version = "3.0.0", features = ["fancy"] }
 thiserror = "1.0.29"
-nu-ansi-term = "0.39.0"
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }

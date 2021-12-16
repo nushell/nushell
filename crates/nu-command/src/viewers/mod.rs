@@ -1,4 +1,3 @@
-mod color_config;
 mod griddle;
 mod icons;
 mod table;

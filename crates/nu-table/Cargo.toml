@@ -12,7 +12,8 @@ name = "table"
 path = "src/main.rs"
 
 [dependencies]
-nu-ansi-term = { path = "../nu-ansi-term" }
+# nu-ansi-term = { path = "../nu-ansi-term" }
+nu-ansi-term = "0.39.0"
 nu-protocol = { path = "../nu-protocol"}
 regex = "1.4"
 unicode-width = "0.1.8"

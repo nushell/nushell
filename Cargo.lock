@@ -842,8 +842,9 @@ dependencies = [
  "ctrlc",
  "dialoguer",
  "miette",
- "nu-ansi-term 0.39.0",
+ "nu-ansi-term",
  "nu-cli",
+ "nu-color-config",
  "nu-command",
  "nu-engine",
  "nu-json",
@@ -1633,18 +1634,6 @@ dependencies = [
 [[package]]
 name = "nu-ansi-term"
 version = "0.39.0"
-dependencies = [
- "doc-comment",
- "overload",
- "regex",
- "serde",
- "serde_json",
- "winapi",
-]
-
-[[package]]
-name = "nu-ansi-term"
-version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e62e2187cbceeafee9fb7b5e5e182623e0628ebf430a479df4487beb8f92fd7a"
 dependencies = [
@@ -1657,13 +1646,25 @@ name = "nu-cli"
 version = "0.1.0"
 dependencies = [
  "miette",
- "nu-ansi-term 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nu-ansi-term",
+ "nu-color-config",
  "nu-engine",
  "nu-parser",
  "nu-path",
  "nu-protocol",
  "reedline",
  "thiserror",
+]
+
+[[package]]
+name = "nu-color-config"
+version = "0.1.0"
+dependencies = [
+ "nu-ansi-term",
+ "nu-json",
+ "nu-protocol",
+ "nu-table",
+ "serde",
 ]
 
 [[package]]
@@ -1692,7 +1693,8 @@ dependencies = [
  "lscolors",
  "md-5",
  "meval",
- "nu-ansi-term 0.39.0",
+ "nu-ansi-term",
+ "nu-color-config",
  "nu-engine",
  "nu-json",
  "nu-parser",
@@ -1807,7 +1809,7 @@ version = "0.36.0"
 dependencies = [
  "ansi-cut",
  "atty",
- "nu-ansi-term 0.39.0",
+ "nu-ansi-term",
  "nu-protocol",
  "regex",
  "strip-ansi-escapes",
@@ -2518,7 +2520,7 @@ source = "git+https://github.com/nushell/reedline?branch=main#e512512dd4af9f3aad
 dependencies = [
  "chrono",
  "crossterm",
- "nu-ansi-term 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nu-ansi-term",
  "serde",
  "strip-ansi-escapes",
  "unicode-segmentation",

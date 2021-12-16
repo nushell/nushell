@@ -2,6 +2,7 @@ use nu_protocol::ast::{
     Block, Expr, Expression, ImportPatternMember, PathMember, Pipeline, Statement,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
+use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum FlatShape {
@@ -22,6 +23,30 @@ pub enum FlatShape {
     Variable,
     Flag,
     Custom(String),
+}
+
+impl Display for FlatShape {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            FlatShape::Garbage => write!(f, "flatshape_garbage"),
+            FlatShape::Bool => write!(f, "flatshape_bool"),
+            FlatShape::Int => write!(f, "flatshape_int"),
+            FlatShape::Float => write!(f, "flatshape_float"),
+            FlatShape::Range => write!(f, "flatshape_range"),
+            FlatShape::InternalCall => write!(f, "flatshape_internalcall"),
+            FlatShape::External => write!(f, "flatshape_external"),
+            FlatShape::ExternalArg => write!(f, "flatshape_externalarg"),
+            FlatShape::Literal => write!(f, "flatshape_literal"),
+            FlatShape::Operator => write!(f, "flatshape_operator"),
+            FlatShape::Signature => write!(f, "flatshape_signature"),
+            FlatShape::String => write!(f, "flatshape_string"),
+            FlatShape::Filepath => write!(f, "flatshape_filepath"),
+            FlatShape::GlobPattern => write!(f, "flatshape_globpattern"),
+            FlatShape::Variable => write!(f, "flatshape_variable"),
+            FlatShape::Flag => write!(f, "flatshape_flag"),
+            FlatShape::Custom(_) => write!(f, "flatshape_custom"),
+        }
+    }
 }
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
