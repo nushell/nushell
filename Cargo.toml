@@ -47,8 +47,8 @@ nu_plugin_gstat = { version = "0.1.0", path = "./crates/nu_plugin_gstat", option
 
 [dev-dependencies]
 tempfile = "3.2.0"
-assert_cmd = "1.0.7"
-pretty_assertions = "0.7.2"
+assert_cmd = "2.0.2"
+pretty_assertions = "1.0.0"
 
 [build-dependencies]
 

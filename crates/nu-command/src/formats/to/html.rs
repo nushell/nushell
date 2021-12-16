@@ -9,7 +9,6 @@ use nu_protocol::{
 use regex::Regex;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Write;
@@ -207,10 +206,7 @@ fn get_asset_by_name_as_html_themes(
 ) -> Result<HtmlThemes, Box<dyn Error>> {
     match Assets::get(zip_name) {
         Some(content) => {
-            let asset: Vec<u8> = match content {
-                Cow::Borrowed(bytes) => bytes.into(),
-                Cow::Owned(bytes) => bytes,
-            };
+            let asset: Vec<u8> = content.data.into();
             let reader = std::io::Cursor::new(asset);
             #[cfg(feature = "zip")]
             {
