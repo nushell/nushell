@@ -362,9 +362,11 @@ fn main() -> Result<()> {
                     );
                 }
                 Ok(Signal::CtrlC) => {
-                    println!("Ctrl-c");
+                    // `Reedline` clears the line content. New prompt is shown
                 }
                 Ok(Signal::CtrlD) => {
+                    // When exiting clear to a new line
+                    println!();
                     break;
                 }
                 Ok(Signal::CtrlL) => {
