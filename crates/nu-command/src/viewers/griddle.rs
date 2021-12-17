@@ -1,6 +1,7 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::{LsColors, Style};
+use nu_engine::env_to_string;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, PathMember},
@@ -61,7 +62,10 @@ prints out the list properly."#
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = stack.get_config().unwrap_or_default();
-        let env_str = stack.get_env_var("LS_COLORS");
+        let env_str = match stack.get_env_var("LS_COLORS") {
+            Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack, &config)?),
+            None => None,
+        };
         let use_grid_icons = config.use_grid_icons;
 
         match input {

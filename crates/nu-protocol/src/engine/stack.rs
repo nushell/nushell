@@ -24,7 +24,7 @@ pub struct Stack {
     /// Variables
     pub vars: HashMap<VarId, Value>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
-    pub env_vars: Vec<HashMap<String, String>>,
+    pub env_vars: Vec<HashMap<String, Value>>,
 }
 
 impl Default for Stack {
@@ -53,7 +53,7 @@ impl Stack {
         self.vars.insert(var_id, value);
     }
 
-    pub fn add_env_var(&mut self, var: String, value: String) {
+    pub fn add_env_var(&mut self, var: String, value: Value) {
         if let Some(scope) = self.env_vars.last_mut() {
             scope.insert(var, value);
         } else {
@@ -85,7 +85,7 @@ impl Stack {
     }
 
     /// Flatten the env var scope frames into one frame
-    pub fn get_env_vars(&self) -> HashMap<String, String> {
+    pub fn get_env_vars(&self) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
@@ -95,17 +95,17 @@ impl Stack {
         result
     }
 
-    pub fn get_env_var(&self, name: &str) -> Option<String> {
+    pub fn get_env_var(&self, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter().rev() {
             if let Some(v) = scope.get(name) {
-                return Some(v.to_string());
+                return Some(v.clone());
             }
         }
 
         None
     }
 
-    pub fn remove_env_var(&mut self, name: &str) -> Option<String> {
+    pub fn remove_env_var(&mut self, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter_mut().rev() {
             if let Some(v) = scope.remove(name) {
                 return Some(v);
@@ -135,7 +135,7 @@ impl Stack {
         for (i, scope) in self.env_vars.iter().rev().enumerate() {
             println!("env vars, scope {} (from the last);", i);
             for (var, val) in scope {
-                println!("  {}: {:?}", var, val);
+                println!("  {}: {:?}", var, val.clone().debug_value());
             }
         }
     }

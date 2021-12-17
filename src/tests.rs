@@ -1067,11 +1067,6 @@ fn shorthand_env_3() -> TestResult {
 }
 
 #[test]
-fn shorthand_env_4() -> TestResult {
-    fail_test(r#"FOO=BAZ FOO= $nu.env.FOO"#, "did you mean")
-}
-
-#[test]
 fn update_cell_path_1() -> TestResult {
     run_test(
         r#"[[name, size]; [a, 1.1]] | into int size | get size.0"#,

@@ -20,7 +20,7 @@ impl Command for LetEnv {
             .required("var_name", SyntaxShape::String, "variable name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::String)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Any)),
                 "equals sign followed by value",
             )
             .category(Category::Env)
@@ -42,9 +42,6 @@ impl Command for LetEnv {
             .expect("internal error: missing keyword");
 
         let rhs = eval_expression(engine_state, stack, keyword_expr)?;
-        let rhs = rhs.as_string()?;
-
-        //println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_env_var(env_var, rhs);
         Ok(PipelineData::new(call.head))

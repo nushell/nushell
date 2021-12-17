@@ -99,10 +99,9 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
     EnvVarNotFoundAtRuntime(#[label = "environment variable not found"] Span),
 
-    #[error("Environment variable is not a string")]
-    #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
-    EnvVarNotAString(#[label = "does not evaluate to a string"] Span),
-
+    // #[error("Environment variable is not a string")]
+    // #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
+    // EnvVarNotAString(#[label = "does not evaluate to a string"] Span),
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found), url(docsrs))]
     NotFound(#[label = "did not find anything under this name"] Span),
@@ -234,6 +233,14 @@ pub enum ShellError {
     #[error("Casting error")]
     #[diagnostic(code(nu::shell::downcast_not_possible), url(docsrs))]
     DowncastNotPossible(String, #[label("{0}")] Span),
+
+    #[error("Unsupported config value")]
+    #[diagnostic(code(nu::shell::unsupported_config_value), url(docsrs))]
+    UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
+
+    #[error("Missing config value")]
+    #[diagnostic(code(nu::shell::missing_config_value), url(docsrs))]
+    MissingConfigValue(String, #[label = "missing {0}"] Span),
 
     #[error("{0}")]
     #[diagnostic()]

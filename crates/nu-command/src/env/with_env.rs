@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-};
+use std::collections::HashMap;
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
@@ -73,34 +70,6 @@ impl Command for WithEnv {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum EnvVar {
-    Proper(String),
-    Nothing,
-}
-
-impl TryFrom<&Value> for EnvVar {
-    type Error = ShellError;
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        if matches!(value, Value::Nothing { .. }) {
-            Ok(EnvVar::Nothing)
-        } else if let Ok(s) = value.as_string() {
-            if s.is_empty() {
-                Ok(EnvVar::Nothing)
-            } else {
-                Ok(EnvVar::Proper(s))
-            }
-        } else {
-            Err(ShellError::CantConvert(
-                "string".into(),
-                value.get_type().to_string(),
-                value.span()?,
-            ))
-        }
-    }
-}
-
 fn with_env(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -116,7 +85,7 @@ fn with_env(
     let block = engine_state.get_block(block_id).clone();
     let mut stack = stack.collect_captures(&block.captures);
 
-    let mut env: HashMap<String, EnvVar> = HashMap::new();
+    let mut env: HashMap<String, Value> = HashMap::new();
 
     match &variable {
         Value::List { vals: table, .. } => {
@@ -125,7 +94,7 @@ fn with_env(
                 match &table[0] {
                     Value::Record { cols, vals, .. } => {
                         for (k, v) in cols.iter().zip(vals.iter()) {
-                            env.insert(k.to_string(), v.try_into()?);
+                            env.insert(k.to_string(), v.clone());
                         }
                     }
                     x => {
@@ -140,15 +109,16 @@ fn with_env(
                 // primitive values([X Y W Z])
                 for row in table.chunks(2) {
                     if row.len() == 2 {
-                        env.insert(row[0].as_string()?, (&row[1]).try_into()?);
+                        env.insert(row[0].as_string()?, (&row[1]).clone());
                     }
+                    // TODO: else error?
                 }
             }
         }
         // when get object by `open x.json` or `from json`
         Value::Record { cols, vals, .. } => {
             for (k, v) in cols.iter().zip(vals) {
-                env.insert(k.clone(), v.try_into()?);
+                env.insert(k.clone(), v.clone());
             }
         }
         x => {
@@ -161,14 +131,7 @@ fn with_env(
     };
 
     for (k, v) in env {
-        match v {
-            EnvVar::Nothing => {
-                stack.remove_env_var(&k);
-            }
-            EnvVar::Proper(s) => {
-                stack.add_env_var(k, s);
-            }
-        }
+        stack.add_env_var(k, v);
     }
 
     eval_block(engine_state, &mut stack, &block, input)

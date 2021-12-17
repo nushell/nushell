@@ -88,15 +88,8 @@ impl Command for Use {
 
                 // TODO: Add string conversions (e.g. int to string)
                 // TODO: Later expand env to take all Values
-                let val = if let Ok(s) =
-                    eval_block(engine_state, stack, block, PipelineData::new(call.head))?
-                        .into_value(Span::unknown())
-                        .as_string()
-                {
-                    s
-                } else {
-                    return Err(ShellError::EnvVarNotAString(import_pattern.span()));
-                };
+                let val = eval_block(engine_state, stack, block, PipelineData::new(call.head))?
+                    .into_value(Span::unknown());
 
                 stack.add_env_var(name, val);
             }

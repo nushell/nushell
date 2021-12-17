@@ -8,8 +8,8 @@ use dialoguer::{
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
-use nu_engine::eval_block;
-use nu_parser::parse;
+use nu_engine::{env_to_values, eval_block};
+use nu_parser::{lex, parse, Token, TokenContents};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -126,9 +126,8 @@ fn main() -> Result<()> {
 
         let mut stack = nu_protocol::engine::Stack::new();
 
-        for (k, v) in std::env::vars() {
-            stack.add_env_var(k, v);
-        }
+        // First, set up env vars as strings only
+        gather_parent_env_vars(&mut engine_state, &mut stack);
 
         // Set up our initial config to start from
         stack.vars.insert(
@@ -149,6 +148,13 @@ fn main() -> Result<()> {
                 Config::default()
             }
         };
+
+        // Translate environment variables from Strings to Values
+        if let Some(e) = env_to_values(&engine_state, &mut stack, &config) {
+            let working_set = StateWorkingSet::new(&engine_state);
+            report_error(&working_set, &e);
+            std::process::exit(1);
+        }
 
         match eval_block(
             &engine_state,
@@ -239,9 +245,8 @@ fn main() -> Result<()> {
         let mut nu_prompt = NushellPrompt::new();
         let mut stack = nu_protocol::engine::Stack::new();
 
-        for (k, v) in std::env::vars() {
-            stack.add_env_var(k, v);
-        }
+        // First, set up env vars as strings only
+        gather_parent_env_vars(&mut engine_state, &mut stack);
 
         // Set up our initial config to start from
         stack.vars.insert(
@@ -267,6 +272,23 @@ fn main() -> Result<()> {
                     eval_source(&mut engine_state, &mut stack, &contents, &config_filename);
                 }
             }
+        }
+
+        // Get the config
+        let config = match stack.get_config() {
+            Ok(config) => config,
+            Err(e) => {
+                let working_set = StateWorkingSet::new(&engine_state);
+
+                report_error(&working_set, &e);
+                Config::default()
+            }
+        };
+
+        // Translate environment variables from Strings to Values
+        if let Some(e) = env_to_values(&engine_state, &mut stack, &config) {
+            let working_set = StateWorkingSet::new(&engine_state);
+            report_error(&working_set, &e);
         }
 
         let history_path = if let Some(mut history_path) = nu_path::config_dir() {
@@ -385,6 +407,67 @@ fn main() -> Result<()> {
     }
 }
 
+// This fill collect environment variables from std::env and adds them to a stack.
+//
+// In order to ensure the values have spans, it first creates a dummy file, writes the collected
+// env vars into it (in a NAME=value format, similar to the output of the Unix 'env' tool), then
+// uses the file to get the spans. The file stays in memory, no filesystem IO is done.
+fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
+    let mut fake_env_file = String::new();
+    for (name, val) in std::env::vars() {
+        fake_env_file.push_str(&name);
+        fake_env_file.push('=');
+        fake_env_file.push_str(&val);
+        fake_env_file.push('\n');
+    }
+
+    let span_offset = engine_state.next_span_start();
+    engine_state.add_file(
+        "Host Environment Variables".to_string(),
+        fake_env_file.as_bytes().to_vec(),
+    );
+    let (tokens, _) = lex(fake_env_file.as_bytes(), span_offset, &[], &[], true);
+    for token in tokens {
+        if let Token {
+            contents: TokenContents::Item,
+            span: full_span,
+        } = token
+        {
+            let contents = engine_state.get_span_contents(&full_span);
+            let (parts, _) = lex(contents, full_span.start, &[], &[b'='], true);
+
+            let name = if let Some(Token {
+                contents: TokenContents::Item,
+                span,
+            }) = parts.get(0)
+            {
+                String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
+            } else {
+                // Skip this env var if it does not have a name
+                continue;
+            };
+
+            let value = if let Some(Token {
+                contents: TokenContents::Item,
+                span,
+            }) = parts.get(2)
+            {
+                Value::String {
+                    val: String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string(),
+                    span: *span,
+                }
+            } else {
+                Value::String {
+                    val: "".to_string(),
+                    span: Span::new(full_span.end, full_span.end),
+                }
+            };
+
+            stack.add_env_var(name, value);
+        }
+    }
+}
+
 fn print_pipeline_data(
     input: PipelineData,
     engine_state: &EngineState,
@@ -447,33 +530,22 @@ fn update_prompt<'prompt>(
     nu_prompt: &'prompt mut NushellPrompt,
     default_prompt: &'prompt DefaultPrompt,
 ) -> &'prompt dyn Prompt {
-    let prompt_command = match stack.get_env_var(env_variable) {
-        Some(prompt) => prompt,
+    let block_id = match stack.get_env_var(env_variable) {
+        Some(v) => match v.as_block() {
+            Ok(b) => b,
+            Err(_) => return default_prompt as &dyn Prompt,
+        },
         None => return default_prompt as &dyn Prompt,
     };
 
-    // Checking if the PROMPT_COMMAND is the same to avoid evaluating constantly
-    // the same command, thus saturating the contents in the EngineState
-    if !nu_prompt.is_new_prompt(prompt_command.as_str()) {
-        return nu_prompt as &dyn Prompt;
-    }
-
-    let block = {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let (output, err) = parse(&mut working_set, None, prompt_command.as_bytes(), false);
-        if let Some(err) = err {
-            report_error(&working_set, &err);
-            return default_prompt as &dyn Prompt;
-        }
-        output
-    };
+    let block = engine_state.get_block(block_id);
 
     let mut stack = stack.clone();
 
     let evaluated_prompt = match eval_block(
         engine_state,
         &mut stack,
-        &block,
+        block,
         PipelineData::new(Span::unknown()),
     ) {
         Ok(pipeline_data) => {
@@ -486,7 +558,7 @@ fn update_prompt<'prompt>(
         }
     };
 
-    nu_prompt.update_prompt(prompt_command, evaluated_prompt);
+    nu_prompt.update_prompt(evaluated_prompt);
 
     nu_prompt as &dyn Prompt
 }

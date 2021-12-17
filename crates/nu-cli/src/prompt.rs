@@ -8,7 +8,6 @@ use {
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    prompt_command: String,
     prompt_string: String,
     // These are part of the struct definition in case we want to allow
     // further customization to the shell status
@@ -27,7 +26,6 @@ impl Default for NushellPrompt {
 impl NushellPrompt {
     pub fn new() -> NushellPrompt {
         NushellPrompt {
-            prompt_command: "".to_string(),
             prompt_string: "".to_string(),
             default_prompt_indicator: "〉".to_string(),
             default_vi_insert_prompt_indicator: ": ".to_string(),
@@ -36,12 +34,7 @@ impl NushellPrompt {
         }
     }
 
-    pub fn is_new_prompt(&self, prompt_command: &str) -> bool {
-        self.prompt_command != prompt_command
-    }
-
-    pub fn update_prompt(&mut self, prompt_command: String, prompt_string: String) {
-        self.prompt_command = prompt_command;
+    pub fn update_prompt(&mut self, prompt_string: String) {
         self.prompt_string = prompt_string;
     }
 

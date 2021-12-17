@@ -489,8 +489,7 @@ impl EngineState {
         "<unknown>".into()
     }
 
-    #[allow(unused)]
-    pub(crate) fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
+    pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + contents.len();
 

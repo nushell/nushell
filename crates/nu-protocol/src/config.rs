@@ -1,8 +1,49 @@
-use crate::{ShellError, Value};
+use crate::{BlockId, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const ANIMATE_PROMPT_DEFAULT: bool = false;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EnvConversion {
+    pub from_string: (BlockId, Span),
+    pub to_string: (BlockId, Span),
+}
+
+impl EnvConversion {
+    pub fn from_record(value: &Value) -> Result<Self, ShellError> {
+        let record = value.as_record()?;
+
+        let mut conv_map = HashMap::new();
+
+        for (k, v) in record.0.iter().zip(record.1) {
+            if (k == "from_string") || (k == "to_string") {
+                conv_map.insert(k.as_str(), (v.as_block()?, v.span()?));
+            } else {
+                return Err(ShellError::UnsupportedConfigValue(
+                    "'from_string' and 'to_string' fields".into(),
+                    k.into(),
+                    value.span()?,
+                ));
+            }
+        }
+
+        match (conv_map.get("from_string"), conv_map.get("to_string")) {
+            (None, _) => Err(ShellError::MissingConfigValue(
+                "'from_string' field".into(),
+                value.span()?,
+            )),
+            (_, None) => Err(ShellError::MissingConfigValue(
+                "'to_string' field".into(),
+                value.span()?,
+            )),
+            (Some(from), Some(to)) => Ok(EnvConversion {
+                from_string: *from,
+                to_string: *to,
+            }),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
@@ -16,6 +57,7 @@ pub struct Config {
     pub float_precision: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
+    pub env_conversions: HashMap<String, EnvConversion>,
 }
 
 impl Default for Config {
@@ -31,6 +73,7 @@ impl Default for Config {
             float_precision: 4,
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
+            env_conversions: HashMap::new(), // TODO: Add default conversoins
         }
     }
 }
@@ -128,6 +171,16 @@ impl Value {
                 }
                 "filesize_format" => {
                     config.filesize_format = value.as_string()?.to_lowercase();
+                }
+                "env_conversions" => {
+                    let (env_vars, conversions) = value.as_record()?;
+                    let mut env_conversions = HashMap::new();
+
+                    for (env_var, record) in env_vars.iter().zip(conversions) {
+                        env_conversions.insert(env_var.into(), EnvConversion::from_record(record)?);
+                    }
+
+                    config.env_conversions = env_conversions;
                 }
                 _ => {}
             }
