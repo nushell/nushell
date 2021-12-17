@@ -417,7 +417,9 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
     for (name, val) in std::env::vars() {
         fake_env_file.push_str(&name);
         fake_env_file.push('=');
+        fake_env_file.push('"');
         fake_env_file.push_str(&val);
+        fake_env_file.push('"');
         fake_env_file.push('\n');
     }
 
@@ -452,8 +454,12 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
                 span,
             }) = parts.get(2)
             {
+                let bytes = engine_state.get_span_contents(span);
+                let bytes = bytes.strip_prefix(&[b'"']).unwrap_or(bytes);
+                let bytes = bytes.strip_suffix(&[b'"']).unwrap_or(bytes);
+
                 Value::String {
-                    val: String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string(),
+                    val: String::from_utf8_lossy(bytes).to_string(),
                     span: *span,
                 }
             } else {
