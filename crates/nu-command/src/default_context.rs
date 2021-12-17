@@ -150,6 +150,7 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Ansi,
             AnsiGradient,
+            AnsiStrip,
             Clear,
             Kill,
             Sleep,
