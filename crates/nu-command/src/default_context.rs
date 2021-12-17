@@ -54,6 +54,7 @@ pub fn create_default_context() -> EngineState {
             DropNth,
             Each,
             First,
+            Flatten,
             Get,
             Keep,
             KeepUntil,
