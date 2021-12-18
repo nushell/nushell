@@ -14,16 +14,23 @@ pub struct PluginDeclaration {
     name: String,
     signature: Signature,
     filename: PathBuf,
+    shell: Option<PathBuf>,
     encoding: EncodingType,
 }
 
 impl PluginDeclaration {
-    pub fn new(filename: PathBuf, signature: Signature, encoding: EncodingType) -> Self {
+    pub fn new(
+        filename: PathBuf,
+        signature: Signature,
+        encoding: EncodingType,
+        shell: Option<PathBuf>,
+    ) -> Self {
         Self {
             name: signature.name.clone(),
             signature,
             filename,
             encoding,
+            shell,
         }
     }
 }
@@ -52,7 +59,7 @@ impl Command for PluginDeclaration {
         // Decode information from plugin
         // Create PipelineData
         let source_file = Path::new(&self.filename);
-        let mut plugin_cmd = create_command(source_file);
+        let mut plugin_cmd = create_command(source_file, &self.shell);
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
@@ -131,7 +138,7 @@ impl Command for PluginDeclaration {
         Ok(pipeline_data)
     }
 
-    fn is_plugin(&self) -> Option<(&PathBuf, &str)> {
-        Some((&self.filename, self.encoding.to_str()))
+    fn is_plugin(&self) -> Option<(&PathBuf, &str, &Option<PathBuf>)> {
+        Some((&self.filename, self.encoding.to_str(), &self.shell))
     }
 }

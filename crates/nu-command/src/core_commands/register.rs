@@ -32,6 +32,12 @@ impl Command for Register {
                 SyntaxShape::Any,
                 "Block with signature description as json object",
             )
+            .named(
+                "shell",
+                SyntaxShape::Filepath,
+                "path of shell used to run plugin (cmd, sh, python, etc)",
+                Some('s'),
+            )
             .category(Category::Core)
     }
 

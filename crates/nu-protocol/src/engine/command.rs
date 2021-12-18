@@ -48,8 +48,9 @@ pub trait Command: Send + Sync + CommandClone {
         self.name().contains(' ')
     }
 
-    // Is a plugin command (returns plugin's path and encoding if yes)
-    fn is_plugin(&self) -> Option<(&PathBuf, &str)> {
+    // Is a plugin command (returns plugin's path, encoding and type of shell
+    // if the declaration is a plugin)
+    fn is_plugin(&self) -> Option<(&PathBuf, &str, &Option<PathBuf>)> {
         None
     }
 

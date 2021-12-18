@@ -1195,7 +1195,7 @@ pub fn parse_register(
         .map(|expr| {
             let name_expr = working_set.get_span_contents(expr.span);
             String::from_utf8(name_expr.to_vec())
-                .map_err(|_| ParseError::NonUtf8(spans[1]))
+                .map_err(|_| ParseError::NonUtf8(expr.span))
                 .and_then(|name| {
                     canonicalize(&name).map_err(|_| ParseError::FileNotFound(name, expr.span))
                 })
@@ -1224,7 +1224,7 @@ pub fn parse_register(
                 .map(|encoding| (path, encoding))
         });
 
-    // Signature is the only optional value from the call and will be used to decide if
+    // Signature is an optional value from the call and will be used to decide if
     // the plugin is called to get the signatures or to use the given signature
     let signature = call.positional.get(1).map(|expr| {
         let signature = working_set.get_span_contents(expr.span);
@@ -1237,16 +1237,52 @@ pub fn parse_register(
         })
     });
 
+    // Shell is another optional value used as base to call shell to plugins
+    let shell = call.get_flag_expr("shell").map(|expr| {
+        let shell_expr = working_set.get_span_contents(expr.span);
+
+        String::from_utf8(shell_expr.to_vec())
+            .map_err(|_| ParseError::NonUtf8(expr.span))
+            .and_then(|name| {
+                canonicalize(&name).map_err(|_| ParseError::FileNotFound(name, expr.span))
+            })
+            .and_then(|path| {
+                if path.exists() & path.is_file() {
+                    Ok(path)
+                } else {
+                    Err(ParseError::FileNotFound(format!("{:?}", path), expr.span))
+                }
+            })
+    });
+
+    let shell = match shell {
+        None => None,
+        Some(path) => match path {
+            Ok(path) => Some(path),
+            Err(err) => {
+                return (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }])),
+                    Some(err),
+                );
+            }
+        },
+    };
+
     let error = match signature {
         Some(signature) => arguments.and_then(|(path, encoding)| {
             signature.map(|signature| {
-                let plugin_decl = PluginDeclaration::new(path, signature, encoding);
+                let plugin_decl = PluginDeclaration::new(path, signature, encoding, shell);
                 working_set.add_decl(Box::new(plugin_decl));
                 working_set.mark_plugins_file_dirty();
             })
         }),
         None => arguments.and_then(|(path, encoding)| {
-            get_signature(path.as_path(), &encoding)
+            get_signature(path.as_path(), &encoding, &shell)
                 .map_err(|err| {
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
@@ -1258,8 +1294,12 @@ pub fn parse_register(
                     for signature in signatures {
                         // create plugin command declaration (need struct impl Command)
                         // store declaration in working set
-                        let plugin_decl =
-                            PluginDeclaration::new(path.clone(), signature, encoding.clone());
+                        let plugin_decl = PluginDeclaration::new(
+                            path.clone(),
+                            signature,
+                            encoding.clone(),
+                            shell.clone(),
+                        );
 
                         working_set.add_decl(Box::new(plugin_decl));
                     }

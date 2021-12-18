@@ -4,7 +4,7 @@ pub use declaration::PluginDeclaration;
 use crate::protocol::{LabeledError, PluginCall, PluginResponse};
 use crate::EncodingType;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command as CommandSys, Stdio};
 
 use nu_protocol::ShellError;
@@ -35,10 +35,15 @@ pub trait PluginEncoder: Clone {
     ) -> Result<PluginResponse, ShellError>;
 }
 
-fn create_command(path: &Path) -> CommandSys {
-    let mut process = match path.extension() {
-        None => std::process::Command::new(path),
-        Some(extension) => {
+fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+    let mut process = match (path.extension(), shell) {
+        (_, Some(shell)) => {
+            let mut process = std::process::Command::new(shell);
+            process.arg(path);
+
+            process
+        }
+        (Some(extension), None) => {
             let (shell, separator) = match extension.to_str() {
                 Some("cmd") | Some("bat") => (Some("cmd"), Some("/c")),
                 Some("sh") => (Some("sh"), Some("-c")),
@@ -63,6 +68,7 @@ fn create_command(path: &Path) -> CommandSys {
                 _ => std::process::Command::new(path),
             }
         }
+        (None, None) => std::process::Command::new(path),
     };
 
     // Both stdout and stdin are piped so we can receive information from the plugin
@@ -71,8 +77,12 @@ fn create_command(path: &Path) -> CommandSys {
     process
 }
 
-pub fn get_signature(path: &Path, encoding: &EncodingType) -> Result<Vec<Signature>, ShellError> {
-    let mut plugin_cmd = create_command(path);
+pub fn get_signature(
+    path: &Path,
+    encoding: &EncodingType,
+    shell: &Option<PathBuf>,
+) -> Result<Vec<Signature>, ShellError> {
+    let mut plugin_cmd = create_command(path, shell);
 
     let mut child = plugin_cmd.spawn().map_err(|err| {
         ShellError::PluginFailedToLoad(format!("Error spawning child process: {}", err))

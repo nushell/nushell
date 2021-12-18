@@ -230,12 +230,33 @@ impl EngineState {
                 self.plugin_decls().try_for_each(|decl| {
                     // A successful plugin registration already includes the plugin filename
                     // No need to check the None option
-                    let (path, encoding) = decl.is_plugin().expect("plugin should have file name");
-                    let file_name = path.to_str().expect("path should be a str");
+                    let (path, encoding, shell) =
+                        decl.is_plugin().expect("plugin should have file name");
+                    let file_name = path
+                        .to_str()
+                        .expect("path was checked during registration as a str");
 
                     serde_json::to_string_pretty(&decl.signature())
                         .map(|signature| {
-                            format!("register {} -e {} {}\n\n", file_name, encoding, signature)
+                            // Extracting the possible path to the shell used to load the plugin
+                            let shell_str = match shell {
+                                Some(path) => format!(
+                                    "-s {}",
+                                    path.to_str().expect(
+                                        "shell path was checked during registration as a str"
+                                    )
+                                ),
+                                None => "".into(),
+                            };
+
+                            // Each signature is stored in the plugin file with the required
+                            // encoding, shell and signature
+                            // This information will be used when loading the plugin
+                            // information when nushell starts
+                            format!(
+                                "register {} -e {} {} {}\n\n",
+                                file_name, encoding, shell_str, signature
+                            )
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
                         .and_then(|line| {

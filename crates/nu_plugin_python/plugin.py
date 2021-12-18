@@ -21,6 +21,7 @@
 #   native python dictionaries. The encoding and decoding process could be improved
 #   by using libraries like pydantic and marshmallow
 #
+# This plugin uses python3
 # Note: To debug plugins write to stderr using sys.stderr.write
 import sys
 import json
