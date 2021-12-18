@@ -168,15 +168,15 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
     FileNotFoundCustom(String, #[label("{0}")] Span),
 
-    #[error("Plugin failed to load")]
+    #[error("Plugin failed to load: {0}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load), url(docsrs))]
     PluginFailedToLoad(String),
 
-    #[error("Plugin failed to encode")]
+    #[error("Plugin failed to encode: {0}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_encode), url(docsrs))]
     PluginFailedToEncode(String),
 
-    #[error("Plugin failed to decode")]
+    #[error("Plugin failed to decode: {0}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_decode), url(docsrs))]
     PluginFailedToDecode(String),
 

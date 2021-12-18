@@ -36,17 +36,33 @@ pub trait PluginEncoder: Clone {
 }
 
 fn create_command(path: &Path) -> CommandSys {
-    //TODO. The selection of shell could be modifiable from the config file.
-    let mut process = if cfg!(windows) {
-        let mut process = CommandSys::new("cmd");
-        process.arg("/c").arg(path);
+    let mut process = match path.extension() {
+        None => std::process::Command::new(path),
+        Some(extension) => {
+            let (shell, separator) = match extension.to_str() {
+                Some("cmd") | Some("bat") => (Some("cmd"), Some("/c")),
+                Some("sh") => (Some("sh"), Some("-c")),
+                Some("py") => (Some("python"), None),
+                _ => (None, None),
+            };
 
-        process
-    } else {
-        let mut process = CommandSys::new("sh");
-        process.arg("-c").arg(path);
+            match (shell, separator) {
+                (Some(shell), Some(separator)) => {
+                    let mut process = std::process::Command::new(shell);
+                    process.arg(separator);
+                    process.arg(path);
 
-        process
+                    process
+                }
+                (Some(shell), None) => {
+                    let mut process = std::process::Command::new(shell);
+                    process.arg(path);
+
+                    process
+                }
+                _ => std::process::Command::new(path),
+            }
+        }
     };
 
     // Both stdout and stdin are piped so we can receive information from the plugin
@@ -90,9 +106,10 @@ pub fn get_signature(path: &Path, encoding: &EncodingType) -> Result<Vec<Signatu
         ))
     }?;
 
-    // There is no need to wait for the child process to finish since the
-    // signature has being collected
-    Ok(signatures)
+    match child.wait() {
+        Ok(_) => Ok(signatures),
+        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{}", err))),
+    }
 }
 
 // The next trait and functions are part of the plugin that is being created
