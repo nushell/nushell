@@ -71,6 +71,14 @@ def signatures():
                 },
                 "named": [
                     {
+                        "long": "help",
+                        "short": "h",
+                        "arg": None,
+                        "required": False,
+                        "desc": "Display this help message",
+                        "var_id": None
+                    },
+                    {
                         "long": "flag",
                         "short": "f",
                         "arg": None,
