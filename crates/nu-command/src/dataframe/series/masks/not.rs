@@ -1,38 +1,38 @@
-use nu_engine::CallExt;
+use super::super::super::values::{Column, NuDataFrame};
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span,
 };
+use polars::prelude::IntoSeries;
 
-use super::values::{Column, NuDataFrame};
+use std::ops::Not;
 
 #[derive(Clone)]
-pub struct ColumnDF;
+pub struct NotSeries;
 
-impl Command for ColumnDF {
+impl Command for NotSeries {
     fn name(&self) -> &str {
-        "dfr column"
+        "dfr not"
     }
 
     fn usage(&self) -> &str {
-        "Returns the selected column"
+        "Inverts boolean mask"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name())
-            .required("column", SyntaxShape::String, "column name")
-            .category(Category::Custom("dataframe".into()))
+        Signature::build(self.name()).category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns the selected column as series",
-            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr column a",
+            description: "Inverts boolean mask",
+            example: "[$true $false $true] | dfr to-df | dfr not",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![1.into(), 3.into()],
+                    "0".to_string(),
+                    vec![false.into(), true.into(), false.into()],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::unknown()),
@@ -52,30 +52,31 @@ impl Command for ColumnDF {
 }
 
 fn command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
+    _engine_state: &EngineState,
+    _stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let column: Spanned<String> = call.req(engine_state, stack, 0)?;
-
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let series = df.as_series(call.head)?;
 
-    let res = df.as_ref().column(&column.item).map_err(|e| {
-        ShellError::SpannedLabeledError("Error selecting column".into(), e.to_string(), column.span)
+    let bool = series.bool().map_err(|e| {
+        ShellError::SpannedLabeledError("Error inverting mask".into(), e.to_string(), call.head)
     })?;
 
-    NuDataFrame::try_from_series(vec![res.clone()], call.head)
+    let res = bool.not();
+
+    NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::test_dataframe::test_dataframe;
+    use super::super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(ColumnDF {})])
+        test_dataframe(vec![Box::new(NotSeries {})])
     }
 }

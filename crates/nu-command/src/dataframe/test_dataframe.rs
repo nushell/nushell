@@ -8,8 +8,13 @@ use nu_protocol::{
 use super::ToDataFrame;
 use crate::Let;
 
-pub fn test_dataframe(cmd: impl Command + 'static) {
-    let examples = cmd.examples();
+pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
+    if cmds.is_empty() {
+        panic!("Empty commands vector")
+    }
+
+    // The first element in the cmds vector must be the one tested
+    let examples = cmds[0].examples();
     let mut engine_state = Box::new(EngineState::new());
 
     let delta = {
@@ -20,7 +25,9 @@ pub fn test_dataframe(cmd: impl Command + 'static) {
         working_set.add_decl(Box::new(ToDataFrame));
 
         // Adding the command that is being tested to the working set
-        working_set.add_decl(Box::new(cmd));
+        for cmd in cmds {
+            working_set.add_decl(cmd);
+        }
 
         working_set.render()
     };

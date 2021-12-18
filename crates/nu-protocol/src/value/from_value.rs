@@ -337,3 +337,17 @@ impl FromValue for Spanned<PathBuf> {
         }
     }
 }
+
+impl FromValue for Vec<Value> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::List { vals, .. } => Ok(vals.clone()),
+            v => Err(ShellError::CantConvert(
+                "Vector of values".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}

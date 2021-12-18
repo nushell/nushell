@@ -247,6 +247,10 @@ pub enum ShellError {
     SpannedLabeledError(String, String, #[label("{1}")] Span),
 
     #[error("{0}")]
+    #[diagnostic(help("{3}"))]
+    SpannedLabeledErrorHelp(String, String, #[label("{1}")] Span, String),
+
+    #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String),
 }
