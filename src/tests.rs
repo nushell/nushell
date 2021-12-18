@@ -1287,3 +1287,16 @@ fn flatten_table_column_get_last() -> TestResult {
         "0.22",
     )
 }
+
+#[test]
+fn get_table_columns_1() -> TestResult {
+    run_test(
+        "[[name, age, grade]; [paul,21,a]] | columns | first",
+        "name",
+    )
+}
+
+#[test]
+fn get_table_columns_2() -> TestResult {
+    run_test("[[name, age, grade]; [paul,21,a]] | columns | nth 1", "age")
+}
