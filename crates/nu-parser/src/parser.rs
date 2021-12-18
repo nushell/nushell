@@ -487,7 +487,7 @@ pub fn parse_internal_call(
     command_span: Span,
     spans: &[Span],
     decl_id: usize,
-) -> (Box<Call>, Span, Option<ParseError>) {
+) -> (Box<Call>, Option<ParseError>) {
     let mut error = None;
 
     let mut call = Call::new();
@@ -618,7 +618,7 @@ pub fn parse_internal_call(
     }
 
     // FIXME: output type unknown
-    (Box::new(call), span(spans), error)
+    (Box::new(call), error)
 }
 
 pub fn parse_call(
@@ -725,7 +725,7 @@ pub fn parse_call(
         }
 
         // parse internal command
-        let (call, _, err) = parse_internal_call(
+        let (call, err) = parse_internal_call(
             working_set,
             span(&spans[cmd_start..pos]),
             &spans[pos..],

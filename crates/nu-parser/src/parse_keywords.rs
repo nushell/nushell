@@ -204,8 +204,7 @@ pub fn parse_alias(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"alias") {
-            let (call, call_span, _) =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, _) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
             if spans.len() >= 4 {
                 let alias_name = working_set.get_span_contents(spans[1]);
@@ -228,7 +227,7 @@ pub fn parse_alias(
             return (
                 Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
-                    span: call_span,
+                    span: span(spans),
                     ty: Type::Unknown,
                     custom_completion: None,
                 }])),
@@ -1008,7 +1007,7 @@ pub fn parse_let(
                     }
                 }
             }
-            let (call, _, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
             return (
                 Statement::Pipeline(Pipeline {
@@ -1043,8 +1042,7 @@ pub fn parse_source(
         if let Some(decl_id) = working_set.find_decl(b"source") {
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
-            let (call, call_span, err) =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             error = error.or(err);
 
             // Command and one file name
@@ -1092,7 +1090,7 @@ pub fn parse_source(
                                 return (
                                     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                                         expr: Expr::Call(call_with_block),
-                                        span: call_span,
+                                        span: span(spans),
                                         ty: Type::Unknown,
                                         custom_completion: None,
                                     }])),
@@ -1113,7 +1111,7 @@ pub fn parse_source(
             return (
                 Statement::Pipeline(Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
-                    span: call_span,
+                    span: span(spans),
                     ty: Type::Unknown,
                     custom_completion: None,
                 }])),
@@ -1165,9 +1163,10 @@ pub fn parse_register(
             )
         }
         Some(decl_id) => {
-            let (call, call_span, mut err) =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
             let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
 
             err = check_call(call_span, &decl.signature(), &call).or(err);
             if err.is_some() || call.has_flag("help") {
