@@ -31,9 +31,9 @@ impl CumType {
 
     fn to_str(&self) -> &'static str {
         match self {
-            CumType::Min => "cum_min",
-            CumType::Max => "cum_max",
-            CumType::Sum => "cum_sum",
+            CumType::Min => "cumulative_min",
+            CumType::Max => "cumulative_max",
+            CumType::Sum => "cumulative_sum",
         }
     }
 }
@@ -43,7 +43,7 @@ pub struct Cumulative;
 
 impl Command for Cumulative {
     fn name(&self) -> &str {
-        "dfr cum"
+        "dfr cumulative"
     }
 
     fn usage(&self) -> &str {
@@ -60,10 +60,10 @@ impl Command for Cumulative {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Cumulative sum for a series",
-            example: "[1 2 3 4 5] | dfr to-df | dfr cum sum",
+            example: "[1 2 3 4 5] | dfr to-df | dfr cumulative sum",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "0_cum_sum".to_string(),
+                    "0_cumulative_sum".to_string(),
                     vec![
                         Value::test_int(1),
                         Value::test_int(3),

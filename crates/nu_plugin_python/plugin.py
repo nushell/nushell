@@ -114,7 +114,7 @@ def process_call(plugin_call):
     Use this information to implement your plugin logic
     """
     # Pretty printing the call to stderr
-    sys.stderr.write(f"{json.dumps(plugin_call, indent=4)}")
+    sys.stderr.write(json.dumps(plugin_call, indent=4))
     sys.stderr.write("\n")
 
     # Creates a Value of type List that will be encoded and sent to nushell
