@@ -48,11 +48,13 @@ impl Span {
     }
 }
 
+/// Used when you have a slice of spans of at least size 1
 pub fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
     if length == 0 {
-        panic!("Internal error: tried to create a 0-length span")
+        // TODO: do this for now, but we might also want to protect against this case
+        Span { start: 0, end: 0 }
     } else if length == 1 {
         spans[0]
     } else {
