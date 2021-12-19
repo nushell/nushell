@@ -36,7 +36,7 @@ impl Command for Nth {
                         Value::test_string("sarah"),
                         Value::test_int(2),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -44,7 +44,7 @@ impl Command for Nth {
                 description: "Get the first, second, and third row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for Nth {
                 description: "Skip the first, second, and third row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -60,7 +60,7 @@ impl Command for Nth {
                 description: "Get the first, third, and fifth row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(4)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -68,7 +68,7 @@ impl Command for Nth {
                 description: "Get the first, third, and fifth row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(4)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

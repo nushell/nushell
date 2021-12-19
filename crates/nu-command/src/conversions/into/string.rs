@@ -53,7 +53,7 @@ impl Command for SubCommand {
                 example: "1.7 | into string -d 0",
                 result: Some(Value::String {
                     val: "2".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -61,7 +61,7 @@ impl Command for SubCommand {
                 example: "1.7 | into string -d 1",
                 result: Some(Value::String {
                     val: "1.7".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -69,7 +69,7 @@ impl Command for SubCommand {
                 example: "1.734 | into string -d 2",
                 result: Some(Value::String {
                     val: "1.73".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -80,7 +80,7 @@ impl Command for SubCommand {
                 // result: Some(Value::Error {
                 //     error: ShellError::UnsupportedInput(
                 //         String::from("Cannot accept negative integers for decimals arguments"),
-                //         Span::unknown(),
+                //         Span::test_data(),
                 //     ),
                 // }),
             },
@@ -89,7 +89,7 @@ impl Command for SubCommand {
                 example: "4.3 | into string",
                 result: Some(Value::String {
                     val: "4.3".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -97,7 +97,7 @@ impl Command for SubCommand {
                 example: "'1234' | into string",
                 result: Some(Value::String {
                     val: "1234".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -105,7 +105,7 @@ impl Command for SubCommand {
                 example: "$true | into string",
                 result: Some(Value::String {
                     val: "true".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {

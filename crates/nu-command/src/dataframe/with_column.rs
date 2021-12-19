@@ -33,12 +33,21 @@ impl Command for WithColumn {
                 "[[a b]; [1 2] [3 4]] | dfr to-df | dfr with-column ([5 6] | dfr to-df) --name c",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![1.into(), 3.into()]),
-                    Column::new("b".to_string(), vec![2.into(), 4.into()]),
-                    Column::new("c".to_string(), vec![5.into(), 6.into()]),
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(3)],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(4)],
+                    ),
+                    Column::new(
+                        "c".to_string(),
+                        vec![Value::test_int(5), Value::test_int(6)],
+                    ),
                 ])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

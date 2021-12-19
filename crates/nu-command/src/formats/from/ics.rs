@@ -57,36 +57,36 @@ END:VCALENDAR' | from ics",
                     vals: vec![
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

@@ -33,15 +33,15 @@ impl Command for Each {
         let stream_test_1 = vec![
             Value::Int {
                 val: 2,
-                span: Span::unknown(),
+                span: Span::test_data(),
             },
             Value::Int {
                 val: 4,
-                span: Span::unknown(),
+                span: Span::test_data(),
             },
             Value::Int {
                 val: 6,
-                span: Span::unknown(),
+                span: Span::test_data(),
             },
         ];
 
@@ -50,7 +50,7 @@ impl Command for Each {
             description: "Multiplies elements in list",
             result: Some(Value::List {
                 vals: stream_test_1,
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

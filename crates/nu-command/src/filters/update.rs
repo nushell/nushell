@@ -47,11 +47,11 @@ impl Command for Update {
         vec![Example {
             description: "Update a column value",
             example: "echo {'name': 'nu', 'stars': 5} | update name 'Nushell'",
-            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::unknown()}),
+            result: Some(Value::Record { cols: vec!["name".into(), "stars".into()], vals: vec![Value::test_string("Nushell"), Value::test_int(5)], span: Span::test_data()}),
         }, Example {
             description: "Use in block form for more involved updating logic",
             example: "echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }",
-            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::unknown()}], span: Span::unknown()}),
+            result: Some(Value::List { vals: vec![Value::Record { cols: vec!["project".into(), "authors".into()], vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")], span: Span::test_data()}], span: Span::test_data()}),
         }]
     }
 }

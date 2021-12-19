@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -35,13 +35,13 @@ impl Command for StrSlice {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        "bc".to_string().into(),
-                        "bc".to_string().into(),
-                        "bc".to_string().into(),
+                        Value::test_string("bc"),
+                        Value::test_string("bc"),
+                        Value::test_string("bc"),
                     ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

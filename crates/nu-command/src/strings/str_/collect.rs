@@ -67,7 +67,7 @@ impl Command for StrCollect {
                 example: "['nu', 'shell'] | str collect",
                 result: Some(Value::String {
                     val: "nushell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -75,7 +75,7 @@ impl Command for StrCollect {
                 example: "['nu', 'shell'] | str collect '-'",
                 result: Some(Value::String {
                     val: "nu-shell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

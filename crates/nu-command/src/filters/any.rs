@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -28,18 +28,16 @@ impl Command for Any {
     }
 
     fn examples(&self) -> Vec<Example> {
-        use nu_protocol::Value;
-
         vec![
             Example {
                 description: "Find if a service is not running",
                 example: "echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN",
-                result: Some(Value::from(true)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "Check if any of the values is odd",
                 example: "echo [2 4 1 6 8] | any? ($it mod 2) == 1",
-                result: Some(Value::from(true)),
+                result: Some(Value::test_bool(true)),
             },
         ]
     }
@@ -65,9 +63,8 @@ impl Command for Any {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
 
-        Ok(input
-            .into_interruptible_iter(ctrlc)
-            .any(move |value| {
+        Ok(Value::Bool {
+            val: input.into_interruptible_iter(ctrlc).any(move |value| {
                 if let Some(var_id) = var_id {
                     stack.add_var(var_id, value);
                 }
@@ -76,8 +73,10 @@ impl Command for Any {
                     .map_or(false, |pipeline_data| {
                         pipeline_data.into_value(span).is_true()
                     })
-            })
-            .into_pipeline_data())
+            }),
+            span,
+        }
+        .into_pipeline_data())
     }
 }
 

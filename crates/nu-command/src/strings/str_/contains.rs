@@ -48,7 +48,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str contains '.rb'",
                 result: Some(Value::Bool {
                     val: true,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -56,7 +56,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str contains -i '.RB'",
                 result: Some(Value::Bool {
                     val: true,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -68,13 +68,13 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::Bool {
                                 val: true,
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -86,13 +86,13 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::Bool {
                                 val: true,
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -104,16 +104,16 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::Bool {
                                 val: true,
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::Bool {
                                 val: true,
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -121,7 +121,7 @@ impl Command for SubCommand {
                 example: "'hello' | str contains 'banana'",
                 result: Some(Value::Bool {
                     val: false,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -177,7 +177,7 @@ fn action(input: &Value, case_insensitive: bool, pattern: &str, head: Span) -> V
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

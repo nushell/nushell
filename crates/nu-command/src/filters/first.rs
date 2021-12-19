@@ -50,7 +50,7 @@ impl Command for First {
                 example: "[1 2 3] | first 2",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

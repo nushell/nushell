@@ -328,10 +328,10 @@ mod tests {
                 .iter()
                 .map(|x| Value::String {
                     val: x.to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 })
                 .collect(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
@@ -341,10 +341,10 @@ mod tests {
                 .iter()
                 .map(|x| Value::String {
                     val: x.to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 })
                 .collect(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
@@ -359,7 +359,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -379,7 +379,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -399,7 +399,7 @@ mod tests {
 
         let actual = action(
             &number,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -420,7 +420,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -440,7 +440,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -460,7 +460,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some('!'),
             &closure_flags,
             &trim,
@@ -479,7 +479,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some(' '),
             &closure_flags,
             &trim,
@@ -503,7 +503,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -518,35 +518,35 @@ mod tests {
             vals: vec![
                 Value::String {
                     val: "  nu      shell   ".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "  d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
                 Value::String {
                     val: "nushell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let closure_flags = ClosureFlags {
@@ -556,7 +556,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -576,7 +576,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some('.'),
             &closure_flags,
             &trim,
@@ -596,7 +596,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             Some('!'),
             &closure_flags,
             &trim,
@@ -611,35 +611,35 @@ mod tests {
             vals: vec![
                 Value::String {
                     val: "##nu####shell##".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "#d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
                 Value::String {
                     val: "nushell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let closure_flags = ClosureFlags {
@@ -649,7 +649,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             Some('#'),
             &closure_flags,
             &trim,
@@ -669,7 +669,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -689,7 +689,7 @@ mod tests {
 
         let actual = action(
             &number,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -709,7 +709,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -729,7 +729,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -744,35 +744,35 @@ mod tests {
             vals: vec![
                 Value::String {
                     val: "  a  ".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: " d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
                 Value::String {
                     val: "a  ".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let closure_flags = ClosureFlags {
@@ -782,7 +782,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -802,7 +802,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some('!'),
             &closure_flags,
             &trim,
@@ -821,7 +821,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -841,7 +841,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -861,7 +861,7 @@ mod tests {
 
         let actual = action(
             &number,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -881,7 +881,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -896,35 +896,35 @@ mod tests {
             vals: vec![
                 Value::String {
                     val: "  a  ".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: " d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
                 Value::String {
                     val: "  a".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: " d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let closure_flags = ClosureFlags {
@@ -934,7 +934,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -954,7 +954,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some('#'),
             &closure_flags,
             &trim,
@@ -974,7 +974,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some(' '),
             &closure_flags,
             &trim,
@@ -994,7 +994,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some(' '),
             &closure_flags,
             &trim,
@@ -1013,7 +1013,7 @@ mod tests {
 
         let actual = action(
             &number,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -1033,7 +1033,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -1048,35 +1048,35 @@ mod tests {
             vals: vec![
                 Value::String {
                     val: "  a    b     c    d  ".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: " b c  d e   f".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::List {
             vals: vec![
                 Value::String {
                     val: "a b c d".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Int {
                     val: 65,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::String {
                     val: "b c d e f".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let closure_flags = ClosureFlags {
@@ -1086,7 +1086,7 @@ mod tests {
 
         let actual = action(
             &row,
-            Span::unknown(),
+            Span::test_data(),
             None,
             &closure_flags,
             &trim,
@@ -1106,7 +1106,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some('.'),
             &closure_flags,
             &trim,
@@ -1127,7 +1127,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some(' '),
             &closure_flags,
             &trim,
@@ -1148,7 +1148,7 @@ mod tests {
 
         let actual = action(
             &word,
-            Span::unknown(),
+            Span::test_data(),
             Some(' '),
             &closure_flags,
             &trim,

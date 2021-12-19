@@ -7,6 +7,7 @@ fn from_value_to_delimited_string(
     value: &Value,
     separator: char,
     config: &Config,
+    head: Span,
 ) -> Result<String, ShellError> {
     match value {
         Value::Record { cols, vals, span } => {
@@ -19,7 +20,7 @@ fn from_value_to_delimited_string(
             for (k, v) in cols.iter().zip(vals.iter()) {
                 fields.push_back(k.clone());
 
-                values.push_back(to_string_tagged_value(v, config)?);
+                values.push_back(to_string_tagged_value(v, config, *span)?);
             }
 
             wtr.write_record(fields).expect("can not write.");
@@ -44,7 +45,8 @@ fn from_value_to_delimited_string(
                 wtr.write_record(
                     vals.iter()
                         .map(|ele| {
-                            to_string_tagged_value(ele, config).unwrap_or_else(|_| String::new())
+                            to_string_tagged_value(ele, config, *span)
+                                .unwrap_or_else(|_| String::new())
                         })
                         .collect::<Vec<_>>(),
                 )
@@ -57,7 +59,7 @@ fn from_value_to_delimited_string(
                     let mut row = vec![];
                     for desc in &merged_descriptors {
                         row.push(match l.to_owned().get_data_by_key(desc) {
-                            Some(s) => to_string_tagged_value(&s, config)?,
+                            Some(s) => to_string_tagged_value(&s, config, *span)?,
                             None => String::new(),
                         });
                     }
@@ -72,11 +74,11 @@ fn from_value_to_delimited_string(
             })?;
             Ok(v)
         }
-        _ => to_string_tagged_value(value, config),
+        _ => to_string_tagged_value(value, config, head),
     }
 }
 
-fn to_string_tagged_value(v: &Value, config: &Config) -> Result<String, ShellError> {
+fn to_string_tagged_value(v: &Value, config: &Config, span: Span) -> Result<String, ShellError> {
     match &v {
         Value::String { .. }
         | Value::Bool { .. }
@@ -94,7 +96,7 @@ fn to_string_tagged_value(v: &Value, config: &Config) -> Result<String, ShellErr
         Value::Nothing { .. } => Ok(String::new()),
         _ => Err(ShellError::UnsupportedInput(
             "Unexpected value".to_string(),
-            v.span().unwrap_or_else(|_| Span::unknown()),
+            v.span().unwrap_or(span),
         )),
     }
 }
@@ -126,7 +128,7 @@ pub fn to_delimited_data(
     config: Config,
 ) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);
-    let output = match from_value_to_delimited_string(&value, sep, &config) {
+    let output = match from_value_to_delimited_string(&value, sep, &config, span) {
         Ok(mut x) => {
             if noheaders {
                 if let Some(second_line) = x.find('\n') {
@@ -139,7 +141,7 @@ pub fn to_delimited_data(
         Err(_) => Err(ShellError::CantConvert(
             format_name.into(),
             value.get_type().to_string(),
-            value.span().unwrap_or_else(|_| Span::unknown()),
+            value.span().unwrap_or(span),
         )),
     }?;
     Ok(Value::string(output, span).into_pipeline_data())

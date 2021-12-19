@@ -99,7 +99,7 @@ impl Command for For {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::unknown();
+        let span = Span::test_data();
         vec![
             Example {
                 description: "Echo the square of each integer",
@@ -110,7 +110,7 @@ impl Command for For {
                         Value::Int { val: 4, span },
                         Value::Int { val: 9, span },
                     ],
-                    span: Span::unknown(),
+                    span,
                 }),
             },
             Example {
@@ -122,7 +122,7 @@ impl Command for For {
                         Value::Int { val: 2, span },
                         Value::Int { val: 3, span },
                     ],
-                    span: Span::unknown(),
+                    span,
                 }),
             },
             // FIXME? Numbered `for` is kinda strange, but was supported in previous nushell
@@ -140,7 +140,7 @@ impl Command for For {
             //                 span,
             //             },
             //         ],
-            //         span: Span::unknown(),
+            //         span,
             //     }),
             // },
         ]

@@ -44,7 +44,7 @@ impl Command for SubCommand {
                 example: "'NU' | str downcase",
                 result: Some(Value::String {
                     val: "nu".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 example: "'TESTa' | str downcase",
                 result: Some(Value::String {
                     val: "testa".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -64,16 +64,16 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::String {
                                 val: "test".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::String {
                                 val: "ABC".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -85,16 +85,16 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::String {
                                 val: "test".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::String {
                                 val: "abc".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -141,7 +141,7 @@ fn action(input: &Value, head: Span) -> Value {
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

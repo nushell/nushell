@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value};
+use nu_protocol::{Example, IntoPipelineData, PipelineData, ShellError, Signature, Value};
 
 pub mod shadow {
     include!(concat!(env!("OUT_DIR"), "/shadow.rs"));
@@ -66,7 +66,7 @@ pub fn version(
             "branch".to_string(),
             Value::String {
                 val: branch.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -77,7 +77,7 @@ pub fn version(
             "short_commit".to_string(),
             Value::String {
                 val: short_commit.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -87,7 +87,7 @@ pub fn version(
             "commit_hash".to_string(),
             Value::String {
                 val: commit_hash.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -97,7 +97,7 @@ pub fn version(
             "commit_date".to_string(),
             Value::String {
                 val: commit_date.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -108,7 +108,7 @@ pub fn version(
             "build_os".to_string(),
             Value::String {
                 val: build_os.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -119,7 +119,7 @@ pub fn version(
             "rust_version".to_string(),
             Value::String {
                 val: rust_version.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -130,7 +130,7 @@ pub fn version(
             "rust_channel".to_string(),
             Value::String {
                 val: rust_channel.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -141,7 +141,7 @@ pub fn version(
             "cargo_version".to_string(),
             Value::String {
                 val: cargo_version.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -152,7 +152,7 @@ pub fn version(
             "pkg_version".to_string(),
             Value::String {
                 val: pkg_version.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -163,7 +163,7 @@ pub fn version(
             "build_time".to_string(),
             Value::String {
                 val: build_time.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -175,7 +175,7 @@ pub fn version(
             "build_rust_channel".to_string(),
             Value::String {
                 val: build_rust_channel.to_string(),
-                span: Span::unknown(),
+                span: call.head,
             },
         );
     }
@@ -184,7 +184,7 @@ pub fn version(
         "features".to_string(),
         Value::String {
             val: features_enabled().join(", "),
-            span: Span::unknown(),
+            span: call.head,
         },
     );
 
@@ -200,7 +200,7 @@ pub fn version(
         "installed_plugins".to_string(),
         Value::String {
             val: installed_plugins.join(", "),
-            span: Span::unknown(),
+            span: call.head,
         },
     );
 
@@ -211,9 +211,9 @@ pub fn version(
     //     vals: vec![Value::Record {
     //         cols,
     //         vals,
-    //         span: Span::unknown(),
+    //         span: call.head,
     //     }],
-    //     span: Span::unknown(),
+    //     span: call.head,
     // }
     // .into_pipeline_data())
 
@@ -221,7 +221,7 @@ pub fn version(
     Ok(Value::Record {
         cols,
         vals,
-        span: Span::unknown(),
+        span: call.head,
     }
     .into_pipeline_data())
 }

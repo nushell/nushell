@@ -3,7 +3,7 @@ use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -28,9 +28,12 @@ impl Command for Unique {
             description: "Returns unique values from a series",
             example: "[2 2 2 2 2] | dfr to-df | dfr unique",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new("0".to_string(), vec![2.into()])])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                NuDataFrame::try_from_columns(vec![Column::new(
+                    "0".to_string(),
+                    vec![Value::test_int(2)],
+                )])
+                .expect("simple df for test should not fail")
+                .into_value(Span::test_data()),
             ),
         }]
     }

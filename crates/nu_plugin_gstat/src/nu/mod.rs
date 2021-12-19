@@ -1,6 +1,6 @@
 use crate::GStat;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, Signature, Span, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, Signature, Spanned, SyntaxShape, Value};
 
 impl Plugin for GStat {
     fn signature(&self) -> Vec<Signature> {
@@ -17,9 +17,7 @@ impl Plugin for GStat {
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "gstat" {
-            return Ok(Value::Nothing {
-                span: Span::unknown(),
-            });
+            return Ok(Value::Nothing { span: call.head });
         }
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;

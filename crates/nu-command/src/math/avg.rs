@@ -36,7 +36,7 @@ impl Command for SubCommand {
             example: "[-50 100.0 25] | math avg",
             result: Some(Value::Float {
                 val: 25.0,
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }
@@ -47,7 +47,7 @@ pub fn average(values: &[Value], head: &Span) -> Result<Value, ShellError> {
     let total = &sum(
         Value::Int {
             val: 0,
-            span: Span::unknown(),
+            span: *head,
         },
         values.to_vec(),
         *head,

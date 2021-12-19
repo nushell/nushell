@@ -316,11 +316,11 @@ mod tests {
     fn takes_a_date_format() {
         let date_str = Value::test_string("16.11.1984 8:00 am +0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
-        let actual = action(&date_str, &None, &fmt_options, Span::unknown());
+        let actual = action(&date_str, &None, &fmt_options, Span::test_data());
         let expected = Value::Date {
             val: DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z")
                 .unwrap(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         assert_eq!(actual, expected)
     }
@@ -328,11 +328,11 @@ mod tests {
     #[test]
     fn takes_iso8601_date_format() {
         let date_str = Value::test_string("2020-08-04T16:39:18+00:00");
-        let actual = action(&date_str, &None, &None, Span::unknown());
+        let actual = action(&date_str, &None, &None, Span::test_data());
         let expected = Value::Date {
             val: DateTime::parse_from_str("2020-08-04T16:39:18+00:00", "%Y-%m-%dT%H:%M:%S%z")
                 .unwrap(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         assert_eq!(actual, expected)
     }
@@ -342,13 +342,13 @@ mod tests {
         let date_str = Value::test_string("1614434140");
         let timezone_option = Some(Spanned {
             item: Zone::East(8),
-            span: Span::unknown(),
+            span: Span::test_data(),
         });
-        let actual = action(&date_str, &timezone_option, &None, Span::unknown());
+        let actual = action(&date_str, &timezone_option, &None, Span::test_data());
         let expected = Value::Date {
             val: DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z")
                 .unwrap(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(actual, expected)
@@ -359,12 +359,12 @@ mod tests {
         let date_str = Value::test_string("1614434140");
         let timezone_option = Some(Spanned {
             item: Zone::Local,
-            span: Span::unknown(),
+            span: Span::test_data(),
         });
-        let actual = action(&date_str, &timezone_option, &None, Span::unknown());
+        let actual = action(&date_str, &timezone_option, &None, Span::test_data());
         let expected = Value::Date {
             val: Local.timestamp(1614434140, 0).into(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(actual, expected)
@@ -375,9 +375,9 @@ mod tests {
         let date_str = Value::test_string("10440970000000");
         let timezone_option = Some(Spanned {
             item: Zone::Utc,
-            span: Span::unknown(),
+            span: Span::test_data(),
         });
-        let actual = action(&date_str, &timezone_option, &None, Span::unknown());
+        let actual = action(&date_str, &timezone_option, &None, Span::test_data());
 
         assert_eq!(actual.get_type(), Error);
     }
@@ -386,7 +386,7 @@ mod tests {
     fn communicates_parsing_error_given_an_invalid_datetimelike_string() {
         let date_str = Value::test_string("16.11.1984 8:00 am Oops0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
-        let actual = action(&date_str, &None, &fmt_options, Span::unknown());
+        let actual = action(&date_str, &None, &fmt_options, Span::test_data());
 
         assert_eq!(actual.get_type(), Error);
     }

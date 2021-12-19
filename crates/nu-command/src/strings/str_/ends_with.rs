@@ -46,7 +46,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str ends-with '.rb'",
                 result: Some(Value::Bool {
                     val: true,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -54,7 +54,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str ends-with '.txt'",
                 result: Some(Value::Bool {
                     val: false,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -106,7 +106,7 @@ fn action(input: &Value, pattern: &str, head: Span) -> Value {
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

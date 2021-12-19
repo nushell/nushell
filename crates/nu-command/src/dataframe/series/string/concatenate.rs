@@ -39,13 +39,13 @@ impl Command for Concatenate {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        "abcza".to_string().into(),
-                        "abcxs".to_string().into(),
-                        "abccd".to_string().into(),
+                        Value::test_string("abcza"),
+                        Value::test_string("abcxs"),
+                        Value::test_string("abccd"),
                     ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

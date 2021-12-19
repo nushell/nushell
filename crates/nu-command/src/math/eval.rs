@@ -35,7 +35,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let spanned_expr: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-        eval(spanned_expr, input, engine_state)
+        eval(spanned_expr, input, engine_state, call.head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -44,7 +44,7 @@ impl Command for SubCommand {
             example: "'10 / 4' | math eval",
             result: Some(Value::Float {
                 val: 2.5,
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }
@@ -54,6 +54,7 @@ pub fn eval(
     spanned_expr: Option<Spanned<String>>,
     input: PipelineData,
     engine_state: &EngineState,
+    head: Span,
 ) -> Result<PipelineData, ShellError> {
     if let Some(expr) = spanned_expr {
         match parse(&expr.item, &expr.span) {
@@ -70,12 +71,12 @@ pub fn eval(
         input.map(
             move |val| {
                 if let Ok(string) = val.as_string() {
-                    match parse(&string, &val.span().unwrap_or_else(|_| Span::unknown())) {
+                    match parse(&string, &val.span().unwrap_or(head)) {
                         Ok(value) => value,
                         Err(err) => Value::Error {
                             error: ShellError::UnsupportedInput(
                                 format!("Math evaluation error: {}", err),
-                                val.span().unwrap_or_else(|_| Span::unknown()),
+                                val.span().unwrap_or(head),
                             ),
                         },
                     }
@@ -83,7 +84,7 @@ pub fn eval(
                     Value::Error {
                         error: ShellError::UnsupportedInput(
                             "Expected a string from pipeline".to_string(),
-                            val.span().unwrap_or_else(|_| Span::unknown()),
+                            val.span().unwrap_or(head),
                         ),
                     }
                 }

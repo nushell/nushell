@@ -39,7 +39,7 @@ impl Command for SubCommand {
                 example: "echo [1 2 3 4 5] | math variance",
                 result: Some(Value::Float {
                     val: 2.0,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -47,7 +47,7 @@ impl Command for SubCommand {
                 example: "[1 2 3 4 5] | math variance -s",
                 result: Some(Value::Float {
                     val: 2.5,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -75,7 +75,7 @@ fn sum_of_squares(values: &[Value], span: &Span) -> Result<Value, ShellError> {
             },
             _ => Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of squared values of a value that cannot be summed or squared.".to_string(),
-                    value.span().unwrap_or_else(|_| Span::unknown()),
+                    value.span().unwrap_or(*span),
                 ))
         }?;
         let v_squared = &v.mul(*span, v)?;

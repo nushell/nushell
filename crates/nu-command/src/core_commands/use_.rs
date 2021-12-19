@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_protocol::ast::{Call, Expr, Expression, ImportPatternMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Span, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Use;
@@ -89,7 +89,7 @@ impl Command for Use {
                 // TODO: Add string conversions (e.g. int to string)
                 // TODO: Later expand env to take all Values
                 let val = eval_block(engine_state, stack, block, PipelineData::new(call.head))?
-                    .into_value(Span::unknown());
+                    .into_value(call.head);
 
                 stack.add_env_var(name, val);
             }

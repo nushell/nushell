@@ -16,7 +16,7 @@ impl HashDigest for Md5 {
                 example: "echo 'abcdefghijklmnopqrstuvwxyz' | hash md5",
                 result: Some(Value::String {
                     val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -42,11 +42,11 @@ mod tests {
     fn hash_string() {
         let binary = Value::String {
             val: "abcdefghijklmnopqrstuvwxyz".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::String {
             val: "c3fcd3d76192e4007dfb496cca67e13b".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let actual = generic_digest::action::<Md5>(&binary);
         assert_eq!(actual, expected);
@@ -56,11 +56,11 @@ mod tests {
     fn hash_bytes() {
         let binary = Value::Binary {
             val: vec![0xC0, 0xFF, 0xEE],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::String {
             val: "5f80e231382769b0102b1164cf722d83".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let actual = generic_digest::action::<Md5>(&binary);
         assert_eq!(actual, expected);

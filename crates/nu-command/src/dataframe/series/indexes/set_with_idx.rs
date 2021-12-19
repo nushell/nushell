@@ -41,10 +41,17 @@ impl Command for SetWithIndex {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![6.into(), 1.into(), 6.into(), 2.into(), 4.into(), 3.into()],
+                    vec![
+                        Value::test_int(6),
+                        Value::test_int(1),
+                        Value::test_int(6),
+                        Value::test_int(2),
+                        Value::test_int(4),
+                        Value::test_int(3),
+                    ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

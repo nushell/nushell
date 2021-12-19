@@ -37,7 +37,7 @@ impl Display for DataFrameValue {
 impl Default for DataFrameValue {
     fn default() -> Self {
         Self(Value::Nothing {
-            span: Span::unknown(),
+            span: Span { start: 0, end: 0 },
         })
     }
 }
@@ -178,15 +178,15 @@ impl NuDataFrame {
             Value::CustomValue { val, span } => match val.as_any().downcast_ref::<NuDataFrame>() {
                 Some(df) => Ok(NuDataFrame(df.0.clone())),
                 None => Err(ShellError::CantConvert(
-                    "Dataframe not found".into(),
-                    "value is not a dataframe".into(),
+                    "dataframe".into(),
+                    "non-dataframe".into(),
                     span,
                 )),
             },
-            _ => Err(ShellError::CantConvert(
-                "Dataframe not found".into(),
-                "value is not a dataframe".into(),
-                value.span()?,
+            x => Err(ShellError::CantConvert(
+                "dataframe".into(),
+                x.get_type().to_string(),
+                x.span()?,
             )),
         }
     }
@@ -239,8 +239,8 @@ impl NuDataFrame {
     }
 
     pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
-        let series = self.as_series(Span::unknown())?;
-        let column = conversion::create_column(&series, row, row + 1)?;
+        let series = self.as_series(span)?;
+        let column = conversion::create_column(&series, row, row + 1, span)?;
 
         if column.len() == 0 {
             Err(ShellError::AccessBeyondEnd(series.len(), span))
@@ -254,44 +254,49 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.0;
         let size: usize = 20;
 
         if df.height() > size {
             let sample_size = size / 2;
-            let mut values = self.head(Some(sample_size))?;
-            conversion::add_separator(&mut values, df);
+            let mut values = self.head(Some(sample_size), span)?;
+            conversion::add_separator(&mut values, df, span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size))?;
+            let mut tail_values = self.tail(Some(tail_size), span)?;
             values.append(&mut tail_values);
 
             Ok(values)
         } else {
-            Ok(self.head(Some(size))?)
+            Ok(self.head(Some(size), span)?)
         }
     }
 
-    pub fn head(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
-        let values = self.to_rows(0, to_row)?;
+        let values = self.to_rows(0, to_row, span)?;
 
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.0;
         let to_row = df.height();
         let size = rows.unwrap_or(5);
         let from_row = to_row.saturating_sub(size);
 
-        let values = self.to_rows(from_row, to_row)?;
+        let values = self.to_rows(from_row, to_row, span)?;
 
         Ok(values)
     }
 
-    pub fn to_rows(&self, from_row: usize, to_row: usize) -> Result<Vec<Value>, ShellError> {
+    pub fn to_rows(
+        &self,
+        from_row: usize,
+        to_row: usize,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let df = &self.0;
         let upper_row = to_row.min(df.height());
 
@@ -301,7 +306,7 @@ impl NuDataFrame {
             .get_columns()
             .iter()
             .map(
-                |col| match conversion::create_column(col, from_row, upper_row) {
+                |col| match conversion::create_column(col, from_row, upper_row, span) {
                     Ok(col) => {
                         size = col.len();
                         Ok(col)
@@ -327,17 +332,11 @@ impl NuDataFrame {
 
                     match col.next() {
                         Some(v) => vals.push(v),
-                        None => vals.push(Value::Nothing {
-                            span: Span::unknown(),
-                        }),
+                        None => vals.push(Value::Nothing { span }),
                     };
                 }
 
-                Value::Record {
-                    cols,
-                    vals,
-                    span: Span::unknown(),
-                }
+                Value::Record { cols, vals, span }
             })
             .collect::<Vec<Value>>();
 

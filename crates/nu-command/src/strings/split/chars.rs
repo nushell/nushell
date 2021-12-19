@@ -32,7 +32,7 @@ impl Command for SubCommand {
                     Value::test_string("l"),
                     Value::test_string("o"),
                 ],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

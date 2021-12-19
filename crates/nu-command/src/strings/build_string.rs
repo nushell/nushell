@@ -31,7 +31,7 @@ impl Command for BuildString {
                 description: "Builds a string from letters a b c",
                 result: Some(Value::String {
                     val: "abc".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -39,7 +39,7 @@ impl Command for BuildString {
                 description: "Builds a string from letters a b c",
                 result: Some(Value::String {
                     val: "3=one plus two".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

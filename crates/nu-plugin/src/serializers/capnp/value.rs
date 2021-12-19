@@ -51,7 +51,9 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) {
         _ => {
             // If there is the need to pass other type of value to the plugin
             // we have to define the encoding for that object in this match
-            Span::unknown()
+
+            // FIXME: put this in a proper span
+            Span { start: 0, end: 0 }
         }
     };
 
@@ -60,7 +62,7 @@ pub(crate) fn serialize_value(value: &Value, mut builder: value::Builder) {
     span.set_end(value_span.end as u64);
 }
 
-pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellError> {
+pub(crate) fn deserialize_value(reader: value::Reader, head: Span) -> Result<Value, ShellError> {
     let span_reader = reader
         .get_span()
         .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
@@ -98,7 +100,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
                 .get_vals()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?
                 .iter()
-                .map(deserialize_value)
+                .map(move |x| deserialize_value(x, span))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
             Ok(Value::Record { cols, vals, span })
@@ -108,7 +110,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
 
             let values_list = values
                 .iter()
-                .map(deserialize_value)
+                .map(move |x| deserialize_value(x, span))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
             Ok(Value::List {
@@ -116,9 +118,7 @@ pub(crate) fn deserialize_value(reader: value::Reader) -> Result<Value, ShellErr
                 span,
             })
         }
-        Err(capnp::NotInSchema(_)) => Ok(Value::Nothing {
-            span: Span::unknown(),
-        }),
+        Err(capnp::NotInSchema(_)) => Ok(Value::Nothing { span: head }),
     }
 }
 
@@ -147,7 +147,17 @@ mod tests {
             .get_root::<value::Reader>()
             .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-        deserialize_value(reader.reborrow())
+        let span = reader
+            .get_span()
+            .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+        deserialize_value(
+            reader.reborrow(),
+            Span {
+                start: span.get_start() as usize,
+                end: span.get_end() as usize,
+            },
+        )
     }
 
     #[test]

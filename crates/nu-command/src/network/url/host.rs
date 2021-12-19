@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::unknown();
+        let span = Span::test_data();
         vec![Example {
             description: "Get host of a url",
             example: "echo 'http://www.example.com/foo/bar' | url host",

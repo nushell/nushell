@@ -352,7 +352,7 @@ mod tests {
         let value = Value::Record {
             cols: vec!["H1".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(fragment(value, false, &Config::default()), "# Ecuador\n");
@@ -363,7 +363,7 @@ mod tests {
         let value = Value::Record {
             cols: vec!["H2".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(fragment(value, false, &Config::default()), "## Ecuador\n");
@@ -374,7 +374,7 @@ mod tests {
         let value = Value::Record {
             cols: vec!["H3".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(fragment(value, false, &Config::default()), "### Ecuador\n");
@@ -385,7 +385,7 @@ mod tests {
         let value = Value::Record {
             cols: vec!["BLOCKQUOTE".to_string()],
             vals: vec![Value::test_string("Ecuador")],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(fragment(value, false, &Config::default()), "> Ecuador\n");
@@ -398,20 +398,20 @@ mod tests {
                 Value::Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("Ecuador")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("New Zealand")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
                 Value::Record {
                     cols: vec!["country".to_string()],
                     vals: vec![Value::test_string("USA")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 },
             ],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         assert_eq!(

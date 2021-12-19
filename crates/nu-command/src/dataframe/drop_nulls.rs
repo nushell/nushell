@@ -40,12 +40,21 @@ impl Command for DropNulls {
     $a | dfr drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
-                        Column::new("a".to_string(), vec![1.into(), 1.into()]),
-                        Column::new("b".to_string(), vec![2.into(), 2.into()]),
-                        Column::new("res".to_string(), vec![1.into(), 1.into()]),
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(1)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(2)],
+                        ),
+                        Column::new(
+                            "res".to_string(),
+                            vec![Value::test_int(1), Value::test_int(1)],
+                        ),
                     ])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -55,10 +64,15 @@ impl Command for DropNulls {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "div_0_0".to_string(),
-                        vec![1.into(), 1.into(), 1.into(), 1.into()],
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(1),
+                            Value::test_int(1),
+                            Value::test_int(1),
+                        ],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -94,7 +108,7 @@ fn command(
                 .collect::<Vec<String>>();
             (Some(agg_string), col_span)
         }
-        None => (None, Span::unknown()),
+        None => (None, call.head),
     };
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);

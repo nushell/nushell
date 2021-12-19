@@ -32,9 +32,9 @@ impl Command for FromJson {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::Int {
                         val: 1,
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -45,23 +45,23 @@ impl Command for FromJson {
                     vals: vec![
                         Value::Int {
                             val: 1,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![
                                 Value::Int {
                                     val: 1,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                                 Value::Int {
                                     val: 2,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                             ],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

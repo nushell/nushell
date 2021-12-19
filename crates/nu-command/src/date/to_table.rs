@@ -47,7 +47,7 @@ impl Command for SubCommand {
                 description: "Print the date in a structured table.",
                 example: " '2020-04-12 22:10:57 +0200' | date to-table",
                 result: {
-                    let span = Span::unknown();
+                    let span = Span::test_data();
                     let cols = vec![
                         "year".into(),
                         "month".into(),
@@ -136,8 +136,11 @@ fn parse_date_into_table(date: Result<DateTime<FixedOffset>, Value>, head: Span)
 
 fn helper(val: Value, head: Span) -> Value {
     match val {
-        Value::String { val, span: _ } => {
-            let date = parse_date_from_string(val);
+        Value::String {
+            val,
+            span: val_span,
+        } => {
+            let date = parse_date_from_string(val, val_span);
             parse_date_into_table(date, head)
         }
         Value::Nothing { span: _ } => {
@@ -146,7 +149,7 @@ fn helper(val: Value, head: Span) -> Value {
             parse_date_into_table(Ok(n), head)
         }
         Value::Date { val, span: _ } => parse_date_into_table(Ok(val), head),
-        _ => unsupported_input_error(),
+        _ => unsupported_input_error(head),
     }
 }
 

@@ -15,7 +15,7 @@ pub struct DocumentationConfig {
     brief: bool,
 }
 
-fn generate_doc(name: &str, engine_state: &EngineState) -> (Vec<String>, Vec<Value>) {
+fn generate_doc(name: &str, engine_state: &EngineState, head: Span) -> (Vec<String>, Vec<Value>) {
     let mut cols = vec![];
     let mut vals = vec![];
 
@@ -27,20 +27,20 @@ fn generate_doc(name: &str, engine_state: &EngineState) -> (Vec<String>, Vec<Val
     cols.push("name".to_string());
     vals.push(Value::String {
         val: name.into(),
-        span: Span::unknown(),
+        span: head,
     });
 
     cols.push("usage".to_string());
     vals.push(Value::String {
         val: command.usage().to_owned(),
-        span: Span::unknown(),
+        span: head,
     });
 
     if let Some(link) = retrieve_doc_link(name) {
         cols.push("doc_link".into());
         vals.push(Value::String {
             val: link,
-            span: Span::unknown(),
+            span: head,
         });
     }
 
@@ -56,14 +56,14 @@ fn generate_doc(name: &str, engine_state: &EngineState) -> (Vec<String>, Vec<Val
                 brief: false,
             },
         ),
-        span: Span::unknown(),
+        span: head,
     });
 
     (cols, vals)
 }
 
 // generate_docs gets the documentation from each command and returns a Table as output
-pub fn generate_docs(engine_state: &EngineState) -> Value {
+pub fn generate_docs(engine_state: &EngineState, head: Span) -> Value {
     let signatures = engine_state.get_signatures(true);
 
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
@@ -90,15 +90,15 @@ pub fn generate_docs(engine_state: &EngineState) -> Value {
         if !cmap.contains_key(&sig.name) {
             continue;
         }
-        let mut row_entries = generate_doc(&sig.name, engine_state);
+        let mut row_entries = generate_doc(&sig.name, engine_state, head);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
         for sub_name in cmap.get(&sig.name).unwrap_or(&Vec::new()) {
-            let (cols, vals) = generate_doc(sub_name, engine_state);
+            let (cols, vals) = generate_doc(sub_name, engine_state, head);
             sub_table.push(Value::Record {
                 cols,
                 vals,
-                span: Span::unknown(),
+                span: head,
             });
         }
 
@@ -106,18 +106,18 @@ pub fn generate_docs(engine_state: &EngineState) -> Value {
             row_entries.0.push("subcommands".into());
             row_entries.1.push(Value::List {
                 vals: sub_table,
-                span: Span::unknown(),
+                span: head,
             });
         }
         table.push(Value::Record {
             cols: row_entries.0,
             vals: row_entries.1,
-            span: Span::unknown(),
+            span: head,
         });
     }
     Value::List {
         vals: table,
-        span: Span::unknown(),
+        span: head,
     }
 }
 

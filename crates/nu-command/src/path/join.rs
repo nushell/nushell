@@ -104,7 +104,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"[ [parent stem extension]; ['C:\Users\viking' 'spam' 'txt']] | path join",
                 result: Some(Value::List {
                     vals: vec![Value::test_string(r"C:\Users\viking\spam.txt")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -133,7 +133,7 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
                 result: Some(Value::List {
                     vals: vec![Value::test_string(r"/home/viking/spam.txt")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

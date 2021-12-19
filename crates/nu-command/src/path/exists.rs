@@ -62,7 +62,7 @@ impl Command for SubCommand {
                 example: "'C:\\Users\\joe\\todo.txt' | path exists",
                 result: Some(Value::Bool {
                     val: false,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -81,7 +81,7 @@ impl Command for SubCommand {
                 example: "'/home/joe/todo.txt' | path exists",
                 result: Some(Value::Bool {
                     val: false,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {

@@ -28,7 +28,7 @@ impl ImportPattern {
         ImportPattern {
             head: ImportPatternHead {
                 name: vec![],
-                span: Span::unknown(),
+                span: Span { start: 0, end: 0 },
             },
             members: vec![],
             hidden: HashSet::new(),

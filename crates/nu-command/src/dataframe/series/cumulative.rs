@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use polars::prelude::{DataType, IntoSeries};
 
@@ -64,10 +64,16 @@ impl Command for Cumulative {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0_cum_sum".to_string(),
-                    vec![1.into(), 3.into(), 6.into(), 10.into(), 15.into()],
+                    vec![
+                        Value::test_int(1),
+                        Value::test_int(3),
+                        Value::test_int(6),
+                        Value::test_int(10),
+                        Value::test_int(15),
+                    ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

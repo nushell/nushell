@@ -38,7 +38,7 @@ impl Command for SubCommand {
             example: "[9 16] | math sqrt",
             result: Some(Value::List {
                 vals: vec![Value::test_int(3), Value::test_int(4)],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

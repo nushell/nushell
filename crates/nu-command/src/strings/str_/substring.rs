@@ -305,7 +305,7 @@ mod tests {
     fn substrings_indexes() {
         let word = Value::String {
             val: "andres".to_string(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let cases = vec![
@@ -336,13 +336,13 @@ mod tests {
 
         for expectation in &cases {
             let expected = expectation.expected;
-            let actual = action(&word, &expectation.options(), Span::unknown());
+            let actual = action(&word, &expectation.options(), Span::test_data());
 
             assert_eq!(
                 actual,
                 Value::String {
                     val: expected.to_string(),
-                    span: Span::unknown()
+                    span: Span::test_data()
                 }
             );
         }

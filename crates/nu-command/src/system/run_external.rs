@@ -79,7 +79,7 @@ impl Command for External {
                 "PWD".into(),
                 Value::String {
                     val: name.item.clone(),
-                    span: Span::unknown(),
+                    span: call.head,
                 },
             );
             return Ok(PipelineData::new(call.head));

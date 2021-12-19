@@ -44,7 +44,7 @@ impl Command for SubCommand {
                 example: r#" "NuShell" | str snake-case"#,
                 result: Some(Value::String {
                     val: "nu_shell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 example: r#" "this_is_the_second_case" | str snake-case"#,
                 result: Some(Value::String {
                     val: "this_is_the_second_case".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -60,7 +60,7 @@ impl Command for SubCommand {
                 example: r#""this-is-the-first-case" | str snake-case"#,
                 result: Some(Value::String {
                     val: "this_is_the_first_case".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -68,17 +68,17 @@ impl Command for SubCommand {
                 example: r#"[[lang, gems]; [nuTest, 100]] | str snake-case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
                             Value::String {
                                 val: "nu_test".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

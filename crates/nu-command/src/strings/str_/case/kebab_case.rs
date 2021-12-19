@@ -46,7 +46,7 @@ impl Command for SubCommand {
                 example: "'NuShell' | str kebab-case",
                 result: Some(Value::String {
                     val: "nu-shell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -54,7 +54,7 @@ impl Command for SubCommand {
                 example: "'thisIsTheFirstCase' | str kebab-case",
                 result: Some(Value::String {
                     val: "this-is-the-first-case".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -62,7 +62,7 @@ impl Command for SubCommand {
                 example: "'THIS_IS_THE_SECOND_CASE' | str kebab-case",
                 result: Some(Value::String {
                     val: "this-is-the-second-case".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -70,17 +70,17 @@ impl Command for SubCommand {
                 example: r#"[[lang, gems]; [nuTest, 100]] | str kebab-case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
                             Value::String {
                                 val: "nu-test".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

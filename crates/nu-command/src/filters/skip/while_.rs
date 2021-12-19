@@ -33,8 +33,8 @@ impl Command for SkipWhile {
             description: "Skip while the element is negative",
             example: "echo [-2 0 2 -1] | skip while $it < 0",
             result: Some(Value::List {
-                vals: vec![Value::from(0), Value::from(2), Value::from(-1)],
-                span: Span::unknown(),
+                vals: vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
+                span: Span::test_data(),
             }),
         }]
     }

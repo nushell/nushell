@@ -78,7 +78,7 @@ impl Command for SubCommand {
 
                     Some(Value::Date {
                         val: dt,
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     })
                 },
             },
@@ -89,8 +89,11 @@ impl Command for SubCommand {
 fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
     match value {
         Value::Date { val, span: _ } => _to_timezone(val, timezone, head),
-        Value::String { val, span: _ } => {
-            let time = parse_date_from_string(val);
+        Value::String {
+            val,
+            span: val_span,
+        } => {
+            let time = parse_date_from_string(val, val_span);
             match time {
                 Ok(dt) => _to_timezone(dt, timezone, head),
                 Err(e) => e,
@@ -101,7 +104,7 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             let dt = Local::now();
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
-        _ => unsupported_input_error(),
+        _ => unsupported_input_error(head),
     }
 }
 

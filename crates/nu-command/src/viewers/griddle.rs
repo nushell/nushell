@@ -71,7 +71,7 @@ prints out the list properly."#
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, &config);
+                let data = convert_to_list(vals, &config, call.head);
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -88,7 +88,7 @@ prints out the list properly."#
             }
             PipelineData::Stream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, &config);
+                let data = convert_to_list(stream, &config, call.head);
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -178,7 +178,7 @@ fn create_grid_output(
                 if use_grid_icons {
                     let no_ansi = strip_ansi(&value);
                     let path = std::path::Path::new(&no_ansi);
-                    let icon = icon_for_file(path)?;
+                    let icon = icon_for_file(path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
                     // eprintln!("ls_colors_style: {:?}", &ls_colors_style);
 
@@ -236,6 +236,7 @@ fn create_grid_output(
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
+    head: Span,
 ) -> Option<Vec<(usize, String, String)>> {
     let mut iter = iter.into_iter().peekable();
 
@@ -259,7 +260,7 @@ fn convert_to_list(
                         Value::Record { .. } => {
                             item.clone().follow_cell_path(&[PathMember::String {
                                 val: header.into(),
-                                span: Span::unknown(),
+                                span: head,
                             }])
                         }
                         _ => Ok(item.clone()),

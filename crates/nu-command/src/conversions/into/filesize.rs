@@ -49,7 +49,7 @@ impl Command for SubCommand {
                 example: "'2' | into filesize",
                 result: Some(Value::Filesize {
                     val: 2,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -57,7 +57,7 @@ impl Command for SubCommand {
                 example: "8.3 | into filesize",
                 result: Some(Value::Filesize {
                     val: 8,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -65,7 +65,7 @@ impl Command for SubCommand {
                 example: "5 | into filesize",
                 result: Some(Value::Filesize {
                     val: 5,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -73,7 +73,7 @@ impl Command for SubCommand {
                 example: "4KB | into filesize",
                 result: Some(Value::Filesize {
                     val: 4000,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

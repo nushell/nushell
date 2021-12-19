@@ -36,7 +36,7 @@ impl Command for Range {
                 description: "Get the last 2 items",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(4), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -44,7 +44,7 @@ impl Command for Range {
                 description: "Get the last 2 items",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(4), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for Range {
                 description: "Get the next to last 2 items",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(4)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

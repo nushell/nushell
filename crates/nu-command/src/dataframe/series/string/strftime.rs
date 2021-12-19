@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -36,12 +36,12 @@ impl Command for StrFTime {
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
                     vec![
-                        "2020/08/04".to_string().into(),
-                        "2020/08/04".to_string().into(),
+                        Value::test_string("2020/08/04"),
+                        Value::test_string("2020/08/04"),
                     ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

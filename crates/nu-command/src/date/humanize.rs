@@ -38,7 +38,7 @@ impl Command for SubCommand {
                 example: "date humanize",
                 result: Some(Value::String {
                     val: "now".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -59,8 +59,11 @@ fn helper(value: Value, head: Span) -> Value {
                 span: head,
             }
         }
-        Value::String { val, span: _ } => {
-            let dt = parse_date_from_string(val);
+        Value::String {
+            val,
+            span: val_span,
+        } => {
+            let dt = parse_date_from_string(val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: humanize_date(x),
@@ -76,7 +79,7 @@ fn helper(value: Value, head: Span) -> Value {
         _ => Value::Error {
             error: ShellError::UnsupportedInput(
                 String::from("Date cannot be parsed / date format is not supported"),
-                Span::unknown(),
+                head,
             ),
         },
     }

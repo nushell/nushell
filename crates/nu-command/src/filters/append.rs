@@ -37,7 +37,7 @@ impl Command for Append {
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -51,7 +51,7 @@ impl Command for Append {
                         Value::test_int(3),
                         Value::test_int(4),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -66,7 +66,7 @@ impl Command for Append {
                         Value::test_int(4),
                         Value::test_string("shell"),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

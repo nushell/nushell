@@ -57,7 +57,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str find-replace '(.+).rb' '$1.nu'",
                 result: Some(Value::String {
                     val: "my_library.nu".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -65,7 +65,7 @@ impl Command for SubCommand {
                 example: "'abc abc abc' | str find-replace -a 'b' 'z'",
                 result: Some(Value::String {
                     val: "azc azc azc".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -78,20 +78,20 @@ impl Command for SubCommand {
                         vals: vec![
                             Value::String {
                                 val: "azc".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::String {
                                 val: "abc".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::String {
                                 val: "ads".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -177,7 +177,7 @@ fn action(
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }
@@ -199,7 +199,7 @@ mod tests {
     fn can_have_capture_groups() {
         let word = Value::String {
             val: "Cargo.toml".to_string(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -209,12 +209,12 @@ mod tests {
             all: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
         assert_eq!(
             actual,
             Value::String {
                 val: "Carga.toml".to_string(),
-                span: Span::unknown()
+                span: Span::test_data()
             }
         );
     }

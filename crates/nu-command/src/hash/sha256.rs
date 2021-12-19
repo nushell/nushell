@@ -17,7 +17,7 @@ impl HashDigest for Sha256 {
                 result: Some(Value::String {
                     val: "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73"
                         .to_owned(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -43,11 +43,11 @@ mod tests {
     fn hash_string() {
         let binary = Value::String {
             val: "abcdefghijklmnopqrstuvwxyz".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::String {
             val: "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let actual = generic_digest::action::<Sha256>(&binary);
         assert_eq!(actual, expected);
@@ -57,11 +57,11 @@ mod tests {
     fn hash_bytes() {
         let binary = Value::Binary {
             val: vec![0xC0, 0xFF, 0xEE],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let expected = Value::String {
             val: "c47a10dc272b1221f0380a2ae0f7d7fa830b3e378f2f5309bbf13f61ad211913".to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         let actual = generic_digest::action::<Sha256>(&binary);
         assert_eq!(actual, expected);

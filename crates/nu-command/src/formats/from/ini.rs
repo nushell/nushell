@@ -34,16 +34,16 @@ b=2' | from ini",
                     vals: vec![
                         Value::String {
                             val: "1".to_string(),
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::String {
                             val: "2".to_string(),
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

@@ -31,7 +31,7 @@ impl Command for DropNth {
                 description: "Drop the first, second, and third row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -39,7 +39,7 @@ impl Command for DropNth {
                 description: "Drop the first, second, and third row",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -47,7 +47,7 @@ impl Command for DropNth {
                 description: "Drop rows 0 2 4",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -55,7 +55,7 @@ impl Command for DropNth {
                 description: "Drop rows 2 0 4",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

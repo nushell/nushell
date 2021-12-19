@@ -35,9 +35,9 @@ impl Command for Parse {
             vals: vec![Value::Record {
                 cols: vec!["foo".to_string(), "bar".to_string()],
                 vals: vec![Value::test_string("hi"), Value::test_string("there")],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }],
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         vec![

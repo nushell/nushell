@@ -38,7 +38,7 @@ impl Command for SubCommand {
             example: "[3 8 9 12 12 15] | math median",
             result: Some(Value::Float {
                 val: 10.5,
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

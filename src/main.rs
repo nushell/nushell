@@ -135,7 +135,7 @@ fn main() -> Result<()> {
             Value::Record {
                 cols: vec![],
                 vals: vec![],
-                span: Span::unknown(),
+                span: Span { start: 0, end: 0 },
             },
         );
 
@@ -160,7 +160,7 @@ fn main() -> Result<()> {
             &engine_state,
             &mut stack,
             &block,
-            PipelineData::new(Span::unknown()),
+            PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
         ) {
             Ok(pipeline_data) => {
                 for item in pipeline_data {
@@ -203,7 +203,7 @@ fn main() -> Result<()> {
                     &engine_state,
                     &mut stack,
                     &block,
-                    PipelineData::new(Span::unknown()),
+                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 ) {
                     Ok(pipeline_data) => {
                         for item in pipeline_data {
@@ -254,7 +254,7 @@ fn main() -> Result<()> {
             Value::Record {
                 cols: vec![],
                 vals: vec![],
-                span: Span::unknown(),
+                span: Span::new(0, 0),
             },
         );
 
@@ -552,7 +552,7 @@ fn update_prompt<'prompt>(
         engine_state,
         &mut stack,
         block,
-        PipelineData::new(Span::unknown()),
+        PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
     ) {
         Ok(pipeline_data) => {
             let config = stack.get_config().unwrap_or_default();
@@ -600,7 +600,7 @@ fn eval_source(
         engine_state,
         stack,
         &block,
-        PipelineData::new(Span::unknown()),
+        PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
     ) {
         Ok(pipeline_data) => {
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {

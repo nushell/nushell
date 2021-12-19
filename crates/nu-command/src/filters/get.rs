@@ -35,7 +35,7 @@ impl Command for Get {
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
 
         input
-            .follow_cell_path(&cell_path.members)
+            .follow_cell_path(&cell_path.members, call.head)
             .map(|x| x.into_pipeline_data())
     }
 }

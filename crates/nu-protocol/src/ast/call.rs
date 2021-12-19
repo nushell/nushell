@@ -20,7 +20,7 @@ impl Call {
     pub fn new() -> Call {
         Self {
             decl_id: 0,
-            head: Span::unknown(),
+            head: Span { start: 0, end: 0 },
             positional: vec![],
             named: vec![],
         }

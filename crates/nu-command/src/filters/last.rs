@@ -35,7 +35,7 @@ impl Command for Last {
             description: "Get the last 2 items",
             result: Some(Value::List {
                 vals: vec![Value::test_int(2), Value::test_int(3)],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

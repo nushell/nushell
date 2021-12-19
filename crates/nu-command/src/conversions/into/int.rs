@@ -70,7 +70,7 @@ impl Command for SubCommand {
                 example: "4KB | into int",
                 result: Some(Value::Int {
                     val: 4000,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -78,7 +78,7 @@ impl Command for SubCommand {
                 example: "[$false, $true] | into int",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -273,21 +273,21 @@ mod test {
         let word = Value::test_string("10");
         let expected = Value::test_int(10);
 
-        let actual = action(&word, Span::unknown(), 10);
+        let actual = action(&word, Span::test_data(), 10);
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn turns_binary_to_integer() {
         let s = Value::test_string("0b101");
-        let actual = action(&s, Span::unknown(), 10);
+        let actual = action(&s, Span::test_data(), 10);
         assert_eq!(actual, Value::test_int(5));
     }
 
     #[test]
     fn turns_hex_to_integer() {
         let s = Value::test_string("0xFF");
-        let actual = action(&s, Span::unknown(), 16);
+        let actual = action(&s, Span::test_data(), 16);
         assert_eq!(actual, Value::test_int(255));
     }
 
@@ -295,7 +295,7 @@ mod test {
     fn communicates_parsing_error_given_an_invalid_integerlike_string() {
         let integer_str = Value::test_string("36anra");
 
-        let actual = action(&integer_str, Span::unknown(), 10);
+        let actual = action(&integer_str, Span::test_data(), 10);
 
         assert_eq!(actual.get_type(), Error)
     }

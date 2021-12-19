@@ -102,7 +102,7 @@ mod tests {
     fn upcases() {
         let word = Value::test_string("andres");
 
-        let actual = action(&word, Span::unknown());
+        let actual = action(&word, Span::test_data());
         let expected = Value::test_string("ANDRES");
         assert_eq!(actual, expected);
     }

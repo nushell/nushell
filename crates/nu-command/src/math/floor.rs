@@ -38,7 +38,7 @@ impl Command for SubCommand {
             example: "[1.5 2.3 -3.1] | math floor",
             result: Some(Value::List {
                 vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(-4)],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

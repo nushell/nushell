@@ -625,10 +625,11 @@ pub fn parse_call(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
     expand_aliases: bool,
+    head: Span,
 ) -> (Expression, Option<ParseError>) {
     if spans.is_empty() {
         return (
-            garbage(Span::unknown()),
+            garbage(head),
             Some(ParseError::UnknownState(
                 "Encountered command with zero spans".into(),
                 span(spans),
@@ -715,7 +716,7 @@ pub fn parse_call(
 
             if test_equal == [b'='] {
                 return (
-                    garbage(Span::unknown()),
+                    garbage(span(spans)),
                     Some(ParseError::UnknownState(
                         "Incomplete statement".into(),
                         span(spans),
@@ -987,7 +988,7 @@ pub fn parse_range(
             }
         }
     } else {
-        (None, Span::unknown())
+        (None, span)
     };
 
     let range_op = RangeOperator {
@@ -1384,7 +1385,7 @@ pub fn parse_full_cell_path(
             (
                 Expression {
                     expr: Expr::Var(var_id),
-                    span: Span::unknown(),
+                    span,
                     ty: Type::Unknown,
                     custom_completion: None,
                 },
@@ -1806,7 +1807,7 @@ pub fn parse_import_pattern(
             ImportPattern {
                 head: ImportPatternHead {
                     name: vec![],
-                    span: Span::unknown(),
+                    span: span(spans),
                 },
                 members: vec![],
                 hidden: HashSet::new(),
@@ -3127,7 +3128,7 @@ pub fn parse_expression(
     let (output, err) = if is_math_expression_byte(bytes[0]) {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
-        parse_call(working_set, &spans[pos..], expand_aliases)
+        parse_call(working_set, &spans[pos..], expand_aliases, spans[0])
     };
 
     let with_env = working_set.find_decl(b"with-env");
@@ -3592,7 +3593,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
 
         Expression {
             expr: Expr::Call(Box::new(Call {
-                head: Span::unknown(),
+                head: span,
                 named: vec![],
                 positional: output,
                 decl_id,

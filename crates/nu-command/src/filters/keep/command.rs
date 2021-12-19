@@ -35,24 +35,24 @@ impl Command for Keep {
                     vals: vec![
                         Value::Record {
                             cols: vec!["editions".to_owned()],
-                            vals: vec![Value::from(2015)],
-                            span: Span::unknown(),
+                            vals: vec![Value::test_int(2015)],
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["editions".to_owned()],
-                            vals: vec![Value::from(2018)],
-                            span: Span::unknown(),
+                            vals: vec![Value::test_int(2018)],
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
                 description: "Keep the first value",
                 example: "echo [2 4 6 8] | keep",
                 result: Some(Value::List {
-                    vals: vec![Value::from(2)],
-                    span: Span::unknown(),
+                    vals: vec![Value::test_int(2)],
+                    span: Span::test_data(),
                 }),
             },
         ]

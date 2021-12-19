@@ -68,7 +68,7 @@ impl Command for SubCommand {
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -92,7 +92,7 @@ impl Command for SubCommand {
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {

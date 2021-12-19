@@ -7,7 +7,7 @@ use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
 use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Int64Type, IntoSeries, NamedFrom, NewChunkedArray,
-    ObjectType, PolarsNumericType, Series,
+    ObjectType, Series,
 };
 use std::ops::{Deref, DerefMut};
 
@@ -109,15 +109,14 @@ pub fn create_column(
     series: &Series,
     from_row: usize,
     to_row: usize,
+    span: Span,
 ) -> Result<Column, ShellError> {
     let size = to_row - from_row;
     match series.dtype() {
         DataType::Null => {
-            let values = std::iter::repeat(Value::Nothing {
-                span: Span::unknown(),
-            })
-            .take(size)
-            .collect::<Vec<Value>>();
+            let values = std::iter::repeat(Value::Nothing { span })
+                .take(size)
+                .collect::<Vec<Value>>();
 
             Ok(Column::new(series.name().into(), values))
         }
@@ -125,61 +124,188 @@ pub fn create_column(
             let casted = series.u8().map_err(|e| {
                 ShellError::LabeledError("Error casting column to u8".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::UInt16 => {
             let casted = series.u16().map_err(|e| {
                 ShellError::LabeledError("Error casting column to u16".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::UInt32 => {
             let casted = series.u32().map_err(|e| {
                 ShellError::LabeledError("Error casting column to u32".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::UInt64 => {
             let casted = series.u64().map_err(|e| {
                 ShellError::LabeledError("Error casting column to u64".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Int8 => {
             let casted = series.i8().map_err(|e| {
                 ShellError::LabeledError("Error casting column to i8".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Int16 => {
             let casted = series.i16().map_err(|e| {
                 ShellError::LabeledError("Error casting column to i16".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Int32 => {
             let casted = series.i32().map_err(|e| {
                 ShellError::LabeledError("Error casting column to i32".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Int64 => {
             let casted = series.i64().map_err(|e| {
                 ShellError::LabeledError("Error casting column to i64".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Int {
+                        val: a as i64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Float32 => {
             let casted = series.f32().map_err(|e| {
                 ShellError::LabeledError("Error casting column to f32".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Float {
+                        val: a as f64,
+                        span,
+                    },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Float64 => {
             let casted = series.f64().map_err(|e| {
                 ShellError::LabeledError("Error casting column to f64".into(), e.to_string())
             })?;
-            Ok(column_from_casted(casted, from_row, size))
+            let values = casted
+                .into_iter()
+                .skip(from_row)
+                .take(size)
+                .map(|v| match v {
+                    Some(a) => Value::Float { val: a, span },
+                    None => Value::Nothing { span },
+                })
+                .collect::<Vec<Value>>();
+
+            Ok(Column::new(casted.name().into(), values))
         }
         DataType::Boolean => {
             let casted = series.bool().map_err(|e| {
@@ -191,13 +317,8 @@ pub fn create_column(
                 .skip(from_row)
                 .take(size)
                 .map(|v| match v {
-                    Some(a) => Value::Bool {
-                        val: a,
-                        span: Span::unknown(),
-                    },
-                    None => Value::Nothing {
-                        span: Span::unknown(),
-                    },
+                    Some(a) => Value::Bool { val: a, span },
+                    None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -215,11 +336,9 @@ pub fn create_column(
                 .map(|v| match v {
                     Some(a) => Value::String {
                         val: a.into(),
-                        span: Span::unknown(),
+                        span,
                     },
-                    None => Value::Nothing {
-                        span: Span::unknown(),
-                    },
+                    None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -242,9 +361,7 @@ pub fn create_column(
                         .take(size)
                         .map(|v| match v {
                             Some(a) => a.get_value(),
-                            None => Value::Nothing {
-                                span: Span::unknown(),
-                            },
+                            None => Value::Nothing { span },
                         })
                         .collect::<Vec<Value>>();
 
@@ -273,12 +390,10 @@ pub fn create_column(
 
                         Value::Date {
                             val: datetime,
-                            span: Span::unknown(),
+                            span,
                         }
                     }
-                    None => Value::Nothing {
-                        span: Span::unknown(),
-                    },
+                    None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -305,12 +420,10 @@ pub fn create_column(
 
                         Value::Date {
                             val: datetime,
-                            span: Span::unknown(),
+                            span,
                         }
                     }
-                    None => Value::Nothing {
-                        span: Span::unknown(),
-                    },
+                    None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -328,11 +441,9 @@ pub fn create_column(
                 .map(|v| match v {
                     Some(nanoseconds) => Value::Duration {
                         val: nanoseconds,
-                        span: Span::unknown(),
+                        span,
                     },
-                    None => Value::Nothing {
-                        span: Span::unknown(),
-                    },
+                    None => Value::Nothing { span },
                 })
                 .collect::<Vec<Value>>();
 
@@ -345,29 +456,9 @@ pub fn create_column(
     }
 }
 
-fn column_from_casted<T>(casted: &ChunkedArray<T>, from_row: usize, size: usize) -> Column
-where
-    T: PolarsNumericType,
-    T::Native: Into<Value>,
-{
-    let values = casted
-        .into_iter()
-        .skip(from_row)
-        .take(size)
-        .map(|v| match v {
-            Some(a) => a.into(),
-            None => Value::Nothing {
-                span: Span::unknown(),
-            },
-        })
-        .collect::<Vec<Value>>();
-
-    Column::new(casted.name().into(), values)
-}
-
 // Adds a separator to the vector of values using the column names from the
 // dataframe to create the Values Row
-pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame) {
+pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
     let mut cols = vec![];
     let mut vals = vec![];
 
@@ -375,15 +466,11 @@ pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame) {
         cols.push(name.to_string());
         vals.push(Value::String {
             val: "...".into(),
-            span: Span::unknown(),
+            span,
         })
     }
 
-    let extra_record = Value::Record {
-        cols,
-        vals,
-        span: Span::unknown(),
-    };
+    let extra_record = Value::Record { cols, vals, span };
 
     values.push(extra_record);
 }

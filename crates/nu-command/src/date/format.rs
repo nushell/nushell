@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 example: "date format '%Y-%m-%d'",
                 result: Some(Value::String {
                     val: Local::now().format("%Y-%m-%d").to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -60,7 +60,7 @@ impl Command for SubCommand {
                 example: r#"date format "%Y-%m-%d %H:%M:%S""#,
                 result: Some(Value::String {
                     val: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -68,7 +68,7 @@ impl Command for SubCommand {
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
                 result: Some(Value::String {
                     val: "2021-10-22".into(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -81,8 +81,11 @@ fn format_helper(value: Value, formatter: &Spanned<String>, span: Span) -> Value
             val: val.format(formatter.item.as_str()).to_string(),
             span,
         },
-        Value::String { val, span: _ } => {
-            let dt = parse_date_from_string(val);
+        Value::String {
+            val,
+            span: val_span,
+        } => {
+            let dt = parse_date_from_string(val, val_span);
             match dt {
                 Ok(x) => Value::String {
                     val: x.format(formatter.item.as_str()).to_string(),
@@ -101,7 +104,7 @@ fn format_helper(value: Value, formatter: &Spanned<String>, span: Span) -> Value
                 span,
             }
         }
-        _ => unsupported_input_error(),
+        _ => unsupported_input_error(span),
     }
 }
 

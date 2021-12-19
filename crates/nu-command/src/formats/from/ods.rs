@@ -43,7 +43,7 @@ impl Command for FromOds {
         let sel_sheets = if let Some(Value::List { vals: columns, .. }) =
             call.get_flag(engine_state, stack, "sheets")?
         {
-            convert_columns(columns.as_slice())?
+            convert_columns(columns.as_slice(), call.head)?
         } else {
             vec![]
         };
@@ -67,14 +67,14 @@ impl Command for FromOds {
     }
 }
 
-fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
+fn convert_columns(columns: &[Value], span: Span) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle(
                 "Incorrect column format, Only string as column name".to_string(),
-                value.span().unwrap_or_else(|_| Span::unknown()),
+                value.span().unwrap_or(span),
             )),
         })
         .collect::<Result<Vec<String>, _>>()?;
@@ -82,7 +82,7 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     Ok(res)
 }
 
-fn collect_binary(input: PipelineData) -> Result<Vec<u8>, ShellError> {
+fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
     let mut bytes = vec![];
     let mut values = input.into_iter();
 
@@ -94,7 +94,7 @@ fn collect_binary(input: PipelineData) -> Result<Vec<u8>, ShellError> {
             Some(x) => {
                 return Err(ShellError::UnsupportedInput(
                     "Expected binary from pipeline".to_string(),
-                    x.span().unwrap_or_else(|_| Span::unknown()),
+                    x.span().unwrap_or(span),
                 ))
             }
             None => break,
@@ -109,7 +109,7 @@ fn from_ods(
     head: Span,
     sel_sheets: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
-    let bytes = collect_binary(input)?;
+    let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
     let mut ods = Ods::<_>::new(buf)
         .map_err(|_| ShellError::UnsupportedInput("Could not load ods file".to_string(), head))?;

@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -32,10 +32,10 @@ impl Command for GetSecond {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![18.into(), 18.into()],
+                    vec![Value::test_int(18), Value::test_int(18)],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

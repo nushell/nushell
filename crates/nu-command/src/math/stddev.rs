@@ -40,7 +40,7 @@ impl Command for SubCommand {
                 example: "[1 2 3 4 5] | math stddev",
                 result: Some(Value::Float {
                     val: std::f64::consts::SQRT_2,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -48,7 +48,7 @@ impl Command for SubCommand {
                 example: "[1 2 3 4 5] | math stddev -s",
                 result: Some(Value::Float {
                     val: 1.5811388300841898,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

@@ -109,7 +109,7 @@ fn toml_into_pipeline_data(
     }
 }
 
-fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
+fn value_to_toml_value(v: &Value, head: Span) -> Result<toml::Value, ShellError> {
     match v {
         Value::Record { .. } => helper(v),
         Value::List { ref vals, span } => match &vals[..] {
@@ -130,7 +130,7 @@ fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
         }
         _ => Err(ShellError::UnsupportedInput(
             format!("{:?} is not a valid top-level TOML", v.get_type()),
-            v.span().unwrap_or_else(|_| Span::unknown()),
+            v.span().unwrap_or(head),
         )),
     }
 }
@@ -138,7 +138,7 @@ fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
 fn to_toml(input: PipelineData, span: Span) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);
 
-    let toml_value = value_to_toml_value(&value)?;
+    let toml_value = value_to_toml_value(&value, span)?;
     match toml_value {
         toml::Value::Array(ref vec) => match vec[..] {
             [toml::Value::Table(_)] => toml_into_pipeline_data(
@@ -172,18 +172,21 @@ mod tests {
 
         let mut m = indexmap::IndexMap::new();
         m.insert("rust".to_owned(), Value::test_string("editor"));
-        m.insert("is".to_owned(), Value::nothing(Span::unknown()));
+        m.insert("is".to_owned(), Value::nothing(Span::test_data()));
         m.insert(
             "features".to_owned(),
             Value::List {
                 vals: vec![Value::test_string("hello"), Value::test_string("array")],
-                span: Span::unknown(),
+                span: Span::test_data(),
             },
         );
-        let tv = value_to_toml_value(&Value::from(Spanned {
-            item: m,
-            span: Span::unknown(),
-        }))
+        let tv = value_to_toml_value(
+            &Value::from(Spanned {
+                item: m,
+                span: Span::test_data(),
+            }),
+            Span::test_data(),
+        )
         .expect("Expected Ok from valid TOML dictionary");
         assert_eq!(
             tv.get("features"),
@@ -193,8 +196,9 @@ mod tests {
             ]))
         );
         // TOML string
-        let tv = value_to_toml_value(&Value::test_string(
-            r#"
+        let tv = value_to_toml_value(
+            &Value::test_string(
+                r#"
             title = "TOML Example"
 
             [owner]
@@ -206,7 +210,9 @@ mod tests {
             sysinfo = "0.8.4"
             chrono = { version = "0.4.6", features = ["serde"] }
             "#,
-        ))
+            ),
+            Span::test_data(),
+        )
         .expect("Expected Ok from valid TOML string");
         assert_eq!(
             tv.get("title").unwrap(),
@@ -215,12 +221,15 @@ mod tests {
         //
         // Negative Tests
         //
-        value_to_toml_value(&Value::test_string("not_valid"))
+        value_to_toml_value(&Value::test_string("not_valid"), Span::test_data())
             .expect_err("Expected non-valid toml (String) to cause error!");
-        value_to_toml_value(&Value::List {
-            vals: vec![Value::test_string("1")],
-            span: Span::unknown(),
-        })
+        value_to_toml_value(
+            &Value::List {
+                vals: vec![Value::test_string("1")],
+                span: Span::test_data(),
+            },
+            Span::test_data(),
+        )
         .expect_err("Expected non-valid toml (Table) to cause error!");
     }
 }

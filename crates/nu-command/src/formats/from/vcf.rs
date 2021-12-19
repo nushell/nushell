@@ -58,17 +58,17 @@ END:VCARD' | from vcf",
                                 vals: vec![
                                     Value::String {
                                         val: "N".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::String {
                                         val: "Foo".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::Nothing {
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                 ],
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::Record {
                                 cols: vec![
@@ -79,17 +79,17 @@ END:VCARD' | from vcf",
                                 vals: vec![
                                     Value::String {
                                         val: "FN".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::String {
                                         val: "Bar".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::Nothing {
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                 ],
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::Record {
                                 cols: vec![
@@ -100,24 +100,24 @@ END:VCARD' | from vcf",
                                 vals: vec![
                                     Value::String {
                                         val: "EMAIL".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::String {
                                         val: "foo@bar.com".to_string(),
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                     Value::Nothing {
-                                        span: Span::unknown(),
+                                        span: Span::test_data(),
                                     },
                                 ],
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                         ],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

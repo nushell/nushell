@@ -192,7 +192,7 @@ fn action(
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }
@@ -284,7 +284,7 @@ mod tests {
     fn returns_index_of_substring() {
         let word = Value::String {
             val: String::from("Cargo.tomL"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -292,13 +292,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from(""),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
 
         assert_eq!(actual, Value::test_int(5));
     }
@@ -306,7 +306,7 @@ mod tests {
     fn index_of_does_not_exist_in_string() {
         let word = Value::String {
             val: String::from("Cargo.tomL"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -314,13 +314,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from(""),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
 
         assert_eq!(actual, Value::test_int(-1));
     }
@@ -329,7 +329,7 @@ mod tests {
     fn returns_index_of_next_substring() {
         let word = Value::String {
             val: String::from("Cargo.Cargo"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -337,13 +337,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from("1"),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(6));
     }
 
@@ -351,7 +351,7 @@ mod tests {
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::String {
             val: String::from("Cargo.Banana"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -359,13 +359,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from(",5"),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(-1));
     }
 
@@ -373,7 +373,7 @@ mod tests {
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::String {
             val: String::from("123123123"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -381,13 +381,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from("2,6"),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(3));
     }
 
@@ -395,7 +395,7 @@ mod tests {
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::String {
             val: String::from("123456"),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
 
         let options = Arguments {
@@ -403,13 +403,13 @@ mod tests {
 
             range: Some(Value::String {
                 val: String::from("2,4"),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
             column_paths: vec![],
             end: false,
         };
 
-        let actual = action(&word, &options, Span::unknown());
+        let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(-1));
     }
 }

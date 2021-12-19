@@ -29,15 +29,15 @@ impl Command for DataTypes {
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
                         "column".to_string(),
-                        vec!["a".to_string().into(), "b".to_string().into()],
+                        vec![Value::test_string("a"), Value::test_string("b")],
                     ),
                     Column::new(
                         "dtype".to_string(),
-                        vec!["i64".to_string().into(), "i64".to_string().into()],
+                        vec![Value::test_string("i64"), Value::test_string("i64")],
                     ),
                 ])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

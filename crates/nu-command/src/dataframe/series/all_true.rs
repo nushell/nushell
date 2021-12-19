@@ -30,10 +30,10 @@ impl Command for AllTrue {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
-                        vec![true.into()],
+                        vec![Value::test_bool(true)],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -44,10 +44,10 @@ impl Command for AllTrue {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "all_true".to_string(),
-                        vec![false.into()],
+                        vec![Value::test_bool(false)],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]

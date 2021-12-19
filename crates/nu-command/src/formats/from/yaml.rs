@@ -33,9 +33,9 @@ impl Command for FromYaml {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::Int {
                         val: 1,
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -46,18 +46,18 @@ impl Command for FromYaml {
                         Value::Record {
                             cols: vec!["a".to_string()],
                             vals: vec![Value::test_int(1)],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["b".to_string()],
                             vals: vec![Value::List {
                                 vals: vec![Value::test_int(1), Value::test_int(2)],
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             }],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -233,9 +233,9 @@ mod test {
                     cols: vec!["value".to_string()],
                     vals: vec![Value::String {
                         val: "{{ something }}".to_string(),
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             TestCase {
@@ -245,15 +245,15 @@ mod test {
                     cols: vec!["value".to_string()],
                     vals: vec![Value::String {
                         val: "{{ something }}".to_string(),
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ];
         let config = Config::default();
         for tc in tt {
-            let actual = from_yaml_string_to_value(tc.input.to_owned(), Span::unknown());
+            let actual = from_yaml_string_to_value(tc.input.to_owned(), Span::test_data());
             if actual.is_err() {
                 assert!(
                     tc.expected.is_err(),

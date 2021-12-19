@@ -47,7 +47,7 @@ impl Command for FromUrl {
                     Value::test_string("ham"),
                     Value::test_string("butter"),
                 ],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

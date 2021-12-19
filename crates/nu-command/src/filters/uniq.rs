@@ -52,7 +52,7 @@ impl Command for Uniq {
                 example: "[2 3 3 4] | uniq",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -70,7 +70,7 @@ impl Command for Uniq {
                 example: "['hello' 'goodbye' 'Hello'] | uniq -i",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("hello"), Value::test_string("goodbye")],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -81,15 +81,15 @@ impl Command for Uniq {
                         Value::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
                             vals: vec![Value::test_int(1), Value::test_int(1)],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec!["value".to_string(), "count".to_string()],
                             vals: vec![Value::test_int(2), Value::test_int(2)],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

@@ -673,27 +673,35 @@ impl Value {
         Value::Bool { val, span }
     }
 
-    // Only use these for test data. Span::unknown() should not be used in user data
+    // Only use these for test data. Should not be used in user data
     pub fn test_string(s: impl Into<String>) -> Value {
         Value::String {
             val: s.into(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
-    // Only use these for test data. Span::unknown() should not be used in user data
+    // Only use these for test data. Should not be used in user data
     pub fn test_int(val: i64) -> Value {
         Value::Int {
             val,
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
-    // Only use these for test data. Span::unknown() should not be used in user data
+    // Only use these for test data. Should not be used in user data
     pub fn test_float(val: f64) -> Value {
         Value::Float {
             val,
-            span: Span::unknown(),
+            span: Span::test_data(),
+        }
+    }
+
+    // Only use these for test data. Should not be used in user data
+    pub fn test_bool(val: bool) -> Value {
+        Value::Bool {
+            val,
+            span: Span::test_data(),
         }
     }
 }
@@ -701,7 +709,7 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Nothing {
-            span: Span::unknown(),
+            span: Span { start: 0, end: 0 },
         }
     }
 }

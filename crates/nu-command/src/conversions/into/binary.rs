@@ -47,7 +47,7 @@ impl Command for SubCommand {
                         .to_string()
                         .as_bytes()
                         .to_vec(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -55,7 +55,7 @@ impl Command for SubCommand {
                 example: "1 | into binary",
                 result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -63,7 +63,7 @@ impl Command for SubCommand {
                 example: "$true | into binary",
                 result: Some(Value::Binary {
                     val: i64::from(1).to_le_bytes().to_vec(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -81,7 +81,7 @@ impl Command for SubCommand {
                 example: "1.234 | into binary",
                 result: Some(Value::Binary {
                     val: 1.234f64.to_le_bytes().to_vec(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

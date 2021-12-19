@@ -44,7 +44,7 @@ impl Command for SubCommand {
                 example: "'good day' | str capitalize",
                 result: Some(Value::String {
                     val: "Good day".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -52,7 +52,7 @@ impl Command for SubCommand {
                 example: "'anton' | str capitalize",
                 result: Some(Value::String {
                     val: "Anton".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -60,17 +60,17 @@ impl Command for SubCommand {
                 example: "[[lang, gems]; [nu_test, 100]] | str capitalize lang",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
                             Value::String {
                                 val: "Nu_test".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -117,7 +117,7 @@ fn action(input: &Value, head: Span) -> Value {
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

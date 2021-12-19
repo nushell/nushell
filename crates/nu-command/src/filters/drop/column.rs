@@ -68,7 +68,7 @@ fn dropcol(
             let mut output = vec![];
             let input_cols = get_input_cols(input_vals.clone());
             let kc = get_keep_columns(input_cols, columns);
-            keep_columns = get_cellpath_columns(kc);
+            keep_columns = get_cellpath_columns(kc, span);
 
             for input_val in input_vals {
                 let mut cols = vec![];
@@ -92,7 +92,7 @@ fn dropcol(
             let v: Vec<_> = stream.into_iter().collect();
             let input_cols = get_input_cols(v.clone());
             let kc = get_keep_columns(input_cols, columns);
-            keep_columns = get_cellpath_columns(kc);
+            keep_columns = get_cellpath_columns(kc, span);
 
             for input_val in v {
                 let mut cols = vec![];
@@ -134,10 +134,9 @@ fn get_input_cols(input: Vec<Value>) -> Vec<String> {
     }
 }
 
-fn get_cellpath_columns(keep_cols: Vec<String>) -> Vec<CellPath> {
+fn get_cellpath_columns(keep_cols: Vec<String>, span: Span) -> Vec<CellPath> {
     let mut output = vec![];
     for keep_col in keep_cols {
-        let span = Span::unknown();
         let val = Value::String {
             val: keep_col,
             span,

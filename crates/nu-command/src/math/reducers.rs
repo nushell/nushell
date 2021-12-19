@@ -103,7 +103,7 @@ pub fn sum(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
             other => {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the sum of a value that cannot be summed".to_string(),
-                    other.span().unwrap_or_else(|_| Span::unknown()),
+                    other.span().unwrap_or(head),
                 ));
             }
         }
@@ -121,7 +121,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
         }),
         None => Err(ShellError::UnsupportedInput(
             "Empty input".to_string(),
-            Span::unknown(),
+            head,
         )),
         _ => Ok(Value::nothing(head)),
     }?;
@@ -135,7 +135,7 @@ pub fn product(data: Vec<Value>, head: Span) -> Result<Value, ShellError> {
                 return Err(ShellError::UnsupportedInput(
                     "Attempted to compute the product of a value that cannot be multiplied"
                         .to_string(),
-                    other.span().unwrap_or_else(|_| Span::unknown()),
+                    other.span().unwrap_or(head),
                 ));
             }
         }

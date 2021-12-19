@@ -28,7 +28,7 @@ impl Range {
         let from = if let Value::Nothing { .. } = from {
             Value::Int {
                 val: 0i64,
-                span: Span::unknown(),
+                span: expr_span,
             }
         } else {
             from
@@ -38,12 +38,12 @@ impl Range {
             if let Ok(Value::Bool { val: true, .. }) = next.lt(expr_span, &from) {
                 Value::Int {
                     val: -100i64,
-                    span: Span::unknown(),
+                    span: expr_span,
                 }
             } else {
                 Value::Int {
                     val: 100i64,
-                    span: Span::unknown(),
+                    span: expr_span,
                 }
             }
         } else {
@@ -58,12 +58,12 @@ impl Range {
             if moves_up {
                 Value::Int {
                     val: 1i64,
-                    span: Span::unknown(),
+                    span: expr_span,
                 }
             } else {
                 Value::Int {
                     val: -1i64,
-                    span: Span::unknown(),
+                    span: expr_span,
                 }
             }
         } else {
@@ -72,7 +72,7 @@ impl Range {
 
         let zero = Value::Int {
             val: 0i64,
-            span: Span::unknown(),
+            span: expr_span,
         };
 
         // Increment must be non-zero, otherwise we iterate forever

@@ -74,7 +74,7 @@ pub fn decode_call(reader: &mut impl std::io::BufRead) -> Result<PluginCall, She
                 .get_input()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            let input = value::deserialize_value(input_reader)?;
+            let input = value::deserialize_value(input_reader, call.head)?;
 
             Ok(PluginCall::CallInfo(Box::new(CallInfo {
                 name: name.to_string(),
@@ -180,8 +180,19 @@ pub fn decode_response(reader: &mut impl std::io::BufRead) -> Result<PluginRespo
         }
         Ok(plugin_response::Value(reader)) => {
             let reader = reader.map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
-            let val = value::deserialize_value(reader)
+
+            let span = reader
+                .get_span()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
+
+            let val = value::deserialize_value(
+                reader,
+                Span {
+                    start: span.get_start() as usize,
+                    end: span.get_end() as usize,
+                },
+            )
+            .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             Ok(PluginResponse::Value(Box::new(val)))
         }

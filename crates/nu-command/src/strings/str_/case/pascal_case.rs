@@ -46,7 +46,7 @@ impl Command for SubCommand {
                 example: "'nu-shell' | str pascal-case",
                 result: Some(Value::String {
                     val: "NuShell".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -54,7 +54,7 @@ impl Command for SubCommand {
                 example: "'this-is-the-first-case' | str pascal-case",
                 result: Some(Value::String {
                     val: "ThisIsTheFirstCase".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -62,7 +62,7 @@ impl Command for SubCommand {
                 example: "'this_is_the_second_case' | str pascal-case",
                 result: Some(Value::String {
                     val: "ThisIsTheSecondCase".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -70,17 +70,17 @@ impl Command for SubCommand {
                 example: r#"[[lang, gems]; [nu_test, 100]] | str pascal-case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         cols: vec!["lang".to_string(), "gems".to_string()],
                         vals: vec![
                             Value::String {
                                 val: "NuTest".to_string(),
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             },
                             Value::test_int(100),
                         ],
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

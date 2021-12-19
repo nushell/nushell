@@ -309,7 +309,7 @@ mod tests {
             Some(fg_end),
             None,
             None,
-            &Span::unknown(),
+            &Span::test_data(),
         );
         assert_eq!(actual, expected);
     }

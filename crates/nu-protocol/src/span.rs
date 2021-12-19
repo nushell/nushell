@@ -31,7 +31,8 @@ impl Span {
         Span { start, end }
     }
 
-    pub fn unknown() -> Span {
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source when used in errors
+    pub fn test_data() -> Span {
         Span { start: 0, end: 0 }
     }
 
@@ -51,7 +52,7 @@ pub fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
     if length == 0 {
-        Span::unknown()
+        panic!("Internal error: tried to create a 0-length span")
     } else if length == 1 {
         spans[0]
     } else {

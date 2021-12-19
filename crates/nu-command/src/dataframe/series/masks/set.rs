@@ -41,10 +41,16 @@ impl Command for SetSeries {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),
-                    vec![0.into(), 0.into(), 1.into(), 2.into(), 2.into()],
+                    vec![
+                        Value::test_int(0),
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(2),
+                    ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

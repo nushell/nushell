@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -32,10 +32,15 @@ impl Command for IsNotNull {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "is_not_null".to_string(),
-                    vec![true.into(), true.into(), false.into(), true.into()],
+                    vec![
+                        Value::test_bool(true),
+                        Value::test_bool(true),
+                        Value::test_bool(false),
+                        Value::test_bool(true),
+                    ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

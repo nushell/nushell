@@ -32,7 +32,7 @@ impl Command for Reverse {
                     Value::test_int(1),
                     Value::test_int(0),
                 ],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

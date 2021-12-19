@@ -72,7 +72,7 @@ pub(crate) fn deserialize_call(
 }
 
 fn deserialize_positionals(
-    _span: Span,
+    span: Span,
     reader: evaluated_call::Reader,
 ) -> Result<Vec<Value>, ShellError> {
     let positional_reader = reader
@@ -81,7 +81,7 @@ fn deserialize_positionals(
 
     positional_reader
         .iter()
-        .map(value::deserialize_value)
+        .map(move |x| value::deserialize_value(x, span))
         .collect()
 }
 
@@ -110,7 +110,7 @@ fn deserialize_named(span: Span, reader: evaluated_call::Reader) -> Result<Named
                 .get_value()
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
-            let value = value::deserialize_value(value_reader)
+            let value = value::deserialize_value(value_reader, span)
                 .map_err(|e| ShellError::PluginFailedToDecode(e.to_string()))?;
 
             Some(value)

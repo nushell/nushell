@@ -29,9 +29,9 @@ impl Command for FromToml {
                     cols: vec!["a".to_string()],
                     vals: vec![Value::Int {
                         val: 1,
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -43,23 +43,23 @@ b = [1, 2]' | from toml",
                     vals: vec![
                         Value::Int {
                             val: 1,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::List {
                             vals: vec![
                                 Value::Int {
                                     val: 1,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                                 Value::Int {
                                     val: 2,
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 },
                             ],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

@@ -58,7 +58,7 @@ impl Command for SubCommand {
                 example: "'nushell' | str rpad -l 10 -c '*'",
                 result: Some(Value::String {
                     val: "nushell***".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -66,7 +66,7 @@ impl Command for SubCommand {
                 example: "'123' | str rpad -l 10 -c '0'",
                 result: Some(Value::String {
                     val: "1230000000".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -74,7 +74,7 @@ impl Command for SubCommand {
                 example: "'123456789' | str rpad -l 3 -c '0'",
                 result: Some(Value::String {
                     val: "123".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -82,7 +82,7 @@ impl Command for SubCommand {
                 example: "'▉' | str rpad -l 10 -c '▉'",
                 result: Some(Value::String {
                     val: "▉▉▉▉▉▉▉▉▉▉".to_string(),
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -153,7 +153,7 @@ fn action(
             None => Value::Error {
                 error: ShellError::UnsupportedInput(
                     String::from("Length argument is missing"),
-                    Span::unknown(),
+                    head,
                 ),
             },
         },
@@ -163,7 +163,7 @@ fn action(
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

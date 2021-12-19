@@ -55,7 +55,7 @@ impl GStat {
             }
             None => Spanned {
                 item: ".".to_string(),
-                span: Span::unknown(),
+                span: *span,
             },
         };
 

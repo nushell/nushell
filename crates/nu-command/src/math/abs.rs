@@ -41,11 +41,11 @@ impl Command for SubCommand {
                     Value::test_int(50),
                     Value::Float {
                         val: 100.0,
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     },
                     Value::test_int(25),
                 ],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }

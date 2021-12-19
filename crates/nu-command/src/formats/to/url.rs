@@ -73,7 +73,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
             }
             other => Err(ShellError::UnsupportedInput(
                 "Expected a table from pipeline".to_string(),
-                other.span().unwrap_or_else(|_| Span::unknown()),
+                other.span().unwrap_or(head),
             )),
         })
         .collect();

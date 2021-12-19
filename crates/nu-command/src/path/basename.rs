@@ -83,9 +83,9 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("Joe")],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -111,9 +111,9 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["name".to_string()],
                         vals: vec![Value::test_string("joe")],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {

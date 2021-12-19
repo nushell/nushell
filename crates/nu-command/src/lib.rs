@@ -26,6 +26,7 @@ pub use core_commands::*;
 pub use date::*;
 pub use default_context::*;
 pub use env::*;
+#[cfg(test)]
 pub use example_test::test_examples;
 pub use experimental::*;
 pub use filesystem::*;

@@ -57,7 +57,7 @@ impl Command for Format {
                 example: "echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
                 result: Some(Value::List {
                     vals: vec![Value::test_string("v2"), Value::test_string("v4")],
-                    span: Span::new(0, 0),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -124,11 +124,8 @@ fn format(
 
     //  We can only handle a Record or a List of Record's
     match data_as_value {
-        Value::Record { .. } => match format_record(format_operations, &data_as_value) {
-            Ok(value) => Ok(PipelineData::Value(
-                Value::string(value, Span::unknown()),
-                None,
-            )),
+        Value::Record { .. } => match format_record(format_operations, &data_as_value, span) {
+            Ok(value) => Ok(PipelineData::Value(Value::string(value, span), None)),
             Err(value) => Err(value),
         },
 
@@ -136,9 +133,9 @@ fn format(
             let mut list = vec![];
             for val in vals.iter() {
                 match val {
-                    Value::Record { .. } => match format_record(format_operations, val) {
+                    Value::Record { .. } => match format_record(format_operations, val, span) {
                         Ok(value) => {
-                            list.push(Value::string(value, Span::unknown()));
+                            list.push(Value::string(value, span));
                         }
                         Err(value) => {
                             return Err(value);
@@ -148,7 +145,7 @@ fn format(
                     _ => {
                         return Err(ShellError::UnsupportedInput(
                             "Input data is not supported by this command.".to_string(),
-                            Span::unknown(),
+                            span,
                         ))
                     }
                 }
@@ -161,7 +158,7 @@ fn format(
         }
         _ => Err(ShellError::UnsupportedInput(
             "Input data is not supported by this command.".to_string(),
-            Span::unknown(),
+            span,
         )),
     }
 }
@@ -169,6 +166,7 @@ fn format(
 fn format_record(
     format_operations: &[FormatOperation],
     data_as_value: &Value,
+    span: Span,
 ) -> Result<String, ShellError> {
     let mut output = String::new();
     for op in format_operations {
@@ -182,7 +180,7 @@ fn format_record(
                     .clone()
                     .follow_cell_path(&[PathMember::String {
                         val: col_name.clone(),
-                        span: Span::unknown(),
+                        span,
                     }]) {
                     Ok(value_at_column) => output.push_str(value_at_column.as_string()?.as_str()),
                     Err(se) => return Err(se),

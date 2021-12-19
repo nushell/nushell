@@ -44,9 +44,9 @@ impl Command for SubCommand {
                     vals: vec![Value::Record {
                         cols: vec!["num".to_string()],
                         vals: vec![Value::test_float(5.01)],
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                     }],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -142,7 +142,7 @@ mod tests {
         let word = Value::test_string("3.1415");
         let expected = Value::test_float(3.1415);
 
-        let actual = action(&word, Span::unknown());
+        let actual = action(&word, Span::test_data());
         assert_eq!(actual, expected);
     }
 
@@ -150,7 +150,7 @@ mod tests {
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
         let decimal_str = Value::test_string("11.6anra");
 
-        let actual = action(&decimal_str, Span::unknown());
+        let actual = action(&decimal_str, Span::test_data());
 
         assert_eq!(actual.get_type(), Error);
     }
@@ -159,7 +159,7 @@ mod tests {
     fn int_to_decimal() {
         let decimal_str = Value::test_int(10);
         let expected = Value::test_float(10.0);
-        let actual = action(&decimal_str, Span::unknown());
+        let actual = action(&decimal_str, Span::test_data());
 
         assert_eq!(actual, expected);
     }

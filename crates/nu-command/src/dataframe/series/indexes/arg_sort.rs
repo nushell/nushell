@@ -3,7 +3,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span,
+    Category, Example, PipelineData, ShellError, Signature, Span, Value,
 };
 use polars::prelude::IntoSeries;
 
@@ -33,10 +33,16 @@ impl Command for ArgSort {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
-                        vec![0.into(), 1.into(), 2.into(), 3.into(), 4.into()],
+                        vec![
+                            Value::test_int(0),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(3),
+                            Value::test_int(4),
+                        ],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -45,10 +51,16 @@ impl Command for ArgSort {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "arg_sort".to_string(),
-                        vec![3.into(), 4.into(), 1.into(), 2.into(), 0.into()],
+                        vec![
+                            Value::test_int(3),
+                            Value::test_int(4),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(0),
+                        ],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]

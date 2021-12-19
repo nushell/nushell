@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -32,10 +32,15 @@ impl Command for Rename {
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "new_name".to_string(),
-                    vec![5.into(), 6.into(), 7.into(), 8.into()],
+                    vec![
+                        Value::test_int(5),
+                        Value::test_int(6),
+                        Value::test_int(7),
+                        Value::test_int(8),
+                    ],
                 )])
                 .expect("simple df for test should not fail")
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

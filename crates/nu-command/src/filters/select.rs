@@ -184,9 +184,9 @@ fn select(
 //         let actual = select(
 //             Tag::unknown(),
 //             vec![
-//                 ColumnPath::build(&"col_none".to_string().spanned(Span::unknown())),
-//                 ColumnPath::build(&"col_foo".to_string().spanned(Span::unknown())),
-//                 ColumnPath::build(&"col_bar".to_string().spanned(Span::unknown())),
+//                 ColumnPath::build(&"col_none".to_string().spanned(Span::test_data())),
+//                 ColumnPath::build(&"col_foo".to_string().spanned(Span::test_data())),
+//                 ColumnPath::build(&"col_bar".to_string().spanned(Span::test_data())),
 //             ],
 //             input.into(),
 //         );

@@ -117,7 +117,7 @@ mod tests {
             Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m \u{1b}[1;32mNu \u{1b}[1;35mWorld");
         let expected = Value::test_string("Hello Nu World");
 
-        let actual = action(&input_string, &Span::unknown());
+        let actual = action(&input_string, &Span::test_data());
         assert_eq!(actual, expected);
     }
 }

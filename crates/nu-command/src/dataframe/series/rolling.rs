@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use polars::prelude::{DataType, IntoSeries, RollingOptions};
 
@@ -68,10 +68,15 @@ impl Command for Rolling {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_sum".to_string(),
-                        vec![3.into(), 5.into(), 7.into(), 9.into()],
+                        vec![
+                            Value::test_int(3),
+                            Value::test_int(5),
+                            Value::test_int(7),
+                            Value::test_int(9),
+                        ],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -80,10 +85,15 @@ impl Command for Rolling {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "0_rolling_max".to_string(),
-                        vec![2.into(), 3.into(), 4.into(), 5.into()],
+                        vec![
+                            Value::test_int(2),
+                            Value::test_int(3),
+                            Value::test_int(4),
+                            Value::test_int(5),
+                        ],
                     )])
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]

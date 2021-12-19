@@ -53,7 +53,7 @@ impl Command for SubCommand {
                 example: "'my_library.rb' | str starts-with 'my'",
                 result: Some(Value::Bool {
                     val: true,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -61,7 +61,7 @@ impl Command for SubCommand {
                 example: "'Cargo.toml' | str starts-with 'Car'",
                 result: Some(Value::Bool {
                     val: true,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -69,7 +69,7 @@ impl Command for SubCommand {
                 example: "'Cargo.toml' | str starts-with '.toml'",
                 result: Some(Value::Bool {
                     val: false,
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -127,7 +127,7 @@ fn action(input: &Value, Arguments { pattern, .. }: &Arguments, head: Span) -> V
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

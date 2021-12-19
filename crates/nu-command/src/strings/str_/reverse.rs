@@ -43,7 +43,7 @@ impl Command for SubCommand {
             example: "'Nushell' | str reverse",
             result: Some(Value::String {
                 val: "llehsuN".to_string(),
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }
@@ -90,7 +90,7 @@ fn action(input: &Value, head: Span) -> Value {
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

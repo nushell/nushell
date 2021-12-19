@@ -47,22 +47,22 @@ impl Command for Size {
                     vals: vec![
                         Value::Int {
                             val: 0,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 7,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 38,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 38,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
             Example {
@@ -78,22 +78,22 @@ impl Command for Size {
                     vals: vec![
                         Value::Int {
                             val: 0,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 2,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 13,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Int {
                             val: 15,
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]

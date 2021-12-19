@@ -36,7 +36,7 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::unknown();
+        let span = Span::test_data();
         vec![
             Example {
                 description: "Get path of a url",

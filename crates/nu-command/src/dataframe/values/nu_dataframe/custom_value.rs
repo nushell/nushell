@@ -29,7 +29,7 @@ impl CustomValue for NuDataFrame {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print()?;
+        let vals = self.print(span)?;
 
         Ok(Value::List { vals, span })
     }

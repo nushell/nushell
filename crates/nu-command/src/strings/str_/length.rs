@@ -49,7 +49,7 @@ impl Command for SubCommand {
                 example: "['hi' 'there'] | str length",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2), Value::test_int(5)],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }),
             },
         ]
@@ -96,7 +96,7 @@ fn action(input: &Value, head: Span) -> Value {
                     "Input's type is {}. This command only works with strings.",
                     other.get_type()
                 ),
-                Span::unknown(),
+                head,
             ),
         },
     }

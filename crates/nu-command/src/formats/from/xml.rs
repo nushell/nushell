@@ -55,31 +55,31 @@ impl Command for FromXml {
                                         Value::List {
                                             vals: vec![Value::String {
                                                 val: "Event".to_string(),
-                                                span: Span::unknown(),
+                                                span: Span::test_data(),
                                             }],
-                                            span: Span::unknown(),
+                                            span: Span::test_data(),
                                         },
                                         Value::Record {
                                             cols: vec![],
                                             vals: vec![],
-                                            span: Span::unknown(),
+                                            span: Span::test_data(),
                                         },
                                     ],
-                                    span: Span::unknown(),
+                                    span: Span::test_data(),
                                 }],
-                                span: Span::unknown(),
+                                span: Span::test_data(),
                             }],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                         Value::Record {
                             cols: vec![],
                             vals: vec![],
-                            span: Span::unknown(),
+                            span: Span::test_data(),
                         },
                     ],
-                    span: Span::unknown(),
+                    span: Span::test_data(),
                 }],
-                span: Span::unknown(),
+                span: Span::test_data(),
             }),
         }]
     }
@@ -201,26 +201,26 @@ mod tests {
     fn string(input: impl Into<String>) -> Value {
         Value::String {
             val: input.into(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
         Value::from(Spanned {
             item: entries,
-            span: Span::unknown(),
+            span: Span::test_data(),
         })
     }
 
     fn table(list: &[Value]) -> Value {
         Value::List {
             vals: list.to_vec(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
     fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
-        from_xml_string_to_value(xml.to_string(), Span::unknown())
+        from_xml_string_to_value(xml.to_string(), Span::test_data())
     }
 
     #[test]

@@ -52,7 +52,7 @@ impl Command for Table {
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
-                let table = convert_to_table(0, vals, ctrlc, &config)?;
+                let table = convert_to_table(0, vals, ctrlc, &config, call.head)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
@@ -220,6 +220,7 @@ fn convert_to_table(
     iter: impl IntoIterator<Item = Value>,
     ctrlc: Option<Arc<AtomicBool>>,
     config: &Config,
+    head: Span,
 ) -> Result<Option<nu_table::Table>, ShellError> {
     let mut iter = iter.into_iter().peekable();
     let color_hm = get_color_config(config);
@@ -257,7 +258,7 @@ fn convert_to_table(
                         Value::Record { .. } => {
                             item.clone().follow_cell_path(&[PathMember::String {
                                 val: header.into(),
-                                span: Span::unknown(),
+                                span: head,
                             }])
                         }
                         _ => Ok(item.clone()),
@@ -399,6 +400,7 @@ impl Iterator for PagingTableCreator {
             batch.into_iter(),
             self.ctrlc.clone(),
             &self.config,
+            self.head,
         );
         self.row_offset += idx;
 
