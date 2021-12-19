@@ -219,6 +219,7 @@ pub fn create_default_context() -> EngineState {
         // Conversions
         bind_command! {
             Into,
+            IntoBool,
             IntoBinary,
             IntoDatetime,
             IntoDecimal,
