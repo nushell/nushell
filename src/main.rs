@@ -434,11 +434,30 @@ fn main() -> Result<()> {
 fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
     let mut fake_env_file = String::new();
     for (name, val) in std::env::vars() {
+        let c = if val.contains('"') {
+            if val.contains('\'') {
+                // environment variable containing both ' and " is ignored
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(
+                    &working_set,
+                    &ShellError::LabeledError(
+                        format!("Environment variable was not captured: {}={}", name, val),
+                        "Value should not contain both ' and \" at the same time.".into(),
+                    ),
+                );
+                continue;
+            } else {
+                '\''
+            }
+        } else {
+            '"'
+        };
+
         fake_env_file.push_str(&name);
         fake_env_file.push('=');
-        fake_env_file.push('"');
+        fake_env_file.push(c);
         fake_env_file.push_str(&val);
-        fake_env_file.push('"');
+        fake_env_file.push(c);
         fake_env_file.push('\n');
     }
 
@@ -474,14 +493,34 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
             }) = parts.get(2)
             {
                 let bytes = engine_state.get_span_contents(span);
-                let bytes = bytes.strip_prefix(&[b'"']).unwrap_or(bytes);
-                let bytes = bytes.strip_suffix(&[b'"']).unwrap_or(bytes);
+
+                if bytes.len() < 2 {
+                    let working_set = StateWorkingSet::new(engine_state);
+                    report_error(
+                        &working_set,
+                        &ShellError::NushellFailed(format!(
+                            "Error capturing environment variable {}",
+                            name
+                        )),
+                    );
+                }
+
+                let bytes = &bytes[1..bytes.len() - 1];
 
                 Value::String {
                     val: String::from_utf8_lossy(bytes).to_string(),
                     span: *span,
                 }
             } else {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(
+                    &working_set,
+                    &ShellError::NushellFailed(format!(
+                        "Error capturing environment variable {}",
+                        name
+                    )),
+                );
+
                 Value::String {
                     val: "".to_string(),
                     span: Span::new(full_span.end, full_span.end),

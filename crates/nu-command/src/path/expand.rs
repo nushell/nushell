@@ -111,11 +111,12 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
         Value::string(p.to_string_lossy(), span)
     } else if args.strict {
         Value::Error {
-            error: ShellError::LabeledError(
+            error: ShellError::SpannedLabeledError(
                 "Could not expand path".into(),
                 "could not be expanded (path might not exist, non-final \
                     component is not a directory, or other cause)"
                     .into(),
+                span,
             ),
         }
     } else {

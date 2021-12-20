@@ -251,7 +251,7 @@ pub enum ShellError {
     SpannedLabeledErrorHelp(String, String, #[label("{1}")] Span, String),
 
     #[error("{0}")]
-    #[diagnostic()]
+    #[diagnostic(help("{1}"))]
     LabeledError(String, String),
 }
 
