@@ -15,7 +15,10 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
-use reedline::{Completer, CompletionActionHandler, DefaultPrompt, LineBuffer, Prompt};
+use reedline::{
+    Completer, CompletionActionHandler, DefaultCompleter, DefaultHinter, DefaultPrompt, LineBuffer,
+    Prompt,
+};
 use std::{
     io::Write,
     sync::{
@@ -353,12 +356,28 @@ fn main() -> Result<()> {
             // turn off the hinter but I don't see any way to do that yet.
 
             let mut line_editor = if let Some(history_path) = history_path.clone() {
-                line_editor
-                    .with_history(Box::new(
-                        FileBackedHistory::with_file(1000, history_path.clone())
-                            .into_diagnostic()?,
-                    ))
-                    .into_diagnostic()?
+                let history = std::fs::read_to_string(&history_path);
+                if let Ok(history) = history {
+                    let history_lines = history.lines().map(|x| x.to_string()).collect::<Vec<_>>();
+                    line_editor
+                        .with_hinter(Box::new(
+                            DefaultHinter::default()
+                                .with_completer(Box::new(DefaultCompleter::new(history_lines))) // or .with_history()
+                                // .with_inside_line()
+                                .with_style(
+                                    nu_ansi_term::Style::new()
+                                        .italic()
+                                        .fg(nu_ansi_term::Color::LightGray),
+                                ),
+                        ))
+                        .with_history(Box::new(
+                            FileBackedHistory::with_file(1000, history_path.clone())
+                                .into_diagnostic()?,
+                        ))
+                        .into_diagnostic()?
+                } else {
+                    line_editor
+                }
             } else {
                 line_editor
             };

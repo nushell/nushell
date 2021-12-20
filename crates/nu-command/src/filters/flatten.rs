@@ -84,12 +84,12 @@ enum TableInside<'a> {
     Entries(&'a str, &'a Span, Vec<&'a Value>),
 }
 
-fn is_table(value: &Value) -> bool {
-    match value {
-        Value::List { vals, span: _ } => vals.iter().all(|f| f.as_record().is_ok()),
-        _ => false,
-    }
-}
+// fn is_table(value: &Value) -> bool {
+//     match value {
+//         Value::List { vals, span: _ } => vals.iter().all(|f| f.as_record().is_ok()),
+//         _ => false,
+//     }
+// }
 
 fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value> {
     let tag = match item.span() {
@@ -233,7 +233,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                 expanded.push(r);
             }
             expanded
-        } else if !is_table(item) {
+        } else if item.as_list().is_ok() {
             if let Value::List { vals, span: _ } = item {
                 vals.to_vec()
             } else {

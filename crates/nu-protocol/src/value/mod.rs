@@ -195,6 +195,17 @@ impl Value {
         }
     }
 
+    pub fn as_list(&self) -> Result<&[Value], ShellError> {
+        match self {
+            Value::List { vals, .. } => Ok(vals),
+            x => Err(ShellError::CantConvert(
+                "list".into(),
+                x.get_type().to_string(),
+                self.span()?,
+            )),
+        }
+    }
+
     pub fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(*val),

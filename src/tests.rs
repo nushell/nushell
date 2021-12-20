@@ -1308,3 +1308,11 @@ fn allow_missing_optional_params() -> TestResult {
         "5",
     )
 }
+
+#[test]
+fn flatten_should_flatten_inner_table() -> TestResult {
+    run_test(
+        "[[[name, value]; [abc, 123]]] | flatten | get value.0",
+        "123",
+    )
+}
