@@ -6,7 +6,7 @@
 macro_rules! out {
     ($($tokens:tt)*) => {
         use std::io::Write;
-        print!($($tokens)*);
+        write!(std::io::stdout(), $($tokens)*).unwrap_or(());
         let _ = std::io::stdout().flush();
     }
 }
@@ -17,7 +17,12 @@ macro_rules! out {
 /// and stray printlns left by accident
 #[macro_export]
 macro_rules! outln {
-    ($($tokens:tt)*) => { println!($($tokens)*) }
+    ($($tokens:tt)*) => {
+        {
+            use std::io::Write;
+            writeln!(std::io::stdout(), $($tokens)*).unwrap_or(())
+        }
+    }
 }
 
 /// Outputs to standard error
@@ -26,7 +31,12 @@ macro_rules! outln {
 /// and stray printlns left by accident
 #[macro_export]
 macro_rules! errln {
-    ($($tokens:tt)*) => { eprintln!($($tokens)*) }
+    ($($tokens:tt)*) => {
+        {
+            use std::io::Write;
+            writeln!(std::io::stderr(), $($tokens)*).unwrap_or(())
+        }
+    }
 }
 
 #[macro_export]
