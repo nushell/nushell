@@ -1300,3 +1300,11 @@ fn get_table_columns_1() -> TestResult {
 fn get_table_columns_2() -> TestResult {
     run_test("[[name, age, grade]; [paul,21,a]] | columns | nth 1", "age")
 }
+
+#[test]
+fn allow_missing_optional_params() -> TestResult {
+    run_test(
+        "def foo [x?:int] { if $x != $nothing { $x + 10 } else { 5 } }; foo",
+        "5",
+    )
+}

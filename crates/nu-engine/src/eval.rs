@@ -39,18 +39,24 @@ fn eval_call(
         let block = engine_state.get_block(block_id);
 
         let mut stack = stack.collect_captures(&block.captures);
-        for (arg, param) in call.positional.iter().zip(
-            decl.signature()
-                .required_positional
-                .iter()
-                .chain(decl.signature().optional_positional.iter()),
-        ) {
-            let result = eval_expression(engine_state, &mut stack, arg)?;
+
+        for (param_idx, param) in decl
+            .signature()
+            .required_positional
+            .iter()
+            .chain(decl.signature().optional_positional.iter())
+            .enumerate()
+        {
             let var_id = param
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
 
-            stack.add_var(var_id, result);
+            if let Some(arg) = call.positional.get(param_idx) {
+                let result = eval_expression(engine_state, &mut stack, arg)?;
+                stack.add_var(var_id, result);
+            } else {
+                stack.add_var(var_id, Value::nothing(call.head));
+            }
         }
 
         if let Some(rest_positional) = decl.signature().rest_positional {
