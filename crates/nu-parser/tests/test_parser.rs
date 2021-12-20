@@ -178,6 +178,52 @@ pub fn parse_call_missing_req_flag() {
     assert!(matches!(err, Some(ParseError::MissingRequiredFlag(..))));
 }
 
+#[test]
+fn test_nothing_comparisson_eq() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let (block, err) = parse(&mut working_set, None, b"2 == $nothing", true);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    match &block[0] {
+        Statement::Pipeline(Pipeline { expressions }) => {
+            assert!(expressions.len() == 1);
+            assert!(matches!(
+                &expressions[0],
+                Expression {
+                    expr: Expr::BinaryOp(..),
+                    ..
+                }
+            ))
+        }
+        _ => panic!("No match"),
+    }
+}
+
+#[test]
+fn test_nothing_comparisson_neq() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let (block, err) = parse(&mut working_set, None, b"2 != $nothing", true);
+
+    assert!(err.is_none());
+    assert!(block.len() == 1);
+    match &block[0] {
+        Statement::Pipeline(Pipeline { expressions }) => {
+            assert!(expressions.len() == 1);
+            assert!(matches!(
+                &expressions[0],
+                Expression {
+                    expr: Expr::BinaryOp(..),
+                    ..
+                }
+            ))
+        }
+        _ => panic!("No match"),
+    }
+}
+
 mod range {
     use super::*;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};

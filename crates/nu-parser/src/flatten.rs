@@ -7,6 +7,7 @@ use std::fmt::{Display, Formatter, Result};
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum FlatShape {
     Garbage,
+    Nothing,
     Bool,
     Int,
     Float,
@@ -29,6 +30,7 @@ impl Display for FlatShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
             FlatShape::Garbage => write!(f, "flatshape_garbage"),
+            FlatShape::Nothing => write!(f, "flatshape_nothing"),
             FlatShape::Bool => write!(f, "flatshape_bool"),
             FlatShape::Int => write!(f, "flatshape_int"),
             FlatShape::Float => write!(f, "flatshape_float"),
@@ -126,6 +128,9 @@ pub fn flatten_expression(
         }
         Expr::Garbage => {
             vec![(expr.span, FlatShape::Garbage)]
+        }
+        Expr::Nothing => {
+            vec![(expr.span, FlatShape::Nothing)]
         }
         Expr::Int(_) => {
             vec![(expr.span, FlatShape::Int)]

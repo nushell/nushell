@@ -1186,6 +1186,16 @@ pub fn parse_variable_expr(
             },
             None,
         );
+    } else if contents == b"$nothing" {
+        return (
+            Expression {
+                expr: Expr::Nothing,
+                span,
+                ty: Type::Nothing,
+                custom_completion: None,
+            },
+            None,
+        );
     } else if contents == b"$nu" {
         return (
             Expression {
@@ -3483,6 +3493,7 @@ pub fn find_captures_in_expr(
         }
         Expr::ImportPattern(_) => {}
         Expr::Garbage => {}
+        Expr::Nothing => {}
         Expr::GlobPattern(_) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {

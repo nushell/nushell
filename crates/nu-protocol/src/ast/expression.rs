@@ -148,6 +148,7 @@ impl Expression {
                 false
             }
             Expr::Garbage => false,
+            Expr::Nothing => false,
             Expr::GlobPattern(_) => false,
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
@@ -291,6 +292,7 @@ impl Expression {
             }
             Expr::ImportPattern(_) => {}
             Expr::Garbage => {}
+            Expr::Nothing => {}
             Expr::GlobPattern(_) => {}
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_in_variable(working_set, new_var_id),

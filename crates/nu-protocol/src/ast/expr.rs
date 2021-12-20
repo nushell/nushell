@@ -33,5 +33,6 @@ pub enum Expr {
     FullCellPath(Box<FullCellPath>),
     ImportPattern(ImportPattern),
     Signature(Box<Signature>),
+    Nothing,
     Garbage,
 }

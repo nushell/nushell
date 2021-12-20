@@ -346,6 +346,7 @@ pub fn eval_expression(
         }),
         Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
+        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
     }
 }
 

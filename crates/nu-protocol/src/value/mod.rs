@@ -1141,13 +1141,18 @@ impl Value {
                 val: matches!(ordering, Ordering::Equal),
                 span,
             }),
-            None => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type(),
-                lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span()?,
-            }),
+            None => match (self, rhs) {
+                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
+                    Ok(Value::Bool { val: false, span })
+                }
+                _ => Err(ShellError::OperatorMismatch {
+                    op_span: op,
+                    lhs_ty: self.get_type(),
+                    lhs_span: self.span()?,
+                    rhs_ty: rhs.get_type(),
+                    rhs_span: rhs.span()?,
+                }),
+            },
         }
     }
     pub fn ne(&self, op: Span, rhs: &Value) -> Result<Value, ShellError> {
@@ -1162,13 +1167,18 @@ impl Value {
                 val: !matches!(ordering, Ordering::Equal),
                 span,
             }),
-            None => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type(),
-                lhs_span: self.span()?,
-                rhs_ty: rhs.get_type(),
-                rhs_span: rhs.span()?,
-            }),
+            None => match (self, rhs) {
+                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
+                    Ok(Value::Bool { val: true, span })
+                }
+                _ => Err(ShellError::OperatorMismatch {
+                    op_span: op,
+                    lhs_ty: self.get_type(),
+                    lhs_span: self.span()?,
+                    rhs_ty: rhs.get_type(),
+                    rhs_span: rhs.span()?,
+                }),
+            },
         }
     }
 
