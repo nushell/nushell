@@ -386,22 +386,22 @@ impl Value {
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_abbreviated_string(self, config: &Config) -> String {
+    pub fn into_abbreviated_string(&self, config: &Config) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(val, config),
-            Value::Duration { val, .. } => format_duration(val),
-            Value::Date { val, .. } => HumanTime::from(val).to_string(),
+            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Duration { val, .. } => format_duration(*val),
+            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.into_string(", ", config),
-                    val.to.into_string(", ", config)
+                    val.from.clone().into_string(", ", config),
+                    val.to.clone().into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val,
+            Value::String { val, .. } => val.to_string(),
             Value::List { ref vals, .. } => match &vals[..] {
                 [Value::Record { .. }, _end @ ..] => format!(
                     "[table {} row{}]",

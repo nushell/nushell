@@ -148,7 +148,7 @@ pub fn write_xml_events<W: Write>(
             }
         }
         _ => {
-            let s = current.clone().into_abbreviated_string(config);
+            let s = current.into_abbreviated_string(config);
             writer
                 .write_event(Event::Text(BytesText::from_plain_str(s.as_str())))
                 .expect("Couldn't write XML text");
