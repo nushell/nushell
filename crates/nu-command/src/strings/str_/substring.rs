@@ -157,12 +157,18 @@ fn action(input: &Value, options: &Substring, head: Span) -> Value {
                     Ordering::Less => Value::String {
                         val: {
                             if end == isize::max_value() {
-                                s.chars().skip(start as usize).collect::<String>()
+                                String::from_utf8_lossy(
+                                    &s.bytes().skip(start as usize).collect::<Vec<_>>(),
+                                )
+                                .to_string()
                             } else {
-                                s.chars()
-                                    .skip(start as usize)
-                                    .take((end - start) as usize)
-                                    .collect::<String>()
+                                String::from_utf8_lossy(
+                                    &s.bytes()
+                                        .skip(start as usize)
+                                        .take((end - start) as usize)
+                                        .collect::<Vec<_>>(),
+                                )
+                                .to_string()
                             }
                         },
                         span: head,

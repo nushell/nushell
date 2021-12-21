@@ -1316,3 +1316,11 @@ fn flatten_should_flatten_inner_table() -> TestResult {
         "123",
     )
 }
+
+#[test]
+fn cjk_in_substrings() -> TestResult {
+    run_test(
+        r#"let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); echo ($s | str substring $"($start + 1),($end)")"#,
+        "title-page.md",
+    )
+}
