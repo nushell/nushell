@@ -19,7 +19,9 @@ impl Command for Lines {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("lines").category(Category::Filters)
+        Signature::build("lines")
+            .switch("skip-empty", "skip empty lines", Some('s'))
+            .category(Category::Filters)
     }
 
     fn run(
@@ -29,6 +31,7 @@ impl Command for Lines {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let skip_empty = call.has_flag("skip-emtpy");
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
@@ -41,10 +44,10 @@ impl Command for Lines {
                     .collect::<Vec<String>>();
 
                 let iter = lines.into_iter().filter_map(move |s| {
-                    if !s.is_empty() {
-                        Some(Value::string(s, span))
-                    } else {
+                    if skip_empty && s.is_empty() {
                         None
+                    } else {
+                        Some(Value::string(s, span))
                     }
                 });
 
@@ -53,18 +56,18 @@ impl Command for Lines {
             PipelineData::Stream(stream, ..) => {
                 let iter = stream
                     .into_iter()
-                    .filter_map(|value| {
+                    .filter_map(move |value| {
                         if let Value::String { val, span } = value {
                             let inner = val
                                 .split(SPLIT_CHAR)
                                 .filter_map(|s| {
-                                    if !s.is_empty() {
+                                    if skip_empty && s.is_empty() {
+                                        None
+                                    } else {
                                         Some(Value::String {
                                             val: s.into(),
                                             span,
                                         })
-                                    } else {
-                                        None
                                     }
                                 })
                                 .collect::<Vec<Value>>();

@@ -1038,7 +1038,7 @@ fn long_flag() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "10")
+    run_test(r#"each --help | lines | length"#, "15")
 }
 
 #[test]
