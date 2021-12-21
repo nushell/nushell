@@ -6,8 +6,8 @@ const ANIMATE_PROMPT_DEFAULT: bool = false;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EnvConversion {
-    pub from_string: (BlockId, Span),
-    pub to_string: (BlockId, Span),
+    pub from_string: Option<(BlockId, Span)>,
+    pub to_string: Option<(BlockId, Span)>,
 }
 
 impl EnvConversion {
@@ -28,20 +28,13 @@ impl EnvConversion {
             }
         }
 
-        match (conv_map.get("from_string"), conv_map.get("to_string")) {
-            (None, _) => Err(ShellError::MissingConfigValue(
-                "'from_string' field".into(),
-                value.span()?,
-            )),
-            (_, None) => Err(ShellError::MissingConfigValue(
-                "'to_string' field".into(),
-                value.span()?,
-            )),
-            (Some(from), Some(to)) => Ok(EnvConversion {
-                from_string: *from,
-                to_string: *to,
-            }),
-        }
+        let from_string = conv_map.get("from_string").cloned();
+        let to_string = conv_map.get("to_string").cloned();
+
+        Ok(EnvConversion {
+            from_string,
+            to_string,
+        })
     }
 }
 
@@ -177,6 +170,7 @@ impl Value {
                     let mut env_conversions = HashMap::new();
 
                     for (env_var, record) in env_vars.iter().zip(conversions) {
+                        // println!("{}: {:?}", env_var, record);
                         env_conversions.insert(env_var.into(), EnvConversion::from_record(record)?);
                     }
 

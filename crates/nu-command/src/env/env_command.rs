@@ -12,7 +12,7 @@ impl Command for Env {
     }
 
     fn usage(&self) -> &str {
-        "Display current environment"
+        "Display current environment variables"
     }
 
     fn signature(&self) -> nu_protocol::Signature {

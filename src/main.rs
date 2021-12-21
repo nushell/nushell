@@ -8,7 +8,7 @@ use dialoguer::{
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
-use nu_engine::{env_to_values, eval_block};
+use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
     ast::Call,
@@ -153,7 +153,7 @@ fn main() -> Result<()> {
         };
 
         // Translate environment variables from Strings to Values
-        if let Some(e) = env_to_values(&engine_state, &mut stack, &config) {
+        if let Some(e) = convert_env_values(&engine_state, &mut stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &e);
             std::process::exit(1);
@@ -289,7 +289,7 @@ fn main() -> Result<()> {
         };
 
         // Translate environment variables from Strings to Values
-        if let Some(e) = env_to_values(&engine_state, &mut stack, &config) {
+        if let Some(e) = convert_env_values(&engine_state, &mut stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &e);
         }
