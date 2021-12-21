@@ -15,7 +15,7 @@ pub use lite_parse::{lite_parse, LiteBlock};
 pub use parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_let, parse_module, parse_use,
 };
-pub use parser::{find_captures_in_expr, parse, Import};
+pub use parser::{find_captures_in_expr, parse, trim_quotes, Import};
 
 #[cfg(feature = "plugin")]
 pub use parse_keywords::parse_register;

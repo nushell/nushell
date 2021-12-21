@@ -9,7 +9,7 @@ use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_command::create_default_context;
 use nu_engine::{env_to_values, eval_block};
-use nu_parser::{lex, parse, Token, TokenContents};
+use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -429,44 +429,66 @@ fn main() -> Result<()> {
 // This fill collect environment variables from std::env and adds them to a stack.
 //
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
-// env vars into it (in a NAME=value format, similar to the output of the Unix 'env' tool), then
-// uses the file to get the spans. The file stays in memory, no filesystem IO is done.
+// env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
+// tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
 fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
-    let mut fake_env_file = String::new();
-    for (name, val) in std::env::vars() {
-        let c = if val.contains('"') {
-            if val.contains('\'') {
-                // environment variable containing both ' and " is ignored
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(
-                    &working_set,
-                    &ShellError::LabeledError(
-                        format!("Environment variable was not captured: {}={}", name, val),
-                        "Value should not contain both ' and \" at the same time.".into(),
-                    ),
-                );
-                continue;
+    fn get_surround_char(s: &str) -> Option<char> {
+        if s.contains('"') {
+            if s.contains('\'') {
+                None
             } else {
-                '\''
+                Some('\'')
             }
         } else {
-            '"'
-        };
+            Some('"')
+        }
+    }
 
+    fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(
+            &working_set,
+            &ShellError::LabeledError(
+                format!("Environment variable was not captured: {}", env_str),
+                msg.into(),
+            ),
+        );
+    }
+
+    let mut fake_env_file = String::new();
+    for (name, val) in std::env::vars() {
+        let (c_name, c_val) =
+            if let (Some(cn), Some(cv)) = (get_surround_char(&name), get_surround_char(&val)) {
+                (cn, cv)
+            } else {
+                // environment variable with its name or value containing both ' and " is ignored
+                report_capture_error(
+                    engine_state,
+                    &format!("{}={}", name, val),
+                    "Name or value should not contain both ' and \" at the same time.",
+                );
+                continue;
+            };
+
+        fake_env_file.push(c_name);
         fake_env_file.push_str(&name);
+        fake_env_file.push(c_name);
         fake_env_file.push('=');
-        fake_env_file.push(c);
+        fake_env_file.push(c_val);
         fake_env_file.push_str(&val);
-        fake_env_file.push(c);
+        fake_env_file.push(c_val);
         fake_env_file.push('\n');
     }
 
     let span_offset = engine_state.next_span_start();
+
     engine_state.add_file(
         "Host Environment Variables".to_string(),
         fake_env_file.as_bytes().to_vec(),
     );
+
     let (tokens, _) = lex(fake_env_file.as_bytes(), span_offset, &[], &[], true);
+
     for token in tokens {
         if let Token {
             contents: TokenContents::Item,
@@ -481,9 +503,27 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
                 span,
             }) = parts.get(0)
             {
-                String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
+                let bytes = engine_state.get_span_contents(span);
+
+                if bytes.len() < 2 {
+                    report_capture_error(
+                        engine_state,
+                        &String::from_utf8_lossy(contents),
+                        "Got empty name.",
+                    );
+
+                    continue;
+                }
+
+                let bytes = trim_quotes(bytes);
+                String::from_utf8_lossy(bytes).to_string()
             } else {
-                // Skip this env var if it does not have a name
+                report_capture_error(
+                    engine_state,
+                    &String::from_utf8_lossy(contents),
+                    "Got empty name.",
+                );
+
                 continue;
             };
 
@@ -495,36 +535,29 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
                 let bytes = engine_state.get_span_contents(span);
 
                 if bytes.len() < 2 {
-                    let working_set = StateWorkingSet::new(engine_state);
-                    report_error(
-                        &working_set,
-                        &ShellError::NushellFailed(format!(
-                            "Error capturing environment variable {}",
-                            name
-                        )),
+                    report_capture_error(
+                        engine_state,
+                        &String::from_utf8_lossy(contents),
+                        "Got empty value.",
                     );
+
+                    continue;
                 }
 
-                let bytes = &bytes[1..bytes.len() - 1];
+                let bytes = trim_quotes(bytes);
 
                 Value::String {
                     val: String::from_utf8_lossy(bytes).to_string(),
                     span: *span,
                 }
             } else {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(
-                    &working_set,
-                    &ShellError::NushellFailed(format!(
-                        "Error capturing environment variable {}",
-                        name
-                    )),
+                report_capture_error(
+                    engine_state,
+                    &String::from_utf8_lossy(contents),
+                    "Got empty value.",
                 );
 
-                Value::String {
-                    val: "".to_string(),
-                    span: Span::new(full_span.end, full_span.end),
-                }
+                continue;
             };
 
             stack.add_env_var(name, value);
