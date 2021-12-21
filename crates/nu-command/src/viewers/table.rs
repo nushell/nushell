@@ -264,21 +264,28 @@ fn convert_to_table(
             let mut row: Vec<(String, String)> =
                 vec![("string".to_string(), (row_num + row_offset).to_string())];
 
-            for header in headers.iter().skip(1) {
-                let result = match item {
-                    Value::Record { .. } => item.clone().follow_cell_path(&[PathMember::String {
-                        val: header.into(),
-                        span: head,
-                    }]),
-                    _ => Ok(item.clone()),
-                };
+            if headers.is_empty() {
+                // if header row is empty, this is probably a list so format it that way
+                row.push(("list".to_string(), item.into_abbreviated_string(config)))
+            } else {
+                for header in headers.iter().skip(1) {
+                    let result = match item {
+                        Value::Record { .. } => {
+                            item.clone().follow_cell_path(&[PathMember::String {
+                                val: header.into(),
+                                span: head,
+                            }])
+                        }
+                        _ => Ok(item.clone()),
+                    };
 
-                match result {
-                    Ok(value) => row.push((
-                        (&value.get_type()).to_string(),
-                        value.into_abbreviated_string(config),
-                    )),
-                    Err(_) => row.push(("empty".to_string(), "❎".into())),
+                    match result {
+                        Ok(value) => row.push((
+                            (&value.get_type()).to_string(),
+                            value.into_abbreviated_string(config),
+                        )),
+                        Err(_) => row.push(("empty".to_string(), "❎".into())),
+                    }
                 }
             }
 
