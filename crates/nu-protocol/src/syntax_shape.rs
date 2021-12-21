@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::Type;
@@ -113,6 +115,40 @@ impl SyntaxShape {
             SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME: Tables should have better types
             SyntaxShape::VarWithOptType => Type::Unknown,
             SyntaxShape::Variable => Type::Unknown,
+        }
+    }
+}
+
+impl Display for SyntaxShape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyntaxShape::Keyword(kw, shape) => {
+                write!(f, "\"{}\" {}", String::from_utf8_lossy(kw), shape)
+            }
+            SyntaxShape::Any => write!(f, "any"),
+            SyntaxShape::String => write!(f, "string"),
+            SyntaxShape::CellPath => write!(f, "cellpath"),
+            SyntaxShape::FullCellPath => write!(f, "cellpath"),
+            SyntaxShape::Number => write!(f, "number"),
+            SyntaxShape::Range => write!(f, "range"),
+            SyntaxShape::Int => write!(f, "int"),
+            SyntaxShape::Filepath => write!(f, "path"),
+            SyntaxShape::GlobPattern => write!(f, "glob"),
+            SyntaxShape::ImportPattern => write!(f, "import"),
+            SyntaxShape::Block(_) => write!(f, "block"),
+            SyntaxShape::Table => write!(f, "table"),
+            SyntaxShape::List(x) => write!(f, "list<{}>", x),
+            SyntaxShape::Filesize => write!(f, "filesize"),
+            SyntaxShape::Duration => write!(f, "duration"),
+            SyntaxShape::Operator => write!(f, "operator"),
+            SyntaxShape::RowCondition => write!(f, "condition"),
+            SyntaxShape::MathExpression => write!(f, "variable"),
+            SyntaxShape::Variable => write!(f, "var"),
+            SyntaxShape::VarWithOptType => write!(f, "vardecl"),
+            SyntaxShape::Signature => write!(f, "signature"),
+            SyntaxShape::Expression => write!(f, "expression"),
+            SyntaxShape::Boolean => write!(f, "bool"),
+            SyntaxShape::Custom(x, _) => write!(f, "custom<{}>", x),
         }
     }
 }

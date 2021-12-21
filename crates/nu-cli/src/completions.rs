@@ -18,10 +18,8 @@ impl NuCompleter {
     pub fn new(engine_state: EngineState) -> Self {
         Self { engine_state }
     }
-}
 
-impl Completer for NuCompleter {
-    fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
+    fn completion_helper(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         let pos = offset + pos;
@@ -198,6 +196,16 @@ impl Completer for NuCompleter {
         }
 
         vec![]
+    }
+}
+
+impl Completer for NuCompleter {
+    fn complete(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
+        let mut output = self.completion_helper(line, pos);
+
+        output.sort_by(|a, b| a.1.cmp(&b.1));
+
+        output
     }
 }
 
