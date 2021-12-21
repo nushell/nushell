@@ -12,6 +12,8 @@ use polars::prelude::{DataFrame, DataType, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
+use super::utils::DEFAULT_ROWS;
+
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
 // create dataframes with mixed datatypes
@@ -283,7 +285,7 @@ impl NuDataFrame {
     pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.0;
         let to_row = df.height();
-        let size = rows.unwrap_or(5);
+        let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
 
         let values = self.to_rows(from_row, to_row, span)?;

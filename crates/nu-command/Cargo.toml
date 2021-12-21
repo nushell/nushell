@@ -74,7 +74,7 @@ optional = true
 features = [
 	"default", "parquet", "json", "serde", "object",
 	"checked_arithmetic", "strings", "cum_agg", "is_in",
-	"rolling_window", "strings"
+	"rolling_window", "strings", "pivot", "random"
 ]
 
 [features]

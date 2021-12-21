@@ -1,5 +1,5 @@
 use super::NuDataFrame;
-use nu_protocol::{ast::Operator, Category, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuDataFrame {
@@ -18,10 +18,6 @@ impl CustomValue for NuDataFrame {
             val: Box::new(cloned),
             span,
         }
-    }
-
-    fn category(&self) -> Category {
-        Category::Custom(self.typetag_name().into())
     }
 
     fn value_string(&self) -> String {

@@ -1,38 +1,38 @@
-use super::super::values::{Column, NuDataFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
-#[derive(Clone)]
-pub struct Shift;
+use super::super::values::{Column, NuDataFrame};
 
-impl Command for Shift {
+#[derive(Clone)]
+pub struct ColumnDF;
+
+impl Command for ColumnDF {
     fn name(&self) -> &str {
-        "dfr shift"
+        "dfr column"
     }
 
     fn usage(&self) -> &str {
-        "Shifts the values by a given period"
+        "Returns the selected column"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("period", SyntaxShape::Int, "shift period")
+            .required("column", SyntaxShape::String, "column name")
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Shifts the values by a given period",
-            example: "[1 2 2 3 3] | dfr to-df | dfr shift 2 | dfr drop-nulls",
+            description: "Returns the selected column as series",
+            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr column a",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(2)],
+                    "a".to_string(),
+                    vec![Value::test_int(1), Value::test_int(3)],
                 )])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -57,23 +57,25 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let period: i64 = call.req(engine_state, stack, 0)?;
+    let column: Spanned<String> = call.req(engine_state, stack, 0)?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-    let series = df.as_series(call.head)?.shift(period);
 
-    NuDataFrame::try_from_series(vec![series], call.head)
+    let res = df.as_ref().column(&column.item).map_err(|e| {
+        ShellError::SpannedLabeledError("Error selecting column".into(), e.to_string(), column.span)
+    })?;
+
+    NuDataFrame::try_from_series(vec![res.clone()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::super::eager::DropNulls;
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(Shift {}), Box::new(DropNulls {})])
+        test_dataframe(vec![Box::new(ColumnDF {})])
     }
 }

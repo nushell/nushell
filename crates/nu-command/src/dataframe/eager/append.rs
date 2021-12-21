@@ -5,7 +5,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
-use super::values::{Axis, Column, NuDataFrame};
+use super::super::values::{Axis, Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct AppendDF;
@@ -120,7 +120,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::test_dataframe::test_dataframe;
+    use super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
     #[test]

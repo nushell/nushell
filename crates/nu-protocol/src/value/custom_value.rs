@@ -1,13 +1,13 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ast::Operator, Category, ShellError, Span, Value};
+use crate::{ast::Operator, ShellError, Span, Value};
 
 // Trait definition for a custom value
 #[typetag::serde(tag = "type")]
 pub trait CustomValue: fmt::Debug + Send + Sync {
     fn clone_value(&self, span: Span) -> Value;
 
-    fn category(&self) -> Category;
+    //fn category(&self) -> Category;
 
     // Define string representation of the custom value
     fn value_string(&self) -> String;
@@ -26,8 +26,19 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn as_any(&self) -> &dyn std::any::Any;
 
     // Follow cell path functions
-    fn follow_path_int(&self, count: usize, span: Span) -> Result<Value, ShellError>;
-    fn follow_path_string(&self, column_name: String, span: Span) -> Result<Value, ShellError>;
+    fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
+        Err(ShellError::IncompatiblePathAccess(
+            format!("{} does't support path access", self.value_string()),
+            span,
+        ))
+    }
+
+    fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
+        Err(ShellError::IncompatiblePathAccess(
+            format!("{} does't support path access", self.value_string()),
+            span,
+        ))
+    }
 
     // ordering with other value
     fn partial_cmp(&self, _other: &Value) -> Option<Ordering> {

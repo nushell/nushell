@@ -1,5 +1,3 @@
-use super::super::values::{Column, NuDataFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -7,33 +5,38 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
-#[derive(Clone)]
-pub struct Shift;
+use crate::dataframe::values::Column;
 
-impl Command for Shift {
+use super::super::values::NuDataFrame;
+
+#[derive(Clone)]
+pub struct SliceDF;
+
+impl Command for SliceDF {
     fn name(&self) -> &str {
-        "dfr shift"
+        "dfr slice"
     }
 
     fn usage(&self) -> &str {
-        "Shifts the values by a given period"
+        "Creates new dataframe from a slice of rows"
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("period", SyntaxShape::Int, "shift period")
+            .required("offset", SyntaxShape::Int, "start of slice")
+            .required("size", SyntaxShape::Int, "size of slice")
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Shifts the values by a given period",
-            example: "[1 2 2 3 3] | dfr to-df | dfr shift 2 | dfr drop-nulls",
+            description: "Create new dataframe from a slice of the rows",
+            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr slice 0 1",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(vec![
+                    Column::new("a".to_string(), vec![Value::test_int(1)]),
+                    Column::new("b".to_string(), vec![Value::test_int(2)]),
+                ])
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -57,23 +60,26 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let period: i64 = call.req(engine_state, stack, 0)?;
+    let offset: i64 = call.req(engine_state, stack, 0)?;
+    let size: usize = call.req(engine_state, stack, 1)?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
-    let series = df.as_series(call.head)?.shift(period);
 
-    NuDataFrame::try_from_series(vec![series], call.head)
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+    let res = df.as_ref().slice(offset, size);
+
+    Ok(PipelineData::Value(
+        NuDataFrame::dataframe_into_value(res, call.head),
+        None,
+    ))
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::super::eager::DropNulls;
     use super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
     #[test]
     fn test_examples() {
-        test_dataframe(vec![Box::new(Shift {}), Box::new(DropNulls {})])
+        test_dataframe(vec![Box::new(SliceDF {})])
     }
 }

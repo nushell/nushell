@@ -5,7 +5,7 @@ use nu_protocol::{
     PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 
-use super::ToDataFrame;
+use super::eager::ToDataFrame;
 use crate::Let;
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {

@@ -1,4 +1,4 @@
-use super::values::{Column, NuDataFrame};
+use super::super::values::{Column, NuDataFrame};
 
 use nu_protocol::{
     ast::Call,
@@ -117,7 +117,7 @@ impl Command for ToDataFrame {
 
 #[cfg(test)]
 mod test {
-    use super::super::test_dataframe::test_dataframe;
+    use super::super::super::test_dataframe::test_dataframe;
     use super::*;
 
     #[test]
