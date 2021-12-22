@@ -35,6 +35,7 @@ pub fn create_default_context() -> EngineState {
             For,
             Help,
             Hide,
+            History,
             If,
             Let,
             Module,
