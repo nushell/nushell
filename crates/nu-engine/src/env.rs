@@ -114,12 +114,12 @@ pub fn env_to_string(
                 Err(ShellError::MissingParameter("block input".into(), to_span))
             }
         } else {
-            // Do not fail here. Must sicceed, otherwise setting a non-string env var would constantly
+            // Do not fail here. Must succeed, otherwise setting a non-string env var would constantly
             // throw errors when running externals etc.
             Ok(value.into_string(ENV_SEP, config))
         }
     } else {
-        // Do not fail here. Must sicceed, otherwise setting a non-string env var would constantly
+        // Do not fail here. Must succeed, otherwise setting a non-string env var would constantly
         // throw errors when running externals etc.
         Ok(value.into_string(ENV_SEP, config))
     }
