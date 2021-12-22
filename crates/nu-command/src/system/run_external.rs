@@ -50,7 +50,7 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut name: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let args: Vec<String> = call.rest(engine_state, stack, 1)?;
+        let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let last_expression = call.has_flag("last_expression");
 
         // Translate environment variables from Values to Strings
@@ -85,9 +85,34 @@ impl Command for External {
             return Ok(PipelineData::new(call.head));
         }
 
+        let mut args_strs = vec![];
+
+        for arg in args {
+            if let Ok(s) = arg.as_string() {
+                args_strs.push(s);
+            } else if let Value::List { vals, .. } = arg {
+                // Interpret a list as a series of arguments
+                for val in vals {
+                    if let Ok(s) = val.as_string() {
+                        args_strs.push(s);
+                    } else {
+                        return Err(ShellError::ExternalCommand(
+                            "Cannot convert argument to a string".into(),
+                            val.span()?,
+                        ));
+                    }
+                }
+            } else {
+                return Err(ShellError::ExternalCommand(
+                    "Cannot convert argument to a string".into(),
+                    arg.span()?,
+                ));
+            }
+        }
+
         let command = ExternalCommand {
             name,
-            args,
+            args: args_strs,
             last_expression,
             env_vars: env_vars_str,
             call,

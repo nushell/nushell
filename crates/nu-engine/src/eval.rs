@@ -470,12 +470,12 @@ pub fn eval_variable(
         let mut output_vals = vec![];
 
         let env_vars = stack.get_env_vars();
-        let env_columns: Vec<String> = env_vars.keys().map(|x| x.to_string()).collect();
-        let env_values: Vec<Value> = env_vars.values().cloned().collect();
+        let env_columns = env_vars.keys();
+        let env_values = env_vars.values();
 
         let mut pairs = env_columns
-            .into_iter()
-            .zip(env_values.into_iter())
+            .map(|x| x.to_string())
+            .zip(env_values.cloned())
             .collect::<Vec<(String, Value)>>();
 
         pairs.sort_by(|a, b| a.0.cmp(&b.0));
