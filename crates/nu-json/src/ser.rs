@@ -1023,3 +1023,16 @@ where
     let string = String::from_utf8(vec)?;
     Ok(string)
 }
+
+/// Encode the specified struct into a Hjson `String` buffer.
+/// And remove all whitespace
+#[inline]
+pub fn to_string_raw<T>(value: &T) -> Result<String>
+where
+    T: ser::Serialize,
+{
+    let vec = to_vec(value)?;
+    let mut string = String::from_utf8(vec)?;
+    string.retain(|c| !c.is_whitespace());
+    Ok(string)
+}

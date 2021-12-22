@@ -13,7 +13,9 @@ impl Command for ToJson {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to json").category(Category::Formats)
+        Signature::build("to json")
+            .switch("raw", "remove all of the whitespace", Some('r'))
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
@@ -27,7 +29,12 @@ impl Command for ToJson {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        to_json(call, input)
+        let raw = call.has_flag("raw");
+        if raw {
+            to_json_raw(call, input)
+        } else {
+            to_json(call, input)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -94,6 +101,25 @@ fn to_json(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError>
 
     let json_value = value_to_json_value(&value)?;
     match nu_json::to_string(&json_value) {
+        Ok(serde_json_string) => Ok(Value::String {
+            val: serde_json_string,
+            span,
+        }
+        .into_pipeline_data()),
+        _ => Ok(Value::Error {
+            error: ShellError::CantConvert("JSON".into(), value.get_type().to_string(), span),
+        }
+        .into_pipeline_data()),
+    }
+}
+
+fn to_json_raw(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+    let span = call.head;
+
+    let value = input.into_value(span);
+
+    let json_value = value_to_json_value(&value)?;
+    match nu_json::to_string_raw(&json_value) {
         Ok(serde_json_string) => Ok(Value::String {
             val: serde_json_string,
             span,
