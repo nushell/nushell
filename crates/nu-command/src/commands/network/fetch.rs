@@ -36,6 +36,7 @@ impl WholeStreamCommand for Command {
                 Some('p'),
             )
             .switch("raw", "fetch contents as text rather than a table", Some('r'))
+            .switch("insecure", "allow insecure server connections when using SSL", Some('k'))
             .filter()
     }
 
@@ -78,6 +79,7 @@ fn run_fetch(args: CommandArgs) -> Result<ActionStream, ShellError> {
             )
         })?,
         fetch_helper.has_raw,
+        fetch_helper.has_insecure,
         fetch_helper.user.clone(),
         fetch_helper.password,
     ))]
@@ -92,6 +94,7 @@ pub struct Fetch {
     pub path: Option<Value>,
     pub tag: Tag,
     pub has_raw: bool,
+    pub has_insecure: bool,
     pub user: Option<String>,
     pub password: Option<String>,
 }
@@ -102,6 +105,7 @@ impl Fetch {
             path: None,
             tag: Tag::unknown(),
             has_raw: false,
+            has_insecure: false,
             user: None,
             password: None,
         }
@@ -121,6 +125,8 @@ impl Fetch {
 
         self.has_raw = args.has_flag("raw");
 
+        self.has_insecure = args.has_flag("insecure");
+
         self.user = args.get_flag("user")?;
 
         self.password = args.get_flag("password")?;
@@ -132,13 +138,14 @@ impl Fetch {
 pub async fn fetch(
     path: &Value,
     has_raw: bool,
+    has_insecure: bool,
     user: Option<String>,
     password: Option<String>,
 ) -> ReturnValue {
     let path_str = path.as_string()?;
     let path_span = path.tag.span;
 
-    let result = helper(&path_str, path_span, has_raw, user, password).await;
+    let result = helper(&path_str, path_span, has_raw, has_insecure, user, password).await;
 
     if let Err(e) = result {
         return Err(e);
@@ -168,6 +175,7 @@ async fn helper(
     location: &str,
     span: Span,
     has_raw: bool,
+    has_insecure: bool,
     user: Option<String>,
     password: Option<String>,
 ) -> std::result::Result<(Option<String>, Value), ShellError> {
@@ -188,7 +196,7 @@ async fn helper(
         _ => None,
     };
 
-    let client = http_client();
+    let client = http_client(has_insecure);
     let mut request = client.get(url);
 
     if let Some(login) = login {
@@ -360,10 +368,10 @@ async fn helper(
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::Client {
+fn http_client(allow_insecure: bool) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent("nushell")
+        .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .unwrap()
+        .expect("Failed to build reqwest client")
 }
