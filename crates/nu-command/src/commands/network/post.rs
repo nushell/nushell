@@ -53,6 +53,11 @@ impl WholeStreamCommand for Command {
                 "return values as a string instead of a table",
                 Some('r'),
             )
+            .switch(
+                "insecure",
+                "allow insecure server connections when using SSL",
+                Some('k'),
+            )
             .filter()
     }
 
@@ -91,6 +96,7 @@ fn run_post(args: CommandArgs) -> Result<ActionStream, ShellError> {
             ShellError::labeled_error("expected a 'path'", "expected a 'path'", &helper.tag)
         })?,
         helper.has_raw,
+        helper.has_insecure,
         &helper.body.clone().ok_or_else(|| {
             ShellError::labeled_error("expected a 'body'", "expected a 'body'", &helper.tag)
         })?,
@@ -114,6 +120,7 @@ pub enum HeaderKind {
 pub struct Post {
     pub path: Option<Value>,
     pub has_raw: bool,
+    pub has_insecure: bool,
     pub body: Option<Value>,
     pub user: Option<String>,
     pub password: Option<String>,
@@ -126,6 +133,7 @@ impl Post {
         Post {
             path: None,
             has_raw: false,
+            has_insecure: false,
             body: None,
             user: None,
             password: None,
@@ -156,6 +164,8 @@ impl Post {
 
         self.has_raw = args.has_flag("raw");
 
+        self.has_insecure = args.has_flag("insecure");
+
         self.user = args.get_flag("user")?;
 
         self.password = args.get_flag("password")?;
@@ -169,6 +179,7 @@ impl Post {
 pub async fn post_helper(
     path: &Value,
     has_raw: bool,
+    has_insecure: bool,
     body: &Value,
     user: Option<String>,
     password: Option<String>,
@@ -177,8 +188,16 @@ pub async fn post_helper(
     let path_tag = path.tag.clone();
     let path_str = path.as_string()?;
 
-    let (file_extension, contents, contents_tag) =
-        post(&path_str, body, user, password, headers, path_tag.clone()).await?;
+    let (file_extension, contents, contents_tag) = post(
+        &path_str,
+        has_insecure,
+        body,
+        user,
+        password,
+        headers,
+        path_tag.clone(),
+    )
+    .await?;
 
     let file_extension = if has_raw {
         None
@@ -202,6 +221,7 @@ pub async fn post_helper(
 
 pub async fn post(
     location: &str,
+    allow_insecure: bool,
     body: &Value,
     user: Option<String>,
     password: Option<String>,
@@ -219,7 +239,9 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::String(body_str)),
                 ..
             } => {
-                let mut s = http_client().post(location).body(body_str.to_string());
+                let mut s = http_client(allow_insecure)
+                    .post(location)
+                    .body(body_str.to_string());
                 if let Some(login) = login {
                     s = s.header("Authorization", format!("Basic {}", login));
                 }
@@ -237,7 +259,9 @@ pub async fn post(
                 value: UntaggedValue::Primitive(Primitive::Binary(b)),
                 ..
             } => {
-                let mut s = http_client().post(location).body(Vec::from(&b[..]));
+                let mut s = http_client(allow_insecure)
+                    .post(location)
+                    .body(Vec::from(&b[..]));
                 if let Some(login) = login {
                     s = s.header("Authorization", format!("Basic {}", login));
                 }
@@ -247,7 +271,9 @@ pub async fn post(
                 match value_to_json_value(&value.clone().into_untagged_value()) {
                     Ok(json_value) => match serde_json::to_string(&json_value) {
                         Ok(result_string) => {
-                            let mut s = http_client().post(location).body(result_string);
+                            let mut s = http_client(allow_insecure)
+                                .post(location)
+                                .body(result_string);
 
                             if let Some(login) = login {
                                 s = s.header("Authorization", format!("Basic {}", login));
@@ -611,10 +637,10 @@ fn extract_header_value(args: &CommandArgs, key: &str) -> Result<Option<String>,
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-#[allow(clippy::unwrap_used)]
-fn http_client() -> reqwest::Client {
+fn http_client(allow_insecure: bool) -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent("nushell")
+        .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .unwrap()
+        .expect("Failed to build reqwest client")
 }
