@@ -52,6 +52,7 @@ pub struct Config {
     pub use_ansi_coloring: bool,
     pub env_conversions: HashMap<String, EnvConversion>,
     pub edit_mode: String,
+    pub max_history_size: i64,
 }
 
 impl Default for Config {
@@ -69,6 +70,7 @@ impl Default for Config {
             use_ansi_coloring: true,
             env_conversions: HashMap::new(), // TODO: Add default conversoins
             edit_mode: "emacs".into(),
+            max_history_size: 1000,
         }
     }
 }
@@ -180,6 +182,9 @@ impl Value {
                 }
                 "edit_mode" => {
                     config.edit_mode = value.as_string()?;
+                }
+                "max_history_size" => {
+                    config.max_history_size = value.as_i64()?;
                 }
                 _ => {}
             }

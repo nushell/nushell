@@ -364,8 +364,11 @@ fn main() -> Result<()> {
                             ),
                         ))
                         .with_history(Box::new(
-                            FileBackedHistory::with_file(1000, history_path.clone())
-                                .into_diagnostic()?,
+                            FileBackedHistory::with_file(
+                                config.max_history_size as usize,
+                                history_path.clone(),
+                            )
+                            .into_diagnostic()?,
                         ))
                         .into_diagnostic()?
                 } else {
