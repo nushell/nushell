@@ -16,7 +16,7 @@ use nu_protocol::{
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{
-    Completer, CompletionActionHandler, DefaultHinter, DefaultPrompt, LineBuffer, Prompt,
+    Completer, CompletionActionHandler, DefaultHinter, DefaultPrompt, LineBuffer, Prompt, Vi,
 };
 use std::{
     io::Write,
@@ -354,7 +354,7 @@ fn main() -> Result<()> {
             //FIXME: if config.use_ansi_coloring is false then we should
             // turn off the hinter but I don't see any way to do that yet.
 
-            let mut line_editor = if let Some(history_path) = history_path.clone() {
+            let line_editor = if let Some(history_path) = history_path.clone() {
                 let history = std::fs::read_to_string(&history_path);
                 if history.is_ok() {
                     line_editor
@@ -371,6 +371,15 @@ fn main() -> Result<()> {
                 } else {
                     line_editor
                 }
+            } else {
+                line_editor
+            };
+
+            // The line editor default mode is emacs mode. For the moment we only
+            // need to check for vi mode
+            let mut line_editor = if config.edit_mode == "vi" {
+                let edit_mode = Box::new(Vi::default());
+                line_editor.with_edit_mode(edit_mode)
             } else {
                 line_editor
             };

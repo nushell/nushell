@@ -51,6 +51,7 @@ pub struct Config {
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub env_conversions: HashMap<String, EnvConversion>,
+    pub edit_mode: String,
 }
 
 impl Default for Config {
@@ -67,6 +68,7 @@ impl Default for Config {
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
             env_conversions: HashMap::new(), // TODO: Add default conversoins
+            edit_mode: "emacs".into(),
         }
     }
 }
@@ -175,6 +177,9 @@ impl Value {
                     }
 
                     config.env_conversions = env_conversions;
+                }
+                "edit_mode" => {
+                    config.edit_mode = value.as_string()?;
                 }
                 _ => {}
             }
