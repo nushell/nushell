@@ -7,6 +7,7 @@ use dialoguer::{
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
+use nu_color_config::get_color_config;
 use nu_command::create_default_context;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
@@ -354,14 +355,16 @@ fn main() -> Result<()> {
             //FIXME: if config.use_ansi_coloring is false then we should
             // turn off the hinter but I don't see any way to do that yet.
 
+            let color_hm = get_color_config(&config);
+
             let line_editor = if let Some(history_path) = history_path.clone() {
                 let history = std::fs::read_to_string(&history_path);
                 if history.is_ok() {
                     line_editor
                         .with_hinter(Box::new(
-                            DefaultHinter::default().with_history().with_style(
-                                nu_ansi_term::Style::new().fg(nu_ansi_term::Color::DarkGray),
-                            ),
+                            DefaultHinter::default()
+                                .with_history()
+                                .with_style(color_hm["hints"]),
                         ))
                         .with_history(Box::new(
                             FileBackedHistory::with_file(
