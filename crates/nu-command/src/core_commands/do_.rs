@@ -23,6 +23,11 @@ impl Command for Do {
                 SyntaxShape::Block(Some(vec![])),
                 "the block to run",
             )
+            .switch(
+                "ignore-errors",
+                "ignore errors as the block runs",
+                Some('i'),
+            )
             .rest("rest", SyntaxShape::Any, "the parameter(s) for the block")
             .category(Category::Core)
     }
@@ -36,6 +41,8 @@ impl Command for Do {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let block: Value = call.req(engine_state, stack, 0)?;
         let block_id = block.as_block()?;
+
+        let ignore_errors = call.has_flag("ignore-errors");
 
         let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
@@ -81,6 +88,15 @@ impl Command for Do {
                 )
             }
         }
-        eval_block(engine_state, &mut stack, block, input)
+        let result = eval_block(engine_state, &mut stack, block, input);
+
+        if ignore_errors {
+            match result {
+                Ok(x) => Ok(x),
+                Err(_) => Ok(PipelineData::new(call.head)),
+            }
+        } else {
+            result
+        }
     }
 }

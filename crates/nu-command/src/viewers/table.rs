@@ -1,11 +1,11 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{get_color_config, style_primitive};
-use nu_engine::env_to_string;
+use nu_engine::{env_to_string, CallExt};
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Value, ValueStream,
+    PipelineMetadata, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,7 +30,14 @@ impl Command for Table {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("table").category(Category::Viewers)
+        Signature::build("table")
+            .named(
+                "start_number",
+                SyntaxShape::Int,
+                "row number to start viewing from",
+                Some('n'),
+            )
+            .category(Category::Viewers)
     }
 
     fn run(
@@ -43,6 +50,8 @@ impl Command for Table {
         let ctrlc = engine_state.ctrlc.clone();
         let config = stack.get_config().unwrap_or_default();
         let color_hm = get_color_config(&config);
+        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start_number")?;
+        let row_offset = start_num.unwrap_or_default() as usize;
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
             (w - 1) as usize
@@ -52,7 +61,7 @@ impl Command for Table {
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
-                let table = convert_to_table(0, &vals, ctrlc, &config, call.head)?;
+                let table = convert_to_table(row_offset, &vals, ctrlc, &config, call.head)?;
 
                 if let Some(table) = table {
                     let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
@@ -153,27 +162,13 @@ impl Command for Table {
                 let head = call.head;
 
                 Ok(PagingTableCreator {
-                    row_offset: 0,
+                    row_offset,
                     config,
                     ctrlc: ctrlc.clone(),
                     head,
                     stream,
                 }
                 .into_pipeline_data(ctrlc))
-
-                // let table = convert_to_table(stream, ctrlc, &config)?;
-
-                // if let Some(table) = table {
-                //     let result = nu_table::draw_table(&table, term_width, &color_hm, &config);
-
-                //     Ok(Value::String {
-                //         val: result,
-                //         span: call.head,
-                //     }
-                //     .into_pipeline_data())
-                // } else {
-                //     Ok(PipelineData::new(call.head))
-                // }
             }
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output = vec![];

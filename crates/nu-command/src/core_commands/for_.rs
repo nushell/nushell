@@ -35,6 +35,11 @@ impl Command for For {
                 SyntaxShape::Block(Some(vec![])),
                 "the block to run",
             )
+            .switch(
+                "numbered",
+                "returned a numbered item ($it.index and $it.item)",
+                Some('n'),
+            )
             .creates_scope()
             .category(Category::Core)
     }
@@ -60,6 +65,8 @@ impl Command for For {
             .as_block()
             .expect("internal error: expected block");
 
+        let numbered = call.has_flag("numbered");
+
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id).clone();
@@ -68,8 +75,26 @@ impl Command for For {
         match values {
             Value::List { vals, .. } => Ok(vals
                 .into_iter()
-                .map(move |x| {
-                    stack.add_var(var_id, x);
+                .enumerate()
+                .map(move |(idx, x)| {
+                    stack.add_var(
+                        var_id,
+                        if numbered {
+                            Value::Record {
+                                cols: vec!["index".into(), "item".into()],
+                                vals: vec![
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span: head,
+                                    },
+                                    x,
+                                ],
+                                span: head,
+                            }
+                        } else {
+                            x
+                        },
+                    );
 
                     //let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
@@ -80,8 +105,26 @@ impl Command for For {
                 .into_pipeline_data(ctrlc)),
             Value::Range { val, .. } => Ok(val
                 .into_range_iter()?
-                .map(move |x| {
-                    stack.add_var(var_id, x);
+                .enumerate()
+                .map(move |(idx, x)| {
+                    stack.add_var(
+                        var_id,
+                        if numbered {
+                            Value::Record {
+                                cols: vec!["index".into(), "item".into()],
+                                vals: vec![
+                                    Value::Int {
+                                        val: idx as i64,
+                                        span: head,
+                                    },
+                                    x,
+                                ],
+                                span: head,
+                            }
+                        } else {
+                            x
+                        },
+                    );
 
                     //let block = engine_state.get_block(block_id);
                     match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
