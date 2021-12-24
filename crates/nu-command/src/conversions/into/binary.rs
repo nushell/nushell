@@ -97,25 +97,30 @@ fn into_binary(
     let head = call.head;
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, head)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let r =
-                        ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
-                    if let Err(error) = r {
-                        return Value::Error { error };
+    match input {
+        PipelineData::ByteStream(..) => Ok(input),
+        _ => input.map(
+            move |v| {
+                if column_paths.is_empty() {
+                    action(&v, head)
+                } else {
+                    let mut ret = v;
+                    for path in &column_paths {
+                        let r = ret.update_cell_path(
+                            &path.members,
+                            Box::new(move |old| action(old, head)),
+                        );
+                        if let Err(error) = r {
+                            return Value::Error { error };
+                        }
                     }
-                }
 
-                ret
-            }
-        },
-        engine_state.ctrlc.clone(),
-    )
+                    ret
+                }
+            },
+            engine_state.ctrlc.clone(),
+        ),
+    }
 }
 
 fn int_to_endian(n: i64) -> Vec<u8> {

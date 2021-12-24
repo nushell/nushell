@@ -75,6 +75,19 @@ impl Command for Table {
                 head,
                 None,
             )),
+            PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::StringStream(
+                StringStream::from_stream(
+                    vec![Ok(if val.iter().all(|x| x.is_ascii()) {
+                        format!("{}", String::from_utf8_lossy(&val))
+                    } else {
+                        format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                    })]
+                    .into_iter(),
+                    ctrlc,
+                ),
+                head,
+                None,
+            )),
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 let table = convert_to_table(row_offset, &vals, ctrlc, &config, call.head)?;
 
