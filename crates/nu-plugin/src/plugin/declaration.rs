@@ -89,7 +89,7 @@ impl Command for PluginDeclaration {
                 }
             }
             PipelineData::ByteStream(stream, ..) => {
-                let val = stream.into_vec();
+                let val = stream.into_vec()?;
 
                 Value::Binary {
                     val,

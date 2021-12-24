@@ -149,6 +149,7 @@ pub fn create_default_context() -> EngineState {
             Ls,
             Mkdir,
             Mv,
+            Open,
             Rm,
             Touch,
         };

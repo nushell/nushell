@@ -87,10 +87,21 @@ impl PipelineData {
                     span, // FIXME?
                 }
             }
-            PipelineData::ByteStream(s, ..) => Value::Binary {
-                val: s.flatten().collect(),
-                span, // FIXME?
-            },
+            PipelineData::ByteStream(s, ..) => {
+                let mut output = vec![];
+
+                for item in s {
+                    match item {
+                        Ok(s) => output.extend(&s),
+                        Err(err) => return Value::Error { error: err },
+                    }
+                }
+
+                Value::Binary {
+                    val: output,
+                    span, // FIXME?
+                }
+            }
         }
     }
 
@@ -110,7 +121,7 @@ impl PipelineData {
             PipelineData::ListStream(s, ..) => Ok(s.into_string(separator, config)),
             PipelineData::StringStream(s, ..) => s.into_string(separator),
             PipelineData::ByteStream(s, ..) => {
-                Ok(String::from_utf8_lossy(&s.flatten().collect::<Vec<_>>()).to_string())
+                Ok(String::from_utf8_lossy(&s.into_vec()?).to_string())
             }
         }
     }
@@ -324,9 +335,12 @@ impl Iterator for PipelineIterator {
                 },
                 Err(err) => Value::Error { error: err },
             }),
-            PipelineData::ByteStream(stream, span, ..) => stream.next().map(|x| Value::Binary {
-                val: x,
-                span: *span,
+            PipelineData::ByteStream(stream, span, ..) => stream.next().map(|x| match x {
+                Ok(x) => Value::Binary {
+                    val: x,
+                    span: *span,
+                },
+                Err(err) => Value::Error { error: err },
             }),
         }
     }

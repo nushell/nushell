@@ -10,12 +10,17 @@ use std::{
 /// A single buffer of binary data streamed over multiple parts. Optionally contains ctrl-c that can be used
 /// to break the stream.
 pub struct ByteStream {
-    pub stream: Box<dyn Iterator<Item = Vec<u8>> + Send + 'static>,
+    pub stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
 impl ByteStream {
-    pub fn into_vec(self) -> Vec<u8> {
-        self.flatten().collect::<Vec<u8>>()
+    pub fn into_vec(self) -> Result<Vec<u8>, ShellError> {
+        let mut output = vec![];
+        for item in self.stream {
+            output.append(&mut item?);
+        }
+
+        Ok(output)
     }
 }
 impl Debug for ByteStream {
@@ -25,7 +30,7 @@ impl Debug for ByteStream {
 }
 
 impl Iterator for ByteStream {
-    type Item = Vec<u8>;
+    type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ctrlc) = &self.ctrlc {

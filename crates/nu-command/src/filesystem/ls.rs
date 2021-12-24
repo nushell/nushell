@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
-use nu_engine::eval_expression;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Span, SyntaxShape, Value,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 use std::io::ErrorKind;
@@ -42,11 +42,11 @@ impl Command for Ls {
                 "Only print the file names and not the path",
                 Some('s'),
             )
-            .switch(
-                "du",
-                "Display the apparent directory size in place of the directory metadata size",
-                Some('d'),
-            )
+            // .switch(
+            //     "du",
+            //     "Display the apparent directory size in place of the directory metadata size",
+            //     Some('d'),
+            // )
             .category(Category::FileSystem)
     }
 
@@ -63,22 +63,20 @@ impl Command for Ls {
 
         let call_span = call.head;
 
-        let (pattern, arg_span) = if let Some(expr) = call.positional.get(0) {
-            let result = eval_expression(engine_state, stack, expr)?;
-            let mut result = result.as_string()?;
-
-            let path = std::path::Path::new(&result);
-            if path.is_dir() {
-                if !result.ends_with(std::path::MAIN_SEPARATOR) {
-                    result.push(std::path::MAIN_SEPARATOR);
+        let (pattern, arg_span) =
+            if let Some(mut result) = call.opt::<Spanned<String>>(engine_state, stack, 0)? {
+                let path = std::path::Path::new(&result.item);
+                if path.is_dir() {
+                    if !result.item.ends_with(std::path::MAIN_SEPARATOR) {
+                        result.item.push(std::path::MAIN_SEPARATOR);
+                    }
+                    result.item.push('*');
                 }
-                result.push('*');
-            }
 
-            (result, expr.span)
-        } else {
-            ("*".into(), call_span)
-        };
+                (result.item, result.span)
+            } else {
+                ("*".into(), call_span)
+            };
 
         let glob = glob::glob(&pattern).map_err(|err| {
             nu_protocol::ShellError::SpannedLabeledError(

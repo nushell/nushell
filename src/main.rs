@@ -594,9 +594,9 @@ fn print_pipeline_data(
         PipelineData::ByteStream(stream, _, _) => {
             for v in stream {
                 let s = if v.iter().all(|x| x.is_ascii()) {
-                    format!("{}", String::from_utf8_lossy(&v))
+                    format!("{}", String::from_utf8_lossy(&v?))
                 } else {
-                    format!("{}\n", nu_pretty_hex::pretty_hex(&v))
+                    format!("{}\n", nu_pretty_hex::pretty_hex(&v?))
                 };
                 println!("{}", s);
             }

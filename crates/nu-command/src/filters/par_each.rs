@@ -227,7 +227,11 @@ impl Command for ParEach {
                 .enumerate()
                 .par_bridge()
                 .map(move |(idx, x)| {
-                    let x = Value::Binary { val: x, span };
+                    let x = match x {
+                        Ok(x) => Value::Binary { val: x, span },
+                        Err(err) => return Value::Error { error: err }.into_pipeline_data(),
+                    };
+
                     let block = engine_state.get_block(block_id);
 
                     let mut stack = stack.clone();

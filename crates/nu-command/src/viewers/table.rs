@@ -65,9 +65,9 @@ impl Command for Table {
                 StringStream::from_stream(
                     stream.map(move |x| {
                         Ok(if x.iter().all(|x| x.is_ascii()) {
-                            format!("{}", String::from_utf8_lossy(&x))
+                            format!("{}", String::from_utf8_lossy(&x?))
                         } else {
-                            format!("{}\n", nu_pretty_hex::pretty_hex(&x))
+                            format!("{}\n", nu_pretty_hex::pretty_hex(&x?))
                         })
                     }),
                     ctrlc,

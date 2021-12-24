@@ -56,7 +56,7 @@ impl Command for Wrap {
             }
             .into_pipeline_data()),
             PipelineData::ByteStream(stream, ..) => Ok(Value::Binary {
-                val: stream.into_vec(),
+                val: stream.into_vec()?,
                 span,
             }
             .into_pipeline_data()),

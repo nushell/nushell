@@ -359,11 +359,11 @@ impl ChannelReceiver {
 }
 
 impl Iterator for ChannelReceiver {
-    type Item = Vec<u8>;
+    type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.recv() {
-            Ok(v) => Some(v),
+            Ok(v) => Some(Ok(v)),
             Err(_) => None,
         }
     }
