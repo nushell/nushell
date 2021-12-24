@@ -16,6 +16,8 @@ use super::{Ansi, Date, From, Into, Math, Path, Random, Split, Str, StrCollect, 
 
 #[cfg(test)]
 pub fn test_examples(cmd: impl Command + 'static) {
+    use crate::BuildString;
+
     let examples = cmd.examples();
     let mut engine_state = Box::new(EngineState::new());
 
@@ -25,6 +27,7 @@ pub fn test_examples(cmd: impl Command + 'static) {
         let mut working_set = StateWorkingSet::new(&*engine_state);
         working_set.add_decl(Box::new(Str));
         working_set.add_decl(Box::new(StrCollect));
+        working_set.add_decl(Box::new(BuildString));
         working_set.add_decl(Box::new(From));
         working_set.add_decl(Box::new(To));
         working_set.add_decl(Box::new(Into));

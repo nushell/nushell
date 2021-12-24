@@ -168,24 +168,23 @@ impl Command for For {
                     span,
                 }),
             },
-            // FIXME? Numbered `for` is kinda strange, but was supported in previous nushell
-            // Example {
-            //     description: "Number each item and echo a message",
-            //     example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
-            //     result: Some(Value::List {
-            //         vals: vec![
-            //             Value::String {
-            //                 val: "0 is bob".into(),
-            //                 span,
-            //             },
-            //             Value::String {
-            //                 val: "0 is fred".into(),
-            //                 span,
-            //             },
-            //         ],
-            //         span,
-            //     }),
-            // },
+            Example {
+                description: "Number each item and echo a message",
+                example: "for $it in ['bob' 'fred'] --numbered { $\"($it.index) is ($it.item)\" }",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::String {
+                            val: "0 is bob".into(),
+                            span,
+                        },
+                        Value::String {
+                            val: "1 is fred".into(),
+                            span,
+                        },
+                    ],
+                    span,
+                }),
+            },
         ]
     }
 }
