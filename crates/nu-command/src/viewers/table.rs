@@ -4,8 +4,8 @@ use nu_engine::{env_to_string, CallExt};
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
+    Category, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, StringStream, SyntaxShape, Value, ValueStream,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -47,6 +47,7 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let head = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let config = stack.get_config().unwrap_or_default();
         let color_hm = get_color_config(&config);
@@ -60,6 +61,20 @@ impl Command for Table {
         };
 
         match input {
+            PipelineData::ByteStream(stream, ..) => Ok(PipelineData::StringStream(
+                StringStream::from_stream(
+                    stream.map(move |x| {
+                        Ok(if x.iter().all(|x| x.is_ascii()) {
+                            format!("{}", String::from_utf8_lossy(&x))
+                        } else {
+                            format!("{}\n", nu_pretty_hex::pretty_hex(&x))
+                        })
+                    }),
+                    ctrlc,
+                ),
+                head,
+                None,
+            )),
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 let table = convert_to_table(row_offset, &vals, ctrlc, &config, call.head)?;
 
@@ -75,7 +90,7 @@ impl Command for Table {
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Stream(stream, metadata) => {
+            PipelineData::ListStream(stream, metadata) => {
                 let stream = match metadata {
                     Some(PipelineMetadata {
                         data_source: DataSource::Ls,
@@ -161,14 +176,20 @@ impl Command for Table {
 
                 let head = call.head;
 
-                Ok(PagingTableCreator {
-                    row_offset,
-                    config,
-                    ctrlc: ctrlc.clone(),
+                Ok(PipelineData::StringStream(
+                    StringStream::from_stream(
+                        PagingTableCreator {
+                            row_offset,
+                            config,
+                            ctrlc: ctrlc.clone(),
+                            head,
+                            stream,
+                        },
+                        ctrlc,
+                    ),
                     head,
-                    stream,
-                }
-                .into_pipeline_data(ctrlc))
+                    None,
+                ))
             }
             PipelineData::Value(Value::Record { cols, vals, .. }, ..) => {
                 let mut output = vec![];
@@ -363,7 +384,7 @@ struct PagingTableCreator {
 }
 
 impl Iterator for PagingTableCreator {
-    type Item = Value;
+    type Item = Result<String, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut batch = vec![];
@@ -418,12 +439,9 @@ impl Iterator for PagingTableCreator {
             Ok(Some(table)) => {
                 let result = nu_table::draw_table(&table, term_width, &color_hm, &self.config);
 
-                Some(Value::String {
-                    val: result,
-                    span: self.head,
-                })
+                Some(Ok(result))
             }
-            Err(err) => Some(Value::Error { error: err }),
+            Err(err) => Some(Err(err)),
             _ => None,
         }
     }

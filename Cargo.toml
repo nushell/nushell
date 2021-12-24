@@ -29,6 +29,7 @@ nu-engine = { path="./crates/nu-engine" }
 nu-json = { path="./crates/nu-json" }
 nu-parser = { path="./crates/nu-parser" }
 nu-path = { path="./crates/nu-path" }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex" }
 nu-protocol = { path = "./crates/nu-protocol" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true }
 nu-table = { path = "./crates/nu-table" }

@@ -93,7 +93,7 @@ END:VCALENDAR' | from ics",
 }
 
 fn from_ics(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let input_string = input.collect_string("", config);
+    let input_string = input.collect_string("", config)?;
     let input_bytes = input_string.as_bytes();
     let buf_reader = BufReader::new(input_bytes);
     let parser = ical::IcalParser::new(buf_reader);

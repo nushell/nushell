@@ -124,7 +124,7 @@ END:VCARD' | from vcf",
 }
 
 fn from_vcf(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let input_string = input.collect_string("", config);
+    let input_string = input.collect_string("", config)?;
     let input_bytes = input_string.as_bytes();
     let cursor = std::io::Cursor::new(input_bytes);
     let parser = ical::VcardParser::new(cursor);

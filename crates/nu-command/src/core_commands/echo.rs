@@ -34,7 +34,7 @@ impl Command for Echo {
             let n = to_be_echoed.len();
             match n.cmp(&1usize) {
                 //  More than one value is converted in a stream of values
-                std::cmp::Ordering::Greater => PipelineData::Stream(
+                std::cmp::Ordering::Greater => PipelineData::ListStream(
                     ValueStream::from_stream(to_be_echoed.into_iter(), engine_state.ctrlc.clone()),
                     None,
                 ),

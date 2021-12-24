@@ -71,12 +71,16 @@ the output of 'path parse' and 'path split' subcommands."#
             PipelineData::Value(val, md) => {
                 Ok(PipelineData::Value(handle_value(val, &args, head), md))
             }
-            PipelineData::Stream(stream, md) => Ok(PipelineData::Stream(
+            PipelineData::ListStream(stream, md) => Ok(PipelineData::ListStream(
                 ValueStream::from_stream(
                     stream.map(move |val| handle_value(val, &args, head)),
                     engine_state.ctrlc.clone(),
                 ),
                 md,
+            )),
+            _ => Err(ShellError::UnsupportedInput(
+                "Input data is not supported by this command.".to_string(),
+                head,
             )),
         }
     }

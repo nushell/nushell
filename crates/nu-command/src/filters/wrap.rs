@@ -43,13 +43,23 @@ impl Command for Wrap {
                     span,
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())),
-            PipelineData::Stream(stream, ..) => Ok(stream
+            PipelineData::ListStream(stream, ..) => Ok(stream
                 .map(move |x| Value::Record {
                     cols: vec![name.clone()],
                     vals: vec![x],
                     span,
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())),
+            PipelineData::StringStream(stream, ..) => Ok(Value::String {
+                val: stream.into_string("")?,
+                span,
+            }
+            .into_pipeline_data()),
+            PipelineData::ByteStream(stream, ..) => Ok(Value::Binary {
+                val: stream.into_vec(),
+                span,
+            }
+            .into_pipeline_data()),
             PipelineData::Value(input, ..) => Ok(Value::Record {
                 cols: vec![name],
                 vals: vec![input],

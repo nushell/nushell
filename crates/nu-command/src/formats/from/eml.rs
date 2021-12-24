@@ -183,7 +183,7 @@ fn from_eml(
     head: Span,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.collect_string("", config);
+    let value = input.collect_string("", config)?;
 
     let body_preview = preview_body
         .map(|b| b.item as usize)

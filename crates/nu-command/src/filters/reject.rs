@@ -82,7 +82,7 @@ fn reject(
                 .into_iter()
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        PipelineData::Stream(stream, ..) => {
+        PipelineData::ListStream(stream, ..) => {
             let mut output = vec![];
 
             let v: Vec<_> = stream.into_iter().collect();
@@ -119,6 +119,7 @@ fn reject(
 
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
+        x => Ok(x),
     }
 }
 

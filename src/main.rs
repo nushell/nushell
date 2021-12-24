@@ -583,6 +583,28 @@ fn print_pipeline_data(
 
     let config = stack.get_config().unwrap_or_default();
 
+    match input {
+        PipelineData::StringStream(stream, _, _) => {
+            for s in stream {
+                print!("{}", s?);
+                let _ = std::io::stdout().flush();
+            }
+            return Ok(());
+        }
+        PipelineData::ByteStream(stream, _, _) => {
+            for v in stream {
+                let s = if v.iter().all(|x| x.is_ascii()) {
+                    format!("{}", String::from_utf8_lossy(&v))
+                } else {
+                    format!("{}\n", nu_pretty_hex::pretty_hex(&v))
+                };
+                println!("{}", s);
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
+
     match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
             let table =
@@ -663,7 +685,12 @@ fn update_prompt<'prompt>(
         }
     };
 
-    nu_prompt.update_prompt(evaluated_prompt);
+    match evaluated_prompt {
+        Ok(evaluated_prompt) => {
+            nu_prompt.update_prompt(evaluated_prompt);
+        }
+        _ => nu_prompt.update_prompt(String::new()),
+    }
 
     nu_prompt as &dyn Prompt
 }

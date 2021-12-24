@@ -95,7 +95,7 @@ fn select(
                 .into_iter()
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        PipelineData::Stream(stream, ..) => Ok(stream
+        PipelineData::ListStream(stream, ..) => Ok(stream
             .map(move |x| {
                 let mut cols = vec![];
                 let mut vals = vec![];
@@ -130,6 +130,7 @@ fn select(
 
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())
         }
+        _ => Ok(PipelineData::new(span)),
     }
 }
 

@@ -11,6 +11,7 @@ build = "build.rs"
 nu-engine = { path = "../nu-engine" }
 nu-json = { path = "../nu-json" }
 nu-path = { path = "../nu-path" }
+nu-pretty-hex = { path = "../nu-pretty-hex" }
 nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 nu-term-grid = { path = "../nu-term-grid" }
@@ -55,7 +56,6 @@ trash = { version = "2.0.2", optional = true }
 unicode-segmentation = "1.8.0"
 uuid = { version = "0.8.2", features = ["v4"] }
 htmlescape = "0.3.1"
-pretty-hex = "0.2.1"
 zip = { version="0.5.9", optional=true }
 lazy_static = "1.4.0"
 strip-ansi-escapes = "0.1.1"
@@ -66,6 +66,7 @@ digest = "0.10.0"
 md5 = { package = "md-5", version = "0.10.0" }
 sha2 = "0.10.0"
 base64 = "0.13.0"
+encoding_rs = "0.8.30"
 num = { version = "0.4.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]

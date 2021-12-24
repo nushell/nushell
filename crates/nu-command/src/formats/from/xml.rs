@@ -179,7 +179,7 @@ pub fn from_xml_string_to_value(s: String, span: Span) -> Result<Value, roxmltre
 }
 
 fn from_xml(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config);
+    let concat_string = input.collect_string("", config)?;
 
     match from_xml_string_to_value(concat_string, head) {
         Ok(x) => Ok(x.into_pipeline_data()),

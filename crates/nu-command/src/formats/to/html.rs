@@ -444,7 +444,7 @@ fn html_value(value: Value, config: &Config) -> String {
     let mut output_string = String::new();
     match value {
         Value::Binary { val, .. } => {
-            let output = pretty_hex::pretty_hex(&val);
+            let output = nu_pretty_hex::pretty_hex(&val);
             output_string.push_str("<pre>");
             output_string.push_str(&output);
             output_string.push_str("</pre>");

@@ -275,7 +275,7 @@ fn from_ssv(
     let minimum_spaces: Option<Spanned<usize>> =
         call.get_flag(engine_state, stack, "minimum-spaces")?;
 
-    let concat_string = input.collect_string("", &config);
+    let concat_string = input.collect_string("", &config)?;
     let split_at = match minimum_spaces {
         Some(number) => number.item,
         None => DEFAULT_MINIMUM_SPACES,

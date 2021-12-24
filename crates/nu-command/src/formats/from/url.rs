@@ -54,7 +54,7 @@ impl Command for FromUrl {
 }
 
 fn from_url(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config);
+    let concat_string = input.collect_string("", config)?;
 
     let result = serde_urlencoded::from_str::<Vec<(String, String)>>(&concat_string);
 

@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
@@ -10,14 +9,14 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{Category, Config, IntoInterruptiblePipelineData, PipelineData, Span, Spanned};
+use nu_protocol::{ByteStream, Category, Config, PipelineData, Spanned};
 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
 use regex::Regex;
 
-const OUTPUT_BUFFER_SIZE: usize = 8192;
+const OUTPUT_BUFFER_SIZE: usize = 1024;
 
 #[derive(Clone)]
 pub struct External;
@@ -137,6 +136,7 @@ impl<'call> ExternalCommand<'call> {
         config: Config,
     ) -> Result<PipelineData, ShellError> {
         let mut process = self.create_command();
+        let head = self.name.span;
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -223,11 +223,7 @@ impl<'call> ExternalCommand<'call> {
                             // from bytes to String. If no replacements are required, then the
                             // borrowed value is a proper UTF-8 string. The Owned option represents
                             // a string where the values had to be replaced, thus marking it as bytes
-                            let data = match String::from_utf8_lossy(bytes) {
-                                Cow::Borrowed(s) => Data::String(s.into()),
-                                Cow::Owned(_) => Data::Bytes(bytes.to_vec()),
-                            };
-
+                            let bytes = bytes.to_vec();
                             let length = bytes.len();
                             buf_read.consume(length);
 
@@ -237,7 +233,7 @@ impl<'call> ExternalCommand<'call> {
                                 }
                             }
 
-                            match tx.send(data) {
+                            match tx.send(bytes) {
                                 Ok(_) => continue,
                                 Err(_) => break,
                             }
@@ -249,11 +245,16 @@ impl<'call> ExternalCommand<'call> {
                         Ok(_) => Ok(()),
                     }
                 });
-                // The ValueStream is consumed by the next expression in the pipeline
-                let value =
-                    ChannelReceiver::new(rx, self.name.span).into_pipeline_data(output_ctrlc);
+                let receiver = ChannelReceiver::new(rx);
 
-                Ok(value)
+                Ok(PipelineData::ByteStream(
+                    ByteStream {
+                        stream: Box::new(receiver),
+                        ctrlc: output_ctrlc,
+                    },
+                    head,
+                    None,
+                ))
             }
         }
     }
@@ -345,42 +346,24 @@ fn trim_enclosing_quotes(input: &str) -> String {
     }
 }
 
-// The piped data from stdout from the external command can be either String
-// or binary. We use this enum to pass the data from the spawned process
-#[derive(Debug)]
-enum Data {
-    String(String),
-    Bytes(Vec<u8>),
-}
-
 // Receiver used for the ValueStream
 // It implements iterator so it can be used as a ValueStream
 struct ChannelReceiver {
-    rx: mpsc::Receiver<Data>,
-    span: Span,
+    rx: mpsc::Receiver<Vec<u8>>,
 }
 
 impl ChannelReceiver {
-    pub fn new(rx: mpsc::Receiver<Data>, span: Span) -> Self {
-        Self { rx, span }
+    pub fn new(rx: mpsc::Receiver<Vec<u8>>) -> Self {
+        Self { rx }
     }
 }
 
 impl Iterator for ChannelReceiver {
-    type Item = Value;
+    type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.rx.recv() {
-            Ok(v) => match v {
-                Data::String(s) => Some(Value::String {
-                    val: s,
-                    span: self.span,
-                }),
-                Data::Bytes(b) => Some(Value::Binary {
-                    val: b,
-                    span: self.span,
-                }),
-            },
+            Ok(v) => Some(v),
             Err(_) => None,
         }
     }

@@ -435,7 +435,7 @@ pub fn eval_subexpression(
 
                             let config = stack.get_config().unwrap_or_default();
 
-                            let mut s = input.collect_string("", &config);
+                            let mut s = input.collect_string("", &config)?;
                             if s.ends_with('\n') {
                                 s.pop();
                             }

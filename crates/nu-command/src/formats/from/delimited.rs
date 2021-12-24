@@ -52,7 +52,7 @@ pub fn from_delimited_data(
     name: Span,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config);
+    let concat_string = input.collect_string("", config)?;
 
     Ok(
         from_delimited_string_to_value(concat_string, noheaders, sep, name)

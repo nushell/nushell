@@ -126,7 +126,7 @@ fn operate(
         }
     }
 
-    Ok(PipelineData::Stream(
+    Ok(PipelineData::ListStream(
         ValueStream::from_stream(parsed.into_iter(), ctrlc),
         None,
     ))

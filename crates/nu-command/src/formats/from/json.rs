@@ -76,7 +76,7 @@ impl Command for FromJson {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let span = call.head;
         let config = stack.get_config().unwrap_or_default();
-        let mut string_input = input.collect_string("", &config);
+        let mut string_input = input.collect_string("", &config)?;
         string_input.push('\n');
 
         // TODO: turn this into a structured underline of the nu_json error

@@ -62,7 +62,7 @@ pub fn calculate(
     mf: impl Fn(&[Value], &Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
     match values {
-        PipelineData::Stream(s, ..) => helper_for_tables(&s.collect::<Vec<Value>>(), name, mf),
+        PipelineData::ListStream(s, ..) => helper_for_tables(&s.collect::<Vec<Value>>(), name, mf),
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(vals, name, mf),
             _ => mf(vals, &name),
@@ -88,5 +88,9 @@ pub fn calculate(
             mf(&new_vals?, &name)
         }
         PipelineData::Value(val, ..) => mf(&[val], &name),
+        _ => Err(ShellError::UnsupportedInput(
+            "Input data is not supported by this command.".to_string(),
+            name,
+        )),
     }
 }

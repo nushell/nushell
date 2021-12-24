@@ -78,7 +78,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcb2392079bf27198570d6af79ecbd9ec7d8f16d3ec6b60933922fdb66287127"
 dependencies = [
- "heapless",
+ "heapless 0.5.6",
  "nom 4.2.3",
 ]
 
@@ -851,6 +851,7 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-plugin",
+ "nu-pretty-hex",
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
@@ -1103,6 +1104,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hash_hasher"
 version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1126,7 +1136,18 @@ checksum = "74911a68a1658cfcfb61bc0ccfbd536e3b6e906f8c2f7883ee50157e3e2184f1"
 dependencies = [
  "as-slice",
  "generic-array 0.13.3",
- "hash32",
+ "hash32 0.1.1",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e476c64197665c3725621f0ac3f9e5209aa5e889e02a08b1daf5f16dc5fd952"
+dependencies = [
+ "hash32 0.2.1",
+ "spin",
  "stable_deref_trait",
 ]
 
@@ -1690,6 +1711,7 @@ dependencies = [
  "digest 0.10.0",
  "dtparse",
  "eml-parser",
+ "encoding_rs",
  "glob",
  "htmlescape",
  "ical",
@@ -1705,12 +1727,12 @@ dependencies = [
  "nu-json",
  "nu-parser",
  "nu-path",
+ "nu-pretty-hex",
  "nu-protocol",
  "nu-table",
  "nu-term-grid",
  "num 0.4.0",
  "polars",
- "pretty-hex",
  "quick-xml 0.22.0",
  "rand",
  "rayon",
@@ -1790,6 +1812,15 @@ dependencies = [
  "nu-protocol",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "nu-pretty-hex"
+version = "0.41.0"
+dependencies = [
+ "heapless 0.7.9",
+ "nu-ansi-term",
+ "rand",
 ]
 
 [[package]]
@@ -2340,12 +2371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pretty-hex"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5c99d529f0d30937f6f4b8a86d988047327bb88d04d2c4afc356de74722131"
-
-[[package]]
 name = "pretty_assertions"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2884,6 +2909,15 @@ name = "snap"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45456094d1983e2ee2a18fdfebce3189fa451699d0502cb8e3b49dba5ba41451"
+
+[[package]]
+name = "spin"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "stable_deref_trait"

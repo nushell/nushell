@@ -72,11 +72,27 @@ impl Command for PluginDeclaration {
 
         let input = match input {
             PipelineData::Value(value, ..) => value,
-            PipelineData::Stream(stream, ..) => {
+            PipelineData::ListStream(stream, ..) => {
                 let values = stream.collect::<Vec<Value>>();
 
                 Value::List {
                     vals: values,
+                    span: call.head,
+                }
+            }
+            PipelineData::StringStream(stream, ..) => {
+                let val = stream.into_string("")?;
+
+                Value::String {
+                    val,
+                    span: call.head,
+                }
+            }
+            PipelineData::ByteStream(stream, ..) => {
+                let val = stream.into_vec();
+
+                Value::Binary {
+                    val,
                     span: call.head,
                 }
             }

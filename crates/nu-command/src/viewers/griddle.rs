@@ -86,7 +86,7 @@ prints out the list properly."#
                     Ok(PipelineData::new(call.head))
                 }
             }
-            PipelineData::Stream(stream, ..) => {
+            PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
                 let data = convert_to_list(stream, &config, call.head);
                 if let Some(items) = data {

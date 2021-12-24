@@ -151,7 +151,7 @@ fn format(
                 }
             }
 
-            Ok(PipelineData::Stream(
+            Ok(PipelineData::ListStream(
                 ValueStream::from_stream(list.into_iter(), None),
                 None,
             ))

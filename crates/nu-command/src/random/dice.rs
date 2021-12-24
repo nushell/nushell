@@ -79,7 +79,7 @@ fn dice(
         }
     });
 
-    Ok(PipelineData::Stream(
+    Ok(PipelineData::ListStream(
         ValueStream::from_stream(iter, engine_state.ctrlc.clone()),
         None,
     ))

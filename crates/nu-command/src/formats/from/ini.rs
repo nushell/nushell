@@ -88,7 +88,7 @@ pub fn from_ini_string_to_value(s: String, span: Span) -> Result<Value, ShellErr
 }
 
 fn from_ini(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
-    let concat_string = input.collect_string("", config);
+    let concat_string = input.collect_string("", config)?;
 
     match from_ini_string_to_value(concat_string, head) {
         Ok(x) => Ok(x.into_pipeline_data()),
