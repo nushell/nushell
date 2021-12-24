@@ -16,7 +16,7 @@ nu-plugin = { path="../nu-plugin", version = "0.41.0" }
 nu-protocol = { path="../nu-protocol", version = "0.41.0" }
 nu-source = { path="../nu-source", version = "0.41.0" }
 
-bat = { version="0.18", default-features = false,  features=["regex-fancy", "paging", "git"] }
+bat = { version="0.18", default-features = false,  features=["regex-onig", "paging", "git"] }
 term_size = "0.3.2"
 url = "2.2.0"
 
