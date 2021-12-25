@@ -3,7 +3,8 @@ use std::cmp::Ordering;
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, Range, ShellError, Span, Spanned, Type, Unit, Value, VarId,
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
+    Spanned, Type, Unit, Value, VarId,
 };
 
 use crate::get_full_help;
@@ -341,6 +342,23 @@ pub fn eval_expression(
             })
         }
         Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
+        Expr::StringInterpolation(exprs) => {
+            let mut parts = vec![];
+            for expr in exprs {
+                parts.push(eval_expression(engine_state, stack, expr)?);
+            }
+
+            let config = stack.get_config().unwrap_or_default();
+
+            parts
+                .into_iter()
+                .into_pipeline_data(None)
+                .collect_string("", &config)
+                .map(|x| Value::String {
+                    val: x,
+                    span: expr.span,
+                })
+        }
         Expr::String(s) => Ok(Value::String {
             val: s.clone(),
             span: expr.span,

@@ -1014,7 +1014,7 @@ pub(crate) fn parse_dollar_expr(
 ) -> (Expression, Option<ParseError>) {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$\"") {
+    if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
         parse_string_interpolation(working_set, span)
     } else if let (expr, None) = parse_range(working_set, span) {
         (expr, None)
@@ -1036,16 +1036,22 @@ pub fn parse_string_interpolation(
 
     let contents = working_set.get_span_contents(span);
 
-    let start = if contents.starts_with(b"$\"") {
-        span.start + 2
+    let (start, end) = if contents.starts_with(b"$\"") {
+        let end = if contents.ends_with(b"\"") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 2, end)
+    } else if contents.starts_with(b"$'") {
+        let end = if contents.ends_with(b"'") && contents.len() > 2 {
+            span.end - 1
+        } else {
+            span.end
+        };
+        (span.start + 2, end)
     } else {
-        span.start
-    };
-
-    let end = if contents.ends_with(b"\"") && contents.len() > 2 {
-        span.end - 1
-    } else {
-        span.end
+        (span.start, span.end)
     };
 
     let inner_span = Span { start, end };
@@ -1134,30 +1140,15 @@ pub fn parse_string_interpolation(
         }
     }
 
-    if let Some(decl_id) = working_set.find_decl(b"build-string") {
-        (
-            Expression {
-                expr: Expr::Call(Box::new(Call {
-                    head: Span {
-                        start: span.start,
-                        end: span.start + 2,
-                    },
-                    named: vec![],
-                    positional: output,
-                    decl_id,
-                })),
-                span,
-                ty: Type::String,
-                custom_completion: None,
-            },
-            error,
-        )
-    } else {
-        (
-            Expression::garbage(span),
-            Some(ParseError::UnknownCommand(span)),
-        )
-    }
+    (
+        Expression {
+            expr: Expr::StringInterpolation(output),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        },
+        error,
+    )
 }
 
 pub fn parse_variable_expr(
@@ -3529,6 +3520,12 @@ pub fn find_captures_in_expr(
         }
         Expr::Signature(_) => {}
         Expr::String(_) => {}
+        Expr::StringInterpolation(exprs) => {
+            for expr in exprs {
+                let result = find_captures_in_expr(working_set, expr, seen);
+                output.extend(&result);
+            }
+        }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             let result = find_captures_in_block(working_set, block, seen);

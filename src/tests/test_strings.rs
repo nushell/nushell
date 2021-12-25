@@ -79,3 +79,8 @@ fn string_in_valuestream() -> TestResult {
         "true",
     )
 }
+
+#[test]
+fn single_tick_interpolation() -> TestResult {
+    run_test(r#"$'(3 + 4)'"#, "7")
+}

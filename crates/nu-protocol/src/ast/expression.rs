@@ -160,6 +160,14 @@ impl Expression {
                 }
                 false
             }
+            Expr::StringInterpolation(items) => {
+                for i in items {
+                    if i.has_in_variable(working_set) {
+                        return true;
+                    }
+                }
+                false
+            }
             Expr::Operator(_) => false,
             Expr::Range(left, middle, right, ..) => {
                 if let Some(left) = &left {
@@ -321,6 +329,11 @@ impl Expression {
             }
             Expr::Signature(_) => {}
             Expr::String(_) => {}
+            Expr::StringInterpolation(items) => {
+                for i in items {
+                    i.replace_in_variable(working_set, new_var_id)
+                }
+            }
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 

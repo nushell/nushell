@@ -118,6 +118,13 @@ impl Highlighter for NuHighlighter {
                         next_token,
                     ))
                 }
+                FlatShape::StringInterpolation => {
+                    // nushell ???
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ))
+                }
                 FlatShape::Filepath => output.push((
                     // nushell Path
                     get_shape_color(shape.1.to_string(), &self.config),
