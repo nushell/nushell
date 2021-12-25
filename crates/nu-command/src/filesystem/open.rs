@@ -20,17 +20,13 @@ impl Command for Open {
     }
 
     fn usage(&self) -> &str {
-        "List the files in a directory."
+        "Opens a file."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
-            .required(
-                "filename",
-                SyntaxShape::GlobPattern,
-                "the glob pattern to use",
-            )
-            .switch("raw", "open file as binary", Some('r'))
+            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
 
