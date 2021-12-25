@@ -22,7 +22,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
 
 fn eval_call(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    caller_stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -38,7 +38,7 @@ fn eval_call(
     } else if let Some(block_id) = decl.get_block_id() {
         let block = engine_state.get_block(block_id);
 
-        let mut stack = stack.collect_captures(&block.captures);
+        let mut callee_stack = caller_stack.collect_captures(&block.captures);
 
         for (param_idx, param) in decl
             .signature()
@@ -52,10 +52,10 @@ fn eval_call(
                 .expect("internal error: all custom parameters must have var_ids");
 
             if let Some(arg) = call.positional.get(param_idx) {
-                let result = eval_expression(engine_state, &mut stack, arg)?;
-                stack.add_var(var_id, result);
+                let result = eval_expression(engine_state, caller_stack, arg)?;
+                callee_stack.add_var(var_id, result);
             } else {
-                stack.add_var(var_id, Value::nothing(call.head));
+                callee_stack.add_var(var_id, Value::nothing(call.head));
             }
         }
 
@@ -66,7 +66,7 @@ fn eval_call(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
             ) {
-                let result = eval_expression(engine_state, &mut stack, arg)?;
+                let result = eval_expression(engine_state, caller_stack, arg)?;
                 rest_items.push(result);
             }
 
@@ -76,7 +76,7 @@ fn eval_call(
                 call.head
             };
 
-            stack.add_var(
+            callee_stack.add_var(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
@@ -93,11 +93,11 @@ fn eval_call(
                 for call_named in &call.named {
                     if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.1 {
-                            let result = eval_expression(engine_state, &mut stack, arg)?;
+                            let result = eval_expression(engine_state, caller_stack, arg)?;
 
-                            stack.add_var(var_id, result);
+                            callee_stack.add_var(var_id, result);
                         } else {
-                            stack.add_var(
+                            callee_stack.add_var(
                                 var_id,
                                 Value::Bool {
                                     val: true,
@@ -110,7 +110,7 @@ fn eval_call(
                 }
 
                 if !found && named.arg.is_none() {
-                    stack.add_var(
+                    callee_stack.add_var(
                         var_id,
                         Value::Bool {
                             val: false,
@@ -120,9 +120,12 @@ fn eval_call(
                 }
             }
         }
-        eval_block(engine_state, &mut stack, block, input)
+        eval_block(engine_state, &mut callee_stack, block, input)
     } else {
-        decl.run(engine_state, stack, call, input)
+        // We pass caller_stack here with the knowledge that internal commands
+        // are going to be specifically looking for global state in the stack
+        // rather than any local state.
+        decl.run(engine_state, caller_stack, call, input)
     }
 }
 
