@@ -7,8 +7,6 @@ use nu_protocol::{
 #[derive(Clone)]
 pub struct Lines;
 
-const SPLIT_CHAR: char = '\n';
-
 impl Command for Lines {
     fn name(&self) -> &str {
         "lines"
@@ -39,8 +37,10 @@ impl Command for Lines {
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, span }, ..) => {
+                let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
+
                 let lines = val
-                    .split(SPLIT_CHAR)
+                    .split(split_char)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
@@ -55,12 +55,18 @@ impl Command for Lines {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::ListStream(stream, ..) => {
+                let mut split_char = "\n";
+
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
                         if let Value::String { val, span } = value {
+                            if split_char != "\r\n" && val.contains("\r\n") {
+                                split_char = "\r\n";
+                            }
+
                             let inner = val
-                                .split(SPLIT_CHAR)
+                                .split(split_char)
                                 .filter_map(|s| {
                                     if skip_empty && s.is_empty() {
                                         None
@@ -83,22 +89,29 @@ impl Command for Lines {
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
             PipelineData::StringStream(stream, span, ..) => {
+                let mut split_char = "\n";
+
                 let iter = stream
                     .into_iter()
                     .map(move |value| match value {
-                        Ok(value) => value
-                            .split(SPLIT_CHAR)
-                            .filter_map(|s| {
-                                if !s.is_empty() {
-                                    Some(Value::String {
-                                        val: s.into(),
-                                        span,
-                                    })
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<Vec<Value>>(),
+                        Ok(value) => {
+                            if split_char != "\r\n" && value.contains("\r\n") {
+                                split_char = "\r\n";
+                            }
+                            value
+                                .split(split_char)
+                                .filter_map(|s| {
+                                    if !s.is_empty() {
+                                        Some(Value::String {
+                                            val: s.into(),
+                                            span,
+                                        })
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<Value>>()
+                        }
                         Err(err) => vec![Value::Error { error: err }],
                     })
                     .flatten();
@@ -116,8 +129,10 @@ impl Command for Lines {
                 //know to use a different encoding
                 let s = input.collect_string("", &config)?;
 
+                let split_char = if s.contains("\r\n") { "\r\n" } else { "\n" };
+
                 let lines = s
-                    .split(SPLIT_CHAR)
+                    .split(split_char)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
