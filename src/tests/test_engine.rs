@@ -3,7 +3,7 @@ use crate::tests::{fail_test, run_test, TestResult};
 #[test]
 fn concrete_variable_assignment() -> TestResult {
     run_test(
-        "let x = (1..100 | each { |y| $y + 100 }); $x | length; $x | length",
+        "let x = (1..100 | each { |y| $y + 100 }); let y = ($x | length); $x | length",
         "100",
     )
 }
