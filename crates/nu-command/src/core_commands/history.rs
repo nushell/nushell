@@ -4,6 +4,12 @@ use nu_protocol::{
     Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
 };
 
+const NEWLINE_ESCAPE_CODE: &str = "<\\n>";
+
+fn decode_newlines(escaped: &str) -> String {
+    escaped.replace(NEWLINE_ESCAPE_CODE, "\n")
+}
+
 #[derive(Clone)]
 pub struct History;
 
@@ -48,7 +54,7 @@ impl Command for History {
                     Ok(contents
                         .lines()
                         .map(move |x| Value::String {
-                            val: x.to_string(),
+                            val: decode_newlines(x),
                             span: head,
                         })
                         .collect::<Vec<_>>()
