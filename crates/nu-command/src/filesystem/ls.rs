@@ -63,20 +63,46 @@ impl Command for Ls {
 
         let call_span = call.head;
 
-        let (pattern, arg_span) =
-            if let Some(mut result) = call.opt::<Spanned<String>>(engine_state, stack, 0)? {
-                let path = std::path::Path::new(&result.item);
+        let pattern = if let Some(mut result) =
+            call.opt::<Spanned<String>>(engine_state, stack, 0)?
+        {
+            let path = std::path::Path::new(&result.item);
+
+            if path.is_dir() {
+                if permission_denied(&path) {
+                    #[cfg(unix)]
+                    let error_msg = format!(
+                        "The permissions of {:o} do not allow access for this user",
+                        path.metadata()
+                            .expect("this shouldn't be called since we already know there is a dir")
+                            .permissions()
+                            .mode()
+                            & 0o0777
+                    );
+                    #[cfg(not(unix))]
+                    let error_msg = String::from("Permission denied");
+                    return Err(ShellError::SpannedLabeledError(
+                        "Permission denied".into(),
+                        error_msg,
+                        result.span,
+                    ));
+                }
+                if is_empty_dir(&path) {
+                    return Ok(PipelineData::new(call_span));
+                }
+
                 if path.is_dir() {
                     if !result.item.ends_with(std::path::MAIN_SEPARATOR) {
                         result.item.push(std::path::MAIN_SEPARATOR);
                     }
                     result.item.push('*');
                 }
+            }
 
-                (result.item, result.span)
-            } else {
-                ("*".into(), call_span)
-            };
+            result.item
+        } else {
+            "*".into()
+        };
 
         let glob = glob::glob(&pattern).map_err(|err| {
             nu_protocol::ShellError::SpannedLabeledError(
@@ -93,32 +119,6 @@ impl Command for Ls {
             .into_iter()
             .filter_map(move |x| match x {
                 Ok(path) => {
-                    if permission_denied(&path) {
-                        #[cfg(unix)]
-                        let error_msg = format!(
-                            "The permissions of {:o} do not allow access for this user",
-                            path.metadata()
-                                .expect(
-                                    "this shouldn't be called since we already know there is a dir"
-                                )
-                                .permissions()
-                                .mode()
-                                & 0o0777
-                        );
-                        #[cfg(not(unix))]
-                        let error_msg = String::from("Permission denied");
-                        return Some(Value::Error {
-                            error: ShellError::SpannedLabeledError(
-                                "Permission denied".into(),
-                                error_msg,
-                                arg_span,
-                            ),
-                        });
-                    }
-                    // if is_empty_dir(&p) {
-                    //     return Ok(ActionStream::empty());
-                    // }
-
                     let metadata = match std::fs::symlink_metadata(&path) {
                         Ok(metadata) => Some(metadata),
                         Err(e) => {
@@ -190,6 +190,13 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
             .file_name()
             .map(|name| name.to_string_lossy().starts_with('.'))
             .unwrap_or(false)
+    }
+}
+
+fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
+    match dir.as_ref().read_dir() {
+        Err(_) => true,
+        Ok(mut s) => s.next().is_none(),
     }
 }
 
