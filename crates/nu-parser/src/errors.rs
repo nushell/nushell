@@ -195,6 +195,14 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("'let' statements can't be part of a pipeline")]
+    #[diagnostic(
+        code(nu::parser::let_not_statement),
+        url(docsrs),
+        help("use parens to assign to a variable\neg) let x = ('hello' | str length)")
+    )]
+    LetNotStatement(#[label = "let statement part of a pipeline"] Span),
+
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),

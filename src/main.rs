@@ -21,6 +21,7 @@ use reedline::{
 };
 use std::{
     io::Write,
+    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -402,7 +403,35 @@ fn main() -> Result<()> {
 
             let input = line_editor.read_line(prompt);
             match input {
-                Ok(Signal::Success(s)) => {
+                Ok(Signal::Success(mut s)) => {
+                    // Check if this is a single call to a directory, if so auto-cd
+                    let path = nu_path::expand_path(&s);
+                    let orig = s.clone();
+                    s = path.to_string_lossy().to_string();
+
+                    let path = Path::new(&s);
+                    if (orig.starts_with('.')
+                        || orig.starts_with('~')
+                        || orig.starts_with('/')
+                        || orig.starts_with('\\'))
+                        && path.is_dir()
+                    {
+                        // We have an auto-cd
+                        let _ = std::env::set_current_dir(&path);
+
+                        //FIXME: this only changes the current scope, but instead this environment variable
+                        //should probably be a block that loads the information from the state in the overlay
+                        stack.add_env_var(
+                            "PWD".into(),
+                            Value::String {
+                                val: s.clone(),
+                                span: Span { start: 0, end: 0 },
+                            },
+                        );
+
+                        continue;
+                    }
+
                     eval_source(
                         &mut engine_state,
                         &mut stack,

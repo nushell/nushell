@@ -113,3 +113,8 @@ fn long_flag() -> TestResult {
         "100",
     )
 }
+
+#[test]
+fn let_not_statement() -> TestResult {
+    fail_test(r#"let x = "hello" | str length"#, "can't")
+}

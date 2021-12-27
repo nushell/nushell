@@ -3352,6 +3352,16 @@ pub fn parse_block(
                     })
                     .collect::<Vec<Expression>>();
 
+                if let Some(let_call_id) = working_set.find_decl(b"let") {
+                    for expr in output.iter() {
+                        if let Expr::Call(x) = &expr.expr {
+                            if let_call_id == x.decl_id && output.len() != 1 && error.is_none() {
+                                error = Some(ParseError::LetNotStatement(expr.span));
+                            }
+                        }
+                    }
+                }
+
                 for expr in output.iter_mut().skip(1) {
                     if expr.has_in_variable(working_set) {
                         *expr = wrap_expr_with_collect(working_set, expr);

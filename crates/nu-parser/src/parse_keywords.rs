@@ -973,6 +973,10 @@ pub fn parse_let(
                         );
                         error = error.or(err);
 
+                        if idx < (spans.len() - 1) {
+                            error = error.or(Some(ParseError::ExtraPositional(spans[idx + 1])));
+                        }
+
                         let mut idx = 0;
                         let (lvalue, err) =
                             parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx);
