@@ -110,7 +110,7 @@ impl SyntaxShape {
             SyntaxShape::Range => Type::Unknown,
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
-            SyntaxShape::Signature => Type::Unknown,
+            SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table => Type::List(Box::new(Type::Unknown)), // FIXME: Tables should have better types
             SyntaxShape::VarWithOptType => Type::Unknown,

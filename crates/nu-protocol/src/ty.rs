@@ -24,6 +24,7 @@ pub enum Type {
     Error,
     Binary,
     Custom,
+    Signature,
 }
 
 impl Display for Type {
@@ -57,6 +58,7 @@ impl Display for Type {
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom => write!(f, "custom"),
+            Type::Signature => write!(f, "signature"),
         }
     }
 }

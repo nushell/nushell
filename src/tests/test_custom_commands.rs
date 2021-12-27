@@ -47,7 +47,7 @@ fn def_twice_should_fail() -> TestResult {
 
 #[test]
 fn missing_parameters() -> TestResult {
-    fail_test(r#"def foo {}"#, "expected [")
+    fail_test(r#"def foo {}"#, "Missing required positional")
 }
 
 #[test]
