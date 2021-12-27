@@ -2,13 +2,13 @@ use nu_ansi_term::{Color, Style};
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Debug)]
-struct NuStyle {
-    fg: Option<String>,
-    bg: Option<String>,
-    attr: Option<String>,
+pub struct NuStyle {
+    pub fg: Option<String>,
+    pub bg: Option<String>,
+    pub attr: Option<String>,
 }
 
-fn parse_nustyle(nu_style: NuStyle) -> Style {
+pub fn parse_nustyle(nu_style: NuStyle) -> Style {
     // get the nu_ansi_term::Color foreground color
     let fg_color = match nu_style.fg {
         Some(fg) => color_from_hex(&fg).expect("error with foreground color"),
