@@ -118,3 +118,8 @@ fn long_flag() -> TestResult {
 fn let_not_statement() -> TestResult {
     fail_test(r#"let x = "hello" | str length"#, "can't")
 }
+
+#[test]
+fn for_in_missing_var_name() -> TestResult {
+    fail_test("for in", "missing")
+}
