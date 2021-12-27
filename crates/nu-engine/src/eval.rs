@@ -250,7 +250,7 @@ pub fn eval_expression(
                 span,
                 args,
                 PipelineData::new(*span),
-                true,
+                false,
             )?
             .into_value(*span))
         }
@@ -480,7 +480,7 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for stmt in block.stmts.iter() {
         if let Statement::Pipeline(pipeline) = stmt {
-            for (i, elem) in pipeline.expressions.iter().enumerate() {
+            for elem in pipeline.expressions.iter() {
                 match elem {
                     Expression {
                         expr: Expr::Call(call),
@@ -501,24 +501,6 @@ pub fn eval_subexpression(
                             input,
                             false,
                         )?;
-
-                        if i == pipeline.expressions.len() - 1 {
-                            // We're at the end, so drain as a string for the value
-                            // to be used later
-                            // FIXME: the trimming of the end probably needs to live in a better place
-
-                            let config = stack.get_config().unwrap_or_default();
-
-                            let mut s = input.collect_string("", &config)?;
-                            if s.ends_with('\n') {
-                                s.pop();
-                            }
-                            input = Value::String {
-                                val: s.to_string(),
-                                span: *name_span,
-                            }
-                            .into_pipeline_data()
-                        }
                     }
 
                     elem => {
