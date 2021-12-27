@@ -628,12 +628,33 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { cols, vals, .. } => {
-                                    for col in cols.iter().zip(vals) {
+                                    let mut found = false;
+                                    for col in cols.iter().zip(vals.iter_mut()) {
                                         if col.0 == col_name {
+                                            found = true;
                                             col.1.replace_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
                                             )?
+                                        }
+                                    }
+                                    if !found {
+                                        if cell_path.len() == 1 {
+                                            cols.push(col_name.clone());
+                                            vals.push(new_val);
+                                            break;
+                                        } else {
+                                            let mut new_col = Value::Record {
+                                                cols: vec![],
+                                                vals: vec![],
+                                                span: new_val.span()?,
+                                            };
+                                            new_col.replace_data_at_cell_path(
+                                                &cell_path[1..],
+                                                new_val,
+                                            )?;
+                                            vals.push(new_col);
+                                            break;
                                         }
                                     }
                                 }
@@ -642,10 +663,28 @@ impl Value {
                         }
                     }
                     Value::Record { cols, vals, .. } => {
-                        for col in cols.iter().zip(vals) {
+                        let mut found = false;
+
+                        for col in cols.iter().zip(vals.iter_mut()) {
                             if col.0 == col_name {
+                                found = true;
+
                                 col.1
                                     .replace_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                            }
+                        }
+                        if !found {
+                            if cell_path.len() == 1 {
+                                cols.push(col_name.clone());
+                                vals.push(new_val);
+                            } else {
+                                let mut new_col = Value::Record {
+                                    cols: vec![],
+                                    vals: vec![],
+                                    span: new_val.span()?,
+                                };
+                                new_col.replace_data_at_cell_path(&cell_path[1..], new_val)?;
+                                vals.push(new_col);
                             }
                         }
                     }

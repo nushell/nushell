@@ -192,3 +192,8 @@ fn select() -> TestResult {
         "b",
     )
 }
+
+#[test]
+fn update_will_insert() -> TestResult {
+    run_test(r#"{} | update a b | get a"#, "b")
+}
