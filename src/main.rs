@@ -295,14 +295,20 @@ fn main() -> Result<()> {
             report_error(&working_set, &e);
         }
 
-        let history_path = if let Some(mut history_path) = nu_path::config_dir() {
+        let history_path = nu_path::config_dir().and_then(|mut history_path| {
             history_path.push("nushell");
             history_path.push("history.txt");
 
-            Some(history_path)
-        } else {
-            None
-        };
+            if !history_path.exists() {
+                // Creating an empty file to store the history
+                match std::fs::File::create(&history_path) {
+                    Ok(_) => Some(history_path),
+                    Err(_) => None,
+                }
+            } else {
+                Some(history_path)
+            }
+        });
 
         #[cfg(feature = "plugin")]
         {
