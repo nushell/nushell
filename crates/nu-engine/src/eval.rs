@@ -384,7 +384,6 @@ pub fn eval_block(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let config = stack.get_config().unwrap_or_default();
     let num_stmts = block.stmts.len();
     for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
         if let Statement::Pipeline(pipeline) = stmt {
@@ -420,6 +419,7 @@ pub fn eval_block(
 
         if stmt_idx < (num_stmts) - 1 {
             // Drain the input to the screen via tabular output
+            let config = stack.get_config().unwrap_or_default();
 
             match engine_state.find_decl("table".as_bytes()) {
                 Some(decl_id) => {
