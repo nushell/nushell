@@ -192,7 +192,7 @@ pub fn process_script(
 
             let primitive = match BufCodecReader::new(buf_reader, None).read_full() {
                 Ok(primitive) => primitive,
-                Err(e) => return LineResult::Error(Default::default(), e),
+                Err(e) => return LineResult::Error(Default::default(), e.into()),
             };
 
             let primitive = match primitive {

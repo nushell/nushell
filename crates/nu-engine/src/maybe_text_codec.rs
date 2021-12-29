@@ -1,6 +1,4 @@
-use std::io::Read;
-
-use nu_errors::ShellError;
+use std::io::{Error, Read};
 
 use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 
@@ -31,7 +29,7 @@ impl<R: Read> BufCodecReader<R> {
 
     /// Read the whole buffer into a `String` if it can be successfully decoded,
     /// or a `Binary` if the underlying data cannot be decoded.
-    pub fn read_full(mut self) -> Result<StringOrBinary, ShellError> {
+    pub fn read_full(mut self) -> Result<StringOrBinary, Error> {
         let mut init = [0u8; OUTPUT_BUFFER_SIZE];
 
         let mut fallback = Vec::new();
@@ -59,7 +57,7 @@ impl<R: Read> BufCodecReader<R> {
                             fallback.extend(&init[..]);
                             cur = &init[..n];
                         }
-                        Err(e) => return Err(ShellError::untagged_runtime_error(e.to_string())),
+                        Err(e) => return Err(e),
                     }
                 }
                 DecoderResult::OutputFull => {
@@ -70,7 +68,7 @@ impl<R: Read> BufCodecReader<R> {
                     // far. We cannot use `string` because this doesn't
                     // necessarily represent the underlying bytes read.
                     if let Err(e) = self.input.read_to_end(&mut fallback) {
-                        return Err(ShellError::untagged_runtime_error(e.to_string()));
+                        return Err(e);
                     }
 
                     return Ok(StringOrBinary::Binary(fallback));
@@ -100,7 +98,7 @@ impl<R: Read> BufCodecReader<R> {
                     // far. We cannot use `string` because this doesn't
                     // necessarily represent the underlying bytes read.
                     if let Err(e) = self.input.read_to_end(&mut fallback) {
-                        return Err(ShellError::untagged_runtime_error(e.to_string()));
+                        return Err(e);
                     }
 
                     return Ok(StringOrBinary::Binary(fallback));
