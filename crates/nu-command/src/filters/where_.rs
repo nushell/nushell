@@ -31,6 +31,8 @@ impl Command for Where {
         let cond = &call.positional[0];
         let span = call.head;
 
+        let metadata = input.metadata();
+
         let block_id = cond
             .as_row_condition_block()
             .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), span))?;
@@ -41,21 +43,24 @@ impl Command for Where {
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
 
-        input.filter(
-            move |value| {
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
+        input
+            .filter(
+                move |value| {
+                    if let Some(var) = block.signature.get_positional(0) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(*var_id, value.clone());
+                        }
                     }
-                }
-                let result = eval_block(&engine_state, &mut stack, &block, PipelineData::new(span));
+                    let result =
+                        eval_block(&engine_state, &mut stack, &block, PipelineData::new(span));
 
-                match result {
-                    Ok(result) => result.into_value(span).is_true(),
-                    _ => false,
-                }
-            },
-            ctrlc,
-        )
+                    match result {
+                        Ok(result) => result.into_value(span).is_true(),
+                        _ => false,
+                    }
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
     }
 }

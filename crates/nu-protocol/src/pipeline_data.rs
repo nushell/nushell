@@ -65,6 +65,17 @@ impl PipelineData {
         }
     }
 
+    pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
+        match &mut self {
+            PipelineData::ListStream(_, x) => *x = metadata,
+            PipelineData::ByteStream(_, _, x) => *x = metadata,
+            PipelineData::StringStream(_, _, x) => *x = metadata,
+            PipelineData::Value(_, x) => *x = metadata,
+        }
+
+        self
+    }
+
     pub fn into_value(self, span: Span) -> Value {
         match self {
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
