@@ -1,8 +1,8 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::Read;
 
 use nu_errors::ShellError;
 
-use encoding_rs::{CoderResult, Decoder, Encoding, UTF_8};
+use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
 
 #[cfg(not(test))]
 const OUTPUT_BUFFER_SIZE: usize = 8192;
@@ -15,99 +15,97 @@ pub enum StringOrBinary {
     Binary(Vec<u8>),
 }
 
-pub struct MaybeTextCodec {
-    decoder: Decoder,
-}
-
 pub struct BufCodecReader<R: Read> {
-    maybe_text_codec: MaybeTextCodec,
-    input: BufReader<R>,
+    decoder: Decoder,
+    input: R,
 }
 
 impl<R: Read> BufCodecReader<R> {
-    pub fn new(input: BufReader<R>, maybe_text_codec: MaybeTextCodec) -> Self {
+    /// Wrap the given read implementation with the given encoding. If `None` it falls back to UTF-8.
+    pub fn new(input: R, encoding: Option<&'static Encoding>) -> Self {
         BufCodecReader {
-            maybe_text_codec,
+            decoder: encoding.unwrap_or(UTF_8).new_decoder(),
             input,
         }
     }
-}
 
-impl<R: Read> Iterator for BufCodecReader<R> {
-    type Item = Result<StringOrBinary, ShellError>;
+    /// Read the whole buffer into a `String` if it can be successfully decoded,
+    /// or a `Binary` if the underlying data cannot be decoded.
+    pub fn read_full(mut self) -> Result<StringOrBinary, ShellError> {
+        let mut init = [0u8; OUTPUT_BUFFER_SIZE];
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let buffer = self.input.fill_buf();
-        match buffer {
-            Ok(s) => {
-                let result = self.maybe_text_codec.decode(s).transpose();
+        let mut fallback = Vec::new();
+        let mut string = String::new();
+        let mut cur = &[][..];
 
-                let buffer_len = s.len();
-                self.input.consume(buffer_len);
+        loop {
+            let (result, read) =
+                self.decoder
+                    .decode_to_string_without_replacement(cur, &mut string, false);
+            cur = &cur[read..];
 
-                result
-            }
-            Err(e) => Some(Err(ShellError::untagged_runtime_error(e.to_string()))),
-        }
-    }
-}
+            match result {
+                DecoderResult::InputEmpty => {
+                    debug_assert!(cur.is_empty());
 
-impl MaybeTextCodec {
-    // The constructor takes an Option<&'static Encoding>, because an absence of an encoding indicates that we want BOM sniffing enabled
-    pub fn new(encoding: Option<&'static Encoding>) -> Self {
-        let decoder = match encoding {
-            Some(e) => e.new_decoder_with_bom_removal(),
-            None => UTF_8.new_decoder(),
-        };
-        MaybeTextCodec { decoder }
-    }
-}
+                    // Satisfy borrow checker.
+                    cur = &[][..];
 
-impl Default for MaybeTextCodec {
-    fn default() -> Self {
-        MaybeTextCodec {
-            decoder: UTF_8.new_decoder(),
-        }
-    }
-}
-
-impl MaybeTextCodec {
-    pub fn decode(&mut self, src: &[u8]) -> Result<Option<StringOrBinary>, ShellError> {
-        if src.is_empty() {
-            return Ok(None);
-        }
-
-        let mut s = String::with_capacity(OUTPUT_BUFFER_SIZE);
-
-        let (res, _read, replacements) = self.decoder.decode_to_string(src, &mut s, false);
-
-        let result = if replacements {
-            // If we had to make replacements when converting to utf8, fall back to binary
-            StringOrBinary::Binary(src.to_vec())
-        } else {
-            // If original buffer size is too small, we continue to allocate new Strings and append
-            // them to the result until the input buffer is smaller than the allocated String
-            if let CoderResult::OutputFull = res {
-                let mut buffer = String::with_capacity(OUTPUT_BUFFER_SIZE);
-                loop {
-                    let (res, _read, _replacements) =
-                        self.decoder
-                            .decode_to_string(&src[s.len()..], &mut buffer, false);
-                    s.push_str(&buffer);
-
-                    if let CoderResult::InputEmpty = res {
-                        break;
+                    match self.input.read(&mut init[..]) {
+                        Ok(0) => {
+                            break;
+                        }
+                        Ok(n) => {
+                            fallback.extend(&init[..]);
+                            cur = &init[..n];
+                        }
+                        Err(e) => return Err(ShellError::untagged_runtime_error(e.to_string())),
+                    }
+                }
+                DecoderResult::OutputFull => {
+                    string.reserve(OUTPUT_BUFFER_SIZE);
+                }
+                DecoderResult::Malformed(..) => {
+                    // This is why we maintain `fallback` of all bytes read so
+                    // far. We cannot use `string` because this doesn't
+                    // necessarily represent the underlying bytes read.
+                    if let Err(e) = self.input.read_to_end(&mut fallback) {
+                        return Err(ShellError::untagged_runtime_error(e.to_string()));
                     }
 
-                    buffer.clear();
+                    return Ok(StringOrBinary::Binary(fallback));
                 }
             }
+        }
 
-            StringOrBinary::String(s)
-        };
+        // Perform last decode call, which again needs to be done in a loop.
+        loop {
+            let (result, read) =
+                self.decoder
+                    .decode_to_string_without_replacement(cur, &mut string, true);
+            cur = &cur[read..];
 
-        // src.clear();
+            match result {
+                // NB: InputEmpty when last is set to `true` means that decoding
+                // successfully completed.
+                DecoderResult::InputEmpty => {
+                    debug_assert!(cur.is_empty());
+                    return Ok(StringOrBinary::String(string));
+                }
+                DecoderResult::OutputFull => {
+                    string.reserve(OUTPUT_BUFFER_SIZE);
+                }
+                DecoderResult::Malformed(..) => {
+                    // This is why we maintain `fallback` of all bytes read so
+                    // far. We cannot use `string` because this doesn't
+                    // necessarily represent the underlying bytes read.
+                    if let Err(e) = self.input.read_to_end(&mut fallback) {
+                        return Err(ShellError::untagged_runtime_error(e.to_string()));
+                    }
 
-        Ok(Some(result))
+                    return Ok(StringOrBinary::Binary(fallback));
+                }
+            }
+        }
     }
 }

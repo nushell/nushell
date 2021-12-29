@@ -1,11 +1,10 @@
 use nu_stream::{ActionStream, OutputStream};
 
-use crate::maybe_text_codec::StringOrBinary;
 pub use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::CommandArgs;
-use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -35,15 +34,7 @@ pub trait Shell: std::fmt::Debug {
     fn path(&self) -> String;
     fn pwd(&self, args: CommandArgs) -> Result<ActionStream, ShellError>;
     fn set_path(&mut self, path: String);
-    fn open(
-        &self,
-        path: &Path,
-        name: Span,
-        with_encoding: Option<&'static Encoding>,
-    ) -> Result<
-        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
-        ShellError,
-    >;
+    fn open(&self, path: &Path, name: Span) -> Result<Box<dyn Read + Send + Sync>, ShellError>;
     fn save(
         &mut self,
         path: &Path,

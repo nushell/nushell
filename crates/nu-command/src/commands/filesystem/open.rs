@@ -3,12 +3,14 @@ use crate::prelude::*;
 use encoding_rs::{Encoding, UTF_8};
 
 use log::debug;
+use nu_engine::BufCodecReader;
 use nu_engine::StringOrBinary;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
 use nu_path::canonicalize;
 use nu_protocol::{CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::{AnchorLocation, Span, Tagged};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 pub struct Open;
@@ -76,20 +78,17 @@ documentation link at https://docs.rs/encoding_rs/0.8.28/encoding_rs/#statics"#
     }
 }
 
-pub fn get_encoding(opt: Option<Tagged<String>>) -> Result<&'static Encoding, ShellError> {
-    match opt {
-        None => Ok(UTF_8),
-        Some(label) => match Encoding::for_label((&label.item).as_bytes()) {
-            None => Err(ShellError::labeled_error(
-                format!(
-                    r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
-                    label.item
-                ),
-                "invalid encoding",
-                label.span(),
-            )),
-            Some(encoding) => Ok(encoding),
-        },
+pub fn get_encoding(label: Tagged<String>) -> Result<&'static Encoding, ShellError> {
+    match Encoding::for_label((&label.item).as_bytes()) {
+        None => Err(ShellError::labeled_error(
+            format!(
+                r#"{} is not a valid encoding, refer to https://docs.rs/encoding_rs/0.8.23/encoding_rs/#statics for a valid list of encodings"#,
+                label.item
+            ),
+            "invalid encoding",
+            label.span(),
+        )),
+        Some(encoding) => Ok(encoding),
     }
 }
 
@@ -154,33 +153,32 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
     }
 
     // Normal Streaming operation
-    let with_encoding = if encoding.is_none() {
-        None
-    } else {
+    let with_encoding = if let Some(encoding) = encoding {
         Some(get_encoding(encoding)?)
+    } else {
+        None
     };
 
-    let sob_stream = shell_manager.open(&path.item, path.tag.span, with_encoding)?;
+    let reader = shell_manager.open(&path.item, path.tag.span)?;
+    let reader = BufReader::new(reader);
+    let reader = BufCodecReader::new(reader, with_encoding);
 
-    let final_stream = sob_stream.map(move |x| {
-        // The tag that will used when returning a Value
-        let file_tag = Tag {
-            span: path.tag.span,
-            anchor: Some(AnchorLocation::File(path.to_string_lossy().to_string())),
-        };
+    // The tag that will used when returning a Value
+    let file_tag = Tag {
+        span: path.tag.span,
+        anchor: Some(AnchorLocation::File(path.to_string_lossy().to_string())),
+    };
 
-        match x {
-            Ok(StringOrBinary::String(s)) => {
-                ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
-            }
-            Ok(StringOrBinary::Binary(b)) => {
-                ReturnSuccess::value(UntaggedValue::binary(b).into_value(file_tag))
-            }
-            Err(se) => Err(se),
+    let value = match reader.read_full()? {
+        StringOrBinary::String(s) => {
+            ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
         }
-    });
+        StringOrBinary::Binary(b) => {
+            ReturnSuccess::value(UntaggedValue::binary(b).into_value(file_tag))
+        }
+    };
 
-    Ok(ActionStream::new(final_stream))
+    Ok(ActionStream::one(value))
 }
 
 // Note that we do not output a Stream in "fetch" since it is only used by "enter" command
@@ -227,14 +225,14 @@ pub fn fetch(
         .map_err(|_| ShellError::labeled_error("Can't open filename given", "can't open", span))?;
 
     // If no encoding is provided we try to guess the encoding to read the file with
-    let encoding = if encoding_choice.is_none() {
-        UTF_8
+    let (some_encoding, encoding) = if let Some(encoding) = encoding_choice {
+        (true, get_encoding(encoding)?)
     } else {
-        get_encoding(encoding_choice.clone())?
+        (false, UTF_8)
     };
 
     // If the user specified an encoding, then do not do BOM sniffing
-    let decoded_res = if encoding_choice.is_some() {
+    let decoded_res = if some_encoding {
         let (cow_res, _replacements) = encoding.decode_with_bom_removal(&res);
         cow_res
     } else {
@@ -247,7 +245,7 @@ pub fn fetch(
         debug!("Decoded using {:?}", actual_encoding);
         cow_res
     };
-    let v = UntaggedValue::string(decoded_res.to_string()).into_value(file_tag);
+    let v = UntaggedValue::string(decoded_res.into_owned()).into_value(file_tag);
     Ok((ext, v))
 }
 

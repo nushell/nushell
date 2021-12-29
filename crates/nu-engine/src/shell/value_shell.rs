@@ -1,8 +1,6 @@
-use crate::maybe_text_codec::StringOrBinary;
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
 use crate::CommandArgs;
-use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_protocol::ValueStructure;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
@@ -12,6 +10,7 @@ use nu_stream::{ActionStream, OutputStream};
 use nu_value_ext::ValueExt;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -229,15 +228,7 @@ impl Shell for ValueShell {
         self.path = path;
     }
 
-    fn open(
-        &self,
-        _path: &Path,
-        _name: Span,
-        _with_encoding: Option<&'static Encoding>,
-    ) -> Result<
-        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
-        ShellError,
-    > {
+    fn open(&self, _path: &Path, _name: Span) -> Result<Box<dyn Read + Send + Sync>, ShellError> {
         Err(ShellError::unimplemented(
             "open on help shell is not supported",
         ))

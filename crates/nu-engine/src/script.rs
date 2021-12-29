@@ -1,5 +1,5 @@
 use crate::{evaluate::internal::InternalIterator, maybe_print_errors, run_block, shell::CdArgs};
-use crate::{BufCodecReader, MaybeTextCodec, StringOrBinary};
+use crate::{BufCodecReader, StringOrBinary};
 use nu_errors::ShellError;
 use nu_path::{canonicalize_with, trim_trailing_slash};
 use nu_protocol::hir::{
@@ -7,7 +7,7 @@ use nu_protocol::hir::{
     NamedArguments, SpannedExpression,
 };
 use nu_protocol::{Primitive, UntaggedValue, Value};
-use nu_stream::{InputStream, IntoInputStream};
+use nu_stream::InputStream;
 
 use crate::EvaluationContext;
 use log::{debug, trace};
@@ -189,23 +189,23 @@ pub fn process_script(
         let input_stream = if redirect_stdin {
             let file = std::io::stdin();
             let buf_reader = BufReader::new(file);
-            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::default());
-            let stream = buf_codec.map(|line| {
-                if let Ok(line) = line {
-                    let primitive = match line {
-                        StringOrBinary::String(s) => Primitive::String(s),
-                        StringOrBinary::Binary(b) => Primitive::Binary(b.into_iter().collect()),
-                    };
 
-                    Ok(Value {
-                        value: UntaggedValue::Primitive(primitive),
-                        tag: Tag::unknown(),
-                    })
-                } else {
-                    panic!("Internal error: could not read lines of text from stdin")
-                }
-            });
-            stream.into_input_stream()
+            let primitive = match BufCodecReader::new(buf_reader, None).read_full() {
+                Ok(primitive) => primitive,
+                Err(e) => return LineResult::Error(Default::default(), e),
+            };
+
+            let primitive = match primitive {
+                StringOrBinary::String(s) => Primitive::String(s),
+                StringOrBinary::Binary(b) => Primitive::Binary(b),
+            };
+
+            let value = Value {
+                value: UntaggedValue::Primitive(primitive),
+                tag: Tag::unknown(),
+            };
+
+            InputStream::one(value)
         } else {
             InputStream::empty()
         };

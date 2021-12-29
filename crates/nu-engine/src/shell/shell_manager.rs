@@ -1,13 +1,13 @@
+use crate::filesystem::filesystem_shell::FilesystemShellMode;
 use crate::shell::Shell;
-use crate::{filesystem::filesystem_shell::FilesystemShellMode, maybe_text_codec::StringOrBinary};
 use crate::{CommandArgs, FilesystemShell};
 use nu_stream::{ActionStream, OutputStream};
 
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
-use encoding_rs::Encoding;
 use nu_errors::ShellError;
 use nu_source::{Span, Tag};
 use parking_lot::Mutex;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -92,12 +92,8 @@ impl ShellManager {
         &self,
         full_path: &Path,
         name: Span,
-        with_encoding: Option<&'static Encoding>,
-    ) -> Result<
-        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Send + Sync>,
-        ShellError,
-    > {
-        self.shells.lock()[self.current_shell()].open(full_path, name, with_encoding)
+    ) -> Result<Box<dyn Read + Send + Sync>, ShellError> {
+        self.shells.lock()[self.current_shell()].open(full_path, name)
     }
 
     pub fn save(

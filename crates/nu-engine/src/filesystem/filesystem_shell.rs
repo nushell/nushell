@@ -1,25 +1,22 @@
 use crate::filesystem::utils::FileStructure;
-use crate::maybe_text_codec::{MaybeTextCodec, StringOrBinary};
 use crate::shell::shell_args::{CdArgs, CopyArgs, LsArgs, MkdirArgs, MvArgs, RemoveArgs};
 use crate::shell::Shell;
-use crate::BufCodecReader;
 use crate::{
     filesystem::dir_info::{DirBuilder, DirInfo},
     CommandArgs,
 };
-use encoding_rs::Encoding;
 use nu_data::config::LocalConfigDiff;
 use nu_path::{canonicalize, canonicalize_with, expand_path_with};
 use nu_protocol::{CommandAction, ConfigPath, TaggedDictBuilder, Value};
 use nu_source::{Span, Tag};
 use nu_stream::{ActionStream, Interruptible, IntoActionStream, OutputStream};
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::OpenOptions;
-use std::io::{ErrorKind, Write};
+use std::io::{Cursor, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::{collections::HashMap, io::BufReader};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -821,15 +818,7 @@ impl Shell for FilesystemShell {
         self.path = path.to_string_lossy().to_string();
     }
 
-    fn open(
-        &self,
-        path: &Path,
-        name: Span,
-        with_encoding: Option<&'static Encoding>,
-    ) -> Result<
-        Box<dyn Iterator<Item = Result<StringOrBinary, ShellError>> + Sync + Send>,
-        ShellError,
-    > {
+    fn open(&self, path: &Path, name: Span) -> Result<Box<dyn Read + Sync + Send>, ShellError> {
         let metadata = std::fs::metadata(&path);
 
         let read_full = if let Ok(metadata) = metadata {
@@ -849,30 +838,19 @@ impl Shell for FilesystemShell {
                 )
             })?;
 
-            let bytes_mut = bytes::BytesMut::from(&buffer[..]);
-
-            let mut codec = MaybeTextCodec::new(with_encoding);
-
-            match codec.decode(&bytes_mut).map_err(|_| {
-                ShellError::labeled_error("Error opening file", "error opening file", name)
-            })? {
-                Some(sb) => Ok(Box::new(vec![Ok(sb)].into_iter())),
-                None => Ok(Box::new(vec![].into_iter())),
-            }
-        } else {
-            // We don't know that this is a finite file, so treat it as a stream
-            let f = std::fs::File::open(&path).map_err(|e| {
-                ShellError::labeled_error(
-                    format!("Error opening file: {:?}", e),
-                    "Error opening file",
-                    name,
-                )
-            })?;
-            let buf_reader = BufReader::new(f);
-            let buf_codec = BufCodecReader::new(buf_reader, MaybeTextCodec::new(with_encoding));
-
-            Ok(Box::new(buf_codec))
+            return Ok(Box::new(Cursor::new(buffer)));
         }
+
+        // We don't know that this is a finite file, so treat it as a stream
+        let f = std::fs::File::open(&path).map_err(|e| {
+            ShellError::labeled_error(
+                format!("Error opening file: {:?}", e),
+                "Error opening file",
+                name,
+            )
+        })?;
+
+        Ok(Box::new(f))
     }
 
     fn save(
