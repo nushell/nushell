@@ -355,47 +355,59 @@ fn spawn(
 
                     // let file = futures::io::AllowStdIo::new(stdout);
                     // let stream = FramedRead::new(file, MaybeTextCodec::default());
-                    let buf_read = BufReader::new(stdout);
-                    let buf_codec = BufCodecReader::new(buf_read, None);
+                    let reader = BufReader::new(stdout);
+                    let mut reader = BufCodecReader::new(reader, None);
 
-                    match buf_codec.read_full() {
-                        Ok(line) => match line {
-                            StringOrBinary::String(s) => {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Primitive(Primitive::String(s.clone())),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
-                            StringOrBinary::Binary(b) => {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Primitive(Primitive::Binary(
-                                        b.into_iter().collect(),
-                                    )),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
-                        },
-                        Err(e) => {
-                            // If there's an exit status, it makes sense that we may error when
-                            // trying to read from its stdout pipe (likely been closed). In that
-                            // case, don't emit an error.
-                            let should_error = match child.wait() {
-                                Ok(exit_status) => !exit_status.success(),
-                                Err(_) => true,
-                            };
+                    while let Some(result) = reader.read_line().transpose() {
+                        match result {
+                            Ok(line) => match line {
+                                StringOrBinary::String(s) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Primitive(Primitive::String(
+                                            s.clone(),
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
 
-                            if should_error {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        format!("Unable to read from stdout ({})", e),
-                                        "unable to read from stdout",
-                                        &stdout_name_tag,
-                                    )),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                                StringOrBinary::Binary(b) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Primitive(Primitive::Binary(
+                                            b.into_iter().collect(),
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
 
-                            return Ok(());
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                // If there's an exit status, it makes sense that we may error when
+                                // trying to read from its stdout pipe (likely been closed). In that
+                                // case, don't emit an error.
+                                let should_error = match child.wait() {
+                                    Ok(exit_status) => !exit_status.success(),
+                                    Err(_) => true,
+                                };
+
+                                if should_error {
+                                    let _ = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(ShellError::labeled_error(
+                                            format!("Unable to read from stdout ({})", e),
+                                            "unable to read from stdout",
+                                            &stdout_name_tag,
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+                                }
+
+                                return Ok(());
+                            }
                         }
                     }
                 }
@@ -418,49 +430,59 @@ fn spawn(
 
                     // let file = futures::io::AllowStdIo::new(stderr);
                     // let stream = FramedRead::new(file, MaybeTextCodec::default());
-                    let buf_reader = BufReader::new(stderr);
-                    let buf_codec = BufCodecReader::new(buf_reader, None);
+                    let reader = BufReader::new(stderr);
+                    let mut reader = BufCodecReader::new(reader, None);
 
-                    match buf_codec.read_full() {
-                        Ok(line) => match line {
-                            StringOrBinary::String(s) => {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error(s),
-                                    ),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
-                            StringOrBinary::Binary(_) => {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(
-                                        ShellError::untagged_runtime_error("<binary stderr>"),
-                                    ),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
-                        },
-                        Err(e) => {
-                            // If there's an exit status, it makes sense that we may error when
-                            // trying to read from its stdout pipe (likely been closed). In that
-                            // case, don't emit an error.
-                            let should_error = match child.wait() {
-                                Ok(exit_status) => !exit_status.success(),
-                                Err(_) => true,
-                            };
+                    while let Some(result) = reader.read_line().transpose() {
+                        match result {
+                            Ok(line) => match line {
+                                StringOrBinary::String(s) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::untagged_runtime_error(s),
+                                        ),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
 
-                            if should_error {
-                                let _ = stdout_read_tx.send(Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        format!("Unable to read from stdout ({})", e),
-                                        "unable to read from stdout",
-                                        &stdout_name_tag,
-                                    )),
-                                    tag: stdout_name_tag.clone(),
-                                }));
-                            }
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                                StringOrBinary::Binary(_) => {
+                                    let result = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::untagged_runtime_error("<binary stderr>"),
+                                        ),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
 
-                            return Ok(());
+                                    if result.is_err() {
+                                        break;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                // If there's an exit status, it makes sense that we may error when
+                                // trying to read from its stdout pipe (likely been closed). In that
+                                // case, don't emit an error.
+                                let should_error = match child.wait() {
+                                    Ok(exit_status) => !exit_status.success(),
+                                    Err(_) => true,
+                                };
+
+                                if should_error {
+                                    let _ = stdout_read_tx.send(Ok(Value {
+                                        value: UntaggedValue::Error(ShellError::labeled_error(
+                                            format!("Unable to read from stdout ({})", e),
+                                            "unable to read from stdout",
+                                            &stdout_name_tag,
+                                        )),
+                                        tag: stdout_name_tag.clone(),
+                                    }));
+                                }
+
+                                return Ok(());
+                            }
                         }
                     }
                 }

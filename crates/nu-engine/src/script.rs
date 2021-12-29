@@ -188,24 +188,27 @@ pub fn process_script(
 
         let input_stream = if redirect_stdin {
             let file = std::io::stdin();
-            let buf_reader = BufReader::new(file);
+            let reader = BufReader::new(file);
+            let mut reader = BufCodecReader::new(reader, None);
 
-            let primitive = match BufCodecReader::new(buf_reader, None).read_full() {
-                Ok(primitive) => primitive,
-                Err(e) => return LineResult::Error(Default::default(), e.into()),
-            };
+            let iter = std::iter::from_fn(move || {
+                let line = reader
+                    .read_line()
+                    .transpose()?
+                    .expect("Internal error: could not read lines of text from stdin");
 
-            let primitive = match primitive {
-                StringOrBinary::String(s) => Primitive::String(s),
-                StringOrBinary::Binary(b) => Primitive::Binary(b),
-            };
+                let line = match line {
+                    StringOrBinary::String(s) => Primitive::String(s),
+                    StringOrBinary::Binary(b) => Primitive::Binary(b),
+                };
 
-            let value = Value {
-                value: UntaggedValue::Primitive(primitive),
-                tag: Tag::unknown(),
-            };
+                Some(Value {
+                    value: UntaggedValue::Primitive(line),
+                    tag: Tag::unknown(),
+                })
+            });
 
-            InputStream::one(value)
+            InputStream::from_stream(iter)
         } else {
             InputStream::empty()
         };

@@ -1,6 +1,6 @@
-use std::io::{Error, Read};
+use std::io::{BufRead, BufReader, Error, Read};
 
-use encoding_rs::{Decoder, DecoderResult, Encoding, UTF_8};
+use encoding_rs::{DecoderResult, Encoding, UTF_8};
 
 #[cfg(not(test))]
 const OUTPUT_BUFFER_SIZE: usize = 8192;
@@ -14,22 +14,50 @@ pub enum StringOrBinary {
 }
 
 pub struct BufCodecReader<R: Read> {
-    decoder: Decoder,
-    input: R,
+    encoding: &'static Encoding,
+    input: BufReader<R>,
 }
 
 impl<R: Read> BufCodecReader<R> {
     /// Wrap the given read implementation with the given encoding. If `None` it falls back to UTF-8.
-    pub fn new(input: R, encoding: Option<&'static Encoding>) -> Self {
+    pub fn new(input: BufReader<R>, encoding: Option<&'static Encoding>) -> Self {
         BufCodecReader {
-            decoder: encoding.unwrap_or(UTF_8).new_decoder(),
+            encoding: encoding.unwrap_or(UTF_8),
             input,
         }
     }
 
-    /// Read the whole buffer into a `String` if it can be successfully decoded,
-    /// or a `Binary` if the underlying data cannot be decoded.
+    /// Read a line of  input and attempt to decode it using the current
+    /// encoding. Returns a `String` if the line can be successfully decoded, or
+    /// a `Binary` otherwise.
+    pub fn read_line(&mut self) -> Result<Option<StringOrBinary>, Error> {
+        let mut buf = Vec::new();
+
+        // Using same delimiter as `BufReader::read_line`, but with our own
+        // encoding.
+        self.input.read_until(b'\n', &mut buf)?;
+
+        if buf.is_empty() {
+            return Ok(None);
+        }
+
+        let (string, _, replacements) = self.encoding.decode(&buf);
+
+        let value = if replacements {
+            StringOrBinary::Binary(buf)
+        } else {
+            StringOrBinary::String(string.into_owned())
+        };
+
+        Ok(Some(value))
+    }
+
+    /// Read the whole buffer and attempt to decode it using the current
+    /// encoding. Returns a `String` if the line can be successfully decoded, or
+    /// a `Binary` otherwise.
     pub fn read_full(mut self) -> Result<StringOrBinary, Error> {
+        let mut decoder = self.encoding.new_decoder();
+
         let mut init = [0u8; OUTPUT_BUFFER_SIZE];
 
         let mut fallback = Vec::new();
@@ -38,8 +66,7 @@ impl<R: Read> BufCodecReader<R> {
 
         loop {
             let (result, read) =
-                self.decoder
-                    .decode_to_string_without_replacement(cur, &mut string, false);
+                decoder.decode_to_string_without_replacement(cur, &mut string, false);
             cur = &cur[read..];
 
             match result {
@@ -79,8 +106,7 @@ impl<R: Read> BufCodecReader<R> {
         // Perform last decode call, which again needs to be done in a loop.
         loop {
             let (result, read) =
-                self.decoder
-                    .decode_to_string_without_replacement(cur, &mut string, true);
+                decoder.decode_to_string_without_replacement(cur, &mut string, true);
             cur = &cur[read..];
 
             match result {
