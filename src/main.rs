@@ -265,15 +265,23 @@ fn main() -> Result<()> {
         // Load config startup file
         if let Some(mut config_path) = nu_path::config_dir() {
             config_path.push("nushell");
-            config_path.push("config.nu");
 
-            if config_path.exists() {
-                // FIXME: remove this message when we're ready
-                println!("Loading config from: {:?}", config_path);
-                let config_filename = config_path.to_string_lossy().to_owned();
+            // Create config directory if it does not exist
+            if !config_path.exists() {
+                if let Err(err) = std::fs::create_dir_all(&config_path) {
+                    eprintln!("Failed to create config directory: {}", err);
+                }
+            } else {
+                config_path.push("config.nu");
 
-                if let Ok(contents) = std::fs::read_to_string(&config_path) {
-                    eval_source(&mut engine_state, &mut stack, &contents, &config_filename);
+                if config_path.exists() {
+                    // FIXME: remove this message when we're ready
+                    println!("Loading config from: {:?}", config_path);
+                    let config_filename = config_path.to_string_lossy().to_owned();
+
+                    if let Ok(contents) = std::fs::read_to_string(&config_path) {
+                        eval_source(&mut engine_state, &mut stack, &contents, &config_filename);
+                    }
                 }
             }
         }
