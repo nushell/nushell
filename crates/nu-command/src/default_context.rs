@@ -37,6 +37,7 @@ pub fn create_default_context() -> EngineState {
             Hide,
             History,
             If,
+            Ignore,
             Let,
             Metadata,
             Module,
