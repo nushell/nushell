@@ -59,7 +59,7 @@ impl Command for SubCommand {
             Example {
                 description: "Show type of a filepath",
                 example: "'.' | path type",
-                result: Some(Value::test_string("Dir")),
+                result: Some(Value::test_string("dir")),
             },
             Example {
                 description: "Show type of a filepath in a column",
@@ -84,25 +84,25 @@ fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
 
 fn get_file_type(md: &std::fs::Metadata) -> &str {
     let ft = md.file_type();
-    let mut file_type = "Unknown";
+    let mut file_type = "unknown";
     if ft.is_dir() {
-        file_type = "Dir";
+        file_type = "dir";
     } else if ft.is_file() {
-        file_type = "File";
+        file_type = "file";
     } else if ft.is_symlink() {
-        file_type = "Symlink";
+        file_type = "symlink";
     } else {
         #[cfg(unix)]
         {
             use std::os::unix::fs::FileTypeExt;
             if ft.is_block_device() {
-                file_type = "Block device";
+                file_type = "block device";
             } else if ft.is_char_device() {
-                file_type = "Char device";
+                file_type = "char device";
             } else if ft.is_fifo() {
-                file_type = "Pipe";
+                file_type = "pipe";
             } else if ft.is_socket() {
-                file_type = "Socket";
+                file_type = "socket";
             }
         }
     }
