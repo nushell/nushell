@@ -41,15 +41,15 @@
 - [ ] external command signatures
 - [ ] shells
 - [ ] autoenv
-- [ ] dataframes
+- [x] dataframes
 - [ ] overlays (replacement for `autoenv`), adding modules to shells
-- [ ] port over `which` logic
+- [x] port over `which` logic
 - [ ] port test support crate so we can test against sample files, including multiple inputs into the CLI
-- [ ] benchmarking
+- [x] benchmarking
 - [ ] finish adding config properties
 - [ ] system-agnostic test cases
 - [ ] exit codes
-- [ ] auto-cd
+- [x] auto-cd
 - [ ] length of time the command runs put in the env (CMD_DURATION_MS)
 
 ## Post-nushell merge:

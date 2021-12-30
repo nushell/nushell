@@ -3609,7 +3609,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),
-            name: "$it".into(),
+            name: "$in".into(),
             desc: String::new(),
             shape: SyntaxShape::Any,
         });
@@ -3639,9 +3639,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             custom_completion: None,
         });
 
+        // The containing, synthetic call to `collect`.
+        // We don't want to have a real span as it will confuse flattening
+        // The args are where we'll get the real info
         Expression {
             expr: Expr::Call(Box::new(Call {
-                head: span,
+                head: Span::new(0, 0),
                 named: vec![],
                 positional: output,
                 decl_id,
