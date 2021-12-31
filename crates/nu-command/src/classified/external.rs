@@ -358,7 +358,7 @@ fn spawn(
                     let reader = BufReader::new(stdout);
                     let mut reader = BufCodecReader::new(reader, None);
 
-                    while let Some(result) = reader.read_line().transpose() {
+                    while let Some(result) = reader.read_some().transpose() {
                         match result {
                             Ok(line) => match line {
                                 StringOrBinary::String(s) => {
@@ -433,7 +433,7 @@ fn spawn(
                     let reader = BufReader::new(stderr);
                     let mut reader = BufCodecReader::new(reader, None);
 
-                    while let Some(result) = reader.read_line().transpose() {
+                    while let Some(result) = reader.read_some().transpose() {
                         match result {
                             Ok(line) => match line {
                                 StringOrBinary::String(s) => {

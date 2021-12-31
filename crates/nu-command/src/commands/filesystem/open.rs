@@ -169,7 +169,7 @@ fn open(args: CommandArgs) -> Result<ActionStream, ShellError> {
         anchor: Some(AnchorLocation::File(path.to_string_lossy().to_string())),
     };
 
-    let value = match reader.read_full()? {
+    let value = match reader.read_to_end()? {
         StringOrBinary::String(s) => {
             ReturnSuccess::value(UntaggedValue::string(s).into_value(file_tag))
         }

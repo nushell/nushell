@@ -193,7 +193,7 @@ pub fn process_script(
 
             let iter = std::iter::from_fn(move || {
                 let line = reader
-                    .read_line()
+                    .read_some()
                     .transpose()?
                     .expect("Internal error: could not read lines of text from stdin");
 
