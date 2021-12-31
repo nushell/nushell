@@ -2,7 +2,7 @@ use crate::{BlockId, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-const ANIMATE_PROMPT_DEFAULT: bool = false;
+const ANIMATE_PROMPT_DEFAULT: bool = true;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EnvConversion {
