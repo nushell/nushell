@@ -13,7 +13,7 @@ impl Command for FromTsv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from csv")
+        Signature::build("from tsv")
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
@@ -23,7 +23,7 @@ impl Command for FromTsv {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .csv and create table."
+        "Parse text as .tsv and create table."
     }
 
     fn run(
