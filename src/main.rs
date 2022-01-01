@@ -635,11 +635,21 @@ fn print_pipeline_data(
             return Ok(());
         }
         PipelineData::ByteStream(stream, _, _) => {
+            let mut address_offset = 0;
             for v in stream {
+                let cfg = nu_pretty_hex::HexConfig {
+                    title: false,
+                    address_offset,
+                    ..Default::default()
+                };
+
+                let v = v?;
+                address_offset += v.len();
+
                 let s = if v.iter().all(|x| x.is_ascii()) {
-                    format!("{}", String::from_utf8_lossy(&v?))
+                    format!("{}", String::from_utf8_lossy(&v))
                 } else {
-                    format!("{}\n", nu_pretty_hex::pretty_hex(&v?))
+                    nu_pretty_hex::config_hex(&v, cfg)
                 };
                 println!("{}", s);
             }
