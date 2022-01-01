@@ -9,8 +9,6 @@ use {
 #[derive(Clone)]
 pub struct NushellPrompt {
     prompt_string: String,
-    // These are part of the struct definition in case we want to allow
-    // further customization to the shell status
     default_prompt_indicator: String,
     default_vi_insert_prompt_indicator: String,
     default_vi_visual_prompt_indicator: String,
@@ -36,6 +34,37 @@ impl NushellPrompt {
 
     pub fn update_prompt(&mut self, prompt_string: String) {
         self.prompt_string = prompt_string;
+    }
+
+    pub fn update_prompt_indicator(&mut self, prompt_indicator_string: String) {
+        self.default_prompt_indicator = prompt_indicator_string;
+    }
+
+    pub fn update_prompt_vi_insert(&mut self, prompt_vi_insert_string: String) {
+        self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
+    }
+
+    pub fn update_prompt_vi_visual(&mut self, prompt_vi_visual_string: String) {
+        self.default_vi_visual_prompt_indicator = prompt_vi_visual_string;
+    }
+
+    pub fn update_prompt_multiline(&mut self, prompt_multiline_indicator_string: String) {
+        self.default_multiline_indicator = prompt_multiline_indicator_string;
+    }
+
+    pub fn update_all_prompt_strings(
+        &mut self,
+        prompt_string: String,
+        prompt_indicator_string: String,
+        prompt_vi_insert_string: String,
+        prompt_vi_visual_string: String,
+        prompt_multiline_indicator_string: String,
+    ) {
+        self.prompt_string = prompt_string;
+        self.default_prompt_indicator = prompt_indicator_string;
+        self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
+        self.default_vi_visual_prompt_indicator = prompt_vi_visual_string;
+        self.default_multiline_indicator = prompt_multiline_indicator_string;
     }
 
     fn default_wrapped_custom_string(&self, str: String) -> String {
