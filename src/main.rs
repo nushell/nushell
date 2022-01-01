@@ -5,6 +5,7 @@ use dialoguer::{
     theme::ColorfulTheme,
     Select,
 };
+use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
@@ -21,7 +22,6 @@ use reedline::{
 };
 use std::{
     io::Write,
-    path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -30,6 +30,8 @@ use std::{
 
 #[cfg(test)]
 mod tests;
+
+mod logger;
 
 // Name of environment variable where the prompt could be stored
 const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -114,6 +116,8 @@ fn main() -> Result<()> {
 
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&engine_state);
+            trace!("parsing file: {}", path);
+
             let (output, err) = parse(&mut working_set, Some(&path), &file, false);
             if let Some(err) = err {
                 report_error(&working_set, &err);
@@ -297,6 +301,16 @@ fn main() -> Result<()> {
             }
         };
 
+        use logger::{configure, logger};
+
+        logger(|builder| {
+            configure(&config.log_level, builder)?;
+            // trace_filters(self, builder)?;
+            // debug_filters(self, builder)?;
+
+            Ok(())
+        })?;
+
         // Translate environment variables from Strings to Values
         if let Some(e) = convert_env_values(&engine_state, &mut stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
@@ -417,18 +431,18 @@ fn main() -> Result<()> {
 
             let input = line_editor.read_line(prompt);
             match input {
-                Ok(Signal::Success(mut s)) => {
+                Ok(Signal::Success(s)) => {
+                    let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                     // Check if this is a single call to a directory, if so auto-cd
                     let path = nu_path::expand_path(&s);
                     let orig = s.clone();
-                    s = path.to_string_lossy().to_string();
 
-                    let path = Path::new(&s);
                     if (orig.starts_with('.')
                         || orig.starts_with('~')
                         || orig.starts_with('/')
                         || orig.starts_with('\\'))
                         && path.is_dir()
+                        && tokens.0.len() == 1
                     {
                         // We have an auto-cd
                         let _ = std::env::set_current_dir(&path);
@@ -445,6 +459,8 @@ fn main() -> Result<()> {
 
                         continue;
                     }
+
+                    trace!("eval source: {}", s);
 
                     eval_source(
                         &mut engine_state,
@@ -754,6 +770,8 @@ fn eval_source(
     source: &str,
     fname: &str,
 ) -> bool {
+    trace!("eval_source");
+
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let (output, err) = parse(

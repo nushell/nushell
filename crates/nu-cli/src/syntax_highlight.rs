@@ -1,3 +1,4 @@
+use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::get_shape_color;
 use nu_parser::{flatten_block, parse, FlatShape};
@@ -12,6 +13,8 @@ pub struct NuHighlighter {
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str) -> StyledText {
+        trace!("highlighting: {}", line);
+
         let (shapes, global_span_offset) = {
             let mut working_set = StateWorkingSet::new(&self.engine_state);
             let (block, _) = parse(&mut working_set, None, line.as_bytes(), false);

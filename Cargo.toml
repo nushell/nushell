@@ -40,6 +40,8 @@ nu-color-config = { path = "./crates/nu-color-config" }
 miette = "3.0.0"
 ctrlc = "3.2.1"
 crossterm_winapi = "0.9.0"
+log = "0.4"
+pretty_env_logger = "0.4.0"
 # mimalloc = { version = "*", default-features = false }
 
 

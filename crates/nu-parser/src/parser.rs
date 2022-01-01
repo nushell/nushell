@@ -20,6 +20,7 @@ use crate::parse_keywords::{
     parse_alias, parse_def, parse_def_predecl, parse_hide, parse_let, parse_module, parse_use,
 };
 
+use log::trace;
 use std::collections::HashSet;
 
 #[cfg(feature = "plugin")]
@@ -417,12 +418,15 @@ pub fn parse_multispan_value(
 
     match shape {
         SyntaxShape::VarWithOptType => {
+            trace!("parsing: var with opt type");
+
             let (arg, err) = parse_var_with_opt_type(working_set, spans, spans_idx);
             error = error.or(err);
 
             (arg, error)
         }
         SyntaxShape::RowCondition => {
+            trace!("parsing: row condition");
             let (arg, err) = parse_row_condition(working_set, &spans[*spans_idx..]);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
@@ -430,6 +434,8 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::Expression => {
+            trace!("parsing: expression");
+
             let (arg, err) = parse_expression(working_set, &spans[*spans_idx..], true);
             error = error.or(err);
             *spans_idx = spans.len() - 1;
@@ -437,6 +443,11 @@ pub fn parse_multispan_value(
             (arg, error)
         }
         SyntaxShape::Keyword(keyword, arg) => {
+            trace!(
+                "parsing: keyword({}) {:?}",
+                String::from_utf8_lossy(keyword),
+                arg
+            );
             let arg_span = spans[*spans_idx];
 
             let arg_contents = working_set.get_span_contents(arg_span);
@@ -507,6 +518,8 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: usize,
 ) -> (Box<Call>, Option<ParseError>) {
+    trace!("parsing: internal call (decl id: {})", decl_id);
+
     let mut error = None;
 
     let mut call = Call::new();
@@ -657,6 +670,8 @@ pub fn parse_call(
     expand_aliases: bool,
     head: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: call");
+
     if spans.is_empty() {
         return (
             garbage(head),
@@ -686,6 +701,8 @@ pub fn parse_call(
         if expand_aliases {
             // If the word is an alias, expand it and re-parse the expression
             if let Some(expansion) = working_set.find_alias(name) {
+                trace!("expanding alias");
+
                 let orig_span = spans[pos];
                 let mut new_spans: Vec<Span> = vec![];
                 new_spans.extend(&spans[0..pos]);
@@ -745,6 +762,8 @@ pub fn parse_call(
             let test_equal = working_set.get_span_contents(spans[1]);
 
             if test_equal == [b'='] {
+                trace!("incomplete statement");
+
                 return (
                     garbage(span(spans)),
                     Some(ParseError::UnknownState(
@@ -754,6 +773,8 @@ pub fn parse_call(
                 );
             }
         }
+
+        trace!("parsing: internal call");
 
         // parse internal command
         let (call, err) = parse_internal_call(
@@ -774,12 +795,16 @@ pub fn parse_call(
     } else {
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
+        trace!("parsing: range {:?} ", bytes);
         if let (Some(b'.'), Some(b'.')) = (bytes.get(0), bytes.get(1)) {
+            trace!("-- found leading range indicator");
             let (range_expr, range_err) = parse_range(working_set, spans[0]);
             if range_err.is_none() {
+                trace!("-- successfully parsed range");
                 return (range_expr, range_err);
             }
         }
+        trace!("parsing: external call");
 
         // Otherwise, try external command
         parse_external_call(working_set, spans)
@@ -904,6 +929,8 @@ pub fn parse_range(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: range");
+
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
     //   and  <range_operator> is ".." or "..<"
@@ -993,6 +1020,8 @@ pub fn parse_range(
             }
         }
     };
+
+    trace!("-- from: {:?} to: {:?}", from, to);
 
     if let (None, None) = (&from, &to) {
         return (
@@ -1352,6 +1381,8 @@ pub fn parse_full_cell_path(
     if let Some(head) = tokens.peek() {
         let bytes = working_set.get_span_contents(head.span);
         let (head, expect_dot) = if bytes.starts_with(b"(") {
+            trace!("parsing: paren-head of full cell path");
+
             let head_span = head.span;
             let mut start = head.span.start;
             let mut end = head.span.end;
@@ -1392,6 +1423,8 @@ pub fn parse_full_cell_path(
                 true,
             )
         } else if bytes.starts_with(b"[") {
+            trace!("parsing: table head of full cell path");
+
             let (output, err) = parse_table_expression(working_set, head.span);
             error = error.or(err);
 
@@ -1399,6 +1432,7 @@ pub fn parse_full_cell_path(
 
             (output, true)
         } else if bytes.starts_with(b"{") {
+            trace!("parsing: record head of full cell path");
             let (output, err) = parse_record(working_set, head.span);
             error = error.or(err);
 
@@ -1406,6 +1440,8 @@ pub fn parse_full_cell_path(
 
             (output, true)
         } else if bytes.starts_with(b"$") {
+            trace!("parsing: $variable head of full cell path");
+
             let (out, err) = parse_variable_expr(working_set, head.span);
             error = error.or(err);
 
@@ -1469,10 +1505,13 @@ pub fn parse_filepath(
 ) -> (Expression, Option<ParseError>) {
     let bytes = working_set.get_span_contents(span);
     let bytes = trim_quotes(bytes);
+    trace!("parsing: filepath");
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
         let filepath = nu_path::expand_path(token);
         let filepath = filepath.to_string_lossy().to_string();
+        trace!("-- found {}", filepath);
+
         (
             Expression {
                 expr: Expr::Filepath(filepath),
@@ -1495,6 +1534,8 @@ pub fn parse_duration(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: duration");
+
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
@@ -1547,6 +1588,8 @@ pub fn parse_duration(
         };
 
         if let Some(x) = value {
+            trace!("-- found {} {:?}", x, unit_to_use);
+
             let lhs_span = Span::new(span.start, span.start + lhs.len());
             let unit_span = Span::new(span.start + lhs.len(), span.end);
             return (
@@ -1587,6 +1630,8 @@ pub fn parse_filesize(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: duration");
+
     fn parse_decimal_str_to_number(decimal: &str) -> Option<i64> {
         let string_to_parse = format!("0.{}", decimal);
         if let Ok(x) = string_to_parse.parse::<f64>() {
@@ -1642,6 +1687,8 @@ pub fn parse_filesize(
         };
 
         if let Some(x) = value {
+            trace!("-- found {} {:?}", x, unit_to_use);
+
             let lhs_span = Span::new(span.start, span.start + lhs.len());
             let unit_span = Span::new(span.start + lhs.len(), span.end);
             return (
@@ -1681,10 +1728,14 @@ pub fn parse_glob_pattern(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: glob pattern");
+
     let bytes = working_set.get_span_contents(span);
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        trace!("-- found {}", token);
+
         let filepath = nu_path::expand_path(token);
         let filepath = filepath.to_string_lossy().to_string();
 
@@ -1709,10 +1760,14 @@ pub fn parse_string(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: string");
+
     let bytes = working_set.get_span_contents(span);
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        trace!("-- found {}", token);
+
         (
             Expression {
                 expr: Expr::String(token),
@@ -1734,6 +1789,8 @@ pub fn parse_string_strict(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: string, with required delimiters");
+
     let bytes = working_set.get_span_contents(span);
     let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
@@ -1744,6 +1801,8 @@ pub fn parse_string_strict(
     };
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        trace!("-- found {}", token);
+
         if quoted {
             (
                 Expression {
@@ -2621,6 +2680,8 @@ pub fn parse_block_expression(
     shape: &SyntaxShape,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    trace!("parsing: block expression");
+
     let bytes = working_set.get_span_contents(span);
     let mut error = None;
 
@@ -2768,16 +2829,23 @@ pub fn parse_value(
     // which might result in a value that fits other shapes (and require the variable to already be
     // declared)
     if shape == &SyntaxShape::Variable {
+        trace!("parsing: variable");
+
         return parse_variable_expr(working_set, span);
     } else if bytes.starts_with(b"$") {
+        trace!("parsing: dollar expression");
+
         return parse_dollar_expr(working_set, span);
     } else if bytes.starts_with(b"(") {
+        trace!("parsing: range or full path");
+
         if let (expr, None) = parse_range(working_set, span) {
             return (expr, None);
         } else {
             return parse_full_cell_path(working_set, None, span);
         }
     } else if bytes.starts_with(b"{") {
+        trace!("parsing: block or full path");
         if !matches!(shape, SyntaxShape::Block(..)) {
             if let (expr, None) = parse_full_cell_path(working_set, None, span) {
                 return (expr, None);
@@ -2822,6 +2890,8 @@ pub fn parse_value(
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Block(_) => {
             if bytes.starts_with(b"{") {
+                trace!("parsing value as a block expression");
+
                 parse_block_expression(working_set, shape, span)
             } else {
                 (
@@ -3347,6 +3417,8 @@ pub fn parse_block(
     lite_block: &LiteBlock,
     scoped: bool,
 ) -> (Block, Option<ParseError>) {
+    trace!("parsing block: {:?}", lite_block);
+
     if scoped {
         working_set.enter_scope();
     }
@@ -3667,6 +3739,8 @@ pub fn parse(
     contents: &[u8],
     scoped: bool,
 ) -> (Block, Option<ParseError>) {
+    trace!("starting top-level parse");
+
     let mut error = None;
 
     let span_offset = working_set.next_span_start();

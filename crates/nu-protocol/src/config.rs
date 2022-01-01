@@ -53,6 +53,7 @@ pub struct Config {
     pub env_conversions: HashMap<String, EnvConversion>,
     pub edit_mode: String,
     pub max_history_size: i64,
+    pub log_level: String,
 }
 
 impl Default for Config {
@@ -71,6 +72,7 @@ impl Default for Config {
             env_conversions: HashMap::new(), // TODO: Add default conversoins
             edit_mode: "emacs".into(),
             max_history_size: 1000,
+            log_level: String::new(),
         }
     }
 }
@@ -185,6 +187,9 @@ impl Value {
                 }
                 "max_history_size" => {
                     config.max_history_size = value.as_i64()?;
+                }
+                "log_level" => {
+                    config.log_level = value.as_string()?;
                 }
                 _ => {}
             }
