@@ -197,3 +197,16 @@ fn select() -> TestResult {
 fn update_will_insert() -> TestResult {
     run_test(r#"{} | update a b | get a"#, "b")
 }
+
+#[test]
+fn length_for_columns() -> TestResult {
+    run_test(
+        r#"[[name,age,grade]; [bill,20,a] [a b c]] | length -c"#,
+        "3",
+    )
+}
+
+#[test]
+fn length_for_rows() -> TestResult {
+    run_test(r#"[[name,age,grade]; [bill,20,a] [a b c]] | length"#, "2")
+}
