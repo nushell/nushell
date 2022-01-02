@@ -418,52 +418,57 @@ pub fn eval_block(
         }
 
         if stmt_idx < (num_stmts) - 1 {
-            // Drain the input to the screen via tabular output
-            let config = stack.get_config().unwrap_or_default();
+            match input {
+                PipelineData::Value(Value::Nothing { .. }, ..) => {}
+                _ => {
+                    // Drain the input to the screen via tabular output
+                    let config = stack.get_config().unwrap_or_default();
 
-            match engine_state.find_decl("table".as_bytes()) {
-                Some(decl_id) => {
-                    let table = engine_state.get_decl(decl_id).run(
-                        engine_state,
-                        stack,
-                        &Call::new(),
-                        input,
-                    )?;
+                    match engine_state.find_decl("table".as_bytes()) {
+                        Some(decl_id) => {
+                            let table = engine_state.get_decl(decl_id).run(
+                                engine_state,
+                                stack,
+                                &Call::new(),
+                                input,
+                            )?;
 
-                    for item in table {
-                        let stdout = std::io::stdout();
+                            for item in table {
+                                let stdout = std::io::stdout();
 
-                        if let Value::Error { error } = item {
-                            return Err(error);
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
+
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
+
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
                         }
+                        None => {
+                            for item in input {
+                                let stdout = std::io::stdout();
 
-                        let mut out = item.into_string("\n", &config);
-                        out.push('\n');
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
 
-                        match stdout.lock().write_all(out.as_bytes()) {
-                            Ok(_) => (),
-                            Err(err) => eprintln!("{}", err),
-                        };
-                    }
-                }
-                None => {
-                    for item in input {
-                        let stdout = std::io::stdout();
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
 
-                        if let Value::Error { error } = item {
-                            return Err(error);
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
                         }
-
-                        let mut out = item.into_string("\n", &config);
-                        out.push('\n');
-
-                        match stdout.lock().write_all(out.as_bytes()) {
-                            Ok(_) => (),
-                            Err(err) => eprintln!("{}", err),
-                        };
-                    }
+                    };
                 }
-            };
+            }
 
             input = PipelineData::new(Span { start: 0, end: 0 })
         }
