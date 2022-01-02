@@ -267,6 +267,24 @@ fn main() -> Result<()> {
             },
         );
 
+        #[cfg(feature = "plugin")]
+        {
+            // Reading signatures from signature file
+            // The plugin.nu file stores the parsed signature collected from each registered plugin
+            if let Some(mut plugin_path) = nu_path::config_dir() {
+                // Path to store plugins signatures
+                plugin_path.push("nushell");
+                plugin_path.push("plugin.nu");
+                engine_state.plugin_signatures = Some(plugin_path.clone());
+
+                let plugin_filename = plugin_path.to_string_lossy().to_owned();
+
+                if let Ok(contents) = std::fs::read_to_string(&plugin_path) {
+                    eval_source(&mut engine_state, &mut stack, &contents, &plugin_filename);
+                }
+            }
+        }
+
         // Load config startup file
         if let Some(mut config_path) = nu_path::config_dir() {
             config_path.push("nushell");
@@ -332,24 +350,6 @@ fn main() -> Result<()> {
                 Some(history_path)
             }
         });
-
-        #[cfg(feature = "plugin")]
-        {
-            // Reading signatures from signature file
-            // The plugin.nu file stores the parsed signature collected from each registered plugin
-            if let Some(mut plugin_path) = nu_path::config_dir() {
-                // Path to store plugins signatures
-                plugin_path.push("nushell");
-                plugin_path.push("plugin.nu");
-                engine_state.plugin_signatures = Some(plugin_path.clone());
-
-                let plugin_filename = plugin_path.to_string_lossy().to_owned();
-
-                if let Ok(contents) = std::fs::read_to_string(&plugin_path) {
-                    eval_source(&mut engine_state, &mut stack, &contents, &plugin_filename);
-                }
-            }
-        }
 
         loop {
             let config = match stack.get_config() {
