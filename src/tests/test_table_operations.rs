@@ -210,3 +210,8 @@ fn length_for_columns() -> TestResult {
 fn length_for_rows() -> TestResult {
     run_test(r#"[[name,age,grade]; [bill,20,a] [a b c]] | length"#, "2")
 }
+
+#[test]
+fn get_fuzzy() -> TestResult {
+    run_test("(ls | get -i foo) == $nothing", "true")
+}
