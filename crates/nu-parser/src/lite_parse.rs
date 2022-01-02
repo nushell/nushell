@@ -85,16 +85,37 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut curr_pipeline = LiteStatement::new();
     let mut curr_command = LiteCommand::new();
 
+    let mut last_token_was_pipe = false;
+
     for token in tokens.iter() {
         match &token.contents {
-            TokenContents::Item => curr_command.push(token.span),
+            TokenContents::Item => {
+                curr_command.push(token.span);
+                last_token_was_pipe = false;
+            }
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
                     curr_pipeline.push(curr_command);
                     curr_command = LiteCommand::new();
                 }
+                last_token_was_pipe = true;
             }
-            TokenContents::Eol | TokenContents::Semicolon => {
+            TokenContents::Eol => {
+                if !last_token_was_pipe {
+                    if !curr_command.is_empty() {
+                        curr_pipeline.push(curr_command);
+
+                        curr_command = LiteCommand::new();
+                    }
+
+                    if !curr_pipeline.is_empty() {
+                        block.push(curr_pipeline);
+
+                        curr_pipeline = LiteStatement::new();
+                    }
+                }
+            }
+            TokenContents::Semicolon => {
                 if !curr_command.is_empty() {
                     curr_pipeline.push(curr_command);
 
@@ -106,6 +127,8 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
                     curr_pipeline = LiteStatement::new();
                 }
+
+                last_token_was_pipe = false;
             }
             TokenContents::Comment => {
                 curr_command.comments.push(token.span);
@@ -121,5 +144,15 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         block.push(curr_pipeline);
     }
 
-    (block, None)
+    if last_token_was_pipe {
+        (
+            block,
+            Some(ParseError::UnexpectedEof(
+                "pipeline missing end".into(),
+                tokens[tokens.len() - 1].span,
+            )),
+        )
+    } else {
+        (block, None)
+    }
 }

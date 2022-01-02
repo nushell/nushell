@@ -123,3 +123,14 @@ fn let_not_statement() -> TestResult {
 fn for_in_missing_var_name() -> TestResult {
     fail_test("for in", "missing")
 }
+
+#[test]
+fn multiline_pipe_in_block() -> TestResult {
+    run_test(
+        r#"do {
+            echo hello |
+            str length
+        }"#,
+        "5",
+    )
+}
