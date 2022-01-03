@@ -18,9 +18,9 @@ impl WholeStreamCommand for SubCommand {
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
-                "the number of the row to drop",
+                "the number of the row to drop or a range to drop consecutive rows",
             )
-            .rest("rest", SyntaxShape::Any, "Optionally drop more rows (Only if first argument is number)")
+            .rest("rest", SyntaxShape::Any, "Optionally drop more rows (Ignored if first argument is a range)")
     }
 
     fn usage(&self) -> &str {
