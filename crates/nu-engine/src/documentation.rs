@@ -1,7 +1,5 @@
 use itertools::Itertools;
-use nu_protocol::{
-    engine::EngineState, Example, PositionalArg, Signature, Span, SyntaxShape, Value,
-};
+use nu_protocol::{engine::EngineState, Example, Signature, Span, Value};
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -168,30 +166,7 @@ pub fn get_documentation(
         }
     }
 
-    let mut one_liner = String::new();
-    one_liner.push_str(&sig.name);
-    one_liner.push(' ');
-
-    for positional in &sig.required_positional {
-        one_liner.push_str(&get_positional_short_name(positional, true));
-    }
-    for positional in &sig.optional_positional {
-        one_liner.push_str(&get_positional_short_name(positional, false));
-    }
-
-    if sig.rest_positional.is_some() {
-        one_liner.push_str("...args ");
-    }
-
-    if !subcommands.is_empty() {
-        one_liner.push_str("<subcommand> ");
-    }
-
-    if !sig.named.is_empty() {
-        one_liner.push_str("{flags} ");
-    }
-
-    long_desc.push_str(&format!("Usage:\n  > {}\n", one_liner));
+    long_desc.push_str(&format!("Usage:\n  > {}\n", sig.call_signature()));
 
     if !subcommands.is_empty() {
         long_desc.push_str("\nSubcommands:\n");
@@ -244,25 +219,6 @@ pub fn get_documentation(
     long_desc.push('\n');
 
     long_desc
-}
-
-fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
-    match &arg.shape {
-        SyntaxShape::Keyword(name, ..) => {
-            if is_required {
-                format!("{} <{}> ", String::from_utf8_lossy(name), arg.name)
-            } else {
-                format!("({} <{}>) ", String::from_utf8_lossy(name), arg.name)
-            }
-        }
-        _ => {
-            if is_required {
-                format!("<{}> ", arg.name)
-            } else {
-                format!("({}) ", arg.name)
-            }
-        }
-    }
 }
 
 fn get_flags_section(signature: &Signature) -> String {

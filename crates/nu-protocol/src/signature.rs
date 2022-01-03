@@ -274,6 +274,33 @@ impl Signature {
         self
     }
 
+    pub fn call_signature(&self) -> String {
+        let mut one_liner = String::new();
+        one_liner.push_str(&self.name);
+        one_liner.push(' ');
+
+        for positional in &self.required_positional {
+            one_liner.push_str(&get_positional_short_name(positional, true));
+        }
+        for positional in &self.optional_positional {
+            one_liner.push_str(&get_positional_short_name(positional, false));
+        }
+
+        if self.rest_positional.is_some() {
+            one_liner.push_str("...args ");
+        }
+
+        // if !self.subcommands.is_empty() {
+        //     one_liner.push_str("<subcommand> ");
+        // }
+
+        if !self.named.is_empty() {
+            one_liner.push_str("{flags} ");
+        }
+
+        one_liner
+    }
+
     /// Get list of the short-hand flags
     pub fn get_shorts(&self) -> Vec<char> {
         self.named.iter().filter_map(|f| f.short).collect()
@@ -428,6 +455,25 @@ impl Command for Predeclaration {
         _input: PipelineData,
     ) -> Result<PipelineData, crate::ShellError> {
         panic!("Internal error: can't run a predeclaration without a body")
+    }
+}
+
+fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
+    match &arg.shape {
+        SyntaxShape::Keyword(name, ..) => {
+            if is_required {
+                format!("{} <{}> ", String::from_utf8_lossy(name), arg.name)
+            } else {
+                format!("({} <{}>) ", String::from_utf8_lossy(name), arg.name)
+            }
+        }
+        _ => {
+            if is_required {
+                format!("<{}> ", arg.name)
+            } else {
+                format!("({}) ", arg.name)
+            }
+        }
     }
 }
 

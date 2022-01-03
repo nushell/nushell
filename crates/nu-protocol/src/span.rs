@@ -46,6 +46,15 @@ impl Span {
     pub fn contains(&self, pos: usize) -> bool {
         pos >= self.start && pos < self.end
     }
+
+    /// Point to the space just past this span, useful for missing
+    /// values
+    pub fn past(&self) -> Span {
+        Span {
+            start: self.end,
+            end: self.end,
+        }
+    }
 }
 
 /// Used when you have a slice of spans of at least size 1

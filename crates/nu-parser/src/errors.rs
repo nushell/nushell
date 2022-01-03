@@ -16,8 +16,8 @@ pub enum ParseError {
     ExtraTokens(#[label = "extra tokens"] Span),
 
     #[error("Extra positional argument.")]
-    #[diagnostic(code(nu::parser::extra_positional), url(docsrs))]
-    ExtraPositional(#[label = "extra positional argument"] Span),
+    #[diagnostic(code(nu::parser::extra_positional), url(docsrs), help("Usage: {0}"))]
+    ExtraPositional(String, #[label = "extra positional argument"] Span),
 
     #[error("Unexpected end of code.")]
     #[diagnostic(code(nu::parser::unexpected_eof), url(docsrs))]
@@ -106,28 +106,36 @@ pub enum ParseError {
     NonUtf8(#[label = "non-UTF8 string"] Span),
 
     #[error("The `{0}` command doesn't have flag `{1}`.")]
-    #[diagnostic(code(nu::parser::unknown_flag), url(docsrs))]
+    #[diagnostic(
+        code(nu::parser::unknown_flag),
+        url(docsrs),
+        help("use {0} --help for a list of flags")
+    )]
     UnknownFlag(String, String, #[label = "unknown flag"] Span),
 
     #[error("Unknown type.")]
     #[diagnostic(code(nu::parser::unknown_type), url(docsrs))]
     UnknownType(#[label = "unknown type"] Span),
 
-    #[error("Missing flag param.")]
+    #[error("Missing flag argument.")]
     #[diagnostic(code(nu::parser::missing_flag_param), url(docsrs))]
-    MissingFlagParam(#[label = "flag missing param"] Span),
+    MissingFlagParam(String, #[label = "flag missing {0} argument"] Span),
 
     #[error("Batches of short flags can't take arguments.")]
     #[diagnostic(code(nu::parser::short_flag_arg_cant_take_arg), url(docsrs))]
     ShortFlagBatchCantTakeArg(#[label = "short flag batches can't take args"] Span),
 
     #[error("Missing required positional argument.")]
-    #[diagnostic(code(nu::parser::missing_positional), url(docsrs))]
-    MissingPositional(String, #[label("missing {0}")] Span),
+    #[diagnostic(code(nu::parser::missing_positional), url(docsrs), help("Usage: {2}"))]
+    MissingPositional(String, #[label("missing {0}")] Span, String),
 
-    #[error("Missing argument to `{0}`.")]
+    #[error("Missing argument to `{1}`.")]
     #[diagnostic(code(nu::parser::keyword_missing_arg), url(docsrs))]
-    KeywordMissingArgument(String, #[label("missing value that follows {0}")] Span),
+    KeywordMissingArgument(
+        String,
+        String,
+        #[label("missing {0} value that follows {1}")] Span,
+    ),
 
     #[error("Missing type.")]
     #[diagnostic(code(nu::parser::missing_type), url(docsrs))]

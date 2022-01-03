@@ -344,6 +344,9 @@ pub fn parse_export(
                     );
                 }
 
+                let sig = working_set.get_decl(call.decl_id);
+                let call_signature = sig.signature().call_signature();
+
                 call.head = span(&spans[0..=1]);
 
                 if let Some(name_span) = spans.get(2) {
@@ -385,7 +388,11 @@ pub fn parse_export(
                         };
 
                         error = error.or_else(|| {
-                            Some(ParseError::MissingPositional("block".into(), err_span))
+                            Some(ParseError::MissingPositional(
+                                "block".into(),
+                                err_span,
+                                call_signature,
+                            ))
                         });
 
                         None
@@ -400,6 +407,7 @@ pub fn parse_export(
                         Some(ParseError::MissingPositional(
                             "environment variable name".into(),
                             err_span,
+                            call_signature,
                         ))
                     });
 
@@ -426,6 +434,7 @@ pub fn parse_export(
                     start: export_span.end,
                     end: export_span.end,
                 },
+                "'def' or 'env' keyword.".to_string(),
             ))
         });
 
@@ -925,6 +934,9 @@ pub fn parse_let(
         }
 
         if let Some(decl_id) = working_set.find_decl(b"let") {
+            let cmd = working_set.get_decl(decl_id);
+            let call_signature = cmd.signature().call_signature();
+
             if spans.len() >= 4 {
                 // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
                 // so that the var-id created by the variable isn't visible in the expression that init it
@@ -943,7 +955,10 @@ pub fn parse_let(
                         error = error.or(err);
 
                         if idx < (spans.len() - 1) {
-                            error = error.or(Some(ParseError::ExtraPositional(spans[idx + 1])));
+                            error = error.or(Some(ParseError::ExtraPositional(
+                                call_signature,
+                                spans[idx + 1],
+                            )));
                         }
 
                         let mut idx = 0;
