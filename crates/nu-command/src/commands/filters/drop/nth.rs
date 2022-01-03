@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use itertools::Either;
-use nu_engine::WholeStreamCommand;
+use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
 use nu_protocol::{Range, Signature, SpannedTypeName, SyntaxShape, Value};
 use nu_source::Tagged;
@@ -50,23 +50,22 @@ impl WholeStreamCommand for SubCommand {
             Example {
                 description: "Drop range rows from second to fourth",
                 example: "echo [first second third fourth fifth] | drop nth (1..3)",
-                result: Some(vec![Value::from("first fifth")]),
+                result: Some(vec![Value::from("first"), Value::from("fifth")]),
             },
         ]
     }
 }
 
-fn extract_int_or_range(
-    args: &CommandArgs,
-) -> Result<Either<Tagged<u64>, Tagged<Range>>, ShellError> {
-    let actual_type = args
-        .req::<Value>(0)
-        .map(|value| value.spanned_type_name())?;
-    match args.req::<Tagged<u64>>(0).ok() {
-        Some(row_number) => Some(Either::Left(row_number)),
-        None => args.req::<Tagged<Range>>(0).map(Either::Right).ok(),
-    }
-    .ok_or(ShellError::type_error("int or range", actual_type))
+fn extract_int_or_range(args: &CommandArgs) -> Result<Either<u64, Range>, ShellError> {
+    let value = args.req::<Value>(0)?;
+
+    let int_opt = value.as_u64().map(Either::Left).ok();
+    let range_opt = FromValue::from_value(&value).map(Either::Right).ok();
+
+    int_opt.or(range_opt).ok_or(ShellError::type_error(
+        "int or range",
+        value.spanned_type_name(),
+    ))
 }
 
 fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -76,7 +75,7 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
 
             let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-            rows.push(row_number.item as usize);
+            rows.push(row_number as usize);
             rows.sort_unstable();
             rows
         }
