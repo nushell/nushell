@@ -15,12 +15,12 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
             .required(
-                "row number",
+                "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
                 "the number of the row to drop",
             )
-            .rest("rest", SyntaxShape::Any, "Optionally drop more rows")
+            .rest("rest", SyntaxShape::Any, "Optionally drop more rows (Only if first argument is number)")
     }
 
     fn usage(&self) -> &str {
@@ -43,6 +43,11 @@ impl WholeStreamCommand for SubCommand {
                 example: "echo [first second third] | drop nth 0 2",
                 result: Some(vec![Value::from("second")]),
             },
+            Example {
+                description: "Drop range rows from second to fourth",
+                example: "echo [first second third fourth fifth] | drop nth (1..3)",
+                result: Some(vec![Value::from("first fifth")]),
+            }
         ]
     }
 }
