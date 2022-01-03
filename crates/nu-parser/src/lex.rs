@@ -280,7 +280,7 @@ pub fn lex(
                     if !skip_comment {
                         output.push(Token::new(
                             TokenContents::Comment,
-                            Span::new(start, curr_offset),
+                            Span::new(span_offset + start, span_offset + curr_offset),
                         ));
                     }
                     start = curr_offset;
