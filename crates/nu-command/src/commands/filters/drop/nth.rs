@@ -2,7 +2,7 @@ use crate::prelude::*;
 use itertools::Either;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value, Range, SpannedTypeName};
+use nu_protocol::{Range, Signature, SpannedTypeName, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
@@ -20,7 +20,11 @@ impl WholeStreamCommand for SubCommand {
                 SyntaxShape::Any,
                 "the number of the row to drop or a range to drop consecutive rows",
             )
-            .rest("rest", SyntaxShape::Any, "Optionally drop more rows (Ignored if first argument is a range)")
+            .rest(
+                "rest",
+                SyntaxShape::Any,
+                "Optionally drop more rows (Ignored if first argument is a range)",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -47,17 +51,22 @@ impl WholeStreamCommand for SubCommand {
                 description: "Drop range rows from second to fourth",
                 example: "echo [first second third fourth fifth] | drop nth (1..3)",
                 result: Some(vec![Value::from("first fifth")]),
-            }
+            },
         ]
     }
 }
 
-fn extract_int_or_range(args: &CommandArgs) -> Result<Either<Tagged<u64>, Tagged<Range>>, ShellError> {
-    let actual_type = args.req::<Value>(0).map(|value| value.spanned_type_name())?;
+fn extract_int_or_range(
+    args: &CommandArgs,
+) -> Result<Either<Tagged<u64>, Tagged<Range>>, ShellError> {
+    let actual_type = args
+        .req::<Value>(0)
+        .map(|value| value.spanned_type_name())?;
     match args.req::<Tagged<u64>>(0).ok() {
         Some(row_number) => Some(Either::Left(row_number)),
         None => args.req::<Tagged<Range>>(0).map(Either::Right).ok(),
-    }.ok_or(ShellError::type_error("int or range", actual_type))
+    }
+    .ok_or(ShellError::type_error("int or range", actual_type))
 }
 
 fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -72,12 +81,12 @@ fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
             rows
         }
         Either::Right(row_range) => {
-            let from = row_range.min_u64()? as usize;    
+            let from = row_range.min_u64()? as usize;
             let to = row_range.max_u64()? as usize;
-            
+
             (from..=to).collect()
         }
-    };    
+    };
 
     let input = args.input;
 
