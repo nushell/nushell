@@ -22,6 +22,8 @@ pub enum FlatShape {
     StringInterpolation,
     List,
     Table,
+    Record,
+    Block,
     Filepath,
     GlobPattern,
     Variable,
@@ -48,6 +50,8 @@ impl Display for FlatShape {
             FlatShape::StringInterpolation => write!(f, "flatshape_string_interpolation"),
             FlatShape::List => write!(f, "flatshape_string_interpolation"),
             FlatShape::Table => write!(f, "flatshape_table"),
+            FlatShape::Record => write!(f, "flatshape_record"),
+            FlatShape::Block => write!(f, "flatshape_block"),
             FlatShape::Filepath => write!(f, "flatshape_filepath"),
             FlatShape::GlobPattern => write!(f, "flatshape_globpattern"),
             FlatShape::Variable => write!(f, "flatshape_variable"),
@@ -91,7 +95,48 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, rhs));
             output
         }
-        Expr::Block(block_id) => flatten_block(working_set, working_set.get_block(*block_id)),
+        Expr::Block(block_id) => {
+            let outer_span = expr.span;
+
+            let mut output = vec![];
+
+            let flattened = flatten_block(working_set, working_set.get_block(*block_id));
+
+            if let Some(first) = flattened.first() {
+                if first.0.start > outer_span.start {
+                    output.push((
+                        Span {
+                            start: outer_span.start,
+                            end: first.0.start,
+                        },
+                        FlatShape::Block,
+                    ));
+                }
+            }
+
+            let last = if let Some(last) = flattened.last() {
+                if last.0.end < outer_span.end {
+                    Some((
+                        Span {
+                            start: last.0.end,
+                            end: outer_span.end,
+                        },
+                        FlatShape::Table,
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            output.extend(flattened);
+            if let Some(last) = last {
+                output.push(last)
+            }
+
+            output
+        }
         Expr::Call(call) => {
             let mut output = vec![(call.head, FlatShape::InternalCall)];
 
@@ -273,11 +318,57 @@ pub fn flatten_expression(
             output
         }
         Expr::Record(list) => {
+            let outer_span = expr.span;
+            let mut last_end = outer_span.start;
+
             let mut output = vec![];
             for l in list {
-                output.extend(flatten_expression(working_set, &l.0));
-                output.extend(flatten_expression(working_set, &l.1));
+                let flattened_lhs = flatten_expression(working_set, &l.0);
+                let flattened_rhs = flatten_expression(working_set, &l.1);
+
+                if let Some(first) = flattened_lhs.first() {
+                    if first.0.start > last_end {
+                        output.push((
+                            Span {
+                                start: last_end,
+                                end: first.0.start,
+                            },
+                            FlatShape::Record,
+                        ));
+                    }
+                }
+                if let Some(last) = flattened_lhs.last() {
+                    last_end = last.0.end;
+                }
+                output.extend(flattened_lhs);
+
+                if let Some(first) = flattened_rhs.first() {
+                    if first.0.start > last_end {
+                        output.push((
+                            Span {
+                                start: last_end,
+                                end: first.0.start,
+                            },
+                            FlatShape::Record,
+                        ));
+                    }
+                }
+                if let Some(last) = flattened_rhs.last() {
+                    last_end = last.0.end;
+                }
+
+                output.extend(flattened_rhs);
             }
+            if last_end < outer_span.end {
+                output.push((
+                    Span {
+                        start: last_end,
+                        end: outer_span.end,
+                    },
+                    FlatShape::Record,
+                ));
+            }
+
             output
         }
         Expr::Keyword(_, span, expr) => {

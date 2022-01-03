@@ -2702,9 +2702,9 @@ pub fn parse_block_expression(
         error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
     }
 
-    let span = Span { start, end };
+    let inner_span = Span { start, end };
 
-    let source = working_set.get_span_contents(span);
+    let source = working_set.get_span_contents(inner_span);
 
     let (output, err) = lex(source, start, &[], &[], true);
     error = error.or(err);
@@ -3365,8 +3365,8 @@ pub fn parse_record(
         error = error.or_else(|| Some(ParseError::Unclosed("}".into(), Span { start: end, end })));
     }
 
-    let span = Span { start, end };
-    let source = working_set.get_span_contents(span);
+    let inner_span = Span { start, end };
+    let source = working_set.get_span_contents(inner_span);
 
     let (tokens, err) = lex(source, start, &[b'\n', b'\r', b','], &[b':'], true);
     error = error.or(err);
