@@ -1,7 +1,8 @@
 use crate::prelude::*;
+use itertools::Either;
 use nu_engine::WholeStreamCommand;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape, Value, Range, SpannedTypeName};
 use nu_source::Tagged;
 
 pub struct SubCommand;
@@ -15,7 +16,8 @@ impl WholeStreamCommand for SubCommand {
         Signature::build("drop nth")
             .required(
                 "row number",
-                SyntaxShape::Int,
+                // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
+                SyntaxShape::Any,
                 "the number of the row to drop",
             )
             .rest("rest", SyntaxShape::Any, "Optionally drop more rows")
@@ -45,14 +47,34 @@ impl WholeStreamCommand for SubCommand {
     }
 }
 
-fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let row_number: Tagged<u64> = args.req(0)?;
-    let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
-    let input = args.input;
+fn extract_int_or_range(args: &CommandArgs) -> Result<Either<Tagged<u64>, Tagged<Range>>, ShellError> {
+    let actual_type = args.req::<Value>(0).map(|value| value.spanned_type_name())?;
+    match args.req::<Tagged<u64>>(0).ok() {
+        Some(row_number) => Some(Either::Left(row_number)),
+        None => args.req::<Tagged<Range>>(0).map(Either::Right).ok(),
+    }.ok_or(ShellError::type_error("int or range", actual_type))
+}
 
-    let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-    rows.push(row_number.item as usize);
-    rows.sort_unstable();
+fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let number_or_range = extract_int_or_range(&args)?;
+    let rows = match number_or_range {
+        Either::Left(row_number) => {
+            let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
+
+            let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
+            rows.push(row_number.item as usize);
+            rows.sort_unstable();
+            rows
+        }
+        Either::Right(row_range) => {
+            let from = row_range.min_u64()? as usize;    
+            let to = row_range.max_u64()? as usize;
+            
+            (from..=to).collect()
+        }
+    };    
+
+    let input = args.input;
 
     Ok(DropNthIterator {
         input,
