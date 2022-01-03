@@ -2514,10 +2514,10 @@ pub fn parse_list_expression(
         error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
-    let span = Span { start, end };
-    let source = working_set.get_span_contents(span);
+    let inner_span = Span { start, end };
+    let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, span.start, &[b'\n', b'\r', b','], &[], true);
+    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -2585,9 +2585,9 @@ pub fn parse_table_expression(
         error = error.or_else(|| Some(ParseError::Unclosed("]".into(), Span { start: end, end })));
     }
 
-    let span = Span { start, end };
+    let inner_span = Span { start, end };
 
-    let source = working_set.get_span_contents(span);
+    let source = working_set.get_span_contents(inner_span);
 
     let (output, err) = lex(source, start, &[b'\n', b'\r', b','], &[], true);
     error = error.or(err);
@@ -2599,7 +2599,7 @@ pub fn parse_table_expression(
         0 => (
             Expression {
                 expr: Expr::List(vec![]),
-                span,
+                span: original_span,
                 ty: Type::List(Box::new(Type::Unknown)),
                 custom_completion: None,
             },
@@ -2665,7 +2665,7 @@ pub fn parse_table_expression(
             (
                 Expression {
                     expr: Expr::Table(table_headers, rows),
-                    span,
+                    span: original_span,
                     ty: Type::Table,
                     custom_completion: None,
                 },

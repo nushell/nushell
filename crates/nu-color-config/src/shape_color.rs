@@ -19,6 +19,8 @@ pub fn get_shape_color(shape: String, conf: &Config) -> Style {
             "flatshape_signature" => Style::new().fg(Color::Green).bold(),
             "flatshape_string" => Style::new().fg(Color::Green),
             "flatshape_string_interpolation" => Style::new().fg(Color::Cyan).bold(),
+            "flatshape_list" => Style::new().fg(Color::Cyan).bold(),
+            "flatshape_table" => Style::new().fg(Color::Blue).bold(),
             "flatshape_filepath" => Style::new().fg(Color::Cyan),
             "flatshape_globpattern" => Style::new().fg(Color::Cyan).bold(),
             "flatshape_variable" => Style::new().fg(Color::Purple),
