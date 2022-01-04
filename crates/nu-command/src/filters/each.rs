@@ -71,6 +71,8 @@ impl Command for Each {
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
+        let orig_env_vars = stack.env_vars.clone();
+        let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
 
         match input {
@@ -80,6 +82,8 @@ impl Command for Each {
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {
                             if numbered {
@@ -113,6 +117,8 @@ impl Command for Each {
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     let x = match x {
                         Ok(x) => Value::Binary { val: x, span },
                         Err(err) => return Value::Error { error: err },
@@ -151,6 +157,8 @@ impl Command for Each {
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     let x = match x {
                         Ok(x) => Value::String { val: x, span },
                         Err(err) => return Value::Error { error: err },
@@ -192,7 +200,7 @@ impl Command for Each {
                 for (col, val) in cols.into_iter().zip(vals.into_iter()) {
                     let block = engine_state.get_block(block_id);
 
-                    let mut stack = stack.clone();
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     if let Some(var) = block.signature.get_positional(0) {
                         if let Some(var_id) = &var.var_id {

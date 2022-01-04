@@ -71,12 +71,16 @@ impl Command for For {
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id).clone();
         let mut stack = stack.collect_captures(&block.captures);
+        let orig_env_vars = stack.env_vars.clone();
+        let orig_env_hidden = stack.env_hidden.clone();
 
         match values {
             Value::List { vals, .. } => Ok(vals
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     stack.add_var(
                         var_id,
                         if numbered {
@@ -107,6 +111,8 @@ impl Command for For {
                 .into_range_iter()?
                 .enumerate()
                 .map(move |(idx, x)| {
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                     stack.add_var(
                         var_id,
                         if numbered {

@@ -47,7 +47,8 @@ pub fn test_examples(cmd: impl Command + 'static) {
         working_set.render()
     };
 
-    let _ = engine_state.merge_delta(delta);
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    let _ = engine_state.merge_delta(delta, None, &cwd);
 
     for example in examples {
         // Skip tests that don't have results to compare to
@@ -67,9 +68,18 @@ pub fn test_examples(cmd: impl Command + 'static) {
             (output, working_set.render())
         };
 
-        let _ = engine_state.merge_delta(delta);
+        let _ = engine_state.merge_delta(delta, None, &cwd);
 
         let mut stack = Stack::new();
+
+        // Set up PWD
+        stack.add_env_var(
+            "PWD".to_string(),
+            Value::String {
+                val: cwd.to_string_lossy().to_string(),
+                span: Span::test_data(),
+            },
+        );
 
         // Set up our initial config to start from
         stack.vars.insert(

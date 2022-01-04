@@ -112,7 +112,7 @@ impl Command for Table {
                         let config = config.clone();
                         let ctrlc = ctrlc.clone();
 
-                        let ls_colors = match stack.get_env_var("LS_COLORS") {
+                        let ls_colors = match stack.get_env_var(engine_state, "LS_COLORS") {
                             Some(v) => LsColors::from_string(&env_to_string(
                                 "LS_COLORS",
                                 v,

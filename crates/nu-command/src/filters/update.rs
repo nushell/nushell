@@ -74,9 +74,13 @@ fn update(
         let block = engine_state.get_block(block_id).clone();
 
         let mut stack = stack.collect_captures(&block.captures);
+        let orig_env_vars = stack.env_vars.clone();
+        let orig_env_hidden = stack.env_hidden.clone();
 
         input.map(
             move |mut input| {
+                stack.with_env(&orig_env_vars, &orig_env_hidden);
+
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, input.clone())

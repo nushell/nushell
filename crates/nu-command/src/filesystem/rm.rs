@@ -1,10 +1,10 @@
-use std::env::current_dir;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::path::PathBuf;
 
 use super::util::get_interactive_confirmation;
 
+use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -86,7 +86,7 @@ fn rm(
         ));
     }
 
-    let current_path = current_dir()?;
+    let current_path = current_dir(engine_state, stack)?;
     let mut paths = call
         .rest::<String>(engine_state, stack, 0)?
         .into_iter()

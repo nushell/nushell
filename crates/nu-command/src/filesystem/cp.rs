@@ -1,7 +1,7 @@
-use std::env::current_dir;
 use std::path::PathBuf;
 
 use super::util::get_interactive_confirmation;
+use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
@@ -49,7 +49,7 @@ impl Command for Cp {
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
 
-        let path = current_dir()?;
+        let path = current_dir(engine_state, stack)?;
         let source = path.join(source.as_str());
         let destination = path.join(destination.as_str());
 
@@ -135,7 +135,7 @@ impl Command for Cp {
 
         for entry in sources.into_iter().flatten() {
             let mut sources = FileStructure::new();
-            sources.walk_decorate(&entry)?;
+            sources.walk_decorate(&entry, engine_state, stack)?;
 
             if entry.is_file() {
                 let sources = sources.paths_applying_with(|(source_file, _depth_level)| {

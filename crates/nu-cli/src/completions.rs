@@ -104,9 +104,18 @@ impl NuCompleter {
                                 | nu_parser::FlatShape::String => {
                                     let prefix = working_set.get_span_contents(flat.0);
                                     let results = working_set.find_commands_by_prefix(prefix);
+                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
+                                    {
+                                        match d.as_string() {
+                                            Ok(s) => s,
+                                            Err(_) => "".to_string(),
+                                        }
+                                    } else {
+                                        "".to_string()
+                                    };
 
                                     let prefix = String::from_utf8_lossy(prefix).to_string();
-                                    let results2 = file_path_completion(flat.0, &prefix)
+                                    let results2 = file_path_completion(flat.0, &prefix, &cwd)
                                         .into_iter()
                                         .map(move |x| {
                                             (
@@ -137,8 +146,17 @@ impl NuCompleter {
                                 | nu_parser::FlatShape::ExternalArg => {
                                     let prefix = working_set.get_span_contents(flat.0);
                                     let prefix = String::from_utf8_lossy(prefix).to_string();
+                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
+                                    {
+                                        match d.as_string() {
+                                            Ok(s) => s,
+                                            Err(_) => "".to_string(),
+                                        }
+                                    } else {
+                                        "".to_string()
+                                    };
 
-                                    let results = file_path_completion(flat.0, &prefix);
+                                    let results = file_path_completion(flat.0, &prefix, &cwd);
 
                                     return results
                                         .into_iter()
@@ -212,6 +230,7 @@ impl Completer for NuCompleter {
 fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
+    cwd: &str,
 ) -> Vec<(nu_protocol::Span, String)> {
     use std::path::{is_separator, Path};
 
@@ -238,7 +257,7 @@ fn file_path_completion(
         (base, rest)
     };
 
-    let base_dir = nu_path::expand_path(&base_dir_name);
+    let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
     // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
     // which we don't want in this case (if we did, base_dir would already be ".")
     if base_dir == Path::new("") {

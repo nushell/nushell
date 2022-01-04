@@ -98,12 +98,12 @@ impl Command for Hide {
                     return Err(ShellError::NonUtf8(import_pattern.span()));
                 };
 
-                if stack.remove_env_var(&name).is_none() {
+                if stack.remove_env_var(engine_state, &name).is_none() {
                     return Err(ShellError::NotFound(call.positional[0].span));
                 }
             }
         } else if !import_pattern.hidden.contains(&import_pattern.head.name)
-            && stack.remove_env_var(&head_name_str).is_none()
+            && stack.remove_env_var(engine_state, &head_name_str).is_none()
         {
             return Err(ShellError::NotFound(call.positional[0].span));
         }

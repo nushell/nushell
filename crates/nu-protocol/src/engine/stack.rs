@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use crate::engine::EngineState;
 use crate::{Config, ShellError, Value, VarId, CONFIG_VARIABLE_ID};
 
 /// A runtime value stack used during evaluation
@@ -25,6 +26,9 @@ pub struct Stack {
     pub vars: HashMap<VarId, Value>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<HashMap<String, Value>>,
+    /// Tells which environment variables from engine state are hidden. We don't need to track the
+    /// env vars in the stack since we can just delete them.
+    pub env_hidden: HashSet<String>,
 }
 
 impl Default for Stack {
@@ -38,6 +42,17 @@ impl Stack {
         Stack {
             vars: HashMap::new(),
             env_vars: vec![],
+            env_hidden: HashSet::new(),
+        }
+    }
+
+    pub fn with_env(&mut self, env_vars: &[HashMap<String, Value>], env_hidden: &HashSet<String>) {
+        if env_vars.iter().any(|scope| !scope.is_empty()) {
+            self.env_vars = env_vars.to_owned();
+        }
+
+        if !env_hidden.is_empty() {
+            self.env_hidden = env_hidden.clone();
         }
     }
 
@@ -54,6 +69,9 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
+        // if the env var was hidden, let's activate it again
+        self.env_hidden.remove(&var);
+
         if let Some(scope) = self.env_vars.last_mut() {
             scope.insert(var, value);
         } else {
@@ -85,8 +103,15 @@ impl Stack {
     }
 
     /// Flatten the env var scope frames into one frame
-    pub fn get_env_vars(&self) -> HashMap<String, Value> {
-        let mut result = HashMap::new();
+    pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<String, Value> {
+        // TODO: We're collecting im::HashMap to HashMap here. It might make sense to make these
+        // the same data structure.
+        let mut result: HashMap<String, Value> = engine_state
+            .env_vars
+            .iter()
+            .filter(|(k, _)| !self.env_hidden.contains(*k))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
 
         for scope in &self.env_vars {
             result.extend(scope.clone());
@@ -95,24 +120,37 @@ impl Stack {
         result
     }
 
-    pub fn get_env_var(&self, name: &str) -> Option<Value> {
+    pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter().rev() {
             if let Some(v) = scope.get(name) {
                 return Some(v.clone());
             }
         }
 
-        None
+        if self.env_hidden.contains(name) {
+            None
+        } else {
+            engine_state.env_vars.get(name).cloned()
+        }
     }
 
-    pub fn remove_env_var(&mut self, name: &str) -> Option<Value> {
+    pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter_mut().rev() {
             if let Some(v) = scope.remove(name) {
                 return Some(v);
             }
         }
 
-        None
+        if self.env_hidden.contains(name) {
+            // the environment variable is already hidden
+            None
+        } else if let Some(val) = engine_state.env_vars.get(name) {
+            // the environment variable was found in the engine state => mark it as hidden
+            self.env_hidden.insert(name.to_string());
+            Some(val.clone())
+        } else {
+            None
+        }
     }
 
     pub fn get_config(&self) -> Result<Config, ShellError> {

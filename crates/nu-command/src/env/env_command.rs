@@ -29,7 +29,8 @@ impl Command for Env {
         let span = call.head;
         let config = stack.get_config().unwrap_or_default();
 
-        let mut env_vars: Vec<(String, Value)> = stack.get_env_vars().into_iter().collect();
+        let mut env_vars: Vec<(String, Value)> =
+            stack.get_env_vars(engine_state).into_iter().collect();
         env_vars.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
         let mut values = vec![];

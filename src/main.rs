@@ -20,6 +20,7 @@ use nu_protocol::{
 use reedline::{Completer, CompletionActionHandler, DefaultHinter, LineBuffer, Prompt, Vi};
 use std::{
     io::Write,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -97,7 +98,9 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let mut engine_state = create_default_context();
+    // Get initial current working directory.
+    let init_cwd = get_init_cwd();
+    let mut engine_state = create_default_context(&init_cwd);
 
     // TODO: make this conditional in the future
     // Ctrl-c protection section
@@ -129,7 +132,7 @@ fn main() -> Result<()> {
             (output, working_set.render())
         };
 
-        if let Err(err) = engine_state.merge_delta(delta) {
+        if let Err(err) = engine_state.merge_delta(delta, None, &init_cwd) {
             let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &err);
         }
@@ -137,7 +140,7 @@ fn main() -> Result<()> {
         let mut stack = nu_protocol::engine::Stack::new();
 
         // First, set up env vars as strings only
-        gather_parent_env_vars(&mut engine_state, &mut stack);
+        gather_parent_env_vars(&mut engine_state);
 
         // Set up our initial config to start from
         stack.vars.insert(
@@ -160,7 +163,7 @@ fn main() -> Result<()> {
         };
 
         // Translate environment variables from Strings to Values
-        if let Some(e) = convert_env_values(&engine_state, &mut stack, &config) {
+        if let Some(e) = convert_env_values(&mut engine_state, &stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &e);
             std::process::exit(1);
@@ -204,7 +207,9 @@ fn main() -> Result<()> {
                     (output, working_set.render())
                 };
 
-                if let Err(err) = engine_state.merge_delta(delta) {
+                let cwd = nu_engine::env::current_dir_str(&engine_state, &stack)?;
+
+                if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), &cwd) {
                     let working_set = StateWorkingSet::new(&engine_state);
                     report_error(&working_set, &err);
                 }
@@ -255,7 +260,7 @@ fn main() -> Result<()> {
         let mut stack = nu_protocol::engine::Stack::new();
 
         // First, set up env vars as strings only
-        gather_parent_env_vars(&mut engine_state, &mut stack);
+        gather_parent_env_vars(&mut engine_state);
 
         // Set up our initial config to start from
         stack.vars.insert(
@@ -331,7 +336,7 @@ fn main() -> Result<()> {
         })?;
 
         // Translate environment variables from Strings to Values
-        if let Some(e) = convert_env_values(&engine_state, &mut stack, &config) {
+        if let Some(e) = convert_env_values(&mut engine_state, &stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
             report_error(&working_set, &e);
         }
@@ -429,7 +434,8 @@ fn main() -> Result<()> {
                 Ok(Signal::Success(s)) => {
                     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                     // Check if this is a single call to a directory, if so auto-cd
-                    let path = nu_path::expand_path(&s);
+                    let cwd = nu_engine::env::current_dir_str(&engine_state, &stack)?;
+                    let path = nu_path::expand_path_with(&s, &cwd);
                     let orig = s.clone();
 
                     if (orig.starts_with('.')
@@ -440,8 +446,6 @@ fn main() -> Result<()> {
                         && tokens.0.len() == 1
                     {
                         // We have an auto-cd
-                        let _ = std::env::set_current_dir(&path);
-
                         //FIXME: this only changes the current scope, but instead this environment variable
                         //should probably be a block that loads the information from the state in the overlay
                         stack.add_env_var(
@@ -493,7 +497,8 @@ fn main() -> Result<()> {
 // In order to ensure the values have spans, it first creates a dummy file, writes the collected
 // env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
 // tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
-fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
+fn gather_parent_env_vars(engine_state: &mut EngineState) {
+    // Some helper functions
     fn get_surround_char(s: &str) -> Option<char> {
         if s.contains('"') {
             if s.contains('\'') {
@@ -517,10 +522,14 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
         );
     }
 
-    let mut fake_env_file = String::new();
-    for (name, val) in std::env::vars() {
+    fn put_env_to_fake_file(
+        name: &str,
+        val: &str,
+        fake_env_file: &mut String,
+        engine_state: &EngineState,
+    ) {
         let (c_name, c_val) =
-            if let (Some(cn), Some(cv)) = (get_surround_char(&name), get_surround_char(&val)) {
+            if let (Some(cn), Some(cv)) = (get_surround_char(name), get_surround_char(val)) {
                 (cn, cv)
             } else {
                 // environment variable with its name or value containing both ' and " is ignored
@@ -529,19 +538,53 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
                     &format!("{}={}", name, val),
                     "Name or value should not contain both ' and \" at the same time.",
                 );
-                continue;
+                return;
             };
 
         fake_env_file.push(c_name);
-        fake_env_file.push_str(&name);
+        fake_env_file.push_str(name);
         fake_env_file.push(c_name);
         fake_env_file.push('=');
         fake_env_file.push(c_val);
-        fake_env_file.push_str(&val);
+        fake_env_file.push_str(val);
         fake_env_file.push(c_val);
         fake_env_file.push('\n');
     }
 
+    let mut fake_env_file = String::new();
+
+    // Make sure we always have PWD
+    if std::env::var("PWD").is_err() {
+        match std::env::current_dir() {
+            Ok(cwd) => {
+                put_env_to_fake_file(
+                    "PWD",
+                    &cwd.to_string_lossy(),
+                    &mut fake_env_file,
+                    engine_state,
+                );
+            }
+            Err(e) => {
+                // Could not capture current working directory
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(
+                    &working_set,
+                    &ShellError::LabeledError(
+                        "Current directory not found".to_string(),
+                        format!("Retrieving current directory failed: {:?}", e),
+                    ),
+                );
+            }
+        }
+    }
+
+    // Write all the env vars into a fake file
+    for (name, val) in std::env::vars() {
+        put_env_to_fake_file(&name, &val, &mut fake_env_file, engine_state);
+    }
+
+    // Lex the fake file, assign spans to all environment variables and add them
+    // to stack
     let span_offset = engine_state.next_span_start();
 
     engine_state.add_file(
@@ -622,7 +665,8 @@ fn gather_parent_env_vars(engine_state: &mut EngineState, stack: &mut Stack) {
                 continue;
             };
 
-            stack.add_env_var(name, value);
+            // stack.add_env_var(name, value);
+            engine_state.env_vars.insert(name, value);
         }
     }
 }
@@ -714,23 +758,27 @@ fn print_pipeline_data(
     Ok(())
 }
 
-fn get_prompt_indicators(config: &Config, stack: &Stack) -> (String, String, String, String) {
-    let prompt_indicator = match stack.get_env_var(PROMPT_INDICATOR) {
+fn get_prompt_indicators(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> (String, String, String, String) {
+    let prompt_indicator = match stack.get_env_var(engine_state, PROMPT_INDICATOR) {
         Some(pi) => pi.into_string("", config),
         None => "〉".to_string(),
     };
 
-    let prompt_vi_insert = match stack.get_env_var(PROMPT_INDICATOR_VI_INSERT) {
+    let prompt_vi_insert = match stack.get_env_var(engine_state, PROMPT_INDICATOR_VI_INSERT) {
         Some(pvii) => pvii.into_string("", config),
         None => ": ".to_string(),
     };
 
-    let prompt_vi_visual = match stack.get_env_var(PROMPT_INDICATOR_VI_VISUAL) {
+    let prompt_vi_visual = match stack.get_env_var(engine_state, PROMPT_INDICATOR_VI_VISUAL) {
         Some(pviv) => pviv.into_string("", config),
         None => "v ".to_string(),
     };
 
-    let prompt_multiline = match stack.get_env_var(PROMPT_MULTILINE_INDICATOR) {
+    let prompt_multiline = match stack.get_env_var(engine_state, PROMPT_MULTILINE_INDICATOR) {
         Some(pm) => pm.into_string("", config),
         None => "::: ".to_string(),
     };
@@ -755,9 +803,9 @@ fn update_prompt<'prompt>(
         prompt_vi_insert_string,
         prompt_vi_visual_string,
         prompt_multiline_string,
-    ) = get_prompt_indicators(config, stack);
+    ) = get_prompt_indicators(config, engine_state, stack);
 
-    let prompt_command_block_id = match stack.get_env_var(PROMPT_COMMAND) {
+    let prompt_command_block_id = match stack.get_env_var(engine_state, PROMPT_COMMAND) {
         Some(v) => match v.as_block() {
             Ok(b) => b,
             Err(_) => {
@@ -859,7 +907,16 @@ fn eval_source(
         (output, working_set.render())
     };
 
-    if let Err(err) = engine_state.merge_delta(delta) {
+    let cwd = match nu_engine::env::current_dir_str(engine_state, stack) {
+        Ok(p) => PathBuf::from(p),
+        Err(e) => {
+            let working_set = StateWorkingSet::new(engine_state);
+            report_error(&working_set, &e);
+            get_init_cwd()
+        }
+    };
+
+    if let Err(err) = engine_state.merge_delta(delta, Some(stack), &cwd) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &err);
     }
@@ -927,5 +984,18 @@ pub fn report_error(
     #[cfg(windows)]
     {
         let _ = enable_vt_processing();
+    }
+}
+
+fn get_init_cwd() -> PathBuf {
+    match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(_) => match std::env::var("PWD".to_string()) {
+            Ok(cwd) => PathBuf::from(cwd),
+            Err(_) => match nu_path::home_dir() {
+                Some(cwd) => cwd,
+                None => PathBuf::new(),
+            },
+        },
     }
 }

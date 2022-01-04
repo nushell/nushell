@@ -8,7 +8,7 @@ use nu_protocol::{
     Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 
-use crate::get_full_help;
+use crate::{current_dir_str, get_full_help};
 
 pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
     match op {
@@ -575,15 +575,9 @@ pub fn eval_variable(
 
         // since the env var PWD doesn't exist on all platforms
         // lets just get the current directory
-        if let Ok(current_dir) = std::env::current_dir() {
-            if let Some(cwd) = current_dir.to_str() {
-                output_cols.push("cwd".into());
-                output_vals.push(Value::String {
-                    val: cwd.into(),
-                    span,
-                })
-            }
-        }
+        let cwd = current_dir_str(engine_state, stack)?;
+        output_cols.push("cwd".into());
+        output_vals.push(Value::String { val: cwd, span });
 
         if let Some(home_path) = nu_path::home_dir() {
             if let Some(home_path_str) = home_path.to_str() {
@@ -886,7 +880,7 @@ pub fn eval_variable(
             span,
         })
     } else if var_id == ENV_VARIABLE_ID {
-        let env_vars = stack.get_env_vars();
+        let env_vars = stack.get_env_vars(engine_state);
         let env_columns = env_vars.keys();
         let env_values = env_vars.values();
 

@@ -62,7 +62,7 @@ prints out the list properly."#
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = stack.get_config().unwrap_or_default();
-        let env_str = match stack.get_env_var("LS_COLORS") {
+        let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
             Some(v) => Some(env_to_string("LS_COLORS", v, engine_state, stack, &config)?),
             None => None,
         };

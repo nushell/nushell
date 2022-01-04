@@ -1,7 +1,7 @@
 mod call_ext;
 pub mod column;
 mod documentation;
-mod env;
+pub mod env;
 mod eval;
 
 pub use call_ext::CallExt;

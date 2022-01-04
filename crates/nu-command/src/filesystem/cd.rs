@@ -1,3 +1,4 @@
+use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -32,7 +33,10 @@ impl Command for Cd {
 
         let (path, span) = match path_val {
             Some(v) => {
-                let path = nu_path::expand_path(v.as_string()?);
+                let path = nu_path::canonicalize_with(
+                    v.as_string()?,
+                    current_dir_str(engine_state, stack)?,
+                )?;
                 (path.to_string_lossy().to_string(), v.span()?)
             }
             None => {
@@ -40,7 +44,6 @@ impl Command for Cd {
                 (path.to_string_lossy().to_string(), call.head)
             }
         };
-        let _ = std::env::set_current_dir(&path);
 
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay

@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
+use nu_engine::env::current_dir_str;
 use nu_path::canonicalize_with;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::ShellError;
 
 use dialoguer::Input;
@@ -39,16 +41,27 @@ impl FileStructure {
             .collect()
     }
 
-    pub fn walk_decorate(&mut self, start_path: &Path) -> Result<(), ShellError> {
+    pub fn walk_decorate(
+        &mut self,
+        start_path: &Path,
+        engine_state: &EngineState,
+        stack: &Stack,
+    ) -> Result<(), ShellError> {
         self.resources = Vec::<Resource>::new();
-        self.build(start_path, 0)?;
+        self.build(start_path, 0, engine_state, stack)?;
         self.resources.sort();
 
         Ok(())
     }
 
-    fn build(&mut self, src: &Path, lvl: usize) -> Result<(), ShellError> {
-        let source = canonicalize_with(src, std::env::current_dir()?)?;
+    fn build(
+        &mut self,
+        src: &Path,
+        lvl: usize,
+        engine_state: &EngineState,
+        stack: &Stack,
+    ) -> Result<(), ShellError> {
+        let source = canonicalize_with(src, current_dir_str(engine_state, stack)?)?;
 
         if source.is_dir() {
             for entry in std::fs::read_dir(src)? {
@@ -56,7 +69,7 @@ impl FileStructure {
                 let path = entry.path();
 
                 if path.is_dir() {
-                    self.build(&path, lvl + 1)?;
+                    self.build(&path, lvl + 1, engine_state, stack)?;
                 }
 
                 self.resources.push(Resource {

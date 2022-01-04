@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -10,6 +11,7 @@ use nu_protocol::{
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Ls;
@@ -63,10 +65,17 @@ impl Command for Ls {
 
         let call_span = call.head;
 
-        let pattern = if let Some(mut result) =
+        let (pattern, prefix) = if let Some(result) =
             call.opt::<Spanned<String>>(engine_state, stack, 0)?
         {
-            let path = std::path::Path::new(&result.item);
+            let path = PathBuf::from(&result.item);
+
+            let (mut path, prefix) = if path.is_relative() {
+                let cwd = current_dir(engine_state, stack)?;
+                (cwd.join(path), Some(cwd))
+            } else {
+                (path, None)
+            };
 
             if path.is_dir() {
                 if permission_denied(&path) {
@@ -92,16 +101,14 @@ impl Command for Ls {
                 }
 
                 if path.is_dir() {
-                    if !result.item.ends_with(std::path::MAIN_SEPARATOR) {
-                        result.item.push(std::path::MAIN_SEPARATOR);
-                    }
-                    result.item.push('*');
+                    path = path.join("*");
                 }
             }
 
-            result.item
+            (path.to_string_lossy().to_string(), prefix)
         } else {
-            "*".into()
+            let cwd = current_dir(engine_state, stack)?;
+            (cwd.join("*").to_string_lossy().to_string(), Some(cwd))
         };
 
         let glob = glob::glob(&pattern).map_err(|err| {
@@ -144,11 +151,34 @@ impl Command for Ls {
                         return None;
                     }
 
-                    let entry =
-                        dir_entry_dict(&path, metadata.as_ref(), call_span, long, short_names);
+                    let display_name = if short_names {
+                        path.file_name().and_then(|s| s.to_str())
+                    } else if let Some(pre) = &prefix {
+                        match path.strip_prefix(pre) {
+                            Ok(stripped) => stripped.to_str(),
+                            Err(_) => path.to_str(),
+                        }
+                    } else {
+                        path.to_str()
+                    }
+                    .ok_or_else(|| {
+                        ShellError::SpannedLabeledError(
+                            format!("Invalid file name: {:}", path.to_string_lossy()),
+                            "invalid file name".into(),
+                            call_span,
+                        )
+                    });
 
-                    match entry {
-                        Ok(value) => Some(value),
+                    match display_name {
+                        Ok(name) => {
+                            let entry =
+                                dir_entry_dict(&path, name, metadata.as_ref(), call_span, long);
+
+                            match entry {
+                                Ok(value) => Some(value),
+                                Err(err) => Some(Value::Error { error: err }),
+                            }
+                        }
                         Err(err) => Some(Value::Error { error: err }),
                     }
                 }
@@ -213,7 +243,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
 
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub fn get_file_type(md: &std::fs::Metadata) -> &str {
     let ft = md.file_type();
@@ -243,31 +273,18 @@ pub fn get_file_type(md: &std::fs::Metadata) -> &str {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
-    filename: &std::path::Path,
+    filename: &std::path::Path, // absolute path
+    display_name: &str,         // gile name to be displayed
     metadata: Option<&std::fs::Metadata>,
     span: Span,
     long: bool,
-    short_name: bool,
 ) -> Result<Value, ShellError> {
     let mut cols = vec![];
     let mut vals = vec![];
 
-    let name = if short_name {
-        filename.file_name().and_then(|s| s.to_str())
-    } else {
-        filename.to_str()
-    }
-    .ok_or_else(|| {
-        ShellError::SpannedLabeledError(
-            format!("Invalid file name: {:}", filename.to_string_lossy()),
-            "invalid file name".into(),
-            span,
-        )
-    })?;
-
     cols.push("name".into());
     vals.push(Value::String {
-        val: name.to_string(),
+        val: display_name.to_string(),
         span,
     });
 

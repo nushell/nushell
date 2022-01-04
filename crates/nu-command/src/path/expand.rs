@@ -1,7 +1,8 @@
 use std::path::Path;
 
+use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
-use nu_path::{canonicalize, expand_path};
+use nu_path::{canonicalize_with, expand_path};
 use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
 
 use super::PathSubcommandArguments;
@@ -9,6 +10,7 @@ use super::PathSubcommandArguments;
 struct Arguments {
     strict: bool,
     columns: Option<Vec<String>>,
+    cwd: String,
 }
 
 impl PathSubcommandArguments for Arguments {
@@ -55,6 +57,7 @@ impl Command for SubCommand {
         let args = Arguments {
             strict: call.has_flag("strict"),
             columns: call.get_flag(engine_state, stack, "columns")?,
+            cwd: current_dir_str(engine_state, stack)?,
         };
 
         input.map(
@@ -107,7 +110,7 @@ impl Command for SubCommand {
 }
 
 fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
-    if let Ok(p) = canonicalize(path) {
+    if let Ok(p) = canonicalize_with(path, &args.cwd) {
         Value::string(p.to_string_lossy(), span)
     } else if args.strict {
         Value::Error {

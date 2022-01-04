@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::Ordering;
@@ -113,9 +112,19 @@ impl<'call> ExternalCommand<'call> {
 
         // TODO. We don't have a way to know the current directory
         // This should be information from the EvaluationContex or EngineState
-        let path = env::current_dir()?;
-
-        process.current_dir(path);
+        if let Some(d) = self.env_vars.get("PWD") {
+            process.current_dir(d);
+        } else {
+            return Err(ShellError::SpannedLabeledErrorHelp(
+                "Current directory not found".to_string(),
+                "did not find PWD environment variable".to_string(),
+                head,
+                concat!(
+                    "The environment variable 'PWD' was not found. ",
+                    "It is required to define the current directory when running an external command."
+                ).to_string(),
+            ));
+        }
 
         process.envs(&self.env_vars);
 

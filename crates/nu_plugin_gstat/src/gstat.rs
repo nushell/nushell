@@ -65,6 +65,9 @@ impl GStat {
         }
 
         // This path has to exist
+        // TODO: If the path is relative, it will be expanded using `std::env::current_dir` and not
+        // the "PWD" environment variable. We would need a way to read the engine's environment
+        // variables here.
         if !std::path::Path::new(&a_path.item).exists() {
             return Err(LabeledError {
                 label: "error with path".to_string(),

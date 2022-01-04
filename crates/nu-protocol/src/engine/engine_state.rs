@@ -1,4 +1,4 @@
-use super::Command;
+use super::{Command, Stack};
 use crate::{
     ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span, Type,
     VarId,
@@ -8,6 +8,10 @@ use std::{
     collections::HashMap,
     sync::{atomic::AtomicBool, Arc},
 };
+
+use crate::Value;
+
+use std::path::Path;
 
 #[cfg(feature = "plugin")]
 use std::path::PathBuf;
@@ -140,6 +144,7 @@ pub struct EngineState {
     overlays: im::Vector<Overlay>,
     pub scope: im::Vector<ScopeFrame>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    pub env_vars: im::HashMap<String, Value>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
 }
@@ -167,6 +172,7 @@ impl EngineState {
             overlays: im::vector![],
             scope: im::vector![ScopeFrame::new()],
             ctrlc: None,
+            env_vars: im::HashMap::new(),
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
         }
@@ -179,7 +185,12 @@ impl EngineState {
     ///
     /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
     /// use this function to merge it into the global state.
-    pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
+    pub fn merge_delta(
+        &mut self,
+        mut delta: StateDelta,
+        stack: Option<&mut Stack>,
+        cwd: impl AsRef<Path>,
+    ) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
@@ -215,6 +226,16 @@ impl EngineState {
                 return result;
             }
         }
+
+        if let Some(stack) = stack {
+            for mut env_scope in stack.env_vars.drain(..) {
+                for (k, v) in env_scope.drain() {
+                    self.env_vars.insert(k, v);
+                }
+            }
+        }
+
+        std::env::set_current_dir(cwd)?;
 
         Ok(())
     }
@@ -1209,7 +1230,8 @@ mod engine_state_tests {
             working_set.render()
         };
 
-        engine_state.merge_delta(delta)?;
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.merge_delta(delta, None, &cwd)?;
 
         assert_eq!(engine_state.num_files(), 2);
         assert_eq!(&engine_state.files[0].0, "test.nu");
