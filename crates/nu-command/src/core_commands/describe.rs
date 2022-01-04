@@ -26,13 +26,20 @@ impl Command for Describe {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        input.map(
-            move |x| Value::String {
-                val: x.get_type().to_string(),
-                span: head,
-            },
-            engine_state.ctrlc.clone(),
-        )
+        if matches!(input, PipelineData::ByteStream(..)) {
+            Ok(PipelineData::Value(
+                Value::string("binary", call.head),
+                None,
+            ))
+        } else {
+            input.map(
+                move |x| Value::String {
+                    val: x.get_type().to_string(),
+                    span: head,
+                },
+                engine_state.ctrlc.clone(),
+            )
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
