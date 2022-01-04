@@ -1036,6 +1036,7 @@ pub fn parse_source(
             // Command and one file name
             if spans.len() >= 2 {
                 let name_expr = working_set.get_span_contents(spans[1]);
+                let name_expr = trim_quotes(name_expr);
                 if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
                     if let Ok(path) = canonicalize(&filename) {
                         if let Ok(contents) = std::fs::read(&path) {
