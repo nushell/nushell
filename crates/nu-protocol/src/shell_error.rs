@@ -152,6 +152,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::unsupported_input), url(docsrs))]
     UnsupportedInput(String, #[label("{0}")] Span),
 
+    #[error("Network failure")]
+    #[diagnostic(code(nu::shell::network_failure), url(docsrs))]
+    NetworkFailure(String, #[label("{0}")] Span),
+
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found), url(docsrs))]
     CommandNotFound(#[label("command not found")] Span),
