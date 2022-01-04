@@ -1,3 +1,5 @@
+use reedline::DefaultPrompt;
+
 use {
     reedline::{
         Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
@@ -8,7 +10,7 @@ use {
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    prompt_string: String,
+    prompt_string: Option<String>,
     default_prompt_indicator: String,
     default_vi_insert_prompt_indicator: String,
     default_vi_visual_prompt_indicator: String,
@@ -24,7 +26,7 @@ impl Default for NushellPrompt {
 impl NushellPrompt {
     pub fn new() -> NushellPrompt {
         NushellPrompt {
-            prompt_string: "".to_string(),
+            prompt_string: None,
             default_prompt_indicator: "〉".to_string(),
             default_vi_insert_prompt_indicator: ": ".to_string(),
             default_vi_visual_prompt_indicator: "v ".to_string(),
@@ -32,7 +34,7 @@ impl NushellPrompt {
         }
     }
 
-    pub fn update_prompt(&mut self, prompt_string: String) {
+    pub fn update_prompt(&mut self, prompt_string: Option<String>) {
         self.prompt_string = prompt_string;
     }
 
@@ -54,7 +56,7 @@ impl NushellPrompt {
 
     pub fn update_all_prompt_strings(
         &mut self,
-        prompt_string: String,
+        prompt_string: Option<String>,
         prompt_indicator_string: String,
         prompt_vi_insert_string: String,
         prompt_vi_visual_string: String,
@@ -73,8 +75,13 @@ impl NushellPrompt {
 }
 
 impl Prompt for NushellPrompt {
-    fn render_prompt(&self, _: usize) -> Cow<str> {
-        self.prompt_string.as_str().into()
+    fn render_prompt(&self, width: usize) -> Cow<str> {
+        if let Some(prompt_string) = &self.prompt_string {
+            prompt_string.into()
+        } else {
+            let default = DefaultPrompt::new(1);
+            default.render_prompt(width).to_string().into()
+        }
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {

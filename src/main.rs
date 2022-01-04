@@ -763,7 +763,7 @@ fn update_prompt<'prompt>(
             Err(_) => {
                 // apply the other indicators
                 nu_prompt.update_all_prompt_strings(
-                    String::new(),
+                    None,
                     prompt_indicator_string,
                     prompt_vi_insert_string,
                     prompt_vi_visual_string,
@@ -775,7 +775,7 @@ fn update_prompt<'prompt>(
         None => {
             // apply the other indicators
             nu_prompt.update_all_prompt_strings(
-                String::new(),
+                None,
                 prompt_indicator_string,
                 prompt_vi_insert_string,
                 prompt_vi_visual_string,
@@ -803,7 +803,7 @@ fn update_prompt<'prompt>(
             // If we can't run the custom prompt, give them the default
             // apply the other indicators
             nu_prompt.update_all_prompt_strings(
-                String::new(),
+                None,
                 prompt_indicator_string,
                 prompt_vi_insert_string,
                 prompt_vi_visual_string,
@@ -816,7 +816,7 @@ fn update_prompt<'prompt>(
     match evaluated_prompt {
         Ok(evaluated_prompt) => {
             nu_prompt.update_all_prompt_strings(
-                evaluated_prompt,
+                Some(evaluated_prompt),
                 prompt_indicator_string,
                 prompt_vi_insert_string,
                 prompt_vi_visual_string,
@@ -824,7 +824,7 @@ fn update_prompt<'prompt>(
             );
         }
         _ => nu_prompt.update_all_prompt_strings(
-            String::new(),
+            None,
             prompt_indicator_string,
             prompt_vi_insert_string,
             prompt_vi_visual_string,
