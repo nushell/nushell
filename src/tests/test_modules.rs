@@ -43,7 +43,7 @@ fn module_def_imports_5() -> TestResult {
 #[test]
 fn module_env_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export env a { '1' } }; use foo; $nu.env.'foo a'"#,
+        r#"module foo { export env a { '1' } }; use foo; $env.'foo a'"#,
         "1",
     )
 }
@@ -51,7 +51,7 @@ fn module_env_imports_1() -> TestResult {
 #[test]
 fn module_env_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export env a { '1' } }; use foo a; $nu.env.a"#,
+        r#"module foo { export env a { '1' } }; use foo a; $env.a"#,
         "1",
     )
 }
@@ -59,7 +59,7 @@ fn module_env_imports_2() -> TestResult {
 #[test]
 fn module_env_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export env a { '1' }; export env b { '2' } }; use foo *; $nu.env.b"#,
+        r#"module foo { export env a { '1' }; export env b { '2' } }; use foo *; $env.b"#,
         "2",
     )
 }
@@ -75,7 +75,7 @@ fn module_env_imports_4() -> TestResult {
 #[test]
 fn module_env_imports_5() -> TestResult {
     run_test(
-        r#"module foo { export env a { '1' }; export env b { '2' }; export env c { '3' } }; use foo [a, c]; $nu.env.c"#,
+        r#"module foo { export env a { '1' }; export env b { '2' }; export env c { '3' } }; use foo [a, c]; $env.c"#,
         "3",
     )
 }
@@ -83,7 +83,7 @@ fn module_env_imports_5() -> TestResult {
 #[test]
 fn module_def_and_env_imports_1() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; $nu.env.foo"#,
+        r#"module spam { export env foo { "foo" }; export def foo [] { "bar" } }; use spam foo; $env.foo"#,
         "foo",
     )
 }
@@ -107,7 +107,7 @@ fn module_def_import_uses_internal_command() -> TestResult {
 #[test]
 fn module_env_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { "2" }; export env a { b }  }; use foo; $nu.env.'foo a'"#,
+        r#"module foo { def b [] { "2" }; export env a { b }  }; use foo; $env.'foo a'"#,
         "2",
     )
 }

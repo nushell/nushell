@@ -1331,6 +1331,16 @@ pub fn parse_variable_expr(
             },
             None,
         );
+    } else if contents == b"$env" {
+        return (
+            Expression {
+                expr: Expr::Var(nu_protocol::ENV_VARIABLE_ID),
+                span,
+                ty: Type::Unknown,
+                custom_completion: None,
+            },
+            None,
+        );
     }
 
     let (id, err) = parse_variable(working_set, span);

@@ -495,10 +495,10 @@ pub fn parse_module_block(
                     // TODO: Exported env vars are usable iside the module only if correctly
                     // exported by the user. For example:
                     //
-                    //   > module foo { export env a { "2" }; export def b [] { $nu.env.a } }
+                    //   > module foo { export env a { "2" }; export def b [] { $env.a } }
                     //
                     // will work only if you call `use foo *; b` but not with `use foo; foo b`
-                    // since in the second case, the name of the env var would be $nu.env."foo a".
+                    // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
                         let (stmt, exportable, err) =
                             parse_export(working_set, &pipeline.commands[0].parts);

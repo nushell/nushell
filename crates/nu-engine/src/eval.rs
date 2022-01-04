@@ -5,7 +5,7 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Type, Unit, Value, VarId,
+    Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 
 use crate::get_full_help;
@@ -530,26 +530,6 @@ pub fn eval_variable(
         let mut output_cols = vec![];
         let mut output_vals = vec![];
 
-        let env_vars = stack.get_env_vars();
-        let env_columns = env_vars.keys();
-        let env_values = env_vars.values();
-
-        let mut pairs = env_columns
-            .map(|x| x.to_string())
-            .zip(env_values.cloned())
-            .collect::<Vec<(String, Value)>>();
-
-        pairs.sort_by(|a, b| a.0.cmp(&b.0));
-
-        let (env_columns, env_values) = pairs.into_iter().unzip();
-
-        output_cols.push("env".into());
-        output_vals.push(Value::Record {
-            cols: env_columns,
-            vals: env_values,
-            span,
-        });
-
         if let Some(mut config_path) = nu_path::config_dir() {
             config_path.push("nushell");
 
@@ -903,6 +883,25 @@ pub fn eval_variable(
         Ok(Value::Record {
             cols: output_cols,
             vals: output_vals,
+            span,
+        })
+    } else if var_id == ENV_VARIABLE_ID {
+        let env_vars = stack.get_env_vars();
+        let env_columns = env_vars.keys();
+        let env_values = env_vars.values();
+
+        let mut pairs = env_columns
+            .map(|x| x.to_string())
+            .zip(env_values.cloned())
+            .collect::<Vec<(String, Value)>>();
+
+        pairs.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let (env_columns, env_values) = pairs.into_iter().unzip();
+
+        Ok(Value::Record {
+            cols: env_columns,
+            vals: env_values,
             span,
         })
     } else {

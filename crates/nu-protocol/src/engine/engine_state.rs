@@ -148,13 +148,20 @@ pub const NU_VARIABLE_ID: usize = 0;
 pub const SCOPE_VARIABLE_ID: usize = 1;
 pub const IN_VARIABLE_ID: usize = 2;
 pub const CONFIG_VARIABLE_ID: usize = 3;
+pub const ENV_VARIABLE_ID: usize = 4;
 
 impl EngineState {
     pub fn new() -> Self {
         Self {
             files: im::vector![],
             file_contents: im::vector![],
-            vars: im::vector![Type::Unknown, Type::Unknown, Type::Unknown, Type::Unknown],
+            vars: im::vector![
+                Type::Unknown,
+                Type::Unknown,
+                Type::Unknown,
+                Type::Unknown,
+                Type::Unknown
+            ],
             decls: im::vector![],
             blocks: im::vector![],
             overlays: im::vector![],

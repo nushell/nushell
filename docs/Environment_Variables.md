@@ -39,7 +39,7 @@ You can test the conversions by manually calling them:
 ```
 > let-env FOO = "a:b:c"
 
-> let list = (do $config.env_conversions.from_string $nu.env.FOO)
+> let list = (do $config.env_conversions.from_string $env.FOO)
 
 > $list
 ╭───┬───╮
@@ -58,7 +58,7 @@ To verify the conversion works on startup, you can first set up `FOO`, then laun
 
 > nu
 
->> $nu.env.FOO
+>> $env.FOO
 ╭───┬───╮
 │ 0 │ a │
 │ 1 │ b │
@@ -94,8 +94,8 @@ Out of the box, Nushell ships with several environment variables serving a speci
 
 ## Breaking Changes
 
-* Setting environment variable to `$nothing` will no longer remove it -- it will be `$nothing`. Instead, you can use `hide $nu.env.FOO`.
-* `$nu.env.PROMPT_COMMAND` is a block instead of a string containing the source of the command to run. You can put this into your `config.nu`, for example: `let-env PROMPT_COMMAND = { echo "foo" }`.
+* Setting environment variable to `$nothing` will no longer remove it -- it will be `$nothing`. Instead, you can use `hide $env.FOO`.
+* `$env.PROMPT_COMMAND` is a block instead of a string containing the source of the command to run. You can put this into your `config.nu`, for example: `let-env PROMPT_COMMAND = { echo "foo" }`.
 
 ## Future Directions
 

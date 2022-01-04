@@ -163,10 +163,10 @@ export def hello [name: string] {
 ```
 > use greetings.nu
 
-> $nu.env."greetings MYNAME"
+> $env."greetings MYNAME"
 Arthur, King of the Britons
 
-> greetings hello $nu.env."greetings MYNAME"
+> greetings hello $env."greetings MYNAME"
 hello Arthur, King of the Britons!
 ```
 
@@ -178,18 +178,18 @@ We can demonstrate this property for example with the `random` command:
 
 > use roll ROLL
 
-> $nu.env.ROLL
+> $env.ROLL
 4
 
-> $nu.env.ROLL
+> $env.ROLL
 4
 
 > use roll ROLL
 
-> $nu.env.ROLL
+> $env.ROLL
 6
 
-> $nu.env.ROLL
+> $env.ROLL
 6
 ```
 
@@ -227,18 +227,18 @@ Let's try environment variables:
 ```
 > let-env FOO = "FOO"
 
-> $nu.env.FOO
+> $env.FOO
 FOO
 
 > hide FOO
 
-> $nu.env.FOO  # error! environment variable not found!
+> $env.FOO  # error! environment variable not found!
 ```
 The first case also applies to commands / environment variables brought from a module (using the "greetings.nu" file defined above):
 ```
 > use greetings.nu *
 
-> $nu.env.MYNAME
+> $env.MYNAME
 Arthur, King of the Britons
 
 > hello "world"
@@ -246,7 +246,7 @@ hello world!
 
 > hide MYNAME
 
-> $nu.env.MYNAME  # error! environment variable not found!
+> $env.MYNAME  # error! environment variable not found!
 
 > hide hello
 
@@ -256,7 +256,7 @@ And finally, when the name is the module name (assuming the previous `greetings`
 ```
 > use greetings.nu
 
-> $nu.env."greetings MYNAME"
+> $env."greetings MYNAME"
 Arthur, King of the Britons
 
 > greetings hello "world"
@@ -264,7 +264,7 @@ hello world!
 
 > hide greetings
 
-> $nu.env."greetings MYNAME"  # error! environment variable not found!
+> $env."greetings MYNAME"  # error! environment variable not found!
 
 > greetings hello "world" # error! command not found!
 ```
@@ -275,7 +275,7 @@ To demonstrate the other cases (again, assuming the same `greetings` module):
 
 > hide greetings hello
 
-> $nu.env."greetings MYNAME"
+> $env."greetings MYNAME"
 Arthur, King of the Britons
 
 > greetings hello "world" # error! command not found!
@@ -285,7 +285,7 @@ Arthur, King of the Britons
 
 > hide greetings [ hello MYNAME ]
 
-> $nu.env."greetings MYNAME" # error! environment variable not found!
+> $env."greetings MYNAME" # error! environment variable not found!
 
 > greetings hello "world" # error! command not found!
 ```
@@ -294,7 +294,7 @@ Arthur, King of the Britons
 
 > hide greetings *
 
-> $nu.env."greetings MYNAME" # error! environment variable not found!
+> $env."greetings MYNAME" # error! environment variable not found!
 
 > greetings hello "world" # error! command not found!
 ```
