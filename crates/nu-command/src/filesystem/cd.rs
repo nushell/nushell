@@ -1,7 +1,7 @@
-use nu_engine::CallExt;
+use nu_engine::{current_dir, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct Cd;
@@ -29,18 +29,66 @@ impl Command for Cd {
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
+        let cwd = current_dir(engine_state, stack)?;
 
         let (path, span) = match path_val {
-            Some(v) => (v.as_string()?, v.span()?),
+            Some(v) => {
+                let path = v.as_path()?;
+                if !path.exists() {
+                    return Err(ShellError::DirectoryNotFound(v.span()?));
+                }
+
+                let path = nu_path::canonicalize_with(path, &cwd)?;
+                (path.to_string_lossy().to_string(), v.span()?)
+            }
             None => {
                 let path = nu_path::expand_tilde("~");
                 (path.to_string_lossy().to_string(), call.head)
             }
         };
 
+        let path_value = Value::String { val: path, span };
+        let cwd = Value::String {
+            val: cwd.to_string_lossy().to_string(),
+            span: call.head,
+        };
+
+        let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
+        let mut shells = if let Some(v) = shells {
+            v.as_list()
+                .map(|x| x.to_vec())
+                .unwrap_or_else(|_| vec![cwd])
+        } else {
+            vec![cwd]
+        };
+
+        let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
+        let current_shell = if let Some(v) = current_shell {
+            v.as_integer().unwrap_or_default() as usize
+        } else {
+            0
+        };
+
+        shells[current_shell] = path_value.clone();
+
+        stack.add_env_var(
+            "NUSHELL_SHELLS".into(),
+            Value::List {
+                vals: shells,
+                span: call.head,
+            },
+        );
+        stack.add_env_var(
+            "NUSHELL_CURRENT_SHELL".into(),
+            Value::Int {
+                val: current_shell as i64,
+                span: call.head,
+            },
+        );
+
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
-        stack.add_env_var("PWD".into(), Value::String { val: path, span });
+        stack.add_env_var("PWD".into(), path_value);
         Ok(PipelineData::new(call.head))
     }
 }

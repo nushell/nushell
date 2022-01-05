@@ -34,14 +34,20 @@ impl Command for Enter {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let new_path: Value = call.req(engine_state, stack, 0)?;
+        let path_span = new_path.span()?;
+
+        let new_path = new_path.as_path()?;
+        if !new_path.exists() {
+            return Err(ShellError::DirectoryNotFound(path_span));
+        }
 
         let cwd = current_dir(engine_state, stack)?;
+        let new_path = nu_path::canonicalize_with(new_path, &cwd)?;
 
-        if let Ok(s) = new_path.as_path() {
-            if !s.exists() {
-                return Err(ShellError::DirectoryNotFound(new_path.span()?));
-            }
-        }
+        let new_path = Value::String {
+            val: new_path.to_string_lossy().to_string(),
+            span: call.head,
+        };
 
         let cwd = Value::String {
             val: cwd.to_string_lossy().to_string(),
