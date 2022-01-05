@@ -144,6 +144,7 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
                 } else {
+                    println!("cwd is: {}", cwd);
                     Err(ShellError::LabeledError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{}'", cwd)

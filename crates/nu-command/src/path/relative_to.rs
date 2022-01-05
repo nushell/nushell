@@ -30,7 +30,7 @@ impl Command for SubCommand {
         Signature::build("path relative-to")
             .required(
                 "path",
-                SyntaxShape::Filepath,
+                SyntaxShape::String,
                 "Parent shared with the input path",
             )
             .named(
@@ -116,7 +116,9 @@ path."#
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     match path.strip_prefix(Path::new(&args.path.item)) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(_) => todo!(),
+        Err(e) => Value::Error {
+            error: ShellError::CantConvert(e.to_string(), "string".into(), span),
+        },
     }
 }
 

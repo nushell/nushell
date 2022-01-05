@@ -38,11 +38,7 @@ impl Command for SubCommand {
                 "Optionally operate by column path",
                 Some('c'),
             )
-            .optional(
-                "append",
-                SyntaxShape::Filepath,
-                "Path to append to the input",
-            )
+            .optional("append", SyntaxShape::String, "Path to append to the input")
     }
 
     fn usage(&self) -> &str {

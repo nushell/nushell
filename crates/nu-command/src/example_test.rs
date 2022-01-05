@@ -57,6 +57,22 @@ pub fn test_examples(cmd: impl Command + 'static) {
         }
         let start = std::time::Instant::now();
 
+        let mut stack = Stack::new();
+
+        // Set up PWD
+        stack.add_env_var(
+            "PWD".to_string(),
+            Value::String {
+                val: cwd.to_string_lossy().to_string(),
+                span: Span::test_data(),
+            },
+        );
+        let _ = engine_state.merge_delta(
+            StateWorkingSet::new(&*engine_state).render(),
+            Some(&mut stack),
+            &cwd,
+        );
+
         let (block, delta) = {
             let mut working_set = StateWorkingSet::new(&*engine_state);
             let (output, err) = parse(&mut working_set, None, example.example.as_bytes(), false);

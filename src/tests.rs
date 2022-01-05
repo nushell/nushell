@@ -53,6 +53,10 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
 
     let mut cmd = Command::cargo_bin("engine-q")?;
     cmd.arg(name);
+    cmd.env(
+        "PWD",
+        std::env::current_dir().expect("Can't get current dir"),
+    );
 
     writeln!(file, "{}", input)?;
 

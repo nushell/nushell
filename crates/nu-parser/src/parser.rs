@@ -1558,12 +1558,14 @@ pub fn parse_filepath(
     working_set: &mut StateWorkingSet,
     span: Span,
 ) -> (Expression, Option<ParseError>) {
+    let cwd = working_set.get_cwd();
+
     let bytes = working_set.get_span_contents(span);
     let bytes = trim_quotes(bytes);
     trace!("parsing: filepath");
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
-        let filepath = nu_path::expand_path(token);
+        let filepath = nu_path::expand_path_with(token, cwd);
         let filepath = filepath.to_string_lossy().to_string();
         trace!("-- found {}", filepath);
 
@@ -1789,9 +1791,10 @@ pub fn parse_glob_pattern(
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
+        let cwd = working_set.get_cwd();
         trace!("-- found {}", token);
 
-        let filepath = nu_path::expand_path(token);
+        let filepath = nu_path::expand_path_with(token, cwd);
         let filepath = filepath.to_string_lossy().to_string();
 
         (

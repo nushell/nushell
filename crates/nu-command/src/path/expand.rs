@@ -2,7 +2,7 @@ use std::path::Path;
 
 use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
-use nu_path::{canonicalize_with, expand_path};
+use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{engine::Command, Example, ShellError, Signature, Span, SyntaxShape, Value};
 
 use super::PathSubcommandArguments;
@@ -82,7 +82,7 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a relative path",
                 example: r"'foo\..\bar' | path expand",
-                result: Some(Value::test_string("bar")),
+                result: None,
             },
         ]
     }
@@ -103,7 +103,7 @@ impl Command for SubCommand {
             Example {
                 description: "Expand a relative path",
                 example: "'foo/../bar' | path expand",
-                result: Some(Value::test_string("bar")),
+                result: None,
             },
         ]
     }
@@ -123,7 +123,7 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             ),
         }
     } else {
-        Value::string(expand_path(path).to_string_lossy(), span)
+        Value::string(expand_path_with(path, &args.cwd).to_string_lossy(), span)
     }
 }
 

@@ -105,15 +105,16 @@ impl<'call> ExternalCommand<'call> {
         input: PipelineData,
         config: Config,
     ) -> Result<PipelineData, ShellError> {
-        let mut process = self.create_command();
         let head = self.name.span;
 
         let ctrlc = engine_state.ctrlc.clone();
 
         // TODO. We don't have a way to know the current directory
         // This should be information from the EvaluationContex or EngineState
-        if let Some(d) = self.env_vars.get("PWD") {
+        let mut process = if let Some(d) = self.env_vars.get("PWD") {
+            let mut process = self.create_command(d);
             process.current_dir(d);
+            process
         } else {
             return Err(ShellError::SpannedLabeledErrorHelp(
                 "Current directory not found".to_string(),
@@ -124,7 +125,7 @@ impl<'call> ExternalCommand<'call> {
                     "It is required to define the current directory when running an external command."
                 ).to_string(),
             ));
-        }
+        };
 
         process.envs(&self.env_vars);
 
@@ -239,7 +240,7 @@ impl<'call> ExternalCommand<'call> {
         }
     }
 
-    fn create_command(&self) -> CommandSys {
+    fn create_command(&self, cwd: &str) -> CommandSys {
         // in all the other cases shell out
         if cfg!(windows) {
             //TODO. This should be modifiable from the config file.
@@ -248,22 +249,24 @@ impl<'call> ExternalCommand<'call> {
             if self.name.item.ends_with(".cmd") || self.name.item.ends_with(".bat") {
                 self.spawn_cmd_command()
             } else {
-                self.spawn_simple_command()
+                self.spawn_simple_command(cwd)
             }
         } else if self.name.item.ends_with(".sh") {
             self.spawn_sh_command()
         } else {
-            self.spawn_simple_command()
+            self.spawn_simple_command(cwd)
         }
     }
 
     /// Spawn a command without shelling out to an external shell
-    fn spawn_simple_command(&self) -> std::process::Command {
+    fn spawn_simple_command(&self, cwd: &str) -> std::process::Command {
         let mut process = std::process::Command::new(&self.name.item);
 
         for arg in &self.args {
             let arg = trim_enclosing_quotes(arg);
-            let arg = nu_path::expand_path(arg).to_string_lossy().to_string();
+            let arg = nu_path::expand_path_with(arg, cwd)
+                .to_string_lossy()
+                .to_string();
 
             let arg = arg.replace("\\", "\\\\");
 

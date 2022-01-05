@@ -235,6 +235,8 @@ impl EngineState {
             }
         }
 
+        // FIXME: permanent state changes like this hopefully in time can be removed
+        // and be replaced by just passing the cwd in where needed
         std::env::set_current_dir(cwd)?;
 
         Ok(())
@@ -1007,6 +1009,15 @@ impl<'a> StateWorkingSet<'a> {
             .expect("internal error: missing stack frame");
 
         last.aliases.insert(name, replacement);
+    }
+
+    pub fn get_cwd(&self) -> String {
+        let pwd = self
+            .permanent_state
+            .env_vars
+            .get("PWD")
+            .expect("internal error: can't find PWD");
+        pwd.as_string().expect("internal error: PWD not a string")
     }
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {

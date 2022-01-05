@@ -26,19 +26,19 @@ where
     }
 }
 
-/// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its
-/// absolute form.
-///
-/// Fails under the same conditions as
-/// [std::fs::canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
-pub fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
+fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
 
     dunce::canonicalize(path)
 }
 
-/// Same as canonicalize() but the input path is specified relative to another path
+/// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its
+/// absolute form.
+///
+/// Fails under the same conditions as
+/// [std::fs::canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
+/// The input path is specified relative to another path
 pub fn canonicalize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
 where
     P: AsRef<Path>,
@@ -49,6 +49,12 @@ where
     canonicalize(path)
 }
 
+fn expand_path(path: impl AsRef<Path>) -> PathBuf {
+    let path = expand_tilde(path);
+    let path = expand_ndots(path);
+    expand_dots(path)
+}
+
 /// Resolve only path components (tilde, ., .., ...+), if possible.
 ///
 /// The function works in a "best effort" mode: It does not fail but rather returns the unexpanded
@@ -57,13 +63,7 @@ where
 /// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
 ///
 /// Does not convert to absolute form nor does it resolve symlinks.
-pub fn expand_path(path: impl AsRef<Path>) -> PathBuf {
-    let path = expand_tilde(path);
-    let path = expand_ndots(path);
-    expand_dots(path)
-}
-
-/// Same as expand_path() but the input path is specified relative to another path
+/// The input path is specified relative to another path
 pub fn expand_path_with<P, Q>(path: P, relative_to: Q) -> PathBuf
 where
     P: AsRef<Path>,

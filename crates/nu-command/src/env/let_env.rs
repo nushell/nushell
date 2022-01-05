@@ -1,7 +1,7 @@
-use nu_engine::eval_expression;
+use nu_engine::{current_dir, eval_expression};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
 pub struct LetEnv;
@@ -43,7 +43,20 @@ impl Command for LetEnv {
 
         let rhs = eval_expression(engine_state, stack, keyword_expr)?;
 
-        stack.add_env_var(env_var, rhs);
+        if env_var == "PWD" {
+            let cwd = current_dir(engine_state, stack)?;
+            let rhs = rhs.as_string()?;
+            let rhs = nu_path::expand_path_with(rhs, cwd);
+            stack.add_env_var(
+                env_var,
+                Value::String {
+                    val: rhs.to_string_lossy().to_string(),
+                    span: call.head,
+                },
+            );
+        } else {
+            stack.add_env_var(env_var, rhs);
+        }
         Ok(PipelineData::new(call.head))
     }
 }

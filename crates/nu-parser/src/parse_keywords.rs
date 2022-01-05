@@ -1,4 +1,4 @@
-use nu_path::canonicalize;
+use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
         Block, Call, Expr, Expression, ImportPattern, ImportPatternHead, ImportPatternMember,
@@ -640,6 +640,7 @@ pub fn parse_use(
     let bytes = working_set.get_span_contents(spans[0]);
 
     if bytes == b"use" && spans.len() >= 2 {
+        let cwd = working_set.get_cwd();
         for span in spans[1..].iter() {
             let (_, err) = parse_string(working_set, *span);
             error = error.or(err);
@@ -657,7 +658,7 @@ pub fn parse_use(
                 // TODO: Do not close over when loading module from file
                 // It could be a file
                 if let Ok(module_filename) = String::from_utf8(import_pattern.head.name) {
-                    if let Ok(module_path) = canonicalize(&module_filename) {
+                    if let Ok(module_path) = canonicalize_with(&module_filename, cwd) {
                         let module_name = if let Some(stem) = module_path.file_stem() {
                             stem.to_string_lossy().to_string()
                         } else {
@@ -1028,6 +1029,7 @@ pub fn parse_source(
 
     if name == b"source" {
         if let Some(decl_id) = working_set.find_decl(b"source") {
+            let cwd = working_set.get_cwd();
             // Is this the right call to be using here?
             // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -1038,7 +1040,7 @@ pub fn parse_source(
                 let name_expr = working_set.get_span_contents(spans[1]);
                 let name_expr = trim_quotes(name_expr);
                 if let Ok(filename) = String::from_utf8(name_expr.to_vec()) {
-                    if let Ok(path) = canonicalize(&filename) {
+                    if let Ok(path) = canonicalize_with(&filename, cwd) {
                         if let Ok(contents) = std::fs::read(&path) {
                             // This will load the defs from the file into the
                             // working set, if it was a successful parse.
@@ -1124,6 +1126,7 @@ pub fn parse_register(
 ) -> (Statement, Option<ParseError>) {
     use nu_plugin::{get_signature, EncodingType, PluginDeclaration};
     use nu_protocol::Signature;
+    let cwd = working_set.get_cwd();
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -1176,6 +1179,7 @@ pub fn parse_register(
     // Extracting the required arguments from the call and keeping them together in a tuple
     // The ? operator is not used because the error has to be kept to be printed in the shell
     // For that reason the values are kept in a result that will be passed at the end of this call
+    let cwd_clone = cwd.clone();
     let arguments = call
         .positional
         .get(0)
@@ -1183,8 +1187,9 @@ pub fn parse_register(
             let name_expr = working_set.get_span_contents(expr.span);
             String::from_utf8(name_expr.to_vec())
                 .map_err(|_| ParseError::NonUtf8(expr.span))
-                .and_then(|name| {
-                    canonicalize(&name).map_err(|_| ParseError::FileNotFound(name, expr.span))
+                .and_then(move |name| {
+                    canonicalize_with(&name, cwd_clone)
+                        .map_err(|_| ParseError::FileNotFound(name, expr.span))
                 })
                 .and_then(|path| {
                     if path.exists() & path.is_file() {
@@ -1231,7 +1236,7 @@ pub fn parse_register(
         String::from_utf8(shell_expr.to_vec())
             .map_err(|_| ParseError::NonUtf8(expr.span))
             .and_then(|name| {
-                canonicalize(&name).map_err(|_| ParseError::FileNotFound(name, expr.span))
+                canonicalize_with(&name, cwd).map_err(|_| ParseError::FileNotFound(name, expr.span))
             })
             .and_then(|path| {
                 if path.exists() & path.is_file() {

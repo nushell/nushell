@@ -117,6 +117,9 @@ fn main() -> Result<()> {
     // End ctrl-c protection section
 
     if let Some(path) = std::env::args().nth(1) {
+        // First, set up env vars as strings only
+        gather_parent_env_vars(&mut engine_state);
+
         let file = std::fs::read(&path).into_diagnostic()?;
 
         let (block, delta) = {
@@ -138,9 +141,6 @@ fn main() -> Result<()> {
         }
 
         let mut stack = nu_protocol::engine::Stack::new();
-
-        // First, set up env vars as strings only
-        gather_parent_env_vars(&mut engine_state);
 
         // Set up our initial config to start from
         stack.vars.insert(
@@ -436,6 +436,7 @@ fn main() -> Result<()> {
                     // Check if this is a single call to a directory, if so auto-cd
                     let cwd = nu_engine::env::current_dir_str(&engine_state, &stack)?;
                     let path = nu_path::expand_path_with(&s, &cwd);
+
                     let orig = s.clone();
 
                     if (orig.starts_with('.')
@@ -451,7 +452,7 @@ fn main() -> Result<()> {
                         stack.add_env_var(
                             "PWD".into(),
                             Value::String {
-                                val: s.clone(),
+                                val: path.to_string_lossy().to_string(),
                                 span: Span { start: 0, end: 0 },
                             },
                         );
