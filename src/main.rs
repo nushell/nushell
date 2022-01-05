@@ -456,18 +456,20 @@ fn main() -> Result<()> {
                                 span: Span { start: 0, end: 0 },
                             },
                         );
+                    } else {
+                        trace!("eval source: {}", s);
 
-                        continue;
+                        eval_source(
+                            &mut engine_state,
+                            &mut stack,
+                            &s,
+                            &format!("entry #{}", entry_num),
+                        );
                     }
-
-                    trace!("eval source: {}", s);
-
-                    eval_source(
-                        &mut engine_state,
-                        &mut stack,
-                        &s,
-                        &format!("entry #{}", entry_num),
-                    );
+                    // FIXME: permanent state changes like this hopefully in time can be removed
+                    // and be replaced by just passing the cwd in where needed
+                    let cwd = nu_engine::env::current_dir_str(&engine_state, &stack)?;
+                    let _ = std::env::set_current_dir(cwd);
                 }
                 Ok(Signal::CtrlC) => {
                     // `Reedline` clears the line content. New prompt is shown

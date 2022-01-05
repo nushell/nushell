@@ -181,7 +181,12 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         // Shells
         bind_command! {
+            Enter,
             Exit,
+            GotoShell,
+            NextShell,
+            PrevShell,
+            Shells,
         };
 
         // Formats
