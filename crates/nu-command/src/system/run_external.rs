@@ -264,9 +264,13 @@ impl<'call> ExternalCommand<'call> {
 
         for arg in &self.args {
             let arg = trim_enclosing_quotes(arg);
-            let arg = nu_path::expand_path_with(arg, cwd)
-                .to_string_lossy()
-                .to_string();
+            let arg = if arg.starts_with('~') || arg.starts_with("..") {
+                nu_path::expand_path_with(arg, cwd)
+                    .to_string_lossy()
+                    .to_string()
+            } else {
+                arg
+            };
 
             let arg = arg.replace("\\", "\\\\");
 
