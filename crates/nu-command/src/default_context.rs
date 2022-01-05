@@ -271,6 +271,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         // Network
         bind_command! {
+            Fetch,
             Url,
             UrlHost,
             UrlPath,
@@ -303,9 +304,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);
-
-        #[cfg(feature = "fetch")]
-        bind_command!(Fetch);
 
         // This is a WIP proof of concept
         // bind_command!(ListGitBranches, Git, GitCheckout, Source);

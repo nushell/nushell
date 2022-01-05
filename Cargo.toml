@@ -59,7 +59,6 @@ pretty_assertions = "1.0.0"
 
 [features]
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-fetch-support = ["nu-command/fetch"]
 default = [
 	"plugin",
 	"inc",

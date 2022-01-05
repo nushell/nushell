@@ -7,6 +7,7 @@ use nu_protocol::ByteStream;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use reqwest::blocking::Response;
 
 use std::io::{BufRead, BufReader, Read};
 
@@ -162,98 +163,61 @@ fn helper(
     }
 
     match request.send() {
-        Ok(resp) => {
-            // let temp = std::fs::File::create("temp_dwl.txt")?;
-            // let mut b = BufWriter::new(temp);
-            // let _bytes = resp.copy_to(&mut b);
-            // let temp1 = std::fs::File::open("temp_dwl.txt")?;
-            // let a = BufReader::new(temp1);
-
-            // TODO I guess we should check if all bytes were written/read...
-            match resp.headers().get("content-type") {
-                Some(content_type) => {
-                    let content_type = content_type.to_str().map_err(|e| {
-                        ShellError::LabeledError(
-                            e.to_string(),
-                            "MIME type were invalid".to_string(),
-                        )
-                    })?;
-                    let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-                        ShellError::LabeledError(
-                            format!("MIME type unknown: {}", content_type),
-                            "given unknown MIME type".to_string(),
-                        )
-                    })?;
-                    let ext = match (content_type.type_(), content_type.subtype()) {
-                        (mime::TEXT, mime::PLAIN) => {
-                            let path_extension = url::Url::parse(&requested_url)
-                                .map_err(|_| {
-                                    ShellError::LabeledError(
-                                        format!("Cannot parse URL: {}", requested_url),
-                                        "cannot parse".to_string(),
-                                    )
-                                })?
-                                .path_segments()
-                                .and_then(|segments| segments.last())
-                                .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                                .and_then(|name| {
-                                    PathBuf::from(name)
-                                        .extension()
-                                        .map(|name| name.to_string_lossy().to_string())
-                                });
-                            path_extension
-                        }
-                        _ => Some(content_type.subtype().to_string()),
-                    };
-
-                    let buffered_input = BufReader::new(resp);
-
-                    let output = PipelineData::ByteStream(
-                        ByteStream {
-                            stream: Box::new(BufferedReader {
-                                input: buffered_input,
-                            }),
-                            ctrlc: engine_state.ctrlc.clone(),
-                        },
-                        span,
-                        None,
-                    );
-
-                    if raw {
-                        return Ok(output);
+        Ok(resp) => match resp.headers().get("content-type") {
+            Some(content_type) => {
+                let content_type = content_type.to_str().map_err(|e| {
+                    ShellError::LabeledError(e.to_string(), "MIME type were invalid".to_string())
+                })?;
+                let content_type = mime::Mime::from_str(content_type).map_err(|_| {
+                    ShellError::LabeledError(
+                        format!("MIME type unknown: {}", content_type),
+                        "given unknown MIME type".to_string(),
+                    )
+                })?;
+                let ext = match (content_type.type_(), content_type.subtype()) {
+                    (mime::TEXT, mime::PLAIN) => {
+                        let path_extension = url::Url::parse(&requested_url)
+                            .map_err(|_| {
+                                ShellError::LabeledError(
+                                    format!("Cannot parse URL: {}", requested_url),
+                                    "cannot parse".to_string(),
+                                )
+                            })?
+                            .path_segments()
+                            .and_then(|segments| segments.last())
+                            .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                            .and_then(|name| {
+                                PathBuf::from(name)
+                                    .extension()
+                                    .map(|name| name.to_string_lossy().to_string())
+                            });
+                        path_extension
                     }
+                    _ => Some(content_type.subtype().to_string()),
+                };
 
-                    if let Some(ext) = ext {
-                        match engine_state.find_decl(format!("from {}", ext).as_bytes()) {
-                            Some(converter_id) => engine_state.get_decl(converter_id).run(
-                                engine_state,
-                                stack,
-                                &Call::new(),
-                                output,
-                            ),
-                            None => Ok(output),
-                        }
-                    } else {
-                        Ok(output)
-                    }
+                let output = response_to_buffer(resp, engine_state, span);
+
+                if raw {
+                    return Ok(output);
                 }
-                None => {
-                    let buffered_input = BufReader::new(resp);
 
-                    let output = PipelineData::ByteStream(
-                        ByteStream {
-                            stream: Box::new(BufferedReader {
-                                input: buffered_input,
-                            }),
-                            ctrlc: engine_state.ctrlc.clone(),
-                        },
-                        span,
-                        None,
-                    );
+                if let Some(ext) = ext {
+                    match engine_state.find_decl(format!("from {}", ext).as_bytes()) {
+                        Some(converter_id) => engine_state.get_decl(converter_id).run(
+                            engine_state,
+                            stack,
+                            &Call::new(),
+                            output,
+                        ),
+                        None => Ok(output),
+                    }
+                } else {
                     Ok(output)
                 }
             }
-        }
+            None => Ok(response_to_buffer(resp, engine_state, span)),
+        },
         Err(e) if e.is_timeout() => Err(ShellError::NetworkFailure(
             format!("Request to {} has timed out", requested_url),
             span,
@@ -325,6 +289,25 @@ impl<R: Read> Iterator for BufferedReader<R> {
             Err(e) => Some(Err(ShellError::IOError(e.to_string()))),
         }
     }
+}
+
+fn response_to_buffer(
+    response: Response,
+    engine_state: &EngineState,
+    span: Span,
+) -> nu_protocol::PipelineData {
+    let buffered_input = BufReader::new(response);
+
+    PipelineData::ByteStream(
+        ByteStream {
+            stream: Box::new(BufferedReader {
+                input: buffered_input,
+            }),
+            ctrlc: engine_state.ctrlc.clone(),
+        },
+        span,
+        None,
+    )
 }
 
 // Only panics if the user agent is invalid but we define it statically so either

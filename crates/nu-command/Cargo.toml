@@ -68,7 +68,7 @@ sha2 = "0.10.0"
 base64 = "0.13.0"
 encoding_rs = "0.8.30"
 num = { version = "0.4.0", optional = true }
-reqwest = {version = "0.11", features = ["blocking"], optional = true }
+reqwest = {version = "0.11", features = ["blocking"] }
 mime = "0.3.16"
 
 [target.'cfg(unix)'.dependencies]
@@ -88,7 +88,6 @@ features = [
 trash-support = ["trash"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
-fetch = ["reqwest"]
 
 [build-dependencies]
 shadow-rs = "0.8.1"
