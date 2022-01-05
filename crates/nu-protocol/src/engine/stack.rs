@@ -47,11 +47,12 @@ impl Stack {
     }
 
     pub fn with_env(&mut self, env_vars: &[HashMap<String, Value>], env_hidden: &HashSet<String>) {
-        if env_vars.iter().any(|scope| !scope.is_empty()) {
+        // Do not clone the environment if it hasn't changed
+        if self.env_vars.iter().any(|scope| !scope.is_empty()) {
             self.env_vars = env_vars.to_owned();
         }
 
-        if !env_hidden.is_empty() {
+        if !self.env_hidden.is_empty() {
             self.env_hidden = env_hidden.clone();
         }
     }

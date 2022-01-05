@@ -189,9 +189,13 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::directory_not_found), url(docsrs))]
     DirectoryNotFound(#[label("directory not found")] Span),
 
-    #[error("File not found")]
-    #[diagnostic(code(nu::shell::file_not_found), url(docsrs))]
+    #[error("Directory not found")]
+    #[diagnostic(code(nu::shell::directory_not_found_custom), url(docsrs))]
     DirectoryNotFoundCustom(String, #[label("{0}")] Span),
+
+    #[error("Directory not found")]
+    #[diagnostic(code(nu::shell::directory_not_found_help), url(docsrs), help("{1}"))]
+    DirectoryNotFoundHelp(#[label("directory not found")] Span, String),
 
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible), url(docsrs))]

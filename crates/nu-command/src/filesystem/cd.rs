@@ -34,11 +34,15 @@ impl Command for Cd {
         let (path, span) = match path_val {
             Some(v) => {
                 let path = v.as_path()?;
-                if !path.exists() {
-                    return Err(ShellError::DirectoryNotFound(v.span()?));
-                }
-
-                let path = nu_path::canonicalize_with(path, &cwd)?;
+                let path = match nu_path::canonicalize_with(path, &cwd) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return Err(ShellError::DirectoryNotFoundHelp(
+                            v.span()?,
+                            format!("IO Error: {:?}", e),
+                        ))
+                    }
+                };
                 (path.to_string_lossy().to_string(), v.span()?)
             }
             None => {
