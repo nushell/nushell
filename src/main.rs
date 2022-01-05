@@ -468,8 +468,11 @@ fn main() -> Result<()> {
                     }
                     // FIXME: permanent state changes like this hopefully in time can be removed
                     // and be replaced by just passing the cwd in where needed
-                    let cwd = nu_engine::env::current_dir_str(&engine_state, &stack)?;
-                    let _ = std::env::set_current_dir(cwd);
+                    if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
+                        let path = cwd.as_string()?;
+                        let _ = std::env::set_current_dir(path);
+                        engine_state.env_vars.insert("PWD".into(), cwd);
+                    }
                 }
                 Ok(Signal::CtrlC) => {
                     // `Reedline` clears the line content. New prompt is shown

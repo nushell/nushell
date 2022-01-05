@@ -1,8 +1,6 @@
 use std::fs::OpenOptions;
 
-use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
-use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
@@ -41,8 +39,7 @@ impl Command for Touch {
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 
         for (index, item) in vec![target].into_iter().chain(rest).enumerate() {
-            let path = expand_path_with(&item, current_dir_str(engine_state, stack)?);
-            match OpenOptions::new().write(true).create(true).open(&path) {
+            match OpenOptions::new().write(true).create(true).open(&item) {
                 Ok(_) => continue,
                 Err(err) => {
                     return Err(ShellError::CreateNotPossible(

@@ -37,9 +37,8 @@ impl Command for Enter {
 
         let cwd = current_dir(engine_state, stack)?;
 
-        if let Ok(s) = new_path.as_string() {
-            let path = nu_path::expand_path_with(s, &cwd);
-            if !path.exists() {
+        if let Ok(s) = new_path.as_path() {
+            if !s.exists() {
                 return Err(ShellError::DirectoryNotFound(new_path.span()?));
             }
         }

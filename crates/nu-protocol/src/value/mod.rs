@@ -18,6 +18,7 @@ use sys_locale::get_locale;
 pub use unit::*;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
@@ -167,6 +168,17 @@ impl Value {
             Value::String { val, .. } => Ok(val.to_string()),
             x => Err(ShellError::CantConvert(
                 "string".into(),
+                x.get_type().to_string(),
+                self.span()?,
+            )),
+        }
+    }
+
+    pub fn as_path(&self) -> Result<PathBuf, ShellError> {
+        match self {
+            Value::String { val, .. } => Ok(PathBuf::from(val)),
+            x => Err(ShellError::CantConvert(
+                "path".into(),
                 x.get_type().to_string(),
                 self.span()?,
             )),

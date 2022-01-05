@@ -1,4 +1,3 @@
-use nu_engine::env::current_dir_str;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -32,13 +31,7 @@ impl Command for Cd {
         let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
 
         let (path, span) = match path_val {
-            Some(v) => {
-                let path = nu_path::canonicalize_with(
-                    v.as_string()?,
-                    current_dir_str(engine_state, stack)?,
-                )?;
-                (path.to_string_lossy().to_string(), v.span()?)
-            }
+            Some(v) => (v.as_string()?, v.span()?),
             None => {
                 let path = nu_path::expand_tilde("~");
                 (path.to_string_lossy().to_string(), call.head)
