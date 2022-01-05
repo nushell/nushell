@@ -8,7 +8,6 @@ use nu_protocol::{
     ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
-use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -128,17 +127,7 @@ impl Command for Ls {
                 Ok(path) => {
                     let metadata = match std::fs::symlink_metadata(&path) {
                         Ok(metadata) => Some(metadata),
-                        Err(e) => {
-                            if e.kind() == ErrorKind::PermissionDenied
-                                || e.kind() == ErrorKind::Other
-                            {
-                                None
-                            } else {
-                                return Some(Value::Error {
-                                    error: ShellError::IOError(format!("{}", e)),
-                                });
-                            }
-                        }
+                        Err(_) => None,
                     };
                     if path_contains_hidden_folder(&path, &hidden_dirs) {
                         return None;
