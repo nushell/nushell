@@ -447,14 +447,54 @@ fn main() -> Result<()> {
                         && tokens.0.len() == 1
                     {
                         // We have an auto-cd
+                        let (path, span) = {
+                            if !path.exists() {
+                                let working_set = StateWorkingSet::new(&engine_state);
+
+                                report_error(
+                                    &working_set,
+                                    &ShellError::DirectoryNotFound(tokens.0[0].span),
+                                );
+                            }
+
+                            let path = nu_path::canonicalize_with(path, &cwd)
+                                .expect("internal error: cannot canonicalize known path");
+                            (path.to_string_lossy().to_string(), tokens.0[0].span)
+                        };
+
                         //FIXME: this only changes the current scope, but instead this environment variable
                         //should probably be a block that loads the information from the state in the overlay
                         stack.add_env_var(
                             "PWD".into(),
                             Value::String {
-                                val: path.to_string_lossy().to_string(),
+                                val: path.clone(),
                                 span: Span { start: 0, end: 0 },
                             },
+                        );
+                        let cwd = Value::String { val: cwd, span };
+
+                        let shells = stack.get_env_var(&engine_state, "NUSHELL_SHELLS");
+                        let mut shells = if let Some(v) = shells {
+                            v.as_list()
+                                .map(|x| x.to_vec())
+                                .unwrap_or_else(|_| vec![cwd])
+                        } else {
+                            vec![cwd]
+                        };
+
+                        let current_shell =
+                            stack.get_env_var(&engine_state, "NUSHELL_CURRENT_SHELL");
+                        let current_shell = if let Some(v) = current_shell {
+                            v.as_integer().unwrap_or_default() as usize
+                        } else {
+                            0
+                        };
+
+                        shells[current_shell] = Value::String { val: path, span };
+
+                        stack.add_env_var(
+                            "NUSHELL_SHELLS".into(),
+                            Value::List { vals: shells, span },
                         );
                     } else {
                         trace!("eval source: {}", s);
