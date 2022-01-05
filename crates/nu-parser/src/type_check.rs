@@ -8,6 +8,8 @@ use nu_protocol::{
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
+        (Type::Number, Type::Int) => true,
+        (Type::Number, Type::Float) => true,
         (Type::Unknown, _) => true,
         (_, Type::Unknown) => true,
         (lhs, rhs) => lhs == rhs,

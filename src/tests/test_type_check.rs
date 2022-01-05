@@ -14,3 +14,13 @@ fn type_in_list_of_this_type() -> TestResult {
 fn type_in_list_of_non_this_type() -> TestResult {
     fail_test(r#"'hello' in [41 42 43]"#, "mismatched for operation")
 }
+
+#[test]
+fn number_int() -> TestResult {
+    run_test(r#"def foo [x:number] { $x }; foo 1"#, "1")
+}
+
+#[test]
+fn number_float() -> TestResult {
+    run_test(r#"def foo [x:number] { $x }; foo 1.4"#, "1.4")
+}
