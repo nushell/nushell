@@ -134,3 +134,8 @@ fn multiline_pipe_in_block() -> TestResult {
         "5",
     )
 }
+
+#[test]
+fn bad_short_flag() -> TestResult {
+    fail_test(r#"def foo3 [-l?:int] { $l }"#, "short flag")
+}

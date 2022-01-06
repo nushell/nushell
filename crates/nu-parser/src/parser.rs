@@ -2350,31 +2350,21 @@ pub fn parse_signature_helper(
                                     error = error.or_else(|| {
                                         Some(ParseError::Expected("short flag".into(), span))
                                     });
-
-                                    args.push(Arg::Flag(Flag {
-                                        arg: None,
-                                        desc: String::new(),
-                                        long: String::new(),
-                                        short: None,
-                                        required: false,
-                                        var_id: None,
-                                    }));
-                                } else {
-                                    let mut encoded_var_name = vec![0u8; 4];
-                                    let len = chars[0].encode_utf8(&mut encoded_var_name).len();
-                                    let variable_name = encoded_var_name[0..len].to_vec();
-                                    let var_id =
-                                        working_set.add_variable(variable_name, Type::Unknown);
-
-                                    args.push(Arg::Flag(Flag {
-                                        arg: None,
-                                        desc: String::new(),
-                                        long: String::new(),
-                                        short: Some(chars[0]),
-                                        required: false,
-                                        var_id: Some(var_id),
-                                    }));
                                 }
+
+                                let mut encoded_var_name = vec![0u8; 4];
+                                let len = chars[0].encode_utf8(&mut encoded_var_name).len();
+                                let variable_name = encoded_var_name[0..len].to_vec();
+                                let var_id = working_set.add_variable(variable_name, Type::Unknown);
+
+                                args.push(Arg::Flag(Flag {
+                                    arg: None,
+                                    desc: String::new(),
+                                    long: String::new(),
+                                    short: Some(chars[0]),
+                                    required: false,
+                                    var_id: Some(var_id),
+                                }));
                             } else if contents.starts_with(b"(-") {
                                 let short_flag = &contents[2..];
 
