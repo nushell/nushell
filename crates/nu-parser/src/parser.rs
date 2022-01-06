@@ -194,9 +194,14 @@ pub fn parse_external_call(
     let name_span = spans[0];
     let name = String::from_utf8_lossy(working_set.get_span_contents(name_span)).to_string();
     let cwd = working_set.get_cwd();
-    let name = nu_path::expand_path_with(name, cwd)
-        .to_string_lossy()
-        .to_string();
+    let name = if name.starts_with('.') || name.starts_with('~') {
+        nu_path::expand_path_with(name, cwd)
+            .to_string_lossy()
+            .to_string()
+    } else {
+        name
+    };
+
     let mut error = None;
 
     for span in &spans[1..] {
