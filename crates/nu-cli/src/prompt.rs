@@ -10,7 +10,8 @@ use {
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    prompt_string: Option<String>,
+    left_prompt_string: Option<String>,
+    right_prompt_string: Option<String>,
     default_prompt_indicator: String,
     default_vi_insert_prompt_indicator: String,
     default_vi_visual_prompt_indicator: String,
@@ -26,7 +27,8 @@ impl Default for NushellPrompt {
 impl NushellPrompt {
     pub fn new() -> NushellPrompt {
         NushellPrompt {
-            prompt_string: None,
+            left_prompt_string: None,
+            right_prompt_string: None,
             default_prompt_indicator: "〉".to_string(),
             default_vi_insert_prompt_indicator: ": ".to_string(),
             default_vi_visual_prompt_indicator: "v ".to_string(),
@@ -34,8 +36,12 @@ impl NushellPrompt {
         }
     }
 
-    pub fn update_prompt(&mut self, prompt_string: Option<String>) {
-        self.prompt_string = prompt_string;
+    pub fn update_prompt_left(&mut self, prompt_string: Option<String>) {
+        self.left_prompt_string = prompt_string;
+    }
+
+    pub fn update_prompt_right(&mut self, prompt_string: Option<String>) {
+        self.right_prompt_string = prompt_string;
     }
 
     pub fn update_prompt_indicator(&mut self, prompt_indicator_string: String) {
@@ -56,13 +62,15 @@ impl NushellPrompt {
 
     pub fn update_all_prompt_strings(
         &mut self,
-        prompt_string: Option<String>,
+        left_prompt_string: Option<String>,
+        right_prompt_string: Option<String>,
         prompt_indicator_string: String,
         prompt_vi_insert_string: String,
         prompt_vi_visual_string: String,
         prompt_multiline_indicator_string: String,
     ) {
-        self.prompt_string = prompt_string;
+        self.left_prompt_string = left_prompt_string;
+        self.right_prompt_string = right_prompt_string;
         self.default_prompt_indicator = prompt_indicator_string;
         self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
         self.default_vi_visual_prompt_indicator = prompt_vi_visual_string;
@@ -75,12 +83,21 @@ impl NushellPrompt {
 }
 
 impl Prompt for NushellPrompt {
-    fn render_prompt(&self, width: usize) -> Cow<str> {
-        if let Some(prompt_string) = &self.prompt_string {
+    fn render_prompt_left(&self) -> Cow<str> {
+        if let Some(prompt_string) = &self.left_prompt_string {
             prompt_string.into()
         } else {
-            let default = DefaultPrompt::new(1);
-            default.render_prompt(width).to_string().into()
+            let default = DefaultPrompt::new();
+            default.render_prompt_left().to_string().into()
+        }
+    }
+
+    fn render_prompt_right(&self) -> Cow<str> {
+        if let Some(prompt_string) = &self.right_prompt_string {
+            prompt_string.into()
+        } else {
+            let default = DefaultPrompt::new();
+            default.render_prompt_right().to_string().into()
         }
     }
 

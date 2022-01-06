@@ -34,6 +34,7 @@ mod logger;
 
 // Name of environment variable where the prompt could be stored
 const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
+const PROMPT_COMMAND_RIGHT: &str = "PROMPT_COMMAND_RIGHT";
 const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 const PROMPT_INDICATOR_VI_VISUAL: &str = "PROMPT_INDICATOR_VI_VISUAL";
@@ -851,82 +852,41 @@ fn update_prompt<'prompt>(
         prompt_multiline_string,
     ) = get_prompt_indicators(config, engine_state, stack);
 
-    let prompt_command_block_id = match stack.get_env_var(engine_state, PROMPT_COMMAND) {
-        Some(v) => match v.as_block() {
-            Ok(b) => b,
-            Err(_) => {
-                // apply the other indicators
-                nu_prompt.update_all_prompt_strings(
-                    None,
-                    prompt_indicator_string,
-                    prompt_vi_insert_string,
-                    prompt_vi_visual_string,
-                    prompt_multiline_string,
-                );
-                return nu_prompt as &dyn Prompt;
-            }
-        },
-        None => {
-            // apply the other indicators
-            nu_prompt.update_all_prompt_strings(
-                None,
-                prompt_indicator_string,
-                prompt_vi_insert_string,
-                prompt_vi_visual_string,
-                prompt_multiline_string,
-            );
-            return nu_prompt as &dyn Prompt;
-        }
-    };
-
-    let block = engine_state.get_block(prompt_command_block_id);
-
     let mut stack = stack.clone();
 
-    let evaluated_prompt = match eval_block(
-        engine_state,
-        &mut stack,
-        block,
-        PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-    ) {
-        Ok(pipeline_data) => {
-            // let config = stack.get_config().unwrap_or_default();
-            pipeline_data.collect_string("", config)
-        }
-        Err(..) => {
-            // If we can't run the custom prompt, give them the default
-            // apply the other indicators
-            nu_prompt.update_all_prompt_strings(
-                None,
-                prompt_indicator_string,
-                prompt_vi_insert_string,
-                prompt_vi_visual_string,
-                prompt_multiline_string,
-            );
-            return nu_prompt as &dyn Prompt;
-        }
-    };
-
-    match evaluated_prompt {
-        Ok(evaluated_prompt) => {
-            nu_prompt.update_all_prompt_strings(
-                Some(evaluated_prompt),
-                prompt_indicator_string,
-                prompt_vi_insert_string,
-                prompt_vi_visual_string,
-                prompt_multiline_string,
-            );
-        }
-        _ => nu_prompt.update_all_prompt_strings(
-            None,
-            prompt_indicator_string,
-            prompt_vi_insert_string,
-            prompt_vi_visual_string,
-            prompt_multiline_string,
-        ),
-    }
+    // apply the other indicators
+    nu_prompt.update_all_prompt_strings(
+        get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack),
+        get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack),
+        prompt_indicator_string,
+        prompt_vi_insert_string,
+        prompt_vi_visual_string,
+        prompt_multiline_string,
+    );
 
     nu_prompt as &dyn Prompt
+}
+
+fn get_prompt_string(
+    prompt: &str,
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Option<String> {
+    stack
+        .get_env_var(engine_state, prompt)
+        .and_then(|v| v.as_block().ok())
+        .and_then(|block_id| {
+            let block = engine_state.get_block(block_id);
+            eval_block(
+                engine_state,
+                stack,
+                block,
+                PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
+            )
+            .ok()
+        })
+        .and_then(|pipeline_data| pipeline_data.collect_string("", config).ok())
 }
 
 fn eval_source(
