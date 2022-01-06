@@ -111,14 +111,18 @@ fn eval_call(
                     }
                 }
 
-                if !found && named.arg.is_none() {
-                    callee_stack.add_var(
-                        var_id,
-                        Value::Bool {
-                            val: false,
-                            span: call.head,
-                        },
-                    )
+                if !found {
+                    if named.arg.is_none() {
+                        callee_stack.add_var(
+                            var_id,
+                            Value::Bool {
+                                val: false,
+                                span: call.head,
+                            },
+                        )
+                    } else {
+                        callee_stack.add_var(var_id, Value::Nothing { span: call.head })
+                    }
                 }
             }
         }
