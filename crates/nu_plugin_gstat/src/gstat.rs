@@ -1,4 +1,4 @@
-use git2::{Branch, BranchType, Repository};
+use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_plugin::LabeledError;
 use nu_protocol::{Span, Spanned, Value};
 use std::fmt::Write;
@@ -126,14 +126,26 @@ impl GStat {
             }
         };
 
-        let stats = Repository::discover(repo_path).map(|mut repo| (Stats::new(&mut repo)));
-        let stats = match stats {
-            Ok(s) => s,
-            Err(_) => {
-                // Since we really never want this to fail, lets return an empty record so
-                // that one can check it in a script and do something with it.
-                return Ok(self.create_empty_git_status(span));
-            }
+        let (stats, repo) = if let Ok(mut repo) = Repository::discover(repo_path) {
+            (Stats::new(&mut repo), repo)
+        } else {
+            return Ok(self.create_empty_git_status(span));
+        };
+
+        let repo_name = repo
+            .path()
+            .parent()
+            .and_then(|p| p.file_name())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "".to_string());
+
+        let mut desc_opts = DescribeOptions::new();
+        desc_opts.describe_tags();
+
+        let tag = if let Ok(Ok(s)) = repo.describe(&desc_opts).map(|d| d.format(None)) {
+            s
+        } else {
+            "no_tag".to_string()
         };
 
         let mut cols = vec![];
@@ -212,6 +224,16 @@ impl GStat {
         cols.push("stashes".into());
         vals.push(Value::Int {
             val: stats.stashes as i64,
+            span: *span,
+        });
+        cols.push("repo_name".into());
+        vals.push(Value::String {
+            val: repo_name,
+            span: *span,
+        });
+        cols.push("tag".into());
+        vals.push(Value::String {
+            val: tag,
             span: *span,
         });
         cols.push("branch".into());
@@ -319,6 +341,16 @@ impl GStat {
         cols.push("stashes".into());
         vals.push(Value::Int {
             val: -1,
+            span: *span,
+        });
+        cols.push("repo_name".into());
+        vals.push(Value::String {
+            val: "no_repository".to_string(),
+            span: *span,
+        });
+        cols.push("tag".into());
+        vals.push(Value::String {
+            val: "no_tag".to_string(),
             span: *span,
         });
         cols.push("branch".into());
@@ -467,7 +499,7 @@ impl Stats {
                         } else {
                             "HEAD".to_string()
                         }
-                    // Grab the branch from the reference
+                        // Grab the branch from the reference
                     } else {
                         let branch = name.to_string();
                         // Since we have a branch name, look for the name of the upstream branch
