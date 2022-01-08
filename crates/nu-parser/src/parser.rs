@@ -2815,6 +2815,7 @@ pub fn parse_block_expression(
     let (output, err) = lite_parse(&output[amt_to_skip..]);
     error = error.or(err);
 
+    // TODO: Finish this
     if let SyntaxShape::Block(Some(v)) = shape {
         if signature.is_none() && v.len() == 1 {
             // We'll assume there's an `$it` present
