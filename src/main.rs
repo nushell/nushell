@@ -1,3 +1,4 @@
+use crossterm::event::{KeyCode, KeyModifiers};
 #[cfg(windows)]
 use crossterm_winapi::{ConsoleMode, Handle};
 use dialoguer::{
@@ -17,7 +18,10 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
-use reedline::{Completer, CompletionActionHandler, DefaultHinter, LineBuffer, Prompt, Vi};
+use reedline::{
+    default_emacs_keybindings, Completer, CompletionActionHandler, DefaultHinter, EditCommand,
+    Emacs, LineBuffer, Prompt, ReedlineEvent, Vi,
+};
 use std::{
     io::Write,
     path::PathBuf,
@@ -371,6 +375,17 @@ fn main() -> Result<()> {
             //Reset the ctrl-c handler
             ctrlc.store(false, Ordering::SeqCst);
 
+            let mut keybindings = default_emacs_keybindings();
+            keybindings.add_binding(
+                KeyModifiers::SHIFT,
+                KeyCode::BackTab,
+                ReedlineEvent::Multiple(vec![
+                    ReedlineEvent::Edit(vec![EditCommand::InsertChar('p')]),
+                    ReedlineEvent::Enter,
+                ]),
+            );
+            let edit_mode = Box::new(Emacs::new(keybindings));
+
             let line_editor = Reedline::create()
                 .into_diagnostic()?
                 .with_completion_action_handler(Box::new(FuzzyCompletion {
@@ -387,6 +402,7 @@ fn main() -> Result<()> {
                 .with_validator(Box::new(NuValidator {
                     engine_state: engine_state.clone(),
                 }))
+                .with_edit_mode(edit_mode)
                 .with_ansi_colors(config.use_ansi_coloring);
             //FIXME: if config.use_ansi_coloring is false then we should
             // turn off the hinter but I don't see any way to do that yet.
