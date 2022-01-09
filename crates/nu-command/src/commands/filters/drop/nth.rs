@@ -62,10 +62,9 @@ fn extract_int_or_range(args: &CommandArgs) -> Result<Either<u64, Range>, ShellE
     let int_opt = value.as_u64().map(Either::Left).ok();
     let range_opt = FromValue::from_value(&value).map(Either::Right).ok();
 
-    int_opt.or(range_opt).ok_or(ShellError::type_error(
-        "int or range",
-        value.spanned_type_name(),
-    ))
+    int_opt
+        .or(range_opt)
+        .ok_or_else(|| ShellError::type_error("int or range", value.spanned_type_name()))
 }
 
 fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
