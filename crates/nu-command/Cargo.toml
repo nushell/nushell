@@ -1,7 +1,7 @@
 [package]
 authors = ["The Nu Project Contributors"]
 build = "build.rs"
-description = "CLI for nushell"
+description = "Commands for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-command"
