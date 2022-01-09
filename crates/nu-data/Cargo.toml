@@ -1,6 +1,6 @@
 [package]
 authors = ["The Nu Project Contributors"]
-description = "CLI for nushell"
+description = "Data for Nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-data"
