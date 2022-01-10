@@ -139,3 +139,12 @@ fn multiline_pipe_in_block() -> TestResult {
 fn bad_short_flag() -> TestResult {
     fail_test(r#"def foo3 [-l?:int] { $l }"#, "short flag")
 }
+
+#[test]
+fn alias_with_error_doesnt_panic() -> TestResult {
+    fail_test(
+        r#"alias s = shells
+        s ."#,
+        "extra positional",
+    )
+}

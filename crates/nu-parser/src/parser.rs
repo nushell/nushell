@@ -748,6 +748,7 @@ pub fn parse_call(
     let mut pos = 0;
     let cmd_start = pos;
     let mut name_spans = vec![];
+    let mut name = vec![];
 
     for word_span in spans[cmd_start..].iter() {
         // Find the longest group of words that could form a command
@@ -759,11 +760,17 @@ pub fn parse_call(
 
         name_spans.push(*word_span);
 
-        let name = working_set.get_span_contents(span(&name_spans));
+        let name_part = working_set.get_span_contents(*word_span);
+        if name.is_empty() {
+            name.extend(name_part);
+        } else {
+            name.push(b' ');
+            name.extend(name_part);
+        }
 
         if expand_aliases {
             // If the word is an alias, expand it and re-parse the expression
-            if let Some(expansion) = working_set.find_alias(name) {
+            if let Some(expansion) = working_set.find_alias(&name) {
                 trace!("expanding alias");
 
                 let orig_span = spans[pos];
@@ -801,8 +808,7 @@ pub fn parse_call(
         pos += 1;
     }
 
-    let name = working_set.get_span_contents(span(&name_spans));
-    let mut maybe_decl_id = working_set.find_decl(name);
+    let mut maybe_decl_id = working_set.find_decl(&name);
 
     while maybe_decl_id.is_none() {
         // Find the longest command match
@@ -814,8 +820,17 @@ pub fn parse_call(
         name_spans.pop();
         pos -= 1;
 
-        let name = working_set.get_span_contents(span(&name_spans));
-        maybe_decl_id = working_set.find_decl(name);
+        let mut name = vec![];
+        for name_span in &name_spans {
+            let name_part = working_set.get_span_contents(*name_span);
+            if name.is_empty() {
+                name.extend(name_part);
+            } else {
+                name.push(b' ');
+                name.extend(name_part);
+            }
+        }
+        maybe_decl_id = working_set.find_decl(&name);
     }
 
     if let Some(decl_id) = maybe_decl_id {
