@@ -17,7 +17,7 @@ impl Command for Use {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("use")
-            .rest("pattern", SyntaxShape::String, "import pattern parts")
+            .required("pattern", SyntaxShape::ImportPattern, "import pattern")
             .category(Category::Core)
     }
 
@@ -56,7 +56,10 @@ impl Command for Use {
                         if let Some(id) = overlay.get_env_var_id(name) {
                             output.push((name.clone(), id));
                         } else if !overlay.has_decl(name) {
-                            return Err(ShellError::EnvVarNotFoundAtRuntime(*span));
+                            return Err(ShellError::EnvVarNotFoundAtRuntime(
+                                String::from_utf8_lossy(name).into(),
+                                *span,
+                            ));
                         }
 
                         output
@@ -68,7 +71,10 @@ impl Command for Use {
                             if let Some(id) = overlay.get_env_var_id(name) {
                                 output.push((name.clone(), id));
                             } else if !overlay.has_decl(name) {
-                                return Err(ShellError::EnvVarNotFoundAtRuntime(*span));
+                                return Err(ShellError::EnvVarNotFoundAtRuntime(
+                                    String::from_utf8_lossy(name).into(),
+                                    *span,
+                                ));
                             }
                         }
 
@@ -94,7 +100,17 @@ impl Command for Use {
                 stack.add_env_var(name, val);
             }
         } else {
-            return Err(ShellError::EnvVarNotFoundAtRuntime(call.positional[0].span));
+            // TODO: This is a workaround since call.positional[0].span points at 0 for some reason
+            // when this error is triggered
+            let bytes = engine_state.get_span_contents(&call.positional[0].span);
+            return Err(ShellError::SpannedLabeledError(
+                format!(
+                    "Could not use '{}' import pattern",
+                    String::from_utf8_lossy(bytes)
+                ),
+                "called here".to_string(),
+                call.head,
+            ));
         }
 
         Ok(PipelineData::new(call.head))

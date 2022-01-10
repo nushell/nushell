@@ -13,8 +13,8 @@ use crate::{
     lex, lite_parse,
     parser::{
         check_call, check_name, garbage, garbage_statement, parse, parse_block_expression,
-        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
-        parse_string, parse_var_with_opt_type, trim_quotes,
+        parse_internal_call, parse_multispan_value, parse_signature, parse_string,
+        parse_var_with_opt_type, trim_quotes,
     },
     ParseError,
 };
@@ -636,161 +636,279 @@ pub fn parse_use(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
-    let mut error = None;
-    let bytes = working_set.get_span_contents(spans[0]);
+    if working_set.get_span_contents(spans[0]) != b"use" {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'use' command".into(),
+                span(spans),
+            )),
+        );
+    }
 
-    if bytes == b"use" && spans.len() >= 2 {
-        let cwd = working_set.get_cwd();
-        for span in spans[1..].iter() {
-            let (_, err) = parse_string(working_set, *span);
-            error = error.or(err);
+    let (call, call_span, use_decl_id) = match working_set.find_decl(b"use") {
+        Some(decl_id) => {
+            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }])),
+                    err,
+                );
+            }
+
+            (call, call_span, decl_id)
         }
+        None => {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'use' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
 
-        // TODO: Add checking for importing too long import patterns, e.g.:
-        // > use spam foo non existent names here do not throw error
-        let (import_pattern, err) = parse_import_pattern(working_set, &spans[1..]);
-        error = error.or(err);
+    let import_pattern = if let Some(expr) = call.nth(0) {
+        if let Some(pattern) = expr.as_import_pattern() {
+            pattern
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Import pattern positional is not import pattern".into(),
+                    call_span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Missing required positional after call parsing".into(),
+                call_span,
+            )),
+        );
+    };
 
-        let (import_pattern, overlay) =
-            if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
-                (import_pattern, working_set.get_overlay(overlay_id).clone())
-            } else {
-                // TODO: Do not close over when loading module from file
-                // It could be a file
-                if let Ok(module_filename) = String::from_utf8(import_pattern.head.name) {
-                    if let Ok(module_path) = canonicalize_with(&module_filename, cwd) {
-                        let module_name = if let Some(stem) = module_path.file_stem() {
-                            stem.to_string_lossy().to_string()
-                        } else {
-                            return (
-                                garbage_statement(spans),
-                                Some(ParseError::ModuleNotFound(spans[1])),
-                            );
-                        };
+    let cwd = working_set.get_cwd();
 
-                        if let Ok(contents) = std::fs::read(module_path) {
-                            let span_start = working_set.next_span_start();
-                            working_set.add_file(module_filename, &contents);
-                            let span_end = working_set.next_span_start();
+    let mut error = None;
 
-                            let (block, overlay, err) =
-                                parse_module_block(working_set, Span::new(span_start, span_end));
-                            error = error.or(err);
-
-                            let _ = working_set.add_block(block);
-                            let _ = working_set.add_overlay(&module_name, overlay.clone());
-
-                            (
-                                ImportPattern {
-                                    head: ImportPatternHead {
-                                        name: module_name.into(),
-                                        span: spans[1],
-                                    },
-                                    members: import_pattern.members,
-                                    hidden: HashSet::new(),
-                                },
-                                overlay,
-                            )
-                        } else {
-                            return (
-                                garbage_statement(spans),
-                                Some(ParseError::ModuleNotFound(spans[1])),
-                            );
-                        }
+    // TODO: Add checking for importing too long import patterns, e.g.:
+    // > use spam foo non existent names here do not throw error
+    let (import_pattern, overlay) =
+        if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
+            (import_pattern, working_set.get_overlay(overlay_id).clone())
+        } else {
+            // TODO: Do not close over when loading module from file
+            // It could be a file
+            if let Ok(module_filename) = String::from_utf8(import_pattern.head.name) {
+                if let Ok(module_path) = canonicalize_with(&module_filename, cwd) {
+                    let module_name = if let Some(stem) = module_path.file_stem() {
+                        stem.to_string_lossy().to_string()
                     } else {
-                        error = error.or(Some(ParseError::FileNotFound(
-                            module_filename,
-                            import_pattern.head.span,
-                        )));
-                        (ImportPattern::new(), Overlay::new())
+                        return (
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            }])),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
+                    };
+
+                    if let Ok(contents) = std::fs::read(module_path) {
+                        let span_start = working_set.next_span_start();
+                        working_set.add_file(module_filename, &contents);
+                        let span_end = working_set.next_span_start();
+
+                        let (block, overlay, err) =
+                            parse_module_block(working_set, Span::new(span_start, span_end));
+                        error = error.or(err);
+
+                        let _ = working_set.add_block(block);
+                        let _ = working_set.add_overlay(&module_name, overlay.clone());
+
+                        (
+                            ImportPattern {
+                                head: ImportPatternHead {
+                                    name: module_name.into(),
+                                    span: spans[1],
+                                },
+                                members: import_pattern.members,
+                                hidden: HashSet::new(),
+                            },
+                            overlay,
+                        )
+                    } else {
+                        return (
+                            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Unknown,
+                                custom_completion: None,
+                            }])),
+                            Some(ParseError::ModuleNotFound(spans[1])),
+                        );
                     }
                 } else {
-                    return (
-                        garbage_statement(spans),
-                        Some(ParseError::NonUtf8(spans[1])),
-                    );
+                    error = error.or(Some(ParseError::FileNotFound(
+                        module_filename,
+                        import_pattern.head.span,
+                    )));
+                    (ImportPattern::new(), Overlay::new())
                 }
-            };
-
-        let decls_to_use = if import_pattern.members.is_empty() {
-            overlay.decls_with_head(&import_pattern.head.name)
-        } else {
-            match &import_pattern.members[0] {
-                ImportPatternMember::Glob { .. } => overlay.decls(),
-                ImportPatternMember::Name { name, span } => {
-                    let mut output = vec![];
-
-                    if let Some(id) = overlay.get_decl_id(name) {
-                        output.push((name.clone(), id));
-                    } else if !overlay.has_env_var(name) {
-                        error = error.or(Some(ParseError::ExportNotFound(*span)))
-                    }
-
-                    output
-                }
-                ImportPatternMember::List { names } => {
-                    let mut output = vec![];
-
-                    for (name, span) in names {
-                        if let Some(id) = overlay.get_decl_id(name) {
-                            output.push((name.clone(), id));
-                        } else if !overlay.has_env_var(name) {
-                            error = error.or(Some(ParseError::ExportNotFound(*span)));
-                            break;
-                        }
-                    }
-
-                    output
-                }
+            } else {
+                return (
+                    garbage_statement(spans),
+                    Some(ParseError::NonUtf8(spans[1])),
+                );
             }
         };
 
-        // Extend the current scope with the module's overlay
-        working_set.use_decls(decls_to_use);
-
-        // Create the Use command call
-        let use_decl_id = working_set
-            .find_decl(b"use")
-            .expect("internal error: missing use command");
-
-        let import_pattern_expr = Expression {
-            expr: Expr::ImportPattern(import_pattern),
-            span: span(&spans[1..]),
-            ty: Type::List(Box::new(Type::String)),
-            custom_completion: None,
-        };
-
-        let call = Box::new(Call {
-            head: spans[0],
-            decl_id: use_decl_id,
-            positional: vec![import_pattern_expr],
-            named: vec![],
-        });
-
-        (
-            Statement::Pipeline(Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: span(spans),
-                ty: Type::Unknown,
-                custom_completion: None,
-            }])),
-            error,
-        )
+    let decls_to_use = if import_pattern.members.is_empty() {
+        overlay.decls_with_head(&import_pattern.head.name)
     } else {
-        (
-            garbage_statement(spans),
-            Some(ParseError::UnknownState(
-                "Expected structure: use <name>".into(),
-                span(spans),
-            )),
-        )
-    }
+        match &import_pattern.members[0] {
+            ImportPatternMember::Glob { .. } => overlay.decls(),
+            ImportPatternMember::Name { name, span } => {
+                let mut output = vec![];
+
+                if let Some(id) = overlay.get_decl_id(name) {
+                    output.push((name.clone(), id));
+                } else if !overlay.has_env_var(name) {
+                    error = error.or(Some(ParseError::ExportNotFound(*span)))
+                }
+
+                output
+            }
+            ImportPatternMember::List { names } => {
+                let mut output = vec![];
+
+                for (name, span) in names {
+                    if let Some(id) = overlay.get_decl_id(name) {
+                        output.push((name.clone(), id));
+                    } else if !overlay.has_env_var(name) {
+                        error = error.or(Some(ParseError::ExportNotFound(*span)));
+                        break;
+                    }
+                }
+
+                output
+            }
+        }
+    };
+
+    // Extend the current scope with the module's overlay
+    working_set.use_decls(decls_to_use);
+
+    // Create a new Use command call to pass the new import pattern
+    let import_pattern_expr = Expression {
+        expr: Expr::ImportPattern(import_pattern),
+        span: span(&spans[1..]),
+        ty: Type::List(Box::new(Type::String)),
+        custom_completion: None,
+    };
+
+    let call = Box::new(Call {
+        head: spans[0],
+        decl_id: use_decl_id,
+        positional: vec![import_pattern_expr],
+        named: vec![],
+    });
+
+    (
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: span(spans),
+            ty: Type::Unknown,
+            custom_completion: None,
+        }])),
+        error,
+    )
 }
 
 pub fn parse_hide(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
 ) -> (Statement, Option<ParseError>) {
+    if working_set.get_span_contents(spans[0]) != b"hide" {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'hide' command".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    let (call, call_span, hide_decl_id) = match working_set.find_decl(b"hide") {
+        Some(decl_id) => {
+            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            let decl = working_set.get_decl(decl_id);
+
+            let call_span = span(spans);
+
+            err = check_call(call_span, &decl.signature(), &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }])),
+                    err,
+                );
+            }
+
+            (call, call_span, decl_id)
+        }
+        None => {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: 'hide' declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+    };
+
+    let import_pattern = if let Some(expr) = call.nth(0) {
+        if let Some(pattern) = expr.as_import_pattern() {
+            pattern
+        } else {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: Import pattern positional is not import pattern".into(),
+                    call_span,
+                )),
+            );
+        }
+    } else {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Missing required positional after call parsing".into(),
+                call_span,
+            )),
+        );
+    };
+
     let mut error = None;
     let bytes = working_set.get_span_contents(spans[0]);
 
@@ -799,9 +917,6 @@ pub fn parse_hide(
             let (_, err) = parse_string(working_set, *span);
             error = error.or(err);
         }
-
-        let (import_pattern, err) = parse_import_pattern(working_set, &spans[1..]);
-        error = error.or(err);
 
         let (is_module, overlay) =
             if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
@@ -881,11 +996,7 @@ pub fn parse_hide(
         let import_pattern = import_pattern
             .with_hidden(decls_to_hide.iter().map(|(name, _)| name.clone()).collect());
 
-        // Create the Hide command call
-        let hide_decl_id = working_set
-            .find_decl(b"hide")
-            .expect("internal error: missing hide command");
-
+        // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
             expr: Expr::ImportPattern(import_pattern),
             span: span(&spans[1..]),

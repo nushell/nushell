@@ -481,6 +481,15 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
+        SyntaxShape::ImportPattern => {
+            trace!("parsing: import pattern");
+
+            let (arg, err) = parse_import_pattern(working_set, &spans[*spans_idx..]);
+            error = error.or(err);
+            *spans_idx = spans.len() - 1;
+
+            (arg, error)
+        }
         SyntaxShape::Keyword(keyword, arg) => {
             trace!(
                 "parsing: keyword({}) {:?}",
@@ -1951,7 +1960,7 @@ pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
 pub fn parse_import_pattern(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-) -> (ImportPattern, Option<ParseError>) {
+) -> (Expression, Option<ParseError>) {
     let mut error = None;
 
     let (head, head_span) = if let Some(head_span) = spans.get(0) {
@@ -1961,19 +1970,12 @@ pub fn parse_import_pattern(
         )
     } else {
         return (
-            ImportPattern {
-                head: ImportPatternHead {
-                    name: vec![],
-                    span: span(spans),
-                },
-                members: vec![],
-                hidden: HashSet::new(),
-            },
+            garbage(span(spans)),
             Some(ParseError::WrongImportPattern(span(spans))),
         );
     };
 
-    if let Some(tail_span) = spans.get(1) {
+    let (import_pattern, err) = if let Some(tail_span) = spans.get(1) {
         // FIXME: expand this to handle deeper imports once we support module imports
         let tail = working_set.get_span_contents(*tail_span);
         if tail == b"*" {
@@ -1986,7 +1988,7 @@ pub fn parse_import_pattern(
                     members: vec![ImportPatternMember::Glob { span: *tail_span }],
                     hidden: HashSet::new(),
                 },
-                error,
+                None,
             )
         } else if tail.starts_with(b"[") {
             let (result, err) =
@@ -2014,7 +2016,7 @@ pub fn parse_import_pattern(
                             members: vec![ImportPatternMember::List { names: output }],
                             hidden: HashSet::new(),
                         },
-                        error,
+                        None,
                     )
                 }
                 _ => (
@@ -2043,7 +2045,7 @@ pub fn parse_import_pattern(
                     }],
                     hidden: HashSet::new(),
                 },
-                error,
+                None,
             )
         }
     } else {
@@ -2058,7 +2060,17 @@ pub fn parse_import_pattern(
             },
             None,
         )
-    }
+    };
+
+    (
+        Expression {
+            expr: Expr::ImportPattern(import_pattern),
+            span: span(&spans[1..]),
+            ty: Type::List(Box::new(Type::String)),
+            custom_completion: None,
+        },
+        error.or(err),
+    )
 }
 
 pub fn parse_var_with_opt_type(

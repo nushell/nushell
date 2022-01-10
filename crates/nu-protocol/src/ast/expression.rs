@@ -1,4 +1,5 @@
 use super::{Expr, Operator, Statement};
+use crate::ast::ImportPattern;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
 
 #[derive(Debug, Clone)]
@@ -92,6 +93,13 @@ impl Expression {
     pub fn as_string(&self) -> Option<String> {
         match &self.expr {
             Expr::String(string) => Some(string.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_import_pattern(&self) -> Option<ImportPattern> {
+        match &self.expr {
+            Expr::ImportPattern(pattern) => Some(pattern.clone()),
             _ => None,
         }
     }

@@ -12,7 +12,7 @@ impl Command for Hide {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("hide")
-            .required("pattern", SyntaxShape::String, "import pattern")
+            .required("pattern", SyntaxShape::ImportPattern, "import pattern")
             .category(Category::Core)
     }
 
@@ -68,7 +68,10 @@ impl Command for Hide {
                         {
                             output.push((name, id));
                         } else if !overlay.has_decl(name) {
-                            return Err(ShellError::EnvVarNotFoundAtRuntime(*span));
+                            return Err(ShellError::EnvVarNotFoundAtRuntime(
+                                String::from_utf8_lossy(name).into(),
+                                *span,
+                            ));
                         }
 
                         output
@@ -82,7 +85,10 @@ impl Command for Hide {
                             {
                                 output.push((name, id));
                             } else if !overlay.has_decl(name) {
-                                return Err(ShellError::EnvVarNotFoundAtRuntime(*span));
+                                return Err(ShellError::EnvVarNotFoundAtRuntime(
+                                    String::from_utf8_lossy(name).into(),
+                                    *span,
+                                ));
                             }
                         }
 
