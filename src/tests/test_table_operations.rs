@@ -186,10 +186,18 @@ fn get() -> TestResult {
 }
 
 #[test]
-fn select() -> TestResult {
+fn select_1() -> TestResult {
     run_test(
         r#"([[name, age]; [a, 1], [b, 2]]) | select name | get 1 | get name"#,
         "b",
+    )
+}
+
+#[test]
+fn select_2() -> TestResult {
+    run_test(
+        r#"[[name, age]; [a, 1] [b, 2]] | get 1 | select age | get age"#,
+        "2",
     )
 }
 
