@@ -73,6 +73,22 @@ fn unicode_width_strip_ansi(astring: &str) -> usize {
     UnicodeWidthStr::width(&stripped_string[..])
 }
 
+// fn special_width(astring: &str) -> usize {
+//     // remove the zwj's '\u{200d}'
+//     // remove the fe0f's
+//     let stripped_string: String = {
+//         if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+//             String::from_utf8_lossy(&bytes).to_string()
+//         } else {
+//             astring.to_string()
+//         }
+//     };
+
+//     let no_zwj = stripped_string.replace('\u{200d}', "");
+//     let no_fe0f = no_zwj.replace('\u{fe0f}', "");
+//     UnicodeWidthStr::width(&no_fe0f[..])
+// }
+
 pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
         .split_terminator('\n')
@@ -88,7 +104,14 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
                         // let c = x.chars().count();
                         // let u = UnicodeWidthStr::width(x);
                         // std::cmp::min(c, u)
-                        unicode_width_strip_ansi(x)
+
+                        // let c = strip_ansi(x).chars().count();
+                        // let u = special_width(x);
+                        // std::cmp::max(c, u)
+
+                        let c = strip_ansi(x).chars().count();
+                        let u = unicode_width_strip_ansi(x);
+                        std::cmp::max(c, u)
                     },
                 })
                 .collect::<Vec<_>>()
