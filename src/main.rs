@@ -403,7 +403,8 @@ fn main() -> Result<()> {
                     engine_state: engine_state.clone(),
                 }))
                 .with_edit_mode(edit_mode)
-                .with_ansi_colors(config.use_ansi_coloring);
+                .with_ansi_colors(config.use_ansi_coloring)
+                .with_menu_completer(Box::new(NuCompleter::new(engine_state.clone())));
             //FIXME: if config.use_ansi_coloring is false then we should
             // turn off the hinter but I don't see any way to do that yet.
 
