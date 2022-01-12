@@ -1,6 +1,6 @@
-use nu_engine::{eval_block, eval_expression};
+use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, SyntaxShape,
     Value,
@@ -61,16 +61,14 @@ impl Command for For {
             .expect("internal error: missing keyword");
         let values = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let block_id = call.positional[2]
-            .as_block()
-            .expect("internal error: expected block");
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 2)?;
 
         let numbered = call.has_flag("numbered");
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block_id).clone();
-        let mut stack = stack.collect_captures(&block.captures);
+        let block = engine_state.get_block(capture_block.block_id).clone();
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 

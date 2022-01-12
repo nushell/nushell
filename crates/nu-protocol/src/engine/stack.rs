@@ -62,7 +62,10 @@ impl Stack {
             return Ok(v.clone());
         }
 
-        Err(ShellError::NushellFailed("variable not found".into()))
+        Err(ShellError::NushellFailed(format!(
+            "variable (var_id: {}) not found",
+            var_id
+        )))
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
@@ -80,7 +83,24 @@ impl Stack {
         }
     }
 
-    pub fn collect_captures(&self, captures: &[VarId]) -> Stack {
+    pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
+        let mut output = Stack::new();
+
+        output.vars = captures.clone();
+
+        // FIXME: this is probably slow
+        output.env_vars = self.env_vars.clone();
+        output.env_vars.push(HashMap::new());
+
+        let config = self
+            .get_var(CONFIG_VARIABLE_ID)
+            .expect("internal error: config is missing");
+        output.vars.insert(CONFIG_VARIABLE_ID, config);
+
+        output
+    }
+
+    pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
         let mut output = Stack::new();
 
         for capture in captures {

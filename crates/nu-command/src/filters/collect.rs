@@ -1,6 +1,6 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -32,12 +32,10 @@ impl Command for Collect {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block_id = call.positional[0]
-            .as_block()
-            .expect("internal error: expected block");
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
-        let block = engine_state.get_block(block_id).clone();
-        let mut stack = stack.collect_captures(&block.captures);
+        let block = engine_state.get_block(capture_block.block_id).clone();
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
 
         let input: Value = input.into_value(call.head);
 

@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use std::{cmp::Ordering, fmt::Debug};
 
 use crate::ast::{CellPath, PathMember};
-use crate::{did_you_mean, span, BlockId, Config, Span, Spanned, Type};
+use crate::{did_you_mean, span, BlockId, Config, Span, Spanned, Type, VarId};
 
 use crate::ast::Operator;
 pub use custom_value::CustomValue;
@@ -75,6 +75,7 @@ pub enum Value {
     },
     Block {
         val: BlockId,
+        captures: HashMap<VarId, Value>,
         span: Span,
     },
     Nothing {
@@ -141,8 +142,13 @@ impl Clone for Value {
                 vals: vals.clone(),
                 span: *span,
             },
-            Value::Block { val, span } => Value::Block {
+            Value::Block {
+                val,
+                captures,
+                span,
+            } => Value::Block {
                 val: *val,
+                captures: captures.clone(),
                 span: *span,
             },
             Value::Nothing { span } => Value::Nothing { span: *span },

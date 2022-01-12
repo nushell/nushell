@@ -6,6 +6,7 @@ use std::str::FromStr;
 use chrono::{DateTime, FixedOffset};
 // use nu_path::expand_path;
 use crate::ast::{CellPath, PathMember};
+use crate::engine::CaptureBlock;
 use crate::ShellError;
 use crate::{Range, Spanned, Value};
 
@@ -345,6 +346,45 @@ impl FromValue for Vec<Value> {
             Value::List { vals, .. } => Ok(vals.clone()),
             v => Err(ShellError::CantConvert(
                 "Vector of values".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
+impl FromValue for CaptureBlock {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Block { val, captures, .. } => Ok(CaptureBlock {
+                block_id: *val,
+                captures: captures.clone(),
+            }),
+            v => Err(ShellError::CantConvert(
+                "Block".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
+impl FromValue for Spanned<CaptureBlock> {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Block {
+                val,
+                captures,
+                span,
+            } => Ok(Spanned {
+                item: CaptureBlock {
+                    block_id: *val,
+                    captures: captures.clone(),
+                },
+                span: *span,
+            }),
+            v => Err(ShellError::CantConvert(
+                "Block".into(),
                 v.get_type().to_string(),
                 v.span()?,
             )),

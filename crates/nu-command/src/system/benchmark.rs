@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use nu_engine::eval_block;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -34,12 +34,10 @@ impl Command for Benchmark {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block = call.positional[0]
-            .as_block()
-            .expect("internal error: expected block");
-        let block = engine_state.get_block(block);
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let block = engine_state.get_block(capture_block.block_id);
 
-        let mut stack = stack.collect_captures(&block.captures);
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
         let start_time = Instant::now();
         eval_block(
             engine_state,

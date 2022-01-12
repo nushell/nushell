@@ -5,16 +5,16 @@ use nu_protocol::{
         Pipeline, Statement,
     },
     engine::StateWorkingSet,
-    span, Exportable, Overlay, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
+    span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
 };
 use std::collections::{HashMap, HashSet};
 
 use crate::{
     lex, lite_parse,
     parser::{
-        check_call, check_name, garbage, garbage_statement, parse, parse_block_expression,
-        parse_internal_call, parse_multispan_value, parse_signature, parse_string,
-        parse_var_with_opt_type, trim_quotes,
+        check_call, check_name, find_captures_in_block, garbage, garbage_statement, parse,
+        parse_block_expression, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_string, parse_var_with_opt_type, trim_quotes,
     },
     ParseError,
 };
@@ -57,6 +57,121 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
     None
 }
 
+pub fn parse_for(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> (Statement, Option<ParseError>) {
+    // Checking that the function is used with the correct name
+    // Maybe this is not necessary but it is a sanity check
+    if working_set.get_span_contents(spans[0]) != b"for" {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for 'for' function".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    // Parsing the spans and checking that they match the register signature
+    // Using a parsed call makes more sense than checking for how many spans are in the call
+    // Also, by creating a call, it can be checked if it matches the declaration signature
+    let (call, call_span) = match working_set.find_decl(b"for") {
+        None => {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: def declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+        Some(decl_id) => {
+            working_set.enter_scope();
+            let (call, mut err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            working_set.exit_scope();
+
+            let call_span = span(spans);
+            let decl = working_set.get_decl(decl_id);
+            let sig = decl.signature();
+
+            // Let's get our block and make sure it has the right signature
+            if let Some(arg) = call.positional.get(2) {
+                match arg {
+                    Expression {
+                        expr: Expr::Block(block_id),
+                        ..
+                    }
+                    | Expression {
+                        expr: Expr::RowCondition(block_id),
+                        ..
+                    } => {
+                        let block = working_set.get_block_mut(*block_id);
+
+                        block.signature = Box::new(sig.clone());
+                    }
+                    _ => {}
+                }
+            }
+
+            err = check_call(call_span, &sig, &call).or(err);
+            if err.is_some() || call.has_flag("help") {
+                return (
+                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Unknown,
+                        custom_completion: None,
+                    }])),
+                    err,
+                );
+            }
+
+            (call, call_span)
+        }
+    };
+
+    // All positional arguments must be in the call positional vector by this point
+    let var_decl = call.positional.get(0).expect("for call already checked");
+    let block = call.positional.get(2).expect("for call already checked");
+
+    let error = None;
+    if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
+        let block = working_set.get_block_mut(block_id);
+
+        block.signature.required_positional.insert(
+            0,
+            PositionalArg {
+                name: String::new(),
+                desc: String::new(),
+                shape: SyntaxShape::Any,
+                var_id: Some(*var_id),
+            },
+        );
+
+        let block = working_set.get_block(block_id);
+
+        // Now that we have a signature for the block, we know more about what variables
+        // will come into scope as params. Because of this, we need to recalculated what
+        // variables this block will capture from the outside.
+        let mut seen = vec![];
+        let captures = find_captures_in_block(working_set, block, &mut seen);
+
+        let mut block = working_set.get_block_mut(block_id);
+        block.captures = captures;
+    }
+
+    (
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: call_span,
+            ty: Type::Unknown,
+            custom_completion: None,
+        }])),
+        error,
+    )
+}
+
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -93,8 +208,28 @@ pub fn parse_def(
 
             let call_span = span(spans);
             let decl = working_set.get_decl(decl_id);
+            let sig = decl.signature();
 
-            err = check_call(call_span, &decl.signature(), &call).or(err);
+            // Let's get our block and make sure it has the right signature
+            if let Some(arg) = call.positional.get(2) {
+                match arg {
+                    Expression {
+                        expr: Expr::Block(block_id),
+                        ..
+                    }
+                    | Expression {
+                        expr: Expr::RowCondition(block_id),
+                        ..
+                    } => {
+                        let block = working_set.get_block_mut(*block_id);
+
+                        block.signature = Box::new(sig.clone());
+                    }
+                    _ => {}
+                }
+            }
+
+            err = check_call(call_span, &sig, &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
                     Statement::Pipeline(Pipeline::from_vec(vec![Expression {
@@ -124,7 +259,22 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
-            *declaration = signature.into_block_command(block_id);
+
+            *declaration = signature.clone().into_block_command(block_id);
+
+            let mut block = working_set.get_block_mut(block_id);
+            block.signature = signature;
+
+            let block = working_set.get_block(block_id);
+
+            // Now that we have a signature for the block, we know more about what variables
+            // will come into scope as params. Because of this, we need to recalculated what
+            // variables this block will capture from the outside.
+            let mut seen = vec![];
+            let captures = find_captures_in_block(working_set, block, &mut seen);
+
+            let mut block = working_set.get_block_mut(block_id);
+            block.captures = captures;
         } else {
             error = error.or_else(|| {
                 Some(ParseError::InternalError(

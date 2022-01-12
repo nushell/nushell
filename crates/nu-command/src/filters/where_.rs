@@ -1,7 +1,7 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
+use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
 
 #[derive(Clone)]
 pub struct Where;
@@ -28,20 +28,16 @@ impl Command for Where {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let cond = &call.positional[0];
         let span = call.head;
 
         let metadata = input.metadata();
 
-        let block_id = cond
-            .as_row_condition_block()
-            .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), span))?;
+        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let mut stack = stack.captures_to_stack(&block.captures);
+        let block = engine_state.get_block(block.block_id).clone();
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-
-        let block = engine_state.get_block(block_id).clone();
-        let mut stack = stack.collect_captures(&block.captures);
 
         input
             .filter(

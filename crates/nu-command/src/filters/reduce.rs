@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -102,17 +102,10 @@ impl Command for Reduce {
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let numbered = call.has_flag("numbered");
-        let block = if let Some(block_id) = call.nth(0).and_then(|b| b.as_block()) {
-            engine_state.get_block(block_id)
-        } else {
-            return Err(ShellError::SpannedLabeledError(
-                "Internal Error".to_string(),
-                "expected block".to_string(),
-                span,
-            ));
-        };
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let block = engine_state.get_block(capture_block.block_id);
 
-        let mut stack = stack.collect_captures(&block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 

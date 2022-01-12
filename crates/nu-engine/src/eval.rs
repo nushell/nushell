@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::io::Write;
 
 use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
@@ -40,7 +41,7 @@ fn eval_call(
     } else if let Some(block_id) = decl.get_block_id() {
         let block = engine_state.get_block(block_id);
 
-        let mut callee_stack = caller_stack.collect_captures(&block.captures);
+        let mut callee_stack = caller_stack.gather_captures(&block.captures);
 
         for (param_idx, param) in decl
             .signature()
@@ -286,7 +287,7 @@ pub fn eval_expression(
                 Operator::Pow => lhs.pow(op_span, &rhs),
             }
         }
-        Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+        Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
 
             // FIXME: protect this collect with ctrl-c
@@ -295,10 +296,22 @@ pub fn eval_expression(
                     .into_value(expr.span),
             )
         }
-        Expr::Block(block_id) => Ok(Value::Block {
-            val: *block_id,
-            span: expr.span,
-        }),
+        Expr::RowCondition(block_id) | Expr::Block(block_id) => {
+            let mut captures = HashMap::new();
+            let block = engine_state.get_block(*block_id);
+
+            for var_id in &block.captures {
+                captures.insert(
+                    *var_id,
+                    stack.get_var(*var_id)?, //.map_err(|_| ShellError::VariableNotFoundAtRuntime(expr.span))?,
+                );
+            }
+            Ok(Value::Block {
+                val: *block_id,
+                captures,
+                span: expr.span,
+            })
+        }
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {

@@ -112,6 +112,10 @@ impl Expression {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
+                if block.captures.contains(&IN_VARIABLE_ID) {
+                    return true;
+                }
+
                 if let Some(Statement::Pipeline(pipeline)) = block.stmts.get(0) {
                     match pipeline.expressions.get(0) {
                         Some(expr) => expr.has_in_variable(working_set),

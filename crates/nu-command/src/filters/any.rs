@@ -1,7 +1,7 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EngineState, Stack},
+    engine::{CaptureBlock, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 
@@ -49,16 +49,14 @@ impl Command for Any {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let predicate = &call.positional[0];
         let span = call.head;
 
-        let block_id = predicate
-            .as_row_condition_block()
-            .ok_or_else(|| ShellError::TypeMismatch("expected row condition".to_owned(), span))?;
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let block_id = capture_block.block_id;
 
         let block = engine_state.get_block(block_id);
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-        let mut stack = stack.collect_captures(&block.captures);
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();

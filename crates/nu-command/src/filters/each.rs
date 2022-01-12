@@ -1,6 +1,6 @@
-use nu_engine::eval_block;
+use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
     Span, SyntaxShape, Value,
@@ -62,15 +62,13 @@ impl Command for Each {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block_id = call.positional[0]
-            .as_block()
-            .expect("internal error: expected block");
+        let capture_block: CaptureBlock = call.req(engine_state, stack, 0)?;
 
         let numbered = call.has_flag("numbered");
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block_id).clone();
-        let mut stack = stack.collect_captures(&block.captures);
+        let block = engine_state.get_block(capture_block.block_id).clone();
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
@@ -198,7 +196,7 @@ impl Command for Each {
                 let mut output_vals = vec![];
 
                 for (col, val) in cols.into_iter().zip(vals.into_iter()) {
-                    let block = engine_state.get_block(block_id);
+                    //let block = engine_state.get_block(block_id);
 
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
@@ -221,7 +219,7 @@ impl Command for Each {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
+                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))? {
                         PipelineData::Value(
                             Value::Record {
                                 mut cols, mut vals, ..
@@ -247,7 +245,7 @@ impl Command for Each {
                 .into_pipeline_data())
             }
             PipelineData::Value(x, ..) => {
-                let block = engine_state.get_block(block_id);
+                //let block = engine_state.get_block(block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
@@ -255,7 +253,7 @@ impl Command for Each {
                     }
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
+                eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))
             }
         }
     }

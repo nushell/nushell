@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
 
 #[derive(Clone)]
@@ -39,16 +39,12 @@ impl Command for Do {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let block: Value = call.req(engine_state, stack, 0)?;
-        let block_id = block.as_block()?;
-
+        let block: CaptureBlock = call.req(engine_state, stack, 0)?;
+        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
 
-        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
-
-        let block = engine_state.get_block(block_id);
-
-        let mut stack = stack.collect_captures(&block.captures);
+        let mut stack = stack.captures_to_stack(&block.captures);
+        let block = engine_state.get_block(block.block_id);
 
         let params: Vec<_> = block
             .signature

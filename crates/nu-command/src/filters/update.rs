@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value,
+    Category, Example, FromValue, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -70,10 +70,11 @@ fn update(
     let ctrlc = engine_state.ctrlc.clone();
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
-    if let Ok(block_id) = replacement.as_block() {
-        let block = engine_state.get_block(block_id).clone();
+    if replacement.as_block().is_ok() {
+        let capture_block: CaptureBlock = FromValue::from_value(&replacement)?;
+        let block = engine_state.get_block(capture_block.block_id).clone();
 
-        let mut stack = stack.collect_captures(&block.captures);
+        let mut stack = stack.captures_to_stack(&capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 

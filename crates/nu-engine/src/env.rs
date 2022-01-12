@@ -40,7 +40,7 @@ pub fn convert_env_values(
                 let block = engine_state.get_block(block_id);
 
                 if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.collect_captures(&block.captures);
+                    let mut stack = stack.gather_captures(&block.captures);
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, val.clone());
                     }
@@ -92,7 +92,7 @@ pub fn env_to_string(
 
             if let Some(var) = block.signature.get_positional(0) {
                 let val_span = value.span()?;
-                let mut stack = stack.collect_captures(&block.captures);
+                let mut stack = stack.gather_captures(&block.captures);
 
                 if let Some(var_id) = &var.var_id {
                     stack.add_var(*var_id, value);
