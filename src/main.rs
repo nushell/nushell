@@ -388,17 +388,17 @@ fn main() -> Result<()> {
 
             let line_editor = Reedline::create()
                 .into_diagnostic()?
-                .with_completion_action_handler(Box::new(FuzzyCompletion {
-                    completer: Box::new(NuCompleter::new(engine_state.clone())),
-                }))
+                // .with_completion_action_handler(Box::new(FuzzyCompletion {
+                //     completer: Box::new(NuCompleter::new(engine_state.clone())),
+                // }))
+                // .with_completion_action_handler(Box::new(
+                //     ListCompletionHandler::default().with_completer(Box::new(completer)),
+                // ))
                 .with_highlighter(Box::new(NuHighlighter {
                     engine_state: engine_state.clone(),
                     config: config.clone(),
                 }))
                 .with_animation(config.animate_prompt)
-                // .with_completion_action_handler(Box::new(
-                //     ListCompletionHandler::default().with_completer(Box::new(completer)),
-                // ))
                 .with_validator(Box::new(NuValidator {
                     engine_state: engine_state.clone(),
                 }))
