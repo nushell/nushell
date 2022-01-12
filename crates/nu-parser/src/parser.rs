@@ -1936,21 +1936,23 @@ pub fn parse_shape_name(
 ) -> (SyntaxShape, Option<ParseError>) {
     let result = match bytes {
         b"any" => SyntaxShape::Any,
-        b"string" => SyntaxShape::String,
-        b"cell-path" => SyntaxShape::CellPath,
-        b"number" => SyntaxShape::Number,
-        b"range" => SyntaxShape::Range,
-        b"int" => SyntaxShape::Int,
-        b"path" => SyntaxShape::Filepath,
-        b"glob" => SyntaxShape::GlobPattern,
         b"block" => SyntaxShape::Block(None), //FIXME: Blocks should have known output types
-        b"cond" => SyntaxShape::RowCondition,
-        b"operator" => SyntaxShape::Operator,
-        b"math" => SyntaxShape::MathExpression,
-        b"variable" => SyntaxShape::Variable,
-        b"signature" => SyntaxShape::Signature,
+        b"cell-path" => SyntaxShape::CellPath,
+        b"duration" => SyntaxShape::Duration,
+        b"path" => SyntaxShape::Filepath,
         b"expr" => SyntaxShape::Expression,
+        b"filesize" => SyntaxShape::Filesize,
+        b"glob" => SyntaxShape::GlobPattern,
+        b"int" => SyntaxShape::Int,
+        b"math" => SyntaxShape::MathExpression,
+        b"number" => SyntaxShape::Number,
+        b"operator" => SyntaxShape::Operator,
+        b"range" => SyntaxShape::Range,
+        b"cond" => SyntaxShape::RowCondition,
         b"bool" => SyntaxShape::Boolean,
+        b"signature" => SyntaxShape::Signature,
+        b"string" => SyntaxShape::String,
+        b"variable" => SyntaxShape::Variable,
         _ => return (SyntaxShape::Any, Some(ParseError::UnknownType(span))),
     };
 
@@ -1960,13 +1962,18 @@ pub fn parse_shape_name(
 pub fn parse_type(_working_set: &StateWorkingSet, bytes: &[u8]) -> Type {
     match bytes {
         b"int" => Type::Int,
+        b"float" => Type::Float,
+        b"range" => Type::Range,
         b"bool" => Type::Bool,
         b"string" => Type::String,
         b"block" => Type::Block,
-        b"float" => Type::Float,
-        b"filesize" => Type::Filesize,
-        b"binary" => Type::Binary,
+        b"duration" => Type::Duration,
         b"date" => Type::Date,
+        b"filesize" => Type::Filesize,
+        b"number" => Type::Number,
+        b"table" => Type::Table,
+        b"error" => Type::Error,
+        b"binary" => Type::Binary,
 
         _ => Type::Unknown,
     }
