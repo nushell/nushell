@@ -6,7 +6,7 @@ use nu_protocol::ast::{Block, Call, Expr, Expression, Operator, Statement};
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, ShellError, Span,
-    Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 
 use crate::{current_dir_str, get_full_help};
@@ -139,26 +139,20 @@ fn eval_call(
 fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
-    name: &str,
-    name_span: &Span,
+    head: &Expression,
     args: &[Expression],
     input: PipelineData,
     last_expression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run_external".as_bytes())
-        .ok_or_else(|| ShellError::ExternalNotSupported(*name_span))?;
+        .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
 
     let mut call = Call::new();
 
-    call.positional.push(Expression {
-        expr: Expr::String(name.trim_start_matches('^').to_string()),
-        span: *name_span,
-        ty: Type::String,
-        custom_completion: None,
-    });
+    call.positional.push(head.clone());
 
     for arg in args {
         call.positional.push(arg.clone())
@@ -168,7 +162,7 @@ fn eval_external(
         call.named.push((
             Spanned {
                 item: "last_expression".into(),
-                span: *name_span,
+                span: head.span,
             },
             None,
         ))
@@ -246,18 +240,18 @@ pub fn eval_expression(
                     .into_value(call.head),
             )
         }
-        Expr::ExternalCall(name, span, args) => {
+        Expr::ExternalCall(head, args) => {
+            let span = head.span;
             // FIXME: protect this collect with ctrl-c
             Ok(eval_external(
                 engine_state,
                 stack,
-                name,
-                span,
+                head,
                 args,
-                PipelineData::new(*span),
+                PipelineData::new(span),
                 false,
             )?
-            .into_value(*span))
+            .into_value(span))
         }
         Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
         Expr::BinaryOp(lhs, op, rhs) => {
@@ -413,14 +407,13 @@ pub fn eval_block(
                         input = eval_call(engine_state, stack, call, input)?;
                     }
                     Expression {
-                        expr: Expr::ExternalCall(name, name_span, args),
+                        expr: Expr::ExternalCall(head, args),
                         ..
                     } => {
                         input = eval_external(
                             engine_state,
                             stack,
-                            name,
-                            name_span,
+                            head,
                             args,
                             input,
                             i == pipeline.expressions.len() - 1,
@@ -511,18 +504,10 @@ pub fn eval_subexpression(
                         input = eval_call(engine_state, stack, call, input)?;
                     }
                     Expression {
-                        expr: Expr::ExternalCall(name, name_span, args),
+                        expr: Expr::ExternalCall(head, args),
                         ..
                     } => {
-                        input = eval_external(
-                            engine_state,
-                            stack,
-                            name,
-                            name_span,
-                            args,
-                            input,
-                            false,
-                        )?;
+                        input = eval_external(engine_state, stack, head, args, input, false)?;
                     }
 
                     elem => {

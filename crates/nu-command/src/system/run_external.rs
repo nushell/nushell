@@ -260,7 +260,18 @@ impl<'call> ExternalCommand<'call> {
 
     /// Spawn a command without shelling out to an external shell
     fn spawn_simple_command(&self, cwd: &str) -> std::process::Command {
-        let mut process = std::process::Command::new(&self.name.item);
+        let head = trim_enclosing_quotes(&self.name.item);
+        let head = if head.starts_with('~') || head.starts_with("..") {
+            nu_path::expand_path_with(head, cwd)
+                .to_string_lossy()
+                .to_string()
+        } else {
+            head
+        };
+
+        let head = head.replace("\\", "\\\\");
+
+        let mut process = std::process::Command::new(&head);
 
         for arg in &self.args {
             let arg = trim_enclosing_quotes(arg);

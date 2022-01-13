@@ -142,7 +142,10 @@ impl Expression {
                 false
             }
             Expr::CellPath(_) => false,
-            Expr::ExternalCall(_, _, args) => {
+            Expr::ExternalCall(head, args) => {
+                if head.has_in_variable(working_set) {
+                    return true;
+                }
                 for arg in args {
                     if arg.has_in_variable(working_set) {
                         return true;
@@ -298,7 +301,8 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
-            Expr::ExternalCall(_, _, args) => {
+            Expr::ExternalCall(head, args) => {
+                head.replace_in_variable(working_set, new_var_id);
                 for arg in args {
                     arg.replace_in_variable(working_set, new_var_id)
                 }

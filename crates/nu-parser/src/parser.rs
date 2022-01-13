@@ -191,18 +191,34 @@ pub fn parse_external_call(
     spans: &[Span],
 ) -> (Expression, Option<ParseError>) {
     let mut args = vec![];
-    let name_span = spans[0];
-    let name = String::from_utf8_lossy(working_set.get_span_contents(name_span)).to_string();
-    let cwd = working_set.get_cwd();
-    let name = if name.starts_with('.') || name.starts_with('~') {
-        nu_path::expand_path_with(name, cwd)
-            .to_string_lossy()
-            .to_string()
+
+    let head_contents = working_set.get_span_contents(spans[0]);
+
+    let head_span = if head_contents.starts_with(b"^") {
+        Span {
+            start: spans[0].start + 1,
+            end: spans[0].end,
+        }
     } else {
-        name
+        spans[0]
     };
 
+    let head_contents = working_set.get_span_contents(head_span);
+
     let mut error = None;
+
+    let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
+        let (arg, err) = parse_expression(working_set, &[head_span], true);
+        error = error.or(err);
+        Box::new(arg)
+    } else {
+        Box::new(Expression {
+            expr: Expr::String(String::from_utf8_lossy(head_contents).to_string()),
+            span: head_span,
+            ty: Type::String,
+            custom_completion: None,
+        })
+    };
 
     for span in &spans[1..] {
         let contents = working_set.get_span_contents(*span);
@@ -222,7 +238,7 @@ pub fn parse_external_call(
     }
     (
         Expression {
-            expr: Expr::ExternalCall(name, name_span, args),
+            expr: Expr::ExternalCall(head, args),
             span: span(spans),
             ty: Type::Unknown,
             custom_completion: None,
@@ -3684,7 +3700,10 @@ pub fn find_captures_in_expr(
             }
         }
         Expr::CellPath(_) => {}
-        Expr::ExternalCall(_, _, exprs) => {
+        Expr::ExternalCall(head, exprs) => {
+            let result = find_captures_in_expr(working_set, head, seen);
+            output.extend(&result);
+
             for expr in exprs {
                 let result = find_captures_in_expr(working_set, expr, seen);
                 output.extend(&result);

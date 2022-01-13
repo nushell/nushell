@@ -156,8 +156,21 @@ pub fn flatten_expression(
             output.extend(args);
             output
         }
-        Expr::ExternalCall(_, name_span, args) => {
-            let mut output = vec![(*name_span, FlatShape::External)];
+        Expr::ExternalCall(head, args) => {
+            let mut output = vec![];
+
+            match **head {
+                Expression {
+                    expr: Expr::String(..),
+                    span,
+                    ..
+                } => {
+                    output.push((span, FlatShape::External));
+                }
+                _ => {
+                    output.extend(flatten_expression(working_set, head));
+                }
+            }
 
             for arg in args {
                 //output.push((*arg, FlatShape::ExternalArg));
