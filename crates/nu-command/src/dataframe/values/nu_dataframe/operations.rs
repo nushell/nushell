@@ -196,7 +196,7 @@ impl NuDataFrame {
                 let df_new = DataFrame::new(new_cols).map_err(|e| {
                     ShellError::SpannedLabeledError(
                         "Error appending dataframe".into(),
-                        format!("Unable to append dataframes: {}", e.to_string()),
+                        format!("Unable to append dataframes: {}", e),
                         span,
                     )
                 })?;

@@ -389,7 +389,7 @@ Format: #
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle(
-                            format!("problem with key: {}", k.to_string()),
+                            format!("problem with key: {}", k),
                             code.span().expect("error with span"),
                         ))
                     }

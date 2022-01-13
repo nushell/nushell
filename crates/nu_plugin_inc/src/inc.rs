@@ -92,11 +92,7 @@ impl Inc {
             x => {
                 let msg = x.as_string().map_err(|e| LabeledError {
                     label: "Unable to extract string".into(),
-                    msg: format!(
-                        "value cannot be converted to string {:?} - {}",
-                        x,
-                        e.to_string()
-                    ),
+                    msg: format!("value cannot be converted to string {:?} - {}", x, e),
                     span: Some(head),
                 })?;
 

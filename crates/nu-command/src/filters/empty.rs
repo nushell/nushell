@@ -162,7 +162,7 @@ fn process_row(
                 }
             } else {
                 let mut obj = input.clone();
-                for column in column_paths.clone() {
+                for column in column_paths {
                     let path = column.into_string();
                     let data = input.get_data_by_key(&path);
                     let is_empty = match data {

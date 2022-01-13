@@ -44,7 +44,7 @@ impl Display for Type {
                 "record<{}>",
                 fields
                     .iter()
-                    .map(|(x, y)| format!("{}: {}", x, y.to_string()))
+                    .map(|(x, y)| format!("{}: {}", x, y))
                     .collect::<Vec<String>>()
                     .join(", "),
             ),

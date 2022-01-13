@@ -111,7 +111,7 @@ impl Command for Kill {
                 }
                 cmd.arg("-9");
             } else if let Some(signal_value) = signal {
-                cmd.arg(format!("-{}", signal_value.item.to_string()));
+                cmd.arg(format!("-{}", signal_value.item));
             }
 
             cmd.arg(pid.to_string());

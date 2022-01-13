@@ -90,7 +90,7 @@ fn action(input: &Value, command_span: &Span) -> Value {
             Value::string(stripped_string, *span)
         }
         other => {
-            let got = format!("value is {}, not string", other.get_type().to_string());
+            let got = format!("value is {}, not string", other.get_type());
 
             Value::Error {
                 error: ShellError::TypeMismatch(got, other.span().unwrap_or(*command_span)),

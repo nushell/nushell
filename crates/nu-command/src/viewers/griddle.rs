@@ -193,11 +193,7 @@ fn create_grid_output(
                         .unwrap_or_default();
                     // eprintln!("ansi_style: {:?}", &ansi_style);
 
-                    let item = format!(
-                        "{} {}",
-                        icon_style.apply(icon).to_string(),
-                        ansi_style.apply(value).to_string()
-                    );
+                    let item = format!("{} {}", icon_style.apply(icon), ansi_style.apply(value));
 
                     let mut cell = Cell::from(item);
                     cell.alignment = Alignment::Left;
