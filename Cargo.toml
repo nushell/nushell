@@ -11,6 +11,7 @@ members = [
 	"crates/nu-cli",
 	"crates/nu-engine",
 	"crates/nu-parser",
+	"crates/nu-system",
 	"crates/nu-command",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
@@ -32,6 +33,7 @@ nu-path = { path="./crates/nu-path" }
 nu-pretty-hex = { path = "./crates/nu-pretty-hex" }
 nu-protocol = { path = "./crates/nu-protocol" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true }
+nu-system = { path = "./crates/nu-system"}
 nu-table = { path = "./crates/nu-table" }
 nu-term-grid = { path = "./crates/nu-term-grid" }
 # nu-ansi-term = { path = "./crates/nu-ansi-term" }

@@ -16,6 +16,7 @@ nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 nu-term-grid = { path = "../nu-term-grid" }
 nu-parser = { path = "../nu-parser" }
+nu-system = { path = "../nu-system" }
 # nu-ansi-term = { path = "../nu-ansi-term" }
 nu-ansi-term = "0.42.0"
 nu-color-config = { path = "../nu-color-config" }

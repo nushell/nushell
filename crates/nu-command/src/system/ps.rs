@@ -1,9 +1,10 @@
+use std::time::Duration;
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Value,
 };
-use sysinfo::{ProcessExt, System, SystemExt};
 
 #[derive(Clone)]
 pub struct Ps;
@@ -49,86 +50,59 @@ impl Command for Ps {
 }
 
 fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
+    let mut output = vec![];
     let span = call.head;
     let long = call.has_flag("long");
-    let mut sys = System::new_all();
-    sys.refresh_all();
 
-    let duration = std::time::Duration::from_millis(500);
-    std::thread::sleep(duration);
+    for proc in nu_system::collect_proc(Duration::from_millis(100), false) {
+        let mut cols = vec![];
+        let mut vals = vec![];
 
-    let mut output = vec![];
+        cols.push("pid".to_string());
+        vals.push(Value::Int {
+            val: proc.pid() as i64,
+            span,
+        });
 
-    let result: Vec<_> = sys.processes().iter().map(|x| *x.0).collect();
+        cols.push("name".to_string());
+        vals.push(Value::String {
+            val: proc.name(),
+            span,
+        });
 
-    for pid in result {
-        sys.refresh_process(pid);
-        if let Some(result) = sys.process(pid) {
-            let mut cols = vec![];
-            let mut vals = vec![];
+        cols.push("status".to_string());
+        vals.push(Value::String {
+            val: proc.status(),
+            span,
+        });
 
-            cols.push("pid".into());
-            vals.push(Value::Int {
-                val: pid as i64,
-                span,
-            });
+        cols.push("cpu".to_string());
+        vals.push(Value::Float {
+            val: proc.cpu_usage(),
+            span,
+        });
 
-            cols.push("name".into());
+        cols.push("mem".to_string());
+        vals.push(Value::Filesize {
+            val: proc.mem_size() as i64,
+            span,
+        });
+
+        cols.push("virtual".to_string());
+        vals.push(Value::Filesize {
+            val: proc.virtual_size() as i64,
+            span,
+        });
+
+        if long {
+            cols.push("command".to_string());
             vals.push(Value::String {
-                val: result.name().into(),
+                val: proc.command(),
                 span,
             });
-
-            cols.push("status".into());
-            vals.push(Value::String {
-                val: format!("{:?}", result.status()),
-                span,
-            });
-
-            cols.push("cpu".into());
-            vals.push(Value::Float {
-                val: result.cpu_usage() as f64,
-                span,
-            });
-
-            cols.push("mem".into());
-            vals.push(Value::Filesize {
-                val: result.memory() as i64 * 1000,
-                span,
-            });
-
-            cols.push("virtual".into());
-            vals.push(Value::Filesize {
-                val: result.virtual_memory() as i64 * 1000,
-                span,
-            });
-
-            if long {
-                cols.push("parent".into());
-                if let Some(parent) = result.parent() {
-                    vals.push(Value::Int {
-                        val: parent as i64,
-                        span,
-                    });
-                } else {
-                    vals.push(Value::Nothing { span });
-                }
-
-                cols.push("exe".into());
-                vals.push(Value::String {
-                    val: result.exe().to_string_lossy().to_string(),
-                    span,
-                });
-
-                cols.push("command".into());
-                vals.push(Value::String {
-                    val: result.cmd().join(" "),
-                    span,
-                });
-            }
-
-            output.push(Value::Record { cols, vals, span });
         }
+
+        output.push(Value::Record { cols, vals, span });
     }
 
     Ok(output
