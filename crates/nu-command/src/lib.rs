@@ -1,4 +1,3 @@
-mod calendar;
 mod conversions;
 mod core_commands;
 mod date;
@@ -9,6 +8,7 @@ mod experimental;
 mod filesystem;
 mod filters;
 mod formats;
+mod generators;
 mod hash;
 mod math;
 mod network;
@@ -20,7 +20,6 @@ mod strings;
 mod system;
 mod viewers;
 
-pub use calendar::*;
 pub use conversions::*;
 pub use core_commands::*;
 pub use date::*;
@@ -32,6 +31,7 @@ pub use experimental::*;
 pub use filesystem::*;
 pub use filters::*;
 pub use formats::*;
+pub use generators::*;
 pub use hash::*;
 pub use math::*;
 pub use network::*;
