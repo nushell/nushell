@@ -586,7 +586,27 @@ pub struct StateDelta {
     plugins_changed: bool, // marks whether plugin file should be updated
 }
 
+impl Default for StateDelta {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateDelta {
+    pub fn new() -> Self {
+        StateDelta {
+            files: vec![],
+            file_contents: vec![],
+            vars: vec![],
+            decls: vec![],
+            blocks: vec![],
+            overlays: vec![],
+            scope: vec![ScopeFrame::new()],
+            #[cfg(feature = "plugin")]
+            plugins_changed: false,
+        }
+    }
+
     pub fn num_files(&self) -> usize {
         self.files.len()
     }
@@ -615,17 +635,7 @@ impl StateDelta {
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
         Self {
-            delta: StateDelta {
-                files: vec![],
-                file_contents: vec![],
-                vars: vec![],
-                decls: vec![],
-                blocks: vec![],
-                overlays: vec![],
-                scope: vec![ScopeFrame::new()],
-                #[cfg(feature = "plugin")]
-                plugins_changed: false,
-            },
+            delta: StateDelta::new(),
             permanent_state,
         }
     }

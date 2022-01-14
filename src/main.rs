@@ -15,7 +15,7 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{
@@ -167,6 +167,20 @@ fn main() -> Result<()> {
             }
         };
 
+        // Merge the delta in case env vars changed in the config
+        match nu_engine::env::current_dir(&engine_state, &stack) {
+            Ok(cwd) => {
+                if let Err(e) = engine_state.merge_delta(StateDelta::new(), Some(&mut stack), cwd) {
+                    let working_set = StateWorkingSet::new(&engine_state);
+                    report_error(&working_set, &e);
+                }
+            }
+            Err(e) => {
+                let working_set = StateWorkingSet::new(&engine_state);
+                report_error(&working_set, &e);
+            }
+        }
+
         // Translate environment variables from Strings to Values
         if let Some(e) = convert_env_values(&mut engine_state, &stack, &config) {
             let working_set = StateWorkingSet::new(&engine_state);
@@ -314,6 +328,23 @@ fn main() -> Result<()> {
 
                     if let Ok(contents) = std::fs::read_to_string(&config_path) {
                         eval_source(&mut engine_state, &mut stack, &contents, &config_filename);
+                        // Merge the delta in case env vars changed in the config
+                        match nu_engine::env::current_dir(&engine_state, &stack) {
+                            Ok(cwd) => {
+                                if let Err(e) = engine_state.merge_delta(
+                                    StateDelta::new(),
+                                    Some(&mut stack),
+                                    cwd,
+                                ) {
+                                    let working_set = StateWorkingSet::new(&engine_state);
+                                    report_error(&working_set, &e);
+                                }
+                            }
+                            Err(e) => {
+                                let working_set = StateWorkingSet::new(&engine_state);
+                                report_error(&working_set, &e);
+                            }
+                        }
                     }
                 }
             }

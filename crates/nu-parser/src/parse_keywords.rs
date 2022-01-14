@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     span, Exportable, Overlay, PositionalArg, Span, SyntaxShape, Type, CONFIG_VARIABLE_ID,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{
     lex, lite_parse,
@@ -1074,25 +1074,13 @@ pub fn parse_hide(
             } else if import_pattern.members.is_empty() {
                 // The pattern head can be e.g. a function name, not just a module
                 if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
-                    let mut decls = HashMap::new();
-                    decls.insert(import_pattern.head.name.clone(), id);
+                    let mut overlay = Overlay::new();
+                    overlay.add_decl(&import_pattern.head.name, id);
 
-                    (
-                        false,
-                        Overlay {
-                            decls,
-                            env_vars: HashMap::new(),
-                        },
-                    )
+                    (false, overlay)
                 } else {
                     // Or it could be an env var
-                    (
-                        false,
-                        Overlay {
-                            decls: HashMap::new(),
-                            env_vars: HashMap::new(),
-                        },
-                    )
+                    (false, Overlay::new())
                 }
             } else {
                 return (

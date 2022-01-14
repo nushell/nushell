@@ -109,8 +109,6 @@ impl<'call> ExternalCommand<'call> {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        // TODO. We don't have a way to know the current directory
-        // This should be information from the EvaluationContex or EngineState
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = self.create_command(d);
             process.current_dir(d);

@@ -1,6 +1,6 @@
 use crate::{BlockId, DeclId};
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 // TODO: Move the import pattern matching logic here from use/hide commands and
 // parse_use/parse_hide
@@ -8,15 +8,15 @@ use std::collections::HashMap;
 /// Collection of definitions that can be exported from a module
 #[derive(Debug, Clone)]
 pub struct Overlay {
-    pub decls: HashMap<Vec<u8>, DeclId>,
-    pub env_vars: HashMap<Vec<u8>, BlockId>,
+    pub decls: IndexMap<Vec<u8>, DeclId>,
+    pub env_vars: IndexMap<Vec<u8>, BlockId>,
 }
 
 impl Overlay {
     pub fn new() -> Self {
         Overlay {
-            decls: HashMap::new(),
-            env_vars: HashMap::new(),
+            decls: IndexMap::new(),
+            env_vars: IndexMap::new(),
         }
     }
 
