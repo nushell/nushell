@@ -70,11 +70,15 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
             span,
         });
 
-        cols.push("status".to_string());
-        vals.push(Value::String {
-            val: proc.status(),
-            span,
-        });
+        #[cfg(not(windows))]
+        {
+            // Hide status on Windows until we can find a good way to support it
+            cols.push("status".to_string());
+            vals.push(Value::String {
+                val: proc.status(),
+                span,
+            });
+        }
 
         cols.push("cpu".to_string());
         vals.push(Value::Float {
