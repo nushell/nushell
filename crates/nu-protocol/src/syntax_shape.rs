@@ -80,6 +80,9 @@ pub enum SyntaxShape {
     /// A boolean value
     Boolean,
 
+    /// A record value
+    Record,
+
     /// A custom shape with custom completion logic
     Custom(Box<SyntaxShape>, String),
 }
@@ -108,6 +111,7 @@ impl SyntaxShape {
             SyntaxShape::Number => Type::Number,
             SyntaxShape::Operator => Type::Unknown,
             SyntaxShape::Range => Type::Unknown,
+            SyntaxShape::Record => Type::Record(vec![]), // FIXME: Add actual record type
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
@@ -138,6 +142,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Block(_) => write!(f, "block"),
             SyntaxShape::Table => write!(f, "table"),
             SyntaxShape::List(x) => write!(f, "list<{}>", x),
+            SyntaxShape::Record => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::Operator => write!(f, "operator"),

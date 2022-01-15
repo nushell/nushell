@@ -353,6 +353,20 @@ impl FromValue for Vec<Value> {
     }
 }
 
+// A record
+impl FromValue for (Vec<String>, Vec<Value>) {
+    fn from_value(v: &Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Record { cols, vals, .. } => Ok((cols.clone(), vals.clone())),
+            v => Err(ShellError::CantConvert(
+                "Record".into(),
+                v.get_type().to_string(),
+                v.span()?,
+            )),
+        }
+    }
+}
+
 impl FromValue for CaptureBlock {
     fn from_value(v: &Value) -> Result<Self, ShellError> {
         match v {

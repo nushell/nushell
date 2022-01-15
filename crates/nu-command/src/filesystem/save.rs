@@ -9,7 +9,6 @@ use std::path::Path;
 #[derive(Clone)]
 pub struct Save;
 
-//NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
 impl Command for Save {
     fn name(&self) -> &str {
         "save"

@@ -2970,6 +2970,8 @@ pub fn parse_value(
         }
         if matches!(shape, SyntaxShape::Block(_)) || matches!(shape, SyntaxShape::Any) {
             return parse_block_expression(working_set, shape, span);
+        } else if matches!(shape, SyntaxShape::Record) {
+            return parse_record(working_set, span);
         } else {
             return (
                 Expression::garbage(span),

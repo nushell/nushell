@@ -234,6 +234,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         // Conversions
         bind_command! {
+            Fmt,
             Into,
             IntoBool,
             IntoBinary,
@@ -242,14 +243,14 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             IntoFilesize,
             IntoInt,
             IntoString,
-            Fmt,
         };
 
         // Env
         bind_command! {
-            LetEnv,
-            WithEnv,
             Env,
+            LetEnv,
+            LoadEnv,
+            WithEnv,
         };
 
         // Math
