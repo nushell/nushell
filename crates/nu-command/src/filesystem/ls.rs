@@ -63,18 +63,11 @@ impl Command for Ls {
         let short_names = call.has_flag("short-names");
 
         let call_span = call.head;
-        // when we're asking for relative paths like ../../, we need to figure out if we need a prefix for display purposes
-        let mut new_prefix = false;
-        let mut prefix_str = PathBuf::new();
 
         let (pattern, prefix) = if let Some(result) =
             call.opt::<Spanned<String>>(engine_state, stack, 0)?
         {
-            let curr_dir = current_dir(engine_state, stack)?;
-            let path = match nu_path::canonicalize_with(&result.item, curr_dir) {
-                Ok(p) => p,
-                Err(_e) => return Err(ShellError::DirectoryNotFound(result.span)),
-            };
+            let path = PathBuf::from(&result.item);
 
             let (mut path, prefix) = if path.is_relative() {
                 let cwd = current_dir(engine_state, stack)?;
@@ -83,12 +76,7 @@ impl Command for Ls {
                 (path, None)
             };
 
-            if path.is_file() {
-                (
-                    path.to_string_lossy().to_string(),
-                    Some(current_dir(engine_state, stack)?),
-                )
-            } else if path.is_dir() {
+            if path.is_dir() {
                 if permission_denied(&path) {
                     #[cfg(unix)]
                     let error_msg = format!(
@@ -110,28 +98,13 @@ impl Command for Ls {
                 if is_empty_dir(&path) {
                     return Ok(PipelineData::new(call_span));
                 }
-                // we figure out how to display a relative path which was requested from a subdirectory, e.g., ls ../
-                let curr_dir = current_dir(engine_state, stack)?;
-                new_prefix = curr_dir.ancestors().any(|x| x.to_path_buf() == path);
-                if new_prefix {
-                    for a in curr_dir.ancestors() {
-                        if a.to_path_buf() == path {
-                            break;
-                        }
-                        prefix_str.push(format!("..{}", std::path::MAIN_SEPARATOR));
-                    }
-                }
 
                 if path.is_dir() {
                     path = path.join("*");
                 }
-                (
-                    path.to_string_lossy().to_string(),
-                    Some(current_dir(engine_state, stack)?),
-                )
-            } else {
-                (path.to_string_lossy().to_string(), prefix)
             }
+
+            (path.to_string_lossy().to_string(), prefix)
         } else {
             let cwd = current_dir(engine_state, stack)?;
             (cwd.join("*").to_string_lossy().to_string(), Some(cwd))
@@ -187,27 +160,9 @@ impl Command for Ls {
 
                     match display_name {
                         Ok(name) => {
-                            let filename = if new_prefix {
-                                match path.file_name() {
-                                    Some(p) => {
-                                        format!(
-                                            "{}{}",
-                                            prefix_str.to_string_lossy(),
-                                            p.to_string_lossy()
-                                        )
-                                    }
-                                    None => path.to_string_lossy().to_string(),
-                                }
-                            } else {
-                                name.to_string()
-                            };
-                            let entry = dir_entry_dict(
-                                &path,
-                                filename.as_str(),
-                                metadata.as_ref(),
-                                call_span,
-                                long,
-                            );
+                            let entry =
+                                dir_entry_dict(&path, name, metadata.as_ref(), call_span, long);
+
                             match entry {
                                 Ok(value) => Some(value),
                                 Err(err) => Some(Value::Error { error: err }),
