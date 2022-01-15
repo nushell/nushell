@@ -488,6 +488,15 @@ pub fn parse_multispan_value(
 
             (arg, error)
         }
+        SyntaxShape::MathExpression => {
+            trace!("parsing: math expression");
+
+            let (arg, err) = parse_math_expression(working_set, &spans[*spans_idx..], None);
+            error = error.or(err);
+            *spans_idx = spans.len() - 1;
+
+            (arg, error)
+        }
         SyntaxShape::Expression => {
             trace!("parsing: expression");
 
@@ -3337,7 +3346,49 @@ pub fn parse_expression(
     let (output, err) = if is_math_expression_byte(bytes[0]) {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
-        parse_call(working_set, &spans[pos..], expand_aliases, spans[0])
+        // For now, check for special parses of certain keywords
+        match bytes {
+            b"def" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("def".into(), spans[0])),
+            ),
+            b"let" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("let".into(), spans[0])),
+            ),
+            b"alias" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("alias".into(), spans[0])),
+            ),
+            b"module" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("module".into(), spans[0])),
+            ),
+            b"use" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("use".into(), spans[0])),
+            ),
+            b"source" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("source".into(), spans[0])),
+            ),
+            b"export" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
+            ),
+            b"hide" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("hide".into(), spans[0])),
+            ),
+            #[cfg(feature = "plugin")]
+            b"register" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("plugin".into(), spans[0])),
+            ),
+
+            b"for" => parse_for(working_set, spans),
+            _ => parse_call(working_set, &spans[pos..], expand_aliases, spans[0]),
+        }
     };
 
     let with_env = working_set.find_decl(b"with-env");
@@ -3425,7 +3476,10 @@ pub fn parse_statement(
     match name {
         b"def" => parse_def(working_set, spans),
         b"let" => parse_let(working_set, spans),
-        b"for" => parse_for(working_set, spans),
+        b"for" => {
+            let (expr, err) = parse_for(working_set, spans);
+            (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
+        }
         b"alias" => parse_alias(working_set, spans),
         b"module" => parse_module(working_set, spans),
         b"use" => parse_use(working_set, spans),
@@ -3562,16 +3616,6 @@ pub fn parse_block(
                         expr
                     })
                     .collect::<Vec<Expression>>();
-
-                if let Some(let_call_id) = working_set.find_decl(b"let") {
-                    for expr in output.iter() {
-                        if let Expr::Call(x) = &expr.expr {
-                            if let_call_id == x.decl_id && output.len() != 1 && error.is_none() {
-                                error = Some(ParseError::LetNotStatement(expr.span));
-                            }
-                        }
-                    }
-                }
 
                 for expr in output.iter_mut().skip(1) {
                     if expr.has_in_variable(working_set) {

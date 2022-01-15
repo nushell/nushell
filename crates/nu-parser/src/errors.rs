@@ -61,9 +61,19 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
         url(docsrs),
-        help("'export' keyword is allowed only in a module.")
+        help("'{0}' keyword is allowed only in a module.")
     )]
     UnexpectedKeyword(String, #[label("unexpected {0}")] Span),
+
+    #[error("Statement used in pipeline.")]
+    #[diagnostic(
+        code(nu::parser::unexpected_keyword),
+        url(docsrs),
+        help(
+            "'{0}' keyword is not allowed in pipeline. Use '{0}' by itself, outside of a pipeline."
+        )
+    )]
+    StatementInPipeline(String, #[label("not allowed in pipeline")] Span),
 
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), url(docsrs), help("{2}"))]
@@ -202,14 +212,6 @@ pub enum ParseError {
     #[error("File not found")]
     #[diagnostic(code(nu::parser::file_not_found), url(docsrs))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
-
-    #[error("'let' statements can't be part of a pipeline")]
-    #[diagnostic(
-        code(nu::parser::let_not_statement),
-        url(docsrs),
-        help("use parens to assign to a variable\neg) let x = ('hello' | str length)")
-    )]
-    LetNotStatement(#[label = "let statement part of a pipeline"] Span),
 
     #[error("{0}")]
     #[diagnostic()]

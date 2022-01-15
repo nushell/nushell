@@ -60,12 +60,12 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
 pub fn parse_for(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
-) -> (Statement, Option<ParseError>) {
+) -> (Expression, Option<ParseError>) {
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     if working_set.get_span_contents(spans[0]) != b"for" {
         return (
-            garbage_statement(spans),
+            garbage(spans[0]),
             Some(ParseError::UnknownState(
                 "internal error: Wrong call name for 'for' function".into(),
                 span(spans),
@@ -79,7 +79,7 @@ pub fn parse_for(
     let (call, call_span) = match working_set.find_decl(b"for") {
         None => {
             return (
-                garbage_statement(spans),
+                garbage(spans[0]),
                 Some(ParseError::UnknownState(
                     "internal error: def declaration not found".into(),
                     span(spans),
@@ -117,12 +117,12 @@ pub fn parse_for(
             err = check_call(call_span, &sig, &call).or(err);
             if err.is_some() || call.has_flag("help") {
                 return (
-                    Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+                    Expression {
                         expr: Expr::Call(call),
                         span: call_span,
                         ty: Type::Unknown,
                         custom_completion: None,
-                    }])),
+                    },
                     err,
                 );
             }
@@ -162,12 +162,12 @@ pub fn parse_for(
     }
 
     (
-        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+        Expression {
             expr: Expr::Call(call),
             span: call_span,
             ty: Type::Unknown,
             custom_completion: None,
-        }])),
+        },
         error,
     )
 }

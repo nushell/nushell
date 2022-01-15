@@ -143,3 +143,8 @@ fn proper_variable_captures_with_nesting() -> TestResult {
         "102",
     )
 }
+
+#[test]
+fn proper_variable_for() -> TestResult {
+    run_test(r#"for x in 1..3 { if $x == 2 { "bob" } } | get 1"#, "bob")
+}
