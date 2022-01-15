@@ -43,7 +43,7 @@ pub struct Config {
     pub filesize_metric: bool,
     pub table_mode: String,
     pub use_ls_colors: bool,
-    pub color_config: HashMap<String, String>,
+    pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
     pub animate_prompt: bool,
@@ -54,6 +54,7 @@ pub struct Config {
     pub edit_mode: String,
     pub max_history_size: i64,
     pub log_level: String,
+    pub menu_config: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -73,6 +74,7 @@ impl Default for Config {
             edit_mode: "emacs".into(),
             max_history_size: 1000,
             log_level: String::new(),
+            menu_config: HashMap::new(),
         }
     }
 }
@@ -107,42 +109,7 @@ impl Value {
                     config.use_ls_colors = value.as_bool()?;
                 }
                 "color_config" => {
-                    let (cols, inner_vals) = value.as_record()?;
-                    let mut hm = HashMap::new();
-                    for (k, v) in cols.iter().zip(inner_vals) {
-                        match &v {
-                            Value::Record {
-                                cols: inner_cols,
-                                vals: inner_vals,
-                                span: _,
-                            } => {
-                                // make a string from our config.color_config section that
-                                // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
-                                // the real key here was to have quotes around the values but not
-                                // require them around the keys.
-
-                                // maybe there's a better way to generate this but i'm not sure
-                                // what it is.
-                                let key = k.to_string();
-                                let mut val: String = inner_cols
-                                    .iter()
-                                    .zip(inner_vals)
-                                    .map(|(x, y)| {
-                                        let clony = y.clone();
-                                        format!("{}: \"{}\" ", x, clony.into_string(", ", &config))
-                                    })
-                                    .collect();
-                                // now insert the braces at the front and the back to fake the json string
-                                val.insert(0, '{');
-                                val.push('}');
-                                hm.insert(key, val);
-                            }
-                            _ => {
-                                hm.insert(k.to_string(), v.as_string()?);
-                            }
-                        }
-                    }
-                    config.color_config = hm;
+                    config.color_config = create_map(value, &config)?;
                 }
                 "use_grid_icons" => {
                     config.use_grid_icons = value.as_bool()?;
@@ -191,10 +158,58 @@ impl Value {
                 "log_level" => {
                     config.log_level = value.as_string()?;
                 }
+                "menu_config" => {
+                    config.menu_config = create_map(value, &config)?;
+                }
                 _ => {}
             }
         }
 
         Ok(config)
     }
+}
+
+fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, ShellError> {
+    let (cols, inner_vals) = value.as_record()?;
+    let mut hm: HashMap<String, Value> = HashMap::new();
+
+    for (k, v) in cols.iter().zip(inner_vals) {
+        match &v {
+            Value::Record {
+                cols: inner_cols,
+                vals: inner_vals,
+                span,
+            } => {
+                // make a string from our config.color_config section that
+                // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
+                // the real key here was to have quotes around the values but not
+                // require them around the keys.
+
+                // maybe there's a better way to generate this but i'm not sure
+                // what it is.
+                let key = k.to_string();
+                let val: String = inner_cols
+                    .iter()
+                    .zip(inner_vals)
+                    .map(|(x, y)| {
+                        let clony = y.clone();
+                        format!("{}: \"{}\" ", x, clony.into_string(", ", config))
+                    })
+                    .collect();
+
+                // now insert the braces at the front and the back to fake the json string
+                let val = Value::String {
+                    val: format!("{{{}}}", val),
+                    span: *span,
+                };
+
+                hm.insert(key, val);
+            }
+            _ => {
+                hm.insert(k.to_string(), v.clone());
+            }
+        }
+    }
+
+    Ok(hm)
 }

@@ -9,7 +9,7 @@ use dialoguer::{
 use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
-use nu_color_config::get_color_config;
+use nu_color_config::{get_color_config, lookup_ansi_color_style};
 use nu_command::create_default_context;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::{lex, parse, trim_quotes, Token, TokenContents};
@@ -19,8 +19,8 @@ use nu_protocol::{
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{
-    default_emacs_keybindings, Completer, CompletionActionHandler, DefaultHinter, EditCommand,
-    Emacs, LineBuffer, Prompt, ReedlineEvent, Vi,
+    default_emacs_keybindings, Completer, CompletionActionHandler, ContextMenuInput, DefaultHinter,
+    EditCommand, Emacs, LineBuffer, Prompt, ReedlineEvent, Vi,
 };
 use std::{
     io::Write,
@@ -435,7 +435,11 @@ fn main() -> Result<()> {
                 }))
                 .with_edit_mode(edit_mode)
                 .with_ansi_colors(config.use_ansi_coloring)
-                .with_menu_completer(Box::new(NuCompleter::new(engine_state.clone())));
+                .with_menu_completer(
+                    Box::new(NuCompleter::new(engine_state.clone())),
+                    create_menu_input(&config),
+                );
+
             //FIXME: if config.use_ansi_coloring is false then we should
             // turn off the hinter but I don't see any way to do that yet.
 
@@ -585,6 +589,58 @@ fn main() -> Result<()> {
 
         Ok(())
     }
+}
+
+// This creates an input object for the context menu based on the dictionary
+// stored in the config variable
+fn create_menu_input(config: &Config) -> ContextMenuInput {
+    let mut input = ContextMenuInput::default();
+
+    input = match config
+        .menu_config
+        .get("columns")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => input.with_columns(value as u16),
+        None => input,
+    };
+
+    input = input.with_col_width(
+        config
+            .menu_config
+            .get("col_width")
+            .and_then(|value| value.as_integer().ok())
+            .map(|value| value as usize),
+    );
+
+    input = match config
+        .menu_config
+        .get("col_padding")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => input.with_col_padding(value as usize),
+        None => input,
+    };
+
+    input = match config
+        .menu_config
+        .get("text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => input.with_text_style(lookup_ansi_color_style(&value)),
+        None => input,
+    };
+
+    input = match config
+        .menu_config
+        .get("selected_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => input.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => input,
+    };
+
+    input
 }
 
 // This fill collect environment variables from std::env and adds them to a stack.

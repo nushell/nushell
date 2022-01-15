@@ -4,7 +4,10 @@ use nu_protocol::Config;
 
 pub fn get_shape_color(shape: String, conf: &Config) -> Style {
     match conf.color_config.get(shape.as_str()) {
-        Some(int_color) => lookup_ansi_color_style(int_color.to_string()),
+        Some(int_color) => match int_color.as_string() {
+            Ok(int_color) => lookup_ansi_color_style(&int_color),
+            Err(_) => Style::default(),
+        },
         None => match shape.as_ref() {
             "flatshape_garbage" => Style::new().fg(Color::White).on(Color::Red).bold(),
             "flatshape_bool" => Style::new().fg(Color::LightCyan),

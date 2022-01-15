@@ -4,9 +4,9 @@ use nu_protocol::Config;
 use nu_table::{Alignment, TextStyle};
 use std::collections::HashMap;
 
-pub fn lookup_ansi_color_style(s: String) -> Style {
+pub fn lookup_ansi_color_style(s: &str) -> Style {
     if s.starts_with('#') {
-        match color_from_hex(&s) {
+        match color_from_hex(s) {
             Ok(c) => match c {
                 Some(c) => c.normal(),
                 None => Style::default(),
@@ -14,9 +14,9 @@ pub fn lookup_ansi_color_style(s: String) -> Style {
             Err(_) => Style::default(),
         }
     } else if s.starts_with('{') {
-        color_string_to_nustyle(s)
+        color_string_to_nustyle(s.to_string())
     } else {
-        match s.as_str() {
+        match s {
             "g" | "green" => Color::Green.normal(),
             "gb" | "green_bold" => Color::Green.bold(),
             "gu" | "green_underline" => Color::Green.underline(),
@@ -168,7 +168,7 @@ pub fn lookup_ansi_color_style(s: String) -> Style {
 
 fn update_hashmap(key: &str, val: &str, hm: &mut HashMap<String, Style>) {
     // eprintln!("key: {}, val: {}", &key, &val);
-    let color = lookup_ansi_color_style(val.to_string());
+    let color = lookup_ansi_color_style(val);
     if let Some(v) = hm.get_mut(key) {
         *v = color;
     } else {
@@ -210,7 +210,10 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     hm.insert("hints".to_string(), Color::DarkGray.normal());
 
     for (key, value) in &config.color_config {
-        update_hashmap(key, value, &mut hm);
+        let value = value
+            .as_string()
+            .expect("the only values for config color must be strings");
+        update_hashmap(key, &value, &mut hm);
 
         // eprintln!(
         //     "config: {}:{}\t\t\thashmap: {}:{:?}",
