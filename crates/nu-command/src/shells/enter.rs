@@ -41,6 +41,13 @@ impl Command for Enter {
             return Err(ShellError::DirectoryNotFound(path_span));
         }
 
+        if !new_path.is_dir() {
+            return Err(ShellError::DirectoryNotFoundCustom(
+                "not a directory".to_string(),
+                path_span,
+            ));
+        }
+
         let cwd = current_dir(engine_state, stack)?;
         let new_path = nu_path::canonicalize_with(new_path, &cwd)?;
 
