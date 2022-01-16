@@ -283,8 +283,10 @@ fn convert_to_table(
                 vec![("string".to_string(), (row_num + row_offset).to_string())];
 
             if headers.is_empty() {
-                // if header row is empty, this is probably a list so format it that way
-                row.push(("list".to_string(), item.into_abbreviated_string(config)))
+                row.push((
+                    item.get_type().to_string(),
+                    item.into_abbreviated_string(config),
+                ))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match item {
