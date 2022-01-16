@@ -247,57 +247,8 @@ pub fn math_result_type(
                     )
                 }
             },
-            Operator::Equal => match (&lhs.ty, &rhs.ty) {
-                (Type::Float, Type::Int) => (Type::Bool, None),
-                (Type::Int, Type::Float) => (Type::Bool, None),
-                (Type::Duration, Type::Duration) => (Type::Bool, None),
-                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-
-                (x, y) if x == y => (Type::Bool, None),
-                (Type::Nothing, _) => (Type::Bool, None),
-                (_, Type::Nothing) => (Type::Bool, None),
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
-                _ => {
-                    *op = Expression::garbage(op.span);
-                    (
-                        Type::Unknown,
-                        Some(ParseError::UnsupportedOperation(
-                            op.span,
-                            lhs.span,
-                            lhs.ty.clone(),
-                            rhs.span,
-                            rhs.ty.clone(),
-                        )),
-                    )
-                }
-            },
-            Operator::NotEqual => match (&lhs.ty, &rhs.ty) {
-                (Type::Int, Type::Int) => (Type::Bool, None),
-                (Type::Float, Type::Int) => (Type::Bool, None),
-                (Type::Int, Type::Float) => (Type::Bool, None),
-                (Type::Float, Type::Float) => (Type::Bool, None),
-                (Type::Duration, Type::Duration) => (Type::Bool, None),
-                (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-
-                (Type::Nothing, _) => (Type::Bool, None),
-                (_, Type::Nothing) => (Type::Bool, None),
-                (Type::Unknown, _) => (Type::Bool, None),
-                (_, Type::Unknown) => (Type::Bool, None),
-                _ => {
-                    *op = Expression::garbage(op.span);
-                    (
-                        Type::Unknown,
-                        Some(ParseError::UnsupportedOperation(
-                            op.span,
-                            lhs.span,
-                            lhs.ty.clone(),
-                            rhs.span,
-                            rhs.ty.clone(),
-                        )),
-                    )
-                }
-            },
+            Operator::Equal => (Type::Bool, None),
+            Operator::NotEqual => (Type::Bool, None),
             Operator::Contains => match (&lhs.ty, &rhs.ty) {
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::Unknown, _) => (Type::Bool, None),
