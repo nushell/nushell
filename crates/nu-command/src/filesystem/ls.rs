@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
+use pathdiff::diff_paths;
+
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -15,7 +18,6 @@ use std::path::PathBuf;
 #[derive(Clone)]
 pub struct Ls;
 
-//NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
 impl Command for Ls {
     fn name(&self) -> &str {
         "ls"
@@ -43,6 +45,7 @@ impl Command for Ls {
                 "Only print the file names and not the path",
                 Some('s'),
             )
+            .switch("full-paths", "display paths as absolute paths", Some('f'))
             // .switch(
             //     "du",
             //     "Display the apparent directory size in place of the directory metadata size",
@@ -61,54 +64,69 @@ impl Command for Ls {
         let all = call.has_flag("all");
         let long = call.has_flag("long");
         let short_names = call.has_flag("short-names");
+        let full_paths = call.has_flag("full-paths");
 
         let call_span = call.head;
+        let cwd = current_dir(engine_state, stack)?;
 
-        let (pattern, prefix) = if let Some(result) =
-            call.opt::<Spanned<String>>(engine_state, stack, 0)?
-        {
-            let path = PathBuf::from(&result.item);
+        let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-            let (mut path, prefix) = if path.is_relative() {
-                let cwd = current_dir(engine_state, stack)?;
-                (cwd.join(path), Some(cwd))
+        let pattern = if let Some(arg) = pattern_arg {
+            let path = PathBuf::from(arg.item);
+            let path = if path.is_relative() {
+                expand_path_with(path, &cwd)
             } else {
-                (path, None)
+                path
             };
 
-            if path.is_dir() {
-                if permission_denied(&path) {
-                    #[cfg(unix)]
-                    let error_msg = format!(
-                        "The permissions of {:o} do not allow access for this user",
-                        path.metadata()
-                            .expect("this shouldn't be called since we already know there is a dir")
-                            .permissions()
-                            .mode()
-                            & 0o0777
-                    );
-                    #[cfg(not(unix))]
-                    let error_msg = String::from("Permission denied");
-                    return Err(ShellError::SpannedLabeledError(
-                        "Permission denied".into(),
-                        error_msg,
-                        result.span,
-                    ));
-                }
-                if is_empty_dir(&path) {
-                    return Ok(PipelineData::new(call_span));
-                }
+            if path.to_string_lossy().contains('*') {
+                // Path is a glob pattern => do not check for existence
+                path
+            } else {
+                let path = if let Ok(p) = canonicalize_with(path, &cwd) {
+                    p
+                } else {
+                    return Err(ShellError::DirectoryNotFound(arg.span));
+                };
 
                 if path.is_dir() {
-                    path = path.join("*");
+                    if permission_denied(&path) {
+                        #[cfg(unix)]
+                        let error_msg = format!(
+                            "The permissions of {:o} do not allow access for this user",
+                            path.metadata()
+                                .expect(
+                                    "this shouldn't be called since we already know there is a dir"
+                                )
+                                .permissions()
+                                .mode()
+                                & 0o0777
+                        );
+
+                        #[cfg(not(unix))]
+                        let error_msg = String::from("Permission denied");
+
+                        return Err(ShellError::SpannedLabeledError(
+                            "Permission denied".into(),
+                            error_msg,
+                            arg.span,
+                        ));
+                    }
+
+                    if is_empty_dir(&path) {
+                        return Ok(PipelineData::new(call_span));
+                    }
+
+                    path.join("*")
+                } else {
+                    path
                 }
             }
-
-            (path.to_string_lossy().to_string(), prefix)
         } else {
-            let cwd = current_dir(engine_state, stack)?;
-            (cwd.join("*").to_string_lossy().to_string(), Some(cwd))
-        };
+            cwd.join("*")
+        }
+        .to_string_lossy()
+        .to_string();
 
         let glob = glob::glob(&pattern).map_err(|err| {
             nu_protocol::ShellError::SpannedLabeledError(
@@ -141,14 +159,13 @@ impl Command for Ls {
                     }
 
                     let display_name = if short_names {
-                        path.file_name().and_then(|s| s.to_str())
-                    } else if let Some(pre) = &prefix {
-                        match path.strip_prefix(pre) {
-                            Ok(stripped) => stripped.to_str(),
-                            Err(_) => path.to_str(),
-                        }
+                        path.file_name().map(|os| os.to_string_lossy().to_string())
+                    } else if full_paths {
+                        Some(path.to_string_lossy().to_string())
                     } else {
-                        path.to_str()
+                        diff_paths(&path, &cwd)
+                            .or_else(|| Some(path.clone()))
+                            .map(|p| p.to_string_lossy().to_string())
                     }
                     .ok_or_else(|| {
                         ShellError::SpannedLabeledError(
@@ -161,8 +178,7 @@ impl Command for Ls {
                     match display_name {
                         Ok(name) => {
                             let entry =
-                                dir_entry_dict(&path, name, metadata.as_ref(), call_span, long);
-
+                                dir_entry_dict(&path, &name, metadata.as_ref(), call_span, long);
                             match entry {
                                 Ok(value) => Some(value),
                                 Err(err) => Some(Value::Error { error: err }),

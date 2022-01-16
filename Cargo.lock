@@ -1954,6 +1954,7 @@ dependencies = [
  "nu-table",
  "nu-term-grid",
  "num 0.4.0",
+ "pathdiff",
  "polars",
  "quick-xml 0.22.0",
  "rand",
@@ -2429,6 +2430,12 @@ checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
 dependencies = [
  "regex",
 ]
+
+[[package]]
+name = "pathdiff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "percent-encoding"

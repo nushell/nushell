@@ -1,14 +1,11 @@
-// use std::path::PathBuf;
-
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use chrono::{DateTime, FixedOffset};
-// use nu_path::expand_path;
 use crate::ast::{CellPath, PathMember};
 use crate::engine::CaptureBlock;
 use crate::ShellError;
 use crate::{Range, Spanned, Value};
+use chrono::{DateTime, FixedOffset};
 
 pub trait FromValue: Sized {
     fn from_value(v: &Value) -> Result<Self, ShellError>;
