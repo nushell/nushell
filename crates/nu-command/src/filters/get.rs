@@ -1,7 +1,10 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
+    SyntaxShape, Value,
+};
 
 #[derive(Clone)]
 pub struct Get;
@@ -22,6 +25,7 @@ impl Command for Get {
                 SyntaxShape::CellPath,
                 "the cell path to the data",
             )
+            .rest("rest", SyntaxShape::CellPath, "additional cell paths")
             .switch(
                 "ignore-errors",
                 "return nothing if path can't be found",
@@ -37,20 +41,69 @@ impl Command for Get {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let span = call.head;
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
+        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
+        let ctrlc = engine_state.ctrlc.clone();
 
-        let output = input
-            .follow_cell_path(&cell_path.members, call.head)
-            .map(|x| x.into_pipeline_data());
+        if rest.is_empty() {
+            let output = input
+                .follow_cell_path(&cell_path.members, call.head)
+                .map(|x| x.into_pipeline_data());
 
-        if ignore_errors {
-            match output {
-                Ok(output) => Ok(output),
-                Err(_) => Ok(Value::Nothing { span: call.head }.into_pipeline_data()),
+            if ignore_errors {
+                match output {
+                    Ok(output) => Ok(output),
+                    Err(_) => Ok(Value::Nothing { span: call.head }.into_pipeline_data()),
+                }
+            } else {
+                output
             }
         } else {
-            output
+            let mut output = vec![];
+
+            let paths = vec![cell_path].into_iter().chain(rest);
+
+            let input = input.into_value(span);
+
+            for path in paths {
+                let val = input.clone().follow_cell_path(&path.members);
+
+                if ignore_errors {
+                    if let Ok(val) = val {
+                        output.push(val);
+                    }
+                } else {
+                    output.push(val?);
+                }
+            }
+
+            Ok(output.into_iter().into_pipeline_data(ctrlc))
         }
+    }
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Extract the name of files as a list",
+                example: "ls | get name",
+                result: None,
+            },
+            Example {
+                description: "Extract the name of the 3rd entry of a file list",
+                example: "ls | get name.2",
+                result: None,
+            },
+            Example {
+                description: "Extract the name of the 3rd entry of a file list (alternative)",
+                example: "ls | get 2.name",
+                result: None,
+            },
+            Example {
+                description: "Extract the cpu list from the sys information record",
+                example: "sys | get cpu",
+                result: None,
+            },
+        ]
     }
 }
