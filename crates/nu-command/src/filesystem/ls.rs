@@ -13,7 +13,7 @@ use nu_protocol::{
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -71,7 +71,7 @@ impl Command for Ls {
 
         let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        let pattern = if let Some(arg) = pattern_arg {
+        let (prefix, pattern) = if let Some(arg) = pattern_arg {
             let path = PathBuf::from(arg.item);
             let path = if path.is_relative() {
                 expand_path_with(path, &cwd)
@@ -81,7 +81,17 @@ impl Command for Ls {
 
             if path.to_string_lossy().contains('*') {
                 // Path is a glob pattern => do not check for existence
-                path
+                // Select the longest prefix until the first '*'
+                let mut p = PathBuf::new();
+                for c in path.components() {
+                    if let Component::Normal(os) = c {
+                        if os.to_string_lossy().contains('*') {
+                            break;
+                        }
+                    }
+                    p.push(c);
+                }
+                (Some(p), path)
             } else {
                 let path = if let Ok(p) = canonicalize_with(path, &cwd) {
                     p
@@ -117,16 +127,16 @@ impl Command for Ls {
                         return Ok(PipelineData::new(call_span));
                     }
 
-                    path.join("*")
+                    (Some(path.clone()), path.join("*"))
                 } else {
-                    path
+                    (path.parent().map(|parent| parent.to_path_buf()), path)
                 }
             }
         } else {
-            cwd.join("*")
-        }
-        .to_string_lossy()
-        .to_string();
+            (Some(cwd.clone()), cwd.join("*"))
+        };
+
+        let pattern = pattern.to_string_lossy().to_string();
 
         let glob = glob::glob(&pattern).map_err(|err| {
             nu_protocol::ShellError::SpannedLabeledError(
@@ -162,10 +172,20 @@ impl Command for Ls {
                         path.file_name().map(|os| os.to_string_lossy().to_string())
                     } else if full_paths {
                         Some(path.to_string_lossy().to_string())
+                    } else if let Some(prefix) = &prefix {
+                        if let Ok(remainder) = path.strip_prefix(&prefix) {
+                            let new_prefix = if let Some(pfx) = diff_paths(&prefix, &cwd) {
+                                pfx
+                            } else {
+                                prefix.to_path_buf()
+                            };
+
+                            Some(new_prefix.join(remainder).to_string_lossy().to_string())
+                        } else {
+                            Some(path.to_string_lossy().to_string())
+                        }
                     } else {
-                        diff_paths(&path, &cwd)
-                            .or_else(|| Some(path.clone()))
-                            .map(|p| p.to_string_lossy().to_string())
+                        Some(path.to_string_lossy().to_string())
                     }
                     .ok_or_else(|| {
                         ShellError::SpannedLabeledError(
