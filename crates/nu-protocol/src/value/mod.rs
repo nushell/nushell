@@ -172,6 +172,16 @@ impl Value {
     pub fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::String { val, .. } => Ok(val.to_string()),
+            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
+                Ok(s) => s.to_string(),
+                Err(_) => {
+                    return Err(ShellError::CantConvert(
+                        "binary".into(),
+                        "string".into(),
+                        self.span()?,
+                    ))
+                }
+            }),
             x => Err(ShellError::CantConvert(
                 "string".into(),
                 x.get_type().to_string(),
