@@ -152,7 +152,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
     let mut end_index;
 
     let word_no_ansi = strip_ansi(word);
-    for c in word_no_ansi.char_indices() {
+    for c in word_no_ansi.chars().enumerate() {
         if let Some(width) = c.1.width() {
             end_index = c.0;
             if current_width + width > cell_width {
@@ -169,7 +169,7 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
         }
     }
 
-    if start_index != word.len() {
+    if start_index != word_no_ansi.chars().count() {
         output.push(Subline {
             subline: word.cut(start_index..),
             width: current_width,
