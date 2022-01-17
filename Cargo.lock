@@ -856,7 +856,6 @@ dependencies = [
  "crossterm",
  "crossterm_winapi",
  "ctrlc",
- "dialoguer",
  "log",
  "miette",
  "nu-ansi-term",
@@ -4021,9 +4020,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.4.3"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68d9dcec5f9b43a30d38c49f91dfedfaac384cb8f085faca366c26207dd1619"
+checksum = "cc222aec311c323c717f56060324f32b82da1ce1dd81d9a09aa6a9030bfe08db"
 
 [[package]]
 name = "zip"

@@ -23,7 +23,6 @@ members = [
 [dependencies]
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 crossterm = "0.22.*"
-dialoguer = "0.9.0"
 nu-cli = { path="./crates/nu-cli" }
 nu-command = { path="./crates/nu-command" }
 nu-engine = { path="./crates/nu-engine" }
@@ -36,7 +35,6 @@ nu-plugin = { path = "./crates/nu-plugin", optional = true }
 nu-system = { path = "./crates/nu-system"}
 nu-table = { path = "./crates/nu-table" }
 nu-term-grid = { path = "./crates/nu-term-grid" }
-# nu-ansi-term = { path = "./crates/nu-ansi-term" }
 nu-ansi-term = "0.42.0"
 nu-color-config = { path = "./crates/nu-color-config" }
 miette = "3.0.0"

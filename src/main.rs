@@ -1,11 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 #[cfg(windows)]
 use crossterm_winapi::{ConsoleMode, Handle};
-use dialoguer::{
-    console::{Style, Term},
-    theme::ColorfulTheme,
-    Select,
-};
 use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{CliError, NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
@@ -19,8 +14,8 @@ use nu_protocol::{
     Config, PipelineData, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{
-    default_emacs_keybindings, Completer, CompletionActionHandler, ContextMenuInput, DefaultHinter,
-    EditCommand, Emacs, LineBuffer, Prompt, ReedlineEvent, Vi,
+    default_emacs_keybindings, ContextMenuInput, DefaultHinter, EditCommand, Emacs, Prompt,
+    ReedlineEvent, Vi,
 };
 use std::{
     io::Write,
@@ -43,57 +38,6 @@ const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 const PROMPT_INDICATOR_VI_VISUAL: &str = "PROMPT_INDICATOR_VI_VISUAL";
 const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
-
-struct FuzzyCompletion {
-    completer: Box<dyn Completer>,
-}
-
-impl CompletionActionHandler for FuzzyCompletion {
-    fn handle(&mut self, present_buffer: &mut LineBuffer) {
-        let completions = self
-            .completer
-            .complete(present_buffer.get_buffer(), present_buffer.offset());
-
-        if completions.is_empty() {
-            // do nothing
-        } else if completions.len() == 1 {
-            let span = completions[0].0;
-
-            let mut offset = present_buffer.offset();
-            offset += completions[0].1.len() - (span.end - span.start);
-
-            // TODO improve the support for multiline replace
-            present_buffer.replace(span.start..span.end, &completions[0].1);
-            present_buffer.set_insertion_point(offset);
-        } else {
-            let selections: Vec<_> = completions.iter().map(|(_, string)| string).collect();
-
-            let _ = crossterm::terminal::disable_raw_mode();
-            println!();
-            let theme = ColorfulTheme {
-                active_item_style: Style::new().for_stderr().on_green().black(),
-                ..Default::default()
-            };
-            let result = Select::with_theme(&theme)
-                .default(0)
-                .items(&selections[..])
-                .interact_on_opt(&Term::stdout())
-                .unwrap_or(None);
-            let _ = crossterm::terminal::enable_raw_mode();
-
-            if let Some(result) = result {
-                let span = completions[result].0;
-
-                let mut offset = present_buffer.offset();
-                offset += completions[result].1.len() - (span.end - span.start);
-
-                // TODO improve the support for multiline replace
-                present_buffer.replace(span.start..span.end, &completions[result].1);
-                present_buffer.set_insertion_point(offset);
-            }
-        }
-    }
-}
 
 fn main() -> Result<()> {
     // miette::set_panic_hook();
@@ -419,12 +363,6 @@ fn main() -> Result<()> {
 
             let line_editor = Reedline::create()
                 .into_diagnostic()?
-                // .with_completion_action_handler(Box::new(FuzzyCompletion {
-                //     completer: Box::new(NuCompleter::new(engine_state.clone())),
-                // }))
-                // .with_completion_action_handler(Box::new(
-                //     ListCompletionHandler::default().with_completer(Box::new(completer)),
-                // ))
                 .with_highlighter(Box::new(NuHighlighter {
                     engine_state: engine_state.clone(),
                     config: config.clone(),
