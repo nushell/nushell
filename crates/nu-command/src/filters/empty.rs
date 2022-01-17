@@ -14,7 +14,7 @@ impl Command for Empty {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("empty")
+        Signature::build("empty?")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
