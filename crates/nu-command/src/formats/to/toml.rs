@@ -30,19 +30,19 @@ impl Command for ToToml {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
-        to_toml(input, head)
+        to_toml(engine_state, input, head)
     }
 }
 
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
-fn helper(v: &Value) -> Result<toml::Value, ShellError> {
+fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
         Value::Int { val, .. } => toml::Value::Integer(*val),
@@ -55,12 +55,16 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
         Value::Record { cols, vals, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in cols.iter().zip(vals.iter()) {
-                m.insert(k.clone(), helper(v)?);
+                m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
         }
-        Value::List { vals, .. } => toml::Value::Array(toml_list(vals)?),
-        Value::Block { .. } => toml::Value::String("<Block>".to_string()),
+        Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
+        Value::Block { span, .. } => {
+            let code = engine_state.get_span_contents(span);
+            let code = String::from_utf8_lossy(code).to_string();
+            toml::Value::String(code)
+        }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
         Value::Error { error } => return Err(error.clone()),
         Value::Binary { val, .. } => toml::Value::Array(
@@ -81,11 +85,11 @@ fn helper(v: &Value) -> Result<toml::Value, ShellError> {
     })
 }
 
-fn toml_list(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
+fn toml_list(engine_state: &EngineState, input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(helper(value)?);
+        out.push(helper(engine_state, value)?);
     }
 
     Ok(out)
@@ -109,11 +113,15 @@ fn toml_into_pipeline_data(
     }
 }
 
-fn value_to_toml_value(v: &Value, head: Span) -> Result<toml::Value, ShellError> {
+fn value_to_toml_value(
+    engine_state: &EngineState,
+    v: &Value,
+    head: Span,
+) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } => helper(v),
+        Value::Record { .. } => helper(engine_state, v),
         Value::List { ref vals, span } => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper(v),
+            [Value::Record { .. }, _end @ ..] => helper(engine_state, v),
             _ => Err(ShellError::UnsupportedInput(
                 "Expected a table with TOML-compatible structure from pipeline".to_string(),
                 *span,
@@ -135,10 +143,14 @@ fn value_to_toml_value(v: &Value, head: Span) -> Result<toml::Value, ShellError>
     }
 }
 
-fn to_toml(input: PipelineData, span: Span) -> Result<PipelineData, ShellError> {
+fn to_toml(
+    engine_state: &EngineState,
+    input: PipelineData,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
     let value = input.into_value(span);
 
-    let toml_value = value_to_toml_value(&value, span)?;
+    let toml_value = value_to_toml_value(engine_state, &value, span)?;
     match toml_value {
         toml::Value::Array(ref vec) => match vec[..] {
             [toml::Value::Table(_)] => toml_into_pipeline_data(
@@ -170,6 +182,8 @@ mod tests {
         // Positive Tests
         //
 
+        let engine_state = EngineState::new();
+
         let mut m = indexmap::IndexMap::new();
         m.insert("rust".to_owned(), Value::test_string("editor"));
         m.insert("is".to_owned(), Value::nothing(Span::test_data()));
@@ -181,6 +195,7 @@ mod tests {
             },
         );
         let tv = value_to_toml_value(
+            &engine_state,
             &Value::from(Spanned {
                 item: m,
                 span: Span::test_data(),
@@ -197,6 +212,7 @@ mod tests {
         );
         // TOML string
         let tv = value_to_toml_value(
+            &engine_state,
             &Value::test_string(
                 r#"
             title = "TOML Example"
@@ -221,9 +237,14 @@ mod tests {
         //
         // Negative Tests
         //
-        value_to_toml_value(&Value::test_string("not_valid"), Span::test_data())
-            .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
+            &engine_state,
+            &Value::test_string("not_valid"),
+            Span::test_data(),
+        )
+        .expect_err("Expected non-valid toml (String) to cause error!");
+        value_to_toml_value(
+            &engine_state,
             &Value::List {
                 vals: vec![Value::test_string("1")],
                 span: Span::test_data(),
