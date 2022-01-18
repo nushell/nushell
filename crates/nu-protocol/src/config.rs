@@ -1,4 +1,4 @@
-use crate::{BlockId, ShellError, Span, Value};
+use crate::{BlockId, ShellError, Span, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -41,19 +41,31 @@ impl EnvConversion {
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedKeybinding {
-    pub modifier: String,
-    pub keycode: String,
-    pub event: EventType,
-    pub mode: EventMode,
+    pub modifier: Spanned<String>,
+    pub keycode: Spanned<String>,
+    pub event: Spanned<EventType>,
+    pub mode: Spanned<EventMode>,
 }
 
 impl Default for ParsedKeybinding {
     fn default() -> Self {
         Self {
-            modifier: "".to_string(),
-            keycode: "".to_string(),
-            event: EventType::Single("".to_string()),
-            mode: EventMode::Emacs,
+            modifier: Spanned {
+                item: "".to_string(),
+                span: Span { start: 0, end: 0 },
+            },
+            keycode: Spanned {
+                item: "".to_string(),
+                span: Span { start: 0, end: 0 },
+            },
+            event: Spanned {
+                item: EventType::Single("".to_string()),
+                span: Span { start: 0, end: 0 },
+            },
+            mode: Spanned {
+                item: EventMode::Emacs,
+                span: Span { start: 0, end: 0 },
+            },
         }
     }
 }
@@ -66,7 +78,18 @@ pub enum EventType {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum EventMode {
     Emacs,
-    Vi,
+    ViNormal,
+    ViInsert,
+}
+
+impl EventMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EventMode::Emacs => "emacs",
+            EventMode::ViNormal => "vi_normal",
+            EventMode::ViInsert => "vi_insert",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -263,12 +286,32 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
 
             for (col, val) in cols.iter().zip(vals.iter()) {
                 match col.as_str() {
-                    "modifier" => keybinding.modifier = val.clone().into_string("", config),
-                    "keycode" => keybinding.keycode = val.clone().into_string("", config),
+                    "modifier" => {
+                        keybinding.modifier = Spanned {
+                            item: val.clone().into_string("", config),
+                            span: val.span()?,
+                        }
+                    }
+                    "keycode" => {
+                        keybinding.keycode = Spanned {
+                            item: val.clone().into_string("", config),
+                            span: val.span()?,
+                        }
+                    }
                     "mode" => {
                         keybinding.mode = match val.clone().into_string("", config).as_str() {
-                            "emacs" => EventMode::Emacs,
-                            "vi" => EventMode::Vi,
+                            "emacs" => Spanned {
+                                item: EventMode::Emacs,
+                                span: val.span()?,
+                            },
+                            "vi_normal" => Spanned {
+                                item: EventMode::ViNormal,
+                                span: val.span()?,
+                            },
+                            "vi_insert" => Spanned {
+                                item: EventMode::ViInsert,
+                                span: val.span()?,
+                            },
                             e => {
                                 return Err(ShellError::UnsupportedConfigValue(
                                     "emacs or vi".to_string(),
@@ -307,7 +350,10 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
                                     let event_value =
                                         event_vals[event_idx].clone().into_string("", config);
 
-                                    keybinding.event = EventType::Single(event_value)
+                                    keybinding.event = Spanned {
+                                        item: EventType::Single(event_value),
+                                        span: *event_span,
+                                    }
                                 }
                                 e => {
                                     return Err(ShellError::UnsupportedConfigValue(

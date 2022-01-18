@@ -2851,7 +2851,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.2.0"
-source = "git+https://github.com/nushell/reedline?branch=main#b0ff0eb4d1f062a03b76ef0ac28a2ccaada32a52"
+source = "git+https://github.com/nushell/reedline?branch=main#caebe19742b61f0f2c075865a3b7fb7354ddb189"
 dependencies = [
  "chrono",
  "crossterm",
@@ -4020,9 +4020,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.5.0"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc222aec311c323c717f56060324f32b82da1ce1dd81d9a09aa6a9030bfe08db"
+checksum = "d68d9dcec5f9b43a30d38c49f91dfedfaac384cb8f085faca366c26207dd1619"
 
 [[package]]
 name = "zip"

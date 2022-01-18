@@ -6,8 +6,6 @@ mod reedline_config;
 mod repl;
 mod utils;
 
-// mod fuzzy_completion;
-
 #[cfg(test)]
 mod tests;
 

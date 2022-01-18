@@ -3,8 +3,11 @@ use std::sync::{
     Arc,
 };
 
-use crate::utils::{eval_source, gather_parent_env_vars, report_error};
 use crate::{config_files, prompt_update, reedline_config};
+use crate::{
+    reedline_config::KeybindingsMode,
+    utils::{eval_source, gather_parent_env_vars, report_error},
+};
 use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
@@ -84,9 +87,6 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
         //Reset the ctrl-c handler
         ctrlc.store(false, Ordering::SeqCst);
 
-        let keybindings = reedline_config::create_keybindings(&config.keybindings)?;
-        let edit_mode = Box::new(Emacs::new(keybindings));
-
         let line_editor = Reedline::create()
             .into_diagnostic()?
             // .with_completion_action_handler(Box::new(fuzzy_completion::FuzzyCompletion {
@@ -103,7 +103,6 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
-            .with_edit_mode(edit_mode)
             .with_ansi_colors(config.use_ansi_coloring)
             .with_menu_completer(
                 Box::new(NuCompleter::new(engine_state.clone())),
@@ -139,13 +138,19 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
             line_editor
         };
 
-        // The line editor default mode is emacs mode. For the moment we only
-        // need to check for vi mode
-        let mut line_editor = if config.edit_mode == "vi" {
-            let edit_mode = Box::new(Vi::default());
-            line_editor.with_edit_mode(edit_mode)
-        } else {
-            line_editor
+        // Changing the line editor based on the found keybindings
+        let mut line_editor = match reedline_config::create_keybindings(&config)? {
+            KeybindingsMode::Emacs(keybindings) => {
+                let edit_mode = Box::new(Emacs::new(keybindings));
+                line_editor.with_edit_mode(edit_mode)
+            }
+            KeybindingsMode::Vi {
+                insert_keybindings,
+                normal_keybindings,
+            } => {
+                let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                line_editor.with_edit_mode(edit_mode)
+            }
         };
 
         let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt);
