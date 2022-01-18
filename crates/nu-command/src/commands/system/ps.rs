@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, TaggedDictBuilder, UntaggedValue};
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::{PidExt, ProcessExt, System, SystemExt};
 
 pub struct Command;
 
@@ -50,7 +50,7 @@ fn run_ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
     for pid in result {
         if let Some(result) = sys.process(pid) {
             let mut dict = TaggedDictBuilder::new(args.name_tag());
-            dict.insert_untagged("pid", UntaggedValue::int(pid as i64));
+            dict.insert_untagged("pid", UntaggedValue::int(pid.as_u32() as i64));
             dict.insert_untagged("name", UntaggedValue::string(result.name()));
             dict.insert_untagged(
                 "status",
@@ -68,7 +68,7 @@ fn run_ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             if long {
                 if let Some(parent) = result.parent() {
-                    dict.insert_untagged("parent", UntaggedValue::int(parent as i64));
+                    dict.insert_untagged("parent", UntaggedValue::int(parent.as_u32() as i64));
                 } else {
                     dict.insert_untagged("parent", UntaggedValue::nothing());
                 }
