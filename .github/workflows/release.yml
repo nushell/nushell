@@ -215,7 +215,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: cargo-wix
+          args: cargo-wix --version 0.3.1
 
       - name: Build
         uses: actions-rs/cargo@v1
