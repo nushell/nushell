@@ -204,7 +204,7 @@ This `"#hex"` format allows us to specify 24-bit truecolor tones to different pa
 ---
 The `full "#hex"` format is a take on the `"#hex"` format but allows one to specify the foreground, background, and attributes in one line.
 
-Example: ``{ fg: "#ff0000" bg: "#0000ff" attr: b }`
+Example: `{ fg: "#ff0000" bg: "#0000ff" attr: b }`
 
 * foreground of red in "#hex" format 
 * background of blue in "#hex" format 
