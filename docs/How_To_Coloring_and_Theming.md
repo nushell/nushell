@@ -343,6 +343,7 @@ let $config = {
 The nushell prompt is configurable through these environment variables settings.
 
 * `PROMPT_COMMAND`: Code to execute for setting up the prompt (block)
+* `PROMPT_COMMAND_RIGHT`: Code to execute for setting up the *RIGHT* prompt (block) (see oh-my.nu in nu_scripts)
 * `PROMPT_INDICATOR` = "〉": The indicator printed after the prompt (by default ">"-like Unicode symbol)
 * `PROMPT_INDICATOR_VI_INSERT` = ": "
 * `PROMPT_INDICATOR_VI_VISUAL` = "v "
