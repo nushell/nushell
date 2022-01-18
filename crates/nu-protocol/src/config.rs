@@ -38,6 +38,37 @@ impl EnvConversion {
     }
 }
 
+/// Definition of a parsed keybinding from the config object
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ParsedKeybinding {
+    pub modifier: String,
+    pub keycode: String,
+    pub event: EventType,
+    pub mode: EventMode,
+}
+
+impl Default for ParsedKeybinding {
+    fn default() -> Self {
+        Self {
+            modifier: "".to_string(),
+            keycode: "".to_string(),
+            event: EventType::Single("".to_string()),
+            mode: EventMode::Emacs,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum EventType {
+    Single(String),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum EventMode {
+    Emacs,
+    Vi,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub filesize_metric: bool,
@@ -55,6 +86,7 @@ pub struct Config {
     pub max_history_size: i64,
     pub log_level: String,
     pub menu_config: HashMap<String, Value>,
+    pub keybindings: Vec<ParsedKeybinding>,
 }
 
 impl Default for Config {
@@ -75,6 +107,7 @@ impl Default for Config {
             max_history_size: 1000,
             log_level: String::new(),
             menu_config: HashMap::new(),
+            keybindings: Vec::new(),
         }
     }
 }
@@ -161,6 +194,7 @@ impl Value {
                 "menu_config" => {
                     config.menu_config = create_map(value, &config)?;
                 }
+                "keybindings" => config.keybindings = create_keybindings(value, &config)?,
                 _ => {}
             }
         }
@@ -180,30 +214,8 @@ fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, 
                 vals: inner_vals,
                 span,
             } => {
-                // make a string from our config.color_config section that
-                // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
-                // the real key here was to have quotes around the values but not
-                // require them around the keys.
-
-                // maybe there's a better way to generate this but i'm not sure
-                // what it is.
-                let key = k.to_string();
-                let val: String = inner_cols
-                    .iter()
-                    .zip(inner_vals)
-                    .map(|(x, y)| {
-                        let clony = y.clone();
-                        format!("{}: \"{}\" ", x, clony.into_string(", ", config))
-                    })
-                    .collect();
-
-                // now insert the braces at the front and the back to fake the json string
-                let val = Value::String {
-                    val: format!("{{{}}}", val),
-                    span: *span,
-                };
-
-                hm.insert(key, val);
+                let val = color_value_string(span, inner_cols, inner_vals, config);
+                hm.insert(k.to_string(), val);
             }
             _ => {
                 hm.insert(k.to_string(), v.clone());
@@ -212,4 +224,134 @@ fn create_map(value: &Value, config: &Config) -> Result<HashMap<String, Value>, 
     }
 
     Ok(hm)
+}
+
+fn color_value_string(
+    span: &Span,
+    inner_cols: &[String],
+    inner_vals: &[Value],
+    config: &Config,
+) -> Value {
+    // make a string from our config.color_config section that
+    // looks like this: { fg: "#rrggbb" bg: "#rrggbb" attr: "abc", }
+    // the real key here was to have quotes around the values but not
+    // require them around the keys.
+
+    // maybe there's a better way to generate this but i'm not sure
+    // what it is.
+    let val: String = inner_cols
+        .iter()
+        .zip(inner_vals)
+        .map(|(x, y)| {
+            let clony = y.clone();
+            format!("{}: \"{}\" ", x, clony.into_string(", ", config))
+        })
+        .collect();
+
+    // now insert the braces at the front and the back to fake the json string
+    Value::String {
+        val: format!("{{{}}}", val),
+        span: *span,
+    }
+}
+
+// Parses the config object to extract the strings that will compose a keybinding for reedline
+fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybinding>, ShellError> {
+    match value {
+        Value::Record { cols, vals, .. } => {
+            let mut keybinding = ParsedKeybinding::default();
+
+            for (col, val) in cols.iter().zip(vals.iter()) {
+                match col.as_str() {
+                    "modifier" => keybinding.modifier = val.clone().into_string("", config),
+                    "keycode" => keybinding.keycode = val.clone().into_string("", config),
+                    "mode" => {
+                        keybinding.mode = match val.clone().into_string("", config).as_str() {
+                            "emacs" => EventMode::Emacs,
+                            "vi" => EventMode::Vi,
+                            e => {
+                                return Err(ShellError::UnsupportedConfigValue(
+                                    "emacs or vi".to_string(),
+                                    e.to_string(),
+                                    val.span()?,
+                                ))
+                            }
+                        };
+                    }
+                    "event" => match val {
+                        Value::Record {
+                            cols: event_cols,
+                            vals: event_vals,
+                            span: event_span,
+                        } => {
+                            let event_type_idx = event_cols
+                                .iter()
+                                .position(|key| key == "type")
+                                .ok_or_else(|| {
+                                    ShellError::MissingConfigValue("type".to_string(), *event_span)
+                                })?;
+
+                            let event_idx = event_cols
+                                .iter()
+                                .position(|key| key == "event")
+                                .ok_or_else(|| {
+                                    ShellError::MissingConfigValue("event".to_string(), *event_span)
+                                })?;
+
+                            let event_type =
+                                event_vals[event_type_idx].clone().into_string("", config);
+
+                            // Extracting the event type information from the record based on the type
+                            match event_type.as_str() {
+                                "single" => {
+                                    let event_value =
+                                        event_vals[event_idx].clone().into_string("", config);
+
+                                    keybinding.event = EventType::Single(event_value)
+                                }
+                                e => {
+                                    return Err(ShellError::UnsupportedConfigValue(
+                                        "single".to_string(),
+                                        e.to_string(),
+                                        *event_span,
+                                    ))
+                                }
+                            };
+                        }
+                        e => {
+                            return Err(ShellError::UnsupportedConfigValue(
+                                "record type".to_string(),
+                                format!("{:?}", e.get_type()),
+                                e.span()?,
+                            ))
+                        }
+                    },
+                    "name" => {} // don't need to store name
+                    e => {
+                        return Err(ShellError::UnsupportedConfigValue(
+                            "name, mode, modifier, keycode or event".to_string(),
+                            e.to_string(),
+                            val.span()?,
+                        ))
+                    }
+                }
+            }
+
+            Ok(vec![keybinding])
+        }
+        Value::List { vals, .. } => {
+            let res = vals
+                .iter()
+                .map(|inner_value| create_keybindings(inner_value, config))
+                .collect::<Result<Vec<Vec<ParsedKeybinding>>, ShellError>>();
+
+            let res = res?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<ParsedKeybinding>>();
+
+            Ok(res)
+        }
+        _ => Ok(Vec::new()),
+    }
 }
