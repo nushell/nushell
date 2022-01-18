@@ -4,20 +4,20 @@ description = "Core commands for nushell"
 edition = "2018"
 license = "MIT"
 name = "nu-engine"
-version = "0.42.0"
+version = "0.43.0"
 
 [dependencies]
-nu-data = { version = "0.42.0", path="../nu-data" }
-nu-errors = { version = "0.42.0", path="../nu-errors" }
-nu-parser = { version = "0.42.0", path="../nu-parser" }
-nu-plugin = { version = "0.42.0", path="../nu-plugin" }
-nu-protocol = { version = "0.42.0", path="../nu-protocol" }
-nu-source = { version = "0.42.0", path="../nu-source" }
-nu-stream = { version = "0.42.0", path="../nu-stream" }
-nu-value-ext = { version = "0.42.0", path="../nu-value-ext" }
-nu-ansi-term = { version = "0.42.0", path="../nu-ansi-term" }
-nu-test-support = { version = "0.42.0", path="../nu-test-support" }
-nu-path = { version = "0.42.0", path="../nu-path" }
+nu-data = { version = "0.43.0", path="../nu-data" }
+nu-errors = { version = "0.43.0", path="../nu-errors" }
+nu-parser = { version = "0.43.0", path="../nu-parser" }
+nu-plugin = { version = "0.43.0", path="../nu-plugin" }
+nu-protocol = { version = "0.43.0", path="../nu-protocol" }
+nu-source = { version = "0.43.0", path="../nu-source" }
+nu-stream = { version = "0.43.0", path="../nu-stream" }
+nu-value-ext = { version = "0.43.0", path="../nu-value-ext" }
+nu-ansi-term = { version = "0.43.0", path="../nu-ansi-term" }
+nu-test-support = { version = "0.43.0", path="../nu-test-support" }
+nu-path = { version = "0.43.0", path="../nu-path" }
 
 trash = { version = "2.0.2", optional = true }
 which = { version="4.0.2", optional=true }
@@ -50,7 +50,7 @@ umask = "1.0.0"
 users = "0.11.0"
 
 [dev-dependencies]
-nu-test-support = { version = "0.42.0", path="../nu-test-support" }
+nu-test-support = { version = "0.43.0", path="../nu-test-support" }
 hamcrest2 = "0.3.0"
 
 [features]
