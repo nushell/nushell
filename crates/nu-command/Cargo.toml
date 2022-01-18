@@ -73,7 +73,7 @@ serde_urlencoded = "0.7.0"
 serde_yaml = "0.8.16"
 sha2 = "0.9.3"
 strip-ansi-escapes = "0.1.0"
-sysinfo = { version = "0.21.2", optional = true }
+sysinfo = { version = "0.23.0", optional = true }
 thiserror = "1.0.26"
 term = { version="0.7.0", optional=true }
 term_size = "0.3.2"
