@@ -91,10 +91,10 @@ pub fn run_script_file(
 fn default_prompt_string(cwd: &str) -> String {
     format!(
         "{}{}{}{}{}{}> ",
-        Color::Green.bold().prefix().to_string(),
+        Color::Green.bold().prefix(),
         cwd,
         nu_ansi_term::ansi::RESET,
-        Color::Cyan.bold().prefix().to_string(),
+        Color::Cyan.bold().prefix(),
         current_branch(),
         nu_ansi_term::ansi::RESET
     )

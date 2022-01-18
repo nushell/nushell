@@ -75,7 +75,7 @@ fn find_source_file(
 
     let path = canonicalize(&file).map_err(|e| {
         ParseError::general_error(
-            format!("Can't load source file. Reason: {}", e.to_string()),
+            format!("Can't load source file. Reason: {}", e),
             "Can't load this file".spanned(file_span),
         )
     })?;
@@ -85,7 +85,7 @@ fn find_source_file(
     match contents {
         Ok(contents) => parse(&contents, 0, scope),
         Err(e) => Err(ParseError::general_error(
-            format!("Can't load source file. Reason: {}", e.to_string()),
+            format!("Can't load source file. Reason: {}", e),
             "Can't load this file".spanned(file_span),
         )),
     }
