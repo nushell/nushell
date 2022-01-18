@@ -81,6 +81,7 @@ fn tutor(args: CommandArgs) -> Result<OutputStream, ShellError> {
             vec!["var", "vars", "variable", "variables"],
             variable_tutor(),
         ),
+        (vec!["engine-q", "e-q"], engineq_tutor()),
         (vec!["block", "blocks"], block_tutor()),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
     ];
@@ -367,6 +368,29 @@ same value using:
 ```
 (ls).4.name
 ```
+"#
+}
+
+fn engineq_tutor() -> &'static str {
+    r#"
+Engine-q is the upcoming engine for Nushell. Build for speed and correctness, 
+it also comes with a set of changes from Nushell versions prior to 0.60. To 
+get ready for engine-q look for some of these changes that might impact your
+current scripts:
+
+* Engine-q now uses a few new data structures, including a record syntax
+  that allows you to model key-value pairs similar to JSON objects.
+* Environment variables can now contain more than just strings. Structured
+  values are converted to strings for external commands using converters.
+* `if` will now use an `else` keyword before the else block.
+* We're moving from "config.toml" to "config.nu". This means startup will 
+  now be a script file.
+* `config` and its subcommands are being replaced by a record that you can
+  update in the shell which contains all the settings under the variable
+  `$config`.
+* bigint/bigdecimal values are now machine i64 and f64 values
+* And more, you can read more about upcoming changes in the up-to-date list
+  at: https://github.com/nushell/engine-q/issues/522
 "#
 }
 
