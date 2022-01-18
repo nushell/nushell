@@ -197,7 +197,7 @@ fn process_row(
             } else {
                 let mut obj = input.clone();
 
-                for column in column_paths.clone() {
+                for column in column_paths {
                     let path = UntaggedValue::Primitive(Primitive::ColumnPath(column.clone()))
                         .into_value(tag);
                     let data = r.get_data(&as_string(&path)?).borrow().clone();

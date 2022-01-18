@@ -147,7 +147,7 @@ pub fn process_script(
                                 {
                                     val.to_string()
                                 } else {
-                                    format!("{}\\", name.to_string())
+                                    format!("{}\\", name)
                                 }
                             } else {
                                 name.to_string()

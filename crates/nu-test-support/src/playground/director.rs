@@ -97,7 +97,7 @@ impl Executable for Director {
                     .spawn()
                 {
                     Ok(child) => child,
-                    Err(why) => panic!("Can't run test {}", why.to_string()),
+                    Err(why) => panic!("Can't run test {}", why),
                 };
 
                 if let Some(pipelines) = &self.pipeline {

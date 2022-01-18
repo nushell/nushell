@@ -970,7 +970,7 @@ fn move_item(from: &Path, from_tag: &Tag, to: &Path) -> Result<(), ShellError> {
         } {
             Ok(_) => Ok(()),
             Err(e) => Err(ShellError::labeled_error(
-                format!("Could not move {:?} to {:?}. {:}", from, to, e.to_string()),
+                format!("Could not move {:?} to {:?}. {:}", from, to, e),
                 "could not move",
                 from_tag,
             )),

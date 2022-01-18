@@ -93,7 +93,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let path = canonicalize(source_file).map_err(|e| {
         ShellError::labeled_error(
-            format!("Can't load source file. Reason: {}", e.to_string()),
+            format!("Can't load source file. Reason: {}", e),
             "Can't load this file",
             filename.span(),
         )
@@ -112,7 +112,7 @@ pub fn source(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         Err(e) => {
             ctx.error(ShellError::labeled_error(
-                format!("Can't load source file. Reason: {}", e.to_string()),
+                format!("Can't load source file. Reason: {}", e),
                 "Can't load this file",
                 filename.span(),
             ));
