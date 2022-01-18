@@ -298,7 +298,7 @@ let config = {
 
 ## `FlatShape` values
 
-As mentioned above, `flatshape` is a term used to indicate the sytax coloring. (get better words from jt)
+As mentioned above, `flatshape` is a term used to indicate the sytax coloring.
 
 Here's the current list of flat shapes.
 
