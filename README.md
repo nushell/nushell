@@ -1,6 +1,6 @@
 # Engine-q
 
-Engine-q is an experimental project to replace the core functionality in Nushell (parser, engine, protocol). It's still in an alpha state, and there is still a lot to do: please see TODO.md
+Engine-q is a project to the current functionality in Nushell. It's still in beta state, and there is still a some places that need help: please see [the final checklist](https://github.com/nushell/engine-q/issues/735).
 
 ## Contributing
 
