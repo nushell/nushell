@@ -373,14 +373,14 @@ impl Value {
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn into_string(self, separator: &str, config: &Config) -> String {
+    pub fn into_string(&self, separator: &str, config: &Config) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(val, config),
-            Value::Duration { val, .. } => format_duration(val),
-            Value::Date { val, .. } => HumanTime::from(val).to_string(),
+            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Duration { val, .. } => format_duration(*val),
+            Value::Date { val, .. } => HumanTime::from(*val).to_string(),
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
@@ -388,10 +388,10 @@ impl Value {
                     val.to.into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val,
+            Value::String { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
-                val.into_iter()
+                val.iter()
                     .map(|x| x.into_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -400,7 +400,7 @@ impl Value {
                 "{{{}}}",
                 cols.iter()
                     .zip(vals.iter())
-                    .map(|(x, y)| format!("{}: {}", x, y.clone().into_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
@@ -425,8 +425,8 @@ impl Value {
             Value::Range { val, .. } => {
                 format!(
                     "{}..{}",
-                    val.from.clone().into_string(", ", config),
-                    val.to.clone().into_string(", ", config)
+                    val.from.into_string(", ", config),
+                    val.to.into_string(", ", config)
                 )
             }
             Value::String { val, .. } => val.to_string(),
@@ -457,18 +457,18 @@ impl Value {
     }
 
     /// Convert Value into a debug string
-    pub fn debug_value(self) -> String {
+    pub fn debug_value(&self) -> String {
         format!("{:#?}", self)
     }
 
     /// Convert Value into string. Note that Streams will be consumed.
-    pub fn debug_string(self, separator: &str, config: &Config) -> String {
+    pub fn debug_string(&self, separator: &str, config: &Config) -> String {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize(val, config),
-            Value::Duration { val, .. } => format_duration(val),
+            Value::Filesize { val, .. } => format_filesize(*val, config),
+            Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => format!("{:?}", val),
             Value::Range { val, .. } => {
                 format!(
@@ -477,10 +477,10 @@ impl Value {
                     val.to.into_string(", ", config)
                 )
             }
-            Value::String { val, .. } => val,
+            Value::String { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
-                val.into_iter()
+                val.iter()
                     .map(|x| x.into_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -489,7 +489,7 @@ impl Value {
                 "{{{}}}",
                 cols.iter()
                     .zip(vals.iter())
-                    .map(|(x, y)| format!("{}: {}", x, y.clone().into_string(", ", config)))
+                    .map(|(x, y)| format!("{}: {}", x, y.into_string(", ", config)))
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
@@ -503,7 +503,7 @@ impl Value {
     }
 
     /// Check if the content is empty
-    pub fn is_empty(self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match self {
             Value::String { val, .. } => val.is_empty(),
             Value::List { vals, .. } => {

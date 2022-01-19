@@ -1,4 +1,4 @@
-use crate::{BlockId, ShellError, Span, Spanned, Value};
+use crate::{BlockId, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -41,55 +41,10 @@ impl EnvConversion {
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ParsedKeybinding {
-    pub modifier: Spanned<String>,
-    pub keycode: Spanned<String>,
-    pub event: Spanned<EventType>,
-    pub mode: Spanned<EventMode>,
-}
-
-impl Default for ParsedKeybinding {
-    fn default() -> Self {
-        Self {
-            modifier: Spanned {
-                item: "".to_string(),
-                span: Span { start: 0, end: 0 },
-            },
-            keycode: Spanned {
-                item: "".to_string(),
-                span: Span { start: 0, end: 0 },
-            },
-            event: Spanned {
-                item: EventType::Single("".to_string()),
-                span: Span { start: 0, end: 0 },
-            },
-            mode: Spanned {
-                item: EventMode::Emacs,
-                span: Span { start: 0, end: 0 },
-            },
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum EventType {
-    Single(String),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum EventMode {
-    Emacs,
-    ViNormal,
-    ViInsert,
-}
-
-impl EventMode {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            EventMode::Emacs => "emacs",
-            EventMode::ViNormal => "vi_normal",
-            EventMode::ViInsert => "vi_insert",
-        }
-    }
+    pub modifier: Value,
+    pub keycode: Value,
+    pub event: Value,
+    pub mode: Value,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -265,10 +220,7 @@ fn color_value_string(
     let val: String = inner_cols
         .iter()
         .zip(inner_vals)
-        .map(|(x, y)| {
-            let clony = y.clone();
-            format!("{}: \"{}\" ", x, clony.into_string(", ", config))
-        })
+        .map(|(x, y)| format!("{}: \"{}\" ", x, y.into_string(", ", config)))
         .collect();
 
     // now insert the braces at the front and the back to fake the json string
@@ -281,107 +233,19 @@ fn color_value_string(
 // Parses the config object to extract the strings that will compose a keybinding for reedline
 fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybinding>, ShellError> {
     match value {
-        Value::Record { cols, vals, .. } => {
-            let mut keybinding = ParsedKeybinding::default();
+        Value::Record { cols, vals, span } => {
+            // Finding the modifier value in the record
+            let modifier = extract_value("modifier", cols, vals, span)?;
+            let keycode = extract_value("keycode", cols, vals, span)?;
+            let mode = extract_value("mode", cols, vals, span)?;
+            let event = extract_value("event", cols, vals, span)?;
 
-            for (col, val) in cols.iter().zip(vals.iter()) {
-                match col.as_str() {
-                    "modifier" => {
-                        keybinding.modifier = Spanned {
-                            item: val.clone().into_string("", config),
-                            span: val.span()?,
-                        }
-                    }
-                    "keycode" => {
-                        keybinding.keycode = Spanned {
-                            item: val.clone().into_string("", config),
-                            span: val.span()?,
-                        }
-                    }
-                    "mode" => {
-                        keybinding.mode = match val.clone().into_string("", config).as_str() {
-                            "emacs" => Spanned {
-                                item: EventMode::Emacs,
-                                span: val.span()?,
-                            },
-                            "vi_normal" => Spanned {
-                                item: EventMode::ViNormal,
-                                span: val.span()?,
-                            },
-                            "vi_insert" => Spanned {
-                                item: EventMode::ViInsert,
-                                span: val.span()?,
-                            },
-                            e => {
-                                return Err(ShellError::UnsupportedConfigValue(
-                                    "emacs or vi".to_string(),
-                                    e.to_string(),
-                                    val.span()?,
-                                ))
-                            }
-                        };
-                    }
-                    "event" => match val {
-                        Value::Record {
-                            cols: event_cols,
-                            vals: event_vals,
-                            span: event_span,
-                        } => {
-                            let event_type_idx = event_cols
-                                .iter()
-                                .position(|key| key == "type")
-                                .ok_or_else(|| {
-                                    ShellError::MissingConfigValue("type".to_string(), *event_span)
-                                })?;
-
-                            let event_idx = event_cols
-                                .iter()
-                                .position(|key| key == "event")
-                                .ok_or_else(|| {
-                                    ShellError::MissingConfigValue("event".to_string(), *event_span)
-                                })?;
-
-                            let event_type =
-                                event_vals[event_type_idx].clone().into_string("", config);
-
-                            // Extracting the event type information from the record based on the type
-                            match event_type.as_str() {
-                                "single" => {
-                                    let event_value =
-                                        event_vals[event_idx].clone().into_string("", config);
-
-                                    keybinding.event = Spanned {
-                                        item: EventType::Single(event_value),
-                                        span: *event_span,
-                                    }
-                                }
-                                e => {
-                                    return Err(ShellError::UnsupportedConfigValue(
-                                        "single".to_string(),
-                                        e.to_string(),
-                                        *event_span,
-                                    ))
-                                }
-                            };
-                        }
-                        e => {
-                            return Err(ShellError::UnsupportedConfigValue(
-                                "record type".to_string(),
-                                format!("{:?}", e.get_type()),
-                                e.span()?,
-                            ))
-                        }
-                    },
-                    "name" => {} // don't need to store name
-                    e => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "name, mode, modifier, keycode or event".to_string(),
-                            e.to_string(),
-                            val.span()?,
-                        ))
-                    }
-                }
-            }
+            let keybinding = ParsedKeybinding {
+                modifier: modifier.clone(),
+                keycode: keycode.clone(),
+                mode: mode.clone(),
+                event: event.clone(),
+            };
 
             Ok(vec![keybinding])
         }
@@ -400,4 +264,16 @@ fn create_keybindings(value: &Value, config: &Config) -> Result<Vec<ParsedKeybin
         }
         _ => Ok(Vec::new()),
     }
+}
+
+pub fn extract_value<'record>(
+    name: &str,
+    cols: &'record [String],
+    vals: &'record [Value],
+    span: &Span,
+) -> Result<&'record Value, ShellError> {
+    cols.iter()
+        .position(|col| col.as_str() == name)
+        .and_then(|index| vals.get(index))
+        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), *span))
 }

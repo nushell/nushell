@@ -139,17 +139,24 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
         };
 
         // Changing the line editor based on the found keybindings
-        let mut line_editor = match reedline_config::create_keybindings(&config)? {
-            KeybindingsMode::Emacs(keybindings) => {
-                let edit_mode = Box::new(Emacs::new(keybindings));
-                line_editor.with_edit_mode(edit_mode)
-            }
-            KeybindingsMode::Vi {
-                insert_keybindings,
-                normal_keybindings,
-            } => {
-                let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
-                line_editor.with_edit_mode(edit_mode)
+        let mut line_editor = match reedline_config::create_keybindings(&config) {
+            Ok(keybindings) => match keybindings {
+                KeybindingsMode::Emacs(keybindings) => {
+                    let edit_mode = Box::new(Emacs::new(keybindings));
+                    line_editor.with_edit_mode(edit_mode)
+                }
+                KeybindingsMode::Vi {
+                    insert_keybindings,
+                    normal_keybindings,
+                } => {
+                    let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                    line_editor.with_edit_mode(edit_mode)
+                }
+            },
+            Err(e) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+                line_editor
             }
         };
 

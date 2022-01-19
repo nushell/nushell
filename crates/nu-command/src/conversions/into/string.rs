@@ -220,7 +220,7 @@ pub fn action(
         },
 
         Value::Filesize { val: _, .. } => Value::String {
-            val: input.clone().into_string(", ", config),
+            val: input.into_string(", ", config),
             span,
         },
         Value::Nothing { .. } => Value::String {

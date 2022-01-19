@@ -207,7 +207,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
                 .or_insert_with(|| vec![val.clone()]);
         } else {
             lists
-                .entry(val.clone().into_string(",", config))
+                .entry(val.into_string(",", config))
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         }
