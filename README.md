@@ -1,6 +1,6 @@
 # Engine-q
 
-Engine-q is a project to the current functionality in Nushell. It's still in beta state, and there are still some places that need help: please see [the final checklist](https://github.com/nushell/engine-q/issues/735).
+Engine-q is a project to replace the current functionality in Nushell. It's still in beta state, and there are still some places that need help: please see [the final checklist](https://github.com/nushell/engine-q/issues/735).
 
 ## Contributing
 
