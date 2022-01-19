@@ -813,14 +813,14 @@ pub fn parse_call(
                         expr: Expr::Call(mut call),
                         span,
                         ty,
-                        custom_completion: None,
+                        custom_completion,
                     } => {
                         call.head = orig_span;
                         Expression {
                             expr: Expr::Call(call),
                             span,
                             ty,
-                            custom_completion: None,
+                            custom_completion,
                         }
                     }
                     x => x,
@@ -1869,6 +1869,7 @@ pub fn parse_string(
     trace!("parsing: string");
 
     let bytes = working_set.get_span_contents(span);
+
     let bytes = trim_quotes(bytes);
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
@@ -1898,6 +1899,15 @@ pub fn parse_string_strict(
     trace!("parsing: string, with required delimiters");
 
     let bytes = working_set.get_span_contents(span);
+
+    // Check for unbalanced quotes:
+    if (bytes.starts_with(b"\"") || (bytes.starts_with(b"$\""))) && !bytes.ends_with(b"\"") {
+        return (garbage(span), Some(ParseError::Unclosed("\"".into(), span)));
+    }
+    if (bytes.starts_with(b"\'") || (bytes.starts_with(b"$\""))) && !bytes.ends_with(b"\'") {
+        return (garbage(span), Some(ParseError::Unclosed("\'".into(), span)));
+    }
+
     let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
     {
