@@ -1,5 +1,5 @@
 use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Value};
 
@@ -28,23 +28,55 @@ impl Command for Cd {
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let raw_path = call.nth(0);
         let path_val: Option<Value> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
 
-        let (path, span) = match path_val {
-            Some(v) => {
-                let path = v.as_path()?;
-                let path = match nu_path::canonicalize_with(path, &cwd) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        return Err(ShellError::DirectoryNotFoundHelp(
-                            v.span()?,
-                            format!("IO Error: {:?}", e),
-                        ))
+        let (path, span) = match raw_path {
+            Some(v) => match &v {
+                Expression {
+                    expr: Expr::Filepath(val),
+                    span,
+                    ..
+                } if val == "-" => {
+                    let oldpwd = stack.get_env_var(engine_state, "OLDPWD");
+
+                    if let Some(oldpwd) = oldpwd {
+                        let path = oldpwd.as_path()?;
+                        let path = match nu_path::canonicalize_with(path, &cwd) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                return Err(ShellError::DirectoryNotFoundHelp(
+                                    *span,
+                                    format!("IO Error: {:?}", e),
+                                ))
+                            }
+                        };
+                        (path.to_string_lossy().to_string(), *span)
+                    } else {
+                        (cwd.to_string_lossy().to_string(), *span)
                     }
-                };
-                (path.to_string_lossy().to_string(), v.span()?)
-            }
+                }
+                _ => match path_val {
+                    Some(v) => {
+                        let path = v.as_path()?;
+                        let path = match nu_path::canonicalize_with(path, &cwd) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                return Err(ShellError::DirectoryNotFoundHelp(
+                                    v.span()?,
+                                    format!("IO Error: {:?}", e),
+                                ))
+                            }
+                        };
+                        (path.to_string_lossy().to_string(), v.span()?)
+                    }
+                    None => {
+                        let path = nu_path::expand_tilde("~");
+                        (path.to_string_lossy().to_string(), call.head)
+                    }
+                },
+            },
             None => {
                 let path = nu_path::expand_tilde("~");
                 (path.to_string_lossy().to_string(), call.head)
@@ -90,8 +122,13 @@ impl Command for Cd {
             },
         );
 
+        if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
+            stack.add_env_var("OLDPWD".into(), oldpwd)
+        }
+
         //FIXME: this only changes the current scope, but instead this environment variable
         //should probably be a block that loads the information from the state in the overlay
+
         stack.add_env_var("PWD".into(), path_value);
         Ok(PipelineData::new(call.head))
     }
