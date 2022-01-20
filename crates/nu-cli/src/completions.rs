@@ -23,16 +23,7 @@ impl NuCompleter {
         let mut executables = vec![];
 
         let paths;
-
-        #[cfg(windows)]
-        {
-            paths = self.engine_state.env_vars.get("Path");
-        }
-
-        #[cfg(not(windows))]
-        {
-            paths = self.engine_state.env_vars.get("PATH");
-        }
+        paths = self.engine_state.env_vars.get("PATH");
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
