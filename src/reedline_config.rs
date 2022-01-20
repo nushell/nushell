@@ -204,12 +204,15 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     "down" => ReedlineEvent::Down,
                     "right" => ReedlineEvent::Right,
                     "left" => ReedlineEvent::Left,
-                    "nextelement" => ReedlineEvent::NextElement,
                     "nexthistory" => ReedlineEvent::NextHistory,
-                    "previouselement" => ReedlineEvent::PreviousElement,
                     "previoushistory" => ReedlineEvent::PreviousHistory,
                     "searchhistory" => ReedlineEvent::SearchHistory,
                     "repaint" => ReedlineEvent::Repaint,
+                    "menudown" => ReedlineEvent::MenuDown,
+                    "menuup" => ReedlineEvent::MenuUp,
+                    "menuleft" => ReedlineEvent::MenuLeft,
+                    "menuright" => ReedlineEvent::MenuRight,
+
                     // TODO: add ReedlineEvent::Mouse
                     // TODO: add ReedlineEvent::Resize
                     // TODO: add ReedlineEvent::Paste
