@@ -119,9 +119,7 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
             if history.is_ok() {
                 line_editor
                     .with_hinter(Box::new(
-                        DefaultHinter::default()
-                            .with_history()
-                            .with_style(color_hm["hints"]),
+                        DefaultHinter::default().with_style(color_hm["hints"]),
                     ))
                     .with_history(Box::new(
                         FileBackedHistory::with_file(
