@@ -1,7 +1,7 @@
 [package]
 authors = ["The Nu Project Contributors"]
 description = "Path handling library for Nushell"
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "nu-path"
 version = "0.37.1"
@@ -9,4 +9,3 @@ version = "0.37.1"
 [dependencies]
 dirs-next = "2.0.0"
 dunce = "1.0.1"
-

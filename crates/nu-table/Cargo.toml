@@ -1,7 +1,7 @@
 [package]
 authors = ["The Nu Project Contributors"]
 description = "Nushell table printing"
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "nu-table"
 version = "0.36.0"

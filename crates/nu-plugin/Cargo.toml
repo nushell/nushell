@@ -1,7 +1,7 @@
 [package]
 name = "nu-plugin"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 capnp = "0.14.3"
@@ -9,6 +9,3 @@ nu-protocol = { path = "../nu-protocol" }
 nu-engine = { path = "../nu-engine" }
 serde = {version = "1.0.130", features = ["derive"]}
 serde_json = { version = "1.0"}
-
-
-

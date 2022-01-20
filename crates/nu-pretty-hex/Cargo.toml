@@ -1,7 +1,7 @@
 [package]
 authors = ["Andrei Volnin <wolandr@gmail.com>", "The Nu Project Contributors"]
 description = "Pretty hex dump of bytes slice in the common style."
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "nu-pretty-hex"
 version = "0.41.0"
