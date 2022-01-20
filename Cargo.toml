@@ -63,6 +63,7 @@ default = [
 	"plugin",
 	"inc",
 	"example",
+	"which"
 	]
 
 stable = ["default"]
@@ -79,6 +80,8 @@ wasi = ["inc"]
 # Stable (Default)
 inc = ["nu_plugin_inc"]
 example = ["nu_plugin_example"]
+
+which = ["nu-command/which"]
 
 # Extra
 gstat = ["nu_plugin_gstat"]

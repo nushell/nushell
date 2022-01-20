@@ -112,6 +112,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Sys,
         };
 
+        #[cfg(feature = "which")]
+        bind_command! { Which };
+
         // Strings
         bind_command! {
             BuildString,

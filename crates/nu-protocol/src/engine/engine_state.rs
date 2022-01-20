@@ -344,6 +344,34 @@ impl EngineState {
         }
     }
 
+    pub fn find_aliases(&self, name: &str) -> Vec<Vec<Span>> {
+        let mut output = vec![];
+
+        for frame in &self.scope {
+            if let Some(alias) = frame.aliases.get(name.as_bytes()) {
+                output.push(alias.clone());
+            }
+        }
+
+        output
+    }
+
+    pub fn find_custom_commands(&self, name: &str) -> Vec<Block> {
+        let mut output = vec![];
+
+        for frame in &self.scope {
+            if let Some(decl_id) = frame.decls.get(name.as_bytes()) {
+                let decl = self.get_decl(*decl_id);
+
+                if let Some(block_id) = decl.get_block_id() {
+                    output.push(self.get_block(block_id).clone());
+                }
+            }
+        }
+
+        output
+    }
+
     pub fn find_decl(&self, name: &[u8]) -> Option<DeclId> {
         let mut visibility: Visibility = Visibility::new();
 
