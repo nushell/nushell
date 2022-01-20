@@ -114,13 +114,19 @@ fn add_keybinding(
     keybinding: &ParsedKeybinding,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let modifier = match keybinding.modifier.into_string("", config).as_str() {
-        "CONTROL" => KeyModifiers::CONTROL,
-        "SHIFT" => KeyModifiers::SHIFT,
-        "ALT" => KeyModifiers::ALT,
-        "NONE" => KeyModifiers::NONE,
-        "CONTROL | ALT" => KeyModifiers::CONTROL | KeyModifiers::ALT,
-        "CONTROL | ALT | SHIFT" => KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT,
+    let modifier = match keybinding
+        .modifier
+        .into_string("", config)
+        .to_lowercase()
+        .as_str()
+    {
+        "control" => KeyModifiers::CONTROL,
+        "shift" => KeyModifiers::SHIFT,
+        "alt" => KeyModifiers::ALT,
+        "none" => KeyModifiers::NONE,
+        "control | shift" => KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        "control | alt" => KeyModifiers::CONTROL | KeyModifiers::ALT,
+        "control | alt | shift" => KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT,
         _ => {
             return Err(ShellError::UnsupportedConfigValue(
                 keybinding.modifier.into_abbreviated_string(config),
@@ -130,13 +136,20 @@ fn add_keybinding(
         }
     };
 
-    let keycode = match keybinding.keycode.into_string("", config).as_str() {
-        c if c.starts_with("Char_") => {
-            let char = c.replace("Char_", "");
+    let keycode = match keybinding
+        .keycode
+        .into_string("", config)
+        .to_lowercase()
+        .as_str()
+    {
+        "backspace" => KeyCode::Backspace,
+        "enter" => KeyCode::Enter,
+        c if c.starts_with("char_") => {
+            let char = c.replace("char_", "");
             let char = char.chars().next().ok_or({
                 ShellError::UnsupportedConfigValue(
                     c.to_string(),
-                    "Char_ plus char".to_string(),
+                    "char_ plus char".to_string(),
                     keybinding.keycode.span()?,
                 )
             })?;
@@ -146,8 +159,17 @@ fn add_keybinding(
         "up" => KeyCode::Up,
         "left" => KeyCode::Left,
         "right" => KeyCode::Right,
-        "Tab" => KeyCode::Tab,
-        "BackTab" => KeyCode::BackTab,
+        "home" => KeyCode::Home,
+        "end" => KeyCode::End,
+        "pageup" => KeyCode::PageUp,
+        "pagedown" => KeyCode::PageDown,
+        "tab" => KeyCode::Tab,
+        "backtab" => KeyCode::BackTab,
+        "delete" => KeyCode::Delete,
+        "insert" => KeyCode::Insert,
+        // TODO: Add KeyCode::F(u8) for function keys
+        "null" => KeyCode::Null,
+        "esc" | "escape" => KeyCode::Esc,
         _ => {
             return Err(ShellError::UnsupportedConfigValue(
                 keybinding.keycode.into_abbreviated_string(config),
@@ -168,24 +190,30 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
     match value {
         Value::Record { cols, vals, span } => {
             let event = match extract_value("send", &cols, &vals, &span) {
-                Ok(event) => match event.into_string("", config).as_str() {
-                    "ActionHandler" => ReedlineEvent::ActionHandler,
-                    "ClearScreen" => ReedlineEvent::ClearScreen,
-                    "ContextMenu" => ReedlineEvent::ContextMenu,
-                    "Complete" => ReedlineEvent::Complete,
-                    "Enter" => ReedlineEvent::Enter,
-                    "Esc" => ReedlineEvent::Esc,
-                    "Up" => ReedlineEvent::Up,
-                    "Down" => ReedlineEvent::Down,
-                    "Right" => ReedlineEvent::Right,
-                    "Left" => ReedlineEvent::Left,
-                    "NextElement" => ReedlineEvent::NextElement,
-                    "NextHistory" => ReedlineEvent::NextHistory,
-                    "PreviousElement" => ReedlineEvent::PreviousElement,
-                    "PreviousHistory" => ReedlineEvent::PreviousHistory,
-                    "SearchHistory" => ReedlineEvent::SearchHistory,
-                    "Repaint" => ReedlineEvent::Repaint,
-                    "Edit" => {
+                Ok(event) => match event.into_string("", config).to_lowercase().as_str() {
+                    "none" => ReedlineEvent::None,
+                    "actionhandler" => ReedlineEvent::ActionHandler,
+                    "clearscreen" => ReedlineEvent::ClearScreen,
+                    "contextmenu" => ReedlineEvent::ContextMenu,
+                    "complete" => ReedlineEvent::Complete,
+                    "ctrld" => ReedlineEvent::CtrlD,
+                    "ctrlc" => ReedlineEvent::CtrlC,
+                    "enter" => ReedlineEvent::Enter,
+                    "esc" | "escape" => ReedlineEvent::Esc,
+                    "up" => ReedlineEvent::Up,
+                    "down" => ReedlineEvent::Down,
+                    "right" => ReedlineEvent::Right,
+                    "left" => ReedlineEvent::Left,
+                    "nextelement" => ReedlineEvent::NextElement,
+                    "nexthistory" => ReedlineEvent::NextHistory,
+                    "previouselement" => ReedlineEvent::PreviousElement,
+                    "previoushistory" => ReedlineEvent::PreviousHistory,
+                    "searchhistory" => ReedlineEvent::SearchHistory,
+                    "repaint" => ReedlineEvent::Repaint,
+                    // TODO: add ReedlineEvent::Mouse
+                    // TODO: add ReedlineEvent::Resize
+                    // TODO: add ReedlineEvent::Paste
+                    "edit" => {
                         let edit = extract_value("edit", &cols, &vals, &span)?;
                         let edit = parse_edit(edit, config)?;
 
@@ -242,74 +270,74 @@ fn parse_edit(edit: &Value, config: &Config) -> Result<EditCommand, ShellError> 
         } => {
             let cmd = extract_value("cmd", edit_cols, edit_vals, edit_span)?;
 
-            match cmd.into_string("", config).as_str() {
-                "MoveToStart" => EditCommand::MoveToStart,
-                "MoveToLineStart" => EditCommand::MoveToLineStart,
-                "MoveToEnd" => EditCommand::MoveToEnd,
-                "MoveToLineEnd" => EditCommand::MoveToLineEnd,
-                "MoveLeft" => EditCommand::MoveLeft,
-                "MoveRight" => EditCommand::MoveRight,
-                "MoveWordLeft" => EditCommand::MoveWordLeft,
-                "MoveWordRight" => EditCommand::MoveWordRight,
-                "InsertChar" => {
+            match cmd.into_string("", config).to_lowercase().as_str() {
+                "movetostart" => EditCommand::MoveToStart,
+                "movetolinestart" => EditCommand::MoveToLineStart,
+                "movetoend" => EditCommand::MoveToEnd,
+                "movetolineend" => EditCommand::MoveToLineEnd,
+                "moveleft" => EditCommand::MoveLeft,
+                "moveright" => EditCommand::MoveRight,
+                "movewordleft" => EditCommand::MoveWordLeft,
+                "movewordright" => EditCommand::MoveWordRight,
+                "insertchar" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::InsertChar(char)
                 }
-                "InsertString" => {
+                "insertstring" => {
                     let value = extract_value("value", edit_cols, edit_vals, edit_span)?;
                     EditCommand::InsertString(value.into_string("", config))
                 }
-                "Backspace" => EditCommand::Backspace,
-                "Delete" => EditCommand::Delete,
-                "BackspaceWord" => EditCommand::BackspaceWord,
-                "DeleteWord" => EditCommand::DeleteWord,
-                "Clear" => EditCommand::Clear,
-                "ClearToLineEnd" => EditCommand::ClearToLineEnd,
-                "CutCurrentLine" => EditCommand::CutCurrentLine,
-                "CutFromStart" => EditCommand::CutFromStart,
-                "CutFromLineStart" => EditCommand::CutFromLineStart,
-                "CutToEnd" => EditCommand::CutToEnd,
-                "CutToLineEnd" => EditCommand::CutToLineEnd,
-                "CutWordLeft" => EditCommand::CutWordLeft,
-                "CutWordRight" => EditCommand::CutWordRight,
-                "PasteCutBufferBefore" => EditCommand::PasteCutBufferBefore,
-                "PasteCutBufferAfter" => EditCommand::PasteCutBufferAfter,
-                "UppercaseWord" => EditCommand::UppercaseWord,
-                "LowercaseWord" => EditCommand::LowercaseWord,
-                "CapitalizeChar" => EditCommand::CapitalizeChar,
-                "SwapWords" => EditCommand::SwapWords,
-                "SwapGraphemes" => EditCommand::SwapGraphemes,
-                "Undo" => EditCommand::Undo,
-                "Redo" => EditCommand::Redo,
-                "CutRightUntil" => {
+                "backspace" => EditCommand::Backspace,
+                "delete" => EditCommand::Delete,
+                "backspaceword" => EditCommand::BackspaceWord,
+                "deleteword" => EditCommand::DeleteWord,
+                "clear" => EditCommand::Clear,
+                "cleartolineend" => EditCommand::ClearToLineEnd,
+                "cutcurrentline" => EditCommand::CutCurrentLine,
+                "cutfromstart" => EditCommand::CutFromStart,
+                "cutfromlinestart" => EditCommand::CutFromLineStart,
+                "cuttoend" => EditCommand::CutToEnd,
+                "cuttolineend" => EditCommand::CutToLineEnd,
+                "cutwordleft" => EditCommand::CutWordLeft,
+                "cutwordright" => EditCommand::CutWordRight,
+                "pastecutbufferbefore" => EditCommand::PasteCutBufferBefore,
+                "pastecutbufferafter" => EditCommand::PasteCutBufferAfter,
+                "uppercaseword" => EditCommand::UppercaseWord,
+                "lowercaseword" => EditCommand::LowercaseWord,
+                "capitalizechar" => EditCommand::CapitalizeChar,
+                "swapwords" => EditCommand::SwapWords,
+                "swapgraphemes" => EditCommand::SwapGraphemes,
+                "undo" => EditCommand::Undo,
+                "redo" => EditCommand::Redo,
+                "cutrightuntil" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::CutRightUntil(char)
                 }
-                "CutRightBefore" => {
+                "cutrightbefore" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::CutRightBefore(char)
                 }
-                "MoveRightUntil" => {
+                "moverightuntil" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::MoveRightUntil(char)
                 }
-                "MoveRightBefore" => {
+                "moverightbefore" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::MoveRightBefore(char)
                 }
-                "CutLeftUntil" => {
+                "cutleftuntil" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::CutLeftUntil(char)
                 }
-                "CutLeftBefore" => {
+                "cutleftbefore" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::CutLeftBefore(char)
                 }
-                "MoveLeftUntil" => {
+                "moveleftuntil" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::MoveLeftUntil(char)
                 }
-                "MoveLeftBefore" => {
+                "moveleftbefore" => {
                     let char = extract_char("value", edit_cols, edit_vals, config, edit_span)?;
                     EditCommand::MoveLeftBefore(char)
                 }
