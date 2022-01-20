@@ -115,6 +115,8 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Filesize, Type::Filesize) => (Type::Float, None),
+                (Type::Duration, Type::Duration) => (Type::Float, None),
 
                 (Type::Unknown, _) => (Type::Unknown, None),
                 (_, Type::Unknown) => (Type::Unknown, None),

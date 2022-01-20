@@ -1110,6 +1110,40 @@ impl Value {
                     Err(ShellError::DivisionByZero(op))
                 }
             }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    if lhs % rhs == 0 {
+                        Ok(Value::Int {
+                            val: lhs / rhs,
+                            span,
+                        })
+                    } else {
+                        Ok(Value::Float {
+                            val: (*lhs as f64) / (*rhs as f64),
+                            span,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    if lhs % rhs == 0 {
+                        Ok(Value::Int {
+                            val: lhs / rhs,
+                            span,
+                        })
+                    } else {
+                        Ok(Value::Float {
+                            val: (*lhs as f64) / (*rhs as f64),
+                            span,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Divide, op, rhs)
             }
