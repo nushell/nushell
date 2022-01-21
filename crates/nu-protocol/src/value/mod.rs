@@ -797,6 +797,15 @@ impl Value {
             span: Span::test_data(),
         }
     }
+
+    // Only use these for test data. Should not be used in user data
+    pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
+        Value::Record {
+            cols: cols.into_iter().map(|s| s.into()).collect(),
+            vals,
+            span: Span::test_data(),
+        }
+    }
 }
 
 impl Default for Value {

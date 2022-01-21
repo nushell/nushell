@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    SyntaxShape, Value,
+    Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -25,10 +25,55 @@ impl Command for Zip {
     }
 
     fn examples(&self) -> Vec<Example> {
+        let test_row_1 = Value::List {
+            vals: vec![
+                Value::Int {
+                    val: 1,
+                    span: Span::test_data(),
+                },
+                Value::Int {
+                    val: 4,
+                    span: Span::test_data(),
+                },
+            ],
+            span: Span::test_data(),
+        };
+
+        let test_row_2 = Value::List {
+            vals: vec![
+                Value::Int {
+                    val: 2,
+                    span: Span::test_data(),
+                },
+                Value::Int {
+                    val: 5,
+                    span: Span::test_data(),
+                },
+            ],
+            span: Span::test_data(),
+        };
+
+        let test_row_3 = Value::List {
+            vals: vec![
+                Value::Int {
+                    val: 3,
+                    span: Span::test_data(),
+                },
+                Value::Int {
+                    val: 6,
+                    span: Span::test_data(),
+                },
+            ],
+            span: Span::test_data(),
+        };
+
         vec![Example {
             example: "1..3 | zip 4..6",
             description: "Zip multiple streams and get one of the results",
-            result: None,
+            result: Some(Value::List {
+                vals: vec![test_row_1, test_row_2, test_row_3],
+                span: Span::test_data(),
+            }),
         }]
     }
 
