@@ -76,6 +76,15 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
         report_error(&working_set, &e);
     }
 
+    // seed the cmd_duration_ms env var
+    stack.add_env_var(
+        "CMD_DURATION_MS".into(),
+        Value::String {
+            val: "0823".to_string(),
+            span: Span { start: 0, end: 0 },
+        },
+    );
+
     loop {
         let config = match stack.get_config() {
             Ok(config) => config,
