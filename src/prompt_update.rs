@@ -13,13 +13,14 @@ pub(crate) const PROMPT_COMMAND_RIGHT: &str = "PROMPT_COMMAND_RIGHT";
 pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_VISUAL: &str = "PROMPT_INDICATOR_VI_VISUAL";
+pub(crate) const PROMPT_INDICATOR_MENU: &str = "PROMPT_INDICATOR_MENU";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
 
 pub(crate) fn get_prompt_indicators(
     config: &Config,
     engine_state: &EngineState,
     stack: &Stack,
-) -> (String, String, String, String) {
+) -> (String, String, String, String, String) {
     let prompt_indicator = match stack.get_env_var(engine_state, PROMPT_INDICATOR) {
         Some(pi) => pi.into_string("", config),
         None => "〉".to_string(),
@@ -35,6 +36,11 @@ pub(crate) fn get_prompt_indicators(
         None => "v ".to_string(),
     };
 
+    let prompt_menu = match stack.get_env_var(engine_state, PROMPT_INDICATOR_MENU) {
+        Some(pm) => pm.into_string("", config),
+        None => "| ".to_string(),
+    };
+
     let prompt_multiline = match stack.get_env_var(engine_state, PROMPT_MULTILINE_INDICATOR) {
         Some(pm) => pm.into_string("", config),
         None => "::: ".to_string(),
@@ -44,6 +50,7 @@ pub(crate) fn get_prompt_indicators(
         prompt_indicator,
         prompt_vi_insert,
         prompt_vi_visual,
+        prompt_menu,
         prompt_multiline,
     )
 }
@@ -94,6 +101,7 @@ pub(crate) fn update_prompt<'prompt>(
         prompt_indicator_string,
         prompt_vi_insert_string,
         prompt_vi_visual_string,
+        prompt_indicator_menu,
         prompt_multiline_string,
     ) = get_prompt_indicators(config, engine_state, stack);
 
@@ -104,9 +112,9 @@ pub(crate) fn update_prompt<'prompt>(
         get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack),
         get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack),
         prompt_indicator_string,
-        prompt_vi_insert_string,
-        prompt_vi_visual_string,
+        prompt_indicator_menu,
         prompt_multiline_string,
+        (prompt_vi_insert_string, prompt_vi_visual_string),
     );
 
     nu_prompt as &dyn Prompt

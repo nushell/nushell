@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Value};
+use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ContextMenuInput, EditCommand, Keybindings, ReedlineEvent,
@@ -194,7 +194,6 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     "none" => ReedlineEvent::None,
                     "actionhandler" => ReedlineEvent::ActionHandler,
                     "clearscreen" => ReedlineEvent::ClearScreen,
-                    "contextmenu" => ReedlineEvent::ContextMenu,
                     "complete" => ReedlineEvent::Complete,
                     "ctrld" => ReedlineEvent::CtrlD,
                     "ctrlc" => ReedlineEvent::CtrlC,
@@ -204,14 +203,17 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     "down" => ReedlineEvent::Down,
                     "right" => ReedlineEvent::Right,
                     "left" => ReedlineEvent::Left,
+                    "searchhistory" => ReedlineEvent::SearchHistory,
                     "nexthistory" => ReedlineEvent::NextHistory,
                     "previoushistory" => ReedlineEvent::PreviousHistory,
-                    "searchhistory" => ReedlineEvent::SearchHistory,
                     "repaint" => ReedlineEvent::Repaint,
+                    "contextmenu" => ReedlineEvent::ContextMenu,
                     "menudown" => ReedlineEvent::MenuDown,
                     "menuup" => ReedlineEvent::MenuUp,
                     "menuleft" => ReedlineEvent::MenuLeft,
                     "menuright" => ReedlineEvent::MenuRight,
+                    "menunext" => ReedlineEvent::MenuNext,
+                    "menuprevious" => ReedlineEvent::MenuPrevious,
 
                     // TODO: add ReedlineEvent::Mouse
                     // TODO: add ReedlineEvent::Resize
@@ -224,8 +226,8 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     }
                     v => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            v.to_string(),
                             "Reedline event".to_string(),
+                            v.to_string(),
                             span,
                         ))
                     }
@@ -249,12 +251,21 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
             Ok(event)
         }
         Value::List { vals, .. } => {
+            // If all the elements in the list are lists, then they represent an UntilFound event.
+            // This means that only one of the parsed events from the list will be executed.
+            // Otherwise, the expect shape should be lists of records which indicates a sequence
+            // of events that will happen one after the other
+            let until_found = vals.iter().all(|v| matches!(v.get_type(), Type::List(..)));
             let events = vals
                 .into_iter()
                 .map(|value| parse_event(value, config))
                 .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
 
-            Ok(ReedlineEvent::Multiple(events))
+            if until_found {
+                Ok(ReedlineEvent::UntilFound(events))
+            } else {
+                Ok(ReedlineEvent::Multiple(events))
+            }
         }
         v => Err(ShellError::UnsupportedConfigValue(
             v.into_abbreviated_string(config),
