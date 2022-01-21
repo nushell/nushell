@@ -45,7 +45,7 @@ impl Command for SubCommand {
                 Some('p'),
             )
             .named("timeout", SyntaxShape::Int, "timeout period in seconds", Some('t'))
-            .switch("raw", "fetch contents as text rather than a table", Some('r'))            
+            .switch("raw", "fetch contents as text rather than a table", Some('r'))
             .filter()
             .category(Category::Network)
     }
