@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Instant,
 };
 
 use crate::{config_files, prompt_update, reedline_config};
@@ -165,6 +168,7 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
         let input = line_editor.read_line(prompt);
         match input {
             Ok(Signal::Success(s)) => {
+                let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
                 let cwd = nu_engine::env::current_dir_str(engine_state, &stack)?;
@@ -233,6 +237,14 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
                         &mut stack,
                         &s,
                         &format!("entry #{}", entry_num),
+                    );
+
+                    stack.add_env_var(
+                        "CMD_DURATION_MS".into(),
+                        Value::String {
+                            val: format!("{}", start_time.elapsed().as_millis()),
+                            span: Span { start: 0, end: 0 },
+                        },
                     );
                 }
                 // FIXME: permanent state changes like this hopefully in time can be removed
