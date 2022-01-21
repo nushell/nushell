@@ -865,7 +865,9 @@ pub fn parse_use(
         } else {
             // TODO: Do not close over when loading module from file
             // It could be a file
-            if let Ok(module_filename) = String::from_utf8(import_pattern.head.name) {
+            if let Ok(module_filename) =
+                String::from_utf8(trim_quotes(&import_pattern.head.name).to_vec())
+            {
                 if let Ok(module_path) = canonicalize_with(&module_filename, cwd) {
                     let module_name = if let Some(stem) = module_path.file_stem() {
                         stem.to_string_lossy().to_string()
