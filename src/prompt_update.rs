@@ -1,8 +1,9 @@
 use nu_cli::NushellPrompt;
 use nu_engine::eval_block;
+use nu_parser::parse;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    Config, PipelineData, Span,
+    engine::{EngineState, Stack, StateWorkingSet},
+    Config, PipelineData, Span, Value,
 };
 use reedline::Prompt;
 
@@ -55,16 +56,29 @@ fn get_prompt_string(
 ) -> Option<String> {
     stack
         .get_env_var(engine_state, prompt)
-        .and_then(|v| v.as_block().ok())
-        .and_then(|block_id| {
-            let block = engine_state.get_block(block_id);
-            eval_block(
-                engine_state,
-                stack,
-                block,
-                PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-            )
-            .ok()
+        .and_then(|v| match v {
+            Value::Block { val: block_id, .. } => {
+                let block = engine_state.get_block(block_id);
+                eval_block(
+                    engine_state,
+                    stack,
+                    block,
+                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
+                )
+                .ok()
+            }
+            Value::String { val: source, .. } => {
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let (block, _) = parse(&mut working_set, None, source.as_bytes(), true);
+                eval_block(
+                    engine_state,
+                    stack,
+                    &block,
+                    PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
+                )
+                .ok()
+            }
+            _ => None,
         })
         .and_then(|pipeline_data| pipeline_data.collect_string("", config).ok())
 }
