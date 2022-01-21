@@ -12,7 +12,7 @@ use nu_protocol::{
         Statement,
     },
     engine::StateWorkingSet,
-    span, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
+    span, DeclId, Flag, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId,
     CONFIG_VARIABLE_ID, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
@@ -2234,7 +2234,8 @@ pub fn parse_row_condition(
             });
 
             let mut seen = vec![];
-            let captures = find_captures_in_block(working_set, &block, &mut seen);
+            let mut seen_decls = vec![];
+            let captures = find_captures_in_block(working_set, &block, &mut seen, &mut seen_decls);
 
             block.captures = captures;
 
@@ -2913,7 +2914,8 @@ pub fn parse_block_expression(
     }
 
     let mut seen = vec![];
-    let captures = find_captures_in_block(working_set, &output, &mut seen);
+    let mut seen_decls = vec![];
+    let captures = find_captures_in_block(working_set, &output, &mut seen, &mut seen_decls);
 
     output.captures = captures;
 
@@ -3404,7 +3406,8 @@ pub fn parse_expression(
             })];
 
             let mut seen = vec![];
-            let captures = find_captures_in_block(working_set, &block, &mut seen);
+            let mut seen_decls = vec![];
+            let captures = find_captures_in_block(working_set, &block, &mut seen, &mut seen_decls);
             block.captures = captures;
 
             let block_id = working_set.add_block(block);
@@ -3651,10 +3654,9 @@ pub fn find_captures_in_block(
     working_set: &StateWorkingSet,
     block: &Block,
     seen: &mut Vec<VarId>,
+    seen_decls: &mut Vec<DeclId>,
 ) -> Vec<VarId> {
     let mut output = vec![];
-
-    // println!("sig: {:#?}", block.signature);
 
     for flag in &block.signature.named {
         if let Some(var_id) = flag.var_id {
@@ -3681,7 +3683,7 @@ pub fn find_captures_in_block(
     for stmt in &block.stmts {
         match stmt {
             Statement::Pipeline(pipeline) => {
-                let result = find_captures_in_pipeline(working_set, pipeline, seen);
+                let result = find_captures_in_pipeline(working_set, pipeline, seen, seen_decls);
                 output.extend(&result);
             }
             Statement::Declaration(_) => {}
@@ -3695,10 +3697,11 @@ fn find_captures_in_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
     seen: &mut Vec<VarId>,
+    seen_decls: &mut Vec<DeclId>,
 ) -> Vec<VarId> {
     let mut output = vec![];
     for expr in &pipeline.expressions {
-        let result = find_captures_in_expr(working_set, expr, seen);
+        let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
         output.extend(&result);
     }
 
@@ -3709,56 +3712,64 @@ pub fn find_captures_in_expr(
     working_set: &StateWorkingSet,
     expr: &Expression,
     seen: &mut Vec<VarId>,
+    seen_decls: &mut Vec<DeclId>,
 ) -> Vec<VarId> {
     let mut output = vec![];
     match &expr.expr {
         Expr::BinaryOp(lhs, _, rhs) => {
-            let lhs_result = find_captures_in_expr(working_set, lhs, seen);
-            let rhs_result = find_captures_in_expr(working_set, rhs, seen);
+            let lhs_result = find_captures_in_expr(working_set, lhs, seen, seen_decls);
+            let rhs_result = find_captures_in_expr(working_set, rhs, seen, seen_decls);
 
             output.extend(&lhs_result);
             output.extend(&rhs_result);
         }
         Expr::Block(block_id) => {
             let block = working_set.get_block(*block_id);
-            let result = find_captures_in_block(working_set, block, seen);
+            let result = find_captures_in_block(working_set, block, seen, seen_decls);
             output.extend(&result);
         }
         Expr::Bool(_) => {}
         Expr::Call(call) => {
             let decl = working_set.get_decl(call.decl_id);
-            if let Some(block_id) = decl.get_block_id() {
-                let block = working_set.get_block(block_id);
-                let result = find_captures_in_block(working_set, block, seen);
-                output.extend(&result);
+            if !seen_decls.contains(&call.decl_id) {
+                if let Some(block_id) = decl.get_block_id() {
+                    let block = working_set.get_block(block_id);
+                    if !block.captures.is_empty() {
+                        output.extend(&block.captures)
+                    } else {
+                        seen_decls.push(call.decl_id);
+                        let result = find_captures_in_block(working_set, block, seen, seen_decls);
+                        output.extend(&result);
+                    }
+                }
             }
 
             for named in &call.named {
                 if let Some(arg) = &named.1 {
-                    let result = find_captures_in_expr(working_set, arg, seen);
+                    let result = find_captures_in_expr(working_set, arg, seen, seen_decls);
                     output.extend(&result);
                 }
             }
 
             for positional in &call.positional {
-                let result = find_captures_in_expr(working_set, positional, seen);
+                let result = find_captures_in_expr(working_set, positional, seen, seen_decls);
                 output.extend(&result);
             }
         }
         Expr::CellPath(_) => {}
         Expr::ExternalCall(head, exprs) => {
-            let result = find_captures_in_expr(working_set, head, seen);
+            let result = find_captures_in_expr(working_set, head, seen, seen_decls);
             output.extend(&result);
 
             for expr in exprs {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
         }
         Expr::Filepath(_) => {}
         Expr::Float(_) => {}
         Expr::FullCellPath(cell_path) => {
-            let result = find_captures_in_expr(working_set, &cell_path.head, seen);
+            let result = find_captures_in_expr(working_set, &cell_path.head, seen, seen_decls);
             output.extend(&result);
         }
         Expr::ImportPattern(_) => {}
@@ -3767,34 +3778,44 @@ pub fn find_captures_in_expr(
         Expr::GlobPattern(_) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {
-            let result = find_captures_in_expr(working_set, expr, seen);
+            let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
             output.extend(&result);
         }
         Expr::List(exprs) => {
             for expr in exprs {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
         }
         Expr::Operator(_) => {}
         Expr::Range(expr1, expr2, expr3, _) => {
             if let Some(expr) = expr1 {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
             if let Some(expr) = expr2 {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
             if let Some(expr) = expr3 {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
         }
         Expr::Record(fields) => {
             for (field_name, field_value) in fields {
-                output.extend(&find_captures_in_expr(working_set, field_name, seen));
-                output.extend(&find_captures_in_expr(working_set, field_value, seen));
+                output.extend(&find_captures_in_expr(
+                    working_set,
+                    field_name,
+                    seen,
+                    seen_decls,
+                ));
+                output.extend(&find_captures_in_expr(
+                    working_set,
+                    field_value,
+                    seen,
+                    seen_decls,
+                ));
             }
         }
         Expr::Signature(sig) => {
@@ -3824,29 +3845,29 @@ pub fn find_captures_in_expr(
         Expr::String(_) => {}
         Expr::StringInterpolation(exprs) => {
             for expr in exprs {
-                let result = find_captures_in_expr(working_set, expr, seen);
+                let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
                 output.extend(&result);
             }
         }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            let result = find_captures_in_block(working_set, block, seen);
+            let result = find_captures_in_block(working_set, block, seen, seen_decls);
             output.extend(&result);
         }
         Expr::Table(headers, values) => {
             for header in headers {
-                let result = find_captures_in_expr(working_set, header, seen);
+                let result = find_captures_in_expr(working_set, header, seen, seen_decls);
                 output.extend(&result);
             }
             for row in values {
                 for cell in row {
-                    let result = find_captures_in_expr(working_set, cell, seen);
+                    let result = find_captures_in_expr(working_set, cell, seen, seen_decls);
                     output.extend(&result);
                 }
             }
         }
         Expr::ValueWithUnit(expr, _) => {
-            let result = find_captures_in_expr(working_set, expr, seen);
+            let result = find_captures_in_expr(working_set, expr, seen, seen_decls);
             output.extend(&result);
         }
         Expr::Var(var_id) => {
@@ -3888,7 +3909,8 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         };
 
         let mut seen = vec![];
-        let captures = find_captures_in_block(working_set, &block, &mut seen);
+        let mut seen_decls = vec![];
+        let captures = find_captures_in_block(working_set, &block, &mut seen, &mut seen_decls);
 
         block.captures = captures;
 

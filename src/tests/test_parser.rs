@@ -164,3 +164,8 @@ fn string_interp_with_equals() -> TestResult {
         "https://api.github.com/search/issues?q=repo:nushell/",
     )
 }
+
+#[test]
+fn recursive_parse() -> TestResult {
+    run_test(r#"def c [] { c }; echo done"#, "done")
+}

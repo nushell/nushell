@@ -155,7 +155,8 @@ pub fn parse_for(
         // will come into scope as params. Because of this, we need to recalculated what
         // variables this block will capture from the outside.
         let mut seen = vec![];
-        let captures = find_captures_in_block(working_set, block, &mut seen);
+        let mut seen_decls = vec![];
+        let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
 
         let mut block = working_set.get_block_mut(block_id);
         block.captures = captures;
@@ -271,7 +272,8 @@ pub fn parse_def(
             // will come into scope as params. Because of this, we need to recalculated what
             // variables this block will capture from the outside.
             let mut seen = vec![];
-            let captures = find_captures_in_block(working_set, block, &mut seen);
+            let mut seen_decls = vec![];
+            let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
 
             let mut block = working_set.get_block_mut(block_id);
             block.captures = captures;
