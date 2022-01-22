@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse};
 use nu_protocol::{
-    ast::Statement,
+    ast::{Expr, Statement},
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span,
 };
@@ -195,6 +195,31 @@ impl NuCompleter {
                                     flat.0,
                                     offset,
                                 );
+                            }
+                            if prefix.starts_with(b"-") {
+                                // this might be a flag, let's see
+                                if let Expr::Call(call) = &expr.expr {
+                                    let decl = working_set.get_decl(call.decl_id);
+                                    let sig = decl.signature();
+
+                                    let mut output = vec![];
+
+                                    for named in &sig.named {
+                                        let mut named = named.long.as_bytes().to_vec();
+                                        named.insert(0, b'-');
+                                        named.insert(0, b'-');
+                                        if named.starts_with(prefix) {
+                                            output.push((
+                                                reedline::Span {
+                                                    start: flat.0.start - offset,
+                                                    end: flat.0.end - offset,
+                                                },
+                                                String::from_utf8_lossy(&named).to_string(),
+                                            ));
+                                        }
+                                    }
+                                    return output;
+                                }
                             }
 
                             match &flat.1 {
