@@ -79,6 +79,7 @@ impl Command for SortBy {
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag("reverse");
+        let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter().collect();
 
         sort(&mut vec, columns, call)?;
@@ -88,7 +89,12 @@ impl Command for SortBy {
         }
 
         let iter = vec.into_iter();
-        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+        match &*metadata {
+            Some(m) => {
+                Ok(iter.into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone()))
+            }
+            None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
+        }
     }
 }
 
