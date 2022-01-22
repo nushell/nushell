@@ -358,18 +358,6 @@ If you don't like the default `PROMPT_INDICATOR` you could change it like this.
 `> let-env PROMPT_INDICATOR = "> "`
 
 Coloring of the prompt is controlled by the `block` in `PROMPT_COMMAND` where you can write your own custom prompt. We've written a slightly fancy one that has git statuses located in the [nu_scripts repo](https://github.com/nushell/nu_scripts/blob/main/engine-q/prompt/oh-my.nu).
-### Setup oh-my-posh with engine-q 
-
-If you like [oh-my-posh](https://ohmyposh.dev/), you can use oh-my-posh with engine-q with few steps. It's works great with engine-q.  There is how to setup oh-my-posh with engine-q:
-
-1. Install Oh My Posh and download oh-my-posh's themes following [guide](https://ohmyposh.dev/docs/linux#installation)
-2. Download and Install a [nerd font](https://github.com/ryanoasis/nerd-fonts)
-3. Set the PROMPT_COMMAND in ~/.config/nushell/config.nu, change `M365Princess.omp.json` to whatever you like [Themes demo](https://ohmyposh.dev/docs/themes) 
-```
-let-env PROMPT_COMMAND = { oh-my-posh --config ~/.poshthemes/M365Princess.omp.json |decode utf-8| str collect}
-```
-4. Restart engine-q.
-
 
 ## `LS_COLORS` colors for the `ls` command
 
