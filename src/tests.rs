@@ -75,9 +75,5 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
 
 #[cfg(test)]
 pub fn not_found_msg() -> &'static str {
-    if cfg!(windows) {
-        "not found"
-    } else {
-        "No such"
-    }
+    "can't run executable"
 }

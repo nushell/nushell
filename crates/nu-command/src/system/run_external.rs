@@ -67,6 +67,8 @@ impl Command for External {
                     } else {
                         return Err(ShellError::ExternalCommand(
                             "Cannot convert argument to a string".into(),
+                            "All arguments to an external command need to be string-compatible"
+                                .into(),
                             val.span()?,
                         ));
                     }
@@ -74,6 +76,7 @@ impl Command for External {
             } else {
                 return Err(ShellError::ExternalCommand(
                     "Cannot convert argument to a string".into(),
+                    "All arguments to an external command need to be string-compatible".into(),
                     arg.span()?,
                 ));
             }
@@ -141,7 +144,8 @@ impl<'call> ExternalCommand<'call> {
 
         match process.spawn() {
             Err(err) => Err(ShellError::ExternalCommand(
-                format!("{}", err),
+                "can't run executable".to_string(),
+                err.to_string(),
                 self.name.span,
             )),
             Ok(mut child) => {
@@ -186,6 +190,8 @@ impl<'call> ExternalCommand<'call> {
                         let stdout = child.stdout.take().ok_or_else(|| {
                             ShellError::ExternalCommand(
                                 "Error taking stdout from external".to_string(),
+                                "Redirects need access to stdout of an external command"
+                                    .to_string(),
                                 span,
                             )
                         })?;
@@ -220,7 +226,11 @@ impl<'call> ExternalCommand<'call> {
                     }
 
                     match child.wait() {
-                        Err(err) => Err(ShellError::ExternalCommand(format!("{}", err), span)),
+                        Err(err) => Err(ShellError::ExternalCommand(
+                            "External command exited with error".into(),
+                            err.to_string(),
+                            span,
+                        )),
                         Ok(_) => Ok(()),
                     }
                 });
