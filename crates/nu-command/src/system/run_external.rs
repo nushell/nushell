@@ -277,9 +277,21 @@ impl<'call> ExternalCommand<'call> {
             head
         };
 
-        let head = head.replace("\\", "\\\\");
+        //let head = head.replace("\\", "\\\\");
 
-        let mut process = std::process::Command::new(&head);
+        let new_head;
+
+        #[cfg(windows)]
+        {
+            new_head = head.replace("\\", "\\\\");
+        }
+
+        #[cfg(not(windows))]
+        {
+            new_head = head;
+        }
+
+        let mut process = std::process::Command::new(&new_head);
 
         for arg in &self.args {
             let arg = trim_enclosing_quotes(arg);
@@ -291,9 +303,19 @@ impl<'call> ExternalCommand<'call> {
                 arg
             };
 
-            let arg = arg.replace("\\", "\\\\");
+            let new_arg;
 
-            process.arg(&arg);
+            #[cfg(windows)]
+            {
+                new_arg = arg.replace("\\", "\\\\");
+            }
+
+            #[cfg(not(windows))]
+            {
+                new_arg = arg;
+            }
+
+            process.arg(&new_arg);
         }
 
         process
