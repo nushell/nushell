@@ -18,5 +18,5 @@ nu-protocol = { path = "../nu-protocol"}
 regex = "1.4"
 unicode-width = "0.1.8"
 strip-ansi-escapes = "0.1.1"
-ansi-cut = "0.1.1"
+ansi-cut = "0.2.0"
 atty = "0.2.14"
