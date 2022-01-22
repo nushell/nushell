@@ -97,16 +97,11 @@ fn separated_comments_dont_stack() -> Result<(), ParseError> {
     let lite_block = lite_parse_helper(input)?;
 
     assert_eq!(lite_block.block.len(), 1);
-    assert_eq!(lite_block.block[0].commands[0].comments.len(), 2);
+    assert_eq!(lite_block.block[0].commands[0].comments.len(), 1);
     assert_eq!(lite_block.block[0].commands[0].parts.len(), 3);
 
     assert_eq!(
         lite_block.block[0].commands[0].comments[0],
-        Span { start: 0, end: 19 }
-    );
-
-    assert_eq!(
-        lite_block.block[0].commands[0].comments[1],
         Span { start: 21, end: 38 }
     );
 

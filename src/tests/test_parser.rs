@@ -1,5 +1,7 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
+use super::run_test_contains;
+
 #[test]
 fn env_shorthand() -> TestResult {
     run_test("FOO=BAR if $false { 3 } else { 4 }", "4")
@@ -168,4 +170,17 @@ fn string_interp_with_equals() -> TestResult {
 #[test]
 fn recursive_parse() -> TestResult {
     run_test(r#"def c [] { c }; echo done"#, "done")
+}
+
+#[test]
+fn commands_have_usage() -> TestResult {
+    run_test_contains(
+        r#"
+    # This is a test
+    #
+    # To see if I have cool usage
+    def foo [] {}
+    help foo"#,
+        "cool usage",
+    )
 }

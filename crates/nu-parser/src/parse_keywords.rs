@@ -11,6 +11,7 @@ use std::collections::HashSet;
 
 use crate::{
     lex, lite_parse,
+    lite_parse::LiteCommand,
     parser::{
         check_call, check_name, find_captures_in_block, garbage, garbage_statement, parse,
         parse_block_expression, parse_internal_call, parse_multispan_value, parse_signature,
@@ -173,10 +174,65 @@ pub fn parse_for(
     )
 }
 
+fn build_usage(working_set: &StateWorkingSet, spans: &[Span]) -> String {
+    let mut usage = String::new();
+
+    let mut num_spaces = 0;
+    let mut first = true;
+
+    // Use the comments to build the usage
+    for comment_part in spans {
+        let contents = working_set.get_span_contents(*comment_part);
+
+        let comment_line = if first {
+            // Count the number of spaces still at the front, skipping the '#'
+            let mut pos = 1;
+            while pos < contents.len() {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            num_spaces = pos;
+
+            first = false;
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        } else {
+            let mut pos = 1;
+
+            while pos < contents.len() && pos < num_spaces {
+                if let Some(b' ') = contents.get(pos) {
+                    // continue
+                } else {
+                    break;
+                }
+                pos += 1;
+            }
+
+            String::from_utf8_lossy(&contents[pos..]).to_string()
+        };
+
+        if !usage.is_empty() {
+            usage.push('\n');
+        }
+        usage.push_str(&comment_line);
+    }
+
+    usage
+}
+
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
 ) -> (Statement, Option<ParseError>) {
+    let spans = &lite_command.parts[..];
+
+    let usage = build_usage(working_set, &lite_command.comments);
+
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     if working_set.get_span_contents(spans[0]) != b"def" {
@@ -260,6 +316,7 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
+            signature.usage = usage;
 
             *declaration = signature.clone().into_block_command(block_id);
 
@@ -368,8 +425,9 @@ pub fn parse_alias(
 
 pub fn parse_export(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
 ) -> (Statement, Option<Exportable>, Option<ParseError>) {
+    let spans = &lite_command.parts[..];
     let mut error = None;
 
     let export_span = if let Some(sp) = spans.get(0) {
@@ -420,7 +478,11 @@ pub fn parse_export(
         let kw_name = working_set.get_span_contents(*kw_span);
         match kw_name {
             b"def" => {
-                let (stmt, err) = parse_def(working_set, &spans[1..]);
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (stmt, err) = parse_def(working_set, &lite_command);
                 error = error.or(err);
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def") {
@@ -615,7 +677,7 @@ pub fn parse_module_block(
 
     let source = working_set.get_span_contents(span);
 
-    let (output, err) = lex(source, span.start, &[], &[], true);
+    let (output, err) = lex(source, span.start, &[], &[], false);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);
@@ -639,7 +701,7 @@ pub fn parse_module_block(
 
                 let (stmt, err) = match name {
                     b"def" => {
-                        let (stmt, err) = parse_def(working_set, &pipeline.commands[0].parts);
+                        let (stmt, err) = parse_def(working_set, &pipeline.commands[0]);
 
                         (stmt, err)
                     }
@@ -653,7 +715,7 @@ pub fn parse_module_block(
                     // since in the second case, the name of the env var would be $env."foo a".
                     b"export" => {
                         let (stmt, exportable, err) =
-                            parse_export(working_set, &pipeline.commands[0].parts);
+                            parse_export(working_set, &pipeline.commands[0]);
 
                         if err.is_none() {
                             let name_span = pipeline.commands[0].parts[2];

@@ -1,5 +1,6 @@
 use crate::{
     lex, lite_parse,
+    lite_parse::LiteCommand,
     parse_keywords::{parse_for, parse_source},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
@@ -2823,7 +2824,7 @@ pub fn parse_block_expression(
 
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, start, &[], &[], true);
+    let (output, err) = lex(source, start, &[], &[], false);
     error = error.or(err);
 
     working_set.enter_scope();
@@ -3474,30 +3475,33 @@ pub fn parse_variable(
 
 pub fn parse_statement(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
+    lite_command: &LiteCommand,
 ) -> (Statement, Option<ParseError>) {
-    let name = working_set.get_span_contents(spans[0]);
+    let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" => parse_def(working_set, spans),
-        b"let" => parse_let(working_set, spans),
+        b"def" => parse_def(working_set, lite_command),
+        b"let" => parse_let(working_set, &lite_command.parts),
         b"for" => {
-            let (expr, err) = parse_for(working_set, spans);
+            let (expr, err) = parse_for(working_set, &lite_command.parts);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
         }
-        b"alias" => parse_alias(working_set, spans),
-        b"module" => parse_module(working_set, spans),
-        b"use" => parse_use(working_set, spans),
-        b"source" => parse_source(working_set, spans),
+        b"alias" => parse_alias(working_set, &lite_command.parts),
+        b"module" => parse_module(working_set, &lite_command.parts),
+        b"use" => parse_use(working_set, &lite_command.parts),
+        b"source" => parse_source(working_set, &lite_command.parts),
         b"export" => (
-            garbage_statement(spans),
-            Some(ParseError::UnexpectedKeyword("export".into(), spans[0])),
+            garbage_statement(&lite_command.parts),
+            Some(ParseError::UnexpectedKeyword(
+                "export".into(),
+                lite_command.parts[0],
+            )),
         ),
-        b"hide" => parse_hide(working_set, spans),
+        b"hide" => parse_hide(working_set, &lite_command.parts),
         #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, spans),
+        b"register" => parse_register(working_set, &lite_command.parts),
         _ => {
-            let (expr, err) = parse_expression(working_set, spans, true);
+            let (expr, err) = parse_expression(working_set, &lite_command.parts, true);
             (Statement::Pipeline(Pipeline::from_vec(vec![expr])), err)
         }
     }
@@ -3632,7 +3636,7 @@ pub fn parse_block(
                     expressions: output,
                 })
             } else {
-                let (stmt, err) = parse_statement(working_set, &pipeline.commands[0].parts);
+                let (stmt, err) = parse_statement(working_set, &pipeline.commands[0]);
 
                 if error.is_none() {
                     error = err;
@@ -3964,7 +3968,7 @@ pub fn parse(
 
     working_set.add_file(name, contents);
 
-    let (output, err) = lex(contents, span_offset, &[], &[], true);
+    let (output, err) = lex(contents, span_offset, &[], &[], false);
     error = error.or(err);
 
     let (output, err) = lite_parse(&output);

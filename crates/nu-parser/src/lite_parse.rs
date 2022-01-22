@@ -85,23 +85,29 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut curr_pipeline = LiteStatement::new();
     let mut curr_command = LiteCommand::new();
 
-    let mut last_token_was_pipe = false;
+    let mut last_token = TokenContents::Eol;
+
+    let mut curr_comment: Option<Vec<Span>> = None;
 
     for token in tokens.iter() {
         match &token.contents {
             TokenContents::Item => {
+                // If we have a comment, go ahead and attach it
+                if let Some(curr_comment) = curr_comment.take() {
+                    curr_command.comments = curr_comment;
+                }
                 curr_command.push(token.span);
-                last_token_was_pipe = false;
+                last_token = TokenContents::Item;
             }
             TokenContents::Pipe => {
                 if !curr_command.is_empty() {
                     curr_pipeline.push(curr_command);
                     curr_command = LiteCommand::new();
                 }
-                last_token_was_pipe = true;
+                last_token = TokenContents::Pipe;
             }
             TokenContents::Eol => {
-                if !last_token_was_pipe {
+                if last_token != TokenContents::Pipe {
                     if !curr_command.is_empty() {
                         curr_pipeline.push(curr_command);
 
@@ -114,6 +120,13 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                         curr_pipeline = LiteStatement::new();
                     }
                 }
+
+                if last_token == TokenContents::Eol {
+                    // Clear out the comment as we're entering a new comment
+                    curr_comment = None;
+                }
+
+                last_token = TokenContents::Eol;
             }
             TokenContents::Semicolon => {
                 if !curr_command.is_empty() {
@@ -128,10 +141,23 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                     curr_pipeline = LiteStatement::new();
                 }
 
-                last_token_was_pipe = false;
+                last_token = TokenContents::Semicolon;
             }
             TokenContents::Comment => {
-                curr_command.comments.push(token.span);
+                // Comment is beside something
+                if last_token != TokenContents::Eol {
+                    curr_command.comments.push(token.span);
+                    curr_comment = None;
+                } else {
+                    // Comment precedes something
+                    if let Some(curr_comment) = &mut curr_comment {
+                        curr_comment.push(token.span);
+                    } else {
+                        curr_comment = Some(vec![token.span]);
+                    }
+                }
+
+                last_token = TokenContents::Comment;
             }
         }
     }
@@ -144,7 +170,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         block.push(curr_pipeline);
     }
 
-    if last_token_was_pipe {
+    if last_token == TokenContents::Pipe {
         (
             block,
             Some(ParseError::UnexpectedEof(
