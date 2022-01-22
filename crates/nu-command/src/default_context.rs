@@ -314,6 +314,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Hash,
             HashMd5::default(),
             HashSha256::default(),
+            Base64,
         };
 
         #[cfg(feature = "plugin")]
