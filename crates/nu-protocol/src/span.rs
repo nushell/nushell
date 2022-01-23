@@ -31,7 +31,8 @@ impl Span {
         Span { start, end }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source when used in errors
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_data() -> Span {
         Span { start: 0, end: 0 }
     }

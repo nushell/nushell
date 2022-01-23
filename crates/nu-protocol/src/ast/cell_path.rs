@@ -8,6 +8,16 @@ pub enum PathMember {
     Int { val: usize, span: Span },
 }
 
+impl PartialEq for PathMember {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String { val: l_val, .. }, Self::String { val: r_val, .. }) => l_val == r_val,
+            (Self::Int { val: l_val, .. }, Self::Int { val: r_val, .. }) => l_val == r_val,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CellPath {
     pub members: Vec<PathMember>,

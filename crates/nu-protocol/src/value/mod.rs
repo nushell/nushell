@@ -766,7 +766,8 @@ impl Value {
         Value::Bool { val, span }
     }
 
-    // Only use these for test data. Should not be used in user data
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_string(s: impl Into<String>) -> Value {
         Value::String {
             val: s.into(),
@@ -774,7 +775,8 @@ impl Value {
         }
     }
 
-    // Only use these for test data. Should not be used in user data
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_int(val: i64) -> Value {
         Value::Int {
             val,
@@ -782,7 +784,8 @@ impl Value {
         }
     }
 
-    // Only use these for test data. Should not be used in user data
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_float(val: f64) -> Value {
         Value::Float {
             val,
@@ -790,7 +793,8 @@ impl Value {
         }
     }
 
-    // Only use these for test data. Should not be used in user data
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
         Value::Bool {
             val,
@@ -798,11 +802,30 @@ impl Value {
         }
     }
 
-    // Only use these for test data. Should not be used in user data
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_filesize(val: i64) -> Value {
+        Value::Filesize {
+            val,
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
+    pub fn test_nothing() -> Value {
+        Value::Nothing {
+            span: Span::test_data(),
+        }
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_record(cols: Vec<impl Into<String>>, vals: Vec<Value>) -> Value {
         Value::Record {
             cols: cols.into_iter().map(|s| s.into()).collect(),
             vals,
+
             span: Span::test_data(),
         }
     }
@@ -1323,6 +1346,32 @@ impl Value {
                 val: rhs.contains(lhs),
                 span,
             }),
+            (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
+                let val = rhs.members.iter().any(|member| match (self, member) {
+                    (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
+                        *lhs == *rhs as i64
+                    }
+                    (Value::String { val: lhs, .. }, PathMember::String { val: rhs, .. }) => {
+                        lhs == rhs
+                    }
+                    (Value::String { .. }, PathMember::Int { .. })
+                    | (Value::Int { .. }, PathMember::String { .. }) => false,
+                    _ => unreachable!(
+                        "outer match arm ensures `self` is either a `String` or `Int` variant"
+                    ),
+                });
+
+                Ok(Value::Bool { val, span })
+            }
+            (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: rhs
+                        .members
+                        .windows(lhs.members.len())
+                        .any(|member_window| member_window == rhs.members),
+                    span,
+                })
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::In, op, rhs)
             }
@@ -1356,6 +1405,32 @@ impl Value {
                 val: !rhs.contains(lhs),
                 span,
             }),
+            (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
+                let val = rhs.members.iter().any(|member| match (self, member) {
+                    (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
+                        *lhs != *rhs as i64
+                    }
+                    (Value::String { val: lhs, .. }, PathMember::String { val: rhs, .. }) => {
+                        lhs != rhs
+                    }
+                    (Value::String { .. }, PathMember::Int { .. })
+                    | (Value::Int { .. }, PathMember::String { .. }) => true,
+                    _ => unreachable!(
+                        "outer match arm ensures `self` is either a `String` or `Int` variant"
+                    ),
+                });
+
+                Ok(Value::Bool { val, span })
+            }
+            (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
+                Ok(Value::Bool {
+                    val: rhs
+                        .members
+                        .windows(lhs.members.len())
+                        .all(|member_window| member_window != rhs.members),
+                    span,
+                })
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::NotIn, op, rhs)
             }
