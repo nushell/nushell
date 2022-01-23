@@ -64,12 +64,11 @@ dependencies = [
 
 [[package]]
 name = "ansi-cut"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "116f67a17a90942bc30b3fe78b800941f8276234386844b3e0dee3f9d2782839"
+checksum = "ffe8d2994390ae20a3eb52a909f9518a89f8fd7e6990f3d25d38e51021b2c8ce"
 dependencies = [
  "ansi-parser",
- "strip-ansi-escapes",
 ]
 
 [[package]]
