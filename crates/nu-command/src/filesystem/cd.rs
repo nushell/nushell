@@ -61,7 +61,13 @@ impl Command for Cd {
                     Some(v) => {
                         let path = v.as_path()?;
                         let path = match nu_path::canonicalize_with(path, &cwd) {
-                            Ok(p) => p,
+                            Ok(p) => {
+                                if !p.is_dir() {
+                                    return Err(ShellError::NotADirectory(v.span()?));
+                                }
+                                p
+                            }
+
                             Err(e) => {
                                 return Err(ShellError::DirectoryNotFoundHelp(
                                     v.span()?,

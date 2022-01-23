@@ -185,6 +185,10 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::io_error), url(docsrs), help("{0}"))]
     IOError(String),
 
+    #[error("Cannot change to directory")]
+    #[diagnostic(code(nu::shell::cannot_cd_to_directory), url(docsrs))]
+    NotADirectory(#[label("is not a directory")] Span),
+
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found), url(docsrs))]
     DirectoryNotFound(#[label("directory not found")] Span),
