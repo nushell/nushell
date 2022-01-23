@@ -174,6 +174,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             AnsiStrip,
             Clear,
             Input,
+            InputKeys,
             Kill,
             Sleep,
             TermSize,
