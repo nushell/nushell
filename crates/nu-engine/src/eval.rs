@@ -620,18 +620,29 @@ pub fn eval_variable(
         let mut output_cols = vec![];
         let mut output_vals = vec![];
 
-        let mut var_names = vec![];
-        let mut var_types = vec![];
+        let mut vars = vec![];
+
         let mut commands = vec![];
         let mut aliases = vec![];
         let mut overlays = vec![];
 
         for frame in &engine_state.scope {
             for var in &frame.vars {
-                var_names.push(String::from_utf8_lossy(var.0).to_string());
+                let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-                let var = engine_state.get_var(*var.1);
-                var_types.push(Value::string(var.to_string(), span));
+                let var_type = Value::string(engine_state.get_var(*var.1).to_string(), span);
+
+                let var_value = if let Ok(val) = stack.get_var(*var.1) {
+                    val
+                } else {
+                    Value::nothing(span)
+                };
+
+                vars.push(Value::Record {
+                    cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
+                    vals: vec![var_name, var_type, var_value],
+                    span,
+                })
             }
 
             for command in &frame.decls {
@@ -829,10 +840,21 @@ pub fn eval_variable(
             }
 
             for alias in &frame.aliases {
-                aliases.push(Value::String {
-                    val: String::from_utf8_lossy(alias.0).to_string(),
-                    span,
-                });
+                let mut alias_text = String::new();
+                for span in alias.1 {
+                    let contents = engine_state.get_span_contents(span);
+                    if !alias_text.is_empty() {
+                        alias_text.push(' ');
+                    }
+                    alias_text.push_str(&String::from_utf8_lossy(contents).to_string());
+                }
+                aliases.push((
+                    Value::String {
+                        val: String::from_utf8_lossy(alias.0).to_string(),
+                        span,
+                    },
+                    Value::string(alias_text, span),
+                ));
             }
 
             for overlay in &frame.overlays {
@@ -844,11 +866,7 @@ pub fn eval_variable(
         }
 
         output_cols.push("vars".to_string());
-        output_vals.push(Value::Record {
-            cols: var_names,
-            vals: var_types,
-            span,
-        });
+        output_vals.push(Value::List { vals: vars, span });
 
         commands.sort_by(|a, b| match (a, b) {
             (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
@@ -876,7 +894,14 @@ pub fn eval_variable(
         aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         output_cols.push("aliases".to_string());
         output_vals.push(Value::List {
-            vals: aliases,
+            vals: aliases
+                .into_iter()
+                .map(|(alias, value)| Value::Record {
+                    cols: vec!["alias".into(), "expansion".into()],
+                    vals: vec![alias, value],
+                    span,
+                })
+                .collect(),
             span,
         });
 
