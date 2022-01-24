@@ -24,7 +24,7 @@ impl Command for SplitCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -33,6 +33,7 @@ impl Command for SplitCommand {
                 &SplitCommand.signature(),
                 &SplitCommand.examples(),
                 engine_state,
+                stack,
             ),
             span: call.head,
         }

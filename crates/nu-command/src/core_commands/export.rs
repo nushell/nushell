@@ -24,7 +24,7 @@ impl Command for ExportCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
@@ -33,6 +33,7 @@ impl Command for ExportCommand {
                 &ExportCommand.signature(),
                 &ExportCommand.examples(),
                 engine_state,
+                stack,
             ),
             span: call.head,
         }

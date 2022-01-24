@@ -17,6 +17,7 @@ mod let_;
 mod metadata;
 mod module;
 mod source;
+mod tutor;
 mod use_;
 mod version;
 
@@ -39,6 +40,7 @@ pub use let_::Let;
 pub use metadata::Metadata;
 pub use module::Module;
 pub use source::Source;
+pub use tutor::Tutor;
 pub use use_::Use;
 pub use version::Version;
 #[cfg(feature = "plugin")]

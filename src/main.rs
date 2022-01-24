@@ -28,6 +28,15 @@ fn main() -> Result<()> {
     let init_cwd = utils::get_init_cwd();
     let mut engine_state = create_default_context(&init_cwd);
 
+    // Custom additions
+    let delta = {
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(nu_cli::NuHighlight));
+
+        working_set.render()
+    };
+    let _ = engine_state.merge_delta(delta, None, &init_cwd);
+
     // TODO: make this conditional in the future
     // Ctrl-c protection section
     let ctrlc = Arc::new(AtomicBool::new(false));

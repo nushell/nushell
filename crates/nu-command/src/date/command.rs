@@ -34,13 +34,13 @@ impl Command for Date {
 
 fn date(
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
     Ok(Value::String {
-        val: get_full_help(&Date.signature(), &Date.examples(), engine_state),
+        val: get_full_help(&Date.signature(), &Date.examples(), engine_state, stack),
         span: head,
     }
     .into_pipeline_data())

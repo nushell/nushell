@@ -210,7 +210,9 @@ fn help(
             let output = full_commands
                 .iter()
                 .filter(|(signature, _, _, _)| signature.name == name)
-                .map(|(signature, examples, _, _)| get_full_help(signature, examples, engine_state))
+                .map(|(signature, examples, _, _)| {
+                    get_full_help(signature, examples, engine_state, stack)
+                })
                 .collect::<Vec<String>>();
 
             if !output.is_empty() {

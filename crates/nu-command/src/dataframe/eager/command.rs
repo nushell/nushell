@@ -24,12 +24,17 @@ impl Command for Dataframe {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Dataframe.signature(), &Dataframe.examples(), engine_state),
+            val: get_full_help(
+                &Dataframe.signature(),
+                &Dataframe.examples(),
+                engine_state,
+                stack,
+            ),
             span: call.head,
         }
         .into_pipeline_data())

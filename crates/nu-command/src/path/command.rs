@@ -39,7 +39,7 @@ the path literal."#
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::ShellError> {
@@ -48,6 +48,7 @@ the path literal."#
                 &PathCommand.signature(),
                 &PathCommand.examples(),
                 engine_state,
+                stack,
             ),
             span: call.head,
         }

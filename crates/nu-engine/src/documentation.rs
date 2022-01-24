@@ -1,5 +1,9 @@
 use itertools::Itertools;
-use nu_protocol::{engine::EngineState, Example, Signature, Span, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    Example, IntoPipelineData, Signature, Span, Value,
+};
 use std::collections::HashMap;
 
 const COMMANDS_DOCS_DIR: &str = "docs/commands";
@@ -13,7 +17,12 @@ pub struct DocumentationConfig {
     brief: bool,
 }
 
-fn generate_doc(name: &str, engine_state: &EngineState, head: Span) -> (Vec<String>, Vec<Value>) {
+fn generate_doc(
+    name: &str,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    head: Span,
+) -> (Vec<String>, Vec<Value>) {
     let mut cols = vec![];
     let mut vals = vec![];
 
@@ -48,6 +57,7 @@ fn generate_doc(name: &str, engine_state: &EngineState, head: Span) -> (Vec<Stri
             &command.signature(),
             &command.examples(),
             engine_state,
+            stack,
             &DocumentationConfig {
                 no_subcommands: true,
                 no_color: true,
@@ -61,7 +71,7 @@ fn generate_doc(name: &str, engine_state: &EngineState, head: Span) -> (Vec<Stri
 }
 
 // generate_docs gets the documentation from each command and returns a Table as output
-pub fn generate_docs(engine_state: &EngineState, head: Span) -> Value {
+pub fn generate_docs(engine_state: &EngineState, stack: &mut Stack, head: Span) -> Value {
     let signatures = engine_state.get_signatures(true);
 
     // cmap will map parent commands to it's subcommands e.g. to -> [to csv, to yaml, to bson]
@@ -88,11 +98,11 @@ pub fn generate_docs(engine_state: &EngineState, head: Span) -> Value {
         if !cmap.contains_key(&sig.name) {
             continue;
         }
-        let mut row_entries = generate_doc(&sig.name, engine_state, head);
+        let mut row_entries = generate_doc(&sig.name, engine_state, stack, head);
         // Iterate over all the subcommands of the parent command
         let mut sub_table = Vec::new();
         for sub_name in cmap.get(&sig.name).unwrap_or(&Vec::new()) {
-            let (cols, vals) = generate_doc(sub_name, engine_state, head);
+            let (cols, vals) = generate_doc(sub_name, engine_state, stack, head);
             sub_table.push(Value::Record {
                 cols,
                 vals,
@@ -139,6 +149,7 @@ pub fn get_documentation(
     sig: &Signature,
     examples: &[Example],
     engine_state: &EngineState,
+    stack: &mut Stack,
     config: &DocumentationConfig,
 ) -> String {
     let cmd_name = &sig.name;
@@ -206,14 +217,32 @@ pub fn get_documentation(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
-        // if config.no_color {
-        long_desc.push_str(&format!("\n  > {}\n", example.example));
-        // } else {
-        //     let colored_example =
+        if config.no_color {
+            long_desc.push_str(&format!("\n  > {}\n", example.example));
+        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight") {
+            let decl = engine_state.get_decl(highlighter);
 
-        //         crate::shell::painter::Painter::paint_string(example.example, scope, &palette);
-        //     long_desc.push_str(&format!("\n  > {}\n", colored_example));
-        // }
+            if let Ok(output) = decl.run(
+                engine_state,
+                stack,
+                &Call::new(),
+                Value::String {
+                    val: example.example.to_string(),
+                    span: Span { start: 0, end: 0 },
+                }
+                .into_pipeline_data(),
+            ) {
+                let result = output.into_value(Span { start: 0, end: 0 });
+                match result.as_string() {
+                    Ok(s) => {
+                        long_desc.push_str(&format!("\n  > {}\n", s));
+                    }
+                    _ => {
+                        long_desc.push_str(&format!("\n  > {}\n", example.example));
+                    }
+                }
+            }
+        }
     }
 
     long_desc.push('\n');
@@ -294,11 +323,17 @@ fn get_flags_section(signature: &Signature) -> String {
     long_desc
 }
 
-pub fn get_brief_help(sig: &Signature, examples: &[Example], engine_state: &EngineState) -> String {
+pub fn get_brief_help(
+    sig: &Signature,
+    examples: &[Example],
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> String {
     get_documentation(
         sig,
         examples,
         engine_state,
+        stack,
         &DocumentationConfig {
             no_subcommands: false,
             no_color: false,
@@ -307,6 +342,17 @@ pub fn get_brief_help(sig: &Signature, examples: &[Example], engine_state: &Engi
     )
 }
 
-pub fn get_full_help(sig: &Signature, examples: &[Example], engine_state: &EngineState) -> String {
-    get_documentation(sig, examples, engine_state, &DocumentationConfig::default())
+pub fn get_full_help(
+    sig: &Signature,
+    examples: &[Example],
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> String {
+    get_documentation(
+        sig,
+        examples,
+        engine_state,
+        stack,
+        &DocumentationConfig::default(),
+    )
 }

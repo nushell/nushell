@@ -24,12 +24,12 @@ impl Command for Into {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         Ok(Value::String {
-            val: get_full_help(&Into.signature(), &[], engine_state),
+            val: get_full_help(&Into.signature(), &[], engine_state, stack),
             span: call.head,
         }
         .into_pipeline_data())

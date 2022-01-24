@@ -44,6 +44,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Metadata,
             Module,
             Source,
+            Tutor,
             Use,
             Version,
         };

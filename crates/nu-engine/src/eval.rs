@@ -33,7 +33,12 @@ fn eval_call(
     let decl = engine_state.get_decl(call.decl_id);
 
     if call.named.iter().any(|(flag, _)| flag.item == "help") {
-        let full_help = get_full_help(&decl.signature(), &decl.examples(), engine_state);
+        let full_help = get_full_help(
+            &decl.signature(),
+            &decl.examples(),
+            engine_state,
+            caller_stack,
+        );
         Ok(Value::String {
             val: full_help,
             span: call.head,
