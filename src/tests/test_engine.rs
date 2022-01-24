@@ -161,3 +161,8 @@ fn divide_duration() -> TestResult {
 fn divide_filesize() -> TestResult {
     run_test(r#"4mb / 4mb"#, "1")
 }
+
+#[test]
+fn date_comparison() -> TestResult {
+    run_test(r#"(date now) < ((date now) + 2min)"#, "true")
+}
