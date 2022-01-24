@@ -1,4 +1,8 @@
-Thanks for your pull request! We appreciate the support. Here are a few steps that will be checked automatically on every pull request. Making sure each of these works locally will help your PR go through with less trouble.
+# Description
+
+(description of your pull request here)
+  
+# Tests
 
 Make sure you've run and fixed any issues with these commands:
 
