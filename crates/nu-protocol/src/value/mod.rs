@@ -190,6 +190,33 @@ impl Value {
         }
     }
 
+    pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
+        match self {
+            Value::String { val, span } => Ok(Spanned {
+                item: val.to_string(),
+                span: *span,
+            }),
+            Value::Binary { val, span } => Ok(match std::str::from_utf8(val) {
+                Ok(s) => Spanned {
+                    item: s.to_string(),
+                    span: *span,
+                },
+                Err(_) => {
+                    return Err(ShellError::CantConvert(
+                        "binary".into(),
+                        "string".into(),
+                        self.span()?,
+                    ))
+                }
+            }),
+            x => Err(ShellError::CantConvert(
+                "string".into(),
+                x.get_type().to_string(),
+                self.span()?,
+            )),
+        }
+    }
+
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self {
             Value::String { val, .. } => Ok(PathBuf::from(val)),

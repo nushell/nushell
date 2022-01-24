@@ -1,8 +1,9 @@
-use nu_engine::CallExt;
+use nu_engine::{get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ByteStream, Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Value,
+    ByteStream, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
+    SyntaxShape, Value,
 };
 use std::io::{BufRead, BufReader, Read};
 
@@ -24,7 +25,7 @@ impl Command for Open {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
-            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .optional("filename", SyntaxShape::Filepath, "the filename to use")
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
@@ -34,14 +35,47 @@ impl Command for Open {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let raw = call.has_flag("raw");
 
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
 
-        let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
+        let path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+
+        let path = if let Some(path) = path {
+            path
+        } else {
+            // Collect a filename from the input
+            match input {
+                PipelineData::Value(Value::Nothing { .. }, ..) => {
+                    return Ok(Value::String {
+                        val: get_full_help(
+                            &Open.signature(),
+                            &Open.examples(),
+                            engine_state,
+                            stack,
+                        ),
+                        span: call.head,
+                    }
+                    .into_pipeline_data())
+                }
+                PipelineData::Value(val, ..) => val.as_spanned_string()?,
+                _ => {
+                    return Ok(Value::String {
+                        val: get_full_help(
+                            &Open.signature(),
+                            &Open.examples(),
+                            engine_state,
+                            stack,
+                        ),
+                        span: call.head,
+                    }
+                    .into_pipeline_data())
+                }
+            }
+        };
         let arg_span = path.span;
         let path = Path::new(&path.item);
 
@@ -116,6 +150,26 @@ impl Command for Open {
                 Ok(output)
             }
         }
+    }
+
+    fn examples(&self) -> Vec<nu_protocol::Example> {
+        vec![
+            Example {
+                description: "Open a file, with structure (based on file extension)",
+                example: "open myfile.json",
+                result: None,
+            },
+            Example {
+                description: "Open a file, as raw bytes",
+                example: "open myfile.json --raw",
+                result: None,
+            },
+            Example {
+                description: "Open a file, using the input to get filename",
+                example: "echo 'myfile.txt' | open",
+                result: None,
+            },
+        ]
     }
 }
 
