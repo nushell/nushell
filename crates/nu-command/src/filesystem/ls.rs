@@ -3,7 +3,6 @@ use pathdiff::diff_paths;
 
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -13,7 +12,7 @@ use nu_protocol::{
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Component, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Ls;
@@ -71,82 +70,18 @@ impl Command for Ls {
 
         let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        let (prefix, pattern) = if let Some(arg) = pattern_arg {
-            let path = PathBuf::from(arg.item);
-            let path = if path.is_relative() {
-                expand_path_with(path, &cwd)
-            } else {
-                path
-            };
-
-            if path.to_string_lossy().contains('*') {
-                // Path is a glob pattern => do not check for existence
-                // Select the longest prefix until the first '*'
-                let mut p = PathBuf::new();
-                for c in path.components() {
-                    if let Component::Normal(os) = c {
-                        if os.to_string_lossy().contains('*') {
-                            break;
-                        }
-                    }
-                    p.push(c);
-                }
-                (Some(p), path)
-            } else {
-                let path = if let Ok(p) = canonicalize_with(path, &cwd) {
-                    p
-                } else {
-                    return Err(ShellError::DirectoryNotFound(arg.span));
-                };
-
-                if path.is_dir() {
-                    if permission_denied(&path) {
-                        #[cfg(unix)]
-                        let error_msg = format!(
-                            "The permissions of {:o} do not allow access for this user",
-                            path.metadata()
-                                .expect(
-                                    "this shouldn't be called since we already know there is a dir"
-                                )
-                                .permissions()
-                                .mode()
-                                & 0o0777
-                        );
-
-                        #[cfg(not(unix))]
-                        let error_msg = String::from("Permission denied");
-
-                        return Err(ShellError::SpannedLabeledError(
-                            "Permission denied".into(),
-                            error_msg,
-                            arg.span,
-                        ));
-                    }
-
-                    if is_empty_dir(&path) {
-                        return Ok(PipelineData::new(call_span));
-                    }
-
-                    (Some(path.clone()), path.join("*"))
-                } else {
-                    (path.parent().map(|parent| parent.to_path_buf()), path)
-                }
-            }
+        let pattern = if let Some(pattern) = pattern_arg {
+            pattern
         } else {
-            (Some(cwd.clone()), cwd.join("*"))
+            Spanned {
+                item: cwd.join("*").to_string_lossy().to_string(),
+                span: call_span,
+            }
         };
 
-        let pattern = pattern.to_string_lossy().to_string();
+        let (prefix, glob) = nu_engine::glob_from(&pattern, &cwd, call_span)?;
 
-        let glob = glob::glob(&pattern).map_err(|err| {
-            nu_protocol::ShellError::SpannedLabeledError(
-                "Error extracting glob pattern".into(),
-                err.to_string(),
-                call.head,
-            )
-        })?;
-
-        let hidden_dir_specified = is_hidden_dir(&pattern);
+        let hidden_dir_specified = is_hidden_dir(&pattern.item);
         let mut hidden_dirs = vec![];
 
         Ok(glob
@@ -218,13 +153,6 @@ impl Command for Ls {
     }
 }
 
-fn permission_denied(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
-        Ok(_) => false,
-    }
-}
-
 fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     #[cfg(windows)]
     {
@@ -245,13 +173,6 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
             .file_name()
             .map(|name| name.to_string_lossy().starts_with('.'))
             .unwrap_or(false)
-    }
-}
-
-fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
-    match dir.as_ref().read_dir() {
-        Err(_) => true,
-        Ok(mut s) => s.next().is_none(),
     }
 }
 

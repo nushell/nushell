@@ -1999,6 +1999,7 @@ name = "nu-engine"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "glob",
  "itertools",
  "nu-path",
  "nu-protocol",

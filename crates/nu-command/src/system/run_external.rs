@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use std::process::{Command as CommandSys, Stdio};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -7,11 +8,12 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{ByteStream, Category, Config, PipelineData, Spanned};
+use nu_protocol::{ByteStream, Category, Config, PipelineData, Span, Spanned};
 
 use itertools::Itertools;
 
 use nu_engine::CallExt;
+use pathdiff::diff_paths;
 use regex::Regex;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
@@ -57,13 +59,19 @@ impl Command for External {
         let mut args_strs = vec![];
 
         for arg in args {
+            let span = if let Ok(span) = arg.span() {
+                span
+            } else {
+                Span { start: 0, end: 0 }
+            };
+
             if let Ok(s) = arg.as_string() {
-                args_strs.push(s);
-            } else if let Value::List { vals, .. } = arg {
+                args_strs.push(Spanned { item: s, span });
+            } else if let Value::List { vals, span } = arg {
                 // Interpret a list as a series of arguments
                 for val in vals {
                     if let Ok(s) = val.as_string() {
-                        args_strs.push(s);
+                        args_strs.push(Spanned { item: s, span });
                     } else {
                         return Err(ShellError::ExternalCommand(
                             "Cannot convert argument to a string".into(),
@@ -95,7 +103,7 @@ impl Command for External {
 
 pub struct ExternalCommand<'call> {
     pub name: Spanned<String>,
-    pub args: Vec<String>,
+    pub args: Vec<Spanned<String>>,
     pub last_expression: bool,
     pub env_vars: HashMap<String, String>,
     pub call: &'call Call,
@@ -113,7 +121,7 @@ impl<'call> ExternalCommand<'call> {
         let ctrlc = engine_state.ctrlc.clone();
 
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
-            let mut process = self.create_command(d);
+            let mut process = self.create_command(d)?;
             process.current_dir(d);
             process
         } else {
@@ -248,26 +256,26 @@ impl<'call> ExternalCommand<'call> {
         }
     }
 
-    fn create_command(&self, cwd: &str) -> CommandSys {
+    fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
         // in all the other cases shell out
         if cfg!(windows) {
             //TODO. This should be modifiable from the config file.
             // We could give the option to call from powershell
             // for minimal builds cwd is unused
             if self.name.item.ends_with(".cmd") || self.name.item.ends_with(".bat") {
-                self.spawn_cmd_command()
+                Ok(self.spawn_cmd_command())
             } else {
                 self.spawn_simple_command(cwd)
             }
         } else if self.name.item.ends_with(".sh") {
-            self.spawn_sh_command()
+            Ok(self.spawn_sh_command())
         } else {
             self.spawn_simple_command(cwd)
         }
     }
 
     /// Spawn a command without shelling out to an external shell
-    fn spawn_simple_command(&self, cwd: &str) -> std::process::Command {
+    fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
         let head = trim_enclosing_quotes(&self.name.item);
         let head = if head.starts_with('~') || head.starts_with("..") {
             nu_path::expand_path_with(head, cwd)
@@ -293,32 +301,92 @@ impl<'call> ExternalCommand<'call> {
 
         let mut process = std::process::Command::new(&new_head);
 
-        for arg in &self.args {
-            let arg = trim_enclosing_quotes(arg);
-            let arg = if arg.starts_with('~') || arg.starts_with("..") {
-                nu_path::expand_path_with(arg, cwd)
-                    .to_string_lossy()
-                    .to_string()
-            } else {
-                arg
+        for arg in self.args.iter() {
+            let arg = Spanned {
+                item: trim_enclosing_quotes(&arg.item),
+                span: arg.span,
             };
 
-            let new_arg;
+            let cwd = PathBuf::from(cwd);
 
-            #[cfg(windows)]
-            {
-                new_arg = arg.replace("\\", "\\\\");
+            if arg.item.contains('*') {
+                if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, self.name.span) {
+                    let matches: Vec<_> = matches.collect();
+
+                    // Following shells like bash, if we can't expand a glob pattern, we don't assume an empty arg
+                    // Instead, we throw an error. This helps prevent issues with things like `ls unknowndir/*` accidentally
+                    // listening the current directory.
+                    if matches.is_empty() {
+                        return Err(ShellError::FileNotFoundCustom(
+                            "pattern not found".to_string(),
+                            arg.span,
+                        ));
+                    }
+                    for m in matches {
+                        if let Ok(arg) = m {
+                            let arg = if let Some(prefix) = &prefix {
+                                if let Ok(remainder) = arg.strip_prefix(&prefix) {
+                                    let new_prefix = if let Some(pfx) = diff_paths(&prefix, &cwd) {
+                                        pfx
+                                    } else {
+                                        prefix.to_path_buf()
+                                    };
+
+                                    new_prefix.join(remainder).to_string_lossy().to_string()
+                                } else {
+                                    arg.to_string_lossy().to_string()
+                                }
+                            } else {
+                                arg.to_string_lossy().to_string()
+                            };
+                            let new_arg;
+
+                            #[cfg(windows)]
+                            {
+                                new_arg = arg.replace("\\", "\\\\");
+                            }
+
+                            #[cfg(not(windows))]
+                            {
+                                new_arg = arg;
+                            }
+
+                            process.arg(&new_arg);
+                        } else {
+                            let new_arg;
+
+                            #[cfg(windows)]
+                            {
+                                new_arg = arg.item.replace("\\", "\\\\");
+                            }
+
+                            #[cfg(not(windows))]
+                            {
+                                new_arg = arg.item.clone();
+                            }
+
+                            process.arg(&new_arg);
+                        }
+                    }
+                }
+            } else {
+                let new_arg;
+
+                #[cfg(windows)]
+                {
+                    new_arg = arg.item.replace("\\", "\\\\");
+                }
+
+                #[cfg(not(windows))]
+                {
+                    new_arg = arg.item;
+                }
+
+                process.arg(&new_arg);
             }
-
-            #[cfg(not(windows))]
-            {
-                new_arg = arg;
-            }
-
-            process.arg(&new_arg);
         }
 
-        process
+        Ok(process)
     }
 
     /// Spawn a cmd command with `cmd /c args...`
@@ -330,7 +398,7 @@ impl<'call> ExternalCommand<'call> {
             // Clean the args before we use them:
             // https://stackoverflow.com/questions/1200235/how-to-pass-a-quoted-pipe-character-to-cmd-exe
             // cmd.exe needs to have a caret to escape a pipe
-            let arg = arg.replace("|", "^|");
+            let arg = arg.item.replace("|", "^|");
             process.arg(&arg);
         }
         process
@@ -338,8 +406,11 @@ impl<'call> ExternalCommand<'call> {
 
     /// Spawn a sh command with `sh -c args...`
     fn spawn_sh_command(&self) -> std::process::Command {
-        let joined_and_escaped_arguments =
-            self.args.iter().map(|arg| shell_arg_escape(arg)).join(" ");
+        let joined_and_escaped_arguments = self
+            .args
+            .iter()
+            .map(|arg| shell_arg_escape(&arg.item))
+            .join(" ");
         let cmd_with_args = vec![self.name.item.clone(), joined_and_escaped_arguments].join(" ");
         let mut process = std::process::Command::new("sh");
         process.arg("-c").arg(cmd_with_args);
