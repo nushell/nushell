@@ -91,6 +91,11 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
     NushellFailed(String),
 
+    // Only use this one if we Nushell completely falls over and hits a state that isn't possible or isn't recoverable
+    #[error("Nushell failed: {0}.")]
+    #[diagnostic(code(nu::shell::nushell_failed), url(docsrs))]
+    NushellFailedSpanned(String, String, #[label = "{1}"] Span),
+
     #[error("Variable not found")]
     #[diagnostic(code(nu::shell::variable_not_found), url(docsrs))]
     VariableNotFoundAtRuntime(#[label = "variable not found"] Span),

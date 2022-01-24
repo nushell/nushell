@@ -72,6 +72,7 @@ impl Command for Merge {
         let block: CaptureBlock = call.req(engine_state, stack, 0)?;
         let mut stack = stack.captures_to_stack(&block.captures);
 
+        let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let block = engine_state.get_block(block.block_id);
         let call = call.clone();
@@ -96,25 +97,33 @@ impl Command for Merge {
             ) => {
                 let mut table_iter = table.into_iter();
 
-                Ok(input
-                    .into_iter()
-                    .map(move |inp| match (inp.as_record(), table_iter.next()) {
-                        (Ok((inp_cols, inp_vals)), Some(to_merge)) => match to_merge.as_record() {
-                            Ok((to_merge_cols, to_merge_vals)) => {
-                                let cols = [inp_cols, to_merge_cols].concat();
-                                let vals = [inp_vals, to_merge_vals].concat();
-                                Value::Record {
-                                    cols,
-                                    vals,
-                                    span: call.head,
+                let res =
+                    input
+                        .into_iter()
+                        .map(move |inp| match (inp.as_record(), table_iter.next()) {
+                            (Ok((inp_cols, inp_vals)), Some(to_merge)) => {
+                                match to_merge.as_record() {
+                                    Ok((to_merge_cols, to_merge_vals)) => {
+                                        let cols = [inp_cols, to_merge_cols].concat();
+                                        let vals = [inp_vals, to_merge_vals].concat();
+                                        Value::Record {
+                                            cols,
+                                            vals,
+                                            span: call.head,
+                                        }
+                                    }
+                                    Err(error) => Value::Error { error },
                                 }
                             }
-                            Err(error) => Value::Error { error },
-                        },
-                        (_, None) => inp,
-                        (Err(error), _) => Value::Error { error },
-                    })
-                    .into_pipeline_data(ctrlc))
+                            (_, None) => inp,
+                            (Err(error), _) => Value::Error { error },
+                        });
+
+                if let Some(md) = metadata {
+                    Ok(res.into_pipeline_data_with_metadata(md, ctrlc))
+                } else {
+                    Ok(res.into_pipeline_data(ctrlc))
+                }
             }
             // record
             (
@@ -169,20 +178,6 @@ impl Command for Merge {
         }
     }
 }
-
-/*
-fn merge_values(
-left: &UntaggedValue,
-right: &UntaggedValue,
-) -> Result<UntaggedValue, (&'static str, &'static str)> {
-match (left, right) {
-(UntaggedValue::Row(columns), UntaggedValue::Row(columns_b)) => {
-Ok(UntaggedValue::Row(columns.merge_from(columns_b)))
-}
-(left, right) => Err((left.type_name(), right.type_name())),
-}
-}
-*/
 
 #[cfg(test)]
 mod test {
