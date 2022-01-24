@@ -2,7 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{CaptureBlock, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -87,9 +88,9 @@ impl Command for Find {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
+        let metadata = input.metadata();
 
         match call.get_flag::<CaptureBlock>(&engine_state, stack, "predicate")? {
             Some(predicate) => {
@@ -114,17 +115,22 @@ impl Command for Find {
                             stack.add_var(var_id, value.clone());
                         }
 
-                        eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))
-                            .map_or(false, |pipeline_data| {
-                                pipeline_data.into_value(span).is_true()
-                            })
+                        eval_block(
+                            &engine_state,
+                            &mut stack,
+                            &block,
+                            PipelineData::new_with_metadata(metadata.clone(), span),
+                        )
+                        .map_or(false, |pipeline_data| {
+                            pipeline_data.into_value(span).is_true()
+                        })
                     },
                     ctrlc,
                 )
             }
             None => {
                 let terms = call.rest::<Value>(&engine_state, stack, 0)?;
-                input.filter(
+                let pipe = input.filter(
                     move |value| {
                         terms.iter().any(|term| match value {
                             Value::Bool { .. }
@@ -152,7 +158,13 @@ impl Command for Find {
                         })
                     },
                     ctrlc,
-                )
+                )?;
+                match metadata {
+                    Some(m) => {
+                        Ok(pipe.into_pipeline_data_with_metadata(m, engine_state.ctrlc.clone()))
+                    }
+                    None => Ok(pipe),
+                }
             }
         }
     }

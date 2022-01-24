@@ -56,6 +56,10 @@ impl PipelineData {
         PipelineData::Value(Value::Nothing { span }, None)
     }
 
+    pub fn new_with_metadata(metadata: Option<PipelineMetadata>, span: Span) -> PipelineData {
+        PipelineData::Value(Value::Nothing { span }, metadata)
+    }
+
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         match self {
             PipelineData::ListStream(_, x) => x.clone(),
