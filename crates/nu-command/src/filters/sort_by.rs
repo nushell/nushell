@@ -1,3 +1,4 @@
+use nu_engine::column::column_does_not_exist;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -101,10 +102,19 @@ impl Command for SortBy {
 pub fn sort(vec: &mut [Value], columns: Vec<String>, call: &Call) -> Result<(), ShellError> {
     match &vec[0] {
         Value::Record {
-            cols: _cols,
+            cols,
             vals: _input_vals,
             ..
         } => {
+            if columns.is_empty() {
+                println!("sort-by requires a column name to sort table data");
+                return Err(ShellError::CantFindColumn(call.head, call.head));
+            }
+
+            if column_does_not_exist(columns.clone(), cols.to_vec()) {
+                return Err(ShellError::CantFindColumn(call.head, call.head));
+            }
+
             vec.sort_by(|a, b| {
                 process(a, b, &columns[0], call)
                     .expect("sort_by Value::Record bug")
