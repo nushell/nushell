@@ -86,16 +86,11 @@ fn zip<'a>(
 ) -> Result<Box<dyn Iterator<Item = Value> + 'a + Sync + Send>, ShellError> {
     Ok(Box::new(l.zip(r?).map(move |(s1, s2)| match (s1, s2) {
         (
-            left_row
-            @
-            Value {
+            left_row @ Value {
                 value: UntaggedValue::Row(_),
                 ..
             },
-            mut
-            right_row
-            @
-            Value {
+            mut right_row @ Value {
                 value: UntaggedValue::Row(_),
                 ..
             },
