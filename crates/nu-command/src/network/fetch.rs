@@ -9,6 +9,7 @@ use nu_protocol::{
 };
 use reqwest::blocking::Response;
 
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use reqwest::StatusCode;
@@ -45,6 +46,7 @@ impl Command for SubCommand {
                 Some('p'),
             )
             .named("timeout", SyntaxShape::Int, "timeout period in seconds", Some('t'))
+            .named("headers",SyntaxShape::Any, "custom headers you want to add ", Some('H'))
             .switch("raw", "fetch contents as text rather than a table", Some('r'))
             .filter()
             .category(Category::Network)
@@ -76,6 +78,11 @@ impl Command for SubCommand {
                 example: "fetch -u myuser -p mypass url.com",
                 result: None,
             },
+            Example {
+                description: "Fetch content from url.com, with custom header",
+                example: "fetch -H [my-header-key my-header-value] url.com",
+                result: None,
+            },
         ]
     }
 }
@@ -86,6 +93,7 @@ struct Arguments {
     user: Option<String>,
     password: Option<String>,
     timeout: Option<Value>,
+    headers: Option<Value>,
 }
 
 fn run_fetch(
@@ -100,6 +108,7 @@ fn run_fetch(
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "timeout")?,
+        headers: call.get_flag(engine_state, stack, "headers")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -136,6 +145,7 @@ fn helper(
     let user = args.user.clone();
     let password = args.password;
     let timeout = args.timeout;
+    let headers = args.headers;
     let raw = args.raw;
     let login = match (user, password) {
         (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
@@ -160,6 +170,54 @@ fn helper(
 
     if let Some(login) = login {
         request = request.header("Authorization", format!("Basic {}", login));
+    }
+
+    if let Some(headers) = headers {
+        let mut custom_headers: HashMap<String, Value> = HashMap::new();
+
+        match &headers {
+            Value::List { vals: table, .. } => {
+                if table.len() == 1 {
+                    // single row([key1 key2]; [val1 val2])
+                    match &table[0] {
+                        Value::Record { cols, vals, .. } => {
+                            for (k, v) in cols.iter().zip(vals.iter()) {
+                                custom_headers.insert(k.to_string(), v.clone());
+                            }
+                        }
+
+                        x => {
+                            return Err(ShellError::CantConvert(
+                                "string list or single row".into(),
+                                x.get_type().to_string(),
+                                headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                            ));
+                        }
+                    }
+                } else {
+                    // primitive values ([key1 val1 key2 val2])
+                    for row in table.chunks(2) {
+                        if row.len() == 2 {
+                            custom_headers.insert(row[0].as_string()?, (&row[1]).clone());
+                        }
+                    }
+                }
+            }
+
+            x => {
+                return Err(ShellError::CantConvert(
+                    "string list or single row".into(),
+                    x.get_type().to_string(),
+                    headers.span().unwrap_or_else(|_| Span::new(0, 0)),
+                ));
+            }
+        };
+
+        for (k, v) in &custom_headers {
+            if let Ok(s) = v.as_string() {
+                request = request.header(k, s);
+            }
+        }
     }
 
     match request.send() {
