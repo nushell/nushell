@@ -1,8 +1,0 @@
-#! /bin/bash
-
-if [ "$1" = configure ] && which add-shell >/dev/null
-then
-    add-shell /usr/bin/nu
-fi
-
-exit 0
