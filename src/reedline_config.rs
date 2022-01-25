@@ -3,10 +3,10 @@ use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ContextMenuInput, EditCommand, Keybindings, ReedlineEvent,
+    ContextMenuInput, EditCommand, HistoryMenuInput, Keybindings, ReedlineEvent,
 };
 
-// This creates an input object for the context menu based on the dictionary
+// Creates an input object for the context menu based on the dictionary
 // stored in the config variable
 pub(crate) fn create_menu_input(config: &Config) -> ContextMenuInput {
     let mut input = ContextMenuInput::default();
@@ -58,6 +58,52 @@ pub(crate) fn create_menu_input(config: &Config) -> ContextMenuInput {
     input
 }
 
+// Creates an input object for the history menu based on the dictionary
+// stored in the config variable
+pub(crate) fn create_history_input(config: &Config) -> HistoryMenuInput {
+    let mut input = HistoryMenuInput::default();
+
+    input = match config
+        .history_config
+        .get("page_size")
+        .and_then(|value| value.as_integer().ok())
+    {
+        Some(value) => input.with_page_size(value as usize),
+        None => input,
+    };
+
+    input = match config
+        .history_config
+        .get("selector")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => {
+            let char = value.chars().next().unwrap_or(':');
+            input.with_row_char(char)
+        }
+        None => input,
+    };
+
+    input = match config
+        .history_config
+        .get("text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => input.with_text_style(lookup_ansi_color_style(&value)),
+        None => input,
+    };
+
+    input = match config
+        .history_config
+        .get("selected_text_style")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => input.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => input,
+    };
+
+    input
+}
 pub enum KeybindingsMode {
     Emacs(Keybindings),
     Vi {
@@ -215,6 +261,11 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     "menuright" => ReedlineEvent::MenuRight,
                     "menunext" => ReedlineEvent::MenuNext,
                     "menuprevious" => ReedlineEvent::MenuPrevious,
+                    "historymenu" => ReedlineEvent::HistoryMenu,
+                    "historymenunext" => ReedlineEvent::HistoryMenuNext,
+                    "historymenuprevious" => ReedlineEvent::HistoryMenuPrevious,
+                    "historypagenext" => ReedlineEvent::HistoryPageNext,
+                    "historypageprevious" => ReedlineEvent::HistoryPagePrevious,
 
                     // TODO: add ReedlineEvent::Mouse
                     // TODO: add ReedlineEvent::Resize

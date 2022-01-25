@@ -119,7 +119,8 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
             .with_menu_completer(
                 Box::new(NuCompleter::new(engine_state.clone())),
                 reedline_config::create_menu_input(&config),
-            );
+            )
+            .with_history_menu(reedline_config::create_history_input(&config));
 
         //FIXME: if config.use_ansi_coloring is false then we should
         // turn off the hinter but I don't see any way to do that yet.

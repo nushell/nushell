@@ -17,6 +17,7 @@ pub struct NushellPrompt {
     default_vi_visual_prompt_indicator: String,
     default_menu_prompt_indicator: String,
     default_multiline_indicator: String,
+    default_history_prompt_indicator: String,
 }
 
 impl Default for NushellPrompt {
@@ -35,6 +36,7 @@ impl NushellPrompt {
             default_vi_visual_prompt_indicator: "v ".to_string(),
             default_menu_prompt_indicator: "| ".to_string(),
             default_multiline_indicator: "::: ".to_string(),
+            default_history_prompt_indicator: "? ".to_string(),
         }
     }
 
@@ -67,11 +69,12 @@ impl NushellPrompt {
         left_prompt_string: Option<String>,
         right_prompt_string: Option<String>,
         prompt_indicator_string: String,
-        prompt_indicator_menu: String,
         prompt_multiline_indicator_string: String,
         prompt_vi: (String, String),
+        prompt_menus: (String, String),
     ) {
         let (prompt_vi_insert_string, prompt_vi_visual_string) = prompt_vi;
+        let (prompt_indicator_menu, prompt_history_indicator_menu) = prompt_menus;
 
         self.left_prompt_string = left_prompt_string;
         self.right_prompt_string = right_prompt_string;
@@ -79,7 +82,9 @@ impl NushellPrompt {
         self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
         self.default_vi_visual_prompt_indicator = prompt_vi_visual_string;
         self.default_multiline_indicator = prompt_multiline_indicator_string;
+
         self.default_menu_prompt_indicator = prompt_indicator_menu;
+        self.default_history_prompt_indicator = prompt_history_indicator_menu;
     }
 
     fn default_wrapped_custom_string(&self, str: String) -> String {
@@ -117,6 +122,7 @@ impl Prompt for NushellPrompt {
             },
             PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
             PromptEditMode::Menu => self.default_menu_prompt_indicator.as_str().into(),
+            PromptEditMode::HistoryMenu => self.default_history_prompt_indicator.as_str().into(),
         }
     }
 

@@ -65,6 +65,7 @@ pub struct Config {
     pub log_level: String,
     pub menu_config: HashMap<String, Value>,
     pub keybindings: Vec<ParsedKeybinding>,
+    pub history_config: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -86,6 +87,7 @@ impl Default for Config {
             log_level: String::new(),
             menu_config: HashMap::new(),
             keybindings: Vec::new(),
+            history_config: HashMap::new(),
         }
     }
 }
@@ -241,6 +243,13 @@ impl Value {
                             config.keybindings = keybindings;
                         } else {
                             eprintln!("$config.keybindings is not a valid keybindings list")
+                        }
+                    }
+                    "history_config" => {
+                        if let Ok(map) = create_map(value, &config) {
+                            config.history_config = map;
+                        } else {
+                            eprintln!("$config.history_config is not a record")
                         }
                     }
                     x => {
