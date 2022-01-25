@@ -166,10 +166,18 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
                 }
                 pairs
             };
+
             for (column, value) in records_iterator {
                 let column_requested = columns.iter().find(|c| c.into_string() == *column);
 
                 match value {
+                    Value::Record {
+                        cols,
+                        vals,
+                        span: _,
+                    } => cols.iter().enumerate().for_each(|(idx, column)| {
+                        out.insert(column.to_string(), vals[idx].clone());
+                    }),
                     Value::List { vals, span: _ } if vals.iter().all(|f| f.as_record().is_ok()) => {
                         let mut cs = vec![];
                         let mut vs = vec![];
