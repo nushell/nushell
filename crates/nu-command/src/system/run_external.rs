@@ -302,9 +302,16 @@ impl<'call> ExternalCommand<'call> {
         let mut process = std::process::Command::new(&new_head);
 
         for arg in self.args.iter() {
-            let arg = Spanned {
+            let mut arg = Spanned {
                 item: trim_enclosing_quotes(&arg.item),
                 span: arg.span,
+            };
+            arg.item = if arg.item.starts_with('~') || arg.item.starts_with("..") {
+                nu_path::expand_path_with(&arg.item, cwd)
+                    .to_string_lossy()
+                    .to_string()
+            } else {
+                arg.item
             };
 
             let cwd = PathBuf::from(cwd);
