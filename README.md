@@ -37,10 +37,6 @@ We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https
 
 You can also find information on more specific topics in our [cookbook](https://www.nushell.sh/cookbook/).
 
-Try it in Gitpod.
-
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
-
 ## Installation
 
 ### Local
@@ -113,12 +109,11 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
  0 │ assets │ Dir  │ 128 B │ 5 months ago
  1 │ crates │ Dir  │ 704 B │ 50 mins ago
  2 │ debian │ Dir  │ 352 B │ 5 months ago
- 3 │ docker │ Dir  │ 288 B │ 3 months ago
- 4 │ docs   │ Dir  │ 192 B │ 50 mins ago
- 5 │ images │ Dir  │ 160 B │ 5 months ago
- 6 │ src    │ Dir  │ 128 B │ 1 day ago
- 7 │ target │ Dir  │ 160 B │ 5 days ago
- 8 │ tests  │ Dir  │ 192 B │ 3 months ago
+ 3 │ docs   │ Dir  │ 192 B │ 50 mins ago
+ 4 │ images │ Dir  │ 160 B │ 5 months ago
+ 5 │ src    │ Dir  │ 128 B │ 1 day ago
+ 6 │ target │ Dir  │ 160 B │ 5 days ago
+ 7 │ tests  │ Dir  │ 192 B │ 3 months ago
 ───┴────────┴──────┴───────┴──────────────
 ```
 
