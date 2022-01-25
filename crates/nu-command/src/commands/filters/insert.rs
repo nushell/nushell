@@ -112,9 +112,7 @@ fn process_row(
                     };
 
                     match input {
-                        obj
-                        @
-                        Value {
+                        obj @ Value {
                             value: UntaggedValue::Row(_),
                             ..
                         } => match obj.insert_data_at_column_path(&field, result) {

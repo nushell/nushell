@@ -573,9 +573,7 @@ impl Value {
                 value: UntaggedValue::Table(rows),
                 ..
             } => rows.is_empty(),
-            r
-            @
-            Value {
+            r @ Value {
                 value: UntaggedValue::Row(_),
                 ..
             } => r.row_entries().all(|(_, value)| value.is_empty()),
