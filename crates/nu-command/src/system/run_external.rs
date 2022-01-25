@@ -95,21 +95,19 @@ impl Command for External {
             args: args_strs,
             last_expression,
             env_vars: env_vars_str,
-            call,
         };
         command.run_with_input(engine_state, input, config)
     }
 }
 
-pub struct ExternalCommand<'call> {
+pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
     pub last_expression: bool,
     pub env_vars: HashMap<String, String>,
-    pub call: &'call Call,
 }
 
-impl<'call> ExternalCommand<'call> {
+impl ExternalCommand {
     pub fn run_with_input(
         &self,
         engine_state: &EngineState,
@@ -275,7 +273,7 @@ impl<'call> ExternalCommand<'call> {
     }
 
     /// Spawn a command without shelling out to an external shell
-    fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
+    pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
         let head = trim_enclosing_quotes(&self.name.item);
         let head = if head.starts_with('~') || head.starts_with("..") {
             nu_path::expand_path_with(head, cwd)
@@ -397,7 +395,7 @@ impl<'call> ExternalCommand<'call> {
     }
 
     /// Spawn a cmd command with `cmd /c args...`
-    fn spawn_cmd_command(&self) -> std::process::Command {
+    pub fn spawn_cmd_command(&self) -> std::process::Command {
         let mut process = std::process::Command::new("cmd");
         process.arg("/c");
         process.arg(&self.name.item);
@@ -412,7 +410,7 @@ impl<'call> ExternalCommand<'call> {
     }
 
     /// Spawn a sh command with `sh -c args...`
-    fn spawn_sh_command(&self) -> std::process::Command {
+    pub fn spawn_sh_command(&self) -> std::process::Command {
         let joined_and_escaped_arguments = self
             .args
             .iter()
