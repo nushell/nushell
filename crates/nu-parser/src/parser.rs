@@ -3610,7 +3610,8 @@ pub fn parse_block(
     let block: Block = lite_block
         .block
         .iter()
-        .map(|pipeline| {
+        .enumerate()
+        .map(|(idx, pipeline)| {
             if pipeline.commands.len() > 1 {
                 let mut output = pipeline
                     .commands
@@ -3636,7 +3637,42 @@ pub fn parse_block(
                     expressions: output,
                 })
             } else {
-                let (stmt, err) = parse_statement(working_set, &pipeline.commands[0]);
+                let (mut stmt, err) = parse_statement(working_set, &pipeline.commands[0]);
+
+                if idx == 0 {
+                    if let Some(let_decl_id) = working_set.find_decl(b"let") {
+                        if let Some(let_env_decl_id) = working_set.find_decl(b"let-env") {
+                            if let Statement::Pipeline(pipeline) = &mut stmt {
+                                for expr in pipeline.expressions.iter_mut() {
+                                    if let Expression {
+                                        expr: Expr::Call(call),
+                                        ..
+                                    } = expr
+                                    {
+                                        if call.decl_id == let_decl_id
+                                            || call.decl_id == let_env_decl_id
+                                        {
+                                            // Do an expansion
+                                            if let Some(Expression {
+                                                expr: Expr::Keyword(_, _, expr),
+                                                ..
+                                            }) = call.positional.get_mut(1)
+                                            {
+                                                if expr.has_in_variable(working_set) {
+                                                    *expr = Box::new(wrap_expr_with_collect(
+                                                        working_set,
+                                                        expr,
+                                                    ));
+                                                }
+                                            }
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if error.is_none() {
                     error = err;
