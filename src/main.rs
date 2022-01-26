@@ -1,3 +1,4 @@
+mod commands;
 mod config_files;
 mod eval_file;
 mod logger;
@@ -75,9 +76,17 @@ fn main() -> Result<()> {
     let mut collect_arg_nushell = false;
     for arg in std::env::args().skip(1) {
         if !script_name.is_empty() {
-            args_to_script.push(arg);
+            args_to_script.push(if arg.contains(' ') {
+                format!("'{}'", arg)
+            } else {
+                arg
+            });
         } else if collect_arg_nushell {
-            args_to_nushell.push(arg);
+            args_to_nushell.push(if arg.contains(' ') {
+                format!("'{}'", arg)
+            } else {
+                arg
+            });
             collect_arg_nushell = false;
         } else if arg.starts_with('-') {
             // Cool, it's a flag
@@ -106,23 +115,25 @@ fn main() -> Result<()> {
 
     match nushell_config {
         Ok(nushell_config) => {
-            if !script_name.is_empty() {
-                let input = if let Some(redirect_stdin) = &nushell_config.redirect_stdin {
-                    let stdin = std::io::stdin();
-                    let buf_reader = BufReader::new(stdin);
+            let input = if let Some(redirect_stdin) = &nushell_config.redirect_stdin {
+                let stdin = std::io::stdin();
+                let buf_reader = BufReader::new(stdin);
 
-                    PipelineData::ByteStream(
-                        ByteStream {
-                            stream: Box::new(BufferedReader::new(buf_reader)),
-                            ctrlc: Some(ctrlc),
-                        },
-                        redirect_stdin.span,
-                        None,
-                    )
-                } else {
-                    PipelineData::new(Span::new(0, 0))
-                };
+                PipelineData::ByteStream(
+                    ByteStream {
+                        stream: Box::new(BufferedReader::new(buf_reader)),
+                        ctrlc: Some(ctrlc),
+                    },
+                    redirect_stdin.span,
+                    None,
+                )
+            } else {
+                PipelineData::new(Span::new(0, 0))
+            };
 
+            if let Some(commands) = &nushell_config.commands {
+                commands::evaluate(commands, &init_cwd, &mut engine_state, input)
+            } else if !script_name.is_empty() && nushell_config.interactive_shell.is_none() {
                 eval_file::evaluate(
                     script_name,
                     &args_to_script,
@@ -131,7 +142,7 @@ fn main() -> Result<()> {
                     input,
                 )
             } else {
-                repl::evaluate(ctrlc, &mut engine_state)
+                repl::evaluate(&mut engine_state)
             }
         }
         Err(_) => std::process::exit(1),
@@ -178,6 +189,20 @@ fn parse_commandline_args(
         }) = expressions.get(0)
         {
             let redirect_stdin = call.get_named_arg("stdin");
+            let login_shell = call.get_named_arg("login");
+            let interactive_shell = call.get_named_arg("interactive");
+            let commands: Option<Expression> = call.get_flag_expr("commands");
+
+            let commands = if let Some(expression) = commands {
+                let contents = engine_state.get_span_contents(&expression.span);
+
+                Some(Spanned {
+                    item: String::from_utf8_lossy(contents).to_string(),
+                    span: expression.span,
+                })
+            } else {
+                None
+            };
 
             let help = call.has_flag("help");
 
@@ -188,7 +213,12 @@ fn parse_commandline_args(
                 std::process::exit(1);
             }
 
-            return Ok(NushellConfig { redirect_stdin });
+            return Ok(NushellConfig {
+                redirect_stdin,
+                login_shell,
+                interactive_shell,
+                commands,
+            });
         }
     }
 
@@ -200,6 +230,10 @@ fn parse_commandline_args(
 
 struct NushellConfig {
     redirect_stdin: Option<Spanned<String>>,
+    #[allow(dead_code)]
+    login_shell: Option<Spanned<String>>,
+    interactive_shell: Option<Spanned<String>>,
+    commands: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -214,6 +248,14 @@ impl Command for Nu {
         Signature::build("nu")
             .desc("The nushell language and shell.")
             .switch("stdin", "redirect the stdin", None)
+            .switch("login", "start as a login shell", Some('l'))
+            .switch("interactive", "start as an interactive shell", Some('i'))
+            .named(
+                "commands",
+                SyntaxShape::String,
+                "run the given commands and then exit",
+                Some('c'),
+            )
             .optional(
                 "script file",
                 SyntaxShape::Filepath,

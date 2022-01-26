@@ -1,10 +1,4 @@
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Instant,
-};
+use std::{sync::atomic::Ordering, time::Instant};
 
 use crate::{config_files, prompt_update, reedline_config};
 use crate::{
@@ -23,7 +17,7 @@ use nu_protocol::{
 };
 use reedline::{DefaultHinter, Emacs, Vi};
 
-pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -> Result<()> {
+pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
     use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
 
@@ -97,7 +91,9 @@ pub(crate) fn evaluate(ctrlc: Arc<AtomicBool>, engine_state: &mut EngineState) -
         };
 
         //Reset the ctrl-c handler
-        ctrlc.store(false, Ordering::SeqCst);
+        if let Some(ctrlc) = &mut engine_state.ctrlc {
+            ctrlc.store(false, Ordering::SeqCst);
+        }
 
         let line_editor = Reedline::create()
             .into_diagnostic()?

@@ -206,7 +206,10 @@ pub fn get_documentation(
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
-            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.desc));
+            long_desc.push_str(&format!(
+                "  ...{}: {}\n",
+                rest_positional.name, rest_positional.desc
+            ));
         }
     }
 
@@ -267,7 +270,7 @@ fn get_flags_section(signature: &Signature) -> String {
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  -{}{} (required parameter) {:?} {}\n",
+                        "  -{}{} (required parameter) {:?}\n      {}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!(", --{}", flag.long)
@@ -279,7 +282,7 @@ fn get_flags_section(signature: &Signature) -> String {
                     )
                 } else {
                     format!(
-                        "  -{}{} {:?} {}\n",
+                        "  -{}{} <{:?}>\n      {}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!(", --{}", flag.long)
@@ -292,16 +295,16 @@ fn get_flags_section(signature: &Signature) -> String {
                 }
             } else if flag.required {
                 format!(
-                    "  --{} (required parameter) {:?} {}\n",
+                    "  --{} (required parameter) <{:?}>\n      {}\n",
                     flag.long, arg, flag.desc
                 )
             } else {
-                format!("  --{} {:?} {}\n", flag.long, arg, flag.desc)
+                format!("  --{} {:?}\n      {}\n", flag.long, arg, flag.desc)
             }
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  -{}{} (required parameter) {}\n",
+                    "  -{}{} (required parameter)\n      {}\n",
                     short,
                     if !flag.long.is_empty() {
                         format!(", --{}", flag.long)
@@ -312,7 +315,7 @@ fn get_flags_section(signature: &Signature) -> String {
                 )
             } else {
                 format!(
-                    "  -{}{} {}\n",
+                    "  -{}{}\n      {}\n",
                     short,
                     if !flag.long.is_empty() {
                         format!(", --{}", flag.long)
@@ -323,9 +326,12 @@ fn get_flags_section(signature: &Signature) -> String {
                 )
             }
         } else if flag.required {
-            format!("  --{} (required parameter) {}\n", flag.long, flag.desc)
+            format!(
+                "  --{} (required parameter)\n      {}\n",
+                flag.long, flag.desc
+            )
         } else {
-            format!("  --{} {}\n", flag.long, flag.desc)
+            format!("  --{}\n      {}\n", flag.long, flag.desc)
         };
         long_desc.push_str(&msg);
     }
