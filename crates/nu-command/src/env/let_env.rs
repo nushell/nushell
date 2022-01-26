@@ -1,4 +1,4 @@
-use nu_engine::{current_dir, eval_expression};
+use nu_engine::{current_dir, eval_expression_with_input};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
@@ -31,7 +31,7 @@ impl Command for LetEnv {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let env_var = call.positional[0]
             .as_string()
@@ -41,7 +41,8 @@ impl Command for LetEnv {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression(engine_state, stack, keyword_expr)?;
+        let rhs = eval_expression_with_input(engine_state, stack, keyword_expr, input, false)?
+            .into_value(call.head);
 
         if env_var == "PWD" {
             let cwd = current_dir(engine_state, stack)?;

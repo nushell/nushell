@@ -1,4 +1,4 @@
-use nu_engine::eval_expression;
+use nu_engine::eval_expression_with_input;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
@@ -31,7 +31,7 @@ impl Command for Let {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let var_id = call.positional[0]
             .as_var()
@@ -41,11 +41,11 @@ impl Command for Let {
             .as_keyword()
             .expect("internal error: missing keyword");
 
-        let rhs = eval_expression(engine_state, stack, keyword_expr)?;
+        let rhs = eval_expression_with_input(engine_state, stack, keyword_expr, input, false)?;
 
         //println!("Adding: {:?} to {}", rhs, var_id);
 
-        stack.add_var(var_id, rhs);
+        stack.add_var(var_id, rhs.into_value(call.head));
         Ok(PipelineData::new(call.head))
     }
 

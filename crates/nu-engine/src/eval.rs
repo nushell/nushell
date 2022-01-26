@@ -405,6 +405,48 @@ pub fn eval_expression(
     }
 }
 
+/// Checks the expression to see if it's a internal or external call. If so, passes the input
+/// into the call and gets out the result
+/// Otherwise, invokes the expression
+pub fn eval_expression_with_input(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    expr: &Expression,
+    mut input: PipelineData,
+    last_expression: bool,
+) -> Result<PipelineData, ShellError> {
+    match expr {
+        Expression {
+            expr: Expr::Call(call),
+            ..
+        } => {
+            input = eval_call(engine_state, stack, call, input)?;
+        }
+        Expression {
+            expr: Expr::ExternalCall(head, args),
+            ..
+        } => {
+            input = eval_external(engine_state, stack, head, args, input, last_expression)?;
+        }
+
+        Expression {
+            expr: Expr::Subexpression(block_id),
+            ..
+        } => {
+            let block = engine_state.get_block(*block_id);
+
+            // FIXME: protect this collect with ctrl-c
+            input = eval_subexpression(engine_state, stack, block, input)?;
+        }
+
+        elem => {
+            input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+        }
+    }
+
+    Ok(input)
+}
+
 pub fn eval_block(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -415,31 +457,13 @@ pub fn eval_block(
     for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
         if let Statement::Pipeline(pipeline) = stmt {
             for (i, elem) in pipeline.expressions.iter().enumerate() {
-                match elem {
-                    Expression {
-                        expr: Expr::Call(call),
-                        ..
-                    } => {
-                        input = eval_call(engine_state, stack, call, input)?;
-                    }
-                    Expression {
-                        expr: Expr::ExternalCall(head, args),
-                        ..
-                    } => {
-                        input = eval_external(
-                            engine_state,
-                            stack,
-                            head,
-                            args,
-                            input,
-                            i == pipeline.expressions.len() - 1,
-                        )?;
-                    }
-
-                    elem => {
-                        input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
-                    }
-                }
+                input = eval_expression_with_input(
+                    engine_state,
+                    stack,
+                    elem,
+                    input,
+                    i == pipeline.expressions.len() - 1,
+                )?
             }
         }
 
@@ -511,25 +535,8 @@ pub fn eval_subexpression(
 ) -> Result<PipelineData, ShellError> {
     for stmt in block.stmts.iter() {
         if let Statement::Pipeline(pipeline) = stmt {
-            for elem in pipeline.expressions.iter() {
-                match elem {
-                    Expression {
-                        expr: Expr::Call(call),
-                        ..
-                    } => {
-                        input = eval_call(engine_state, stack, call, input)?;
-                    }
-                    Expression {
-                        expr: Expr::ExternalCall(head, args),
-                        ..
-                    } => {
-                        input = eval_external(engine_state, stack, head, args, input, false)?;
-                    }
-
-                    elem => {
-                        input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
-                    }
-                }
+            for expr in pipeline.expressions.iter() {
+                input = eval_expression_with_input(engine_state, stack, expr, input, false)?
             }
         }
     }

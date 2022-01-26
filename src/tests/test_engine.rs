@@ -166,3 +166,11 @@ fn divide_filesize() -> TestResult {
 fn date_comparison() -> TestResult {
     run_test(r#"(date now) < ((date now) + 2min)"#, "true")
 }
+
+#[test]
+fn let_sees_input() -> TestResult {
+    run_test(
+        r#"def c [] { let x = str length; $x }; "hello world" | c"#,
+        "11",
+    )
+}
