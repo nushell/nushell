@@ -14,7 +14,7 @@ pub use cp::Cp;
 pub use ls::Ls;
 pub use mkdir::Mkdir;
 pub use mv::Mv;
-pub use open::Open;
+pub use open::{BufferedReader, Open};
 pub use rm::Rm;
 pub use save::Save;
 pub use touch::Touch;

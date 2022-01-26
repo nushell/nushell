@@ -279,6 +279,14 @@ impl Signature {
         one_liner.push_str(&self.name);
         one_liner.push(' ');
 
+        // Note: the call signature needs flags first because on the nu commandline,
+        // flags will precede the script file name. Flags for internal commands can come
+        // either before or after (or around) positional parameters, so there isn't a strong
+        // preference, so we default to the more constrained example.
+        if self.named.len() > 1 {
+            one_liner.push_str("{flags} ");
+        }
+
         for positional in &self.required_positional {
             one_liner.push_str(&get_positional_short_name(positional, true));
         }
@@ -286,17 +294,13 @@ impl Signature {
             one_liner.push_str(&get_positional_short_name(positional, false));
         }
 
-        if self.rest_positional.is_some() {
-            one_liner.push_str("...args ");
+        if let Some(rest) = &self.rest_positional {
+            one_liner.push_str(&format!("...{}", get_positional_short_name(rest, false)));
         }
 
         // if !self.subcommands.is_empty() {
         //     one_liner.push_str("<subcommand> ");
         // }
-
-        if !self.named.is_empty() {
-            one_liner.push_str("{flags} ");
-        }
 
         one_liner
     }

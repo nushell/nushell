@@ -184,6 +184,12 @@ pub struct BufferedReader<R: Read> {
     input: BufReader<R>,
 }
 
+impl<R: Read> BufferedReader<R> {
+    pub fn new(input: BufReader<R>) -> Self {
+        Self { input }
+    }
+}
+
 impl<R: Read> Iterator for BufferedReader<R> {
     type Item = Result<Vec<u8>, ShellError>;
 

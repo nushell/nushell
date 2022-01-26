@@ -317,7 +317,7 @@ pub(crate) fn eval_source(
         engine_state,
         stack,
         &block,
-        PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
+        PipelineData::new(Span::new(0, 0)),
     ) {
         Ok(pipeline_data) => {
             if let Err(err) = print_pipeline_data(pipeline_data, engine_state, stack) {

@@ -13,8 +13,10 @@ use crate::utils::{gather_parent_env_vars, report_error};
 /// Main function used when a file path is found as argument for nu
 pub(crate) fn evaluate(
     path: String,
+    args: &[String],
     init_cwd: PathBuf,
     engine_state: &mut EngineState,
+    input: PipelineData,
 ) -> Result<()> {
     // First, set up env vars as strings only
     gather_parent_env_vars(engine_state);
@@ -82,84 +84,71 @@ pub(crate) fn evaluate(
         std::process::exit(1);
     }
 
-    match eval_block(
-        engine_state,
-        &mut stack,
-        &block,
-        PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-    ) {
-        Ok(pipeline_data) => {
-            for item in pipeline_data {
-                if let Value::Error { error } = item {
-                    let working_set = StateWorkingSet::new(engine_state);
+    // Next, let's check if there are any flags we want to pass to the main function
+    if args.is_empty() && engine_state.find_decl(b"main").is_none() {
+        // We don't have a main, so evaluate the whole file
+        match eval_block(engine_state, &mut stack, &block, input) {
+            Ok(pipeline_data) => {
+                for item in pipeline_data {
+                    if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
 
-                    report_error(&working_set, &error);
+                        report_error(&working_set, &error);
 
-                    std::process::exit(1);
-                }
-                println!("{}", item.into_string("\n", &config));
-            }
-
-            // Next, let's check if there are any flags we want to pass to the main function
-            let args: Vec<String> = std::env::args().skip(2).collect();
-
-            if args.is_empty() && engine_state.find_decl(b"main").is_none() {
-                return Ok(());
-            }
-
-            let args = format!("main {}", args.join(" ")).as_bytes().to_vec();
-
-            let (block, delta) = {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let (output, err) = parse(&mut working_set, Some("<cmdline>"), &args, false);
-                if let Some(err) = err {
-                    report_error(&working_set, &err);
-
-                    std::process::exit(1);
-                }
-                (output, working_set.render())
-            };
-
-            let cwd = nu_engine::env::current_dir_str(engine_state, &stack)?;
-
-            if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), &cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &err);
-            }
-
-            match eval_block(
-                engine_state,
-                &mut stack,
-                &block,
-                PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
-            ) {
-                Ok(pipeline_data) => {
-                    for item in pipeline_data {
-                        if let Value::Error { error } = item {
-                            let working_set = StateWorkingSet::new(engine_state);
-
-                            report_error(&working_set, &error);
-
-                            std::process::exit(1);
-                        }
-                        println!("{}", item.into_string("\n", &config));
+                        std::process::exit(1);
                     }
+                    println!("{}", item.into_string("\n", &config));
                 }
-                Err(err) => {
-                    let working_set = StateWorkingSet::new(engine_state);
+            }
+            Err(err) => {
+                let working_set = StateWorkingSet::new(engine_state);
 
-                    report_error(&working_set, &err);
+                report_error(&working_set, &err);
 
-                    std::process::exit(1);
-                }
+                std::process::exit(1);
             }
         }
-        Err(err) => {
+    } else {
+        let args = format!("main {}", args.join(" ")).as_bytes().to_vec();
+
+        let (block, delta) = {
+            let mut working_set = StateWorkingSet::new(engine_state);
+            let (output, err) = parse(&mut working_set, Some("<cmdline>"), &args, false);
+            if let Some(err) = err {
+                report_error(&working_set, &err);
+
+                std::process::exit(1);
+            }
+            (output, working_set.render())
+        };
+
+        let cwd = nu_engine::env::current_dir_str(engine_state, &stack)?;
+
+        if let Err(err) = engine_state.merge_delta(delta, Some(&mut stack), &cwd) {
             let working_set = StateWorkingSet::new(engine_state);
-
             report_error(&working_set, &err);
+        }
 
-            std::process::exit(1);
+        match eval_block(engine_state, &mut stack, &block, input) {
+            Ok(pipeline_data) => {
+                for item in pipeline_data {
+                    if let Value::Error { error } = item {
+                        let working_set = StateWorkingSet::new(engine_state);
+
+                        report_error(&working_set, &error);
+
+                        std::process::exit(1);
+                    }
+                    println!("{}", item.into_string("\n", &config));
+                }
+            }
+            Err(err) => {
+                let working_set = StateWorkingSet::new(engine_state);
+
+                report_error(&working_set, &err);
+
+                std::process::exit(1);
+            }
         }
     }
 

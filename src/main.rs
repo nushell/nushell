@@ -10,11 +10,24 @@ mod utils;
 mod tests;
 
 use miette::Result;
-use nu_command::create_default_context;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use nu_command::{create_default_context, BufferedReader};
+use nu_engine::get_full_help;
+use nu_parser::parse;
+use nu_protocol::{
+    ast::{Call, Expr, Expression, Pipeline, Statement},
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    ByteStream, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
 };
+use std::{
+    io::BufReader,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
+use utils::report_error;
 
 fn main() -> Result<()> {
     // miette::set_panic_hook();
@@ -51,9 +64,199 @@ fn main() -> Result<()> {
     engine_state.ctrlc = Some(engine_state_ctrlc);
     // End ctrl-c protection section
 
-    if let Some(path) = std::env::args().nth(1) {
-        eval_file::evaluate(path, init_cwd, &mut engine_state)
-    } else {
-        repl::evaluate(ctrlc, &mut engine_state)
+    let mut args_to_nushell = vec![];
+    let mut script_name = String::new();
+    let mut args_to_script = vec![];
+
+    // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
+    // then it'll be the script name
+    // then the args to the script
+
+    let mut collect_arg_nushell = false;
+    for arg in std::env::args().skip(1) {
+        if !script_name.is_empty() {
+            args_to_script.push(arg);
+        } else if collect_arg_nushell {
+            args_to_nushell.push(arg);
+            collect_arg_nushell = false;
+        } else if arg.starts_with('-') {
+            // Cool, it's a flag
+            if arg == "-c"
+                || arg == "--commands"
+                || arg == "--develop"
+                || arg == "--debug"
+                || arg == "--loglevel"
+                || arg == "--config-file"
+            {
+                collect_arg_nushell = true;
+            }
+            args_to_nushell.push(arg);
+        } else {
+            // Our script file
+            script_name = arg;
+        }
+    }
+
+    args_to_nushell.insert(0, "nu".into());
+
+    let nushell_commandline_args = args_to_nushell.join(" ");
+
+    let nushell_config =
+        parse_commandline_args(&nushell_commandline_args, &init_cwd, &mut engine_state);
+
+    match nushell_config {
+        Ok(nushell_config) => {
+            if !script_name.is_empty() {
+                let input = if let Some(redirect_stdin) = &nushell_config.redirect_stdin {
+                    let stdin = std::io::stdin();
+                    let buf_reader = BufReader::new(stdin);
+
+                    PipelineData::ByteStream(
+                        ByteStream {
+                            stream: Box::new(BufferedReader::new(buf_reader)),
+                            ctrlc: Some(ctrlc),
+                        },
+                        redirect_stdin.span,
+                        None,
+                    )
+                } else {
+                    PipelineData::new(Span::new(0, 0))
+                };
+
+                eval_file::evaluate(
+                    script_name,
+                    &args_to_script,
+                    init_cwd,
+                    &mut engine_state,
+                    input,
+                )
+            } else {
+                repl::evaluate(ctrlc, &mut engine_state)
+            }
+        }
+        Err(_) => std::process::exit(1),
+    }
+}
+
+fn parse_commandline_args(
+    commandline_args: &str,
+    init_cwd: &Path,
+    engine_state: &mut EngineState,
+) -> Result<NushellConfig, ShellError> {
+    let (block, delta) = {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        working_set.add_decl(Box::new(Nu));
+
+        let (output, err) = parse(&mut working_set, None, commandline_args.as_bytes(), false);
+        if let Some(err) = err {
+            report_error(&working_set, &err);
+
+            std::process::exit(1);
+        }
+
+        working_set.hide_decl(b"nu");
+        (output, working_set.render())
+    };
+
+    let _ = engine_state.merge_delta(delta, None, init_cwd);
+
+    let mut stack = Stack::new();
+    stack.add_var(
+        CONFIG_VARIABLE_ID,
+        Value::Record {
+            cols: vec![],
+            vals: vec![],
+            span: Span::new(0, 0),
+        },
+    );
+
+    // We should have a successful parse now
+    if let Some(Statement::Pipeline(Pipeline { expressions })) = block.stmts.get(0) {
+        if let Some(Expression {
+            expr: Expr::Call(call),
+            ..
+        }) = expressions.get(0)
+        {
+            let redirect_stdin = call.get_named_arg("stdin");
+
+            let help = call.has_flag("help");
+
+            if help {
+                let full_help =
+                    get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+                print!("{}", full_help);
+                std::process::exit(1);
+            }
+
+            return Ok(NushellConfig { redirect_stdin });
+        }
+    }
+
+    // Just give the help and exit if the above fails
+    let full_help = get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
+    print!("{}", full_help);
+    std::process::exit(1);
+}
+
+struct NushellConfig {
+    redirect_stdin: Option<Spanned<String>>,
+}
+
+#[derive(Clone)]
+struct Nu;
+
+impl Command for Nu {
+    fn name(&self) -> &str {
+        "nu"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("nu")
+            .desc("The nushell language and shell.")
+            .switch("stdin", "redirect the stdin", None)
+            .optional(
+                "script file",
+                SyntaxShape::Filepath,
+                "name of the optional script file to run",
+            )
+            .rest(
+                "script args",
+                SyntaxShape::String,
+                "parameters to the script file",
+            )
+            .category(Category::System)
+    }
+
+    fn usage(&self) -> &str {
+        "The nushell language and shell."
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        Ok(Value::String {
+            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack),
+            span: call.head,
+        }
+        .into_pipeline_data())
+    }
+
+    fn examples(&self) -> Vec<nu_protocol::Example> {
+        vec![
+            Example {
+                description: "Run a script",
+                example: "nu myfile.nu",
+                result: None,
+            },
+            Example {
+                description: "Run nushell interactively (as a shell or REPL)",
+                example: "nu",
+                result: None,
+            },
+        ]
     }
 }
