@@ -121,7 +121,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)",
-                example: "'1614434140' | into datetime -o '+9'",
+                example: "'1614434140' | into datetime -o +9",
                 result: None,
             },
         ]
