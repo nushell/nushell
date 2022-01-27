@@ -1,26 +1,34 @@
 use crossterm::event::{KeyCode, KeyModifiers};
+use nu_cli::NuCompleter;
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
+use nu_protocol::{
+    engine::EngineState, extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value,
+};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ContextMenuInput, EditCommand, HistoryMenuInput, Keybindings, ReedlineEvent,
+    ContextMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
 };
 
 // Creates an input object for the context menu based on the dictionary
 // stored in the config variable
-pub(crate) fn create_menu_input(config: &Config) -> ContextMenuInput {
-    let mut input = ContextMenuInput::default();
+pub(crate) fn add_context_menu(
+    line_editor: Reedline,
+    engine_state: &EngineState,
+    config: &Config,
+) -> Reedline {
+    let mut context_menu = ContextMenu::default();
+    context_menu = context_menu.with_completer(Box::new(NuCompleter::new(engine_state.clone())));
 
-    input = match config
+    context_menu = match config
         .menu_config
         .get("columns")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => input.with_columns(value as u16),
-        None => input,
+        Some(value) => context_menu.with_columns(value as u16),
+        None => context_menu,
     };
 
-    input = input.with_col_width(
+    context_menu = context_menu.with_column_width(
         config
             .menu_config
             .get("col_width")
@@ -28,82 +36,133 @@ pub(crate) fn create_menu_input(config: &Config) -> ContextMenuInput {
             .map(|value| value as usize),
     );
 
-    input = match config
+    context_menu = match config
         .menu_config
         .get("col_padding")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => input.with_col_padding(value as usize),
-        None => input,
+        Some(value) => context_menu.with_column_padding(value as usize),
+        None => context_menu,
     };
 
-    input = match config
+    context_menu = match config
         .menu_config
         .get("text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => input.with_text_style(lookup_ansi_color_style(&value)),
-        None => input,
+        Some(value) => context_menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => context_menu,
     };
 
-    input = match config
+    context_menu = match config
         .menu_config
         .get("selected_text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => input.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => input,
+        Some(value) => context_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => context_menu,
     };
 
-    input
+    context_menu = match config
+        .menu_config
+        .get("marker")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => context_menu.with_marker(value),
+        None => context_menu,
+    };
+
+    line_editor.with_menu(Box::new(context_menu))
 }
 
 // Creates an input object for the history menu based on the dictionary
 // stored in the config variable
-pub(crate) fn create_history_input(config: &Config) -> HistoryMenuInput {
-    let mut input = HistoryMenuInput::default();
+pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedline {
+    let mut history_menu = HistoryMenu::default();
 
-    input = match config
+    history_menu = match config
         .history_config
         .get("page_size")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => input.with_page_size(value as usize),
-        None => input,
+        Some(value) => history_menu.with_page_size(value as usize),
+        None => history_menu,
     };
 
-    input = match config
+    history_menu = match config
         .history_config
         .get("selector")
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => {
             let char = value.chars().next().unwrap_or(':');
-            input.with_row_char(char)
+            history_menu.with_row_char(char)
         }
-        None => input,
+        None => history_menu,
     };
 
-    input = match config
+    history_menu = match config
         .history_config
         .get("text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => input.with_text_style(lookup_ansi_color_style(&value)),
-        None => input,
+        Some(value) => history_menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => history_menu,
     };
 
-    input = match config
+    history_menu = match config
         .history_config
         .get("selected_text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => input.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => input,
+        Some(value) => history_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => history_menu,
     };
 
-    input
+    history_menu = match config
+        .history_config
+        .get("marker")
+        .and_then(|value| value.as_string().ok())
+    {
+        Some(value) => history_menu.with_marker(value),
+        None => history_menu,
+    };
+
+    line_editor.with_menu(Box::new(history_menu))
 }
+
+fn add_menu_keybindings(keybindings: &mut Keybindings) {
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('i'),
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("history_menu".to_string()),
+            ReedlineEvent::MenuPageNext,
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        KeyCode::Char('i'),
+        ReedlineEvent::MenuPagePrevious,
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("context_menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
+    );
+
+    keybindings.add_binding(
+        KeyModifiers::SHIFT,
+        KeyCode::BackTab,
+        ReedlineEvent::MenuPrevious,
+    );
+}
+
 pub enum KeybindingsMode {
     Emacs(Keybindings),
     Vi {
@@ -117,6 +176,8 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     match config.edit_mode.as_str() {
         "emacs" => {
             let mut keybindings = default_emacs_keybindings();
+            add_menu_keybindings(&mut keybindings);
+
             // temporal keybinding with multiple events
             keybindings.add_binding(
                 KeyModifiers::SHIFT,
@@ -138,6 +199,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         _ => {
             let mut insert_keybindings = default_vi_insert_keybindings();
             let mut normal_keybindings = default_vi_normal_keybindings();
+
+            add_menu_keybindings(&mut insert_keybindings);
+            add_menu_keybindings(&mut normal_keybindings);
 
             for parsed_keybinding in parsed_keybindings {
                 if parsed_keybinding.mode.into_string("", config).as_str() == "vi_insert" {
@@ -254,28 +318,27 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                     "nexthistory" => ReedlineEvent::NextHistory,
                     "previoushistory" => ReedlineEvent::PreviousHistory,
                     "repaint" => ReedlineEvent::Repaint,
-                    "contextmenu" => ReedlineEvent::ContextMenu,
                     "menudown" => ReedlineEvent::MenuDown,
                     "menuup" => ReedlineEvent::MenuUp,
                     "menuleft" => ReedlineEvent::MenuLeft,
                     "menuright" => ReedlineEvent::MenuRight,
                     "menunext" => ReedlineEvent::MenuNext,
                     "menuprevious" => ReedlineEvent::MenuPrevious,
-                    "historymenu" => ReedlineEvent::HistoryMenu,
-                    "historymenunext" => ReedlineEvent::HistoryMenuNext,
-                    "historymenuprevious" => ReedlineEvent::HistoryMenuPrevious,
-                    "historypagenext" => ReedlineEvent::HistoryPageNext,
-                    "historypageprevious" => ReedlineEvent::HistoryPagePrevious,
-
-                    // TODO: add ReedlineEvent::Mouse
-                    // TODO: add ReedlineEvent::Resize
-                    // TODO: add ReedlineEvent::Paste
+                    "menupagenext" => ReedlineEvent::MenuPageNext,
+                    "menupageprevious" => ReedlineEvent::MenuPagePrevious,
+                    "menu" => {
+                        let menu = extract_value("name", &cols, &vals, &span)?;
+                        ReedlineEvent::Menu(menu.into_string("", config))
+                    }
                     "edit" => {
                         let edit = extract_value("edit", &cols, &vals, &span)?;
                         let edit = parse_edit(edit, config)?;
 
                         ReedlineEvent::Edit(vec![edit])
                     }
+                    // TODO: add ReedlineEvent::Mouse
+                    // TODO: add ReedlineEvent::Resize
+                    // TODO: add ReedlineEvent::Paste
                     v => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "Reedline event".to_string(),
