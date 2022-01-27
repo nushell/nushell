@@ -184,3 +184,8 @@ fn commands_have_usage() -> TestResult {
         "cool usage",
     )
 }
+
+#[test]
+fn equals_separates_long_flag() -> TestResult {
+    run_test(r#"seq 1 4 --separator='+'"#, "1+2+3+4")
+}
