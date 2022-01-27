@@ -1,6 +1,6 @@
 use std::{sync::atomic::Ordering, time::Instant};
 
-use crate::reedline_config::{add_context_menu, add_history_menu};
+use crate::reedline_config::{add_completion_menu, add_history_menu};
 use crate::{config_files, prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
@@ -8,7 +8,7 @@ use crate::{
 };
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_cli::{NuHighlighter, NuValidator, NushellPrompt};
+use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
 use nu_color_config::get_color_config;
 use nu_engine::convert_env_values;
 use nu_parser::lex;
@@ -106,9 +106,10 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_state.clone(),
             }))
+            .with_completer(Box::new(NuCompleter::new(engine_state.clone())))
             .with_ansi_colors(config.use_ansi_coloring);
 
-        line_editor = add_context_menu(line_editor, engine_state, &config);
+        line_editor = add_completion_menu(line_editor, &config);
         line_editor = add_history_menu(line_editor, &config);
 
         //FIXME: if config.use_ansi_coloring is false then we should

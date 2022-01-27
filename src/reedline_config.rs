@@ -1,34 +1,26 @@
 use crossterm::event::{KeyCode, KeyModifiers};
-use nu_cli::NuCompleter;
 use nu_color_config::lookup_ansi_color_style;
-use nu_protocol::{
-    engine::EngineState, extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value,
-};
+use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ContextMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
+    CompletionMenu, EditCommand, HistoryMenu, Keybindings, Reedline, ReedlineEvent,
 };
 
-// Creates an input object for the context menu based on the dictionary
+// Creates an input object for the completion menu based on the dictionary
 // stored in the config variable
-pub(crate) fn add_context_menu(
-    line_editor: Reedline,
-    engine_state: &EngineState,
-    config: &Config,
-) -> Reedline {
-    let mut context_menu = ContextMenu::default();
-    context_menu = context_menu.with_completer(Box::new(NuCompleter::new(engine_state.clone())));
+pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Reedline {
+    let mut completion_menu = CompletionMenu::default();
 
-    context_menu = match config
+    completion_menu = match config
         .menu_config
         .get("columns")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => context_menu.with_columns(value as u16),
-        None => context_menu,
+        Some(value) => completion_menu.with_columns(value as u16),
+        None => completion_menu,
     };
 
-    context_menu = context_menu.with_column_width(
+    completion_menu = completion_menu.with_column_width(
         config
             .menu_config
             .get("col_width")
@@ -36,43 +28,43 @@ pub(crate) fn add_context_menu(
             .map(|value| value as usize),
     );
 
-    context_menu = match config
+    completion_menu = match config
         .menu_config
         .get("col_padding")
         .and_then(|value| value.as_integer().ok())
     {
-        Some(value) => context_menu.with_column_padding(value as usize),
-        None => context_menu,
+        Some(value) => completion_menu.with_column_padding(value as usize),
+        None => completion_menu,
     };
 
-    context_menu = match config
+    completion_menu = match config
         .menu_config
         .get("text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => context_menu.with_text_style(lookup_ansi_color_style(&value)),
-        None => context_menu,
+        Some(value) => completion_menu.with_text_style(lookup_ansi_color_style(&value)),
+        None => completion_menu,
     };
 
-    context_menu = match config
+    completion_menu = match config
         .menu_config
         .get("selected_text_style")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => context_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
-        None => context_menu,
+        Some(value) => completion_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
+        None => completion_menu,
     };
 
-    context_menu = match config
+    completion_menu = match config
         .menu_config
         .get("marker")
         .and_then(|value| value.as_string().ok())
     {
-        Some(value) => context_menu.with_marker(value),
-        None => context_menu,
+        Some(value) => completion_menu.with_marker(value),
+        None => completion_menu,
     };
 
-    line_editor.with_menu(Box::new(context_menu))
+    line_editor.with_menu(Box::new(completion_menu))
 }
 
 // Creates an input object for the history menu based on the dictionary
@@ -151,7 +143,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("context_menu".to_string()),
+            ReedlineEvent::Menu("completion_menu".to_string()),
             ReedlineEvent::MenuNext,
         ]),
     );
