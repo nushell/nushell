@@ -231,8 +231,8 @@ fn add_keybinding(
         "control | alt | shift" => KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT,
         _ => {
             return Err(ShellError::UnsupportedConfigValue(
-                keybinding.modifier.into_abbreviated_string(config),
                 "CONTROL, SHIFT, ALT or NONE".to_string(),
+                keybinding.modifier.into_abbreviated_string(config),
                 keybinding.modifier.span()?,
             ))
         }
@@ -247,14 +247,19 @@ fn add_keybinding(
         "backspace" => KeyCode::Backspace,
         "enter" => KeyCode::Enter,
         c if c.starts_with("char_") => {
-            let char = c.replace("char_", "");
-            let char = char.chars().next().ok_or({
-                ShellError::UnsupportedConfigValue(
+            let mut char_iter = c.chars().skip(5);
+            let pos1 = char_iter.next();
+            let pos2 = char_iter.next();
+
+            let char = match (pos1, pos2) {
+                (Some(char), None) => Ok(char),
+                _ => Err(ShellError::UnsupportedConfigValue(
+                    "char_<CHAR: unicode codepoint>".to_string(),
                     c.to_string(),
-                    "char_ plus char".to_string(),
                     keybinding.keycode.span()?,
-                )
-            })?;
+                )),
+            }?;
+
             KeyCode::Char(char)
         }
         "down" => KeyCode::Down,
@@ -269,13 +274,24 @@ fn add_keybinding(
         "backtab" => KeyCode::BackTab,
         "delete" => KeyCode::Delete,
         "insert" => KeyCode::Insert,
-        // TODO: Add KeyCode::F(u8) for function keys
+        c if c.starts_with('f') => {
+            let fn_num: u8 = c[1..]
+                .parse()
+                .ok()
+                .filter(|num| matches!(num, 1..=12))
+                .ok_or(ShellError::UnsupportedConfigValue(
+                    "(f1|f2|...|f12)".to_string(),
+                    format!("unknown function key: {}", c),
+                    keybinding.keycode.span()?,
+                ))?;
+            KeyCode::F(fn_num)
+        }
         "null" => KeyCode::Null,
         "esc" | "escape" => KeyCode::Esc,
         _ => {
             return Err(ShellError::UnsupportedConfigValue(
-                keybinding.keycode.into_abbreviated_string(config),
                 "crossterm KeyCode".to_string(),
+                keybinding.keycode.into_abbreviated_string(config),
                 keybinding.keycode.span()?,
             ))
         }
@@ -375,8 +391,8 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
             }
         }
         v => Err(ShellError::UnsupportedConfigValue(
-            v.into_abbreviated_string(config),
             "record or list of records".to_string(),
+            v.into_abbreviated_string(config),
             v.span()?,
         )),
     }
@@ -464,8 +480,8 @@ fn parse_edit(edit: &Value, config: &Config) -> Result<EditCommand, ShellError> 
                 }
                 e => {
                     return Err(ShellError::UnsupportedConfigValue(
-                        e.to_string(),
                         "reedline EditCommand".to_string(),
+                        e.to_string(),
                         edit.span()?,
                     ))
                 }
@@ -473,8 +489,8 @@ fn parse_edit(edit: &Value, config: &Config) -> Result<EditCommand, ShellError> 
         }
         e => {
             return Err(ShellError::UnsupportedConfigValue(
-                e.into_abbreviated_string(config),
                 "record with EditCommand".to_string(),
+                e.into_abbreviated_string(config),
                 edit.span()?,
             ))
         }
