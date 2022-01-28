@@ -19,13 +19,14 @@ impl RawStream {
     pub fn new(
         stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
         ctrlc: Option<Arc<AtomicBool>>,
+        span: Span,
     ) -> Self {
         Self {
             stream,
             leftover: vec![],
             ctrlc,
             is_binary: false,
-            span: Span::new(0, 0),
+            span,
         }
     }
 
@@ -63,8 +64,10 @@ impl Iterator for RawStream {
             match self.stream.next() {
                 Some(buffer) => match buffer {
                     Ok(mut v) => {
-                        while let Some(b) = self.leftover.pop() {
-                            v.insert(0, b);
+                        if !self.leftover.is_empty() {
+                            while let Some(b) = self.leftover.pop() {
+                                v.insert(0, b);
+                            }
                         }
                         Some(Ok(Value::Binary {
                             val: v,
@@ -81,8 +84,10 @@ impl Iterator for RawStream {
             match self.stream.next() {
                 Some(buffer) => match buffer {
                     Ok(mut v) => {
-                        while let Some(b) = self.leftover.pop() {
-                            v.insert(0, b);
+                        if !self.leftover.is_empty() {
+                            while let Some(b) = self.leftover.pop() {
+                                v.insert(0, b);
+                            }
                         }
 
                         match String::from_utf8(v.clone()) {
@@ -113,8 +118,7 @@ impl Iterator for RawStream {
                                     // Okay, we have a tiny bit of error at the end of the buffer. This could very well be
                                     // a character that spans two frames. Since this is the case, remove the error from
                                     // the current frame an dput it in the leftover buffer.
-                                    self.leftover =
-                                        v[(err.utf8_error().valid_up_to() + 1)..].to_vec();
+                                    self.leftover = v[err.utf8_error().valid_up_to()..].to_vec();
 
                                     let buf = v[0..err.utf8_error().valid_up_to()].to_vec();
 

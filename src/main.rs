@@ -120,7 +120,11 @@ fn main() -> Result<()> {
                 let buf_reader = BufReader::new(stdin);
 
                 PipelineData::RawStream(
-                    RawStream::new(Box::new(BufferedReader::new(buf_reader)), Some(ctrlc)),
+                    RawStream::new(
+                        Box::new(BufferedReader::new(buf_reader)),
+                        Some(ctrlc),
+                        redirect_stdin.span,
+                    ),
                     redirect_stdin.span,
                     None,
                 )

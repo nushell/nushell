@@ -121,7 +121,11 @@ impl Command for Open {
             let buf_reader = BufReader::new(file);
 
             let output = PipelineData::RawStream(
-                RawStream::new(Box::new(BufferedReader { input: buf_reader }), ctrlc),
+                RawStream::new(
+                    Box::new(BufferedReader { input: buf_reader }),
+                    ctrlc,
+                    call_span,
+                ),
                 call_span,
                 None,
             );

@@ -175,11 +175,14 @@ impl Value {
             Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => s.to_string(),
                 Err(_) => {
+                    // println!("{:?}", e);
+                    // println!("bytes: {}", pretty_hex::pretty_hex(&val));
+                    // panic!("let's see it");
                     return Err(ShellError::CantConvert(
-                        "binary".into(),
                         "string".into(),
+                        "binary".into(),
                         self.span()?,
-                    ))
+                    ));
                 }
             }),
             x => Err(ShellError::CantConvert(
@@ -203,8 +206,8 @@ impl Value {
                 },
                 Err(_) => {
                     return Err(ShellError::CantConvert(
-                        "binary".into(),
                         "string".into(),
+                        "binary".into(),
                         self.span()?,
                     ))
                 }
@@ -299,7 +302,7 @@ impl Value {
         match self {
             Value::Int { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert(
-                "float".into(),
+                "integer".into(),
                 x.get_type().to_string(),
                 self.span()?,
             )),
