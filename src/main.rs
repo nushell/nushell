@@ -123,7 +123,6 @@ fn main() -> Result<()> {
                     RawStream::new(
                         Box::new(BufferedReader::new(buf_reader)),
                         Some(ctrlc),
-                        true,
                         redirect_stdin.span,
                     ),
                     redirect_stdin.span,

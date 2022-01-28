@@ -243,7 +243,7 @@ impl ExternalCommand {
                 let receiver = ChannelReceiver::new(rx);
 
                 Ok(PipelineData::RawStream(
-                    RawStream::new(Box::new(receiver), output_ctrlc, true, head),
+                    RawStream::new(Box::new(receiver), output_ctrlc, head),
                     head,
                     None,
                 ))

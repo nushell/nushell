@@ -150,8 +150,6 @@ impl PipelineData {
             PipelineData::RawStream(s, ..) => {
                 let mut items = vec![];
 
-                let trim_end = s.trim_end;
-
                 for val in s {
                     match val {
                         Ok(val) => {
@@ -171,10 +169,6 @@ impl PipelineData {
                             return Err(err);
                         }
                     }
-                }
-
-                if trim_end {
-                    output = output.trim_end().to_string();
                 }
 
                 Ok(output)
