@@ -124,6 +124,7 @@ impl Command for Open {
                 RawStream::new(
                     Box::new(BufferedReader { input: buf_reader }),
                     ctrlc,
+                    false,
                     call_span,
                 ),
                 call_span,

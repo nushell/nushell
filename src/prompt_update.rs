@@ -1,5 +1,5 @@
 use nu_cli::NushellPrompt;
-use nu_engine::eval_block;
+use nu_engine::eval_subexpression;
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -59,7 +59,7 @@ fn get_prompt_string(
         .and_then(|v| match v {
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
-                eval_block(
+                eval_subexpression(
                     engine_state,
                     stack,
                     block,
@@ -70,7 +70,7 @@ fn get_prompt_string(
             Value::String { val: source, .. } => {
                 let mut working_set = StateWorkingSet::new(engine_state);
                 let (block, _) = parse(&mut working_set, None, source.as_bytes(), true);
-                eval_block(
+                eval_subexpression(
                     engine_state,
                     stack,
                     &block,

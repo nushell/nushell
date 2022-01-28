@@ -362,6 +362,7 @@ fn response_to_buffer(
                 input: buffered_input,
             }),
             engine_state.ctrlc.clone(),
+            false,
             span,
         ),
         span,

@@ -12,6 +12,7 @@ pub struct RawStream {
     pub leftover: Vec<u8>,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub is_binary: bool,
+    pub trim_end: bool,
     pub span: Span,
 }
 
@@ -19,6 +20,7 @@ impl RawStream {
     pub fn new(
         stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
         ctrlc: Option<Arc<AtomicBool>>,
+        trim_end: bool,
         span: Span,
     ) -> Self {
         Self {
@@ -26,6 +28,7 @@ impl RawStream {
             leftover: vec![],
             ctrlc,
             is_binary: false,
+            trim_end,
             span,
         }
     }
@@ -43,8 +46,14 @@ impl RawStream {
     pub fn into_string(self) -> Result<String, ShellError> {
         let mut output = String::new();
 
+        let trim_end = self.trim_end;
+
         for item in self {
             output.push_str(&item?.as_string()?);
+        }
+
+        if trim_end {
+            output = output.trim_end().to_string();
         }
 
         Ok(output)
