@@ -27,7 +27,10 @@ impl Highlighter for NuHighlighter {
         let mut last_seen_span = global_span_offset;
 
         for shape in &shapes {
-            if shape.0.end <= last_seen_span {
+            if shape.0.end <= last_seen_span
+                || last_seen_span < global_span_offset
+                || shape.0.start < global_span_offset
+            {
                 // We've already output something for this span
                 // so just skip this one
                 continue;
