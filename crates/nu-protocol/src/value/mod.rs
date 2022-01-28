@@ -239,6 +239,18 @@ impl Value {
         }
     }
 
+    pub fn as_binary(&self) -> Result<&[u8], ShellError> {
+        match self {
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.as_bytes()),
+            x => Err(ShellError::CantConvert(
+                "binary".into(),
+                x.get_type().to_string(),
+                self.span()?,
+            )),
+        }
+    }
+
     pub fn as_record(&self) -> Result<(&[String], &[Value]), ShellError> {
         match self {
             Value::Record { cols, vals, .. } => Ok((cols, vals)),

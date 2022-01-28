@@ -88,41 +88,11 @@ impl Command for Lines {
 
                 Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
             }
-            PipelineData::StringStream(stream, span, ..) => {
-                let mut split_char = "\n";
-
-                let iter = stream
-                    .into_iter()
-                    .map(move |value| match value {
-                        Ok(value) => {
-                            if split_char != "\r\n" && value.contains("\r\n") {
-                                split_char = "\r\n";
-                            }
-                            value
-                                .split(split_char)
-                                .filter_map(|s| {
-                                    if !s.is_empty() {
-                                        Some(Value::String {
-                                            val: s.into(),
-                                            span,
-                                        })
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect::<Vec<Value>>()
-                        }
-                        Err(err) => vec![Value::Error { error: err }],
-                    })
-                    .flatten();
-
-                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
-            }
             PipelineData::Value(val, ..) => Err(ShellError::UnsupportedInput(
                 format!("Not supported input: {}", val.as_string()?),
                 call.head,
             )),
-            PipelineData::ByteStream(..) => {
+            PipelineData::RawStream(..) => {
                 let config = stack.get_config()?;
 
                 //FIXME: Make sure this can fail in the future to let the user

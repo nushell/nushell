@@ -5,8 +5,8 @@ use nu_engine::{env_to_string, CallExt};
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, StringStream, SyntaxShape, Value, ValueStream,
+    Category, Config, DataSource, IntoPipelineData, ListStream, PipelineData, PipelineMetadata,
+    RawStream, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use nu_table::{StyledString, TextStyle, Theme};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -62,32 +62,15 @@ impl Command for Table {
         };
 
         match input {
-            PipelineData::ByteStream(stream, ..) => Ok(PipelineData::StringStream(
-                StringStream::from_stream(
-                    stream.map(move |x| {
-                        Ok(if x.iter().all(|x| x.is_ascii()) {
-                            format!("{}", String::from_utf8_lossy(&x?))
-                        } else {
-                            format!("{}\n", nu_pretty_hex::pretty_hex(&x?))
-                        })
-                    }),
-                    ctrlc,
-                ),
-                head,
-                None,
-            )),
-            PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::StringStream(
-                StringStream::from_stream(
-                    vec![Ok(
-                        if val.iter().all(|x| {
-                            *x < 128 && (*x >= b' ' || *x == b'\t' || *x == b'\r' || *x == b'\n')
-                        }) {
-                            format!("{}", String::from_utf8_lossy(&val))
-                        } else {
-                            format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                        },
-                    )]
-                    .into_iter(),
+            PipelineData::RawStream(..) => Ok(input),
+            PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::RawStream(
+                RawStream::new(
+                    Box::new(
+                        vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                            .as_bytes()
+                            .to_vec())]
+                        .into_iter(),
+                    ),
                     ctrlc,
                 ),
                 head,
@@ -127,7 +110,7 @@ impl Command for Table {
                             None => LsColors::default(),
                         };
 
-                        ValueStream::from_stream(
+                        ListStream::from_stream(
                             stream.map(move |mut x| match &mut x {
                                 Value::Record { cols, vals, .. } => {
                                     let mut idx = 0;
@@ -194,15 +177,15 @@ impl Command for Table {
 
                 let head = call.head;
 
-                Ok(PipelineData::StringStream(
-                    StringStream::from_stream(
-                        PagingTableCreator {
+                Ok(PipelineData::RawStream(
+                    RawStream::new(
+                        Box::new(PagingTableCreator {
                             row_offset,
                             config,
                             ctrlc: ctrlc.clone(),
                             head,
                             stream,
-                        },
+                        }),
                         ctrlc,
                     ),
                     head,
@@ -381,14 +364,14 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
 
 struct PagingTableCreator {
     head: Span,
-    stream: ValueStream,
+    stream: ListStream,
     ctrlc: Option<Arc<AtomicBool>>,
     config: Config,
     row_offset: usize,
 }
 
 impl Iterator for PagingTableCreator {
-    type Item = Result<String, ShellError>;
+    type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut batch = vec![];
@@ -443,7 +426,7 @@ impl Iterator for PagingTableCreator {
             Ok(Some(table)) => {
                 let result = nu_table::draw_table(&table, term_width, &color_hm, &self.config);
 
-                Some(Ok(result))
+                Some(Ok(result.as_bytes().to_vec()))
             }
             Err(err) => Some(Err(err)),
             _ => None,

@@ -2,7 +2,7 @@ use nu_engine::{get_full_help, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ByteStream, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned,
+    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Spanned,
     SyntaxShape, Value,
 };
 use std::io::{BufRead, BufReader, Read};
@@ -120,11 +120,8 @@ impl Command for Open {
 
             let buf_reader = BufReader::new(file);
 
-            let output = PipelineData::ByteStream(
-                ByteStream {
-                    stream: Box::new(BufferedReader { input: buf_reader }),
-                    ctrlc,
-                },
+            let output = PipelineData::RawStream(
+                RawStream::new(Box::new(BufferedReader { input: buf_reader }), ctrlc),
                 call_span,
                 None,
             );

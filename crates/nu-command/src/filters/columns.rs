@@ -82,7 +82,7 @@ fn getcol(
                 .map(move |x| Value::String { val: x, span })
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
-        PipelineData::Value(..) | PipelineData::StringStream(..) | PipelineData::ByteStream(..) => {
+        PipelineData::Value(..) | PipelineData::RawStream(..) => {
             let cols = vec![];
             let vals = vec![];
             Ok(Value::Record { cols, vals, span }.into_pipeline_data())

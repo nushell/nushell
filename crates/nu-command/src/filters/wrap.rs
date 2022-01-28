@@ -50,13 +50,9 @@ impl Command for Wrap {
                     span,
                 })
                 .into_pipeline_data(engine_state.ctrlc.clone())),
-            PipelineData::StringStream(stream, ..) => Ok(Value::String {
-                val: stream.into_string("")?,
-                span,
-            }
-            .into_pipeline_data()),
-            PipelineData::ByteStream(stream, ..) => Ok(Value::Binary {
-                val: stream.into_vec()?,
+            PipelineData::RawStream(..) => Ok(Value::Record {
+                cols: vec![name],
+                vals: vec![input.into_value(call.head)],
                 span,
             }
             .into_pipeline_data()),

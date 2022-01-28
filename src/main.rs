@@ -17,7 +17,7 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::{Call, Expr, Expression, Pipeline, Statement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    ByteStream, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
 };
 use std::{
@@ -119,11 +119,8 @@ fn main() -> Result<()> {
                 let stdin = std::io::stdin();
                 let buf_reader = BufReader::new(stdin);
 
-                PipelineData::ByteStream(
-                    ByteStream {
-                        stream: Box::new(BufferedReader::new(buf_reader)),
-                        ctrlc: Some(ctrlc),
-                    },
+                PipelineData::RawStream(
+                    RawStream::new(Box::new(BufferedReader::new(buf_reader)), Some(ctrlc)),
                     redirect_stdin.span,
                     None,
                 )

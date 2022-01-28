@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
 };
 
 // TODO num_format::SystemLocale once platform-specific dependencies are stable (see Cargo.toml)
@@ -148,30 +149,41 @@ fn string_helper(
         }
     }
 
-    input.map(
-        move |v| {
-            if column_paths.is_empty() {
-                action(&v, head, decimals, decimals_value, false, &config)
-            } else {
-                let mut ret = v;
-                for path in &column_paths {
-                    let config = config.clone();
-                    let r = ret.update_cell_path(
-                        &path.members,
-                        Box::new(move |old| {
-                            action(old, head, decimals, decimals_value, false, &config)
-                        }),
-                    );
-                    if let Err(error) = r {
-                        return Value::Error { error };
-                    }
-                }
-
-                ret
+    match input {
+        PipelineData::RawStream(stream, ..) => {
+            // TODO: in the future, we may want this to stream out, converting each to bytes
+            let output = stream.into_string()?;
+            Ok(Value::String {
+                val: output,
+                span: head,
             }
-        },
-        engine_state.ctrlc.clone(),
-    )
+            .into_pipeline_data())
+        }
+        _ => input.map(
+            move |v| {
+                if column_paths.is_empty() {
+                    action(&v, head, decimals, decimals_value, false, &config)
+                } else {
+                    let mut ret = v;
+                    for path in &column_paths {
+                        let config = config.clone();
+                        let r = ret.update_cell_path(
+                            &path.members,
+                            Box::new(move |old| {
+                                action(old, head, decimals, decimals_value, false, &config)
+                            }),
+                        );
+                        if let Err(error) = r {
+                            return Value::Error { error };
+                        }
+                    }
+
+                    ret
+                }
+            },
+            engine_state.ctrlc.clone(),
+        ),
+    }
 }
 
 pub fn action(

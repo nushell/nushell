@@ -7,95 +7,139 @@ use std::{
     },
 };
 
-/// A single buffer of binary data streamed over multiple parts. Optionally contains ctrl-c that can be used
-/// to break the stream.
-pub struct ByteStream {
+pub struct RawStream {
     pub stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
+    pub leftover: Vec<u8>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    pub is_binary: bool,
+    pub span: Span,
 }
-impl ByteStream {
-    pub fn into_vec(self) -> Result<Vec<u8>, ShellError> {
+
+impl RawStream {
+    pub fn new(
+        stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
+        ctrlc: Option<Arc<AtomicBool>>,
+    ) -> Self {
+        Self {
+            stream,
+            leftover: vec![],
+            ctrlc,
+            is_binary: false,
+            span: Span::new(0, 0),
+        }
+    }
+
+    pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
         let mut output = vec![];
+
         for item in self.stream {
-            output.append(&mut item?);
+            output.extend(item?);
         }
 
         Ok(output)
     }
-}
-impl Debug for ByteStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ByteStream").finish()
-    }
-}
 
-impl Iterator for ByteStream {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                None
-            } else {
-                self.stream.next()
-            }
-        } else {
-            self.stream.next()
-        }
-    }
-}
-
-/// A single string streamed over multiple parts. Optionally contains ctrl-c that can be used
-/// to break the stream.
-pub struct StringStream {
-    pub stream: Box<dyn Iterator<Item = Result<String, ShellError>> + Send + 'static>,
-    pub ctrlc: Option<Arc<AtomicBool>>,
-}
-impl StringStream {
-    pub fn into_string(self, separator: &str) -> Result<String, ShellError> {
+    pub fn into_string(self) -> Result<String, ShellError> {
         let mut output = String::new();
 
-        let mut first = true;
-        for s in self.stream {
-            output.push_str(&s?);
-
-            if !first {
-                output.push_str(separator);
-            } else {
-                first = false;
-            }
+        for item in self {
+            output.push_str(&item?.as_string()?);
         }
+
         Ok(output)
     }
-
-    pub fn from_stream(
-        input: impl Iterator<Item = Result<String, ShellError>> + Send + 'static,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> StringStream {
-        StringStream {
-            stream: Box::new(input),
-            ctrlc,
-        }
-    }
 }
-impl Debug for StringStream {
+impl Debug for RawStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("StringStream").finish()
+        f.debug_struct("RawStream").finish()
     }
 }
-
-impl Iterator for StringStream {
-    type Item = Result<String, ShellError>;
+impl Iterator for RawStream {
+    type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(ctrlc) = &self.ctrlc {
-            if ctrlc.load(Ordering::SeqCst) {
-                None
-            } else {
-                self.stream.next()
+        // If we know we're already binary, just output that
+        if self.is_binary {
+            match self.stream.next() {
+                Some(buffer) => match buffer {
+                    Ok(mut v) => {
+                        while let Some(b) = self.leftover.pop() {
+                            v.insert(0, b);
+                        }
+                        Some(Ok(Value::Binary {
+                            val: v,
+                            span: self.span,
+                        }))
+                    }
+                    Err(e) => Some(Err(e)),
+                },
+                None => None,
             }
         } else {
-            self.stream.next()
+            // We *may* be text. We're only going to try utf-8. Other decodings
+            // needs to be taken as binary first, then passed through `decode`.
+            match self.stream.next() {
+                Some(buffer) => match buffer {
+                    Ok(mut v) => {
+                        while let Some(b) = self.leftover.pop() {
+                            v.insert(0, b);
+                        }
+
+                        match String::from_utf8(v.clone()) {
+                            Ok(s) => {
+                                // Great, we have a complete string, let's output it
+                                Some(Ok(Value::String {
+                                    val: s,
+                                    span: self.span,
+                                }))
+                            }
+                            Err(err) => {
+                                // Okay, we *might* have a string but we've also got some errors
+                                if v.is_empty() {
+                                    // We can just end here
+                                    None
+                                } else if v.len() > 3
+                                    && (v.len() - err.utf8_error().valid_up_to() > 3)
+                                {
+                                    // As UTF-8 characters are max 4 bytes, if we have more than that in error we know
+                                    // that it's not just a character spanning two frames.
+                                    // We now know we are definitely binary, so switch to binary and stay there.
+                                    self.is_binary = true;
+                                    Some(Ok(Value::Binary {
+                                        val: v,
+                                        span: self.span,
+                                    }))
+                                } else {
+                                    // Okay, we have a tiny bit of error at the end of the buffer. This could very well be
+                                    // a character that spans two frames. Since this is the case, remove the error from
+                                    // the current frame an dput it in the leftover buffer.
+                                    self.leftover =
+                                        v[(err.utf8_error().valid_up_to() + 1)..].to_vec();
+
+                                    let buf = v[0..err.utf8_error().valid_up_to()].to_vec();
+
+                                    match String::from_utf8(buf) {
+                                        Ok(s) => Some(Ok(Value::String {
+                                            val: s,
+                                            span: self.span,
+                                        })),
+                                        Err(_) => {
+                                            // Something is definitely wrong. Switch to binary, and stay there
+                                            self.is_binary = true;
+                                            Some(Ok(Value::Binary {
+                                                val: v,
+                                                span: self.span,
+                                            }))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => Some(Err(e)),
+                },
+                None => None,
+            }
         }
     }
 }
@@ -106,12 +150,12 @@ impl Iterator for StringStream {
 /// In practice, a "stream" here means anything which can be iterated and produce Values as it iterates.
 /// Like other iterators in Rust, observing values from this stream will drain the items as you view them
 /// and the stream cannot be replayed.
-pub struct ValueStream {
+pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl ValueStream {
+impl ListStream {
     pub fn into_string(self, separator: &str, config: &Config) -> String {
         self.map(|x: Value| x.into_string(", ", config))
             .collect::<Vec<String>>()
@@ -121,21 +165,21 @@ impl ValueStream {
     pub fn from_stream(
         input: impl Iterator<Item = Value> + Send + 'static,
         ctrlc: Option<Arc<AtomicBool>>,
-    ) -> ValueStream {
-        ValueStream {
+    ) -> ListStream {
+        ListStream {
             stream: Box::new(input),
             ctrlc,
         }
     }
 }
 
-impl Debug for ValueStream {
+impl Debug for ListStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ValueStream").finish()
     }
 }
 
-impl Iterator for ValueStream {
+impl Iterator for ListStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {

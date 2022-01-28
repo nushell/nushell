@@ -2,7 +2,7 @@ use base64::encode;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::ByteStream;
+use nu_protocol::RawStream;
 
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
@@ -356,13 +356,13 @@ fn response_to_buffer(
 ) -> nu_protocol::PipelineData {
     let buffered_input = BufReader::new(response);
 
-    PipelineData::ByteStream(
-        ByteStream {
-            stream: Box::new(BufferedReader {
+    PipelineData::RawStream(
+        RawStream::new(
+            Box::new(BufferedReader {
                 input: buffered_input,
             }),
-            ctrlc: engine_state.ctrlc.clone(),
-        },
+            engine_state.ctrlc.clone(),
+        ),
         span,
         None,
     )

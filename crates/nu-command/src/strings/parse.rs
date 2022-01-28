@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
-    ValueStream,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Value,
 };
 use regex::Regex;
 
@@ -127,7 +127,7 @@ fn operate(
     }
 
     Ok(PipelineData::ListStream(
-        ValueStream::from_stream(parsed.into_iter(), ctrlc),
+        ListStream::from_stream(parsed.into_iter(), ctrlc),
         None,
     ))
 }

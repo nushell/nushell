@@ -198,36 +198,13 @@ fn print_pipeline_data(
 
     let config = stack.get_config().unwrap_or_default();
 
-    match input {
-        PipelineData::StringStream(stream, _, _) => {
-            for s in stream {
-                print!("{}", s?);
-                let _ = std::io::stdout().flush();
-            }
-            return Ok(());
-        }
-        PipelineData::ByteStream(stream, _, _) => {
-            let mut address_offset = 0;
-            for v in stream {
-                let cfg = nu_pretty_hex::HexConfig {
-                    title: false,
-                    address_offset,
-                    ..Default::default()
-                };
+    let mut stdout = std::io::stdout();
 
-                let v = v?;
-                address_offset += v.len();
-
-                let s = if v.iter().all(|x| x.is_ascii()) {
-                    format!("{}", String::from_utf8_lossy(&v))
-                } else {
-                    nu_pretty_hex::config_hex(&v, cfg)
-                };
-                println!("{}", s);
-            }
-            return Ok(());
+    if let PipelineData::RawStream(stream, _, _) = input {
+        for s in stream {
+            let _ = stdout.write(s?.as_binary()?);
         }
-        _ => {}
+        return Ok(());
     }
 
     match engine_state.find_decl("table".as_bytes()) {

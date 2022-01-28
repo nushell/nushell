@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Value,
 };
 
 #[derive(Clone)]
@@ -98,7 +99,15 @@ fn into_binary(
     let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
 
     match input {
-        PipelineData::ByteStream(..) => Ok(input),
+        PipelineData::RawStream(stream, ..) => {
+            // TODO: in the future, we may want this to stream out, converting each to bytes
+            let output = stream.into_bytes()?;
+            Ok(Value::Binary {
+                val: output,
+                span: head,
+            }
+            .into_pipeline_data())
+        }
         _ => input.map(
             move |v| {
                 if column_paths.is_empty() {

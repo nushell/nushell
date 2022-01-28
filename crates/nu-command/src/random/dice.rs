@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Value, ValueStream,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 
@@ -80,7 +80,7 @@ fn dice(
     });
 
     Ok(PipelineData::ListStream(
-        ValueStream::from_stream(iter, engine_state.ctrlc.clone()),
+        ListStream::from_stream(iter, engine_state.ctrlc.clone()),
         None,
     ))
 }

@@ -26,9 +26,9 @@ impl Command for Describe {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if matches!(input, PipelineData::ByteStream(..)) {
+        if matches!(input, PipelineData::RawStream(..)) {
             Ok(PipelineData::Value(
-                Value::string("binary", call.head),
+                Value::string("raw input", call.head),
                 None,
             ))
         } else {

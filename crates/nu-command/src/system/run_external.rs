@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use nu_engine::env_to_strings;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{ast::Call, engine::Command, ShellError, Signature, SyntaxShape, Value};
-use nu_protocol::{ByteStream, Category, Config, PipelineData, Span, Spanned};
+use nu_protocol::{Category, Config, PipelineData, RawStream, Span, Spanned};
 
 use itertools::Itertools;
 
@@ -242,11 +242,8 @@ impl ExternalCommand {
                 });
                 let receiver = ChannelReceiver::new(rx);
 
-                Ok(PipelineData::ByteStream(
-                    ByteStream {
-                        stream: Box::new(receiver),
-                        ctrlc: output_ctrlc,
-                    },
+                Ok(PipelineData::RawStream(
+                    RawStream::new(Box::new(receiver), output_ctrlc),
                     head,
                     None,
                 ))

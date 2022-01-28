@@ -6,7 +6,7 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{ast::Call, Signature, Value};
+use nu_protocol::{ast::Call, Signature};
 use nu_protocol::{PipelineData, ShellError};
 
 #[derive(Clone)]
@@ -70,33 +70,7 @@ impl Command for PluginDeclaration {
             )
         })?;
 
-        let input = match input {
-            PipelineData::Value(value, ..) => value,
-            PipelineData::ListStream(stream, ..) => {
-                let values = stream.collect::<Vec<Value>>();
-
-                Value::List {
-                    vals: values,
-                    span: call.head,
-                }
-            }
-            PipelineData::StringStream(stream, ..) => {
-                let val = stream.into_string("")?;
-
-                Value::String {
-                    val,
-                    span: call.head,
-                }
-            }
-            PipelineData::ByteStream(stream, ..) => {
-                let val = stream.into_vec()?;
-
-                Value::Binary {
-                    val,
-                    span: call.head,
-                }
-            }
-        };
+        let input = input.into_value(call.head);
 
         // Create message to plugin to indicate that signature is required and
         // send call to plugin asking for signature

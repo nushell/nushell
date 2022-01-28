@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value, ValueStream,
+    Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -152,7 +152,7 @@ fn format(
             }
 
             Ok(PipelineData::ListStream(
-                ValueStream::from_stream(list.into_iter(), None),
+                ListStream::from_stream(list.into_iter(), None),
                 None,
             ))
         }

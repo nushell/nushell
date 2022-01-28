@@ -111,54 +111,14 @@ impl Command for Each {
                     }
                 })
                 .into_pipeline_data(ctrlc)),
-            PipelineData::ByteStream(stream, ..) => Ok(stream
+            PipelineData::RawStream(stream, ..) => Ok(stream
                 .into_iter()
                 .enumerate()
                 .map(move |(idx, x)| {
                     stack.with_env(&orig_env_vars, &orig_env_hidden);
 
                     let x = match x {
-                        Ok(x) => Value::Binary { val: x, span },
-                        Err(err) => return Value::Error { error: err },
-                    };
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            if numbered {
-                                stack.add_var(
-                                    *var_id,
-                                    Value::Record {
-                                        cols: vec!["index".into(), "item".into()],
-                                        vals: vec![
-                                            Value::Int {
-                                                val: idx as i64,
-                                                span,
-                                            },
-                                            x,
-                                        ],
-                                        span,
-                                    },
-                                );
-                            } else {
-                                stack.add_var(*var_id, x);
-                            }
-                        }
-                    }
-
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(span)) {
-                        Ok(v) => v.into_value(span),
-                        Err(error) => Value::Error { error },
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::StringStream(stream, ..) => Ok(stream
-                .into_iter()
-                .enumerate()
-                .map(move |(idx, x)| {
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    let x = match x {
-                        Ok(x) => Value::String { val: x, span },
+                        Ok(x) => x,
                         Err(err) => return Value::Error { error: err },
                     };
 
