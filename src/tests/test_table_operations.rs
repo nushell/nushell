@@ -104,6 +104,15 @@ fn command_filter_reject_3() -> TestResult {
 }
 
 #[test]
+#[rustfmt::skip]
+fn command_filter_reject_4() -> TestResult {
+    run_test(
+        "[[lang, gems, grade]; [nu, 100, a]] | reject gems | to json -r",
+        r#"[{"lang": "nu","grade": "a"}]"#,
+    )
+}
+
+#[test]
 fn command_drop_column_1() -> TestResult {
     run_test(
         "[[lang, gems, grade]; [nu, 100, a]] | drop column 2 | to json",
