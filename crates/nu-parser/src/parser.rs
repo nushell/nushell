@@ -3517,7 +3517,7 @@ pub fn parse_statement(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" => parse_def(working_set, lite_command),
+        b"def" | b"def-env" => parse_def(working_set, lite_command),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts);

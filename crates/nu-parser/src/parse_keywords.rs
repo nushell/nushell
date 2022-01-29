@@ -30,7 +30,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
         (name, spans)
     };
 
-    if name == b"def" && spans.len() >= 4 {
+    if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
         let (name_expr, ..) = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -235,7 +235,9 @@ pub fn parse_def(
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
-    if working_set.get_span_contents(spans[0]) != b"def" {
+
+    let def_call = working_set.get_span_contents(spans[0]).to_vec();
+    if def_call != b"def" && def_call != b"def-env" {
         return (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
@@ -248,7 +250,7 @@ pub fn parse_def(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"def") {
+    let (call, call_span) = match working_set.find_decl(&def_call) {
         None => {
             return (
                 garbage_statement(spans),
@@ -333,6 +335,7 @@ pub fn parse_def(
             let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
 
             let mut block = working_set.get_block_mut(block_id);
+            block.redirect_env = def_call == b"def-env";
             block.captures = captures;
         } else {
             error = error.or_else(|| {
@@ -544,6 +547,74 @@ pub fn parse_export(
                     None
                 }
             }
+            b"def-env" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                };
+                let (stmt, err) = parse_def(working_set, &lite_command);
+                error = error.or(err);
+
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
+                {
+                    id
+                } else {
+                    return (
+                        garbage_statement(spans),
+                        None,
+                        Some(ParseError::InternalError(
+                            "missing 'export def-env' command".into(),
+                            export_span,
+                        )),
+                    );
+                };
+
+                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
+                if let Statement::Pipeline(ref pipe) = stmt {
+                    if let Some(Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    }) = pipe.expressions.get(0)
+                    {
+                        call = def_call.clone();
+
+                        call.head = span(&spans[0..=1]);
+                        call.decl_id = export_def_decl_id;
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::InternalError(
+                                "unexpected output from parsing a definition".into(),
+                                span(&spans[1..]),
+                            ))
+                        });
+                    }
+                } else {
+                    error = error.or_else(|| {
+                        Some(ParseError::InternalError(
+                            "unexpected output from parsing a definition".into(),
+                            span(&spans[1..]),
+                        ))
+                    });
+                };
+
+                if error.is_none() {
+                    let decl_name = working_set.get_span_contents(spans[2]);
+                    let decl_name = trim_quotes(decl_name);
+                    if let Some(decl_id) = working_set.find_decl(decl_name) {
+                        Some(Exportable::Decl(decl_id))
+                    } else {
+                        error = error.or_else(|| {
+                            Some(ParseError::InternalError(
+                                "failed to find added declaration".into(),
+                                span(&spans[1..]),
+                            ))
+                        });
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             b"env" => {
                 if let Some(id) = working_set.find_decl(b"export env") {
                     call.decl_id = id;
@@ -700,7 +771,7 @@ pub fn parse_module_block(
                 let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
 
                 let (stmt, err) = match name {
-                    b"def" => {
+                    b"def" | b"def-env" => {
                         let (stmt, err) = parse_def(working_set, &pipeline.commands[0]);
 
                         (stmt, err)

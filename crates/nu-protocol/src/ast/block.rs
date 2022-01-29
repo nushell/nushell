@@ -9,6 +9,7 @@ pub struct Block {
     pub signature: Box<Signature>,
     pub stmts: Vec<Statement>,
     pub captures: Vec<VarId>,
+    pub redirect_env: bool,
 }
 
 impl Block {
@@ -47,6 +48,7 @@ impl Block {
             signature: Box::new(Signature::new("")),
             stmts: vec![],
             captures: vec![],
+            redirect_env: false,
         }
     }
 }
@@ -60,6 +62,7 @@ where
             signature: Box::new(Signature::new("")),
             stmts: stmts.collect(),
             captures: vec![],
+            redirect_env: false,
         }
     }
 }

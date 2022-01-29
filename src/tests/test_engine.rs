@@ -190,3 +190,27 @@ fn let_sees_in_variable2() -> TestResult {
         "3",
     )
 }
+
+#[test]
+fn def_env() -> TestResult {
+    run_test(
+        r#"def-env bob [] { let-env BAR = BAZ }; bob; $env.BAR"#,
+        "BAZ",
+    )
+}
+
+#[test]
+fn not_def_env() -> TestResult {
+    fail_test(
+        r#"def bob [] { let-env BAR = BAZ }; bob; $env.BAR"#,
+        "did you mean",
+    )
+}
+
+#[test]
+fn export_def_env() -> TestResult {
+    run_test(
+        r#"module foo { export def-env bob [] { let-env BAR = BAZ } }; use foo bob; bob; $env.BAR"#,
+        "BAZ",
+    )
+}

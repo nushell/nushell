@@ -133,7 +133,15 @@ fn eval_call(
                 }
             }
         }
-        eval_block(engine_state, &mut callee_stack, block, input)
+        let result = eval_block(engine_state, &mut callee_stack, block, input);
+        if block.redirect_env {
+            for env_vars in callee_stack.env_vars {
+                for (var, value) in env_vars {
+                    caller_stack.add_env_var(var, value)
+                }
+            }
+        }
+        result
     } else {
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
