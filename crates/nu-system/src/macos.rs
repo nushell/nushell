@@ -303,12 +303,13 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        self.command()
-            .split(' ')
-            .collect::<Vec<_>>()
-            .first()
-            .map(|x| x.to_string())
-            .unwrap_or_default()
+        // self.command()
+        //     .split(' ')
+        //     .collect::<Vec<_>>()
+        //     .first()
+        //     .map(|x| x.to_string())
+        //     .unwrap_or_default()
+        self.command_only()
     }
 
     /// Full name of command, with arguments
@@ -327,6 +328,19 @@ impl ProcessInfo {
                 cmd.pop();
                 cmd = cmd.replace("\n", " ").replace("\t", " ");
                 cmd
+            } else {
+                String::from("")
+            }
+        } else {
+            String::from("")
+        }
+    }
+
+    /// Full name of comand only
+    pub fn command_only(&self) -> String {
+        if let Some(path) = &self.curr_path {
+            if !path.cmd.is_empty() {
+                path.exe.to_string_lossy().to_string()
             } else {
                 String::from("")
             }
