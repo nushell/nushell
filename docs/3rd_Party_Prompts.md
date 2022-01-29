@@ -22,7 +22,7 @@ If you like [oh-my-posh](https://ohmyposh.dev/), you can use oh-my-posh with eng
 2. Download and Install a [nerd font](https://github.com/ryanoasis/nerd-fonts)
 3. Set the PROMPT_COMMAND in ~/.config/nushell/config.nu, change `M365Princess.omp.json` to whatever you like [Themes demo](https://ohmyposh.dev/docs/themes) 
 ```
-let-env PROMPT_COMMAND = { oh-my-posh --config ~/.poshthemes/M365Princess.omp.json |decode utf-8| str collect}
+let-env PROMPT_COMMAND = { oh-my-posh --config ~/.poshthemes/M365Princess.omp.json }
 ```
 4. Restart engine-q.
 
