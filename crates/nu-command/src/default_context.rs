@@ -87,6 +87,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Reject,
             Rename,
             Reverse,
+            Rotate,
             Select,
             Shuffle,
             Skip,
