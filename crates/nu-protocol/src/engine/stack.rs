@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::engine::EngineState;
-use crate::{Config, ShellError, Value, VarId, CONFIG_VARIABLE_ID};
+use crate::{Config, ShellError, Span, Value, VarId, CONFIG_VARIABLE_ID};
 
 /// A runtime value stack used during evaluation
 ///
@@ -57,15 +57,12 @@ impl Stack {
         }
     }
 
-    pub fn get_var(&self, var_id: VarId) -> Result<Value, ShellError> {
+    pub fn get_var(&self, var_id: VarId, span: Span) -> Result<Value, ShellError> {
         if let Some(v) = self.vars.get(&var_id) {
-            return Ok(v.clone());
+            return Ok(v.clone().with_span(span));
         }
 
-        Err(ShellError::NushellFailed(format!(
-            "variable (var_id: {}) not found",
-            var_id
-        )))
+        Err(ShellError::VariableNotFoundAtRuntime(span))
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
@@ -93,7 +90,7 @@ impl Stack {
         output.env_vars.push(HashMap::new());
 
         let config = self
-            .get_var(CONFIG_VARIABLE_ID)
+            .get_var(CONFIG_VARIABLE_ID, Span::new(0, 0))
             .expect("internal error: config is missing");
         output.vars.insert(CONFIG_VARIABLE_ID, config);
 
@@ -103,10 +100,12 @@ impl Stack {
     pub fn gather_captures(&self, captures: &[VarId]) -> Stack {
         let mut output = Stack::new();
 
+        let fake_span = Span::new(0, 0);
+
         for capture in captures {
             // Note: this assumes we have calculated captures correctly and that commands
             // that take in a var decl will manually set this into scope when running the blocks
-            if let Ok(value) = self.get_var(*capture) {
+            if let Ok(value) = self.get_var(*capture, fake_span) {
                 output.vars.insert(*capture, value);
             }
         }
@@ -116,7 +115,7 @@ impl Stack {
         output.env_vars.push(HashMap::new());
 
         let config = self
-            .get_var(CONFIG_VARIABLE_ID)
+            .get_var(CONFIG_VARIABLE_ID, fake_span)
             .expect("internal error: config is missing");
         output.vars.insert(CONFIG_VARIABLE_ID, config);
 
@@ -175,7 +174,7 @@ impl Stack {
     }
 
     pub fn get_config(&self) -> Result<Config, ShellError> {
-        let config = self.get_var(CONFIG_VARIABLE_ID);
+        let config = self.get_var(CONFIG_VARIABLE_ID, Span::new(0, 0));
 
         match config {
             Ok(config) => config.into_config(),

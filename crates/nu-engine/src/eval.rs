@@ -301,10 +301,7 @@ pub fn eval_expression(
             let block = engine_state.get_block(*block_id);
 
             for var_id in &block.captures {
-                captures.insert(
-                    *var_id,
-                    stack.get_var(*var_id)?, //.map_err(|_| ShellError::VariableNotFoundAtRuntime(expr.span))?,
-                );
+                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
             Ok(Value::Block {
                 val: *block_id,
@@ -550,193 +547,236 @@ pub fn eval_variable(
     var_id: VarId,
     span: Span,
 ) -> Result<Value, ShellError> {
-    if var_id == nu_protocol::NU_VARIABLE_ID {
-        // $nu
-        let mut output_cols = vec![];
-        let mut output_vals = vec![];
+    match var_id {
+        nu_protocol::NU_VARIABLE_ID => {
+            // $nu
+            let mut output_cols = vec![];
+            let mut output_vals = vec![];
 
-        if let Some(mut config_path) = nu_path::config_dir() {
-            config_path.push("nushell");
+            if let Some(mut config_path) = nu_path::config_dir() {
+                config_path.push("nushell");
 
-            let mut history_path = config_path.clone();
-            let mut keybinding_path = config_path.clone();
+                let mut history_path = config_path.clone();
+                let mut keybinding_path = config_path.clone();
 
-            history_path.push("history.txt");
+                history_path.push("history.txt");
 
-            output_cols.push("history-path".into());
-            output_vals.push(Value::String {
-                val: history_path.to_string_lossy().to_string(),
-                span,
-            });
-
-            config_path.push("config.nu");
-
-            output_cols.push("config-path".into());
-            output_vals.push(Value::String {
-                val: config_path.to_string_lossy().to_string(),
-                span,
-            });
-
-            // TODO: keybindings don't exist yet but lets add a file
-            // path for them to be stored in. It doesn't have to be yml.
-            keybinding_path.push("keybindings.yml");
-            output_cols.push("keybinding-path".into());
-            output_vals.push(Value::String {
-                val: keybinding_path.to_string_lossy().to_string(),
-                span,
-            })
-        }
-
-        #[cfg(feature = "plugin")]
-        if let Some(path) = &engine_state.plugin_signatures {
-            if let Some(path_str) = path.to_str() {
-                output_cols.push("plugin-path".into());
+                output_cols.push("history-path".into());
                 output_vals.push(Value::String {
-                    val: path_str.into(),
+                    val: history_path.to_string_lossy().to_string(),
                     span,
                 });
-            }
-        }
 
-        // since the env var PWD doesn't exist on all platforms
-        // lets just get the current directory
-        let cwd = current_dir_str(engine_state, stack)?;
-        output_cols.push("cwd".into());
-        output_vals.push(Value::String { val: cwd, span });
+                config_path.push("config.nu");
 
-        if let Some(home_path) = nu_path::home_dir() {
-            if let Some(home_path_str) = home_path.to_str() {
-                output_cols.push("home-path".into());
+                output_cols.push("config-path".into());
                 output_vals.push(Value::String {
-                    val: home_path_str.into(),
+                    val: config_path.to_string_lossy().to_string(),
                     span,
-                })
-            }
-        }
+                });
 
-        let temp = std::env::temp_dir();
-        if let Some(temp_path) = temp.to_str() {
-            output_cols.push("temp-path".into());
-            output_vals.push(Value::String {
-                val: temp_path.into(),
-                span,
-            })
-        }
-
-        Ok(Value::Record {
-            cols: output_cols,
-            vals: output_vals,
-            span,
-        })
-    } else if var_id == nu_protocol::SCOPE_VARIABLE_ID {
-        let mut output_cols = vec![];
-        let mut output_vals = vec![];
-
-        let mut vars = vec![];
-
-        let mut commands = vec![];
-        let mut aliases = vec![];
-        let mut overlays = vec![];
-
-        for frame in &engine_state.scope {
-            for var in &frame.vars {
-                let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
-
-                let var_type = Value::string(engine_state.get_var(*var.1).to_string(), span);
-
-                let var_value = if let Ok(val) = stack.get_var(*var.1) {
-                    val
-                } else {
-                    Value::nothing(span)
-                };
-
-                vars.push(Value::Record {
-                    cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
-                    vals: vec![var_name, var_type, var_value],
+                // TODO: keybindings don't exist yet but lets add a file
+                // path for them to be stored in. It doesn't have to be yml.
+                keybinding_path.push("keybindings.yml");
+                output_cols.push("keybinding-path".into());
+                output_vals.push(Value::String {
+                    val: keybinding_path.to_string_lossy().to_string(),
                     span,
                 })
             }
 
-            for command in &frame.decls {
-                let mut cols = vec![];
-                let mut vals = vec![];
+            #[cfg(feature = "plugin")]
+            if let Some(path) = &engine_state.plugin_signatures {
+                if let Some(path_str) = path.to_str() {
+                    output_cols.push("plugin-path".into());
+                    output_vals.push(Value::String {
+                        val: path_str.into(),
+                        span,
+                    });
+                }
+            }
 
-                cols.push("command".into());
-                vals.push(Value::String {
-                    val: String::from_utf8_lossy(command.0).to_string(),
+            // since the env var PWD doesn't exist on all platforms
+            // lets just get the current directory
+            let cwd = current_dir_str(engine_state, stack)?;
+            output_cols.push("cwd".into());
+            output_vals.push(Value::String { val: cwd, span });
+
+            if let Some(home_path) = nu_path::home_dir() {
+                if let Some(home_path_str) = home_path.to_str() {
+                    output_cols.push("home-path".into());
+                    output_vals.push(Value::String {
+                        val: home_path_str.into(),
+                        span,
+                    })
+                }
+            }
+
+            let temp = std::env::temp_dir();
+            if let Some(temp_path) = temp.to_str() {
+                output_cols.push("temp-path".into());
+                output_vals.push(Value::String {
+                    val: temp_path.into(),
                     span,
-                });
+                })
+            }
 
-                let decl = engine_state.get_decl(*command.1);
-                let signature = decl.signature();
-                cols.push("category".to_string());
-                vals.push(Value::String {
-                    val: signature.category.to_string(),
-                    span,
-                });
+            Ok(Value::Record {
+                cols: output_cols,
+                vals: output_vals,
+                span,
+            })
+        }
+        nu_protocol::SCOPE_VARIABLE_ID => {
+            let mut output_cols = vec![];
+            let mut output_vals = vec![];
 
-                // signature
-                let mut sig_records = vec![];
-                {
-                    let sig_cols = vec![
-                        "command".to_string(),
-                        "parameter_name".to_string(),
-                        "parameter_type".to_string(),
-                        "syntax_shape".to_string(),
-                        "is_optional".to_string(),
-                        "short_flag".to_string(),
-                        "description".to_string(),
-                    ];
+            let mut vars = vec![];
 
-                    // required_positional
-                    for req in signature.required_positional {
-                        let sig_vals = vec![
-                            Value::string(&signature.name, span),
-                            Value::string(req.name, span),
-                            Value::string("positional", span),
-                            Value::string(req.shape.to_string(), span),
-                            Value::boolean(false, span),
-                            Value::nothing(span),
-                            Value::string(req.desc, span),
-                        ];
+            let mut commands = vec![];
+            let mut aliases = vec![];
+            let mut overlays = vec![];
 
-                        sig_records.push(Value::Record {
-                            cols: sig_cols.clone(),
-                            vals: sig_vals,
-                            span,
-                        });
-                    }
+            for frame in &engine_state.scope {
+                for var in &frame.vars {
+                    let var_name = Value::string(String::from_utf8_lossy(var.0).to_string(), span);
 
-                    // optional_positional
-                    for opt in signature.optional_positional {
-                        let sig_vals = vec![
-                            Value::string(&signature.name, span),
-                            Value::string(opt.name, span),
-                            Value::string("positional", span),
-                            Value::string(opt.shape.to_string(), span),
-                            Value::boolean(true, span),
-                            Value::nothing(span),
-                            Value::string(opt.desc, span),
-                        ];
+                    let var_type = Value::string(engine_state.get_var(*var.1).to_string(), span);
 
-                        sig_records.push(Value::Record {
-                            cols: sig_cols.clone(),
-                            vals: sig_vals,
-                            span,
-                        });
-                    }
+                    let var_value = if let Ok(val) = stack.get_var(*var.1, span) {
+                        val
+                    } else {
+                        Value::nothing(span)
+                    };
 
+                    vars.push(Value::Record {
+                        cols: vec!["name".to_string(), "type".to_string(), "value".to_string()],
+                        vals: vec![var_name, var_type, var_value],
+                        span,
+                    })
+                }
+
+                for command in &frame.decls {
+                    let mut cols = vec![];
+                    let mut vals = vec![];
+
+                    cols.push("command".into());
+                    vals.push(Value::String {
+                        val: String::from_utf8_lossy(command.0).to_string(),
+                        span,
+                    });
+
+                    let decl = engine_state.get_decl(*command.1);
+                    let signature = decl.signature();
+                    cols.push("category".to_string());
+                    vals.push(Value::String {
+                        val: signature.category.to_string(),
+                        span,
+                    });
+
+                    // signature
+                    let mut sig_records = vec![];
                     {
-                        // rest_positional
-                        if let Some(rest) = signature.rest_positional {
+                        let sig_cols = vec![
+                            "command".to_string(),
+                            "parameter_name".to_string(),
+                            "parameter_type".to_string(),
+                            "syntax_shape".to_string(),
+                            "is_optional".to_string(),
+                            "short_flag".to_string(),
+                            "description".to_string(),
+                        ];
+
+                        // required_positional
+                        for req in signature.required_positional {
                             let sig_vals = vec![
                                 Value::string(&signature.name, span),
-                                Value::string(rest.name, span),
-                                Value::string("rest", span),
-                                Value::string(rest.shape.to_string(), span),
+                                Value::string(req.name, span),
+                                Value::string("positional", span),
+                                Value::string(req.shape.to_string(), span),
+                                Value::boolean(false, span),
+                                Value::nothing(span),
+                                Value::string(req.desc, span),
+                            ];
+
+                            sig_records.push(Value::Record {
+                                cols: sig_cols.clone(),
+                                vals: sig_vals,
+                                span,
+                            });
+                        }
+
+                        // optional_positional
+                        for opt in signature.optional_positional {
+                            let sig_vals = vec![
+                                Value::string(&signature.name, span),
+                                Value::string(opt.name, span),
+                                Value::string("positional", span),
+                                Value::string(opt.shape.to_string(), span),
                                 Value::boolean(true, span),
                                 Value::nothing(span),
-                                Value::string(rest.desc, span),
+                                Value::string(opt.desc, span),
+                            ];
+
+                            sig_records.push(Value::Record {
+                                cols: sig_cols.clone(),
+                                vals: sig_vals,
+                                span,
+                            });
+                        }
+
+                        {
+                            // rest_positional
+                            if let Some(rest) = signature.rest_positional {
+                                let sig_vals = vec![
+                                    Value::string(&signature.name, span),
+                                    Value::string(rest.name, span),
+                                    Value::string("rest", span),
+                                    Value::string(rest.shape.to_string(), span),
+                                    Value::boolean(true, span),
+                                    Value::nothing(span),
+                                    Value::string(rest.desc, span),
+                                ];
+
+                                sig_records.push(Value::Record {
+                                    cols: sig_cols.clone(),
+                                    vals: sig_vals,
+                                    span,
+                                });
+                            }
+                        }
+
+                        // named flags
+                        for named in signature.named {
+                            let flag_type;
+
+                            // Skip the help flag
+                            if named.long == "help" {
+                                continue;
+                            }
+
+                            let shape = if let Some(arg) = named.arg {
+                                flag_type = Value::string("named", span);
+                                Value::string(arg.to_string(), span)
+                            } else {
+                                flag_type = Value::string("switch", span);
+                                Value::nothing(span)
+                            };
+
+                            let short_flag = if let Some(c) = named.short {
+                                Value::string(c, span)
+                            } else {
+                                Value::nothing(span)
+                            };
+
+                            let sig_vals = vec![
+                                Value::string(&signature.name, span),
+                                Value::string(named.long, span),
+                                flag_type,
+                                shape,
+                                Value::boolean(!named.required, span),
+                                short_flag,
+                                Value::string(named.desc, span),
                             ];
 
                             sig_records.push(Value::Record {
@@ -747,211 +787,170 @@ pub fn eval_variable(
                         }
                     }
 
-                    // named flags
-                    for named in signature.named {
-                        let flag_type;
-
-                        // Skip the help flag
-                        if named.long == "help" {
-                            continue;
-                        }
-
-                        let shape = if let Some(arg) = named.arg {
-                            flag_type = Value::string("named", span);
-                            Value::string(arg.to_string(), span)
-                        } else {
-                            flag_type = Value::string("switch", span);
-                            Value::nothing(span)
-                        };
-
-                        let short_flag = if let Some(c) = named.short {
-                            Value::string(c, span)
-                        } else {
-                            Value::nothing(span)
-                        };
-
-                        let sig_vals = vec![
-                            Value::string(&signature.name, span),
-                            Value::string(named.long, span),
-                            flag_type,
-                            shape,
-                            Value::boolean(!named.required, span),
-                            short_flag,
-                            Value::string(named.desc, span),
-                        ];
-
-                        sig_records.push(Value::Record {
-                            cols: sig_cols.clone(),
-                            vals: sig_vals,
-                            span,
-                        });
-                    }
-                }
-
-                cols.push("signature".to_string());
-                vals.push(Value::List {
-                    vals: sig_records,
-                    span,
-                });
-
-                cols.push("usage".to_string());
-                vals.push(Value::String {
-                    val: decl.usage().into(),
-                    span,
-                });
-
-                cols.push("is_binary".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_binary(),
-                    span,
-                });
-
-                cols.push("is_private".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_private(),
-                    span,
-                });
-
-                cols.push("is_builtin".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_builtin(),
-                    span,
-                });
-
-                cols.push("is_sub".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_sub(),
-                    span,
-                });
-
-                cols.push("is_plugin".to_string());
-                vals.push(Value::Bool {
-                    val: decl.is_plugin().is_some(),
-                    span,
-                });
-
-                cols.push("is_custom".to_string());
-                vals.push(Value::Bool {
-                    val: decl.get_block_id().is_some(),
-                    span,
-                });
-
-                cols.push("creates_scope".to_string());
-                vals.push(Value::Bool {
-                    val: signature.creates_scope,
-                    span,
-                });
-
-                cols.push("extra_usage".to_string());
-                vals.push(Value::String {
-                    val: decl.extra_usage().into(),
-                    span,
-                });
-
-                commands.push(Value::Record { cols, vals, span })
-            }
-
-            for alias in &frame.aliases {
-                let mut alias_text = String::new();
-                for span in alias.1 {
-                    let contents = engine_state.get_span_contents(span);
-                    if !alias_text.is_empty() {
-                        alias_text.push(' ');
-                    }
-                    alias_text.push_str(&String::from_utf8_lossy(contents).to_string());
-                }
-                aliases.push((
-                    Value::String {
-                        val: String::from_utf8_lossy(alias.0).to_string(),
+                    cols.push("signature".to_string());
+                    vals.push(Value::List {
+                        vals: sig_records,
                         span,
-                    },
-                    Value::string(alias_text, span),
-                ));
-            }
+                    });
 
-            for overlay in &frame.overlays {
-                overlays.push(Value::String {
-                    val: String::from_utf8_lossy(overlay.0).to_string(),
-                    span,
-                });
-            }
-        }
+                    cols.push("usage".to_string());
+                    vals.push(Value::String {
+                        val: decl.usage().into(),
+                        span,
+                    });
 
-        output_cols.push("vars".to_string());
-        output_vals.push(Value::List { vals: vars, span });
+                    cols.push("is_binary".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_binary(),
+                        span,
+                    });
 
-        commands.sort_by(|a, b| match (a, b) {
-            (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
-                // Comparing the first value from the record
-                // It is expected that the first value is the name of the column
-                // The names of the commands should be a value string
-                match (rec_a.get(0), rec_b.get(0)) {
-                    (Some(val_a), Some(val_b)) => match (val_a, val_b) {
-                        (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
-                            str_a.cmp(str_b)
+                    cols.push("is_private".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_private(),
+                        span,
+                    });
+
+                    cols.push("is_builtin".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_builtin(),
+                        span,
+                    });
+
+                    cols.push("is_sub".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_sub(),
+                        span,
+                    });
+
+                    cols.push("is_plugin".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.is_plugin().is_some(),
+                        span,
+                    });
+
+                    cols.push("is_custom".to_string());
+                    vals.push(Value::Bool {
+                        val: decl.get_block_id().is_some(),
+                        span,
+                    });
+
+                    cols.push("creates_scope".to_string());
+                    vals.push(Value::Bool {
+                        val: signature.creates_scope,
+                        span,
+                    });
+
+                    cols.push("extra_usage".to_string());
+                    vals.push(Value::String {
+                        val: decl.extra_usage().into(),
+                        span,
+                    });
+
+                    commands.push(Value::Record { cols, vals, span })
+                }
+
+                for alias in &frame.aliases {
+                    let mut alias_text = String::new();
+                    for span in alias.1 {
+                        let contents = engine_state.get_span_contents(span);
+                        if !alias_text.is_empty() {
+                            alias_text.push(' ');
                         }
-                        _ => Ordering::Equal,
-                    },
-                    _ => Ordering::Equal,
+                        alias_text.push_str(&String::from_utf8_lossy(contents).to_string());
+                    }
+                    aliases.push((
+                        Value::String {
+                            val: String::from_utf8_lossy(alias.0).to_string(),
+                            span,
+                        },
+                        Value::string(alias_text, span),
+                    ));
+                }
+
+                for overlay in &frame.overlays {
+                    overlays.push(Value::String {
+                        val: String::from_utf8_lossy(overlay.0).to_string(),
+                        span,
+                    });
                 }
             }
-            _ => Ordering::Equal,
-        });
-        output_cols.push("commands".to_string());
-        output_vals.push(Value::List {
-            vals: commands,
-            span,
-        });
 
-        aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-        output_cols.push("aliases".to_string());
-        output_vals.push(Value::List {
-            vals: aliases
-                .into_iter()
-                .map(|(alias, value)| Value::Record {
-                    cols: vec!["alias".into(), "expansion".into()],
-                    vals: vec![alias, value],
-                    span,
-                })
-                .collect(),
-            span,
-        });
+            output_cols.push("vars".to_string());
+            output_vals.push(Value::List { vals: vars, span });
 
-        overlays.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-        output_cols.push("overlays".to_string());
-        output_vals.push(Value::List {
-            vals: overlays,
-            span,
-        });
+            commands.sort_by(|a, b| match (a, b) {
+                (Value::Record { vals: rec_a, .. }, Value::Record { vals: rec_b, .. }) => {
+                    // Comparing the first value from the record
+                    // It is expected that the first value is the name of the column
+                    // The names of the commands should be a value string
+                    match (rec_a.get(0), rec_b.get(0)) {
+                        (Some(val_a), Some(val_b)) => match (val_a, val_b) {
+                            (
+                                Value::String { val: str_a, .. },
+                                Value::String { val: str_b, .. },
+                            ) => str_a.cmp(str_b),
+                            _ => Ordering::Equal,
+                        },
+                        _ => Ordering::Equal,
+                    }
+                }
+                _ => Ordering::Equal,
+            });
+            output_cols.push("commands".to_string());
+            output_vals.push(Value::List {
+                vals: commands,
+                span,
+            });
 
-        Ok(Value::Record {
-            cols: output_cols,
-            vals: output_vals,
-            span,
-        })
-    } else if var_id == ENV_VARIABLE_ID {
-        let env_vars = stack.get_env_vars(engine_state);
-        let env_columns = env_vars.keys();
-        let env_values = env_vars.values();
+            aliases.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+            output_cols.push("aliases".to_string());
+            output_vals.push(Value::List {
+                vals: aliases
+                    .into_iter()
+                    .map(|(alias, value)| Value::Record {
+                        cols: vec!["alias".into(), "expansion".into()],
+                        vals: vec![alias, value],
+                        span,
+                    })
+                    .collect(),
+                span,
+            });
 
-        let mut pairs = env_columns
-            .map(|x| x.to_string())
-            .zip(env_values.cloned())
-            .collect::<Vec<(String, Value)>>();
+            overlays.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+            output_cols.push("overlays".to_string());
+            output_vals.push(Value::List {
+                vals: overlays,
+                span,
+            });
 
-        pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(Value::Record {
+                cols: output_cols,
+                vals: output_vals,
+                span,
+            })
+        }
+        ENV_VARIABLE_ID => {
+            let env_vars = stack.get_env_vars(engine_state);
+            let env_columns = env_vars.keys();
+            let env_values = env_vars.values();
 
-        let (env_columns, env_values) = pairs.into_iter().unzip();
+            let mut pairs = env_columns
+                .map(|x| x.to_string())
+                .zip(env_values.cloned())
+                .collect::<Vec<(String, Value)>>();
 
-        Ok(Value::Record {
-            cols: env_columns,
-            vals: env_values,
-            span,
-        })
-    } else {
-        stack
-            .get_var(var_id)
-            .map_err(move |_| ShellError::VariableNotFoundAtRuntime(span))
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let (env_columns, env_values) = pairs.into_iter().unzip();
+
+            Ok(Value::Record {
+                cols: env_columns,
+                vals: env_values,
+                span,
+            })
+        }
+        var_id => stack.get_var(var_id, span),
     }
 }
 
