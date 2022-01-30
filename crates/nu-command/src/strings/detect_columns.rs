@@ -59,6 +59,7 @@ fn detect_columns(
     let config = stack.get_config()?;
     let input = input.collect_string("", &config)?;
 
+    #[allow(clippy::needless_collect)]
     let input: Vec<_> = input
         .lines()
         .skip(num_rows_to_skip.unwrap_or_default())

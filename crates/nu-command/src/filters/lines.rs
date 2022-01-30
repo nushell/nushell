@@ -101,6 +101,7 @@ impl Command for Lines {
 
                 let split_char = if s.contains("\r\n") { "\r\n" } else { "\n" };
 
+                #[allow(clippy::needless_collect)]
                 let lines = s
                     .split(split_char)
                     .map(|s| s.to_string())
