@@ -2956,6 +2956,7 @@ pub fn parse_block_expression(
     let captures = find_captures_in_block(working_set, &output, &mut seen, &mut seen_decls);
 
     output.captures = captures;
+    output.span = Some(span);
 
     working_set.exit_scope();
 

@@ -330,6 +330,11 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Base64,
         };
 
+        // Experimental
+        bind_command! {
+            ViewSource,
+        };
+
         #[cfg(feature = "plugin")]
         bind_command!(Register);
 

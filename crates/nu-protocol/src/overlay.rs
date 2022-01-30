@@ -1,4 +1,4 @@
-use crate::{BlockId, DeclId};
+use crate::{BlockId, DeclId, Span};
 
 use indexmap::IndexMap;
 
@@ -10,6 +10,7 @@ use indexmap::IndexMap;
 pub struct Overlay {
     pub decls: IndexMap<Vec<u8>, DeclId>,
     pub env_vars: IndexMap<Vec<u8>, BlockId>,
+    pub span: Option<Span>,
 }
 
 impl Overlay {
@@ -17,6 +18,15 @@ impl Overlay {
         Overlay {
             decls: IndexMap::new(),
             env_vars: IndexMap::new(),
+            span: None,
+        }
+    }
+
+    pub fn from_span(span: Span) -> Self {
+        Overlay {
+            decls: IndexMap::new(),
+            env_vars: IndexMap::new(),
+            span: Some(span),
         }
     }
 

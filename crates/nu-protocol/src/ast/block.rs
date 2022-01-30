@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use crate::{Signature, VarId};
+use crate::{Signature, Span, VarId};
 
 use super::Statement;
 
@@ -10,6 +10,7 @@ pub struct Block {
     pub stmts: Vec<Statement>,
     pub captures: Vec<VarId>,
     pub redirect_env: bool,
+    pub span: Option<Span>, // None option encodes no span to avoid using test_span()
 }
 
 impl Block {
@@ -49,6 +50,7 @@ impl Block {
             stmts: vec![],
             captures: vec![],
             redirect_env: false,
+            span: None,
         }
     }
 }
@@ -63,6 +65,7 @@ where
             stmts: stmts.collect(),
             captures: vec![],
             redirect_env: false,
+            span: None,
         }
     }
 }

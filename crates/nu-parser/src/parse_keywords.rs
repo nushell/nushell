@@ -761,7 +761,7 @@ pub fn parse_module_block(
         }
     }
 
-    let mut overlay = Overlay::new();
+    let mut overlay = Overlay::from_span(span);
 
     let block: Block = output
         .block
