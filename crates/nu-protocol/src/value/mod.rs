@@ -632,24 +632,28 @@ impl Value {
                     }
                     Value::List { vals, span } => {
                         let mut output = vec![];
+                        let mut hasvalue = false;
+                        let mut temp: Result<Value, ShellError> = Err(ShellError::NotFound(*span));
                         for val in vals {
-                            output.push(val.clone().follow_cell_path(&[PathMember::String {
+                            temp = val.clone().follow_cell_path(&[PathMember::String {
                                 val: column_name.clone(),
                                 span: *origin_span,
-                            }])?);
-                            // if let Value::Record { cols, vals, .. } = val {
-                            //     for col in cols.iter().enumerate() {
-                            //         if col.1 == column_name {
-                            //             output.push(vals[col.0].clone());
-                            //         }
-                            //     }
-                            // }
+                            }]);
+                            if let Ok(result) = temp.clone() {
+                                hasvalue = true;
+                                output.push(result);
+                            } else {
+                                output.push(Value::Nothing { span: *span });
+                            }
                         }
-
-                        current = Value::List {
-                            vals: output,
-                            span: *span,
-                        };
+                        if hasvalue {
+                            current = Value::List {
+                                vals: output,
+                                span: *span,
+                            };
+                        } else {
+                            return temp;
+                        }
                     }
                     Value::CustomValue { val, .. } => {
                         current = val.follow_path_string(column_name.clone(), *origin_span)?;
