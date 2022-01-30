@@ -234,6 +234,7 @@ fn help(
 Here are some tips to help you get started.
   * help commands - list all available commands
   * help <command name> - display help about a particular command
+  * help --find <text to search> - search through all of help
 
 Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
 Each stage in the pipeline works together to load, parse, and display information to you.
