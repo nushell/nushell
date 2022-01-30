@@ -133,6 +133,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             BuildString,
             Char,
             Decode,
+            DetectColumns,
             Format,
             Parse,
             Size,

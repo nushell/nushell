@@ -138,7 +138,7 @@ fn rename(
                     }
                     None => {
                         for (idx, val) in columns.iter().enumerate() {
-                            if idx > cols.len() - 1 {
+                            if idx >= cols.len() {
                                 // skip extra new columns names if we already reached the final column
                                 break;
                             }
