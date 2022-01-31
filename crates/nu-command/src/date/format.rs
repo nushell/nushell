@@ -50,26 +50,17 @@ impl Command for SubCommand {
             Example {
                 description: "Format a given date using the given format string.",
                 example: "date format '%Y-%m-%d'",
-                result: Some(Value::String {
-                    val: Local::now().format("%Y-%m-%d").to_string(),
-                    span: Span::test_data(),
-                }),
+                result: None,
             },
             Example {
                 description: "Format a given date using the given format string.",
                 example: r#"date format "%Y-%m-%d %H:%M:%S""#,
-                result: Some(Value::String {
-                    val: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    span: Span::test_data(),
-                }),
+                result: None,
             },
             Example {
                 description: "Format a given date using the given format string.",
                 example: r#""2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d""#,
-                result: Some(Value::String {
-                    val: "2021-10-22".into(),
-                    span: Span::test_data(),
-                }),
+                result: None,
             },
         ]
     }
