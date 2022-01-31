@@ -92,28 +92,26 @@ impl Command for PluginDeclaration {
             let reader = stdout_reader;
             let mut buf_read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
 
-            let response = self
-                .encoding
-                .decode_response(&mut buf_read)
-                .map_err(|err| {
-                    let decl = engine_state.get_decl(call.decl_id);
-                    ShellError::SpannedLabeledError(
-                        format!("Unable to decode call for {}", decl.name()),
-                        err.to_string(),
-                        call.head,
-                    )
-                })?;
+            let response = self.encoding.decode_response(&mut buf_read).map_err(|err| {
+                let decl = engine_state.get_decl(call.decl_id);
+                ShellError::SpannedLabeledError(
+                    format!("Unable to decode call for {}", decl.name()),
+                    err.to_string(),
+                    call.head,
+                )
+            });
 
             match response {
-                PluginResponse::Value(value) => {
+                Ok(PluginResponse::Value(value)) => {
                     Ok(PipelineData::Value(value.as_ref().clone(), None))
                 }
-                PluginResponse::Error(err) => Err(err.into()),
-                PluginResponse::Signature(..) => Err(ShellError::SpannedLabeledError(
+                Ok(PluginResponse::Error(err)) => Err(err.into()),
+                Ok(PluginResponse::Signature(..)) => Err(ShellError::SpannedLabeledError(
                     "Plugin missing value".into(),
                     "Received a signature from plugin instead of value".into(),
                     call.head,
                 )),
+                Err(err) => Err(err),
             }
         } else {
             Err(ShellError::SpannedLabeledError(
@@ -121,11 +119,12 @@ impl Command for PluginDeclaration {
                 "no stdout reader".into(),
                 call.head,
             ))
-        }?;
+        };
 
-        // There is no need to wait for the child process to finish
-        // The response has been collected from the plugin call
-        Ok(pipeline_data)
+        // We need to call .wait() on the child, or we'll risk summoning the zombie horde
+        let _ = child.wait();
+
+        pipeline_data
     }
 
     fn is_plugin(&self) -> Option<(&PathBuf, &str, &Option<PathBuf>)> {
