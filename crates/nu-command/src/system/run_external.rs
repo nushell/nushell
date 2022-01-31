@@ -148,7 +148,55 @@ impl ExternalCommand {
             process.stdin(Stdio::piped());
         }
 
-        match process.spawn() {
+        let child;
+
+        #[cfg(windows)]
+        {
+            match process.spawn() {
+                Err(_) => {
+                    let mut process = self.spawn_cmd_command();
+                    if let Some(d) = self.env_vars.get("PWD") {
+                        process.current_dir(d);
+                    } else {
+                        return Err(ShellError::SpannedLabeledErrorHelp(
+                            "Current directory not found".to_string(),
+                            "did not find PWD environment variable".to_string(),
+                            head,
+                            concat!(
+                                "The environment variable 'PWD' was not found. ",
+                                "It is required to define the current directory when running an external command."
+                            ).to_string(),
+                        ));
+                    };
+
+                    process.envs(&self.env_vars);
+
+                    // If the external is not the last command, its output will get piped
+                    // either as a string or binary
+                    if !self.last_expression {
+                        process.stdout(Stdio::piped());
+                    }
+
+                    // If there is an input from the pipeline. The stdin from the process
+                    // is piped so it can be used to send the input information
+                    if !matches!(input, PipelineData::Value(Value::Nothing { .. }, ..)) {
+                        process.stdin(Stdio::piped());
+                    }
+
+                    child = process.spawn();
+                }
+                Ok(process) => {
+                    child = Ok(process);
+                }
+            }
+        }
+
+        #[cfg(not(windows))]
+        {
+            child = process.spawn()
+        }
+
+        match child {
             Err(err) => Err(ShellError::ExternalCommand(
                 "can't run executable".to_string(),
                 err.to_string(),
@@ -289,21 +337,7 @@ impl ExternalCommand {
             head
         };
 
-        //let head = head.replace("\\", "\\\\");
-
-        let new_head;
-
-        #[cfg(windows)]
-        {
-            new_head = head.replace("\\", "\\\\");
-        }
-
-        #[cfg(not(windows))]
-        {
-            new_head = head;
-        }
-
-        let mut process = std::process::Command::new(&new_head);
+        let mut process = std::process::Command::new(&head);
 
         for arg in self.args.iter() {
             let mut arg = Spanned {
@@ -350,50 +384,15 @@ impl ExternalCommand {
                             } else {
                                 arg.to_string_lossy().to_string()
                             };
-                            let new_arg;
 
-                            #[cfg(windows)]
-                            {
-                                new_arg = arg.replace("\\", "\\\\");
-                            }
-
-                            #[cfg(not(windows))]
-                            {
-                                new_arg = arg;
-                            }
-
-                            process.arg(&new_arg);
+                            process.arg(&arg);
                         } else {
-                            let new_arg;
-
-                            #[cfg(windows)]
-                            {
-                                new_arg = arg.item.replace("\\", "\\\\");
-                            }
-
-                            #[cfg(not(windows))]
-                            {
-                                new_arg = arg.item.clone();
-                            }
-
-                            process.arg(&new_arg);
+                            process.arg(&arg.item);
                         }
                     }
                 }
             } else {
-                let new_arg;
-
-                #[cfg(windows)]
-                {
-                    new_arg = arg.item.replace("\\", "\\\\");
-                }
-
-                #[cfg(not(windows))]
-                {
-                    new_arg = arg.item;
-                }
-
-                process.arg(&new_arg);
+                process.arg(&arg.item);
             }
         }
 

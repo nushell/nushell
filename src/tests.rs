@@ -93,12 +93,7 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
     println!("stdout: {}", stdout);
     println!("stderr: {}", stderr);
 
-    assert!(stderr.contains(expected));
+    assert!(!stderr.is_empty() && stderr.contains(expected));
 
     Ok(())
-}
-
-#[cfg(test)]
-pub fn not_found_msg() -> &'static str {
-    "can't run executable"
 }
