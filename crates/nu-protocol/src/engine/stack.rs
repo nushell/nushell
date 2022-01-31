@@ -178,10 +178,20 @@ impl Stack {
 
         match config {
             Ok(config) => config.into_config(),
-            Err(e) => {
-                println!("Can't find {} in {:?}", CONFIG_VARIABLE_ID, self);
-                Err(e)
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn update_config(&mut self, name: &str, value: Value) {
+        if let Some(Value::Record { cols, vals, .. }) = self.vars.get_mut(&CONFIG_VARIABLE_ID) {
+            for col_val in cols.iter().zip(vals.iter_mut()) {
+                if col_val.0 == name {
+                    *col_val.1 = value;
+                    return;
+                }
             }
+            cols.push(name.to_string());
+            vals.push(value);
         }
     }
 

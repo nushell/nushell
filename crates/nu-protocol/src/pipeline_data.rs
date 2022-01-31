@@ -75,6 +75,10 @@ impl PipelineData {
         self
     }
 
+    pub fn is_nothing(&self) -> bool {
+        matches!(self, PipelineData::Value(Value::Nothing { .. }, ..))
+    }
+
     pub fn into_value(self, span: Span) -> Value {
         match self {
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
