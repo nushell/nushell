@@ -1,6 +1,6 @@
 mod call_ext;
 pub mod column;
-mod documentation;
+pub mod documentation;
 pub mod env;
 mod eval;
 mod glob_from;

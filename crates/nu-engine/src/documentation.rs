@@ -262,7 +262,7 @@ pub fn get_documentation(
     long_desc
 }
 
-fn get_flags_section(signature: &Signature) -> String {
+pub fn get_flags_section(signature: &Signature) -> String {
     let mut long_desc = String::new();
     long_desc.push_str("\nFlags:\n");
     for flag in &signature.named {

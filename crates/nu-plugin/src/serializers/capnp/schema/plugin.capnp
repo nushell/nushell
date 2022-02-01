@@ -75,9 +75,15 @@ enum Category {
 	filters @7;
 	formats @8;
 	math @9;
-	strings @10;
-	system @11;
-	viewers @12;
+	network @10;
+	random @11;
+	platform @12;
+	shells @13;
+	strings @14;
+	system @15;
+	viewers @16;
+	hash @17;
+	generators @18;
 }
 
 struct Flag {

@@ -18,9 +18,15 @@ pub(crate) fn serialize_signature(signature: &Signature, mut builder: signature:
         Category::Filters => builder.set_category(PluginCategory::Filters),
         Category::Formats => builder.set_category(PluginCategory::Formats),
         Category::Math => builder.set_category(PluginCategory::Math),
+        Category::Network => builder.set_category(PluginCategory::Network),
+        Category::Random => builder.set_category(PluginCategory::Random),
+        Category::Platform => builder.set_category(PluginCategory::Platform),
+        Category::Shells => builder.set_category(PluginCategory::Shells),
         Category::Strings => builder.set_category(PluginCategory::Strings),
         Category::System => builder.set_category(PluginCategory::System),
         Category::Viewers => builder.set_category(PluginCategory::Viewers),
+        Category::Hash => builder.set_category(PluginCategory::Hash),
+        Category::Generators => builder.set_category(PluginCategory::Generators),
         _ => builder.set_category(PluginCategory::Default),
     }
 
@@ -122,6 +128,12 @@ pub(crate) fn deserialize_signature(reader: signature::Reader) -> Result<Signatu
         PluginCategory::Strings => Category::Strings,
         PluginCategory::System => Category::System,
         PluginCategory::Viewers => Category::Viewers,
+        PluginCategory::Network => Category::Network,
+        PluginCategory::Random => Category::Random,
+        PluginCategory::Platform => Category::Platform,
+        PluginCategory::Shells => Category::Shells,
+        PluginCategory::Hash => Category::Hash,
+        PluginCategory::Generators => Category::Generators,
     };
 
     // Deserializing required arguments
