@@ -1,20 +1,41 @@
+// Attribution: a lot of this came from procs https://github.com/dalance/procs
+// and sysinfo https://github.com/GuillaumeGomez/sysinfo
+
 use chrono::offset::TimeZone;
 use chrono::{Local, NaiveDate};
 use libc::c_void;
+use ntapi::ntpebteb::PEB;
+use ntapi::ntpsapi::{
+    NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
+    ProcessWow64Information, PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
+};
+use ntapi::ntrtl::{RtlGetVersion, PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
+use ntapi::ntwow64::{PEB32, PRTL_USER_PROCESS_PARAMETERS32, RTL_USER_PROCESS_PARAMETERS32};
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::mem::{size_of, zeroed};
+use std::ffi::OsString;
+use std::mem::{size_of, zeroed, MaybeUninit};
+use std::os::windows::ffi::OsStringExt;
+use std::path::PathBuf;
 use std::ptr;
+use std::ptr::null_mut;
 use std::thread;
 use std::time::{Duration, Instant};
-use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, MAX_PATH};
+use winapi::shared::basetsd::SIZE_T;
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, LPVOID, MAX_PATH, TRUE, ULONG};
+use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
+use winapi::shared::ntstatus::{
+    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
+};
 use winapi::um::handleapi::CloseHandle;
+use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
 use winapi::um::processthreadsapi::{
     GetCurrentProcess, GetPriorityClass, GetProcessTimes, OpenProcess, OpenProcessToken,
 };
 use winapi::um::psapi::{
-    EnumProcessModulesEx, GetModuleBaseNameW, GetProcessMemoryInfo, K32EnumProcesses,
-    LIST_MODULES_ALL, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+    GetModuleBaseNameW, GetProcessMemoryInfo, K32EnumProcesses, PROCESS_MEMORY_COUNTERS,
+    PROCESS_MEMORY_COUNTERS_EX,
 };
 use winapi::um::securitybaseapi::{AdjustTokenPrivileges, GetTokenInformation};
 use winapi::um::tlhelp32::{
@@ -22,9 +43,10 @@ use winapi::um::tlhelp32::{
 };
 use winapi::um::winbase::{GetProcessIoCounters, LookupAccountSidW, LookupPrivilegeValueW};
 use winapi::um::winnt::{
-    TokenGroups, TokenUser, HANDLE, IO_COUNTERS, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PSID,
-    SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS,
-    TOKEN_PRIVILEGES, TOKEN_QUERY, TOKEN_USER,
+    TokenGroups, TokenUser, HANDLE, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PSID, RTL_OSVERSIONINFOEXW, SE_DEBUG_NAME,
+    SE_PRIVILEGE_ENABLED, SID, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS, TOKEN_PRIVILEGES,
+    TOKEN_QUERY, TOKEN_USER,
 };
 
 pub struct ProcessInfo {
@@ -40,6 +62,9 @@ pub struct ProcessInfo {
     pub priority: u32,
     pub thread: i32,
     pub interval: Duration,
+    pub cmd: Vec<String>,
+    pub environ: Vec<String>,
+    pub cwd: PathBuf,
 }
 
 #[derive(Default)]
@@ -158,6 +183,22 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             all_ok &= thread.is_some();
 
             if all_ok {
+                // let process_params = unsafe { get_process_params(handle) };
+                // match process_params {
+                //     Ok((pp_cmd, pp_env, pp_cwd)) => {
+                //         eprintln!(
+                //             "cmd: {:?}, env: {:?}, cwd: {:?}",
+                //             pp_cmd,
+                //             "noop".to_string(),
+                //             pp_cwd
+                //         );
+                //     }
+                //     Err(_) => {}
+                // }
+                let (proc_cmd, proc_env, proc_cwd) = match unsafe { get_process_params(handle) } {
+                    Ok(pp) => (pp.0, pp.1, pp.2),
+                    Err(_) => (vec![], vec![], PathBuf::new()),
+                };
                 let command = command.unwrap_or_default();
                 let ppid = ppid.unwrap_or(0);
                 let cpu_info = cpu_info.unwrap_or_default();
@@ -184,6 +225,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
                     priority,
                     thread,
                     interval,
+                    cmd: proc_cmd,
+                    environ: proc_env,
+                    cwd: proc_cwd,
                 };
 
                 ret.push(proc);
@@ -368,21 +412,14 @@ fn get_memory_info(handle: HANDLE) -> Option<MemoryInfo> {
 fn get_command(handle: HANDLE) -> Option<String> {
     unsafe {
         let mut exe_buf = [0u16; MAX_PATH + 1];
-        let mut h_mod = std::ptr::null_mut();
-        let mut cb_needed = 0;
+        let h_mod = std::ptr::null_mut();
 
-        let ret = EnumProcessModulesEx(
+        let ret = GetModuleBaseNameW(
             handle,
-            &mut h_mod,
-            size_of::<DWORD>() as DWORD,
-            &mut cb_needed,
-            LIST_MODULES_ALL,
+            h_mod as _,
+            exe_buf.as_mut_ptr(),
+            MAX_PATH as DWORD + 1,
         );
-        if ret == 0 {
-            return None;
-        }
-
-        let ret = GetModuleBaseNameW(handle, h_mod, exe_buf.as_mut_ptr(), MAX_PATH as DWORD + 1);
 
         let mut pos = 0;
         for x in exe_buf.iter() {
@@ -396,6 +433,340 @@ fn get_command(handle: HANDLE) -> Option<String> {
             Some(String::from_utf16_lossy(&exe_buf[..pos]))
         } else {
             None
+        }
+    }
+}
+
+trait RtlUserProcessParameters {
+    fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+    fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str>;
+}
+
+macro_rules! impl_RtlUserProcessParameters {
+    ($t:ty) => {
+        impl RtlUserProcessParameters for $t {
+            fn get_cmdline(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.CommandLine.Buffer;
+                let size = self.CommandLine.Length;
+                unsafe { get_process_data(handle, ptr as _, size as _) }
+            }
+            fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.CurrentDirectory.DosPath.Buffer;
+                let size = self.CurrentDirectory.DosPath.Length;
+                unsafe { get_process_data(handle, ptr as _, size as _) }
+            }
+            fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
+                let ptr = self.Environment;
+                unsafe {
+                    let size = get_region_size(handle, ptr as LPVOID)?;
+                    get_process_data(handle, ptr as _, size as _)
+                }
+            }
+        }
+    };
+}
+
+impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS32);
+impl_RtlUserProcessParameters!(RTL_USER_PROCESS_PARAMETERS);
+
+unsafe fn null_terminated_wchar_to_string(slice: &[u16]) -> String {
+    match slice.iter().position(|&x| x == 0) {
+        Some(pos) => OsString::from_wide(&slice[..pos])
+            .to_string_lossy()
+            .into_owned(),
+        None => OsString::from_wide(slice).to_string_lossy().into_owned(),
+    }
+}
+
+#[allow(clippy::uninit_vec)]
+unsafe fn get_process_data(
+    handle: HANDLE,
+    ptr: LPVOID,
+    size: usize,
+) -> Result<Vec<u16>, &'static str> {
+    let mut buffer: Vec<u16> = Vec::with_capacity(size / 2 + 1);
+    buffer.set_len(size / 2);
+    if ReadProcessMemory(
+        handle,
+        ptr as *mut _,
+        buffer.as_mut_ptr() as *mut _,
+        size,
+        std::ptr::null_mut(),
+    ) != TRUE
+    {
+        return Err("Unable to read process data");
+    }
+    Ok(buffer)
+}
+
+unsafe fn get_region_size(handle: HANDLE, ptr: LPVOID) -> Result<usize, &'static str> {
+    let mut meminfo = MaybeUninit::<MEMORY_BASIC_INFORMATION>::uninit();
+    if VirtualQueryEx(
+        handle,
+        ptr,
+        meminfo.as_mut_ptr() as *mut _,
+        size_of::<MEMORY_BASIC_INFORMATION>(),
+    ) == 0
+    {
+        return Err("Unable to read process memory information");
+    }
+    let meminfo = meminfo.assume_init();
+    Ok((meminfo.RegionSize as isize - ptr.offset_from(meminfo.BaseAddress)) as usize)
+}
+
+#[allow(clippy::uninit_vec)]
+unsafe fn ph_query_process_variable_size(
+    process_handle: HANDLE,
+    process_information_class: PROCESSINFOCLASS,
+) -> Option<Vec<u16>> {
+    let mut return_length = MaybeUninit::<ULONG>::uninit();
+
+    let mut status = NtQueryInformationProcess(
+        process_handle,
+        process_information_class,
+        std::ptr::null_mut(),
+        0,
+        return_length.as_mut_ptr() as *mut _,
+    );
+
+    if status != STATUS_BUFFER_OVERFLOW
+        && status != STATUS_BUFFER_TOO_SMALL
+        && status != STATUS_INFO_LENGTH_MISMATCH
+    {
+        return None;
+    }
+
+    let mut return_length = return_length.assume_init();
+    let buf_len = (return_length as usize) / 2;
+    let mut buffer: Vec<u16> = Vec::with_capacity(buf_len + 1);
+    buffer.set_len(buf_len);
+
+    status = NtQueryInformationProcess(
+        process_handle,
+        process_information_class,
+        buffer.as_mut_ptr() as *mut _,
+        return_length,
+        &mut return_length as *mut _,
+    );
+    if !NT_SUCCESS(status) {
+        return None;
+    }
+    buffer.push(0);
+    Some(buffer)
+}
+
+unsafe fn get_cmdline_from_buffer(buffer: *const u16) -> Vec<String> {
+    // Get argc and argv from the command line
+    let mut argc = MaybeUninit::<i32>::uninit();
+    let argv_p = winapi::um::shellapi::CommandLineToArgvW(buffer, argc.as_mut_ptr());
+    if argv_p.is_null() {
+        return Vec::new();
+    }
+    let argc = argc.assume_init();
+    let argv = std::slice::from_raw_parts(argv_p, argc as usize);
+
+    let mut res = Vec::new();
+    for arg in argv {
+        let len = libc::wcslen(*arg);
+        let str_slice = std::slice::from_raw_parts(*arg, len);
+        res.push(String::from_utf16_lossy(str_slice));
+    }
+
+    winapi::um::winbase::LocalFree(argv_p as *mut _);
+
+    res
+}
+
+unsafe fn get_process_params(
+    handle: HANDLE,
+) -> Result<(Vec<String>, Vec<String>, PathBuf), &'static str> {
+    if !cfg!(target_pointer_width = "64") {
+        return Err("Non 64 bit targets are not supported");
+    }
+
+    // First check if target process is running in wow64 compatibility emulator
+    let mut pwow32info = MaybeUninit::<LPVOID>::uninit();
+    let result = NtQueryInformationProcess(
+        handle,
+        ProcessWow64Information,
+        pwow32info.as_mut_ptr() as *mut _,
+        size_of::<LPVOID>() as u32,
+        null_mut(),
+    );
+    if !NT_SUCCESS(result) {
+        return Err("Unable to check WOW64 information about the process");
+    }
+    let pwow32info = pwow32info.assume_init();
+
+    if pwow32info.is_null() {
+        // target is a 64 bit process
+
+        let mut pbasicinfo = MaybeUninit::<PROCESS_BASIC_INFORMATION>::uninit();
+        let result = NtQueryInformationProcess(
+            handle,
+            ProcessBasicInformation,
+            pbasicinfo.as_mut_ptr() as *mut _,
+            size_of::<PROCESS_BASIC_INFORMATION>() as u32,
+            null_mut(),
+        );
+        if !NT_SUCCESS(result) {
+            return Err("Unable to get basic process information");
+        }
+        let pinfo = pbasicinfo.assume_init();
+
+        let mut peb = MaybeUninit::<PEB>::uninit();
+        if ReadProcessMemory(
+            handle,
+            pinfo.PebBaseAddress as *mut _,
+            peb.as_mut_ptr() as *mut _,
+            size_of::<PEB>() as SIZE_T,
+            std::ptr::null_mut(),
+        ) != TRUE
+        {
+            return Err("Unable to read process PEB");
+        }
+
+        let peb = peb.assume_init();
+
+        let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS>::uninit();
+        if ReadProcessMemory(
+            handle,
+            peb.ProcessParameters as *mut PRTL_USER_PROCESS_PARAMETERS as *mut _,
+            proc_params.as_mut_ptr() as *mut _,
+            size_of::<RTL_USER_PROCESS_PARAMETERS>() as SIZE_T,
+            std::ptr::null_mut(),
+        ) != TRUE
+        {
+            return Err("Unable to read process parameters");
+        }
+
+        let proc_params = proc_params.assume_init();
+        return Ok((
+            get_cmd_line(&proc_params, handle),
+            get_proc_env(&proc_params, handle),
+            get_cwd(&proc_params, handle),
+        ));
+    }
+    // target is a 32 bit process in wow64 mode
+
+    let mut peb32 = MaybeUninit::<PEB32>::uninit();
+    if ReadProcessMemory(
+        handle,
+        pwow32info,
+        peb32.as_mut_ptr() as *mut _,
+        size_of::<PEB32>() as SIZE_T,
+        std::ptr::null_mut(),
+    ) != TRUE
+    {
+        return Err("Unable to read PEB32");
+    }
+    let peb32 = peb32.assume_init();
+
+    let mut proc_params = MaybeUninit::<RTL_USER_PROCESS_PARAMETERS32>::uninit();
+    if ReadProcessMemory(
+        handle,
+        peb32.ProcessParameters as *mut PRTL_USER_PROCESS_PARAMETERS32 as *mut _,
+        proc_params.as_mut_ptr() as *mut _,
+        size_of::<RTL_USER_PROCESS_PARAMETERS32>() as SIZE_T,
+        std::ptr::null_mut(),
+    ) != TRUE
+    {
+        return Err("Unable to read 32 bit process parameters");
+    }
+    let proc_params = proc_params.assume_init();
+    Ok((
+        get_cmd_line(&proc_params, handle),
+        get_proc_env(&proc_params, handle),
+        get_cwd(&proc_params, handle),
+    ))
+}
+
+static WINDOWS_8_1_OR_NEWER: Lazy<bool> = Lazy::new(|| {
+    let mut version_info: RTL_OSVERSIONINFOEXW = unsafe { MaybeUninit::zeroed().assume_init() };
+
+    version_info.dwOSVersionInfoSize = std::mem::size_of::<RTL_OSVERSIONINFOEXW>() as u32;
+    if !NT_SUCCESS(unsafe {
+        RtlGetVersion(&mut version_info as *mut RTL_OSVERSIONINFOEXW as *mut _)
+    }) {
+        return true;
+    }
+
+    // Windows 8.1 is 6.3
+    version_info.dwMajorVersion > 6
+        || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 3
+});
+
+fn get_cmd_line<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+    if *WINDOWS_8_1_OR_NEWER {
+        get_cmd_line_new(handle)
+    } else {
+        get_cmd_line_old(params, handle)
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+fn get_cmd_line_new(handle: HANDLE) -> Vec<String> {
+    unsafe {
+        if let Some(buffer) = ph_query_process_variable_size(handle, ProcessCommandLineInformation)
+        {
+            let buffer = (*(buffer.as_ptr() as *const UNICODE_STRING)).Buffer;
+
+            get_cmdline_from_buffer(buffer)
+        } else {
+            vec![]
+        }
+    }
+}
+
+fn get_cmd_line_old<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+    match params.get_cmdline(handle) {
+        Ok(buffer) => unsafe { get_cmdline_from_buffer(buffer.as_ptr()) },
+        Err(_e) => {
+            // sysinfo_debug!("get_cmd_line_old failed to get data: {}", _e);
+            Vec::new()
+        }
+    }
+}
+
+fn get_proc_env<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> Vec<String> {
+    match params.get_environ(handle) {
+        Ok(buffer) => {
+            let equals = "="
+                .encode_utf16()
+                .next()
+                .expect("unable to get next utf16 value");
+            let raw_env = buffer;
+            let mut result = Vec::new();
+            let mut begin = 0;
+            while let Some(offset) = raw_env[begin..].iter().position(|&c| c == 0) {
+                let end = begin + offset;
+                if raw_env[begin..end].iter().any(|&c| c == equals) {
+                    result.push(
+                        OsString::from_wide(&raw_env[begin..end])
+                            .to_string_lossy()
+                            .into_owned(),
+                    );
+                    begin = end + 1;
+                } else {
+                    break;
+                }
+            }
+            result
+        }
+        Err(_e) => {
+            // sysinfo_debug!("get_proc_env failed to get data: {}", _e);
+            Vec::new()
+        }
+    }
+}
+
+fn get_cwd<T: RtlUserProcessParameters>(params: &T, handle: HANDLE) -> PathBuf {
+    match params.get_cwd(handle) {
+        Ok(buffer) => unsafe { PathBuf::from(null_terminated_wchar_to_string(buffer.as_slice())) },
+        Err(_e) => {
+            // sysinfo_debug!("get_cwd failed to get data: {}", _e);
+            PathBuf::new()
         }
     }
 }
@@ -624,8 +995,8 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
 
 #[cfg_attr(tarpaulin, skip)]
 fn from_wide_ptr(ptr: *const u16) -> String {
-    use std::ffi::OsString;
-    use std::os::windows::ffi::OsStringExt;
+    // use std::ffi::OsString;
+    // use std::os::windows::ffi::OsStringExt;
     unsafe {
         assert!(!ptr.is_null());
         let len = (0..std::isize::MAX)
@@ -649,17 +1020,27 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        self.command()
-            .split(' ')
-            .collect::<Vec<_>>()
-            .first()
-            .map(|x| x.to_string())
-            .unwrap_or_default()
+        // self.command()
+        //     .split(' ')
+        //     .collect::<Vec<_>>()
+        //     .first()
+        //     .map(|x| x.to_string())
+        //     .unwrap_or_default()
+        self.command.clone()
     }
 
     /// Full name of command, with arguments
     pub fn command(&self) -> String {
-        self.command.clone()
+        // self.command.clone()
+        self.cmd.join(" ")
+    }
+
+    pub fn environ(&self) -> Vec<String> {
+        self.environ.clone()
+    }
+
+    pub fn cwd(&self) -> String {
+        self.cwd.display().to_string()
     }
 
     /// Get the status of the process

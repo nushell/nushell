@@ -27,6 +27,9 @@ which = "4"
 libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["handleapi", "minwindef", "psapi", "securitybaseapi", "tlhelp32", "winbase", "winnt"] }
+# winapi = { version = "0.3", features = ["handleapi", "minwindef", "psapi", "securitybaseapi", "tlhelp32", "winbase", "winnt"] }
+winapi = { version = "0.3.9", features = ["tlhelp32", "fileapi", "handleapi", "ifdef", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "powerbase", "netioapi", "lmcons", "lmaccess", "lmapibuf", "memoryapi", "shellapi", "std"] }
 chrono = "0.4"
 libc = "0.2"
+ntapi = "0.3"
+once_cell = "1.0"

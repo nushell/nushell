@@ -104,6 +104,23 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                 val: proc.command(),
                 span,
             });
+            #[cfg(windows)]
+            {
+                cols.push("cwd".to_string());
+                vals.push(Value::String {
+                    val: proc.cwd(),
+                    span,
+                });
+                cols.push("environment".to_string());
+                vals.push(Value::List {
+                    vals: proc
+                        .environ()
+                        .iter()
+                        .map(|x| Value::string(x.to_string(), span))
+                        .collect(),
+                    span,
+                });
+            }
         }
 
         output.push(Value::Record { cols, vals, span });

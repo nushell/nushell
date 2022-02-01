@@ -2222,6 +2222,8 @@ dependencies = [
  "errno",
  "libc",
  "libproc",
+ "ntapi",
+ "once_cell",
  "procfs",
  "users",
  "which",
