@@ -1,0 +1,125 @@
+{
+    "host": {
+        "name": "Linux",
+        "release": "5.4.33",
+        "version": "#1-NixOS SMP Fri Apr 17 08:50:26 UTC 2020",
+        "hostname": "nixos",
+        "arch": "x86_64",
+        "uptime": 105126,
+        "sessions": [
+            "alexj"
+        ]
+    },
+    "cpu": {
+        "cores": 8,
+        "current ghz": 2.4200000000000004,
+        "min ghz": 0.39999999999999997,
+        "max ghz": 3.4000000000000004
+    },
+    "disks": [
+        {
+            "device": "/dev/disk/by-uuid/e9adff48-c37b-4631-b98b-eaec9b410ba3",
+            "type": "ext4",
+            "mount": "/",
+            "total": 483445473280,
+            "used": 121866776576,
+            "free": 336949624832
+        },
+        {
+            "device": "/dev/disk/by-uuid/e9adff48-c37b-4631-b98b-eaec9b410ba3",
+            "type": "ext4",
+            "mount": "/nix/store",
+            "total": 483445473280,
+            "used": 121866776576,
+            "free": 336949624832
+        },
+        {
+            "device": "/dev/sda3",
+            "type": "vfat",
+            "mount": "/boot",
+            "total": 534757376,
+            "used": 72650752,
+            "free": 462106624
+        }
+    ],
+    "mem": {
+        "total": 16256524000,
+        "free": 3082268000,
+        "swap total": 18874344000,
+        "swap free": 18874344000
+    },
+    "temp": [
+        {
+            "unit": "iwlwifi_1",
+            "temp": 42.0
+        },
+        {
+            "unit": "acpitz",
+            "temp": 53.00000000000001,
+            "critical": 103.0
+        },
+        {
+            "unit": "coretemp",
+            "label": "Core 1",
+            "temp": 52.00000000000001,
+            "high": 100.0,
+            "critical": 100.0
+        },
+        {
+            "unit": "coretemp",
+            "label": "Core 2",
+            "temp": 52.00000000000001,
+            "high": 100.0,
+            "critical": 100.0
+        },
+        {
+            "unit": "coretemp",
+            "label": "Package id 0",
+            "temp": 52.00000000000001,
+            "high": 100.0,
+            "critical": 100.0
+        },
+        {
+            "unit": "coretemp",
+            "label": "Core 3",
+            "temp": 51.00000000000001,
+            "high": 100.0,
+            "critical": 100.0
+        },
+        {
+            "unit": "coretemp",
+            "label": "Core 0",
+            "temp": 51.00000000000001,
+            "high": 100.0,
+            "critical": 100.0
+        },
+        {
+            "unit": "pch_skylake",
+            "temp": 48.00000000000001
+        }
+    ],
+    "net": [
+        {
+            "name": "wlp2s0",
+            "sent": 387642399,
+            "recv": 15324719784
+        },
+        {
+            "name": "lo",
+            "sent": 2667,
+            "recv": 2667
+        },
+        {
+            "name": "vboxnet0",
+            "sent": 0,
+            "recv": 0
+        }
+    ],
+    "battery": [
+        {
+            "vendor": "ASUSTeK",
+            "model": "ASUS Battery",
+            "cycles": 445
+        }
+    ]
+}

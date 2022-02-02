@@ -1,0 +1,48 @@
+{
+  # unquoted keys
+  unquoted_key: test
+  _unquoted: test
+  test-key: test
+  -test: test
+  .key: test
+  # trailing spaces in key names are ignored
+  trailing : test
+  trailing2  : test
+  # comment char in key name
+  "#c1": test
+  "foo#bar": test
+  "//bar": test
+  "foo//bar": test
+  "/*foo*/": test
+  "foo/*foo*/bar": test
+  "/*": test
+  "foo/*bar": test
+  # quotes in key name
+  "\"": test
+  "foo\"bar": test
+  "'''": test
+  "foo'''bar": test
+  # control char in key name
+  ":": test
+  "foo:bar": test
+  "{": test
+  "foo{bar": test
+  "}": test
+  "foo}bar": test
+  "[": test
+  "foo[bar": test
+  "]": test
+  "foo]bar": test
+  # newline
+  nl1:
+    test
+  nl2
+    :
+    test
+
+  nl3
+
+    :
+
+    test
+}

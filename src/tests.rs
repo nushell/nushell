@@ -26,7 +26,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("engine-q")?;
+    let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name);
 
     writeln!(file, "{}", input)?;
@@ -51,7 +51,7 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("engine-q")?;
+    let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name);
 
     writeln!(file, "{}", input)?;
@@ -76,7 +76,7 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("engine-q")?;
+    let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg(name);
     cmd.env(
         "PWD",

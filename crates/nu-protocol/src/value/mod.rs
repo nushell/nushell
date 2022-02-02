@@ -1122,6 +1122,30 @@ impl Value {
                 val: lhs * rhs,
                 span,
             }),
+            (Value::Int { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: *lhs * *rhs,
+                    span,
+                })
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::Filesize {
+                    val: *lhs * *rhs,
+                    span,
+                })
+            }
+            (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: *lhs * *rhs,
+                    span,
+                })
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::Duration {
+                    val: *lhs * *rhs,
+                    span,
+                })
+            }
             (Value::CustomValue { val: lhs, span }, rhs) => {
                 lhs.operation(*span, Operator::Multiply, op, rhs)
             }
@@ -1216,6 +1240,26 @@ impl Value {
                             span,
                         })
                     }
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Filesize {
+                        val: lhs / rhs,
+                        span,
+                    })
+                } else {
+                    Err(ShellError::DivisionByZero(op))
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::Duration {
+                        val: lhs / rhs,
+                        span,
+                    })
                 } else {
                     Err(ShellError::DivisionByZero(op))
                 }

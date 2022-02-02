@@ -15,6 +15,7 @@ nu-pretty-hex = { path = "../nu-pretty-hex" }
 nu-protocol = { path = "../nu-protocol" }
 nu-table = { path = "../nu-table" }
 nu-term-grid = { path = "../nu-term-grid" }
+nu-test-support = { path = "../nu-test-support" }
 nu-parser = { path = "../nu-parser" }
 nu-system = { path = "../nu-system" }
 # nu-ansi-term = { path = "../nu-ansi-term" }
@@ -95,3 +96,9 @@ dataframe = ["polars", "num"]
 
 [build-dependencies]
 shadow-rs = "0.8.1"
+
+[dev-dependencies]
+hamcrest2 = "0.3.0"
+dirs-next = "2.0.0"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"

@@ -7,9 +7,7 @@ use super::{EngineState, Stack};
 pub trait Command: Send + Sync + CommandClone {
     fn name(&self) -> &str;
 
-    fn signature(&self) -> Signature {
-        Signature::new(self.name()).desc(self.usage()).filter()
-    }
+    fn signature(&self) -> Signature;
 
     fn usage(&self) -> &str;
 

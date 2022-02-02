@@ -1,8 +1,8 @@
 [package]
-name = "engine-q"
+name = "nu"
 version = "0.1.0"
 edition = "2021"
-default-run = "engine-q"
+default-run = "nu"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -36,6 +36,7 @@ nu-plugin = { path = "./crates/nu-plugin", optional = true }
 nu-system = { path = "./crates/nu-system"}
 nu-table = { path = "./crates/nu-table" }
 nu-term-grid = { path = "./crates/nu-term-grid" }
+
 nu-ansi-term = "0.42.0"
 nu-color-config = { path = "./crates/nu-color-config" }
 miette = "3.0.0"
@@ -52,11 +53,14 @@ nu_plugin_gstat = { version = "0.1.0", path = "./crates/nu_plugin_gstat", option
 nu_plugin_query = { version = "0.1.0", path = "./crates/nu_plugin_query", optional = true }
 
 [dev-dependencies]
+nu-test-support = { path="./crates/nu-test-support" }
 tempfile = "3.2.0"
 assert_cmd = "2.0.2"
 pretty_assertions = "1.0.0"
-
-[build-dependencies]
+serial_test = "0.5.1"
+hamcrest2 = "0.3.0"
+rstest = "0.12.0"
+itertools = "0.10.3"
 
 [features]
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
@@ -119,5 +123,5 @@ required-features = ["query"]
 
 # Main nu binary
 [[bin]]
-name = "engine-q"
+name = "nu"
 path = "src/main.rs"

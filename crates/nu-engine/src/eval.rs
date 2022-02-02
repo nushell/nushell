@@ -1028,13 +1028,25 @@ fn compute(size: i64, unit: Unit, span: Span) -> Value {
             val: size * 1000 * 1000 * 1000 * 60 * 60,
             span,
         },
-        Unit::Day => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60 * 60 * 24,
-            span,
+        Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::SpannedLabeledError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    span,
+                ),
+            },
         },
-        Unit::Week => Value::Duration {
-            val: size * 1000 * 1000 * 1000 * 60 * 60 * 24 * 7,
-            span,
+        Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
+            Some(val) => Value::Duration { val, span },
+            None => Value::Error {
+                error: ShellError::SpannedLabeledError(
+                    "duration too large".into(),
+                    "duration too large".into(),
+                    span,
+                ),
+            },
         },
     }
 }

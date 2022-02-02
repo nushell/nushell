@@ -247,6 +247,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bigdecimal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6aaf33151a6429fe9211d1b276eafdf70cdff28b071e76c0b0e1503221ea3744"
+dependencies = [
+ "num-bigint 0.4.3",
+ "num-integer",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -909,40 +921,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "engine-q"
-version = "0.1.0"
-dependencies = [
- "assert_cmd",
- "crossterm",
- "crossterm_winapi",
- "ctrlc",
- "log",
- "miette",
- "nu-ansi-term",
- "nu-cli",
- "nu-color-config",
- "nu-command",
- "nu-engine",
- "nu-json",
- "nu-parser",
- "nu-path",
- "nu-plugin",
- "nu-pretty-hex",
- "nu-protocol",
- "nu-system",
- "nu-table",
- "nu-term-grid",
- "nu_plugin_example",
- "nu_plugin_gstat",
- "nu_plugin_inc",
- "nu_plugin_query",
- "pretty_assertions",
- "pretty_env_logger",
- "reedline",
- "tempfile",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,6 +931,16 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "log",
+ "regex",
 ]
 
 [[package]]
@@ -1213,6 +1201,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "getset"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e45727250e75cc04ff2846a66397da8ef2b3db8e40e0cef4df67950a07621eb9"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "ghost"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1273,6 +1273,16 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "hamcrest2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49f837c62de05dc9cc71ff6486cd85de8856a330395ae338a04bfcefe5e91075"
+dependencies = [
+ "num 0.2.1",
+ "regex",
 ]
 
 [[package]]
@@ -2021,6 +2031,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "crossterm",
+ "crossterm_winapi",
+ "ctrlc",
+ "hamcrest2",
+ "itertools",
+ "log",
+ "miette",
+ "nu-ansi-term",
+ "nu-cli",
+ "nu-color-config",
+ "nu-command",
+ "nu-engine",
+ "nu-json",
+ "nu-parser",
+ "nu-path",
+ "nu-plugin",
+ "nu-pretty-hex",
+ "nu-protocol",
+ "nu-system",
+ "nu-table",
+ "nu-term-grid",
+ "nu-test-support",
+ "nu_plugin_example",
+ "nu_plugin_gstat",
+ "nu_plugin_inc",
+ "nu_plugin_query",
+ "pretty_assertions",
+ "pretty_env_logger",
+ "reedline",
+ "rstest",
+ "serial_test",
+ "tempfile",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2073,10 +2122,12 @@ dependencies = [
  "csv",
  "dialoguer",
  "digest 0.10.0",
+ "dirs-next",
  "dtparse",
  "eml-parser",
  "encoding_rs",
  "glob",
+ "hamcrest2",
  "htmlescape",
  "ical",
  "indexmap",
@@ -2098,10 +2149,13 @@ dependencies = [
  "nu-system",
  "nu-table",
  "nu-term-grid",
+ "nu-test-support",
  "num 0.4.0",
  "pathdiff",
  "polars",
  "quick-xml 0.22.0",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.4",
  "rayon",
  "regex",
@@ -2252,6 +2306,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-test-support"
+version = "0.43.0"
+dependencies = [
+ "bigdecimal",
+ "chrono",
+ "getset",
+ "glob",
+ "hamcrest2",
+ "indexmap",
+ "nu-path",
+ "nu-protocol",
+ "num-bigint 0.4.3",
+ "tempfile",
+]
+
+[[package]]
 name = "nu_plugin_example"
 version = "0.1.0"
 dependencies = [
@@ -2339,6 +2409,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -2875,7 +2946,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "926d36b9553851b8b0005f1275891b392ee4d2d833852c417ed025477350fb9d"
 dependencies = [
- "env_logger",
+ "env_logger 0.7.1",
  "log",
 ]
 
@@ -2891,6 +2962,30 @@ dependencies = [
  "lazy_static",
  "term",
  "unicode-width",
+]
+
+[[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "version_check 0.9.3",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check 0.9.3",
 ]
 
 [[package]]
@@ -2946,6 +3041,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8533f14c8382aaad0d592c812ac3b826162128b65662331e1127b45c3d18536b"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "quickcheck"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
+dependencies = [
+ "env_logger 0.8.4",
+ "log",
+ "rand 0.8.4",
+]
+
+[[package]]
+name = "quickcheck_macros"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b22a693222d716a9587786f37ac3f6b4faedb5b80c23914e7303ff5a1d8016e9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -3225,6 +3342,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rstest"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d912f35156a3f99a66ee3e11ac2e0b3f34ac85a07e05263d05a7e2c8810d616f"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn",
+]
+
+[[package]]
 name = "rust-argon2"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3485,6 +3615,28 @@ dependencies = [
  "indexmap",
  "serde",
  "yaml-rust",
+]
+
+[[package]]
+name = "serial_test"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0bccbcf40c8938196944a3da0e133e031a33f4d6b72db3bda3cc556e361905d"
+dependencies = [
+ "lazy_static",
+ "parking_lot",
+ "serial_test_derive",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2acd6defeddb41eb60bb468f8825d0cfd0c2a76bc03bfd235b6a1dc4f6a1ad5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

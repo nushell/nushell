@@ -39,7 +39,7 @@ pub(crate) fn read_config_file(engine_state: &mut EngineState, stack: &mut Stack
 
             if config_path.exists() {
                 // FIXME: remove this message when we're ready
-                println!("Loading config from: {:?}", config_path);
+                //println!("Loading config from: {:?}", config_path);
                 let config_filename = config_path.to_string_lossy().to_owned();
 
                 if let Ok(contents) = std::fs::read_to_string(&config_path) {

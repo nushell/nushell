@@ -10,6 +10,8 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
+mod test_bins;
+
 use miette::Result;
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::get_full_help;
@@ -21,7 +23,7 @@ use nu_protocol::{
     Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
 };
 use std::{
-    io::BufReader,
+    io::{BufReader, Write},
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -92,6 +94,7 @@ fn main() -> Result<()> {
             // Cool, it's a flag
             if arg == "-c"
                 || arg == "--commands"
+                || arg == "--testbin"
                 || arg == "--develop"
                 || arg == "--debug"
                 || arg == "--loglevel"
@@ -115,6 +118,21 @@ fn main() -> Result<()> {
 
     match nushell_config {
         Ok(nushell_config) => {
+            if let Some(testbin) = &nushell_config.testbin {
+                // Call out to the correct testbin
+                match testbin.item.as_str() {
+                    "echo_env" => test_bins::echo_env(),
+                    "cococo" => test_bins::cococo(),
+                    "meow" => test_bins::meow(),
+                    "iecho" => test_bins::iecho(),
+                    "fail" => test_bins::fail(),
+                    "nonu" => test_bins::nonu(),
+                    "chop" => test_bins::chop(),
+                    "repeater" => test_bins::repeater(),
+                    _ => std::process::exit(1),
+                }
+                std::process::exit(0)
+            }
             let input = if let Some(redirect_stdin) = &nushell_config.redirect_stdin {
                 let stdin = std::io::stdin();
                 let buf_reader = BufReader::new(stdin);
@@ -193,8 +211,20 @@ fn parse_commandline_args(
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
+            let testbin: Option<Expression> = call.get_flag_expr("testbin");
 
             let commands = if let Some(expression) = commands {
+                let contents = engine_state.get_span_contents(&expression.span);
+
+                Some(Spanned {
+                    item: String::from_utf8_lossy(contents).to_string(),
+                    span: expression.span,
+                })
+            } else {
+                None
+            };
+
+            let testbin = if let Some(expression) = testbin {
                 let contents = engine_state.get_span_contents(&expression.span);
 
                 Some(Spanned {
@@ -210,7 +240,13 @@ fn parse_commandline_args(
             if help {
                 let full_help =
                     get_full_help(&Nu.signature(), &Nu.examples(), engine_state, &mut stack);
-                print!("{}", full_help);
+
+                let _ = std::panic::catch_unwind(move || {
+                    let stdout = std::io::stdout();
+                    let mut stdout = stdout.lock();
+                    let _ = stdout.write_all(full_help.as_bytes());
+                });
+
                 std::process::exit(1);
             }
 
@@ -219,6 +255,7 @@ fn parse_commandline_args(
                 login_shell,
                 interactive_shell,
                 commands,
+                testbin,
             });
         }
     }
@@ -235,6 +272,7 @@ struct NushellConfig {
     login_shell: Option<Spanned<String>>,
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
+    testbin: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -251,6 +289,12 @@ impl Command for Nu {
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))
+            .named(
+                "testbin",
+                SyntaxShape::String,
+                "run internal test binary",
+                None,
+            )
             .named(
                 "commands",
                 SyntaxShape::String,

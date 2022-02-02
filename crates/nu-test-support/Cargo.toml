@@ -1,0 +1,23 @@
+[package]
+authors = ["The Nu Project Contributors"]
+description = "Support for writing Nushell tests"
+edition = "2018"
+license = "MIT"
+name = "nu-test-support"
+version = "0.43.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-path = { path="../nu-path" }
+nu-protocol = { path="../nu-protocol" }
+
+bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
+chrono = "0.4.19"
+getset = "0.1.1"
+glob = "0.3.0"
+indexmap = { version="1.6.1", features=["serde-1"] }
+num-bigint = { version="0.4.3", features=["serde"] }
+tempfile = "3.2.0"
+hamcrest2 = "0.3.0"
