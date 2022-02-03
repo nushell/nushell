@@ -1,11 +1,10 @@
 use chrono::{DateTime, FixedOffset};
-use nu_engine::column::column_does_not_exist;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{column::column_does_not_exist, CallExt};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Value,
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Config, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Span, SyntaxShape, Value,
 };
 use std::cmp::Ordering;
 
@@ -21,6 +20,11 @@ impl Command for SortBy {
         Signature::build("sort-by")
             .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
             .switch("reverse", "Sort in reverse order", Some('r'))
+            .switch(
+                "insensitive",
+                "Sort string-based columns case-insensitively",
+                Some('i'),
+            )
             .category(Category::Filters)
     }
 
@@ -70,6 +74,30 @@ impl Command for SortBy {
                     span: Span::test_data(),
                 }),
             },
+            Example {
+                description: "Sort strings (case-insensitive)",
+                example: "echo [airplane Truck Car] | sort-by -i",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("airplane"),
+                        Value::test_string("Car"),
+                        Value::test_string("Truck"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Sort strings (reversed case-insensitive)",
+                example: "echo [airplane Truck Car] | sort-by -i -r",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_string("Truck"),
+                        Value::test_string("Car"),
+                        Value::test_string("airplane"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
         ]
     }
 
@@ -82,10 +110,12 @@ impl Command for SortBy {
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag("reverse");
+        let insensitive = call.has_flag("insensitive");
         let metadata = &input.metadata();
+        let config = stack.get_config()?;
         let mut vec: Vec<_> = input.into_iter().collect();
 
-        sort(&mut vec, columns, call)?;
+        sort(&mut vec, columns, call, insensitive, &config)?;
 
         if reverse {
             vec.reverse()
@@ -101,7 +131,18 @@ impl Command for SortBy {
     }
 }
 
-pub fn sort(vec: &mut [Value], columns: Vec<String>, call: &Call) -> Result<(), ShellError> {
+pub fn sort(
+    vec: &mut [Value],
+    columns: Vec<String>,
+    call: &Call,
+    insensitive: bool,
+    config: &Config,
+) -> Result<(), ShellError> {
+    let should_sort_case_insensitively = insensitive
+        && vec
+            .iter()
+            .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
+
     match &vec[0] {
         Value::Record {
             cols,
@@ -118,13 +159,36 @@ pub fn sort(vec: &mut [Value], columns: Vec<String>, call: &Call) -> Result<(), 
             }
 
             vec.sort_by(|a, b| {
-                process(a, b, &columns[0], call)
-                    .expect("sort_by Value::Record bug")
-                    .compare()
+                process(
+                    a,
+                    b,
+                    &columns[0],
+                    call,
+                    should_sort_case_insensitively,
+                    config,
+                )
+                .expect("sort_by Value::Record bug")
+                .compare()
             });
         }
         _ => {
-            vec.sort_by(|a, b| coerce_compare(a, b).expect("sort_by default bug").compare());
+            vec.sort_by(|a, b| {
+                if should_sort_case_insensitively {
+                    let lowercase_left = Value::string(
+                        a.into_string("", config).to_ascii_lowercase(),
+                        Span::test_data(),
+                    );
+                    let lowercase_right = Value::string(
+                        b.into_string("", config).to_ascii_lowercase(),
+                        Span::test_data(),
+                    );
+                    coerce_compare(&lowercase_left, &lowercase_right)
+                        .expect("sort_by default bug")
+                        .compare()
+                } else {
+                    coerce_compare(a, b).expect("sort_by default bug").compare()
+                }
+            });
         }
     }
     Ok(())
@@ -135,6 +199,8 @@ pub fn process(
     right: &Value,
     column: &str,
     call: &Call,
+    insensitive: bool,
+    config: &Config,
 ) -> Result<CompareValues, (&'static str, &'static str)> {
     let left_value = left.get_data_by_key(column);
 
@@ -150,7 +216,19 @@ pub fn process(
         None => Value::Nothing { span: call.head },
     };
 
-    coerce_compare(&left_res, &right_res)
+    if insensitive {
+        let lowercase_left = Value::string(
+            left_res.into_string("", config).to_ascii_lowercase(),
+            Span::test_data(),
+        );
+        let lowercase_right = Value::string(
+            right_res.into_string("", config).to_ascii_lowercase(),
+            Span::test_data(),
+        );
+        coerce_compare(&lowercase_left, &lowercase_right)
+    } else {
+        coerce_compare(&left_res, &right_res)
+    }
 }
 
 #[derive(Debug)]
