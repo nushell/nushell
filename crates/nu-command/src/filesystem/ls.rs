@@ -1,6 +1,6 @@
+use crate::DirBuilder;
+use crate::DirInfo;
 use chrono::{DateTime, Utc};
-use pathdiff::diff_paths;
-
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -9,10 +9,11 @@ use nu_protocol::{
     Category, DataSource, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata,
     ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
-
+use pathdiff::diff_paths;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Ls;
@@ -45,11 +46,11 @@ impl Command for Ls {
                 Some('s'),
             )
             .switch("full-paths", "display paths as absolute paths", Some('f'))
-            // .switch(
-            //     "du",
-            //     "Display the apparent directory size in place of the directory metadata size",
-            //     Some('d'),
-            // )
+            .switch(
+                "du",
+                "Display the apparent directory size in place of the directory metadata size",
+                Some('d'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -64,6 +65,8 @@ impl Command for Ls {
         let long = call.has_flag("long");
         let short_names = call.has_flag("short-names");
         let full_paths = call.has_flag("full-paths");
+        let du = call.has_flag("du");
+        let ctrl_c = engine_state.ctrlc.clone();
 
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -132,8 +135,15 @@ impl Command for Ls {
 
                     match display_name {
                         Ok(name) => {
-                            let entry =
-                                dir_entry_dict(&path, &name, metadata.as_ref(), call_span, long);
+                            let entry = dir_entry_dict(
+                                &path,
+                                &name,
+                                metadata.as_ref(),
+                                call_span,
+                                long,
+                                du,
+                                ctrl_c.clone(),
+                            );
                             match entry {
                                 Ok(value) => Some(value),
                                 Err(err) => Some(Value::Error { error: err }),
@@ -190,6 +200,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 
 pub fn get_file_type(md: &std::fs::Metadata) -> &str {
     let ft = md.file_type();
@@ -224,6 +235,8 @@ pub(crate) fn dir_entry_dict(
     metadata: Option<&std::fs::Metadata>,
     span: Span,
     long: bool,
+    du: bool,
+    ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Value, ShellError> {
     let mut cols = vec![];
     let mut vals = vec![];
@@ -324,12 +337,22 @@ pub(crate) fn dir_entry_dict(
     cols.push("size".to_string());
     if let Some(md) = metadata {
         if md.is_dir() {
-            let dir_size: u64 = md.len();
+            if du {
+                let params = DirBuilder::new(Span { start: 0, end: 2 }, None, false, None, false);
+                let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
 
-            vals.push(Value::Filesize {
-                val: dir_size as i64,
-                span,
-            });
+                vals.push(Value::Filesize {
+                    val: dir_size as i64,
+                    span,
+                });
+            } else {
+                let dir_size: u64 = md.len();
+
+                vals.push(Value::Filesize {
+                    val: dir_size as i64,
+                    span,
+                });
+            };
         } else if md.is_file() {
             vals.push(Value::Filesize {
                 val: md.len() as i64,
