@@ -31,6 +31,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             DefEnv,
             Describe,
             Do,
+            Du,
             Echo,
             ExportCommand,
             ExportDef,
