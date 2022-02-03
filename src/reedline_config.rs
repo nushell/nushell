@@ -344,9 +344,6 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
 
                         ReedlineEvent::Edit(vec![edit])
                     }
-                    // TODO: add ReedlineEvent::Mouse
-                    // TODO: add ReedlineEvent::Resize
-                    // TODO: add ReedlineEvent::Paste
                     v => {
                         return Err(ShellError::UnsupportedConfigValue(
                             "Reedline event".to_string(),
