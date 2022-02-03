@@ -217,42 +217,46 @@ Primitive values are things like `int` and `string`. Primitive values and flatsh
 
 This is the current list of primitives. Not all of these are configurable. The configurable ones are marked with *.
 
-* `any`
-* `binary` *
-* `block` *
-* `bool` *
-* `cellpath` *
-* `condition`
-* `custom` 
-* `date` *
-* `duration` *
-* `expression`
-* `filesize` *
-* `float` *
-* `glob`
-* `import`
-* `int` *
-* `list` *
-* `nothing` *
-* `number`
-* `operator`
-* `path`
-* `range` *
-* `record` *
-* `signature`
-* `string` *
-* `table`
-* `var`
-* `vardecl`
-* `variable`
+| primitive | default color | configurable |
+| - | - | - |
+| `any`|| |
+| `binary`|Color::White.normal()| * |
+| `block`|Color::White.normal()| * |
+| `bool`|Color::White.normal()| * |
+| `cellpath`|Color::White.normal()| * |
+| `condition`|| |
+| `custom`||  |
+| `date`|Color::White.normal()| * |
+| `duration`|Color::White.normal()| * |
+| `expression`|| |
+| `filesize`|Color::White.normal()| * |
+| `float`|Color::White.normal()| * |
+| `glob`|| |
+| `import`|| |
+| `int`|Color::White.normal()| * |
+| `list`|Color::White.normal()| * |
+| `nothing`|Color::White.normal()| * |
+| `number`|| |
+| `operator`|| |
+| `path`|| |
+| `range`|Color::White.normal()| * |
+| `record`|Color::White.normal()| * |
+| `signature`|| |
+| `string`|Color::White.normal()| * |
+| `table`|| |
+| `var`|| |
+| `vardecl`|| |
+| `variable`|| |
 
 #### special "primitives" (not really primitives but they exist solely for coloring)
 
-* `leading_trailing_space_bg` *
-* `header` *
-* `empty` *
-* `row_index` *
-* `hints` *
+| primitive | default color | configurable |
+| - | - | - |
+| `leading_trailing_space_bg`|Color::Rgb(128, 128, 128))| *|
+| `header`|Color::Green.bold()| *|
+| `empty`|Color::Blue.normal()| *|
+| `row_index`|Color::Green.bold()| *|
+| `hints`|Color::DarkGray.normal()| *|
 
 Here's a small example of changing some of these values.
 ```
@@ -302,29 +306,31 @@ As mentioned above, `flatshape` is a term used to indicate the sytax coloring.
 
 Here's the current list of flat shapes.
 
-* `flatshape_block`
-* `flatshape_bool`
-* `flatshape_custom`
-* `flatshape_external`
-* `flatshape_externalarg`
-* `flatshape_filepath`
-* `flatshape_flag`
-* `flatshape_float`
-* `flatshape_garbage`
-* `flatshape_globpattern`
-* `flatshape_int`
-* `flatshape_internalcall`
-* `flatshape_list`
-* `flatshape_literal`
-* `flatshape_nothing`
-* `flatshape_operator`
-* `flatshape_range`
-* `flatshape_record`
-* `flatshape_signature`
-* `flatshape_string`
-* `flatshape_string_interpolation`
-* `flatshape_table`
-* `flatshape_variable`
+| flatshape | default style | configurable |
+| - | - | - |
+| `flatshape_block`| fg(Color::Blue).bold()| * |
+| `flatshape_bool`| fg(Color::LightCyan)| * |
+| `flatshape_custom`| bold()| * |
+| `flatshape_external`| fg(Color::Cyan)| * |
+| `flatshape_externalarg`| fg(Color::Green).bold()| * |
+| `flatshape_filepath`| fg(Color::Cyan)| * |
+| `flatshape_flag`| fg(Color::Blue).bold()| * |
+| `flatshape_float`|fg(Color::Purple).bold() | * |
+| `flatshape_garbage`| fg(Color::White).on(Color::Red).bold()| * |
+| `flatshape_globpattern`| fg(Color::Cyan).bold()| * |
+| `flatshape_int`|fg(Color::Purple).bold() | * |
+| `flatshape_internalcall`| fg(Color::Cyan).bold()| * |
+| `flatshape_list`| fg(Color::Cyan).bold()| * |
+| `flatshape_literal`| fg(Color::Blue)| * |
+| `flatshape_nothing`| fg(Color::LightCyan)| * |
+| `flatshape_operator`| fg(Color::Yellow)| * |
+| `flatshape_range`| fg(Color::Yellow).bold()| * |
+| `flatshape_record`| fg(Color::Cyan).bold()| * |
+| `flatshape_signature`| fg(Color::Green).bold()| * |
+| `flatshape_string`| fg(Color::Green)| * |
+| `flatshape_string_interpolation`| fg(Color::Cyan).bold()| * |
+| `flatshape_table`| fg(Color::Blue).bold()| * |
+| `flatshape_variable`| fg(Color::Purple)| * |
 
 Here's a small example of how to apply color to these items. Anything not specified will receive the default color.
 
@@ -346,12 +352,12 @@ The nushell prompt is configurable through these environment variables settings.
 * `PROMPT_COMMAND_RIGHT`: Code to execute for setting up the *RIGHT* prompt (block) (see oh-my.nu in nu_scripts)
 * `PROMPT_INDICATOR` = "〉": The indicator printed after the prompt (by default ">"-like Unicode symbol)
 * `PROMPT_INDICATOR_VI_INSERT` = ": "
-* `PROMPT_INDICATOR_VI_VISUAL` = "v "
+* `PROMPT_INDICATOR_VI_NORMAL` = "v "
 * `PROMPT_MULTILINE_INDICATOR` = "::: "
 
 Example: For a simple prompt one could do this. Note that `PROMPT_COMMAND` requires a `block` whereas the others require a `string`.
 
-`> let-env PROMPT_COMMAND = { build-string (date now | date format '%m/%d/%Y %I:%M:%S%.3f') ': ' (pwd | decode utf-8 | path basename) }`
+`> let-env PROMPT_COMMAND = { build-string (date now | date format '%m/%d/%Y %I:%M:%S%.3f') ': ' (pwd | path basename) }`
 
 If you don't like the default `PROMPT_INDICATOR` you could change it like this.
 
