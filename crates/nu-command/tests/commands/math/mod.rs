@@ -259,30 +259,26 @@ fn compound_comparison2() {
     assert_eq!(actual.out, "true");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn compound_where() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json -r
         "#
     ));
 
-    assert_eq!(actual.out, r#"{"a":2,"b":1}"#);
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1}]"#);
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json -r
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
 }

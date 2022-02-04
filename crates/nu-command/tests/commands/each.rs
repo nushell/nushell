@@ -1,13 +1,11 @@
 use nu_test_support::{nu, pipeline};
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn each_works_separately() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [1 2 3] | each { echo $it 10 | math sum } | to json
+        echo [1 2 3] | each { echo $it 10 | math sum } | to json -r
         "#
     ));
 
@@ -56,18 +54,16 @@ fn each_window_stride() {
     assert_eq!(actual.out, "[[1,2,3],[3,4,5]]");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn each_no_args_in_block() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [[foo bar]; [a b] [c d] [e f]] | each { to json } | nth 1 | str collect
+        echo [[foo bar]; [a b] [c d] [e f]] | each {|i| $i | to json -r } | nth 1
         "#
     ));
 
-    assert_eq!(actual.out, r#"{"foo":"c","bar":"d"}"#);
+    assert_eq!(actual.out, r#"{"foo": "c","bar": "d"}"#);
 }
 
 #[test]
