@@ -208,6 +208,22 @@ fn not_def_env() -> TestResult {
 }
 
 #[test]
+fn def_env_hiding_something() -> TestResult {
+    fail_test(
+        r#"let-env FOO = "foo"; def-env bob [] { hide FOO }; bob; $env.FOO"#,
+        "did you mean",
+    )
+}
+
+#[test]
+fn def_env_then_hide() -> TestResult {
+    fail_test(
+        r#"def-env bob [] { let-env BOB = "bob" }; def-env un-bob [] { hide BOB }; bob; un-bob; $env.BOB"#,
+        "did you mean",
+    )
+}
+
+#[test]
 fn export_def_env() -> TestResult {
     run_test(
         r#"module foo { export def-env bob [] { let-env BAR = BAZ } }; use foo bob; bob; $env.BAR"#,

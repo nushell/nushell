@@ -133,14 +133,28 @@ fn eval_call(
                 }
             }
         }
+
         let result = eval_block(engine_state, &mut callee_stack, block, input);
+
         if block.redirect_env {
+            let caller_env_vars = caller_stack.get_env_var_names(engine_state);
+
+            // remove env vars that are present in the caller but not in the callee
+            // (the callee hid them)
+            for var in caller_env_vars.iter() {
+                if !callee_stack.has_env_var(engine_state, var) {
+                    caller_stack.remove_env_var(engine_state, var);
+                }
+            }
+
+            // add new env vars from callee to caller
             for env_vars in callee_stack.env_vars {
                 for (var, value) in env_vars {
-                    caller_stack.add_env_var(var, value)
+                    caller_stack.add_env_var(var, value);
                 }
             }
         }
+
         result
     } else {
         // We pass caller_stack here with the knowledge that internal commands

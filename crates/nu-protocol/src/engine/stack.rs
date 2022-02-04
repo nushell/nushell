@@ -140,6 +140,23 @@ impl Stack {
         result
     }
 
+    /// Same as get_env_vars, but returns only the names as a HashSet
+    pub fn get_env_var_names(&self, engine_state: &EngineState) -> HashSet<String> {
+        let mut result: HashSet<String> = engine_state
+            .env_vars
+            .keys()
+            .filter(|k| !self.env_hidden.contains(*k))
+            .cloned()
+            .collect();
+
+        for scope in &self.env_vars {
+            let scope_keys: HashSet<String> = scope.keys().cloned().collect();
+            result.extend(scope_keys);
+        }
+
+        result
+    }
+
     pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
         for scope in self.env_vars.iter().rev() {
             if let Some(v) = scope.get(name) {
@@ -151,6 +168,20 @@ impl Stack {
             None
         } else {
             engine_state.env_vars.get(name).cloned()
+        }
+    }
+
+    pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
+        for scope in self.env_vars.iter().rev() {
+            if scope.contains_key(name) {
+                return true;
+            }
+        }
+
+        if self.env_hidden.contains(name) {
+            false
+        } else {
+            engine_state.env_vars.contains_key(name)
         }
     }
 
