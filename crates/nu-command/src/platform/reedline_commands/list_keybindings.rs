@@ -80,11 +80,11 @@ impl Command for ListKeybindings {
 
 fn get_records(entry_type: &str, span: &Span) -> Vec<Value> {
     let values = match entry_type {
-        "modifiers" => get_reedline_keybinding_modifiers(),
-        "keycodes" => get_reedline_keycodes(),
-        "edits" => get_reedline_edit_commands(),
-        "modes" => get_reedline_prompt_edit_modes(),
-        "events" => get_reedline_reedline_events(),
+        "modifiers" => get_reedline_keybinding_modifiers().sorted(),
+        "keycodes" => get_reedline_keycodes().sorted(),
+        "edits" => get_reedline_edit_commands().sorted(),
+        "modes" => get_reedline_prompt_edit_modes().sorted(),
+        "events" => get_reedline_reedline_events().sorted(),
         _ => Vec::new(),
     };
 
@@ -110,5 +110,20 @@ fn convert_to_record(edit: &str, entry_type: &str, span: &Span) -> Value {
         cols: vec!["type".to_string(), "name".to_string()],
         vals: vec![entry_type, name],
         span: *span,
+    }
+}
+
+// Helper to sort a vec and return a vec
+trait SortedImpl {
+    fn sorted(self) -> Self;
+}
+
+impl<E> SortedImpl for Vec<E>
+where
+    E: std::cmp::Ord,
+{
+    fn sorted(mut self) -> Self {
+        self.sort();
+        self
     }
 }
