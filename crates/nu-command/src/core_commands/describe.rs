@@ -1,6 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Value,
+};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -20,7 +22,7 @@ impl Command for Describe {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -32,13 +34,12 @@ impl Command for Describe {
                 None,
             ))
         } else {
-            input.map(
-                move |x| Value::String {
-                    val: x.get_type().to_string(),
-                    span: head,
-                },
-                engine_state.ctrlc.clone(),
-            )
+            let value = input.into_value(call.head);
+            Ok(Value::String {
+                val: value.get_type().to_string(),
+                span: head,
+            }
+            .into_pipeline_data())
         }
     }
 
