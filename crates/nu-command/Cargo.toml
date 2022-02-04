@@ -74,7 +74,8 @@ unicode-segmentation = "1.8.0"
 url = "2.2.1"
 uuid = { version = "0.8.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
-zip = { version="0.5.9", optional=true }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+zip = { version="0.5.9", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"

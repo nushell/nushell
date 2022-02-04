@@ -12,7 +12,7 @@ pub struct InputKeys;
 
 impl Command for InputKeys {
     fn name(&self) -> &str {
-        "input-keys"
+        "keybindings listen"
     }
 
     fn usage(&self) -> &str {
@@ -20,7 +20,7 @@ impl Command for InputKeys {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("input-keys").category(Category::Platform)
+        Signature::build(self.name()).category(Category::Platform)
     }
 
     fn run(
@@ -47,7 +47,7 @@ impl Command for InputKeys {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Type and see key event codes",
-            example: "input-keys",
+            example: "keybindings listen",
             result: None,
         }]
     }

@@ -188,7 +188,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             Clear,
             Input,
             InputKeys,
+            Keybindings,
             Kill,
+            ListKeybindings,
             Sleep,
             TermSize,
         };
