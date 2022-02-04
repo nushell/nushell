@@ -230,3 +230,8 @@ fn export_def_env() -> TestResult {
         "BAZ",
     )
 }
+
+#[test]
+fn dynamic_let_env() -> TestResult {
+    run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
+}

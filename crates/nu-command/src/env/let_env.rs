@@ -1,4 +1,4 @@
-use nu_engine::{current_dir, eval_expression_with_input};
+use nu_engine::{current_dir, eval_expression_with_input, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, Signature, SyntaxShape, Value};
@@ -33,9 +33,7 @@ impl Command for LetEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let env_var = call.positional[0]
-            .as_string()
-            .expect("internal error: missing variable");
+        let env_var = call.req(engine_state, stack, 0)?;
 
         let keyword_expr = call.positional[1]
             .as_keyword()
