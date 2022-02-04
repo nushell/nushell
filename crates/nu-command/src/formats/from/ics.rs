@@ -94,6 +94,13 @@ END:VCALENDAR' | from ics",
 
 fn from_ics(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
     let input_string = input.collect_string("", config)?;
+
+    let input_string = input_string
+        .lines()
+        .map(|x| x.trim().to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+
     let input_bytes = input_string.as_bytes();
     let buf_reader = BufReader::new(input_bytes);
     let parser = ical::IcalParser::new(buf_reader);
@@ -103,9 +110,9 @@ fn from_ics(input: PipelineData, head: Span, config: &Config) -> Result<Pipeline
     for calendar in parser {
         match calendar {
             Ok(c) => output.push(calendar_to_value(c, head)),
-            Err(_) => output.push(Value::Error {
+            Err(e) => output.push(Value::Error {
                 error: ShellError::UnsupportedInput(
-                    "input cannot be parsed as .ics".to_string(),
+                    format!("input cannot be parsed as .ics ({})", e),
                     head,
                 ),
             }),

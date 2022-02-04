@@ -125,14 +125,24 @@ END:VCARD' | from vcf",
 
 fn from_vcf(input: PipelineData, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
     let input_string = input.collect_string("", config)?;
+
+    let input_string = input_string
+        .lines()
+        .map(|x| x.trim().to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+
     let input_bytes = input_string.as_bytes();
     let cursor = std::io::Cursor::new(input_bytes);
     let parser = ical::VcardParser::new(cursor);
 
     let iter = parser.map(move |contact| match contact {
         Ok(c) => contact_to_value(c, head),
-        Err(_) => Value::Error {
-            error: ShellError::UnsupportedInput("input cannot be parsed as .vcf".to_string(), head),
+        Err(e) => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!("input cannot be parsed as .vcf ({})", e),
+                head,
+            ),
         },
     });
 

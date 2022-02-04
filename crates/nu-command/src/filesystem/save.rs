@@ -71,7 +71,7 @@ impl Command for Save {
                     let output = engine_state.get_decl(converter_id).run(
                         engine_state,
                         stack,
-                        &Call::new(),
+                        &Call::new(span),
                         input,
                     )?;
 

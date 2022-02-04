@@ -230,7 +230,7 @@ pub fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(),
+                &Call::new(Span::new(0, 0)),
                 Value::String {
                     val: example.example.to_string(),
                     span: Span { start: 0, end: 0 },

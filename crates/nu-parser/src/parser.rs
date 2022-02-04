@@ -643,7 +643,7 @@ pub fn parse_internal_call(
 
     let mut error = None;
 
-    let mut call = Call::new();
+    let mut call = Call::new(command_span);
     call.decl_id = decl_id;
     call.head = command_span;
 

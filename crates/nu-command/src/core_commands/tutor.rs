@@ -426,7 +426,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                 if let Ok(output) = decl.run(
                     engine_state,
                     stack,
-                    &Call::new(),
+                    &Call::new(span),
                     Value::String {
                         val: item.to_string(),
                         span: Span { start: 0, end: 0 },

@@ -164,7 +164,7 @@ fn eval_external(
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new();
+    let mut call = Call::new(head.span);
 
     call.positional.push(head.clone());
 
@@ -484,7 +484,7 @@ pub fn eval_block(
                             let table = engine_state.get_decl(decl_id).run(
                                 engine_state,
                                 stack,
-                                &Call::new(),
+                                &Call::new(Span::new(0, 0)),
                                 input,
                             )?;
 

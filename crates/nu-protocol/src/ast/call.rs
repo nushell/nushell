@@ -10,17 +10,11 @@ pub struct Call {
     pub named: Vec<(Spanned<String>, Option<Expression>)>,
 }
 
-impl Default for Call {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Call {
-    pub fn new() -> Call {
+    pub fn new(head: Span) -> Call {
         Self {
             decl_id: 0,
-            head: Span { start: 0, end: 0 },
+            head,
             positional: vec![],
             named: vec![],
         }

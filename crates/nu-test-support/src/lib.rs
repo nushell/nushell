@@ -56,7 +56,7 @@ mod tests {
                 open los_tres_amigos.txt
                 | from-csv
                 | get rusty_luck
-                | str to-int
+                | into int
                 | math sum
                 | echo "$it"
             "#,
@@ -64,7 +64,7 @@ mod tests {
 
         assert_eq!(
             actual,
-            r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str to-int | math sum | echo "$it""#
+            r#"open los_tres_amigos.txt | from-csv | get rusty_luck | into int | math sum | echo "$it""#
         );
     }
 }

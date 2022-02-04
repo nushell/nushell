@@ -220,7 +220,7 @@ impl ExternalCommand {
                                 &crate::Table,
                                 &engine_state,
                                 &mut stack,
-                                &Call::new(),
+                                &Call::new(head),
                                 input,
                             );
 

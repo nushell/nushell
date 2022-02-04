@@ -2,14 +2,14 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
 pub struct SubCommand;
 
 struct Arguments {
-    character: Option<Value>,
+    character: Option<Spanned<String>>,
     column_paths: Vec<CellPath>,
 }
 
@@ -143,7 +143,16 @@ where
         input,
     );
     let to_trim = match options.character.as_ref() {
-        Some(v) => v.as_string()?.chars().next(),
+        Some(v) => {
+            if v.item.chars().count() > 1 {
+                return Err(ShellError::SpannedLabeledError(
+                    "Trim only works with single character".into(),
+                    "needs single character".into(),
+                    v.span,
+                ));
+            }
+            v.item.chars().next()
+        }
         None => None,
     };
 

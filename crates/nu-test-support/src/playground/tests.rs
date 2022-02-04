@@ -1,21 +1,10 @@
 use crate::playground::Playground;
 use std::path::{Path, PathBuf};
 
-use super::matchers::says;
-use hamcrest2::assert_that;
-use hamcrest2::prelude::*;
-
 fn path(p: &Path) -> PathBuf {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     nu_path::canonicalize_with(p, cwd)
         .unwrap_or_else(|e| panic!("Couldn't canonicalize path {}: {:?}", p.display(), e))
-}
-
-#[test]
-fn asserts_standard_out_expectation_from_nu_executable() {
-    Playground::setup("topic", |_, nu| {
-        assert_that!(nu.cococo("andres"), says().stdout("andres"));
-    })
 }
 
 #[test]

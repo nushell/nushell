@@ -72,7 +72,7 @@ fn in_variable_6() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "17")
+    run_test(r#"each --help | lines | length"#, "16")
 }
 
 #[test]

@@ -30,7 +30,7 @@ impl Command for Lines {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
-        let skip_empty = call.has_flag("skip-emtpy");
+        let skip_empty = call.has_flag("skip-empty");
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
@@ -39,13 +39,21 @@ impl Command for Lines {
             PipelineData::Value(Value::String { val, span }, ..) => {
                 let split_char = if val.contains("\r\n") { "\r\n" } else { "\n" };
 
-                let lines = val
+                let mut lines = val
                     .split(split_char)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
+                // if the last one is empty, remove it, as it was just
+                // a newline at the end of the input we got
+                if let Some(last) = lines.last() {
+                    if last.is_empty() {
+                        lines.pop();
+                    }
+                }
+
                 let iter = lines.into_iter().filter_map(move |s| {
-                    if skip_empty && s.is_empty() {
+                    if skip_empty && s.trim().is_empty() {
                         None
                     } else {
                         Some(Value::string(s, span))
@@ -65,21 +73,30 @@ impl Command for Lines {
                                 split_char = "\r\n";
                             }
 
-                            let inner = val
+                            let mut lines = val
                                 .split(split_char)
                                 .filter_map(|s| {
-                                    if skip_empty && s.is_empty() {
+                                    if skip_empty && s.trim().is_empty() {
                                         None
                                     } else {
-                                        Some(Value::String {
-                                            val: s.into(),
-                                            span,
-                                        })
+                                        Some(s.to_string())
                                     }
                                 })
-                                .collect::<Vec<Value>>();
+                                .collect::<Vec<_>>();
 
-                            Some(inner)
+                            // if the last one is empty, remove it, as it was just
+                            // a newline at the end of the input we got
+                            if let Some(last) = lines.last() {
+                                if last.is_empty() {
+                                    lines.pop();
+                                }
+                            }
+
+                            Some(
+                                lines
+                                    .into_iter()
+                                    .map(move |x| Value::String { val: x, span }),
+                            )
                         } else {
                             None
                         }
@@ -102,13 +119,21 @@ impl Command for Lines {
                 let split_char = if s.contains("\r\n") { "\r\n" } else { "\n" };
 
                 #[allow(clippy::needless_collect)]
-                let lines = s
+                let mut lines = s
                     .split(split_char)
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>();
 
+                // if the last one is empty, remove it, as it was just
+                // a newline at the end of the input we got
+                if let Some(last) = lines.last() {
+                    if last.is_empty() {
+                        lines.pop();
+                    }
+                }
+
                 let iter = lines.into_iter().filter_map(move |s| {
-                    if skip_empty && s.is_empty() {
+                    if skip_empty && s.trim().is_empty() {
                         None
                     } else {
                         Some(Value::string(s, head))

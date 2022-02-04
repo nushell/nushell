@@ -209,10 +209,12 @@ fn print_pipeline_data(
 
     match engine_state.find_decl("table".as_bytes()) {
         Some(decl_id) => {
-            let table =
-                engine_state
-                    .get_decl(decl_id)
-                    .run(engine_state, stack, &Call::new(), input)?;
+            let table = engine_state.get_decl(decl_id).run(
+                engine_state,
+                stack,
+                &Call::new(Span::new(0, 0)),
+                input,
+            )?;
 
             for item in table {
                 let stdout = std::io::stdout();
