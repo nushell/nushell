@@ -83,8 +83,6 @@ fn sort_primitive_values() {
     assert_eq!(actual.out, "authors = [\"The Nu Project Contributors\"]");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn ls_sort_by_name_sensitive() {
     let actual = nu!(
@@ -97,13 +95,12 @@ fn ls_sort_by_name_sensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name":"B.txt"},{"name":"C"},{"name":"a.txt"}]"#;
+    //let json_output = r#"[{"name":"B.txt"},{"name":"C"},{"name":"a.txt"}]"#;
+    let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
 
     assert_eq!(actual.out, json_output);
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn ls_sort_by_name_insensitive() {
     let actual = nu!(
@@ -116,13 +113,10 @@ fn ls_sort_by_name_insensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name":"a.txt"},{"name":"B.txt"},{"name":"C"}]"#;
-
+    let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn ls_sort_by_type_name_sensitive() {
     let actual = nu!(
@@ -135,13 +129,10 @@ fn ls_sort_by_type_name_sensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"B.txt","type":"File"},{"name":"a.txt","type":"File"}]"#;
-
+    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn ls_sort_by_type_name_insensitive() {
     let actual = nu!(
@@ -154,7 +145,6 @@ fn ls_sort_by_type_name_insensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name":"C","type":"Dir"},{"name":"a.txt","type":"File"},{"name":"B.txt","type":"File"}]"#;
-
+    let json_output = r#"[{"name": "C","type": "Dir"},{"name": "a.txt","type": "File"},{"name": "B.txt","type": "File"}]"#;
     assert_eq!(actual.out, json_output);
 }
