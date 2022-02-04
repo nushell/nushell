@@ -113,7 +113,7 @@ impl NuCompleter {
         output
     }
 
-    fn complete_filepath_and_commands(
+    fn complete_commands(
         &self,
         working_set: &StateWorkingSet,
         span: Span,
@@ -133,6 +133,20 @@ impl NuCompleter {
                     String::from_utf8_lossy(&x).to_string(),
                 )
             });
+
+        results.collect()
+    }
+
+    fn complete_filepath_and_commands(
+        &self,
+        working_set: &StateWorkingSet,
+        span: Span,
+        offset: usize,
+    ) -> Vec<(reedline::Span, String)> {
+        let results = self.complete_commands(working_set, span, offset);
+
+        let prefix = working_set.get_span_contents(span);
+
         let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
             match d.as_string() {
                 Ok(s) => s,
@@ -169,6 +183,7 @@ impl NuCompleter {
                 });
 
         results
+            .into_iter()
             .chain(results_paths.into_iter())
             .chain(results_external.into_iter())
             .collect()
@@ -267,15 +282,39 @@ impl NuCompleter {
                                 nu_parser::FlatShape::External
                                 | nu_parser::FlatShape::InternalCall
                                 | nu_parser::FlatShape::String => {
-                                    return self.complete_filepath_and_commands(
+                                    let subcommands = self.complete_commands(
                                         &working_set,
-                                        flat.0,
+                                        Span {
+                                            start: expr.span.start,
+                                            end: pos,
+                                        },
                                         offset,
                                     );
+
+                                    return self
+                                        .complete_filepath_and_commands(
+                                            &working_set,
+                                            flat.0,
+                                            offset,
+                                        )
+                                        .into_iter()
+                                        .chain(subcommands.into_iter())
+                                        .collect();
                                 }
                                 nu_parser::FlatShape::Filepath
                                 | nu_parser::FlatShape::GlobPattern
                                 | nu_parser::FlatShape::ExternalArg => {
+                                    // Check for subcommands
+                                    let subcommands = self.complete_commands(
+                                        &working_set,
+                                        Span {
+                                            start: expr.span.start,
+                                            end: pos,
+                                        },
+                                        offset,
+                                    );
+
+                                    // Check for args
                                     let prefix = working_set.get_span_contents(flat.0);
                                     let prefix = String::from_utf8_lossy(prefix).to_string();
                                     let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
@@ -301,10 +340,35 @@ impl NuCompleter {
                                                 x.1,
                                             )
                                         })
+                                        .chain(subcommands.into_iter())
                                         .collect();
                                 }
-                                _ => {}
+                                _ => {
+                                    return self.complete_commands(
+                                        &working_set,
+                                        Span {
+                                            start: expr.span.start,
+                                            end: pos,
+                                        },
+                                        offset,
+                                    )
+                                }
                             }
+                        }
+
+                        // If we get here, let's just check to see if we can complete a subcommand
+                        // Check for subcommands
+                        let subcommands = self.complete_commands(
+                            &working_set,
+                            Span {
+                                start: expr.span.start,
+                                end: pos,
+                            },
+                            offset,
+                        );
+
+                        if !subcommands.is_empty() {
+                            return subcommands;
                         }
                     }
                 }
