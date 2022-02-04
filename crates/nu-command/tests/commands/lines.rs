@@ -19,8 +19,6 @@ fn lines() {
     assert_eq!(actual.out, "rustyline");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn lines_proper_buffering() {
     let actual = nu!(
@@ -29,15 +27,13 @@ fn lines_proper_buffering() {
             open lines_test.txt -r
             | lines
             | str length
-            | to json
+            | to json -r
         "#
     ));
 
     assert_eq!(actual.out, "[8193,3]");
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn lines_multi_value_split() {
     let actual = nu!(
@@ -50,5 +46,5 @@ fn lines_multi_value_split() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual.out, "6");
 }
