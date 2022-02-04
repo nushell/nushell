@@ -186,6 +186,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             AnsiGradient,
             AnsiStrip,
             Clear,
+            DefaultKeybindings,
             Input,
             InputKeys,
             Keybindings,
