@@ -34,6 +34,7 @@ mod math;
 mod merge;
 mod mkdir;
 mod move_;
+mod nth;
 mod open;
 mod parse;
 mod path;
