@@ -36,8 +36,6 @@ fn into_filesize_str() {
     assert!(actual.out.contains("2.0 KiB"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn into_filesize_str_newline() {
     let actual = nu!(
@@ -51,8 +49,6 @@ fn into_filesize_str_newline() {
     assert!(actual.out.contains("2.0 KiB"));
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn into_filesize_str_many_newlines() {
     let actual = nu!(

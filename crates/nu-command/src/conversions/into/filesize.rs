@@ -111,27 +111,42 @@ fn into_filesize(
 }
 
 pub fn action(input: &Value, span: Span) -> Value {
-    match input {
-        Value::Filesize { .. } => input.clone(),
-        Value::Int { val, .. } => Value::Filesize { val: *val, span },
-        Value::Float { val, .. } => Value::Filesize {
-            val: *val as i64,
-            span,
-        },
-        Value::String { val, .. } => match int_from_string(val, span) {
-            Ok(val) => Value::Filesize { val, span },
-            Err(error) => Value::Error { error },
-        },
-        _ => Value::Error {
+    if let Ok(value_span) = input.span() {
+        match input {
+            Value::Filesize { .. } => input.clone(),
+            Value::Int { val, .. } => Value::Filesize {
+                val: *val,
+                span: value_span,
+            },
+            Value::Float { val, .. } => Value::Filesize {
+                val: *val as i64,
+                span: value_span,
+            },
+            Value::String { val, .. } => match int_from_string(val, value_span) {
+                Ok(val) => Value::Filesize {
+                    val,
+                    span: value_span,
+                },
+                Err(error) => Value::Error { error },
+            },
+            _ => Value::Error {
+                error: ShellError::UnsupportedInput(
+                    "'into filesize' for unsupported type".into(),
+                    value_span,
+                ),
+            },
+        }
+    } else {
+        Value::Error {
             error: ShellError::UnsupportedInput(
                 "'into filesize' for unsupported type".into(),
                 span,
             ),
-        },
+        }
     }
 }
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
-    match a_string.parse::<bytesize::ByteSize>() {
+    match a_string.trim().parse::<bytesize::ByteSize>() {
         Ok(n) => Ok(n.0 as i64),
         Err(_) => Err(ShellError::CantConvert("int".into(), "string".into(), span)),
     }
