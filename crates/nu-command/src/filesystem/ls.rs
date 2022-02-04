@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, DataSource, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use pathdiff::diff_paths;
 #[cfg(unix)]
@@ -67,27 +67,70 @@ impl Command for Ls {
         let full_paths = call.has_flag("full-paths");
         let du = call.has_flag("du");
         let ctrl_c = engine_state.ctrlc.clone();
-
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
-
         let pattern_arg = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
-        let pattern = if let Some(pattern) = pattern_arg {
-            pattern
-        } else {
-            Spanned {
-                item: cwd.join("*").to_string_lossy().to_string(),
-                span: call_span,
+        let (path, p_tag) = match pattern_arg {
+            Some(p) => {
+                let p_tag = p.span;
+                let mut p = PathBuf::from(p.item);
+                if p.is_dir() {
+                    if permission_denied(&p) {
+                        #[cfg(unix)]
+                        let error_msg = format!(
+                            "The permissions of {:o} do not allow access for this user",
+                            p.metadata()
+                                .expect(
+                                    "this shouldn't be called since we already know there is a dir"
+                                )
+                                .permissions()
+                                .mode()
+                                & 0o0777
+                        );
+                        #[cfg(not(unix))]
+                        let error_msg = String::from("Permission denied");
+                        return Err(ShellError::SpannedLabeledError(
+                            "Permission denied".to_string(),
+                            error_msg,
+                            p_tag,
+                        ));
+                    }
+                    if is_empty_dir(&p) {
+                        return Ok(Value::nothing(call_span).into_pipeline_data());
+                    }
+                    p.push("*");
+                }
+                (p, p_tag)
+            }
+            None => {
+                if is_empty_dir(current_dir(engine_state, stack)?) {
+                    return Ok(Value::nothing(call_span).into_pipeline_data());
+                } else {
+                    (PathBuf::from("./*"), call_span)
+                }
             }
         };
 
-        let (prefix, glob) = nu_engine::glob_from(&pattern, &cwd, call_span)?;
+        let hidden_dir_specified = is_hidden_dir(&path);
 
-        let hidden_dir_specified = is_hidden_dir(&pattern.item);
+        let glob_path = Spanned {
+            item: path.display().to_string(),
+            span: p_tag,
+        };
+        let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span)?;
+
+        let mut paths_peek = paths.peekable();
+        if paths_peek.peek().is_none() {
+            return Err(ShellError::LabeledError(
+                format!("No matches found for {}", &path.display().to_string()),
+                "no matches found".to_string(),
+            ));
+        }
+
         let mut hidden_dirs = vec![];
 
-        Ok(glob
+        Ok(paths_peek
             .into_iter()
             .filter_map(move |x| match x {
                 Ok(path) => {
@@ -160,6 +203,20 @@ impl Command for Ls {
                 },
                 engine_state.ctrlc.clone(),
             ))
+    }
+}
+
+fn permission_denied(dir: impl AsRef<Path>) -> bool {
+    match dir.as_ref().read_dir() {
+        Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
+        Ok(_) => false,
+    }
+}
+
+fn is_empty_dir(dir: impl AsRef<Path>) -> bool {
+    match dir.as_ref().read_dir() {
+        Err(_) => true,
+        Ok(mut s) => s.next().is_none(),
     }
 }
 

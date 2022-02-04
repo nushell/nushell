@@ -67,8 +67,6 @@ fn lists_regular_files_using_question_mark_wildcard() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn lists_all_files_in_directories_from_stream() {
     Playground::setup("ls_test_4", |dirs, sandbox| {
@@ -90,7 +88,7 @@ fn lists_all_files_in_directories_from_stream() {
             r#"
                 echo dir_a dir_b
                 | each { ls $it }
-                | length
+                | flatten | length
             "#
         ));
 
@@ -115,8 +113,6 @@ fn does_not_fail_if_glob_matches_empty_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn fails_when_glob_doesnt_match() {
     Playground::setup("ls_test_5", |dirs, sandbox| {
@@ -292,8 +288,6 @@ fn lists_files_including_starting_with_dot() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn list_all_columns() {
     Playground::setup("ls_test_all_columns", |dirs, sandbox| {
@@ -306,14 +300,14 @@ fn list_all_columns() {
         // Normal Operation
         let actual = nu!(
             cwd: dirs.test(),
-            "ls | get | to md"
+            "ls | columns | to md"
         );
         let expected = ["name", "type", "size", "modified"].join("");
         assert_eq!(actual.out, expected, "column names are incorrect for ls");
         // Long
         let actual = nu!(
             cwd: dirs.test(),
-            "ls -l | get | to md"
+            "ls -l | columns | to md"
         );
         let expected = {
             #[cfg(unix)]
@@ -322,10 +316,10 @@ fn list_all_columns() {
                     "name",
                     "type",
                     "target",
-                    "num_links",
-                    "inode",
                     "readonly",
                     "mode",
+                    "num_links",
+                    "inode",
                     "uid",
                     "group",
                     "size",
