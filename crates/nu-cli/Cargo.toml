@@ -15,5 +15,6 @@ nu-color-config = { path = "../nu-color-config" }
 miette = { version = "3.0.0", features = ["fancy"] }
 thiserror = "1.0.29"
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+
 log = "0.4"
 is_executable = "1.0.1"

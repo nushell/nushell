@@ -107,6 +107,7 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
                 engine_state: engine_state.clone(),
             }))
             .with_completer(Box::new(NuCompleter::new(engine_state.clone())))
+            .with_quick_completions(config.quick_completions)
             .with_ansi_colors(config.use_ansi_coloring);
 
         line_editor = add_completion_menu(line_editor, &config);

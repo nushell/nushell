@@ -23,6 +23,7 @@ members = [
 
 [dependencies]
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+
 crossterm = "0.22.*"
 nu-cli = { path="./crates/nu-cli" }
 nu-command = { path="./crates/nu-command" }

@@ -59,6 +59,7 @@ pub struct Config {
     pub float_precision: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
+    pub quick_completions: bool,
     pub env_conversions: HashMap<String, EnvConversion>,
     pub edit_mode: String,
     pub max_history_size: i64,
@@ -81,6 +82,7 @@ impl Default for Config {
             float_precision: 4,
             filesize_format: "auto".into(),
             use_ansi_coloring: true,
+            quick_completions: false,
             env_conversions: HashMap::new(), // TODO: Add default conversoins
             edit_mode: "emacs".into(),
             max_history_size: 1000,
@@ -183,6 +185,13 @@ impl Value {
                             config.use_ansi_coloring = b;
                         } else {
                             eprintln!("$config.use_ansi_coloring is not a bool")
+                        }
+                    }
+                    "quick_completions" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.quick_completions = b;
+                        } else {
+                            eprintln!("$config.quick_completions is not a bool")
                         }
                     }
                     "filesize_format" => {
