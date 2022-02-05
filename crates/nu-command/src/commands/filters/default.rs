@@ -1,9 +1,8 @@
 use crate::prelude::*;
 use nu_engine::WholeStreamCommand;
-use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
-use nu_source::Tagged;
-use nu_value_ext::ValueExt;
+use nu_errors::{ProximateShellError, ShellError};
+use nu_protocol::{ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_value_ext::{get_data_by_column_path, ValueExt};
 
 pub struct Default;
 
@@ -14,7 +13,11 @@ impl WholeStreamCommand for Default {
 
     fn signature(&self) -> Signature {
         Signature::build("default")
-            .required("column name", SyntaxShape::String, "the name of the column")
+            .required(
+                "column name",
+                SyntaxShape::ColumnPath,
+                "the name of the column",
+            )
             .required(
                 "column value",
                 SyntaxShape::Any,
@@ -31,35 +34,49 @@ impl WholeStreamCommand for Default {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Give a default 'target' to all file entries",
-            example: "ls -la | default target 'nothing'",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Give a default 'target' to all file entries",
+                example: "ls -la | default target 'nothing'",
+                result: None,
+            },
+            Example {
+                description: "Works with properties containing special characters",
+                example: r#"'[{ "labels": { "app.kubernetes.io/name": "my-great-app" } }, { "labels": {} }]' | from json | default labels.'app.kubernetes.io/name' unknown | select labels.'app.kubernetes.io/name'"#,
+                result: Some(vec![
+                    UntaggedValue::row(indexmap! {
+                        "labels_app_kubernetes_io/name".into() => "my-great-app".into(),
+                    })
+                    .into(),
+                    UntaggedValue::row(indexmap! {
+                        "labels_app_kubernetes_io/name".into() => "unknown".into(),
+                    })
+                    .into(),
+                ]),
+            },
+        ]
     }
 }
 
 fn default(args: CommandArgs) -> Result<ActionStream, ShellError> {
-    let column: Tagged<String> = args.req(0)?;
-    let value: Value = args.req(1)?;
+    let path: ColumnPath = args.req(0)?;
+    let default_value: Value = args.req(1)?;
 
     let input = args.input;
 
     Ok(input
         .map(move |item| {
-            let should_add = matches!(
-                item,
-                Value {
-                    value: UntaggedValue::Row(ref r),
+            let should_add = match get_data_by_column_path(&item, &path, |_, _, e| e) {
+                Ok(_) => false,
+                Err(ShellError {
+                    error: ProximateShellError::MissingProperty { .. },
                     ..
-                } if r.get_data(&column.item).borrow().is_none()
-            );
+                }) => true,
+                Err(e) => return Err(e),
+            };
 
             if should_add {
-                match item.insert_data_at_path(&column.item, value.clone()) {
-                    Some(new_value) => ReturnSuccess::value(new_value),
-                    None => ReturnSuccess::value(item),
-                }
+                ReturnSuccess::value(item.insert_data_at_column_path(&path, default_value.clone())?)
             } else {
                 ReturnSuccess::value(item)
             }
