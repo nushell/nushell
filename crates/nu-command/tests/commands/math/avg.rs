@@ -14,14 +14,12 @@ fn can_average_numbers() {
     assert_eq!(actual.out, "101.5")
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn can_average_bytes() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | skip 1 | first 2 | get size | math avg | format \"{$it}\" "
+        "ls | sort-by name | skip 1 | first 2 | get size | math avg | to json -r"
     );
 
-    assert_eq!(actual.out, "1.6 KB");
+    assert_eq!(actual.out, "1600");
 }
