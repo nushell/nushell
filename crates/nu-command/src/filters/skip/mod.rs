@@ -1,7 +1,7 @@
-mod command;
-mod until;
-mod while_;
+mod skip_;
+mod skip_until;
+mod skip_while;
 
-pub use command::Skip;
-pub use until::SkipUntil;
-pub use while_::SkipWhile;
+pub use skip_::Skip;
+pub use skip_until::SkipUntil;
+pub use skip_while::SkipWhile;

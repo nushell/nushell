@@ -75,7 +75,7 @@ impl Command for SkipWhile {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::SkipWhile;
 
     #[test]
     fn test_examples() {

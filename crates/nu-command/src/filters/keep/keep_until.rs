@@ -7,11 +7,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct KeepWhile;
+pub struct KeepUntil;
 
-impl Command for KeepWhile {
+impl Command for KeepUntil {
     fn name(&self) -> &str {
-        "keep while"
+        "keep until"
     }
 
     fn signature(&self) -> Signature {
@@ -25,13 +25,13 @@ impl Command for KeepWhile {
     }
 
     fn usage(&self) -> &str {
-        "Keep elements of the input while a predicate is true."
+        "Keep elements of the input until a predicate is true."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Keep while the element is negative",
-            example: "echo [-1 -2 9 1] | keep while $it < 0",
+            description: "Keep until the element is positive",
+            example: "echo [-1 -2 9 1] | keep until $it > 0",
             result: Some(Value::List {
                 vals: vec![Value::test_int(-1), Value::test_int(-2)],
                 span: Span::test_data(),
@@ -65,7 +65,7 @@ impl Command for KeepWhile {
                     stack.add_var(var_id, value.clone());
                 }
 
-                eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))
+                !eval_block(&engine_state, &mut stack, &block, PipelineData::new(span))
                     .map_or(false, |pipeline_data| {
                         pipeline_data.into_value(span).is_true()
                     })
@@ -76,12 +76,12 @@ impl Command for KeepWhile {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::KeepUntil;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(KeepWhile)
+        test_examples(KeepUntil)
     }
 }

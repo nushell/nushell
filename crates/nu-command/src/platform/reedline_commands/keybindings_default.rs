@@ -6,9 +6,9 @@ use nu_protocol::{
 use reedline::get_reedline_default_keybindings;
 
 #[derive(Clone)]
-pub struct DefaultKeybindings;
+pub struct KeybindingsDefault;
 
-impl Command for DefaultKeybindings {
+impl Command for KeybindingsDefault {
     fn name(&self) -> &str {
         "keybindings default"
     }

@@ -97,7 +97,7 @@ impl Command for Drop {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::Drop;
 
     #[test]
     fn test_examples() {

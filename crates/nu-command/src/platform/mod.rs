@@ -14,6 +14,6 @@ pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use du::Du;
 pub use input::Input;
 pub use kill::Kill;
-pub use reedline_commands::{DefaultKeybindings, InputKeys, Keybindings, ListKeybindings};
+pub use reedline_commands::{Keybindings, KeybindingsDefault, KeybindingsList, KeybindingsListen};
 pub use sleep::Sleep;
 pub use term_size::TermSize;

@@ -321,7 +321,8 @@ fn trim(s: &str, char_: Option<char>, closure_flags: &ClosureFlags) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::strings::str_::trim::trim_::*;
+    use nu_protocol::{Span, Value};
 
     #[test]
     fn test_examples() {

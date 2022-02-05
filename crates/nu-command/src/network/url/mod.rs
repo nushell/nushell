@@ -1,8 +1,8 @@
-mod command;
 mod host;
 mod path;
 mod query;
 mod scheme;
+mod url_;
 
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -16,7 +16,7 @@ pub use self::host::SubCommand as UrlHost;
 pub use self::path::SubCommand as UrlPath;
 pub use self::query::SubCommand as UrlQuery;
 pub use self::scheme::SubCommand as UrlScheme;
-pub use command::Url;
+pub use url_::Url;
 
 fn handle_value<F>(action: &F, v: &Value, span: Span) -> Value
 where

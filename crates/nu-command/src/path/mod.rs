@@ -1,10 +1,10 @@
 mod basename;
-pub mod command;
 mod dirname;
 mod exists;
 mod expand;
 mod join;
 mod parse;
+pub mod path_;
 mod relative_to;
 mod split;
 mod r#type;
@@ -12,12 +12,12 @@ mod r#type;
 use std::path::Path as StdPath;
 
 pub use basename::SubCommand as PathBasename;
-pub use command::PathCommand as Path;
 pub use dirname::SubCommand as PathDirname;
 pub use exists::SubCommand as PathExists;
 pub use expand::SubCommand as PathExpand;
 pub use join::SubCommand as PathJoin;
 pub use parse::SubCommand as PathParse;
+pub use path_::PathCommand as Path;
 pub use r#type::SubCommand as PathType;
 pub use relative_to::SubCommand as PathRelativeTo;
 pub use split::SubCommand as PathSplit;

@@ -1,16 +1,16 @@
 pub mod camel_case;
-pub mod command;
 pub mod kebab_case;
 pub mod pascal_case;
 pub mod screaming_snake_case;
 pub mod snake_case;
+pub mod str_;
 
 pub use camel_case::SubCommand as StrCamelCase;
-pub use command::Str;
 pub use kebab_case::SubCommand as StrKebabCase;
 pub use pascal_case::SubCommand as StrPascalCase;
 pub use screaming_snake_case::SubCommand as StrScreamingSnakeCase;
 pub use snake_case::SubCommand as StrSnakeCase;
+pub use str_::Str;
 
 use nu_engine::CallExt;
 

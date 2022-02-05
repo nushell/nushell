@@ -1,2 +1,2 @@
-mod command;
-pub use command::SubCommand as Trim;
+mod trim_;
+pub use trim_::SubCommand as Trim;

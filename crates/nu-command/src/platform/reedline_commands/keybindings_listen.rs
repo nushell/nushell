@@ -8,9 +8,9 @@ use nu_protocol::{
 use std::io::{stdout, Write};
 
 #[derive(Clone)]
-pub struct InputKeys;
+pub struct KeybindingsListen;
 
-impl Command for InputKeys {
+impl Command for KeybindingsListen {
     fn name(&self) -> &str {
         "keybindings listen"
     }
@@ -141,11 +141,11 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use super::InputKeys;
+    use crate::KeybindingsListen;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
-        test_examples(InputKeys {})
+        test_examples(KeybindingsListen {})
     }
 }

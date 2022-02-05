@@ -9,9 +9,9 @@ use reedline::{
 };
 
 #[derive(Clone)]
-pub struct ListKeybindings;
+pub struct KeybindingsList;
 
-impl Command for ListKeybindings {
+impl Command for KeybindingsList {
     fn name(&self) -> &str {
         "keybindings list"
     }

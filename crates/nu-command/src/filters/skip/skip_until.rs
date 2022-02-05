@@ -7,11 +7,11 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct KeepUntil;
+pub struct SkipUntil;
 
-impl Command for KeepUntil {
+impl Command for SkipUntil {
     fn name(&self) -> &str {
-        "keep until"
+        "skip until"
     }
 
     fn signature(&self) -> Signature {
@@ -19,21 +19,21 @@ impl Command for KeepUntil {
             .required(
                 "predicate",
                 SyntaxShape::RowCondition,
-                "the predicate that kept element must not match",
+                "the predicate that skipped element must not match",
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Keep elements of the input until a predicate is true."
+        "Skip elements of the input until a predicate is true."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Keep until the element is positive",
-            example: "echo [-1 -2 9 1] | keep until $it > 0",
+            description: "Skip until the element is positive",
+            example: "echo [-2 0 2 -1] | skip until $it > 0",
             result: Some(Value::List {
-                vals: vec![Value::test_int(-1), Value::test_int(-2)],
+                vals: vec![Value::test_int(2), Value::test_int(-1)],
                 span: Span::test_data(),
             }),
         }]
@@ -52,7 +52,6 @@ impl Command for KeepUntil {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-
         let mut stack = stack.captures_to_stack(&capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -60,7 +59,7 @@ impl Command for KeepUntil {
 
         Ok(input
             .into_iter()
-            .take_while(move |value| {
+            .skip_while(move |value| {
                 if let Some(var_id) = var_id {
                     stack.add_var(var_id, value.clone());
                 }
@@ -76,12 +75,12 @@ impl Command for KeepUntil {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::SkipUntil;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(KeepUntil)
+        test_examples(SkipUntil)
     }
 }

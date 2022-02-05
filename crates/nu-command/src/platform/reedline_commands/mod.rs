@@ -1,9 +1,9 @@
-mod command;
-mod default_keybindings;
-mod input_keys;
-mod list_keybindings;
+mod keybindings;
+mod keybindings_default;
+mod keybindings_list;
+mod keybindings_listen;
 
-pub use command::Keybindings;
-pub use default_keybindings::DefaultKeybindings;
-pub use input_keys::InputKeys;
-pub use list_keybindings::ListKeybindings;
+pub use keybindings::Keybindings;
+pub use keybindings_default::KeybindingsDefault;
+pub use keybindings_list::KeybindingsList;
+pub use keybindings_listen::KeybindingsListen;
