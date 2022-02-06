@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{Category, PipelineData, Signature, SyntaxShape};
@@ -47,8 +47,12 @@ impl Command for Where {
                             stack.add_var(*var_id, value.clone());
                         }
                     }
-                    let result =
-                        eval_block(&engine_state, &mut stack, &block, PipelineData::new(span));
+                    let result = eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        &block,
+                        PipelineData::new(span),
+                    );
 
                     match result {
                         Ok(result) => result.into_value(span).is_true(),

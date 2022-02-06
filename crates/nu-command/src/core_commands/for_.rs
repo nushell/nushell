@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, eval_expression, CallExt};
+use nu_engine::{eval_block_with_redirect, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -99,7 +99,12 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        &block,
+                        PipelineData::new(head),
+                    ) {
                         Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
                     }
@@ -131,7 +136,12 @@ impl Command for For {
                     );
 
                     //let block = engine_state.get_block(block_id);
-                    match eval_block(&engine_state, &mut stack, &block, PipelineData::new(head)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        &block,
+                        PipelineData::new(head),
+                    ) {
                         Ok(pipeline_data) => pipeline_data.into_value(head),
                         Err(error) => Value::Error { error },
                     }
@@ -140,7 +150,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, &mut stack, &block, PipelineData::new(head))
+                eval_block_with_redirect(&engine_state, &mut stack, &block, PipelineData::new(head))
             }
         }
     }

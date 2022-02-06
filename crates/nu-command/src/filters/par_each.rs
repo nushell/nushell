@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -87,7 +87,12 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                    ) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -128,7 +133,12 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                    ) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -168,7 +178,12 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                    ) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -213,7 +228,12 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                    ) {
                         Ok(v) => v,
                         Err(error) => Value::Error { error }.into_pipeline_data(),
                     }
@@ -250,7 +270,12 @@ impl Command for ParEach {
                         }
                     }
 
-                    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span))? {
+                    match eval_block_with_redirect(
+                        &engine_state,
+                        &mut stack,
+                        block,
+                        PipelineData::new(span),
+                    )? {
                         PipelineData::Value(
                             Value::Record {
                                 mut cols, mut vals, ..
@@ -284,7 +309,7 @@ impl Command for ParEach {
                     }
                 }
 
-                eval_block(&engine_state, &mut stack, block, PipelineData::new(span))
+                eval_block_with_redirect(&engine_state, &mut stack, block, PipelineData::new(span))
             }
         }
     }

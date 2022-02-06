@@ -1,4 +1,4 @@
-use nu_engine::{eval_block, CallExt};
+use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
@@ -142,7 +142,7 @@ pub(crate) fn run_block_on_vec(
         }
     }
 
-    match eval_block(&engine_state, &mut stack, block, PipelineData::new(span)) {
+    match eval_block_with_redirect(&engine_state, &mut stack, block, PipelineData::new(span)) {
         Ok(pipeline) => pipeline,
         Err(error) => Value::Error { error }.into_pipeline_data(),
     }

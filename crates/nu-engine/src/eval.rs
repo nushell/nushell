@@ -546,6 +546,80 @@ pub fn eval_block(
     Ok(input)
 }
 
+pub fn eval_block_with_redirect(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    mut input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let num_stmts = block.stmts.len();
+    for (stmt_idx, stmt) in block.stmts.iter().enumerate() {
+        if let Statement::Pipeline(pipeline) = stmt {
+            for elem in pipeline.expressions.iter() {
+                input = eval_expression_with_input(engine_state, stack, elem, input, false)?
+            }
+        }
+
+        if stmt_idx < (num_stmts) - 1 {
+            match input {
+                PipelineData::Value(Value::Nothing { .. }, ..) => {}
+                _ => {
+                    // Drain the input to the screen via tabular output
+                    let config = stack.get_config().unwrap_or_default();
+
+                    match engine_state.find_decl("table".as_bytes()) {
+                        Some(decl_id) => {
+                            let table = engine_state.get_decl(decl_id).run(
+                                engine_state,
+                                stack,
+                                &Call::new(Span::new(0, 0)),
+                                input,
+                            )?;
+
+                            for item in table {
+                                let stdout = std::io::stdout();
+
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
+
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
+
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
+                        }
+                        None => {
+                            for item in input {
+                                let stdout = std::io::stdout();
+
+                                if let Value::Error { error } = item {
+                                    return Err(error);
+                                }
+
+                                let mut out = item.into_string("\n", &config);
+                                out.push('\n');
+
+                                match stdout.lock().write_all(out.as_bytes()) {
+                                    Ok(_) => (),
+                                    Err(err) => eprintln!("{}", err),
+                                };
+                            }
+                        }
+                    };
+                }
+            }
+
+            input = PipelineData::new(Span { start: 0, end: 0 })
+        }
+    }
+
+    Ok(input)
+}
+
 pub fn eval_subexpression(
     engine_state: &EngineState,
     stack: &mut Stack,
