@@ -134,41 +134,8 @@ impl NuCompleter {
                 )
             });
 
-        results.collect()
-    }
-
-    fn complete_filepath_and_commands(
-        &self,
-        working_set: &StateWorkingSet,
-        span: Span,
-        offset: usize,
-    ) -> Vec<(reedline::Span, String)> {
-        let results = self.complete_commands(working_set, span, offset);
-
         let prefix = working_set.get_span_contents(span);
-
-        let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD") {
-            match d.as_string() {
-                Ok(s) => s,
-                Err(_) => "".to_string(),
-            }
-        } else {
-            "".to_string()
-        };
-
         let prefix = String::from_utf8_lossy(prefix).to_string();
-        let results_paths = file_path_completion(span, &prefix, &cwd)
-            .into_iter()
-            .map(move |x| {
-                (
-                    reedline::Span {
-                        start: x.0.start - offset,
-                        end: x.0.end - offset,
-                    },
-                    x.1,
-                )
-            });
-
         let results_external =
             self.external_command_completion(&prefix)
                 .into_iter()
@@ -184,7 +151,6 @@ impl NuCompleter {
 
         results
             .into_iter()
-            .chain(results_paths.into_iter())
             .chain(results_external.into_iter())
             .collect()
     }
@@ -291,13 +257,29 @@ impl NuCompleter {
                                         offset,
                                     );
 
-                                    return self
-                                        .complete_filepath_and_commands(
-                                            &working_set,
-                                            flat.0,
-                                            offset,
-                                        )
+                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
+                                    {
+                                        match d.as_string() {
+                                            Ok(s) => s,
+                                            Err(_) => "".to_string(),
+                                        }
+                                    } else {
+                                        "".to_string()
+                                    };
+
+                                    let prefix = working_set.get_span_contents(flat.0);
+                                    let prefix = String::from_utf8_lossy(prefix).to_string();
+                                    return file_path_completion(flat.0, &prefix, &cwd)
                                         .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
+                                            )
+                                        })
                                         .chain(subcommands.into_iter())
                                         .collect();
                                 }
