@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
+fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
     let path = path.as_ref();
 
     if !path.starts_with("~") {
@@ -27,7 +27,7 @@ fn expand_tilde_with(path: impl AsRef<Path>, home: Option<PathBuf>) -> PathBuf {
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     // TODO: Extend this to work with "~user" style of home paths
-    expand_tilde_with(path, dirs_next::home_dir())
+    expand_tilde_with_home(path, dirs_next::home_dir())
 }
 
 #[cfg(test)]
@@ -37,17 +37,17 @@ mod tests {
     fn check_expanded(s: &str) {
         let home = Path::new("/home");
         let buf = Some(PathBuf::from(home));
-        assert!(expand_tilde_with(Path::new(s), buf).starts_with(&home));
+        assert!(expand_tilde_with_home(Path::new(s), buf).starts_with(&home));
 
         // Tests the special case in expand_tilde for "/" as home
         let home = Path::new("/");
         let buf = Some(PathBuf::from(home));
-        assert!(!expand_tilde_with(Path::new(s), buf).starts_with("//"));
+        assert!(!expand_tilde_with_home(Path::new(s), buf).starts_with("//"));
     }
 
     fn check_not_expanded(s: &str) {
         let home = PathBuf::from("/home");
-        let expanded = expand_tilde_with(Path::new(s), Some(home));
+        let expanded = expand_tilde_with_home(Path::new(s), Some(home));
         assert!(expanded == Path::new(s));
     }
 

@@ -1,43 +1,21 @@
 [package]
-authors = ["The Nu Project Contributors"]
-description = "CLI for nushell"
-edition = "2018"
-license = "MIT"
 name = "nu-cli"
-version = "0.43.0"
-build = "build.rs"
-
-[lib]
-doctest = false
+version = "0.60.0"
+edition = "2021"
 
 [dependencies]
-nu-completion = { version = "0.43.0", path="../nu-completion" }
-nu-command = { version = "0.43.0", path="../nu-command" }
-nu-data = { version = "0.43.0", path="../nu-data" }
-nu-engine = { version = "0.43.0", path="../nu-engine" }
-nu-errors = { version = "0.43.0", path="../nu-errors" }
-nu-parser = { version = "0.43.0", path="../nu-parser" }
-nu-protocol = { version = "0.43.0", path="../nu-protocol" }
-nu-source = { version = "0.43.0", path="../nu-source" }
-nu-stream = { version = "0.43.0", path="../nu-stream" }
-nu-ansi-term = { version = "0.43.0", path="../nu-ansi-term" }
-nu-path = { version = "0.43.0", path="../nu-path" }
+nu-engine = { path = "../nu-engine", version = "0.60.0"  }
+nu-path = { path = "../nu-path", version = "0.60.0"  }
+nu-parser = { path = "../nu-parser", version = "0.60.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.60.0"  }
+# nu-ansi-term = { path = "../nu-ansi-term", version = "0.60.0"  }
+nu-ansi-term = "0.42.0"
 
-indexmap ="1.6.1"
-log = "0.4.14"
-pretty_env_logger = "0.4.0"
-strip-ansi-escapes = "0.1.0"
-rustyline = { version="9.0.0", optional=true }
-ctrlc = { version="3.1.7", optional=true }
-shadow-rs = { version = "0.8.1", default-features = false, optional = true }
-serde = { version="1.0.123", features=["derive"] }
-serde_yaml = "0.8.16"
-lazy_static = "1.4.0"
+nu-color-config = { path = "../nu-color-config" }
 
-[build-dependencies]
-shadow-rs = "0.8.1"
+miette = { version = "3.0.0", features = ["fancy"] }
+thiserror = "1.0.29"
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 
-[features]
-default = ["shadow-rs"]
-rustyline-support = ["rustyline", "nu-engine/rustyline-support"]
-stable = []
+log = "0.4"
+is_executable = "1.0.1"

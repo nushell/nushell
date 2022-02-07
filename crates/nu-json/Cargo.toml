@@ -1,10 +1,10 @@
 [package]
 authors = ["The Nu Project Contributors", "Christian Zangl <laktak@cdak.net>"]
 description = "Fork of serde-hjson"
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "nu-json"
-version = "0.43.0"
+version = "0.60.0" 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,6 +20,5 @@ lazy_static = "1"
 linked-hash-map = { version="0.5", optional=true }
 
 [dev-dependencies]
-nu-path = { version = "0.43.0", path="../nu-path" }
-nu-test-support = { version = "0.43.0", path="../nu-test-support" }
+nu-path = { path="../nu-path", version = "0.60.0" }
 serde_json = "1.0.39"

@@ -236,18 +236,6 @@ fn duration_math_with_negative() {
 }
 
 #[test]
-fn duration_math_shell_error_on_big_numbers() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-           (date now) + 100000000000000day
-        "#
-    ));
-
-    assert!(actual.err.contains("Duration overflow"));
-}
-
-#[test]
 fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -276,11 +264,11 @@ fn compound_where() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json -r
         "#
     ));
 
-    assert_eq!(actual.out, r#"{"a":2,"b":1}"#);
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1}]"#);
 }
 
 #[test]
@@ -288,9 +276,9 @@ fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json -r
         "#
     ));
 
-    assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
 }

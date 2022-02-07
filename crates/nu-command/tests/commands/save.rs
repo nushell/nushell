@@ -48,6 +48,8 @@ fn writes_out_csv() {
     })
 }
 
+// FIXME: jt: needs more work
+#[ignore]
 #[test]
 fn save_append_will_create_file_if_not_exists() {
     Playground::setup("save_test_3", |dirs, sandbox| {

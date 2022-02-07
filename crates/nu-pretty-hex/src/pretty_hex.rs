@@ -57,6 +57,8 @@ pub struct HexConfig {
     pub group: usize,
     /// Source bytes per chunk (word). 0 for single word.
     pub chunk: usize,
+    /// Offset to start counting addresses from
+    pub address_offset: usize,
     /// Bytes from 0 to skip
     pub skip: Option<usize>,
     /// Length to return
@@ -73,6 +75,7 @@ impl Default for HexConfig {
             width: 16,
             group: 4,
             chunk: 1,
+            address_offset: 0,
             skip: None,
             length: None,
         }
@@ -164,6 +167,8 @@ where
 
     let skip = cfg.skip.unwrap_or(0);
 
+    let address_offset = cfg.address_offset;
+
     let source_part_vec: Vec<u8> = source
         .as_ref()
         .iter()
@@ -205,11 +210,11 @@ where
                     writer,
                     "{}{:08x}{}:   ",
                     style.prefix(),
-                    i * cfg.width + skip,
+                    i * cfg.width + skip + address_offset,
                     style.suffix()
                 )?;
             } else {
-                write!(writer, "{:08x}:   ", i * cfg.width + skip,)?;
+                write!(writer, "{:08x}:   ", i * cfg.width + skip + address_offset,)?;
             }
         }
         for (i, x) in row.as_ref().iter().enumerate() {

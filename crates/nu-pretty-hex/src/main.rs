@@ -7,6 +7,7 @@ fn main() {
         width: 16,
         group: 4,
         chunk: 1,
+        address_offset: 0,
         skip: Some(10),
         // length: Some(5),
         // length: None,

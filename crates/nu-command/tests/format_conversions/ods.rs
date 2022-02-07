@@ -22,7 +22,8 @@ fn from_ods_file_to_table_select_sheet() {
         r#"
             open sample_data.ods --raw
             | from ods -s ["SalesOrders"]
-            | get
+            | columns
+            | get 0
         "#
     ));
 

@@ -22,7 +22,8 @@ fn from_excel_file_to_table_select_sheet() {
         r#"
             open sample_data.xlsx --raw
             | from xlsx -s ["SalesOrders"]
-            | get
+            | columns
+            | get 0
         "#
     ));
 

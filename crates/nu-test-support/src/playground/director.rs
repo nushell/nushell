@@ -84,33 +84,31 @@ impl Director {
 
 impl Executable for Director {
     fn execute(&mut self) -> NuResult {
-        use std::io::Write;
         use std::process::Stdio;
 
         match self.executable() {
             Some(binary) => {
-                let mut process = match binary
+                let mut commands = String::new();
+                if let Some(pipelines) = &self.pipeline {
+                    for pipeline in pipelines {
+                        if !commands.is_empty() {
+                            commands.push_str("| ");
+                        }
+                        commands.push_str(&format!("{}\n", pipeline));
+                    }
+                }
+
+                let process = match binary
                     .construct()
                     .stdout(Stdio::piped())
-                    .stdin(Stdio::piped())
+                    // .stdin(Stdio::piped())
                     .stderr(Stdio::piped())
+                    .arg(format!("-c '{}'", commands))
                     .spawn()
                 {
                     Ok(child) => child,
                     Err(why) => panic!("Can't run test {}", why),
                 };
-
-                if let Some(pipelines) = &self.pipeline {
-                    let child = process.stdin.as_mut().expect("Failed to open stdin");
-
-                    for pipeline in pipelines {
-                        child
-                            .write_all(format!("{}\n", pipeline).as_bytes())
-                            .expect("Could not write to");
-                    }
-
-                    child.write_all(b"exit\n").expect("Could not write to");
-                }
 
                 process
                     .wait_with_output()

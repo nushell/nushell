@@ -27,7 +27,7 @@ fn lines_proper_buffering() {
             open lines_test.txt -r
             | lines
             | str length
-            | to json
+            | to json -r
         "#
     ));
 
@@ -46,5 +46,5 @@ fn lines_multi_value_split() {
         "#
     ));
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual.out, "6");
 }

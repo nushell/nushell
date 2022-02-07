@@ -1,0 +1,122 @@
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
+};
+
+#[derive(Clone)]
+pub struct Prepend;
+
+impl Command for Prepend {
+    fn name(&self) -> &str {
+        "prepend"
+    }
+
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build("prepend")
+            .required("row", SyntaxShape::Any, "the row to prepend")
+            .category(Category::Filters)
+    }
+
+    fn usage(&self) -> &str {
+        "Prepend a row to the table."
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: "[1,2,3,4] | prepend 0",
+                description: "Prepend one Int item",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[2,3,4] | prepend [0,1]",
+                description: "Prepend two Int items",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                        Value::test_int(4),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                example: "[2,nu,4,shell] | prepend [0,1,rocks]",
+                description: "Prepend Ints and Strings",
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::test_int(0),
+                        Value::test_int(1),
+                        Value::test_string("rocks"),
+                        Value::test_int(2),
+                        Value::test_string("nu"),
+                        Value::test_int(4),
+                        Value::test_string("shell"),
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let val: Value = call.req(engine_state, stack, 0)?;
+        let vec: Vec<Value> = process_value(val);
+
+        Ok(vec
+            .into_iter()
+            .chain(input)
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()))
+    }
+}
+
+fn process_value(val: Value) -> Vec<Value> {
+    match val {
+        Value::List {
+            vals: input_vals,
+            span: _,
+        } => {
+            let mut output = vec![];
+            for input_val in input_vals {
+                output.push(input_val);
+            }
+            output
+        }
+        _ => {
+            vec![val]
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Prepend {})
+    }
+}

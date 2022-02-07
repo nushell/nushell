@@ -1,0 +1,78 @@
+use nu_engine::eval_expression_with_input;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, Example, PipelineData, Signature, SyntaxShape};
+
+#[derive(Clone)]
+pub struct Let;
+
+impl Command for Let {
+    fn name(&self) -> &str {
+        "let"
+    }
+
+    fn usage(&self) -> &str {
+        "Create a variable and give it a value."
+    }
+
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build("let")
+            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+            .required(
+                "initial_value",
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                "equals sign followed by value",
+            )
+            .category(Category::Core)
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let var_id = call.positional[0]
+            .as_var()
+            .expect("internal error: missing variable");
+
+        let keyword_expr = call.positional[1]
+            .as_keyword()
+            .expect("internal error: missing keyword");
+
+        let rhs = eval_expression_with_input(engine_state, stack, keyword_expr, input, false)?;
+
+        //println!("Adding: {:?} to {}", rhs, var_id);
+
+        stack.add_var(var_id, rhs.into_value(call.head));
+        Ok(PipelineData::new(call.head))
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Set a variable to a value",
+                example: "let x = 10",
+                result: None,
+            },
+            Example {
+                description: "Set a variable to the result of an expression",
+                example: "let x = 10 + 100",
+                result: None,
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Let {})
+    }
+}

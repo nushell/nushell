@@ -1,0 +1,183 @@
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use std::sync::Arc;
+
+struct Arguments {
+    length: Option<i64>,
+    character: Option<String>,
+    column_paths: Vec<CellPath>,
+}
+
+#[derive(Clone)]
+pub struct SubCommand;
+
+impl Command for SubCommand {
+    fn name(&self) -> &str {
+        "str lpad"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("str lpad")
+            .required_named("length", SyntaxShape::Int, "length to pad to", Some('l'))
+            .required_named(
+                "character",
+                SyntaxShape::String,
+                "character to pad with",
+                Some('c'),
+            )
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "optionally check if string contains pattern by column paths",
+            )
+            .category(Category::Strings)
+    }
+
+    fn usage(&self) -> &str {
+        "pad a string with a character a certain length"
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        operate(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Left pad a string with a character a number of places",
+                example: "'nushell' | str lpad -l 10 -c '*'",
+                result: Some(Value::String {
+                    val: "***nushell".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Left pad a string with a character a number of places",
+                example: "'123' | str lpad -l 10 -c '0'",
+                result: Some(Value::String {
+                    val: "0000000123".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Use lpad to truncate a string",
+                example: "'123456789' | str lpad -l 3 -c '0'",
+                result: Some(Value::String {
+                    val: "123".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Use lpad to pad Unicode",
+                example: "'▉' | str lpad -l 10 -c '▉'",
+                result: Some(Value::String {
+                    val: "▉▉▉▉▉▉▉▉▉▉".to_string(),
+                    span: Span::test_data(),
+                }),
+            },
+        ]
+    }
+}
+
+fn operate(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let options = Arc::new(Arguments {
+        length: call.get_flag(engine_state, stack, "length")?,
+        character: call.get_flag(engine_state, stack, "character")?,
+        column_paths: call.rest(engine_state, stack, 0)?,
+    });
+
+    let head = call.head;
+    input.map(
+        move |v| {
+            if options.column_paths.is_empty() {
+                action(&v, &options, head)
+            } else {
+                let mut ret = v;
+                for path in &options.column_paths {
+                    let opt = options.clone();
+                    let r = ret.update_cell_path(
+                        &path.members,
+                        Box::new(move |old| action(old, &opt, head)),
+                    );
+                    if let Err(error) = r {
+                        return Value::Error { error };
+                    }
+                }
+                ret
+            }
+        },
+        engine_state.ctrlc.clone(),
+    )
+}
+
+fn action(
+    input: &Value,
+    Arguments {
+        character, length, ..
+    }: &Arguments,
+    head: Span,
+) -> Value {
+    match &input {
+        Value::String { val, .. } => match length {
+            Some(x) => {
+                let s = *x as usize;
+                if s < val.len() {
+                    Value::String {
+                        val: val.chars().take(s).collect::<String>(),
+                        span: head,
+                    }
+                } else {
+                    let c = character.as_ref().expect("we already know this flag needs to exist because the command is type checked before we call the action function");
+                    let mut res = c.repeat(s - val.chars().count());
+                    res += val;
+                    Value::String {
+                        val: res,
+                        span: head,
+                    }
+                }
+            }
+            None => Value::Error {
+                error: ShellError::UnsupportedInput(
+                    String::from("Length argument is missing"),
+                    head,
+                ),
+            },
+        },
+        other => Value::Error {
+            error: ShellError::UnsupportedInput(
+                format!(
+                    "Input's type is {}. This command only works with strings.",
+                    other.get_type()
+                ),
+                head,
+            ),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
+}

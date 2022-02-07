@@ -44,10 +44,10 @@ fn sum_one_to_four() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 1..4 | into string | str collect "+" | math eval
+        1..4 | each { $it } | into string | str collect "+" | math eval
         "#
         )
     );
 
-    assert!(actual.out.contains("10.0"));
+    assert!(actual.out.contains("10"));
 }

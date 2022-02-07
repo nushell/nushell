@@ -47,7 +47,7 @@ fn infers_types() {
             cwd: dirs.test(), pipeline(
             r#"
                 open calendar.ics
-                | get events
+                | get events.0
                 | length
             "#
         ));
@@ -86,8 +86,8 @@ fn from_ics_text_to_table() {
             r#"
                 open calendar.txt
                 | from ics
-                | get events
-                | get properties
+                | get events.0
+                | get properties.0
                 | where name == "SUMMARY"
                 | first
                 | get value
