@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Span, Spanned, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Span, Spanned,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -73,7 +73,7 @@ impl Command for EachGroup {
             span: call.head,
         };
 
-        Ok(each_group_iterator.flatten().into_pipeline_data(ctrlc))
+        Ok(each_group_iterator.into_pipeline_data(ctrlc))
     }
 }
 
@@ -87,7 +87,7 @@ struct EachGroupIterator {
 }
 
 impl Iterator for EachGroupIterator {
-    type Item = PipelineData;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut group = vec![];
@@ -129,7 +129,7 @@ pub(crate) fn run_block_on_vec(
     engine_state: EngineState,
     stack: Stack,
     span: Span,
-) -> PipelineData {
+) -> Value {
     let value = Value::List { vals: input, span };
 
     let mut stack = stack.captures_to_stack(&capture_block.captures);
@@ -143,8 +143,8 @@ pub(crate) fn run_block_on_vec(
     }
 
     match eval_block_with_redirect(&engine_state, &mut stack, block, PipelineData::new(span)) {
-        Ok(pipeline) => pipeline,
-        Err(error) => Value::Error { error }.into_pipeline_data(),
+        Ok(pipeline) => pipeline.into_value(span),
+        Err(error) => Value::Error { error },
     }
 }
 

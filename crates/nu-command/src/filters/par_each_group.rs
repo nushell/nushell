@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_redirect, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{CaptureBlock, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Signature,
-    Spanned, SyntaxShape, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Signature, Spanned,
+    SyntaxShape, Value,
 };
 use rayon::prelude::*;
 
@@ -78,13 +78,12 @@ impl Command for ParEachGroup {
                     block,
                     PipelineData::new(span),
                 ) {
-                    Ok(v) => v,
-                    Err(error) => Value::Error { error }.into_pipeline_data(),
+                    Ok(v) => v.into_value(span),
+                    Err(error) => Value::Error { error },
                 }
             })
             .collect::<Vec<_>>()
             .into_iter()
-            .flatten()
             .into_pipeline_data(ctrlc))
     }
 }
