@@ -67,6 +67,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             DropNth,
             Each,
             EachGroup,
+            EachWindow,
             Empty,
             Every,
             Find,
