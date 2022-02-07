@@ -45,7 +45,7 @@ impl Command for Decode {
 
         match input {
             PipelineData::RawStream(stream, ..) => {
-                let bytes: Vec<u8> = stream.into_bytes()?;
+                let bytes: Vec<u8> = stream.into_bytes()?.item;
 
                 let encoding = match Encoding::for_label(encoding.item.as_bytes()) {
                     None => Err(ShellError::SpannedLabeledError(

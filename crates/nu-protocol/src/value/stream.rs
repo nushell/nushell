@@ -30,24 +30,28 @@ impl RawStream {
         }
     }
 
-    pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
+    pub fn into_bytes(self) -> Result<Spanned<Vec<u8>>, ShellError> {
         let mut output = vec![];
 
         for item in self.stream {
             output.extend(item?);
         }
 
-        Ok(output)
+        Ok(Spanned {
+            item: output,
+            span: self.span,
+        })
     }
 
-    pub fn into_string(self) -> Result<String, ShellError> {
+    pub fn into_string(self) -> Result<Spanned<String>, ShellError> {
         let mut output = String::new();
+        let span = self.span;
 
         for item in self {
             output.push_str(&item?.as_string()?);
         }
 
-        Ok(output)
+        Ok(Spanned { item: output, span })
     }
 }
 impl Debug for RawStream {

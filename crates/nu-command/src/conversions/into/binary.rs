@@ -103,7 +103,7 @@ fn into_binary(
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_bytes()?;
             Ok(Value::Binary {
-                val: output,
+                val: output.item,
                 span: head,
             }
             .into_pipeline_data())

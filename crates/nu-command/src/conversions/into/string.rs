@@ -154,7 +154,7 @@ fn string_helper(
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
             Ok(Value::String {
-                val: output,
+                val: output.item,
                 span: head,
             }
             .into_pipeline_data())

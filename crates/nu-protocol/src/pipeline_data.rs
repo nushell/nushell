@@ -230,12 +230,23 @@ impl PipelineData {
                 Ok(vals.into_iter().map(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.map(f).into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => Ok(stream
-                .map(move |x| match x {
-                    Ok(v) => f(v),
-                    Err(err) => Value::Error { error: err },
-                })
-                .into_pipeline_data(ctrlc)),
+            PipelineData::RawStream(stream, ..) => {
+                let collected = stream.into_bytes()?;
+
+                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                    Ok(f(Value::String {
+                        val: st,
+                        span: collected.span,
+                    })
+                    .into_pipeline_data())
+                } else {
+                    Ok(f(Value::Binary {
+                        val: collected.item,
+                        span: collected.span,
+                    })
+                    .into_pipeline_data())
+                }
+            }
 
             PipelineData::Value(Value::Range { val, .. }, ..) => {
                 Ok(val.into_range_iter()?.map(f).into_pipeline_data(ctrlc))
@@ -266,14 +277,25 @@ impl PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 Ok(stream.map(f).flatten().into_pipeline_data(ctrlc))
             }
-            PipelineData::RawStream(stream, ..) => Ok(stream
-                .map(move |x| match x {
-                    Ok(v) => v,
-                    Err(err) => Value::Error { error: err },
-                })
-                .map(f)
-                .flatten()
-                .into_pipeline_data(ctrlc)),
+            PipelineData::RawStream(stream, ..) => {
+                let collected = stream.into_bytes()?;
+
+                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                    Ok(f(Value::String {
+                        val: st,
+                        span: collected.span,
+                    })
+                    .into_iter()
+                    .into_pipeline_data(ctrlc))
+                } else {
+                    Ok(f(Value::Binary {
+                        val: collected.item,
+                        span: collected.span,
+                    })
+                    .into_iter()
+                    .into_pipeline_data(ctrlc))
+                }
+            }
             PipelineData::Value(Value::Range { val, .. }, ..) => match val.into_range_iter() {
                 Ok(iter) => Ok(iter.map(f).flatten().into_pipeline_data(ctrlc)),
                 Err(error) => Err(error),
@@ -296,13 +318,33 @@ impl PipelineData {
                 Ok(vals.into_iter().filter(f).into_pipeline_data(ctrlc))
             }
             PipelineData::ListStream(stream, ..) => Ok(stream.filter(f).into_pipeline_data(ctrlc)),
-            PipelineData::RawStream(stream, ..) => Ok(stream
-                .map(move |x| match x {
-                    Ok(v) => v,
-                    Err(err) => Value::Error { error: err },
-                })
-                .filter(f)
-                .into_pipeline_data(ctrlc)),
+            PipelineData::RawStream(stream, ..) => {
+                let collected = stream.into_bytes()?;
+
+                if let Ok(st) = String::from_utf8(collected.clone().item) {
+                    let v = Value::String {
+                        val: st,
+                        span: collected.span,
+                    };
+
+                    if f(&v) {
+                        Ok(v.into_pipeline_data())
+                    } else {
+                        Ok(PipelineData::new(collected.span))
+                    }
+                } else {
+                    let v = Value::Binary {
+                        val: collected.item,
+                        span: collected.span,
+                    };
+
+                    if f(&v) {
+                        Ok(v.into_pipeline_data())
+                    } else {
+                        Ok(PipelineData::new(collected.span))
+                    }
+                }
+            }
             PipelineData::Value(Value::Range { val, .. }, ..) => {
                 Ok(val.into_range_iter()?.filter(f).into_pipeline_data(ctrlc))
             }
