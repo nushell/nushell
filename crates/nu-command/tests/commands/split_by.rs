@@ -49,10 +49,6 @@ fn errors_if_no_table_given_as_input() {
             "#
         ));
 
-<<<<<<< HEAD
-        assert!(actual.err.contains("Expected table from pipeline"));
-=======
         assert!(actual.err.contains("requires a table"));
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     })
 }

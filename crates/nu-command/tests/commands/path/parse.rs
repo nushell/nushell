@@ -114,11 +114,8 @@ fn parses_column_path_extension() {
     assert_eq!(actual.out, "png");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn parses_into_correct_number_of_columns() {
     let actual = nu!(

@@ -1,15 +1,7 @@
 use nu_test_support::fs::{AbsolutePath, DisplayPath, Stub::FileWithContent};
 use nu_test_support::nu;
-<<<<<<< HEAD
-use nu_test_support::pipeline as input;
-use nu_test_support::playground::{says, Playground};
-
-use hamcrest2::assert_that;
-use hamcrest2::prelude::*;
-=======
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 #[should_panic]
 #[test]
@@ -45,18 +37,6 @@ fn sources_also_files_under_custom_lib_dirs_path() {
             "#,
         )]);
 
-<<<<<<< HEAD
-        assert_that!(
-            nu.pipeline(&input(
-                r#"
-                source my_library.nu ;
-
-                hello
-                "#,
-            )),
-            says().stdout("hello nu")
-        );
-=======
         let actual = nu!(
             cwd: ".", pipeline(
             r#"
@@ -67,7 +47,6 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         ));
 
         assert_eq!(actual.out, "hello nu");
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     })
 }
 
@@ -122,11 +101,8 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
     });
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sources_unicode_file_in_normal_dir() {
     try_source_foo_with_single_quotes_in("foo", "source_test_1");
@@ -134,11 +110,8 @@ fn sources_unicode_file_in_normal_dir() {
     try_source_foo_without_quotes_in("foo", "source_test_3");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sources_unicode_file_in_unicode_dir_without_spaces_1() {
     try_source_foo_with_single_quotes_in("🚒", "source_test_4");
@@ -146,11 +119,8 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_1() {
     try_source_foo_without_quotes_in("🚒", "source_test_6");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_without_spaces_2() {
@@ -159,22 +129,16 @@ fn sources_unicode_file_in_unicode_dir_without_spaces_2() {
     try_source_foo_without_quotes_in(":fire_engine:", "source_test_9");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_1() {
     try_source_foo_with_single_quotes_in("e-$ èрт🚒♞中片-j", "source_test_8");
     try_source_foo_with_double_quotes_in("e-$ èрт🚒♞中片-j", "source_test_9");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[cfg(not(windows))] // ':' is not allowed in Windows paths
 #[test]
 fn sources_unicode_file_in_unicode_dir_with_spaces_2() {

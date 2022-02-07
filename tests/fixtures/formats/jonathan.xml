@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+	<channel>
+		<title>Jonathan Turner</title>
+		<link>http://www.jonathanturner.org</link>
+		<atom:link href="http://www.jonathanturner.org/feed.xml" rel="self" type="application/rss+xml" />
+		
+			<item>
+				<title>Creating crossplatform Rust terminal apps</title>
+        <description>&lt;p&gt;&lt;img src=&quot;/images/pikachu.jpg&quot; alt=&quot;Pikachu animation in Windows&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Look Mom, Pikachu running in Windows CMD!&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Part of the adventure is not seeing the way ahead and going anyway.&lt;/p&gt;
+</description>
+				<pubDate>Mon, 05 Oct 2015 00:00:00 +0000</pubDate>
+				<link>http://www.jonathanturner.org/2015/10/off-to-new-adventures.html</link>
+				<guid isPermaLink="true">http://www.jonathanturner.org/2015/10/off-to-new-adventures.html</guid>
+			</item>
+		
+	</channel>
+</rss>

@@ -1,17 +1,3 @@
-<<<<<<< HEAD
-use nu_cli::App as CliApp;
-use nu_errors::ShellError;
-
-fn main() -> Result<(), ShellError> {
-    let mut argv = vec![String::from("nu")];
-    argv.extend(positionals());
-
-    CliApp::run(&argv)
-}
-
-fn positionals() -> Vec<String> {
-    std::env::args().skip(1).collect::<Vec<_>>()
-=======
 mod commands;
 mod config_files;
 mod eval_file;
@@ -360,5 +346,4 @@ impl Command for Nu {
             },
         ]
     }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }

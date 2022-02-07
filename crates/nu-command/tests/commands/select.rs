@@ -22,11 +22,8 @@ fn regular_columns() {
     assert_eq!(actual.out, "Robalino");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn complex_nested_columns() {
     Playground::setup("select_test_2", |dirs, sandbox| {
@@ -69,11 +66,8 @@ fn complex_nested_columns() {
     })
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn allows_if_given_unknown_column_name_is_missing() {
     let actual = nu!(cwd: ".", pipeline(
@@ -112,11 +106,8 @@ fn column_names_with_spaces() {
     assert_eq!(actual.out, "Robalino Jnth");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn ignores_duplicate_columns_selected() {
     let actual = nu!(cwd: ".", pipeline(

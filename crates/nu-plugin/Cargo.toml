@@ -1,35 +1,11 @@
 [package]
-<<<<<<< HEAD
-authors = ["The Nu Project Contributors"]
-description = "Nushell Plugin"
-edition = "2018"
-license = "MIT"
 name = "nu-plugin"
-version = "0.43.0"
-
-[lib]
-doctest = false
-
-[dependencies]
-nu-errors = { path="../nu-errors", version = "0.43.0" }
-nu-protocol = { path="../nu-protocol", version = "0.43.0" }
-nu-source = { path="../nu-source", version = "0.43.0" }
-nu-test-support = { path="../nu-test-support", version = "0.43.0" }
-nu-value-ext = { path="../nu-value-ext", version = "0.43.0" }
-indexmap = { version="1.6.1", features=["serde-1"] }
-serde = { version="1.0", features=["derive"] }
-serde_json = "1.0"
-
-[build-dependencies]
-=======
-name = "nu-plugin"
-version = "0.1.0"
+version = "0.59.0"
 edition = "2021"
 
 [dependencies]
 capnp = "0.14.3"
-nu-protocol = { path = "../nu-protocol" }
-nu-engine = { path = "../nu-engine" }
+nu-protocol = { path = "../nu-protocol", version = "0.59.0"  }
+nu-engine = { path = "../nu-engine", version = "0.59.0"  }
 serde = {version = "1.0.130", features = ["derive"]}
 serde_json = { version = "1.0"}
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

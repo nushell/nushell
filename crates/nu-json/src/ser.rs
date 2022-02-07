@@ -4,20 +4,13 @@
 
 use std::fmt::{Display, LowerExp};
 use std::io;
-<<<<<<< HEAD
-=======
 use std::io::{BufRead, BufReader};
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 use std::num::FpCategory;
 
 use super::error::{Error, ErrorCode, Result};
 use serde::ser;
 
-<<<<<<< HEAD
-use super::util::ParseNumber;
-=======
 //use super::util::ParseNumber;
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 use regex::Regex;
 
@@ -738,13 +731,6 @@ impl<'a> Formatter for HjsonFormatter<'a> {
         writer.write_all(&[ch]).map_err(From::from)
     }
 
-<<<<<<< HEAD
-    fn comma<W>(&mut self, writer: &mut W, _: bool) -> Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_all(b"\n")?;
-=======
     fn comma<W>(&mut self, writer: &mut W, first: bool) -> Result<()>
     where
         W: io::Write,
@@ -754,7 +740,6 @@ impl<'a> Formatter for HjsonFormatter<'a> {
         } else {
             writer.write_all(b"\n")?;
         }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         indent(writer, self.current_indent, self.indent)
     }
 
@@ -868,18 +853,11 @@ where
     // Check if we can insert this string without quotes
     // see hjson syntax (must not parse as true, false, null or number)
 
-<<<<<<< HEAD
-    let mut pn = ParseNumber::new(value.bytes());
-    let is_number = pn.parse(true).is_ok();
-
-    if is_number || NEEDS_QUOTES.is_match(value) || STARTS_WITH_KEYWORD.is_match(value) {
-=======
     //let mut pn = ParseNumber::new(value.bytes());
     //let is_number = pn.parse(true).is_ok();
 
     if true {
         // is_number || NEEDS_QUOTES.is_match(value) || STARTS_WITH_KEYWORD.is_match(value) {
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         // First check if the string can be expressed in multiline format or
         // we must replace the offending characters with safe escape sequences.
 
@@ -941,19 +919,11 @@ where
     }
 
     // Check if we can insert this name without quotes
-<<<<<<< HEAD
-    if NEEDS_ESCAPE_NAME.is_match(value) {
-        escape_bytes(wr, value.as_bytes()).map_err(From::from)
-    } else {
-        wr.write_all(value.as_bytes()).map_err(From::from)
-    }
-=======
     //if NEEDS_ESCAPE_NAME.is_match(value) {
     escape_bytes(wr, value.as_bytes()).map_err(From::from)
     // } else {
     //     wr.write_all(value.as_bytes()).map_err(From::from)
     // }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 #[inline]
@@ -961,16 +931,11 @@ fn escape_char<W>(wr: &mut W, value: char) -> Result<()>
 where
     W: io::Write,
 {
-<<<<<<< HEAD
-    let mut scratch = [0_u8; 4];
-    escape_bytes(wr, value.encode_utf8(&mut scratch).as_bytes())
-=======
     // FIXME: this allocation is required in order to be compatible with stable
     // rust, which doesn't support encoding a `char` into a stack buffer.
     let mut s = String::new();
     s.push(value);
     escape_bytes(wr, s.as_bytes())
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 fn fmt_f32_or_null<W>(wr: &mut W, value: f32) -> Result<()>
@@ -1059,8 +1024,6 @@ where
     let string = String::from_utf8(vec)?;
     Ok(string)
 }
-<<<<<<< HEAD
-=======
 
 /// Encode the specified struct into a Hjson `String` buffer.
 /// And remove all whitespace
@@ -1087,4 +1050,3 @@ fn remove_json_whitespace(v: Vec<u8>) -> String {
     }
     output
 }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

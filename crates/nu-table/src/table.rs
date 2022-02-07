@@ -1,9 +1,6 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
 use nu_ansi_term::{Color, Style};
-<<<<<<< HEAD
-=======
 use nu_protocol::{Config, FooterMode};
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 use std::collections::HashMap;
 use std::fmt::Write;
 
@@ -244,13 +241,10 @@ impl TextStyle {
             .bold(Some(true))
     }
 
-<<<<<<< HEAD
-=======
     pub fn default_field() -> TextStyle {
         TextStyle::new().fg(Color::Green).bold(Some(true))
     }
 
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     pub fn with_attributes(bo: bool, al: Alignment, co: Color) -> TextStyle {
         TextStyle::new().alignment(al).fg(co).bold(Some(bo))
     }
@@ -618,26 +612,15 @@ impl Table {
 }
 
 #[derive(Debug)]
-<<<<<<< HEAD
-pub struct ProcessedTable<'a> {
-    pub headers: Vec<ProcessedCell<'a>>,
-    pub data: Vec<Vec<ProcessedCell<'a>>>,
-=======
 pub struct ProcessedTable {
     pub headers: Vec<ProcessedCell>,
     pub data: Vec<Vec<ProcessedCell>>,
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     pub theme: Theme,
 }
 
 #[derive(Debug)]
-<<<<<<< HEAD
-pub struct ProcessedCell<'a> {
-    pub contents: Vec<Vec<Subline<'a>>>,
-=======
 pub struct ProcessedCell {
     pub contents: Vec<Vec<Subline>>,
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     pub style: TextStyle,
 }
 
@@ -647,10 +630,7 @@ pub struct WrappedTable {
     pub headers: Vec<WrappedCell>,
     pub data: Vec<Vec<WrappedCell>>,
     pub theme: Theme,
-<<<<<<< HEAD
-=======
     pub footer: Vec<WrappedCell>,
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 impl WrappedTable {
@@ -662,11 +642,7 @@ impl WrappedTable {
         let column_count = self.column_widths.len();
         let mut output = String::new();
         let sep_color = color_hm
-<<<<<<< HEAD
-            .get("separator_color")
-=======
             .get("separator")
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             .unwrap_or(&Style::default())
             .to_owned();
 
@@ -715,10 +691,7 @@ impl WrappedTable {
                         );
                     }
                 }
-<<<<<<< HEAD
-=======
                 output.push('\n');
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
@@ -762,10 +735,7 @@ impl WrappedTable {
                             .push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
                     }
                 }
-<<<<<<< HEAD
-=======
                 output.push('\n');
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
@@ -812,10 +782,6 @@ impl WrappedTable {
                 }
             }
         }
-<<<<<<< HEAD
-        output.push('\n');
-=======
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         output
     }
 
@@ -825,11 +791,7 @@ impl WrappedTable {
         color_hm: &HashMap<String, Style>,
     ) -> String {
         let sep_color = color_hm
-<<<<<<< HEAD
-            .get("separator_color")
-=======
             .get("separator")
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             .unwrap_or(&Style::default())
             .to_owned();
 
@@ -913,24 +875,11 @@ impl WrappedTable {
                 break;
             }
 
-<<<<<<< HEAD
-            writeln!(&mut total_output, "{}", output).unwrap();
-=======
             writeln!(&mut total_output, "{}", output).expect("writing should be done to buffer");
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         }
         total_output
     }
 
-<<<<<<< HEAD
-    fn print_table(&self, color_hm: &HashMap<String, Style>) -> String {
-        let mut output = String::new();
-
-        #[cfg(windows)]
-        {
-            let _ = nu_ansi_term::enable_ansi_support();
-        }
-=======
     fn print_table(&self, color_hm: &HashMap<String, Style>, config: &Config) -> String {
         let mut output = String::new();
 
@@ -939,24 +888,17 @@ impl WrappedTable {
         // {
         //     let _ = nu_ansi_term::enable_ansi_support();
         // }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
         if self.data.is_empty() {
             return output;
         }
 
-<<<<<<< HEAD
-=======
         // The top border
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         if self.theme.print_top_border {
             output.push_str(&self.print_separator(SeparatorPosition::Top, color_hm));
         }
 
-<<<<<<< HEAD
-=======
         // The header
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         let skip_headers = (self.headers.len() == 2 && self.headers[1].max_width == 0)
             || (self.headers.len() == 1 && self.headers[0].max_width == 0);
 
@@ -964,13 +906,8 @@ impl WrappedTable {
             output.push_str(&self.print_cell_contents(&self.headers, color_hm));
         }
 
-<<<<<<< HEAD
-        let mut first_row = true;
-
-=======
         // The middle section
         let mut first_row = true;
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         for row in &self.data {
             if !first_row {
                 if self.theme.separate_rows {
@@ -987,8 +924,6 @@ impl WrappedTable {
             output.push_str(&self.print_cell_contents(row, color_hm));
         }
 
-<<<<<<< HEAD
-=======
         match config.footer_mode {
             FooterMode::Always => {
                 if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
@@ -1014,32 +949,21 @@ impl WrappedTable {
         }
 
         // The table finish
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         if self.theme.print_bottom_border {
             output.push_str(&self.print_separator(SeparatorPosition::Bottom, color_hm));
         }
 
-<<<<<<< HEAD
-        if atty::is(atty::Stream::Stdout) {
-            // Draw the table with ansi colors
-            output
-        } else {
-=======
         // the atty is for when people do ls from vim, there should be no coloring there
         if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             // Draw the table without ansi colors
             if let Ok(bytes) = strip_ansi_escapes::strip(&output) {
                 String::from_utf8_lossy(&bytes).to_string()
             } else {
                 output
             }
-<<<<<<< HEAD
-=======
         } else {
             // Draw the table with ansi colors
             output
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         }
     }
 }
@@ -1112,11 +1036,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
 
         processed_table.headers.push(ProcessedCell {
             contents: vec![vec![Subline {
-<<<<<<< HEAD
-                subline: "...",
-=======
                 subline: "...".to_string(),
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 width: 3,
             }]],
             style: TextStyle::basic_center(),
@@ -1125,11 +1045,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
         for entry in processed_table.data.iter_mut() {
             entry.push(ProcessedCell {
                 contents: vec![vec![Subline {
-<<<<<<< HEAD
-                    subline: "...",
-=======
                     subline: "...".to_string(),
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                     width: 3,
                 }]],
                 style: TextStyle::basic_center(),
@@ -1138,12 +1054,6 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
     }
 }
 
-<<<<<<< HEAD
-pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, Style>) -> String {
-    // Remove the edges, if used
-    let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
-        termwidth - 2
-=======
 pub fn draw_table(
     table: &Table,
     termwidth: usize,
@@ -1153,7 +1063,6 @@ pub fn draw_table(
     // Remove the edges, if used
     let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
         termwidth - 3
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     } else if table.theme.print_left_border || table.theme.print_right_border {
         termwidth - 1
     } else {
@@ -1210,11 +1119,7 @@ pub fn draw_table(
         &re_trailing,
     );
 
-<<<<<<< HEAD
-    wrapped_table.print_table(color_hm)
-=======
     wrapped_table.print_table(color_hm, config)
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 fn wrap_cells(
@@ -1292,8 +1197,6 @@ fn wrap_cells(
         output_data.push(output_row);
     }
 
-<<<<<<< HEAD
-=======
     let mut footer = vec![
         WrappedCell {
             lines: vec![],
@@ -1306,16 +1209,12 @@ fn wrap_cells(
     ];
     footer.clone_from_slice(&output_headers[..]);
 
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     WrappedTable {
         column_widths,
         headers: output_headers,
         data: output_data,
         theme: processed_table.theme,
-<<<<<<< HEAD
-=======
         footer,
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     }
 }
 

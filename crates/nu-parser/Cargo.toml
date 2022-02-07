@@ -1,33 +1,6 @@
 [package]
-<<<<<<< HEAD
-authors = ["The Nu Project Contributors"]
-description = "Nushell parser"
-edition = "2018"
-license = "MIT"
 name = "nu-parser"
-version = "0.43.0"
-
-[dependencies]
-bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
-derive-new = "0.5.8"
-indexmap = { version="1.6.1", features=["serde-1"] }
-log = "0.4"
-num-bigint = { version="0.4.3", features=["serde"] }
-itertools = "0.10.0"
-smart-default = "0.6.0"
-
-nu-errors = { version = "0.43.0", path="../nu-errors" }
-nu-data = { version = "0.43.0", path="../nu-data" }
-nu-path = { version = "0.43.0", path="../nu-path" }
-nu-protocol = { version = "0.43.0", path="../nu-protocol" }
-nu-source = { version = "0.43.0", path="../nu-source" }
-nu-test-support = { version = "0.43.0", path="../nu-test-support" }
-
-[features]
-stable = []
-=======
-name = "nu-parser"
-version = "0.1.0"
+version = "0.59.0"
 edition = "2021"
 
 [dependencies]
@@ -35,10 +8,9 @@ miette = "3.0.0"
 thiserror = "1.0.29"
 serde_json = "1.0"
 nu-path = {path = "../nu-path"}
-nu-protocol = { path = "../nu-protocol"}
-nu-plugin = { path = "../nu-plugin", optional = true }
+nu-protocol = { path = "../nu-protocol", version = "0.59.0" }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.59.0"  }
 log = "0.4"
 
 [features]
 plugin = ["nu-plugin"]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

@@ -1,55 +1,6 @@
 [package]
-<<<<<<< HEAD
-authors = ["The Nu Project Contributors"]
-build = "build.rs"
-description = "Commands for Nushell"
-edition = "2018"
-license = "MIT"
 name = "nu-command"
-version = "0.43.0"
-
-[lib]
-doctest = false
-
-[dependencies]
-nu-data = { version = "0.43.0", path="../nu-data" }
-nu-engine = { version = "0.43.0", path="../nu-engine" }
-nu-errors = { version = "0.43.0", path="../nu-errors" }
-nu-json = { version = "0.43.0", path="../nu-json" }
-nu-path = { version = "0.43.0", path="../nu-path" }
-nu-parser = { version = "0.43.0", path="../nu-parser" }
-nu-plugin = { version = "0.43.0", path="../nu-plugin" }
-nu-protocol = { version = "0.43.0", path="../nu-protocol" }
-nu-serde = { version = "0.43.0", path="../nu-serde" }
-nu-source = { version = "0.43.0", path="../nu-source" }
-nu-stream = { version = "0.43.0", path="../nu-stream" }
-nu-table = { version = "0.43.0", path="../nu-table" }
-nu-test-support = { version = "0.43.0", path="../nu-test-support" }
-nu-value-ext = { version = "0.43.0", path="../nu-value-ext" }
-nu-ansi-term = { version = "0.43.0", path="../nu-ansi-term" }
-nu-pretty-hex = { version = "0.43.0", path="../nu-pretty-hex" }
-
-url = "2.2.1"
-mime = "0.3.16"
-heck = "0.4.0"
-base64 = "0.13.0"
-bigdecimal = { version = "0.3.0", features = ["serde"] }
-calamine = "0.18.0"
-chrono = { version="0.4.19", features=["serde"] }
-chrono-tz = "0.5.3"
-crossterm = { version="0.19.0", optional=true }
-csv = "1.1.3"
-ctrlc = { version="3.1.7", optional=true }
-derive-new = "0.5.8"
-dirs-next = "2.0.0"
-dtparse = "1.2.0"
-eml-parser = "0.1.0"
-encoding_rs = "0.8.28"
-filesize = "0.2.0"
-futures = { version="0.3.12", features=["compat", "io-compat"] }
-=======
-name = "nu-command"
-version = "0.1.0"
+version = "0.59.0"
 edition = "2021"
 build = "build.rs"
 
@@ -57,18 +8,20 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# nu-ansi-term = {path = "../nu-ansi-term", version = "0.59.0" }
 nu-ansi-term = "0.42.0"
-nu-color-config = { path = "../nu-color-config" }
-nu-engine = { path = "../nu-engine" }
-nu-json = { path = "../nu-json" }
-nu-parser = { path = "../nu-parser" }
-nu-path = { path = "../nu-path" }
-nu-pretty-hex = { path = "../nu-pretty-hex" }
-nu-protocol = { path = "../nu-protocol" }
-nu-system = { path = "../nu-system" }
-nu-table = { path = "../nu-table" }
-nu-term-grid = { path = "../nu-term-grid" }
-nu-test-support = { path = "../nu-test-support" }
+
+nu-color-config = { path = "../nu-color-config", version = "0.59.0"  }
+nu-engine = { path = "../nu-engine", version = "0.59.0"  }
+nu-json = { path = "../nu-json", version = "0.59.0"  }
+nu-parser = { path = "../nu-parser", version = "0.59.0"  }
+nu-path = { path = "../nu-path", version = "0.59.0"  }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.59.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.59.0"  }
+nu-system = { path = "../nu-system", version = "0.59.0"  }
+nu-table = { path = "../nu-table", version = "0.59.0"  }
+nu-term-grid = { path = "../nu-term-grid", version = "0.59.0"  }
+nu-test-support = { path = "../nu-test-support", version = "0.59.0"  }
 
 # Potential dependencies for extras
 base64 = "0.13.0"
@@ -85,55 +38,10 @@ dtparse = "1.2.0"
 eml-parser = "0.1.0"
 encoding_rs = "0.8.30"
 filesize = "0.2.0"
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 glob = "0.3.0"
 htmlescape = "0.3.1"
 ical = "0.7.0"
 indexmap = { version="1.7", features=["serde-1"] }
-<<<<<<< HEAD
-itertools = "0.10.0"
-lazy_static = "1.*"
-log = "0.4.14"
-md-5 = "0.9.1"
-meval = "0.2.0"
-num-bigint = { version="0.4.3", features=["serde"] }
-num-format = { version="0.4.0", features=["with-num-bigint"] }
-num-traits = "0.2.14"
-parking_lot = "0.11.1"
-quick-xml = "0.22"
-rand = "0.8"
-regex = "1.4.3"
-reqwest = {version = "0.11", optional = true }
-roxmltree = "0.14.0"
-rust-embed = "5.9.0"
-rustyline = { version="9.0.0", optional=true }
-serde = { version="1.0.123", features=["derive"] }
-serde_ini = "0.2.0"
-serde_json = "1.0.61"
-serde_urlencoded = "0.7.0"
-serde_yaml = "0.8.16"
-sha2 = "0.9.3"
-strip-ansi-escapes = "0.1.0"
-sysinfo = { version = "0.23.0", optional = true }
-thiserror = "1.0.26"
-term = { version="0.7.0", optional=true }
-term_size = "0.3.2"
-titlecase = "1.1.0"
-tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
-toml = "0.5.8"
-trash = { version = "2.0.2", optional = true }
-unicode-segmentation = "1.8"
-uuid_crate = { package="uuid", version="0.8.2", features=["v4"], optional=true }
-which = { version="4.1.0", optional=true }
-zip = { version="0.5.9", optional=true }
-digest = "0.9.0"
-
-[dependencies.polars]
-version = "0.17.0"
-optional = true
-default-features = false
-features = ["docs", "zip_with", "csv-file", "temporal", "performant", "pretty_fmt", "dtype-slim", "parquet", "json", "random", "pivot", "strings", "is_in", "cum_agg", "rolling_window"]
-=======
 Inflector = "0.11"
 itertools = "0.10.0"
 lazy_static = "1.4.0"
@@ -170,19 +78,11 @@ uuid = { version = "0.8.2", features = ["v4"] }
 which = { version = "4.2.2", optional = true }
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 zip = { version="0.5.9", optional = true }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 [target.'cfg(unix)'.dependencies]
 umask = "1.0.0"
 users = "0.11.0"
 
-<<<<<<< HEAD
-# TODO this will be possible with new dependency resolver
-#   (currently on nightly behind -Zfeatures=itarget):
-#   https://github.com/rust-lang/cargo/issues/7914
-# [target.'cfg(not(windows))'.dependencies]
-# num-format = { version = "0.4", features = ["with-system-locale"] }
-=======
 [dependencies.polars]
 version = "0.18.0"
 optional = true
@@ -196,29 +96,12 @@ features = [
 trash-support = ["trash"]
 plugin = ["nu-parser/plugin"]
 dataframe = ["polars", "num"]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 [build-dependencies]
 shadow-rs = "0.8.1"
 
 [dev-dependencies]
-<<<<<<< HEAD
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
-hamcrest2 = "0.3.0"
-
-[features]
-rustyline-support = ["rustyline"]
-stable = []
-trash-support = ["trash"]
-dataframe = ["nu-protocol/dataframe", "polars"]
-fetch = ["reqwest", "tokio"]
-post = ["reqwest", "tokio"]
-sys = ["sysinfo"]
-ps = ["sysinfo"]
-=======
 hamcrest2 = "0.3.0"
 dirs-next = "2.0.0"
 quickcheck = "1.0.3"
 quickcheck_macros = "1.0.0"
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

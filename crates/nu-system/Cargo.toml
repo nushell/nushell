@@ -2,7 +2,7 @@
 authors = ["The Nu Project Contributors", "procs creators"]
 description = "Nushell system querying"
 name = "nu-system"
-version = "0.60.0"
+version = "0.59.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

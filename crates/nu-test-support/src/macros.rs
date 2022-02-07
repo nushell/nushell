@@ -15,28 +15,12 @@ macro_rules! nu {
     }};
 
     ($cwd:expr, $path:expr) => {{
-<<<<<<< HEAD
-=======
         pub use itertools::Itertools;
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
         pub use $crate::NATIVE_PATH_ENV_VAR;
 
-<<<<<<< HEAD
-        let commands = &*format!(
-            "
-                            cd \"{}\"
-                            {}
-                            exit",
-            $crate::fs::in_directory($cwd),
-            $crate::fs::DisplayPath::display_path(&$path)
-        );
-
-        let test_bins = $crate::fs::binaries();
-        let test_bins = nu_path::canonicalize(&test_bins).unwrap_or_else(|e| {
-=======
         // let commands = &*format!(
         //     "
         //                     cd \"{}\"
@@ -50,7 +34,6 @@ macro_rules! nu {
 
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         let test_bins = nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
                 test_bins.display(),
@@ -61,11 +44,8 @@ macro_rules! nu {
         let mut paths = $crate::shell_os_paths();
         paths.insert(0, test_bins);
 
-<<<<<<< HEAD
-=======
         let path = $path.lines().collect::<Vec<_>>().join("; ");
 
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         let paths_joined = match std::env::join_paths(paths) {
             Ok(all) => all,
             Err(_) => panic!("Couldn't join paths for PATH var."),
@@ -73,14 +53,6 @@ macro_rules! nu {
 
         let mut process = match Command::new($crate::fs::executable_path())
             .env(NATIVE_PATH_ENV_VAR, paths_joined)
-<<<<<<< HEAD
-            .arg("--skip-plugins")
-            .arg("--no-history")
-            .arg("--config-file")
-            .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .stdout(Stdio::piped())
-            .stdin(Stdio::piped())
-=======
             // .arg("--skip-plugins")
             // .arg("--no-history")
             // .arg("--config-file")
@@ -88,20 +60,10 @@ macro_rules! nu {
             .arg(format!("-c 'cd {}; {}'", $crate::fs::in_directory($cwd), $crate::fs::DisplayPath::display_path(&path)))
             .stdout(Stdio::piped())
             // .stdin(Stdio::piped())
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             .stderr(Stdio::piped())
             .spawn()
         {
             Ok(child) => child,
-<<<<<<< HEAD
-            Err(why) => panic!("Can't run test {}", why.to_string()),
-        };
-
-        let stdin = process.stdin.as_mut().expect("couldn't open stdin");
-        stdin
-            .write_all(commands.as_bytes())
-            .expect("couldn't write to stdin");
-=======
             Err(why) => panic!("Can't run test {:?} {}", $crate::fs::executable_path(), why.to_string()),
         };
 
@@ -109,7 +71,6 @@ macro_rules! nu {
         // stdin
         //     .write_all(b"exit\n")
         //     .expect("couldn't write to stdin");
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
         let output = process
             .wait_with_output()

@@ -1,10 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn evaluates_two_plus_two() {
     let actual = nu!(
@@ -17,11 +14,8 @@ fn evaluates_two_plus_two() {
     assert!(actual.out.contains("4.0"));
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn evaluates_two_to_the_power_four() {
     let actual = nu!(
@@ -34,11 +28,8 @@ fn evaluates_two_to_the_power_four() {
     assert!(actual.out.contains("16.0"));
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn evaluates_three_multiplied_by_five() {
     let actual = nu!(
@@ -51,11 +42,8 @@ fn evaluates_three_multiplied_by_five() {
     assert!(actual.out.contains("15.0"));
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn evaluates_twenty_four_divided_by_two() {
     let actual = nu!(

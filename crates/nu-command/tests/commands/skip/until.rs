@@ -10,11 +10,7 @@ fn condition_is_met() {
             r#"
                 CHICKEN SUMMARY                        report date: April 29th, 2020
                 --------------------------------------------------------------------
-<<<<<<< HEAD
-                Chicken Collection,29/04/2020,30/04/2020,31/04/2020,
-=======
                 Chicken Collection,29/04/2020,30/04/2020,31/04/2020
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 Yellow Chickens,,,
                 Andrés,0,0,1
                 Jonathan,0,0,1
@@ -36,16 +32,6 @@ fn condition_is_met() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-<<<<<<< HEAD
-                open --raw caballeros.txt
-                | lines
-                | skip 2
-                | split column ','
-                | headers
-                | skip until "Chicken Collection" == "Red Chickens"
-                | skip 1
-                | str to-int "31/04/2020"
-=======
                 open --raw ./caballeros.txt 
                 | lines 
                 | skip 2 
@@ -55,7 +41,6 @@ fn condition_is_met() {
                 | skip until "Chicken Collection" == "Red Chickens"
                 | skip 1
                 | into int "31/04/2020"
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 | get "31/04/2020"
                 | math sum
                 "#

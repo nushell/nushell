@@ -281,7 +281,3 @@ Thanks to all the people who already contributed!
 ## License
 
 The project is made available under the MIT license. See the `LICENSE` file for more information.
-=======
-# NOTE: Engine-q is merged into Nushell
-
-Please use https://github.com/nushell/nushell

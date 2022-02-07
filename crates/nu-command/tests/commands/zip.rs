@@ -1,14 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
-<<<<<<< HEAD
-use nu_test_support::pipeline as input;
-use nu_test_support::playground::{says, Playground};
-
-use hamcrest2::assert_that;
-use hamcrest2::prelude::*;
-=======
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 const ZIP_POWERED_TEST_ASSERTION_SCRIPT: &str = r#"
 def expect [
@@ -34,11 +26,8 @@ def add-commits [n] {
 }
 "#;
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn zips_two_tables() {
     Playground::setup("zip_test_1", |dirs, nu| {
@@ -47,14 +36,9 @@ fn zips_two_tables() {
             &format!("{}\n", ZIP_POWERED_TEST_ASSERTION_SCRIPT),
         )]);
 
-<<<<<<< HEAD
-        assert_that!(
-            nu.pipeline(&input(&format!(
-=======
         let actual = nu!(
             cwd: ".", pipeline(
             &format!(
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 r#"
                 source {} ;
         
@@ -69,36 +53,15 @@ fn zips_two_tables() {
                 expect $actual --to-eq [[name, commits]; [andres, 20] [jt, 30]]
                 "#,
                 dirs.test().join("zip_test.nu").display()
-<<<<<<< HEAD
-            ))),
-            says().stdout("true")
-        );
-=======
             )
         ));
 
         assert_eq!(actual.out, "true");
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     })
 }
 
 #[test]
 fn zips_two_lists() {
-<<<<<<< HEAD
-    Playground::setup("zip_test_2", |_, nu| {
-        assert_that!(
-            nu.pipeline(&input(
-                r#"
-                echo [0 2 4 6 8] | zip { [1 3 5 7 9] }
-                | flatten
-                | into string
-                | str collect '-'
-                "#
-            )),
-            says().stdout("0-1-2-3-4-5-6-7-8-9")
-        );
-    })
-=======
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
@@ -107,5 +70,4 @@ fn zips_two_lists() {
     ));
 
     assert_eq!(actual.out, "0-1-2-3-4-5-6-7-8-9");
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }

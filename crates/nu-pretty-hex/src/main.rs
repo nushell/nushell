@@ -7,10 +7,7 @@ fn main() {
         width: 16,
         group: 4,
         chunk: 1,
-<<<<<<< HEAD
-=======
         address_offset: 0,
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         skip: Some(10),
         // length: Some(5),
         // length: None,

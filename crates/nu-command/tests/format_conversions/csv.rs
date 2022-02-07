@@ -34,11 +34,7 @@ fn table_to_csv_text() {
                 | last 1
                 | to csv
                 | lines
-<<<<<<< HEAD
-                | nth 1
-=======
                 | get 1
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -149,11 +145,7 @@ fn from_csv_text_with_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-<<<<<<< HEAD
-                | from csv --separator ';'
-=======
                 | from csv --separator ";"
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 | get rusty_luck
                 | length
             "#
@@ -180,11 +172,7 @@ fn from_csv_text_with_tab_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-<<<<<<< HEAD
-                | from csv --separator '\t'
-=======
                 | from csv --separator (char tab)
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 | get rusty_luck
                 | length
             "#

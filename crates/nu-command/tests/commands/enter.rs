@@ -71,18 +71,3 @@ fn knows_the_filesystems_entered() {
         ));
     })
 }
-<<<<<<< HEAD
-
-#[test]
-fn errors_if_file_not_found() {
-    Playground::setup("enter_test_2", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "enter i_dont_exist.csv"
-        );
-
-        assert!(actual.err.contains("Cannot find file"));
-    })
-}
-=======
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

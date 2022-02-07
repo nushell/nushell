@@ -1,10 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn reports_emptiness() {
     let actual = nu!(
@@ -25,11 +22,8 @@ fn reports_emptiness() {
     assert_eq!(actual.out, "3");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sets_block_run_value_for_an_empty_column() {
     let actual = nu!(
@@ -51,11 +45,8 @@ fn sets_block_run_value_for_an_empty_column() {
     assert_eq!(actual.out, "4");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sets_block_run_value_for_many_empty_columns() {
     let actual = nu!(
@@ -76,11 +67,8 @@ fn sets_block_run_value_for_many_empty_columns() {
     assert_eq!(actual.out, "6");
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn passing_a_block_will_set_contents_on_empty_cells_and_leave_non_empty_ones_untouched() {
     let actual = nu!(

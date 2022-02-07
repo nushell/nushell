@@ -36,7 +36,7 @@ pub enum ShellError {
 
     #[error("Type mismatch")]
     #[diagnostic(code(nu::shell::type_mismatch), url(docsrs))]
-    TypeMismatch(String, #[label = "{0}"] Span),
+    TypeMismatch(String, #[label = "needs {0}"] Span),
 
     #[error("Unsupported operator: {0}.")]
     #[diagnostic(code(nu::shell::unsupported_operator), url(docsrs))]

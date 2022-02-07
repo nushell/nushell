@@ -71,11 +71,8 @@ fn errors_if_given_unknown_column_name() {
     })
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_block_given_evaluates_more_than_one_row() {
     Playground::setup("group_by_test_3", |dirs, sandbox| {

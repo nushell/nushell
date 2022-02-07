@@ -75,11 +75,8 @@ fn compute_sum_of_table() -> Result<(), String> {
     Ok(())
 }
 
-<<<<<<< HEAD
-=======
 // FIXME: jt: needs more work
 #[ignore]
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sum_of_a_row_containing_a_table_is_an_error() {
     let actual = nu!(

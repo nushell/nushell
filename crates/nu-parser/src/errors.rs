@@ -1,23 +1,3 @@
-<<<<<<< HEAD
-// use std::fmt::Debug;
-
-// A combination of an informative parse error, and what has been successfully parsed so far
-// #[derive(Debug)]
-// pub struct ParseError {
-//     /// An informative cause for this parse error
-//     pub cause: nu_errors::ParseError,
-//     // /// What has been successfully parsed, if anything
-//     // pub partial: Option<T>,
-// }
-
-// pub type ParseResult<T> = Result<T, ParseError<T>>;
-
-// impl<T: Debug> From<ParseError<T>> for nu_errors::ShellError {
-//     fn from(e: ParseError<T>) -> Self {
-//         e.cause.into()
-//     }
-// }
-=======
 use miette::Diagnostic;
 use nu_protocol::{Span, Type};
 use thiserror::Error;
@@ -237,4 +217,3 @@ pub enum ParseError {
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
 }
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

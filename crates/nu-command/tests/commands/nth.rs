@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-=======
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn selects_a_row() {
     Playground::setup("nth_test_1", |dirs, sandbox| {

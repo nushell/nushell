@@ -70,11 +70,7 @@ fn from_vcf_text_to_table() {
             r#"
                 open contacts.txt
                 | from vcf
-<<<<<<< HEAD
-                | get properties
-=======
                 | get properties.0
->>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 | where name == "EMAIL"
                 | first
                 | get value
