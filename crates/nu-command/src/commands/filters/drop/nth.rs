@@ -1,7 +1,8 @@
 use crate::prelude::*;
-use nu_engine::WholeStreamCommand;
+use itertools::Either;
+use nu_engine::{FromValue, WholeStreamCommand};
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{Range, Signature, SpannedTypeName, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct SubCommand;
@@ -14,11 +15,16 @@ impl WholeStreamCommand for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
             .required(
-                "row number",
-                SyntaxShape::Int,
-                "the number of the row to drop",
+                "row number or row range",
+                // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
+                SyntaxShape::Any,
+                "the number of the row to drop or a range to drop consecutive rows",
             )
-            .rest("rest", SyntaxShape::Any, "Optionally drop more rows")
+            .rest(
+                "rest",
+                SyntaxShape::Any,
+                "Optionally drop more rows (Ignored if first argument is a range)",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -41,18 +47,46 @@ impl WholeStreamCommand for SubCommand {
                 example: "echo [first second third] | drop nth 0 2",
                 result: Some(vec![Value::from("second")]),
             },
+            Example {
+                description: "Drop range rows from second to fourth",
+                example: "echo [first second third fourth fifth] | drop nth (1..3)",
+                result: Some(vec![Value::from("first"), Value::from("fifth")]),
+            },
         ]
     }
 }
 
-fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let row_number: Tagged<u64> = args.req(0)?;
-    let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
-    let input = args.input;
+fn extract_int_or_range(args: &CommandArgs) -> Result<Either<u64, Range>, ShellError> {
+    let value = args.req::<Value>(0)?;
 
-    let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-    rows.push(row_number.item as usize);
-    rows.sort_unstable();
+    let int_opt = value.as_u64().map(Either::Left).ok();
+    let range_opt = FromValue::from_value(&value).map(Either::Right).ok();
+
+    int_opt
+        .or(range_opt)
+        .ok_or_else(|| ShellError::type_error("int or range", value.spanned_type_name()))
+}
+
+fn drop(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let number_or_range = extract_int_or_range(&args)?;
+    let rows = match number_or_range {
+        Either::Left(row_number) => {
+            let and_rows: Vec<Tagged<u64>> = args.rest(1)?;
+
+            let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
+            rows.push(row_number as usize);
+            rows.sort_unstable();
+            rows
+        }
+        Either::Right(row_range) => {
+            let from = row_range.min_u64()? as usize;
+            let to = row_range.max_u64()? as usize;
+
+            (from..=to).collect()
+        }
+    };
+
+    let input = args.input;
 
     Ok(DropNthIterator {
         input,
