@@ -16,6 +16,11 @@ fn creates_the_resulting_string_from_the_given_fields() {
     assert_eq!(actual.out, "nu has license ISC");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn given_fields_can_be_column_paths() {
     let actual = nu!(
@@ -29,6 +34,11 @@ fn given_fields_can_be_column_paths() {
     assert_eq!(actual.out, "nu is a new type of shell");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn can_use_variables() {
     let actual = nu!(
@@ -42,6 +52,11 @@ fn can_use_variables() {
     assert_eq!(actual.out, "nu is a new type of shell");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn format_filesize_works() {
     Playground::setup("format_filesize_test_1", |dirs, sandbox| {
@@ -65,6 +80,11 @@ fn format_filesize_works() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn format_filesize_works_with_nonempty_files() {
     Playground::setup(

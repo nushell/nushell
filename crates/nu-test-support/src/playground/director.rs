@@ -84,22 +84,45 @@ impl Director {
 
 impl Executable for Director {
     fn execute(&mut self) -> NuResult {
+<<<<<<< HEAD
         use std::io::Write;
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         use std::process::Stdio;
 
         match self.executable() {
             Some(binary) => {
+<<<<<<< HEAD
                 let mut process = match binary
                     .construct()
                     .stdout(Stdio::piped())
                     .stdin(Stdio::piped())
                     .stderr(Stdio::piped())
+=======
+                let mut commands = String::new();
+                if let Some(pipelines) = &self.pipeline {
+                    for pipeline in pipelines {
+                        if !commands.is_empty() {
+                            commands.push_str("| ");
+                        }
+                        commands.push_str(&format!("{}\n", pipeline));
+                    }
+                }
+
+                let process = match binary
+                    .construct()
+                    .stdout(Stdio::piped())
+                    // .stdin(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .arg(format!("-c '{}'", commands))
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                     .spawn()
                 {
                     Ok(child) => child,
                     Err(why) => panic!("Can't run test {}", why),
                 };
 
+<<<<<<< HEAD
                 if let Some(pipelines) = &self.pipeline {
                     let child = process.stdin.as_mut().expect("Failed to open stdin");
 
@@ -112,6 +135,8 @@ impl Executable for Director {
                     child.write_all(b"exit\n").expect("Could not write to");
                 }
 
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 process
                     .wait_with_output()
                     .map_err(|_| {

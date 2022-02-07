@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #[cfg(test)]
 mod tests;
 
@@ -15,6 +16,16 @@ use nu_value_ext::ValueExt;
 impl Plugin for Inc {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("inc")
+=======
+use crate::inc::SemVerAction;
+use crate::Inc;
+use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_protocol::{Signature, Value};
+
+impl Plugin for Inc {
+    fn signature(&self) -> Vec<Signature> {
+        vec![Signature::build("inc")
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             .desc("Increment a value or version. Optionally use the column of a table.")
             .switch(
                 "major",
@@ -30,6 +41,7 @@ impl Plugin for Inc {
                 "patch",
                 "increment the patch version (eg 1.2.1 -> 1.2.2)",
                 Some('p'),
+<<<<<<< HEAD
             )
             .rest("rest", SyntaxShape::ColumnPath, "the column(s) to update")
             .filter())
@@ -81,5 +93,31 @@ impl Plugin for Inc {
 
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.inc(input)?)])
+=======
+            )]
+    }
+
+    fn run(
+        &mut self,
+        name: &str,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        if name != "inc" {
+            return Ok(Value::Nothing { span: call.head });
+        }
+
+        if call.has_flag("major") {
+            self.for_semver(SemVerAction::Major);
+        }
+        if call.has_flag("minor") {
+            self.for_semver(SemVerAction::Minor);
+        }
+        if call.has_flag("patch") {
+            self.for_semver(SemVerAction::Patch);
+        }
+
+        self.inc(call.head, input)
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     }
 }

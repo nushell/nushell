@@ -10,10 +10,15 @@ version = "0.43.0"
 doctest = false
 
 [dependencies]
+<<<<<<< HEAD
 nu-errors = { version = "0.43.0", path="../nu-errors" }
 nu-path = { version = "0.43.0", path="../nu-path" }
 nu-protocol = { path="../nu-protocol", version = "0.43.0" }
 nu-source = { path="../nu-source", version = "0.43.0" }
+=======
+nu-path = { path="../nu-path" }
+nu-protocol = { path="../nu-protocol" }
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
 chrono = "0.4.19"

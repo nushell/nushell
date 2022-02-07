@@ -78,7 +78,12 @@ impl<'a> Playground<'a> {
         std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
 
         let fixtures = fs::fixtures();
+<<<<<<< HEAD
         let fixtures = nu_path::canonicalize(fixtures.clone()).unwrap_or_else(|e| {
+=======
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let fixtures = nu_path::canonicalize_with(fixtures.clone(), cwd).unwrap_or_else(|e| {
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             panic!(
                 "Couldn't canonicalize fixtures path {}: {:?}",
                 fixtures.display(),
@@ -97,6 +102,7 @@ impl<'a> Playground<'a> {
 
         let playground_root = playground.root.path();
 
+<<<<<<< HEAD
         let test = nu_path::canonicalize(playground_root.join(topic)).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize test path {}: {:?}",
@@ -106,6 +112,20 @@ impl<'a> Playground<'a> {
         });
 
         let root = nu_path::canonicalize(playground_root).unwrap_or_else(|e| {
+=======
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let test =
+            nu_path::canonicalize_with(playground_root.join(topic), cwd).unwrap_or_else(|e| {
+                panic!(
+                    "Couldn't canonicalize test path {}: {:?}",
+                    playground_root.join(topic).display(),
+                    e
+                )
+            });
+
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        let root = nu_path::canonicalize_with(playground_root, cwd).unwrap_or_else(|e| {
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             panic!(
                 "Couldn't canonicalize tests root path {}: {:?}",
                 playground_root.display(),

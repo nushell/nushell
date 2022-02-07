@@ -1,10 +1,17 @@
 [package]
 authors = ["The Nu Project Contributors"]
 description = "Nushell table printing"
+<<<<<<< HEAD
 edition = "2018"
 license = "MIT"
 name = "nu-table"
 version = "0.43.0"
+=======
+edition = "2021"
+license = "MIT"
+name = "nu-table"
+version = "0.36.0"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -12,9 +19,20 @@ name = "table"
 path = "src/main.rs"
 
 [dependencies]
+<<<<<<< HEAD
 atty = "0.2.14"
 nu-ansi-term = { version = "0.43.0", path="../nu-ansi-term" }
 
 regex = "1.4"
 strip-ansi-escapes = "0.1.1"
 unicode-width = "0.1.8"
+=======
+# nu-ansi-term = { path = "../nu-ansi-term" }
+nu-ansi-term = "0.42.0"
+nu-protocol = { path = "../nu-protocol"}
+regex = "1.4"
+unicode-width = "0.1.8"
+strip-ansi-escapes = "0.1.1"
+ansi-cut = "0.2.0"
+atty = "0.2.14"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

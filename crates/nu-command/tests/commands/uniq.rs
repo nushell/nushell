@@ -61,6 +61,11 @@ fn uniq_values() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn nested_json_structures() {
     Playground::setup("uniq_test_3", |dirs, sandbox| {
@@ -125,13 +130,22 @@ fn nested_json_structures() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn uniq_when_keys_out_of_order() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
+<<<<<<< HEAD
             echo '[{"a": "a", "b": [1,2,3]},{"b": [1,2,3], "a": "a"}]'
             | from json
+=======
+            [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3], "a": "a"}]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | uniq
             | length
             
@@ -141,13 +155,22 @@ fn uniq_when_keys_out_of_order() {
     assert_eq!(actual.out, "1");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn uniq_counting() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
+<<<<<<< HEAD
             echo '["A", "B", "A"]'
             | from json
+=======
+            ["A", "B", "A"]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | wrap item
             | uniq --count
             | where item == A
@@ -159,8 +182,12 @@ fn uniq_counting() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
+<<<<<<< HEAD
             echo '["A", "B", "A"]'
             | from json
+=======
+            echo ["A", "B", "A"]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | wrap item
             | uniq --count
             | where item == B

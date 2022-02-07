@@ -19,7 +19,11 @@ fn find_with_list_search_with_char() {
     let actual = nu!(
     cwd: ".", pipeline(
     r#"
+<<<<<<< HEAD
         [moe larry curly] | find l | to json
+=======
+        [moe larry curly] | find l | to json -r
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     "#
     ));
 
@@ -78,11 +82,19 @@ fn find_with_filepath_search_with_string() {
                 ls
                 | get name
                 | find arep
+<<<<<<< HEAD
                 | to json
             "#
         ));
 
         assert_eq!(actual.out, r#""arepas.clu""#);
+=======
+                | to json -r
+            "#
+        ));
+
+        assert_eq!(actual.out, r#"["arepas.clu"]"#);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     })
 }
 
@@ -102,7 +114,11 @@ fn find_with_filepath_search_with_multiple_patterns() {
                 ls
                 | get name
                 | find arep ami
+<<<<<<< HEAD
                 | to json
+=======
+                | to json -r
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 

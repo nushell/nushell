@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /target
 /scratch
 **/*.rs.bk
@@ -20,3 +21,9 @@ debian/nu/
 
 # VSCode's IDE items
 .vscode/*
+=======
+history.txt
+/target
+/.vscode
+.DS_Store
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

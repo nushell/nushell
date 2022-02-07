@@ -57,6 +57,11 @@ pub struct HexConfig {
     pub group: usize,
     /// Source bytes per chunk (word). 0 for single word.
     pub chunk: usize,
+<<<<<<< HEAD
+=======
+    /// Offset to start counting addresses from
+    pub address_offset: usize,
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     /// Bytes from 0 to skip
     pub skip: Option<usize>,
     /// Length to return
@@ -73,6 +78,10 @@ impl Default for HexConfig {
             width: 16,
             group: 4,
             chunk: 1,
+<<<<<<< HEAD
+=======
+            address_offset: 0,
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             skip: None,
             length: None,
         }
@@ -164,6 +173,11 @@ where
 
     let skip = cfg.skip.unwrap_or(0);
 
+<<<<<<< HEAD
+=======
+    let address_offset = cfg.address_offset;
+
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let source_part_vec: Vec<u8> = source
         .as_ref()
         .iter()
@@ -205,11 +219,19 @@ where
                     writer,
                     "{}{:08x}{}:   ",
                     style.prefix(),
+<<<<<<< HEAD
                     i * cfg.width + skip,
                     style.suffix()
                 )?;
             } else {
                 write!(writer, "{:08x}:   ", i * cfg.width + skip,)?;
+=======
+                    i * cfg.width + skip + address_offset,
+                    style.suffix()
+                )?;
+            } else {
+                write!(writer, "{:08x}:   ", i * cfg.width + skip + address_offset,)?;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             }
         }
         for (i, x) in row.as_ref().iter().enumerate() {

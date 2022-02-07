@@ -1,8 +1,16 @@
 use crate::table::TextStyle;
+<<<<<<< HEAD
 use nu_ansi_term::Style;
 use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::UnicodeWidthStr;
+=======
+use ansi_cut::AnsiCut;
+use nu_ansi_term::Style;
+use std::collections::HashMap;
+use std::{fmt::Display, iter::Iterator};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 #[derive(Debug, Clone, Copy)]
 pub enum Alignment {
@@ -12,24 +20,42 @@ pub enum Alignment {
 }
 
 #[derive(Debug)]
+<<<<<<< HEAD
 pub struct Subline<'a> {
     pub subline: &'a str,
+=======
+pub struct Subline {
+    pub subline: String,
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     pub width: usize,
 }
 
 #[derive(Debug)]
+<<<<<<< HEAD
 pub struct Line<'a> {
     pub sublines: Vec<Subline<'a>>,
     pub width: usize,
 }
 
 #[derive(Debug)]
+=======
+pub struct Line {
+    pub sublines: Vec<Subline>,
+    pub width: usize,
+}
+
+#[derive(Debug, Clone)]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 pub struct WrappedLine {
     pub line: String,
     pub width: usize,
 }
 
+<<<<<<< HEAD
 #[derive(Debug)]
+=======
+#[derive(Debug, Clone)]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 pub struct WrappedCell {
     pub lines: Vec<WrappedLine>,
     pub max_width: usize,
@@ -37,7 +63,11 @@ pub struct WrappedCell {
     pub style: TextStyle,
 }
 
+<<<<<<< HEAD
 impl<'a> Display for Line<'a> {
+=======
+impl Display for Line {
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for subline in &self.sublines {
@@ -52,20 +82,76 @@ impl<'a> Display for Line<'a> {
     }
 }
 
+<<<<<<< HEAD
+=======
+fn strip_ansi(astring: &str) -> String {
+    if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+        String::from_utf8_lossy(&bytes).to_string()
+    } else {
+        astring.to_string()
+    }
+}
+
+fn unicode_width_strip_ansi(astring: &str) -> usize {
+    let stripped_string: String = {
+        if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+            String::from_utf8_lossy(&bytes).to_string()
+        } else {
+            astring.to_string()
+        }
+    };
+
+    UnicodeWidthStr::width(&stripped_string[..])
+}
+
+// fn special_width(astring: &str) -> usize {
+//     // remove the zwj's '\u{200d}'
+//     // remove the fe0f's
+//     let stripped_string: String = {
+//         if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+//             String::from_utf8_lossy(&bytes).to_string()
+//         } else {
+//             astring.to_string()
+//         }
+//     };
+
+//     let no_zwj = stripped_string.replace('\u{200d}', "");
+//     let no_fe0f = no_zwj.replace('\u{fe0f}', "");
+//     UnicodeWidthStr::width(&no_fe0f[..])
+// }
+
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
         .split_terminator('\n')
         .map(|line| {
             line.split_terminator(' ')
                 .map(|x| Subline {
+<<<<<<< HEAD
                     subline: x,
+=======
+                    subline: x.to_string(),
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                     width: {
                         // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
                         // and x.chars().count() with all types of combinations. Currently, it appears that
                         // getting the max of char count and Unicode width seems to produce the best layout.
                         // However, it's not perfect.
+<<<<<<< HEAD
                         let c = x.chars().count();
                         let u = UnicodeWidthStr::width(x);
+=======
+                        // let c = x.chars().count();
+                        // let u = UnicodeWidthStr::width(x);
+                        // std::cmp::min(c, u)
+
+                        // let c = strip_ansi(x).chars().count();
+                        // let u = special_width(x);
+                        // std::cmp::max(c, u)
+
+                        let c = strip_ansi(x).chars().count();
+                        let u = unicode_width_strip_ansi(x);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                         std::cmp::max(c, u)
                     },
                 })
@@ -101,19 +187,31 @@ pub fn column_width(input: &[Vec<Subline>]) -> usize {
 }
 
 fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
+<<<<<<< HEAD
     use unicode_width::UnicodeWidthChar;
 
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let mut output = vec![];
     let mut current_width = 0;
     let mut start_index = 0;
     let mut end_index;
 
+<<<<<<< HEAD
     for c in word.char_indices() {
+=======
+    let word_no_ansi = strip_ansi(word);
+    for c in word_no_ansi.char_indices() {
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         if let Some(width) = c.1.width() {
             end_index = c.0;
             if current_width + width > cell_width {
                 output.push(Subline {
+<<<<<<< HEAD
                     subline: &word[start_index..end_index],
+=======
+                    subline: word.cut(start_index..end_index),
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                     width: current_width,
                 });
 
@@ -125,9 +223,15 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
         }
     }
 
+<<<<<<< HEAD
     if start_index != word.len() {
         output.push(Subline {
             subline: &word[start_index..],
+=======
+    if start_index != word_no_ansi.len() {
+        output.push(Subline {
+            subline: word.cut(start_index..),
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             width: current_width,
         });
     }
@@ -135,9 +239,15 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
     output
 }
 
+<<<<<<< HEAD
 pub fn wrap<'a>(
     cell_width: usize,
     mut input: impl Iterator<Item = Subline<'a>>,
+=======
+pub fn wrap(
+    cell_width: usize,
+    mut input: impl Iterator<Item = Subline>,
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     color_hm: &HashMap<String, Style>,
     re_leading: &regex::Regex,
     re_trailing: &regex::Regex,
@@ -165,7 +275,11 @@ pub fn wrap<'a>(
                     // If this is a really long single word, we need to split the word
                     if current_line.len() == 1 && current_width > cell_width {
                         max_width = cell_width;
+<<<<<<< HEAD
                         let sublines = split_word(cell_width, current_line[0].subline);
+=======
+                        let sublines = split_word(cell_width, &current_line[0].subline);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                         for subline in sublines {
                             let width = subline.width;
                             lines.push(Line {
@@ -200,7 +314,11 @@ pub fn wrap<'a>(
             None => {
                 if current_width > cell_width {
                     // We need to break up the last word
+<<<<<<< HEAD
                     let sublines = split_word(cell_width, current_line[0].subline);
+=======
+                    let sublines = split_word(cell_width, &current_line[0].subline);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                     for subline in sublines {
                         let width = subline.width;
                         lines.push(Line {
@@ -235,7 +353,11 @@ pub fn wrap<'a>(
                 first = false;
                 current_line_width = subline.width;
             }
+<<<<<<< HEAD
             current_line.push_str(subline.subline);
+=======
+            current_line.push_str(&subline.subline);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         }
 
         if current_line_width > current_max {

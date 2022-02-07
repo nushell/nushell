@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 extern crate nu_json;
 extern crate nu_test_support;
 extern crate serde;
 extern crate serde_json;
 
+=======
+// FIXME: re-enable tests
+/*
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 use nu_json::Value;
 use regex::Regex;
 use std::fs;
@@ -211,3 +216,8 @@ fn test_hjson() {
         panic!();
     }
 }
+<<<<<<< HEAD
+=======
+
+*/
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

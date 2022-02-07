@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 mod configuration;
 mod env;
 mod in_sync;
+=======
+mod env;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 mod nu_env;
 
 pub mod support {

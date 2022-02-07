@@ -1,4 +1,5 @@
 [package]
+<<<<<<< HEAD
 authors = ["The Nu Project Contributors"]
 description = "Core commands for nushell"
 edition = "2018"
@@ -57,3 +58,18 @@ hamcrest2 = "0.3.0"
 rustyline-support = []
 trash-support = ["trash"]
 dataframe = ["nu-protocol/dataframe"]
+=======
+name = "nu-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol", features = ["plugin"] }
+nu-path = { path = "../nu-path" }
+itertools = "0.10.1"
+chrono = { version="0.4.19", features=["serde"] }
+glob = "0.3.0"
+
+[features]
+plugin = []
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

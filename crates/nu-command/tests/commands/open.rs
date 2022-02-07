@@ -185,6 +185,7 @@ fn parses_json() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
@@ -198,6 +199,8 @@ fn parses_xml() {
 }
 
 #[test]
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 fn parses_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
@@ -211,12 +214,21 @@ fn parses_ini() {
 fn parses_utf16_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
+<<<<<<< HEAD
         "open utf16.ini | rename info | get info | get IconIndex"
+=======
+        "open ./utf16.ini --raw | decode utf-16 | from ini | rename info | get info | get IconIndex"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     );
 
     assert_eq!(actual.out, "-236")
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_file_not_found() {
     let actual = nu!(
@@ -232,6 +244,11 @@ fn errors_if_file_not_found() {
     );
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: I think `open` on a directory is confusing. We should make discuss this one a bit more
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn open_dir_is_ls() {
     Playground::setup("open_dir", |dirs, sandbox| {

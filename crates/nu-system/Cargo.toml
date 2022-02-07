@@ -1,0 +1,35 @@
+[package]
+authors = ["The Nu Project Contributors", "procs creators"]
+description = "Nushell system querying"
+name = "nu-system"
+version = "0.60.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "ps"
+path = "src/main.rs"
+
+[dependencies]
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs  = "0.12.0"
+users = "0.11"
+which = "4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libproc = "0.10"
+errno = "0.2"
+users = "0.11"
+which = "4"
+libc = "0.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# winapi = { version = "0.3", features = ["handleapi", "minwindef", "psapi", "securitybaseapi", "tlhelp32", "winbase", "winnt"] }
+winapi = { version = "0.3.9", features = ["tlhelp32", "fileapi", "handleapi", "ifdef", "ioapiset", "minwindef", "pdh", "psapi", "synchapi", "sysinfoapi", "winbase", "winerror", "winioctl", "winnt", "oleauto", "wbemcli", "rpcdce", "combaseapi", "objidl", "powerbase", "netioapi", "lmcons", "lmaccess", "lmapibuf", "memoryapi", "shellapi", "std"] }
+chrono = "0.4"
+libc = "0.2"
+ntapi = "0.3"
+once_cell = "1.0"

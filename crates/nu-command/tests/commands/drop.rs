@@ -1,5 +1,10 @@
 use nu_test_support::{nu, pipeline};
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn columns() {
     let actual = nu!(
@@ -20,6 +25,11 @@ fn columns() {
     assert_eq!(actual.out, "1");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn more_columns_than_table_has() {
     let actual = nu!(
@@ -66,6 +76,7 @@ fn more_rows_than_table_has() {
 
     assert_eq!(actual.out, "0");
 }
+<<<<<<< HEAD
 
 #[test]
 fn nth_range_inclusive() {
@@ -88,3 +99,5 @@ fn nth_missing_first_argument() {
     assert!(actual.err.contains("Expected int or range"));
     assert!(actual.err.contains("found string"));
 }
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

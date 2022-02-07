@@ -2,15 +2,29 @@ use std::path::PathBuf;
 
 use nu_test_support::playground::Playground;
 
+<<<<<<< HEAD
 use nu_path::{expand_path, expand_path_with};
 
+=======
+use nu_path::expand_path_with;
+
+#[cfg(not(windows))]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn expand_path_with_and_without_relative() {
     let relative_to = "/foo/bar";
     let path = "../..";
     let full_path = "/foo/bar/../..";
 
+<<<<<<< HEAD
     assert_eq!(expand_path(full_path), expand_path_with(path, relative_to),);
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    assert_eq!(
+        expand_path_with(full_path, cwd),
+        expand_path_with(path, relative_to),
+    );
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 #[test]
@@ -21,11 +35,20 @@ fn expand_path_with_relative() {
     assert_eq!(PathBuf::from("/"), expand_path_with(path, relative_to),);
 }
 
+<<<<<<< HEAD
+=======
+#[cfg(not(windows))]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn expand_path_no_change() {
     let path = "/foo/bar";
 
+<<<<<<< HEAD
     let actual = expand_path(&path);
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = expand_path_with(&path, cwd);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
     assert_eq!(actual, PathBuf::from(path));
 }
@@ -36,7 +59,12 @@ fn expand_unicode_path_no_change() {
         let mut spam = dirs.test().clone();
         spam.push("🚒.txt");
 
+<<<<<<< HEAD
         let actual = expand_path(spam);
+=======
+        let cwd = std::env::current_dir().expect("Could not get current directory");
+        let actual = expand_path_with(spam, cwd);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         let mut expected = dirs.test().clone();
         expected.push("🚒.txt");
 
@@ -95,6 +123,7 @@ fn expand_absolute_path_relative_to() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn expand_path_dot() {
     let actual = expand_path(".");
     let expected = PathBuf::from(".");
@@ -111,6 +140,8 @@ fn expand_path_many_dots() {
 }
 
 #[test]
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 fn expand_path_with_dot_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("./spam.txt", dirs.test());
@@ -122,6 +153,7 @@ fn expand_path_with_dot_relative_to() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn expand_path_double_dot() {
     let actual = expand_path("..");
     let expected = PathBuf::from("..");
@@ -146,6 +178,8 @@ fn expand_path_double_dot_dot() {
 }
 
 #[test]
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 fn expand_path_with_many_dots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("././/.//////./././//.////spam.txt", dirs.test());
@@ -179,6 +213,7 @@ fn expand_path_with_many_double_dots_relative_to() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn expand_path_ndots() {
     let actual = expand_path("...");
     let mut expected = PathBuf::from("..");
@@ -196,6 +231,8 @@ fn expand_normal_path_ndots() {
 }
 
 #[test]
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 fn expand_path_with_3_ndots_relative_to() {
     Playground::setup("nu_path_test_1", |dirs, _| {
         let actual = expand_path_with("foo/bar/.../spam.txt", dirs.test());
@@ -277,7 +314,12 @@ fn expand_unicode_path_with_way_too_many_dots_relative_to_unicode_path_with_spac
 fn expand_path_tilde() {
     let tilde_path = "~";
 
+<<<<<<< HEAD
     let actual = expand_path(tilde_path);
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = expand_path_with(tilde_path, cwd);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
     assert!(actual.is_absolute());
     assert!(!actual.starts_with("~"));

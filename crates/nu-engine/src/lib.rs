@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 mod call_info;
 mod command_args;
 mod config_holder;
@@ -38,3 +39,21 @@ pub use crate::shell::palette::{DefaultPalette, Palette};
 pub use crate::shell::shell_manager::ShellManager;
 pub use crate::shell::value_shell;
 pub use crate::whole_stream_command::{whole_stream_command, Command, WholeStreamCommand};
+=======
+mod call_ext;
+pub mod column;
+pub mod documentation;
+pub mod env;
+mod eval;
+mod glob_from;
+
+pub use call_ext::CallExt;
+pub use column::get_columns;
+pub use documentation::{generate_docs, get_brief_help, get_documentation, get_full_help};
+pub use env::*;
+pub use eval::{
+    eval_block, eval_block_with_redirect, eval_expression, eval_expression_with_input,
+    eval_operator, eval_subexpression,
+};
+pub use glob_from::glob_from;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

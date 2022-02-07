@@ -1,8 +1,17 @@
+<<<<<<< HEAD
 use nu_test_support::fs::{Stub::EmptyFile, Stub::FileWithContent};
+=======
+use nu_test_support::fs::Stub::EmptyFile;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::PathBuf;
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() {
     Playground::setup("cd_test_1", |dirs, _| {
@@ -18,6 +27,11 @@ fn filesystem_change_from_current_directory_using_relative_path() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path() {
     Playground::setup("cd_test_2", |dirs, _| {
@@ -34,6 +48,11 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_switch_back_to_previous_working_directory() {
     Playground::setup("cd_test_3", |dirs, sandbox| {
@@ -53,6 +72,11 @@ fn filesystem_switch_back_to_previous_working_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
     Playground::setup("cd_test_4", |dirs, sandbox| {
@@ -73,6 +97,11 @@ fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_current_directory_to_parent_directory() {
     Playground::setup("cd_test_5", |dirs, _| {
@@ -88,6 +117,11 @@ fn filesystem_change_current_directory_to_parent_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
     Playground::setup("cd_test_6", |dirs, sandbox| {
@@ -105,6 +139,11 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
     Playground::setup("cd_test_7", |dirs, sandbox| {
@@ -127,6 +166,11 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_8", |dirs, _| {
@@ -142,6 +186,11 @@ fn filesystem_change_to_home_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_to_a_directory_containing_spaces() {
     Playground::setup("cd_test_9", |dirs, sandbox| {
@@ -162,6 +211,11 @@ fn filesystem_change_to_a_directory_containing_spaces() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_not_a_directory() {
     Playground::setup("cd_test_10", |dirs, sandbox| {
@@ -185,6 +239,11 @@ fn filesystem_not_a_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_directory_not_found() {
     Playground::setup("cd_test_11", |dirs, _| {
@@ -207,6 +266,11 @@ fn filesystem_directory_not_found() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn filesystem_change_directory_to_symlink_relative() {
     Playground::setup("cd_test_12", |dirs, sandbox| {
@@ -226,6 +290,7 @@ fn filesystem_change_directory_to_symlink_relative() {
     })
 }
 
+<<<<<<< HEAD
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path() {
     Playground::setup("cd_test_13", |dirs, sandbox| {
@@ -433,6 +498,10 @@ fn valuesystem_path_not_found() {
     })
 }
 
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[cfg(target_os = "windows")]
 #[test]
 fn test_change_windows_drive() {

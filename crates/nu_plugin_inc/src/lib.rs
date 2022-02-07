@@ -2,6 +2,7 @@ mod inc;
 mod nu;
 
 pub use inc::Inc;
+<<<<<<< HEAD
 
 #[cfg(test)]
 mod tests {
@@ -33,3 +34,5 @@ mod tests {
         }
     }
 }
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

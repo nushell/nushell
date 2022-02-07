@@ -17,6 +17,11 @@ mod rows {
         )
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn roll_down_by_default() {
         let actual = nu!(
@@ -30,6 +35,11 @@ mod rows {
         assert_eq!(actual.out, "HERE");
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn can_roll_up() {
         let actual = nu!(
@@ -62,6 +72,11 @@ mod columns {
         )
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn roll_left_by_default() {
         let actual = nu!(
@@ -75,6 +90,11 @@ mod columns {
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn can_roll_in_the_opposite_direction() {
         let actual = nu!(
@@ -90,6 +110,11 @@ mod columns {
 
     struct ThirtieTwo<'a>(usize, &'a str);
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn can_roll_the_cells_only_keeping_the_header_names() {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
@@ -103,6 +128,11 @@ mod columns {
         assert_eq!(actual.out, expected_value.1);
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: jt: needs more work
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn four_in_bitstring_left_shifted_with_three_bits_should_be_32_in_decimal() {
         let four_bitstring = "00000100";
@@ -155,7 +185,11 @@ mod columns {
             pipeline(
                 r#"
             split chars
+<<<<<<< HEAD
             | each { str to-int }
+=======
+            | each { into int }
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | rotate counter-clockwise _
             | reject _
             | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8

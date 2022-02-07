@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # README
 
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
@@ -281,3 +282,8 @@ Thanks to all the people who already contributed!
 ## License
 
 The project is made available under the MIT license. See the `LICENSE` file for more information.
+=======
+# NOTE: Engine-q is merged into Nushell
+
+Please use https://github.com/nushell/nushell
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

@@ -195,6 +195,11 @@ fn moves_a_directory_with_files() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_source_doesnt_exist() {
     Playground::setup("mv_test_10", |dirs, sandbox| {
@@ -207,6 +212,11 @@ fn errors_if_source_doesnt_exist() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_destination_doesnt_exist() {
     Playground::setup("mv_test_10_1", |dirs, sandbox| {
@@ -221,6 +231,11 @@ fn errors_if_destination_doesnt_exist() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_multiple_sources_but_destination_not_a_directory() {
     Playground::setup("mv_test_10_2", |dirs, sandbox| {
@@ -241,6 +256,11 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_renaming_directory_to_an_existing_file() {
     Playground::setup("mv_test_10_3", |dirs, sandbox| {
@@ -257,6 +277,11 @@ fn errors_if_renaming_directory_to_an_existing_file() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_if_moving_to_itself() {
     Playground::setup("mv_test_10_4", |dirs, sandbox| {

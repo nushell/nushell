@@ -130,6 +130,11 @@ fn fetches_more_than_one_column_path() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_fetching_by_column_not_present() {
     Playground::setup("get_test_6", |dirs, sandbox| {
@@ -160,6 +165,11 @@ fn errors_fetching_by_column_not_present() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
@@ -186,6 +196,12 @@ fn errors_fetching_by_column_using_a_number() {
             .contains("Appears to contain columns. Columns available: 0"),)
     })
 }
+<<<<<<< HEAD
+=======
+
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn errors_fetching_by_index_out_of_bounds() {
     Playground::setup("get_test_8", |dirs, sandbox| {

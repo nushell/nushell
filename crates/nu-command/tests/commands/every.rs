@@ -18,7 +18,11 @@ fn gets_all_rows_by_every_zero() {
                 ls
                 | get name
                 | every 0
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -45,11 +49,19 @@ fn gets_no_rows_by_every_skip_zero() {
                 ls
                 | get name
                 | every 0 --skip
+<<<<<<< HEAD
                 | to json
             "#
         ));
 
         assert_eq!(actual.out, "");
+=======
+                | to json --raw
+            "#
+        ));
+
+        assert_eq!(actual.out, "[]");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     })
 }
 
@@ -69,7 +81,11 @@ fn gets_all_rows_by_every_one() {
                 ls
                 | get name
                 | every 1
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -80,6 +96,11 @@ fn gets_all_rows_by_every_one() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn gets_no_rows_by_every_skip_one() {
     Playground::setup("every_test_4", |dirs, sandbox| {
@@ -96,7 +117,11 @@ fn gets_no_rows_by_every_skip_one() {
                 ls
                 | get name
                 | every 1 --skip
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -150,7 +175,11 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
                 ls
                 | get name
                 | every 999 --skip
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -175,7 +204,11 @@ fn gets_every_third_row() {
                 ls
                 | get name
                 | every 3
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
@@ -200,7 +233,11 @@ fn skips_every_third_row() {
                 ls
                 | get name
                 | every 3 --skip
+<<<<<<< HEAD
                 | to json
+=======
+                | to json --raw
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 

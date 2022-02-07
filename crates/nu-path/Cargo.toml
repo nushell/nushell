@@ -1,12 +1,22 @@
 [package]
 authors = ["The Nu Project Contributors"]
 description = "Path handling library for Nushell"
+<<<<<<< HEAD
 edition = "2018"
 license = "MIT"
 name = "nu-path"
 version = "0.43.0"
+=======
+edition = "2021"
+license = "MIT"
+name = "nu-path"
+version = "0.37.1"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 [dependencies]
 dirs-next = "2.0.0"
 dunce = "1.0.1"
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

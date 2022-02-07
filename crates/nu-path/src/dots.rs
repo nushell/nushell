@@ -19,7 +19,11 @@ fn handle_dots_push(string: &mut String, count: u8) {
     string.pop(); // remove last '/'
 }
 
+<<<<<<< HEAD
 /// Expands any occurrence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.,
+=======
+/// Expands any occurence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.,
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 /// "..." into "../..", "...." into "../../../", etc.
 pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking it via string

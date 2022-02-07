@@ -1,0 +1,13 @@
+[package]
+name = "nu-color-config"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol" }
+# nu-ansi-term = { path = "../nu-ansi-term" }
+nu-ansi-term = "0.42.0"
+nu-json = { path = "../nu-json" }
+nu-table = { path = "../nu-table" }
+
+serde = { version="1.0.123", features=["derive"] }

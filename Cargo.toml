@@ -1,4 +1,5 @@
 [package]
+<<<<<<< HEAD
 authors = ["The Nu Project Contributors"]
 default-run = "nu"
 description = "A new type of shell"
@@ -148,10 +149,117 @@ required-features = ["textview"]
 
 [[bin]]
 name = "nu_plugin_core_inc"
+=======
+name = "nu"
+version = "0.1.0"
+edition = "2021"
+default-run = "nu"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = [
+	"crates/nu-cli",
+	"crates/nu-engine",
+	"crates/nu-parser",
+	"crates/nu-system",
+	"crates/nu-command",
+	"crates/nu-protocol",
+	"crates/nu-plugin",
+	"crates/nu_plugin_inc",
+	"crates/nu_plugin_gstat",
+	"crates/nu_plugin_example",
+	"crates/nu_plugin_query",
+]
+
+[dependencies]
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+
+crossterm = "0.22.*"
+nu-cli = { path="./crates/nu-cli" }
+nu-command = { path="./crates/nu-command" }
+nu-engine = { path="./crates/nu-engine" }
+nu-json = { path="./crates/nu-json" }
+nu-parser = { path="./crates/nu-parser" }
+nu-path = { path="./crates/nu-path" }
+nu-pretty-hex = { path = "./crates/nu-pretty-hex" }
+nu-protocol = { path = "./crates/nu-protocol" }
+nu-plugin = { path = "./crates/nu-plugin", optional = true }
+nu-system = { path = "./crates/nu-system"}
+nu-table = { path = "./crates/nu-table" }
+nu-term-grid = { path = "./crates/nu-term-grid" }
+
+nu-ansi-term = "0.42.0"
+nu-color-config = { path = "./crates/nu-color-config" }
+miette = "3.0.0"
+ctrlc = "3.2.1"
+crossterm_winapi = "0.9.0"
+log = "0.4"
+pretty_env_logger = "0.4.0"
+# mimalloc = { version = "*", default-features = false }
+
+
+nu_plugin_inc = { version = "0.1.0", path = "./crates/nu_plugin_inc", optional = true }
+nu_plugin_example = { version = "0.1.0", path = "./crates/nu_plugin_example", optional = true }
+nu_plugin_gstat = { version = "0.1.0", path = "./crates/nu_plugin_gstat", optional = true }
+nu_plugin_query = { version = "0.1.0", path = "./crates/nu_plugin_query", optional = true }
+
+[dev-dependencies]
+nu-test-support = { path="./crates/nu-test-support" }
+tempfile = "3.2.0"
+assert_cmd = "2.0.2"
+pretty_assertions = "1.0.0"
+serial_test = "0.5.1"
+hamcrest2 = "0.3.0"
+rstest = "0.12.0"
+itertools = "0.10.3"
+
+[features]
+plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
+default = [
+	"plugin",
+	"inc",
+	"example",
+	"which"
+	]
+
+stable = ["default"]
+
+extra = [
+	"default",
+	"dataframe",
+	"gstat",
+	"zip-support",
+	"query",
+]
+
+wasi = ["inc"]
+
+# Stable (Default)
+inc = ["nu_plugin_inc"]
+example = ["nu_plugin_example"]
+which = ["nu-command/which"]
+
+# Extra
+gstat = ["nu_plugin_gstat"]
+zip-support = ["nu-command/zip"]
+query = ["nu_plugin_query"]
+
+# Dataframe feature for nushell
+dataframe = ["nu-command/dataframe"]
+
+[profile.release]
+opt-level = "s" # Optimize for size
+
+# Build plugins
+[[bin]]
+name = "nu_plugin_inc"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 path = "src/plugins/nu_plugin_core_inc.rs"
 required-features = ["inc"]
 
 [[bin]]
+<<<<<<< HEAD
 name = "nu_plugin_core_match"
 path = "src/plugins/nu_plugin_core_match.rs"
 required-features = ["match"]
@@ -222,6 +330,22 @@ required-features = ["sqlite"]
 name = "nu_plugin_extra_to_sqlite"
 path = "src/plugins/nu_plugin_extra_to_sqlite.rs"
 required-features = ["sqlite"]
+=======
+name = "nu_plugin_example"
+path = "src/plugins/nu_plugin_core_example.rs"
+required-features = ["example"]
+
+# Extra plugins
+[[bin]]
+name = "nu_plugin_gstat"
+path = "src/plugins/nu_plugin_extra_gstat.rs"
+required-features = ["gstat"]
+
+[[bin]]
+name = "nu_plugin_query"
+path = "src/plugins/nu_plugin_extra_query.rs"
+required-features = ["query"]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 # Main nu binary
 [[bin]]

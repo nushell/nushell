@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #[macro_use]
 mod macros;
 
@@ -33,3 +34,37 @@ pub use crate::value::primitive::{format_date, format_duration, format_primitive
 pub use crate::value::range::{Range, RangeInclusion};
 pub use crate::value::value_structure::{ValueResource, ValueStructure};
 pub use crate::value::{merge_descriptors, UntaggedValue, Value};
+=======
+pub mod ast;
+mod config;
+pub mod engine;
+mod example;
+mod exportable;
+mod id;
+mod overlay;
+mod pipeline_data;
+mod shell_error;
+mod signature;
+mod span;
+mod syntax_shape;
+mod ty;
+mod value;
+pub use value::Value;
+
+pub use config::*;
+pub use engine::{
+    CONFIG_VARIABLE_ID, ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, SCOPE_VARIABLE_ID,
+};
+pub use example::*;
+pub use exportable::*;
+pub use id::*;
+pub use overlay::*;
+pub use pipeline_data::*;
+pub use shell_error::*;
+pub use signature::*;
+pub use span::*;
+pub use syntax_shape::*;
+pub use ty::*;
+pub use value::CustomValue;
+pub use value::*;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce

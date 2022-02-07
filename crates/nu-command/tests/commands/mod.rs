@@ -4,7 +4,10 @@ mod append;
 mod cal;
 mod cd;
 mod compact;
+<<<<<<< HEAD
 mod config;
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 mod cp;
 mod def;
 mod default;
@@ -24,7 +27,10 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+<<<<<<< HEAD
 mod insert;
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 mod into_filesize;
 mod into_int;
 mod keep;
@@ -36,10 +42,17 @@ mod math;
 mod merge;
 mod mkdir;
 mod move_;
+<<<<<<< HEAD
 mod open;
 mod parse;
 mod path;
 mod pathvar;
+=======
+mod nth;
+mod open;
+mod parse;
+mod path;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 mod prepend;
 mod random;
 mod range;

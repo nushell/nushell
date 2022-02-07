@@ -3,7 +3,11 @@ use std::path::Path;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 
+<<<<<<< HEAD
 use nu_path::{canonicalize, canonicalize_with};
+=======
+use nu_path::canonicalize_with;
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
 #[test]
 fn canonicalize_path() {
@@ -13,7 +17,12 @@ fn canonicalize_path() {
         let mut spam = dirs.test().clone();
         spam.push("spam.txt");
 
+<<<<<<< HEAD
         let actual = canonicalize(spam).expect("Failed to canonicalize");
+=======
+        let cwd = std::env::current_dir().expect("Could not get current directory");
+        let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
         assert!(actual.ends_with("spam.txt"));
     });
@@ -27,7 +36,13 @@ fn canonicalize_unicode_path() {
         let mut spam = dirs.test().clone();
         spam.push("🚒.txt");
 
+<<<<<<< HEAD
         let actual = canonicalize(spam).expect("Failed to canonicalize");
+=======
+        let cwd = std::env::current_dir().expect("Could not get current directory");
+
+        let actual = canonicalize_with(spam, cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
         assert!(actual.ends_with("🚒.txt"));
     });
@@ -93,7 +108,13 @@ fn canonicalize_absolute_path_relative_to() {
 
 #[test]
 fn canonicalize_dot() {
+<<<<<<< HEAD
     let actual = canonicalize(".").expect("Failed to canonicalize");
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+
+    let actual = canonicalize_with(".", cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let expected = std::env::current_dir().expect("Could not get current directory");
 
     assert_eq!(actual, expected);
@@ -101,7 +122,14 @@ fn canonicalize_dot() {
 
 #[test]
 fn canonicalize_many_dots() {
+<<<<<<< HEAD
     let actual = canonicalize("././/.//////./././//.///").expect("Failed to canonicalize");
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+
+    let actual =
+        canonicalize_with("././/.//////./././//.///", cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let expected = std::env::current_dir().expect("Could not get current directory");
 
     assert_eq!(actual, expected);
@@ -136,8 +164,13 @@ fn canonicalize_path_with_many_dots_relative_to() {
 
 #[test]
 fn canonicalize_double_dot() {
+<<<<<<< HEAD
     let actual = canonicalize("..").expect("Failed to canonicalize");
     let cwd = std::env::current_dir().expect("Could not get current directory");
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = canonicalize_with("..", &cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let expected = cwd
         .parent()
         .expect("Could not get parent of current directory");
@@ -177,8 +210,13 @@ fn canonicalize_path_with_many_double_dots_relative_to() {
 
 #[test]
 fn canonicalize_ndots() {
+<<<<<<< HEAD
     let actual = canonicalize("...").expect("Failed to canonicalize");
     let cwd = std::env::current_dir().expect("Could not get current directory");
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = canonicalize_with("...", &cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     let expected = cwd
         .parent()
         .expect("Could not get parent of current directory")
@@ -294,7 +332,12 @@ fn canonicalize_unicode_path_with_way_too_many_dots_relative_to_unicode_path_wit
 fn canonicalize_tilde() {
     let tilde_path = "~";
 
+<<<<<<< HEAD
     let actual = canonicalize(tilde_path).expect("Failed to canonicalize");
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    let actual = canonicalize_with(tilde_path, cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
     assert!(actual.is_absolute());
     assert!(!actual.starts_with("~"));
@@ -321,7 +364,12 @@ fn canonicalize_symlink() {
         let mut symlink_path = dirs.test().clone();
         symlink_path.push("link_to_spam.txt");
 
+<<<<<<< HEAD
         let actual = canonicalize(symlink_path).expect("Failed to canonicalize");
+=======
+        let cwd = std::env::current_dir().expect("Could not get current directory");
+        let actual = canonicalize_with(symlink_path, cwd).expect("Failed to canonicalize");
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         let mut expected = dirs.test().clone();
         expected.push("spam.txt");
 
@@ -400,7 +448,12 @@ fn canonicalize_nested_symlink_within_symlink_dir_relative_to() {
 fn canonicalize_should_fail() {
     let path = Path::new("/foo/bar/baz"); // hopefully, this path does not exist
 
+<<<<<<< HEAD
     assert!(canonicalize(path).is_err());
+=======
+    let cwd = std::env::current_dir().expect("Could not get current directory");
+    assert!(canonicalize_with(path, cwd).is_err());
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 #[test]

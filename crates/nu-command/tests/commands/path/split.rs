@@ -17,7 +17,11 @@ fn splits_correctly_single_path() {
     let actual = nu!(
         cwd: "tests", pipeline(
         r#"
+<<<<<<< HEAD
             echo ['home/viking/spam.txt']
+=======
+            'home/viking/spam.txt'
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | path split
             | last
         "#
@@ -39,6 +43,10 @@ fn splits_correctly_with_column_path() {
             ]
             | path split -c [ home barn ]
             | get barn
+<<<<<<< HEAD
+=======
+            | flatten
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             | length
         "#
     ));

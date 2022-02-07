@@ -1,5 +1,10 @@
 use nu_test_support::nu;
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn can_sqrt_numbers() {
     let actual = nu!(
@@ -10,6 +15,11 @@ fn can_sqrt_numbers() {
     assert_eq!(actual.out, "3.914213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn can_sqrt_irrational() {
     let actual = nu!(

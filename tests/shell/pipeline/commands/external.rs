@@ -8,7 +8,11 @@ fn shows_error_for_command_not_found() {
         "ferris_is_not_here.exe"
     );
 
+<<<<<<< HEAD
     assert!(actual.err.contains("Command not found"));
+=======
+    assert!(!actual.err.is_empty());
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 #[cfg(feature = "which")]
@@ -19,9 +23,16 @@ fn shows_error_for_command_not_found_in_pipeline() {
         "ferris_is_not_here.exe | echo done"
     );
 
+<<<<<<< HEAD
     assert!(actual.err.contains("Command not found"));
 }
 
+=======
+    assert!(!actual.err.is_empty());
+}
+
+#[ignore] // jt: we can't test this using the -c workaround currently
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[cfg(feature = "which")]
 #[test]
 fn automatically_change_directory() {
@@ -42,6 +53,11 @@ fn automatically_change_directory() {
     })
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: we don't currently support autocd in testing
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn automatically_change_directory_with_trailing_slash_and_same_name_as_command() {
     use nu_test_support::playground::Playground;
@@ -73,16 +89,29 @@ fn execute_binary_in_string() {
     let actual = nu!(
     cwd: ".",
     r#"
+<<<<<<< HEAD
         let cmd = echo
         ^$"($cmd)" '$0'
+=======
+        let cmd = "echo"
+        ^$"($cmd)" "$0"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     "#);
 
     assert_eq!(actual.out, "$0");
 }
 
+<<<<<<< HEAD
 #[test]
 fn redirects_custom_command_external() {
     let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length "#);
+=======
+//FIXME: jt - this is blocked on https://github.com/nushell/engine-q/issues/875
+#[ignore]
+#[test]
+fn redirects_custom_command_external() {
+    let actual = nu!(cwd: ".", r#"def foo [] { nu --testbin cococo foo bar }; foo | str length"#);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
     assert_eq!(actual.out, "8");
 }
@@ -107,7 +136,11 @@ mod it_evaluation {
                 | sort-by name
                 | get name
                 | each { nu --testbin cococo $it | lines }
+<<<<<<< HEAD
                 | nth 1
+=======
+                | get 1
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 "#
             ));
 
@@ -132,7 +165,11 @@ mod it_evaluation {
                 open nu_candies.txt
                 | lines
                 | each { nu --testbin chop $it | lines}
+<<<<<<< HEAD
                 | nth 1
+=======
+                | get 1
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 "#
             ));
 
@@ -165,7 +202,11 @@ mod it_evaluation {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open sample.toml
+<<<<<<< HEAD
                     | each { nu --testbin cococo $it.nu_party_venue }
+=======
+                    | nu --testbin cococo $in.nu_party_venue
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 "#
             ));
 
@@ -183,24 +224,41 @@ mod stdin_evaluation {
         let actual = nu!(
             cwd: ".",
             pipeline(r#"
+<<<<<<< HEAD
                 nu --testbin nonu "where's the nuline?"
                 | length
+=======
+                nu --testbin nonu "wheres the nuline?" | length
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ));
 
         assert_eq!(actual.err, "");
     }
 
+<<<<<<< HEAD
+=======
+    // FIXME: JT: `lines` doesn't currently support this kind of streaming
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn does_not_block_indefinitely() {
         let stdout = nu!(
             cwd: ".",
             pipeline(r#"
+<<<<<<< HEAD
                 nu --testbin iecho yes
                 | nu --testbin chop
                 | nu --testbin chop
                 | lines
                 | first 1
+=======
+                ( nu --testbin iecho yes
+                | nu --testbin chop
+                | nu --testbin chop
+                | lines
+                | first 1 )
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             "#
         ))
         .out;
@@ -222,6 +280,11 @@ mod external_words {
         assert_eq!(actual.out, "joturner@foo.bar.baz");
     }
 
+<<<<<<< HEAD
+=======
+    //FIXME: jt: limitation in testing - can't use single ticks currently
+    #[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[test]
     fn no_escaping_for_single_quoted_strings() {
         let actual = nu!(cwd: ".", r#"
@@ -234,7 +297,12 @@ mod external_words {
     #[rstest::rstest]
     #[case("sample.toml", r#""sample.toml""#)]
     #[case("a sample file.toml", r#""a sample file.toml""#)]
+<<<<<<< HEAD
     #[case("quote'mark.toml", r#""quote'mark.toml""#)]
+=======
+    //FIXME: jt: we don't currently support single ticks in tests
+    //#[case("quote'mark.toml", r#""quote'mark.toml""#)]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
     #[cfg_attr(
         not(target_os = "windows"),
         case(r#"quote"mark.toml"#, r#"$"quote(char double_quote)mark.toml""#)
@@ -388,16 +456,28 @@ mod external_command_arguments {
             |dirs, sandbox| {
                 sandbox.mkdir("cd");
 
+<<<<<<< HEAD
                 sandbox.with_files(vec![EmptyFile("cd/jonathan_likes_cake.txt")]);
+=======
+                sandbox.with_files(vec![EmptyFile("cd/jt_likes_cake.txt")]);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
+<<<<<<< HEAD
                     ^ls $"(pwd)/cd"
                 "#
                 ));
 
                 assert_eq!(actual.out, "jonathan_likes_cake.txt");
+=======
+                    nu --testbin cococo $"(pwd)/cd"
+                "#
+                ));
+
+                assert!(actual.out.contains("cd"));
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
             },
         )
     }
@@ -428,8 +508,13 @@ mod external_command_arguments {
     #[test]
     fn subcommands_are_sanitized_before_passing_to_subshell() {
         let actual = nu!(
+<<<<<<< HEAD
             cwd: ",",
             "^echo \"$(ls)\""
+=======
+            cwd: ".",
+            "nu --testbin cococo \"$(ls)\""
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         );
 
         assert_eq!(actual.out, "$(ls)");
@@ -439,8 +524,13 @@ mod external_command_arguments {
     #[test]
     fn shell_arguments_are_sanitized_even_if_coming_from_other_commands() {
         let actual = nu!(
+<<<<<<< HEAD
             cwd: ",",
             "^echo (echo \"a;&$(hello)\")"
+=======
+            cwd: ".",
+            "nu --testbin cococo (echo \"a;&$(hello)\")"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
         );
 
         assert_eq!(actual.out, "a;&$(hello)");

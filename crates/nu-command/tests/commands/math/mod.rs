@@ -236,6 +236,7 @@ fn duration_math_with_negative() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn duration_math_shell_error_on_big_numbers() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -248,6 +249,8 @@ fn duration_math_shell_error_on_big_numbers() {
 }
 
 #[test]
+=======
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 fn compound_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -276,11 +279,19 @@ fn compound_where() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
+<<<<<<< HEAD
             echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json
         "#
     ));
 
     assert_eq!(actual.out, r#"{"a":2,"b":1}"#);
+=======
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 && b == 1 | to json -r
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1}]"#);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }
 
 #[test]
@@ -288,9 +299,17 @@ fn compound_where_paren() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
+<<<<<<< HEAD
             echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json
         "#
     ));
 
     assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
+=======
+            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 && $it.b == 1) || $it.b == 2 | to json -r
+        "#
+    ));
+
+    assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 }

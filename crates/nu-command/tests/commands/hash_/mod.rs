@@ -26,6 +26,11 @@ fn base64_encode_characterset_binhex() {
     assert_eq!(actual.out, "F@0NEPjJD97kE\'&bEhFZEP3");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn error_when_invalid_character_set_given() {
     let actual = nu!(
@@ -41,6 +46,11 @@ fn error_when_invalid_character_set_given() {
         .contains("this is invalid is not a valid character-set"));
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn base64_decode_characterset_binhex() {
     let actual = nu!(
@@ -84,6 +94,11 @@ fn error_use_both_flags() {
         .contains("only one of --decode and --encode flags can be used"));
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn md5_works_with_file() {
     let actual = nu!(
@@ -97,6 +112,11 @@ fn md5_works_with_file() {
     assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
 }
 
+<<<<<<< HEAD
+=======
+// FIXME: jt: needs more work
+#[ignore]
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
 #[test]
 fn sha256_works_with_file() {
     let actual = nu!(

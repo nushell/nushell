@@ -10,7 +10,11 @@ fn condition_is_met() {
             r#"
                 CHICKEN SUMMARY                        report date: April 29th, 2020
                 --------------------------------------------------------------------
+<<<<<<< HEAD
                 Chicken Collection,29/04/2020,30/04/2020,31/04/2020,
+=======
+                Chicken Collection,29/04/2020,30/04/2020,31/04/2020
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 Yellow Chickens,,,
                 Andrés,1,1,1
                 Jonathan,1,1,1
@@ -33,6 +37,7 @@ fn condition_is_met() {
             cwd: dirs.test(), pipeline(
             r#"
                 open --raw caballeros.txt
+<<<<<<< HEAD
                 | lines
                 | skip 2
                 | split column ','
@@ -40,6 +45,16 @@ fn condition_is_met() {
                 | skip 1
                 | keep while "Chicken Collection" != "Blue Chickens"
                 | str to-int "31/04/2020"
+=======
+                | lines 
+                | skip 2 
+                | str trim
+                | str collect (char nl) 
+                | from csv
+                | skip 1
+                | keep while "Chicken Collection" != "Blue Chickens"
+                | into int "31/04/2020"
+>>>>>>> 9259a56a28f1dd3a4b720ad815aa19c6eaf6adce
                 | get "31/04/2020"
                 | math sum
                 "#
