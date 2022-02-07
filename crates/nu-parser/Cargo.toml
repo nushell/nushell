@@ -1,6 +1,6 @@
 [package]
 name = "nu-parser"
-version = "0.60.0"
+version = "0.59.0"
 edition = "2021"
 
 [dependencies]
@@ -8,8 +8,8 @@ miette = "3.0.0"
 thiserror = "1.0.29"
 serde_json = "1.0"
 nu-path = {path = "../nu-path"}
-nu-protocol = { path = "../nu-protocol", version = "0.60.0" }
-nu-plugin = { path = "../nu-plugin", optional = true, version = "0.60.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.59.0" }
+nu-plugin = { path = "../nu-plugin", optional = true, version = "0.59.0"  }
 log = "0.4"
 
 [features]

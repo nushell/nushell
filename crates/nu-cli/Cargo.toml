@@ -1,14 +1,14 @@
 [package]
 name = "nu-cli"
-version = "0.60.0"
+version = "0.59.0"
 edition = "2021"
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.60.0"  }
-nu-path = { path = "../nu-path", version = "0.60.0"  }
-nu-parser = { path = "../nu-parser", version = "0.60.0"  }
-nu-protocol = { path = "../nu-protocol", version = "0.60.0"  }
-# nu-ansi-term = { path = "../nu-ansi-term", version = "0.60.0"  }
+nu-engine = { path = "../nu-engine", version = "0.59.0"  }
+nu-path = { path = "../nu-path", version = "0.59.0"  }
+nu-parser = { path = "../nu-parser", version = "0.59.0"  }
+nu-protocol = { path = "../nu-protocol", version = "0.59.0"  }
+# nu-ansi-term = { path = "../nu-ansi-term", version = "0.59.0"  }
 nu-ansi-term = "0.42.0"
 
 nu-color-config = { path = "../nu-color-config" }
