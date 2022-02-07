@@ -1,26 +1,12 @@
-use nu_test_support::fs::AbsolutePath;
-use nu_test_support::playground::{says, Playground};
 use nu_test_support::{nu, pipeline};
-
-use hamcrest2::assert_that;
-use hamcrest2::prelude::*;
 
 #[cfg(feature = "which-support")]
 mod environment;
 
 mod pipeline;
 
-#[test]
-fn runs_configuration_startup_commands() {
-    Playground::setup("init_config_startup_commands_test", |dirs, nu| {
-        let file = AbsolutePath::new(dirs.config_fixtures().join("startup.toml"));
-
-        nu.with_config(&file);
-
-        assert_that!(nu.pipeline("hello-world"), says().stdout("Nu World"));
-    });
-}
-
+//FIXME: jt: we need to focus some fixes on wix as the plugins will differ
+#[ignore]
 #[test]
 fn plugins_are_declared_with_wix() {
     let actual = nu!(

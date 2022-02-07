@@ -1,6 +1,6 @@
 use itertools::Either;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
@@ -17,7 +17,13 @@ impl Command for DropNth {
 
     fn signature(&self) -> Signature {
         Signature::build("drop nth")
-            .rest("rest", SyntaxShape::Int, "the number of the row to drop")
+            .required(
+                "row number or row range",
+                // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
+                SyntaxShape::Any,
+                "the number of the row to drop or a range to drop consecutive rows",
+            )
+            .rest("rest", SyntaxShape::Any, "the number of the row to drop")
             .category(Category::Filters)
     }
 
@@ -95,7 +101,11 @@ impl Command for DropNth {
                 let from = row_range.from.as_integer()? as usize;
                 let to = row_range.to.as_integer()? as usize;
 
-                (from..=to).collect()
+                if matches!(row_range.inclusion, RangeInclusion::Inclusive) {
+                    (from..=to).collect()
+                } else {
+                    (from..to).collect()
+                }
             }
         };
 
@@ -123,7 +133,7 @@ fn extract_int_or_range(
     int_opt.or(range_opt).ok_or_else(|| {
         ShellError::TypeMismatch(
             "int or range".into(),
-            value.span().unwrap_or(Span::new(0, 0)),
+            value.span().unwrap_or_else(|_| Span::new(0, 0)),
         )
     })
 }
