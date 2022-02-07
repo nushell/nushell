@@ -1,6 +1,0 @@
-[
-  # invalid quoteless string
-  # note that if there were a preceding value the comma would
-  # be allowed/ignored as a separator/trailing comma
-  ,x
-]
