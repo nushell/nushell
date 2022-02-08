@@ -37,6 +37,10 @@ impl Command for Enter {
         let path_span = new_path.span()?;
 
         let new_path = new_path.as_path()?;
+
+        let cwd = current_dir(engine_state, stack)?;
+        let new_path = nu_path::canonicalize_with(new_path, &cwd)?;
+
         if !new_path.exists() {
             return Err(ShellError::DirectoryNotFound(path_span));
         }
@@ -47,9 +51,6 @@ impl Command for Enter {
                 path_span,
             ));
         }
-
-        let cwd = current_dir(engine_state, stack)?;
-        let new_path = nu_path::canonicalize_with(new_path, &cwd)?;
 
         let new_path = Value::String {
             val: new_path.to_string_lossy().to_string(),
