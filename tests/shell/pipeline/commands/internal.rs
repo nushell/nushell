@@ -22,7 +22,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get origin
-            | each { ^echo $it | nu --testbin chop | lines }
+            | each { ^echo $it | nu --testbin chop }
             | get 2
             "#
         ));
@@ -102,7 +102,7 @@ fn subexpression_handles_dot() {
         r#"
             echo (open nu_times.csv)
             | get name
-            | each { nu --testbin chop $it | lines }
+            | each { nu --testbin chop $it }
             | get 3
             "#
         ));
@@ -128,7 +128,7 @@ fn string_interpolation_with_it_column_path() {
     let actual = nu!(
         cwd: ".",
         r#"
-                    echo [[name]; [sammie]] | each { echo $"($it.name)" }
+                    echo [[name]; [sammie]] | each { echo $"($it.name)" } | get 0
         "#
     );
 
@@ -819,7 +819,7 @@ fn table_literals1() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo [[name age]; [foo 13]] | get age
+            echo [[name age]; [foo 13]] | get age.0
         "#
     );
 

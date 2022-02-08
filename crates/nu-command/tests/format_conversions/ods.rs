@@ -7,7 +7,7 @@ fn from_ods_file_to_table() {
         r#"
             open sample_data.ods
             | get SalesOrders
-            | nth 4
+            | get 4
             | get Column2
         "#
     ));

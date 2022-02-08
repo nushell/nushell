@@ -42,7 +42,7 @@ mod simple {
                 r#"
                     echo "{abc}123"
                     | parse "{{abc}{name}"
-                    | get name
+                    | get name.0
                 "#
             ));
 
@@ -58,7 +58,7 @@ mod simple {
                 r#"
                     echo "(abc)123"
                     | parse "(abc){name}"
-                    | get name
+                    | get name.0
                 "#
             ));
 
@@ -75,7 +75,7 @@ mod simple {
                     echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
                     | parse "{timestamp}:{level}:{tag}:{entry}"
                     | get entry
-                    | nth 1
+                    | get 1
                 "#
             ));
 
@@ -125,7 +125,7 @@ mod regex {
                 r#"
                     open nushell_git_log_oneline.txt
                     | parse --regex "(?P<Hash>\w+) (?P<Message>.+) \(#(?P<PR>\d+)\)"
-                    | nth 1
+                    | get 1
                     | get PR
                 "#
             ));
@@ -144,7 +144,7 @@ mod regex {
                 r#"
                     open nushell_git_log_oneline.txt
                     | parse --regex "(\w+) (.+) \(#(\d+)\)"
-                    | nth 1
+                    | get 1
                     | get Capture1
                 "#
             ));
@@ -163,7 +163,7 @@ mod regex {
                 r#"
                     open nushell_git_log_oneline.txt
                     | parse --regex "(?P<Hash>\w+) (.+) \(#(?P<PR>\d+)\)"
-                    | nth 1
+                    | get 1
                     | get Capture2
                 "#
             ));

@@ -7,7 +7,7 @@ fn find_with_list_search_with_string() {
     let actual = nu!(
     cwd: ".", pipeline(
     r#"
-        [moe larry curly] | find moe
+        [moe larry curly] | find moe | get 0
     "#
     ));
 
@@ -31,7 +31,7 @@ fn find_with_list_search_with_number() {
     let actual = nu!(
     cwd: ".", pipeline(
     r#"
-        [1 2 3 4 5] | find 3
+        [1 2 3 4 5] | find 3 | get 0
     "#
     ));
 

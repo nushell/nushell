@@ -13,7 +13,7 @@ fn selects_a_row() {
                 ls
                 | sort-by name
                 | range 0..0
-                | get name
+                | get name.0
             "#
         ));
 
