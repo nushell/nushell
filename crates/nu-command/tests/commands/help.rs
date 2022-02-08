@@ -15,6 +15,8 @@ fn help_commands_length() {
     assert!(is_positive);
 }
 
+// FIXME: jt: needs more work
+#[ignore]
 #[test]
 fn help_generate_docs_length() {
     let actual = nu!(

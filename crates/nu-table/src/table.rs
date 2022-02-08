@@ -1,5 +1,6 @@
 use crate::wrap::{column_width, split_sublines, wrap, Alignment, Subline, WrappedCell};
 use nu_ansi_term::{Color, Style};
+use nu_protocol::{Config, FooterMode};
 use std::collections::HashMap;
 use std::fmt::Write;
 
@@ -238,6 +239,10 @@ impl TextStyle {
             .alignment(Alignment::Center)
             .fg(Color::Green)
             .bold(Some(true))
+    }
+
+    pub fn default_field() -> TextStyle {
+        TextStyle::new().fg(Color::Green).bold(Some(true))
     }
 
     pub fn with_attributes(bo: bool, al: Alignment, co: Color) -> TextStyle {
@@ -607,15 +612,15 @@ impl Table {
 }
 
 #[derive(Debug)]
-pub struct ProcessedTable<'a> {
-    pub headers: Vec<ProcessedCell<'a>>,
-    pub data: Vec<Vec<ProcessedCell<'a>>>,
+pub struct ProcessedTable {
+    pub headers: Vec<ProcessedCell>,
+    pub data: Vec<Vec<ProcessedCell>>,
     pub theme: Theme,
 }
 
 #[derive(Debug)]
-pub struct ProcessedCell<'a> {
-    pub contents: Vec<Vec<Subline<'a>>>,
+pub struct ProcessedCell {
+    pub contents: Vec<Vec<Subline>>,
     pub style: TextStyle,
 }
 
@@ -625,6 +630,7 @@ pub struct WrappedTable {
     pub headers: Vec<WrappedCell>,
     pub data: Vec<Vec<WrappedCell>>,
     pub theme: Theme,
+    pub footer: Vec<WrappedCell>,
 }
 
 impl WrappedTable {
@@ -636,7 +642,7 @@ impl WrappedTable {
         let column_count = self.column_widths.len();
         let mut output = String::new();
         let sep_color = color_hm
-            .get("separator_color")
+            .get("separator")
             .unwrap_or(&Style::default())
             .to_owned();
 
@@ -685,6 +691,7 @@ impl WrappedTable {
                         );
                     }
                 }
+                output.push('\n');
             }
             SeparatorPosition::Middle => {
                 for column in self.column_widths.iter().enumerate() {
@@ -728,6 +735,7 @@ impl WrappedTable {
                             .push_str(&sep_color.paint(&self.theme.center.to_string()).to_string());
                     }
                 }
+                output.push('\n');
             }
             SeparatorPosition::Bottom => {
                 for column in self.column_widths.iter().enumerate() {
@@ -774,7 +782,6 @@ impl WrappedTable {
                 }
             }
         }
-        output.push('\n');
         output
     }
 
@@ -784,7 +791,7 @@ impl WrappedTable {
         color_hm: &HashMap<String, Style>,
     ) -> String {
         let sep_color = color_hm
-            .get("separator_color")
+            .get("separator")
             .unwrap_or(&Style::default())
             .to_owned();
 
@@ -868,27 +875,30 @@ impl WrappedTable {
                 break;
             }
 
-            writeln!(&mut total_output, "{}", output).unwrap();
+            writeln!(&mut total_output, "{}", output).expect("writing should be done to buffer");
         }
         total_output
     }
 
-    fn print_table(&self, color_hm: &HashMap<String, Style>) -> String {
+    fn print_table(&self, color_hm: &HashMap<String, Style>, config: &Config) -> String {
         let mut output = String::new();
 
-        #[cfg(windows)]
-        {
-            let _ = nu_ansi_term::enable_ansi_support();
-        }
+        // TODO: This may be unnecessary after JTs changes. Let's remove it and see.
+        // #[cfg(windows)]
+        // {
+        //     let _ = nu_ansi_term::enable_ansi_support();
+        // }
 
         if self.data.is_empty() {
             return output;
         }
 
+        // The top border
         if self.theme.print_top_border {
             output.push_str(&self.print_separator(SeparatorPosition::Top, color_hm));
         }
 
+        // The header
         let skip_headers = (self.headers.len() == 2 && self.headers[1].max_width == 0)
             || (self.headers.len() == 1 && self.headers[0].max_width == 0);
 
@@ -896,8 +906,8 @@ impl WrappedTable {
             output.push_str(&self.print_cell_contents(&self.headers, color_hm));
         }
 
+        // The middle section
         let mut first_row = true;
-
         for row in &self.data {
             if !first_row {
                 if self.theme.separate_rows {
@@ -914,20 +924,46 @@ impl WrappedTable {
             output.push_str(&self.print_cell_contents(row, color_hm));
         }
 
+        match config.footer_mode {
+            FooterMode::Always => {
+                if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
+                    output.push_str(&self.print_separator(SeparatorPosition::Middle, color_hm));
+                }
+
+                if !self.headers.is_empty() && !skip_headers {
+                    output.push_str(&self.print_cell_contents(&self.footer, color_hm));
+                }
+            }
+            FooterMode::RowCount(r) => {
+                if self.data.len() as u64 > r {
+                    if self.theme.separate_header && !self.headers.is_empty() && !skip_headers {
+                        output.push_str(&self.print_separator(SeparatorPosition::Middle, color_hm));
+                    }
+
+                    if !self.headers.is_empty() && !skip_headers {
+                        output.push_str(&self.print_cell_contents(&self.footer, color_hm));
+                    }
+                }
+            }
+            _ => {} // Never and Auto aka auto get eaten and nothing happens
+        }
+
+        // The table finish
         if self.theme.print_bottom_border {
             output.push_str(&self.print_separator(SeparatorPosition::Bottom, color_hm));
         }
 
-        if atty::is(atty::Stream::Stdout) {
-            // Draw the table with ansi colors
-            output
-        } else {
+        // the atty is for when people do ls from vim, there should be no coloring there
+        if !config.use_ansi_coloring || !atty::is(atty::Stream::Stdout) {
             // Draw the table without ansi colors
             if let Ok(bytes) = strip_ansi_escapes::strip(&output) {
                 String::from_utf8_lossy(&bytes).to_string()
             } else {
                 output
             }
+        } else {
+            // Draw the table with ansi colors
+            output
         }
     }
 }
@@ -1000,7 +1036,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
 
         processed_table.headers.push(ProcessedCell {
             contents: vec![vec![Subline {
-                subline: "...",
+                subline: "...".to_string(),
                 width: 3,
             }]],
             style: TextStyle::basic_center(),
@@ -1009,7 +1045,7 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
         for entry in processed_table.data.iter_mut() {
             entry.push(ProcessedCell {
                 contents: vec![vec![Subline {
-                    subline: "...",
+                    subline: "...".to_string(),
                     width: 3,
                 }]],
                 style: TextStyle::basic_center(),
@@ -1018,10 +1054,15 @@ pub fn maybe_truncate_columns(termwidth: usize, processed_table: &mut ProcessedT
     }
 }
 
-pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, Style>) -> String {
+pub fn draw_table(
+    table: &Table,
+    termwidth: usize,
+    color_hm: &HashMap<String, Style>,
+    config: &Config,
+) -> String {
     // Remove the edges, if used
     let termwidth = if table.theme.print_left_border && table.theme.print_right_border {
-        termwidth - 2
+        termwidth - 3
     } else if table.theme.print_left_border || table.theme.print_right_border {
         termwidth - 1
     } else {
@@ -1078,7 +1119,7 @@ pub fn draw_table(table: &Table, termwidth: usize, color_hm: &HashMap<String, St
         &re_trailing,
     );
 
-    wrapped_table.print_table(color_hm)
+    wrapped_table.print_table(color_hm, config)
 }
 
 fn wrap_cells(
@@ -1156,11 +1197,24 @@ fn wrap_cells(
         output_data.push(output_row);
     }
 
+    let mut footer = vec![
+        WrappedCell {
+            lines: vec![],
+            max_width: 0,
+            style: TextStyle {
+                ..Default::default()
+            },
+        };
+        output_headers.len()
+    ];
+    footer.clone_from_slice(&output_headers[..]);
+
     WrappedTable {
         column_widths,
         headers: output_headers,
         data: output_data,
         theme: processed_table.theme,
+        footer,
     }
 }
 

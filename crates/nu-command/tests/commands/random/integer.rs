@@ -24,6 +24,8 @@ fn generates_55() {
     assert!(actual.out.contains("55"));
 }
 
+// FIXME: jt: needs more work
+#[ignore]
 #[test]
 fn generates_0() {
     let actual = nu!(

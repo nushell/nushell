@@ -1,10 +1,10 @@
 [package]
 authors = ["Andrei Volnin <wolandr@gmail.com>", "The Nu Project Contributors"]
 description = "Pretty hex dump of bytes slice in the common style."
-edition = "2018"
+edition = "2021"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.44.0"
+version = "0.59.0"
 
 [lib]
 doctest = false
@@ -16,7 +16,9 @@ name = "nu_pretty_hex"
 path = "src/main.rs"
 
 [dependencies]
-nu-ansi-term = { path="../nu-ansi-term", version = "0.44.0" }
+#nu-ansi-term = {path = "../nu-ansi-term", version = "0.59.0" }
+nu-ansi-term = "0.42.0"
+
 rand = "0.8.3"
 
 [dev-dependencies]

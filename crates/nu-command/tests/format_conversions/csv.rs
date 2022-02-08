@@ -34,7 +34,7 @@ fn table_to_csv_text() {
                 | last 1
                 | to csv
                 | lines
-                | nth 1
+                | get 1
             "#
         ));
 
@@ -145,7 +145,7 @@ fn from_csv_text_with_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from csv --separator ';'
+                | from csv --separator ";"
                 | get rusty_luck
                 | length
             "#
@@ -172,7 +172,7 @@ fn from_csv_text_with_tab_separator_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.txt
-                | from csv --separator '\t'
+                | from csv --separator (char tab)
                 | get rusty_luck
                 | length
             "#

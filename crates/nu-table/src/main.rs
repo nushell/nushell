@@ -1,3 +1,4 @@
+use nu_protocol::Config;
 use nu_table::{draw_table, StyledString, Table, TextStyle, Theme};
 use std::collections::HashMap;
 
@@ -25,20 +26,12 @@ fn main() {
     let table = Table::new(headers, vec![rows; 3], Theme::rounded());
     // FIXME: Config isn't available from here so just put these here to compile
     let color_hm: HashMap<String, nu_ansi_term::Style> = HashMap::new();
+    // get the default config
+    let config = Config::default();
     // Capture the table as a string
-    let output_table = draw_table(&table, width, &color_hm);
-
-    if atty::is(atty::Stream::Stdout) {
-        // Draw the table with ansi colors
-        println!("{}", output_table)
-    } else {
-        // Draw the table without ansi colors
-        if let Ok(bytes) = strip_ansi_escapes::strip(&output_table) {
-            println!("{}", String::from_utf8_lossy(&bytes))
-        } else {
-            println!("{}", output_table)
-        }
-    }
+    let output_table = draw_table(&table, width, &color_hm, &config);
+    // Draw the table
+    println!("{}", output_table)
 }
 
 fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {

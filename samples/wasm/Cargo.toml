@@ -2,7 +2,7 @@
 authors = ["Nu authors"]
 edition = "2018"
 name = "wasm"
-version = "0.1.0"
+version = "0.59.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

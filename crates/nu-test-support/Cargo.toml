@@ -4,16 +4,14 @@ description = "Support for writing Nushell tests"
 edition = "2018"
 license = "MIT"
 name = "nu-test-support"
-version = "0.44.0"
+version = "0.59.0" 
 
 [lib]
 doctest = false
 
 [dependencies]
-nu-errors = { version = "0.44.0", path="../nu-errors" }
-nu-path = { version = "0.44.0", path="../nu-path" }
-nu-protocol = { path="../nu-protocol", version = "0.44.0" }
-nu-source = { path="../nu-source", version = "0.44.0" }
+nu-path = { path="../nu-path", version = "0.59.0"  }
+nu-protocol = { path="../nu-protocol", version = "0.59.0"  }
 
 bigdecimal = { package = "bigdecimal", version = "0.3.0", features = ["serde"] }
 chrono = "0.4.19"

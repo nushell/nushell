@@ -1,46 +1,53 @@
-use nu_protocol::hir::{Expression, ExternalArgs, ExternalCommand, SpannedExpression};
-use nu_source::{Span, SpannedItem, Tag};
+// use nu_protocol::{
+//     ast::{Expr, Expression},
+//     Span, Spanned, Type,
+// };
 
-pub struct ExternalBuilder {
-    name: String,
-    args: Vec<String>,
-}
+// pub struct ExternalBuilder {
+//     name: String,
+//     args: Vec<String>,
+// }
 
-impl ExternalBuilder {
-    pub fn for_name(name: &str) -> ExternalBuilder {
-        ExternalBuilder {
-            name: name.to_string(),
-            args: vec![],
-        }
-    }
+// impl ExternalBuilder {
+//     pub fn for_name(name: &str) -> ExternalBuilder {
+//         ExternalBuilder {
+//             name: name.to_string(),
+//             args: vec![],
+//         }
+//     }
 
-    pub fn arg(&mut self, value: &str) -> &mut Self {
-        self.args.push(value.to_string());
-        self
-    }
+//     pub fn arg(&mut self, value: &str) -> &mut Self {
+//         self.args.push(value.to_string());
+//         self
+//     }
 
-    pub fn build(&mut self) -> ExternalCommand {
-        let mut path = crate::fs::binaries();
-        path.push(&self.name);
+// pub fn build(&mut self) -> ExternalCommand {
+//     let mut path = crate::fs::binaries();
+//     path.push(&self.name);
 
-        let name = path.to_string_lossy().to_string().spanned(Span::unknown());
+//     let name = Spanned {
+//         item: path.to_string_lossy().to_string(),
+//         span: Span::new(0, 0),
+//     };
 
-        let args = self
-            .args
-            .iter()
-            .map(|arg| SpannedExpression {
-                expr: Expression::string(arg.to_string()),
-                span: Span::unknown(),
-            })
-            .collect::<Vec<_>>();
+//     let args = self
+//         .args
+//         .iter()
+//         .map(|arg| Expression {
+//             expr: Expr::String(arg.to_string()),
+//             span: Span::new(0, 0),
+//             ty: Type::Unknown,
+//             custom_completion: None,
+//         })
+//         .collect::<Vec<_>>();
 
-        ExternalCommand {
-            name: name.to_string(),
-            name_tag: Tag::unknown(),
-            args: ExternalArgs {
-                list: args,
-                span: name.span,
-            },
-        }
-    }
-}
+//     ExternalCommand {
+//         name: name.to_string(),
+//         name_tag: Tag::unknown(),
+//         args: ExternalArgs {
+//             list: args,
+//             span: name.span,
+//         },
+//     }
+// }
+// }

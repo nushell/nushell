@@ -88,7 +88,7 @@ fn lists_all_files_in_directories_from_stream() {
             r#"
                 echo dir_a dir_b
                 | each { ls $it }
-                | length
+                | flatten | length
             "#
         ));
 
@@ -300,14 +300,14 @@ fn list_all_columns() {
         // Normal Operation
         let actual = nu!(
             cwd: dirs.test(),
-            "ls | get | to md"
+            "ls | columns | to md"
         );
         let expected = ["name", "type", "size", "modified"].join("");
         assert_eq!(actual.out, expected, "column names are incorrect for ls");
         // Long
         let actual = nu!(
             cwd: dirs.test(),
-            "ls -l | get | to md"
+            "ls -l | columns | to md"
         );
         let expected = {
             #[cfg(unix)]
@@ -316,10 +316,10 @@ fn list_all_columns() {
                     "name",
                     "type",
                     "target",
-                    "num_links",
-                    "inode",
                     "readonly",
                     "mode",
+                    "num_links",
+                    "inode",
                     "uid",
                     "group",
                     "size",

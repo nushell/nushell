@@ -29,7 +29,7 @@ fn error_trim_multiple_chars() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo 'does it work now?!' | str trim -c '?!'
+        echo "does it work now?!" | str trim -c "?!"
         "#
         )
     );
@@ -124,7 +124,7 @@ fn converts_to_int() {
         r#"
             echo '{number_as_string: "1"}'
             | from json
-            | str to-int number_as_string
+            | into int number_as_string
             | rename number
             | where number == 1
             | get number
@@ -142,7 +142,7 @@ fn converts_to_decimal() {
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | str to-decimal
+            | into decimal
             | math sum
         "#
     ));

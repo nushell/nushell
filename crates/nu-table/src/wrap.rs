@@ -1,8 +1,9 @@
 use crate::table::TextStyle;
+use ansi_cut::AnsiCut;
 use nu_ansi_term::Style;
 use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Alignment {
@@ -12,24 +13,24 @@ pub enum Alignment {
 }
 
 #[derive(Debug)]
-pub struct Subline<'a> {
-    pub subline: &'a str,
+pub struct Subline {
+    pub subline: String,
     pub width: usize,
 }
 
 #[derive(Debug)]
-pub struct Line<'a> {
-    pub sublines: Vec<Subline<'a>>,
+pub struct Line {
+    pub sublines: Vec<Subline>,
     pub width: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WrappedLine {
     pub line: String,
     pub width: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WrappedCell {
     pub lines: Vec<WrappedLine>,
     pub max_width: usize,
@@ -37,7 +38,7 @@ pub struct WrappedCell {
     pub style: TextStyle,
 }
 
-impl<'a> Display for Line<'a> {
+impl Display for Line {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for subline in &self.sublines {
@@ -52,20 +53,64 @@ impl<'a> Display for Line<'a> {
     }
 }
 
+fn strip_ansi(astring: &str) -> String {
+    if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+        String::from_utf8_lossy(&bytes).to_string()
+    } else {
+        astring.to_string()
+    }
+}
+
+fn unicode_width_strip_ansi(astring: &str) -> usize {
+    let stripped_string: String = {
+        if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+            String::from_utf8_lossy(&bytes).to_string()
+        } else {
+            astring.to_string()
+        }
+    };
+
+    UnicodeWidthStr::width(&stripped_string[..])
+}
+
+// fn special_width(astring: &str) -> usize {
+//     // remove the zwj's '\u{200d}'
+//     // remove the fe0f's
+//     let stripped_string: String = {
+//         if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
+//             String::from_utf8_lossy(&bytes).to_string()
+//         } else {
+//             astring.to_string()
+//         }
+//     };
+
+//     let no_zwj = stripped_string.replace('\u{200d}', "");
+//     let no_fe0f = no_zwj.replace('\u{fe0f}', "");
+//     UnicodeWidthStr::width(&no_fe0f[..])
+// }
+
 pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
     input
         .split_terminator('\n')
         .map(|line| {
             line.split_terminator(' ')
                 .map(|x| Subline {
-                    subline: x,
+                    subline: x.to_string(),
                     width: {
                         // We've tried UnicodeWidthStr::width(x), UnicodeSegmentation::graphemes(x, true).count()
                         // and x.chars().count() with all types of combinations. Currently, it appears that
                         // getting the max of char count and Unicode width seems to produce the best layout.
                         // However, it's not perfect.
-                        let c = x.chars().count();
-                        let u = UnicodeWidthStr::width(x);
+                        // let c = x.chars().count();
+                        // let u = UnicodeWidthStr::width(x);
+                        // std::cmp::min(c, u)
+
+                        // let c = strip_ansi(x).chars().count();
+                        // let u = special_width(x);
+                        // std::cmp::max(c, u)
+
+                        let c = strip_ansi(x).chars().count();
+                        let u = unicode_width_strip_ansi(x);
                         std::cmp::max(c, u)
                     },
                 })
@@ -101,19 +146,18 @@ pub fn column_width(input: &[Vec<Subline>]) -> usize {
 }
 
 fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
-    use unicode_width::UnicodeWidthChar;
-
     let mut output = vec![];
     let mut current_width = 0;
     let mut start_index = 0;
     let mut end_index;
 
-    for c in word.char_indices() {
+    let word_no_ansi = strip_ansi(word);
+    for c in word_no_ansi.char_indices() {
         if let Some(width) = c.1.width() {
             end_index = c.0;
             if current_width + width > cell_width {
                 output.push(Subline {
-                    subline: &word[start_index..end_index],
+                    subline: word.cut(start_index..end_index),
                     width: current_width,
                 });
 
@@ -125,9 +169,9 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
         }
     }
 
-    if start_index != word.len() {
+    if start_index != word_no_ansi.len() {
         output.push(Subline {
-            subline: &word[start_index..],
+            subline: word.cut(start_index..),
             width: current_width,
         });
     }
@@ -135,9 +179,9 @@ fn split_word(cell_width: usize, word: &str) -> Vec<Subline> {
     output
 }
 
-pub fn wrap<'a>(
+pub fn wrap(
     cell_width: usize,
-    mut input: impl Iterator<Item = Subline<'a>>,
+    mut input: impl Iterator<Item = Subline>,
     color_hm: &HashMap<String, Style>,
     re_leading: &regex::Regex,
     re_trailing: &regex::Regex,
@@ -165,7 +209,7 @@ pub fn wrap<'a>(
                     // If this is a really long single word, we need to split the word
                     if current_line.len() == 1 && current_width > cell_width {
                         max_width = cell_width;
-                        let sublines = split_word(cell_width, current_line[0].subline);
+                        let sublines = split_word(cell_width, &current_line[0].subline);
                         for subline in sublines {
                             let width = subline.width;
                             lines.push(Line {
@@ -200,7 +244,7 @@ pub fn wrap<'a>(
             None => {
                 if current_width > cell_width {
                     // We need to break up the last word
-                    let sublines = split_word(cell_width, current_line[0].subline);
+                    let sublines = split_word(cell_width, &current_line[0].subline);
                     for subline in sublines {
                         let width = subline.width;
                         lines.push(Line {
@@ -235,7 +279,7 @@ pub fn wrap<'a>(
                 first = false;
                 current_line_width = subline.width;
             }
-            current_line.push_str(subline.subline);
+            current_line.push_str(&subline.subline);
         }
 
         if current_line_width > current_max {

@@ -1,3 +1,7 @@
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
+
 #[test]
 fn selects_a_row() {
     Playground::setup("nth_test_1", |dirs, sandbox| {

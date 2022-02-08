@@ -5,7 +5,7 @@ fn echo_range_is_lazy() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 1..10000000000 | first 3 | to json
+        echo 1..10000000000 | first 3 | to json --raw
         "#
     ));
 
@@ -17,7 +17,7 @@ fn echo_range_handles_inclusive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 1..3 | to json
+        echo 1..3 | each { $it } | to json --raw
         "#
     ));
 
@@ -29,7 +29,7 @@ fn echo_range_handles_exclusive() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 1..<3 | to json
+        echo 1..<3 | each { $it } | to json --raw
         "#
     ));
 
@@ -41,7 +41,7 @@ fn echo_range_handles_inclusive_down() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 3..1 | to json
+        echo 3..1 | each { $it } | to json --raw
         "#
     ));
 
@@ -53,7 +53,7 @@ fn echo_range_handles_exclusive_down() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo 3..<1 | to json
+        echo 3..<1 | each { $it } | to json --raw
         "#
     ));
 
