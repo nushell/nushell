@@ -828,8 +828,10 @@ pub fn parse_call(
 
         if expand_aliases {
             // If the word is an alias, expand it and re-parse the expression
-            if let Some(expansion) = working_set.find_alias(&name) {
+            if let Some(alias_id) = working_set.find_alias(&name) {
                 trace!("expanding alias");
+
+                let expansion = working_set.get_alias(alias_id);
 
                 let orig_span = spans[pos];
                 let mut new_spans: Vec<Span> = vec![];
