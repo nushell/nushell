@@ -1,6 +1,7 @@
 use crate::table::TextStyle;
 use ansi_cut::AnsiCut;
 use nu_ansi_term::Style;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::{fmt::Display, iter::Iterator};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
@@ -53,24 +54,24 @@ impl Display for Line {
     }
 }
 
-fn strip_ansi(astring: &str) -> String {
-    if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
-        String::from_utf8_lossy(&bytes).to_string()
-    } else {
-        astring.to_string()
-    }
-}
-
-fn unicode_width_strip_ansi(astring: &str) -> usize {
-    let stripped_string: String = {
-        if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
-            String::from_utf8_lossy(&bytes).to_string()
-        } else {
-            astring.to_string()
+/// Removes ANSI escape codes and some ASCII control characters
+///
+/// Keeps `\n` removes `\r`, `\t` etc.
+///
+/// If parsing fails silently returns the input string
+fn strip_ansi(string: &str) -> Cow<str> {
+    // Check if any ascii control character except LF(0x0A = 10) is present,
+    // which will be stripped. Includes the primary start of ANSI sequences ESC
+    // (0x1B = decimal 27)
+    if string.bytes().any(|x| matches!(x, 0..=9 | 11..=31)) {
+        if let Ok(stripped) = strip_ansi_escapes::strip(string) {
+            if let Ok(new_string) = String::from_utf8(stripped) {
+                return Cow::Owned(new_string);
+            }
         }
-    };
-
-    UnicodeWidthStr::width(&stripped_string[..])
+    }
+    // Else case includes failures to parse!
+    Cow::Borrowed(string)
 }
 
 // fn special_width(astring: &str) -> usize {
@@ -108,9 +109,10 @@ pub fn split_sublines(input: &str) -> Vec<Vec<Subline>> {
                         // let c = strip_ansi(x).chars().count();
                         // let u = special_width(x);
                         // std::cmp::max(c, u)
+                        let stripped = strip_ansi(x);
 
-                        let c = strip_ansi(x).chars().count();
-                        let u = unicode_width_strip_ansi(x);
+                        let c = stripped.chars().count();
+                        let u = stripped.width();
                         std::cmp::max(c, u)
                     },
                 })
