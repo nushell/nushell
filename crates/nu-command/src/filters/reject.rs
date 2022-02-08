@@ -82,6 +82,20 @@ fn reject(
                 .into_iter()
                 .into_pipeline_data(engine_state.ctrlc.clone()))
         }
+        PipelineData::Value(
+            Value::Record {
+                mut cols,
+                mut vals,
+                span,
+            },
+            metadata,
+        ) => {
+            reject_record_columns(&mut cols, &mut vals, &columns);
+
+            let record = Value::Record { cols, vals, span };
+
+            Ok(PipelineData::Value(record, metadata))
+        }
         PipelineData::ListStream(stream, ..) => {
             let mut output = vec![];
 
@@ -154,4 +168,13 @@ fn get_keep_columns(mut input: Vec<String>, rejects: Vec<String>) -> Vec<String>
         }
     }
     input
+}
+
+fn reject_record_columns(cols: &mut Vec<String>, vals: &mut Vec<Value>, rejects: &[String]) {
+    for reject in rejects {
+        if let Some(index) = cols.iter().position(|value| value == reject) {
+            cols.swap_remove(index);
+            vals.swap_remove(index);
+        }
+    }
 }
