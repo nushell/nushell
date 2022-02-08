@@ -42,6 +42,7 @@ mod prepend;
 mod random;
 mod range;
 mod reduce;
+mod reject;
 mod rename;
 mod reverse;
 mod rm;
