@@ -95,7 +95,6 @@ pub fn group_by(
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let mut group_strategy = Grouper::ByColumn(None);
 
-
     if values.is_empty() {
         return Err(ShellError::SpannedLabeledError(
             "expected table from pipeline".into(),
