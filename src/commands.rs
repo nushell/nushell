@@ -1,14 +1,14 @@
+use crate::is_perf_true;
+use crate::utils::{gather_parent_env_vars, report_error};
+use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
-use std::path::Path;
-
 use nu_parser::{lex, lite_parse, parse_block, trim_quotes};
 use nu_protocol::{
     engine::{EngineState, StateDelta, StateWorkingSet},
     Config, PipelineData, Span, Spanned, Value, CONFIG_VARIABLE_ID,
 };
-
-use crate::utils::{gather_parent_env_vars, report_error};
+use std::path::Path;
 
 pub(crate) fn evaluate(
     commands: &Spanned<String>,
@@ -121,6 +121,10 @@ pub(crate) fn evaluate(
 
             std::process::exit(1);
         }
+    }
+
+    if is_perf_true() {
+        info!("evaluate {}:{}:{}", file!(), line!(), column!());
     }
 
     Ok(())

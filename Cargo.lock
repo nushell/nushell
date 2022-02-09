@@ -2088,6 +2088,7 @@ name = "nu"
 version = "0.59.0"
 dependencies = [
  "assert_cmd",
+ "chrono",
  "crossterm",
  "crossterm_winapi",
  "ctrlc",

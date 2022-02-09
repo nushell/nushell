@@ -1,3 +1,5 @@
+use crate::is_perf_true;
+use log::info;
 use nu_cli::NushellPrompt;
 use nu_engine::eval_subexpression;
 use nu_parser::parse;
@@ -40,6 +42,15 @@ pub(crate) fn get_prompt_indicators(
         None => "::: ".to_string(),
     };
 
+    if is_perf_true() {
+        info!(
+            "get_prompt_indicators {}:{}:{}",
+            file!(),
+            line!(),
+            column!()
+        );
+    }
+
     (
         prompt_indicator,
         prompt_vi_insert,
@@ -60,25 +71,45 @@ fn get_prompt_string(
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                eval_subexpression(
+                let ret_val = eval_subexpression(
                     engine_state,
                     stack,
                     block,
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 )
-                .ok()
+                .ok();
+                if is_perf_true() {
+                    info!(
+                        "get_prompt_string (block) {}:{}:{}",
+                        file!(),
+                        line!(),
+                        column!()
+                    );
+                }
+
+                ret_val
             }
             Value::String { val: source, .. } => {
                 let mut working_set = StateWorkingSet::new(engine_state);
                 let (block, _) = parse(&mut working_set, None, source.as_bytes(), true);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                eval_subexpression(
+                let ret_val = eval_subexpression(
                     engine_state,
                     stack,
                     &block,
                     PipelineData::new(Span::new(0, 0)), // Don't try this at home, 0 span is ignored
                 )
-                .ok()
+                .ok();
+                if is_perf_true() {
+                    info!(
+                        "get_prompt_string (string) {}:{}:{}",
+                        file!(),
+                        line!(),
+                        column!()
+                    );
+                }
+
+                ret_val
             }
             _ => None,
         })
@@ -127,5 +158,10 @@ pub(crate) fn update_prompt<'prompt>(
         (prompt_vi_insert_string, prompt_vi_normal_string),
     );
 
-    nu_prompt as &dyn Prompt
+    let ret_val = nu_prompt as &dyn Prompt;
+    if is_perf_true() {
+        info!("update_prompt {}:{}:{}", file!(), line!(), column!());
+    }
+
+    ret_val
 }

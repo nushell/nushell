@@ -30,37 +30,35 @@ members = [
 ]
 
 [dependencies]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
-
+chrono = "0.4.19"
 crossterm = "0.22.*"
+crossterm_winapi = "0.9.0"
+ctrlc = "3.2.1"
+# lazy_static = "1.4.0"
+log = "0.4"
+miette = "3.0.0"
+nu-ansi-term = "0.42.0"
 nu-cli = { path="./crates/nu-cli", version = "0.59.0"  }
+nu-color-config = { path = "./crates/nu-color-config", version = "0.59.0"  }
 nu-command = { path="./crates/nu-command", version = "0.59.0"  }
 nu-engine = { path="./crates/nu-engine", version = "0.59.0"  }
 nu-json = { path="./crates/nu-json", version = "0.59.0"  }
 nu-parser = { path="./crates/nu-parser", version = "0.59.0"  }
 nu-path = { path="./crates/nu-path", version = "0.59.0"  }
+nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.59.0"  }
 nu-pretty-hex = { path = "./crates/nu-pretty-hex", version = "0.59.0"  }
 nu-protocol = { path = "./crates/nu-protocol", version = "0.59.0"  }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.59.0"  }
 nu-system = { path = "./crates/nu-system", version = "0.59.0" }
 nu-table = { path = "./crates/nu-table", version = "0.59.0"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.59.0"  }
-# nu-ansi-term = { path = "./crates/nu-ansi-term", version = "0.59.0"  }
-nu-ansi-term = "0.42.0"
-
-nu-color-config = { path = "./crates/nu-color-config", version = "0.59.0"  }
-
-miette = "3.0.0"
-ctrlc = "3.2.1"
-crossterm_winapi = "0.9.0"
-log = "0.4"
 pretty_env_logger = "0.4.0"
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # mimalloc = { version = "*", default-features = false }
 
-
-nu_plugin_inc = { version = "0.59.0", path = "./crates/nu_plugin_inc", optional = true }
+# Plugins
 nu_plugin_example = { version = "0.59.0", path = "./crates/nu_plugin_example", optional = true }
 nu_plugin_gstat = { version = "0.59.0", path = "./crates/nu_plugin_gstat", optional = true }
+nu_plugin_inc = { version = "0.59.0", path = "./crates/nu_plugin_inc", optional = true }
 nu_plugin_query = { version = "0.59.0", path = "./crates/nu_plugin_query", optional = true }
 
 [dev-dependencies]
@@ -75,23 +73,9 @@ itertools = "0.10.3"
 
 [features]
 plugin = ["nu-plugin", "nu-parser/plugin", "nu-command/plugin", "nu-protocol/plugin", "nu-engine/plugin"]
-default = [
-	"plugin",
-	"inc",
-	"example",
-	"which"
-	]
-
+default = ["plugin", "inc", "example", "which"]
 stable = ["default"]
-
-extra = [
-	"default",
-	"dataframe",
-	"gstat",
-	"zip-support",
-	"query",
-]
-
+extra = [ "default", "dataframe", "gstat", "zip-support", "query", ]
 wasi = ["inc"]
 
 # Stable (Default)

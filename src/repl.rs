@@ -1,11 +1,11 @@
-use std::{sync::atomic::Ordering, time::Instant};
-
+use crate::is_perf_true;
 use crate::reedline_config::{add_completion_menu, add_history_menu};
 use crate::{config_files, prompt_update, reedline_config};
 use crate::{
     reedline_config::KeybindingsMode,
     utils::{eval_source, gather_parent_env_vars, report_error},
 };
+use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, NuHighlighter, NuValidator, NushellPrompt};
@@ -17,9 +17,10 @@ use nu_protocol::{
     Config, ShellError, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::{DefaultHinter, Emacs, Vi};
+use std::{sync::atomic::Ordering, time::Instant};
 
 pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
-    use crate::logger::{configure, logger};
+    // use crate::logger::{configure, logger};
     use reedline::{FileBackedHistory, Reedline, Signal};
 
     let mut entry_num = 0;
@@ -57,13 +58,13 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
         }
     };
 
-    logger(|builder| {
-        configure(&config.log_level, builder)?;
-        // trace_filters(self, builder)?;
-        // debug_filters(self, builder)?;
+    // logger(|builder| {
+    //     configure(&config.log_level, builder)?;
+    //     // trace_filters(self, builder)?;
+    //     // debug_filters(self, builder)?;
 
-        Ok(())
-    })?;
+    //     Ok(())
+    // })?;
 
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, &stack, &config) {
@@ -162,7 +163,20 @@ pub(crate) fn evaluate(engine_state: &mut EngineState) -> Result<()> {
             }
         };
 
+        if is_perf_true() {
+            info!("setup line editor {}:{}:{}", file!(), line!(), column!());
+        }
+
         let prompt = prompt_update::update_prompt(&config, engine_state, &stack, &mut nu_prompt);
+
+        if is_perf_true() {
+            info!(
+                "finished prompt update {}:{}:{}",
+                file!(),
+                line!(),
+                column!()
+            );
+        }
 
         entry_num += 1;
 
