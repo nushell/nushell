@@ -468,7 +468,7 @@ impl EngineState {
     pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
         self.aliases
             .get(alias_id)
-            .expect("internal error: missing declaration")
+            .expect("internal error: missing alias")
             .as_ref()
     }
 
@@ -1147,7 +1147,7 @@ impl<'a> StateWorkingSet<'a> {
             self.delta
                 .aliases
                 .get(alias_id - num_permanent_aliases)
-                .expect("internal error: missing declaration")
+                .expect("internal error: missing alias")
                 .as_ref()
         }
     }
