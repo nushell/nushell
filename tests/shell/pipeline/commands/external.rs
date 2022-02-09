@@ -111,7 +111,7 @@ mod it_evaluation {
                 ls
                 | sort-by name
                 | get name
-                | each { nu --testbin cococo $it | lines }
+                | each { nu --testbin cococo $it }
                 | get 1
                 "#
             ));
@@ -136,7 +136,7 @@ mod it_evaluation {
             r#"
                 open nu_candies.txt
                 | lines
-                | each { nu --testbin chop $it | lines}
+                | each { nu --testbin chop $it}
                 | get 1
                 "#
             ));

@@ -107,7 +107,7 @@ fn parses_column_path_extension() {
             echo [[home, barn]; ['home/viking/spam.txt', 'barn/cow/moo.png']]
             | path parse -c [ home barn ]
             | get barn
-            | get extension
+            | get extension.0
         "#
     ));
 

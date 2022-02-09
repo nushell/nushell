@@ -22,7 +22,10 @@ fn cell_path_var2() -> TestResult {
 
 #[test]
 fn flatten_simple_list() -> TestResult {
-    run_test("[[N, u, s, h, e, l, l]] | flatten", "N\nu\ns\nh\ne\nl\nl")
+    run_test(
+        "[[N, u, s, h, e, l, l]] | flatten | str collect (char nl)",
+        "N\nu\ns\nh\ne\nl\nl",
+    )
 }
 
 #[test]
@@ -33,7 +36,7 @@ fn flatten_get_simple_list() -> TestResult {
 #[test]
 fn flatten_table_get() -> TestResult {
     run_test(
-        "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal",
+        "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal.0",
         "arepa",
     )
 }
@@ -41,7 +44,7 @@ fn flatten_table_get() -> TestResult {
 #[test]
 fn flatten_table_column_get_last() -> TestResult {
     run_test(
-        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions",
+        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions.0",
         "0.22",
     )
 }
@@ -56,7 +59,7 @@ fn get_table_columns_1() -> TestResult {
 
 #[test]
 fn get_table_columns_2() -> TestResult {
-    run_test("[[name, age, grade]; [paul,21,a]] | columns | nth 1", "age")
+    run_test("[[name, age, grade]; [paul,21,a]] | columns | get 1", "age")
 }
 
 #[test]

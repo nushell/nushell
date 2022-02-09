@@ -20,7 +20,7 @@ fn from_ssv_text_to_table() {
             r#"
                 open oc_get_svc.txt
                 | from ssv
-                | nth 0
+                | get 0
                 | get IP
             "#
         ));
@@ -47,7 +47,7 @@ fn from_ssv_text_to_table_with_separator_specified() {
             r#"
                 open oc_get_svc.txt
                 | from ssv --minimum-spaces 3
-                | nth 0
+                | get 0
                 | get IP
             "#
         ));

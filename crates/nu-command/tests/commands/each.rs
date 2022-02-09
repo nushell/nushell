@@ -53,7 +53,7 @@ fn each_no_args_in_block() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [[foo bar]; [a b] [c d] [e f]] | each {|i| $i | to json -r } | nth 1
+        echo [[foo bar]; [a b] [c d] [e f]] | each {|i| $i | to json -r } | get 1
         "#
     ));
 
@@ -65,7 +65,7 @@ fn each_implicit_it_in_block() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-        echo [[foo bar]; [a b] [c d] [e f]] | each { nu --testbin cococo $it.foo }
+        echo [[foo bar]; [a b] [c d] [e f]] | each { nu --testbin cococo $it.foo } | str collect
         "#
     ));
 

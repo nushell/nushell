@@ -112,16 +112,7 @@ pub(crate) fn evaluate(
 
     match eval_block(engine_state, &mut stack, &block, input) {
         Ok(pipeline_data) => {
-            for item in pipeline_data {
-                if let Value::Error { error } = item {
-                    let working_set = StateWorkingSet::new(engine_state);
-
-                    report_error(&working_set, &error);
-
-                    std::process::exit(1);
-                }
-                println!("{}", item.into_string("\n", &config));
-            }
+            crate::eval_file::print_table_or_error(engine_state, &mut stack, pipeline_data, &config)
         }
         Err(err) => {
             let working_set = StateWorkingSet::new(engine_state);

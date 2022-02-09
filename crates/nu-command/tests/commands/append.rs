@@ -7,7 +7,7 @@ fn adds_a_row_to_the_end() {
         r#"
                 echo  [ "Andrés N. Robalino", "Jonathan Turner", "Yehuda Katz" ] 
                 | append "pollo loco"
-                | nth 3
+                | get 3
         "#
     ));
 
