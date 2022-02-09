@@ -4,7 +4,7 @@ use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
-    engine::{EngineState, StateDelta, StateWorkingSet},
+    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
     Config, PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 use std::{io::Write, path::PathBuf};
@@ -90,16 +90,7 @@ pub(crate) fn evaluate(
         // We don't have a main, so evaluate the whole file
         match eval_block(engine_state, &mut stack, &block, input) {
             Ok(pipeline_data) => {
-                for item in pipeline_data {
-                    if let Value::Error { error } = item {
-                        let working_set = StateWorkingSet::new(engine_state);
-
-                        report_error(&working_set, &error);
-
-                        std::process::exit(1);
-                    }
-                    println!("{}", item.into_string("\n", &config));
-                }
+                print_table_or_error(engine_state, &mut stack, pipeline_data, &config)
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -132,57 +123,7 @@ pub(crate) fn evaluate(
 
         match eval_block(engine_state, &mut stack, &block, input) {
             Ok(pipeline_data) => {
-                match engine_state.find_decl("table".as_bytes()) {
-                    Some(decl_id) => {
-                        let table = engine_state.get_decl(decl_id).run(
-                            engine_state,
-                            &mut stack,
-                            &Call::new(Span::new(0, 0)),
-                            pipeline_data,
-                        )?;
-
-                        for item in table {
-                            let stdout = std::io::stdout();
-
-                            if let Value::Error { error } = item {
-                                let working_set = StateWorkingSet::new(engine_state);
-
-                                report_error(&working_set, &error);
-
-                                std::process::exit(1);
-                            }
-
-                            let mut out = item.into_string("\n", &config);
-                            out.push('\n');
-
-                            match stdout.lock().write_all(out.as_bytes()) {
-                                Ok(_) => (),
-                                Err(err) => eprintln!("{}", err),
-                            };
-                        }
-                    }
-                    None => {
-                        for item in pipeline_data {
-                            let stdout = std::io::stdout();
-
-                            if let Value::Error { error } = item {
-                                let working_set = StateWorkingSet::new(engine_state);
-
-                                report_error(&working_set, &error);
-
-                                std::process::exit(1);
-                            }
-
-                            let mut out = item.into_string("\n", &config);
-                            out.push('\n');
-
-                            match stdout.lock().write_all(out.as_bytes()) {
-                                Ok(_) => (),
-                                Err(err) => eprintln!("{}", err),
-                            };
-                        }
-                    }
-                };
+                print_table_or_error(engine_state, &mut stack, pipeline_data, &config)
             }
             Err(err) => {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -195,4 +136,74 @@ pub(crate) fn evaluate(
     }
 
     Ok(())
+}
+
+pub fn print_table_or_error(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    pipeline_data: PipelineData,
+    config: &Config,
+) {
+    match engine_state.find_decl("table".as_bytes()) {
+        Some(decl_id) => {
+            let table = engine_state.get_decl(decl_id).run(
+                engine_state,
+                stack,
+                &Call::new(Span::new(0, 0)),
+                pipeline_data,
+            );
+
+            match table {
+                Ok(table) => {
+                    for item in table {
+                        let stdout = std::io::stdout();
+
+                        if let Value::Error { error } = item {
+                            let working_set = StateWorkingSet::new(engine_state);
+
+                            report_error(&working_set, &error);
+
+                            std::process::exit(1);
+                        }
+
+                        let mut out = item.into_string("\n", config);
+                        out.push('\n');
+
+                        match stdout.lock().write_all(out.as_bytes()) {
+                            Ok(_) => (),
+                            Err(err) => eprintln!("{}", err),
+                        };
+                    }
+                }
+                Err(error) => {
+                    let working_set = StateWorkingSet::new(engine_state);
+
+                    report_error(&working_set, &error);
+
+                    std::process::exit(1);
+                }
+            }
+        }
+        None => {
+            for item in pipeline_data {
+                let stdout = std::io::stdout();
+
+                if let Value::Error { error } = item {
+                    let working_set = StateWorkingSet::new(engine_state);
+
+                    report_error(&working_set, &error);
+
+                    std::process::exit(1);
+                }
+
+                let mut out = item.into_string("\n", config);
+                out.push('\n');
+
+                match stdout.lock().write_all(out.as_bytes()) {
+                    Ok(_) => (),
+                    Err(err) => eprintln!("{}", err),
+                };
+            }
+        }
+    };
 }
