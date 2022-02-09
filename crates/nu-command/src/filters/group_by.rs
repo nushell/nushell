@@ -95,8 +95,6 @@ pub fn group_by(
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let mut group_strategy = Grouper::ByColumn(None);
 
-    let first = values[0].clone();
-
     if values.is_empty() {
         return Err(ShellError::SpannedLabeledError(
             "expected table from pipeline".into(),
@@ -104,6 +102,8 @@ pub fn group_by(
             name,
         ));
     }
+
+    let first = values[0].clone();
 
     let value_list = Value::List {
         vals: values.clone(),

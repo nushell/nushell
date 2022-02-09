@@ -97,3 +97,17 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
         assert!(actual.err.contains("Unknown column"));
     })
 }
+
+#[test]
+fn errors_if_input_empty() {
+    Playground::setup("group_by_empty_test", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+            group-by date
+        "#
+        ));
+
+        assert!(actual.err.contains("expected table from pipeline"));
+    });
+}
