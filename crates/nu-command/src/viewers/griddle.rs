@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::{LsColors, Style};
@@ -131,12 +133,24 @@ prints out the list properly."#
     }
 }
 
-fn strip_ansi(astring: &str) -> String {
-    if let Ok(bytes) = strip_ansi_escapes::strip(astring) {
-        String::from_utf8_lossy(&bytes).to_string()
-    } else {
-        astring.to_string()
+/// Removes ANSI escape codes and some ASCII control characters
+///
+/// Keeps `\n` removes `\r`, `\t` etc.
+///
+/// If parsing fails silently returns the input string
+fn strip_ansi(string: &str) -> Cow<str> {
+    // Check if any ascii control character except LF(0x0A = 10) is present,
+    // which will be stripped. Includes the primary start of ANSI sequences ESC
+    // (0x1B = decimal 27)
+    if string.bytes().any(|x| matches!(x, 0..=9 | 11..=31)) {
+        if let Ok(stripped) = strip_ansi_escapes::strip(string) {
+            if let Ok(new_string) = String::from_utf8(stripped) {
+                return Cow::Owned(new_string);
+            }
+        }
     }
+    // Else case includes failures to parse!
+    Cow::Borrowed(string)
 }
 
 fn create_grid_output(
@@ -177,7 +191,7 @@ fn create_grid_output(
             if color_param {
                 if use_grid_icons {
                     let no_ansi = strip_ansi(&value);
-                    let path = std::path::Path::new(&no_ansi);
+                    let path = std::path::Path::new(no_ansi.as_ref());
                     let icon = icon_for_file(path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
                     // eprintln!("ls_colors_style: {:?}", &ls_colors_style);
