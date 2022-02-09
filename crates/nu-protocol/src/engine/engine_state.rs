@@ -43,8 +43,8 @@ impl Visibility {
         self.decl_ids.insert(*decl_id, true);
     }
 
-    fn use_alias_id(&mut self, alias_id: &DeclId) {
-        self.decl_ids.insert(*alias_id, true);
+    fn use_alias_id(&mut self, alias_id: &AliasId) {
+        self.alias_ids.insert(*alias_id, true);
     }
 
     fn merge_with(&mut self, other: Visibility) {
