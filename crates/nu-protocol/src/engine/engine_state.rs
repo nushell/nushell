@@ -50,6 +50,7 @@ impl Visibility {
     fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
+        self.alias_ids.extend(other.alias_ids);
         // self.env_var_ids.extend(other.env_var_ids);
     }
 
