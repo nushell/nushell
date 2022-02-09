@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn selects_a_row() {
-    Playground::setup("nth_test_1", |dirs, sandbox| {
+    Playground::setup("select_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
         let actual = nu!(
@@ -12,7 +12,7 @@ fn selects_a_row() {
             r#"
                 ls
                 | sort-by name
-                | nth 0
+                | select 0
                 | get name
             "#
         ));
@@ -23,7 +23,7 @@ fn selects_a_row() {
 
 #[test]
 fn selects_many_rows() {
-    Playground::setup("nth_test_2", |dirs, sandbox| {
+    Playground::setup("select_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
         let actual = nu!(
@@ -31,7 +31,7 @@ fn selects_many_rows() {
             r#"
                 ls
                 | get name
-                | nth 1 0
+                | select 1 0
                 | length
             "#
         ));

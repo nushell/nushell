@@ -43,7 +43,7 @@ fn flatten_nested_tables() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-            echo [[Andrés, Nicolás, Robalino]] | flatten | nth 1
+            echo [[Andrés, Nicolás, Robalino]] | flatten | select 1
         "#
     ));
 

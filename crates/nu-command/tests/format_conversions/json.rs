@@ -90,7 +90,7 @@ fn table_to_json_text() {
                 | select name
                 | to json
                 | from json
-                | nth 0
+                | select 0
                 | get name
             "#
         ));

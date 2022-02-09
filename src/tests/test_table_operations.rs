@@ -56,7 +56,10 @@ fn get_table_columns_1() -> TestResult {
 
 #[test]
 fn get_table_columns_2() -> TestResult {
-    run_test("[[name, age, grade]; [paul,21,a]] | columns | nth 1", "age")
+    run_test(
+        "[[name, age, grade]; [paul,21,a]] | columns | select 1",
+        "age",
+    )
 }
 
 #[test]

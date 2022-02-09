@@ -108,7 +108,7 @@ fn fetches_more_than_one_column_path() {
                 arepas = 1
 
                 [[fortune_tellers]]
-                name = "Jonathan Turner"
+                name = "JT"
                 arepas = 1
 
                 [[fortune_tellers]]
@@ -122,11 +122,11 @@ fn fetches_more_than_one_column_path() {
             r#"
                 open sample.toml
                 | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
-                | nth 2
+                | select 2
             "#
         ));
 
-        assert_eq!(actual.out, "Jonathan Turner");
+        assert_eq!(actual.out, "JT");
     })
 }
 

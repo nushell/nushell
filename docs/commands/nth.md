@@ -1,12 +1,12 @@
 # nth
 
-This command returns the nth row of a table, starting from 0.
+This command returns the select row of a table, starting from 0.
 If the number given is less than 0 or more than the number of rows, nothing is returned.
 
 ## Usage
 
 ```shell
-> [input-command] | nth <row number>  ...args
+> [input-command] | select <row number>  ...args
 ```
 
 ## Parameters
@@ -45,7 +45,7 @@ If the number given is less than 0 or more than the number of rows, nothing is r
 ```
 
 ```shell
-> ls | nth 0
+> ls | select 0
 ──────────┬────────────────────
  name     │ CODE_OF_CONDUCT.md
  type     │ File
@@ -55,7 +55,7 @@ If the number given is less than 0 or more than the number of rows, nothing is r
 ```
 
 ```shell
-> ls | nth 0 2
+> ls | select 0 2
 ───┬────────────────────┬──────┬──────────┬─────────────
  # │ name               │ type │ size     │ modified
 ───┼────────────────────┼──────┼──────────┼─────────────
@@ -65,7 +65,7 @@ If the number given is less than 0 or more than the number of rows, nothing is r
 ```
 
 ```shell
-> ls | nth 5
+> ls | select 5
 ──────────┬───────────────
  name     │ Makefile.toml
  type     │ File

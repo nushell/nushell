@@ -14,7 +14,7 @@ fn regular_columns() {
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rusty_at last_name
-            | nth 0
+            | select 0
             | get last_name
         "#
     ));

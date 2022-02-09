@@ -564,7 +564,7 @@ impl Value {
         Value::Nothing { span }
     }
 
-    /// Follow a given column path into the value: for example accessing nth elements in a stream or list
+    /// Follow a given column path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path(self, cell_path: &[PathMember]) -> Result<Value, ShellError> {
         let mut current = self;
         for member in cell_path {
@@ -575,7 +575,7 @@ impl Value {
                     val: count,
                     span: origin_span,
                 } => {
-                    // Treat a numeric path member as `nth <val>`
+                    // Treat a numeric path member as `select <val>`
                     match &mut current {
                         Value::List { vals: val, .. } => {
                             if let Some(item) = val.get(*count) {
@@ -671,7 +671,7 @@ impl Value {
         Ok(current)
     }
 
-    /// Follow a given column path into the value: for example accessing nth elements in a stream or list
+    /// Follow a given column path into the value: for example accessing select elements in a stream or list
     pub fn update_cell_path(
         &mut self,
         cell_path: &[PathMember],

@@ -20,7 +20,7 @@ fn adds_a_row_to_the_beginning() {
                 open los_tres_caballeros.txt
                 | lines
                 | prepend "pollo loco"
-                | nth 0
+                | select 0
                 "#
         ));
 

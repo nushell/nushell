@@ -133,7 +133,7 @@ fn moves_columns_after() {
                 open sample.csv
                 | move letters and_more --after column1
                 | get
-                | nth 1 2
+                | select 1 2
                 | str collect
             "#
         ));

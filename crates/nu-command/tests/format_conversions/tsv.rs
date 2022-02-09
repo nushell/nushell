@@ -43,7 +43,7 @@ fn table_to_tsv_text() {
                 | last 1
                 | to tsv
                 | lines
-                | nth 1
+                | select 1
             "#
         ));
 
