@@ -9,7 +9,7 @@ fn returns_path_joined_with_column_path() {
         r#"
             echo [ [name]; [eggs] ]
             | path join spam.txt -c [ name ]
-            | get name
+            | get name.0
         "#
     ));
 

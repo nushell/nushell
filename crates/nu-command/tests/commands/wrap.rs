@@ -22,7 +22,7 @@ fn wrap_rows_into_a_row() {
                 | from csv
                 | wrap caballeros
                 | get caballeros
-                | select 0
+                | get 0
                 | get last_name
             "#
         ));
@@ -51,7 +51,7 @@ fn wrap_rows_into_a_table() {
                 | from csv
                 | get last_name
                 | wrap caballero
-                | select 2
+                | get 2
                 | get caballero
             "#
         ));

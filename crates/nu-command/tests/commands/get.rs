@@ -122,7 +122,7 @@ fn fetches_more_than_one_column_path() {
             r#"
                 open sample.toml
                 | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
-                | select 2
+                | get 2
             "#
         ));
 
@@ -222,7 +222,7 @@ fn errors_fetching_by_index_out_of_bounds() {
 fn quoted_column_access() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz "#
+        r#"echo '[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
     );
 
     assert_eq!(actual.out, "4");

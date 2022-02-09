@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -14,7 +14,7 @@ fn regular_columns() {
                 [Yehuda Katz 10/11/2013 A]
             ]
             | select rusty_at last_name
-            | select 0
+            | get 0
             | get last_name
         "#
     ));
@@ -125,4 +125,42 @@ fn ignores_duplicate_columns_selected() {
     ));
 
     assert_eq!(actual.out, "first name last name");
+}
+
+#[test]
+fn selects_a_row() {
+    Playground::setup("select_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | sort-by name
+                | select 0
+                | get name.0
+            "#
+        ));
+
+        assert_eq!(actual.out, "arepas.txt");
+    });
+}
+
+#[test]
+fn selects_many_rows() {
+    Playground::setup("select_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls
+                | get name
+                | select 1 0
+                | length
+            "#
+        ));
+
+        assert_eq!(actual.out, "2");
+    });
 }

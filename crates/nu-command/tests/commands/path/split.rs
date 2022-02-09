@@ -20,6 +20,7 @@ fn splits_correctly_single_path() {
             'home/viking/spam.txt'
             | path split
             | last
+            | get 0
         "#
     ));
 

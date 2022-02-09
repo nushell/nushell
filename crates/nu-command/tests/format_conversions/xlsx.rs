@@ -7,7 +7,7 @@ fn from_excel_file_to_table() {
         r#"
             open sample_data.xlsx
             | get SalesOrders
-            | select 4
+            | get 4
             | get Column2
         "#
     ));

@@ -6,7 +6,7 @@ use nu_test_support::{nu, pipeline};
 fn gets_the_last_row() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | last 1 | get name | str trim"
+        "ls | sort-by name | last 1 | get name.0 | str trim"
     );
 
     assert_eq!(actual.out, "utf16.ini");

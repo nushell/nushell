@@ -21,7 +21,7 @@ fn parses_csv() {
             r#"
                 open nu.zion.csv
                 | where author == "Andres N. Robalino"
-                | get source
+                | get source.0
             "#
         ));
 

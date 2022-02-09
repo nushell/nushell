@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn which_ls() {
     let actual = nu!(
         cwd: ".",
-        "which ls | get path | str trim"
+        "which ls | get path.0 | str trim"
     );
 
     assert_eq!(actual.out, "Nushell built-in command");
@@ -14,7 +14,7 @@ fn which_ls() {
 fn which_alias_ls() {
     let actual = nu!(
         cwd: ".",
-        "alias ls = ls -a; which ls | get path | str trim"
+        "alias ls = ls -a; which ls | get path.0 | str trim"
     );
 
     assert_eq!(actual.out, "Nushell alias: ls -a");
@@ -24,7 +24,7 @@ fn which_alias_ls() {
 fn which_def_ls() {
     let actual = nu!(
         cwd: ".",
-        "def ls [] {echo def}; which ls | get path | str trim"
+        "def ls [] {echo def}; which ls | get path.0 | str trim"
     );
 
     assert_eq!(actual.out, "Nushell custom command");
@@ -34,7 +34,7 @@ fn which_def_ls() {
 fn correct_precedence_alias_def_custom() {
     let actual = nu!(
         cwd: ".",
-        "def ls [] {echo def}; alias ls = echo alias; which ls | get path | str trim"
+        "def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim"
     );
 
     assert_eq!(actual.out, "Nushell alias: echo alias");

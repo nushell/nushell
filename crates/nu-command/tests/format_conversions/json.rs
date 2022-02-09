@@ -62,7 +62,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
                 open katz.txt
                 | from json -o
                 | where name == "GorbyPuff"
-                | get rusty_luck
+                | get rusty_luck.0
             "#
         ));
 
@@ -90,7 +90,7 @@ fn table_to_json_text() {
                 | select name
                 | to json
                 | from json
-                | select 0
+                | get 0
                 | get name
             "#
         ));
