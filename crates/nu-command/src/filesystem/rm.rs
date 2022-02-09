@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(feature = "trash-support")]
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -73,6 +74,7 @@ fn rm(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let trash = call.has_flag("trash");
+    #[cfg(feature = "trash-support")]
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
