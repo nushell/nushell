@@ -1,4 +1,6 @@
+use crate::is_perf_true;
 use crate::utils::{eval_source, report_error};
+use log::info;
 use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
 use std::path::PathBuf;
 
@@ -21,6 +23,9 @@ pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack
         if let Ok(contents) = std::fs::read_to_string(&plugin_path) {
             eval_source(engine_state, stack, &contents, &plugin_filename);
         }
+    }
+    if is_perf_true() {
+        info!("read_plugin_file {}:{}:{}", file!(), line!(), column!());
     }
 }
 
@@ -62,6 +67,9 @@ pub(crate) fn read_config_file(engine_state: &mut EngineState, stack: &mut Stack
                 }
             }
         }
+    }
+    if is_perf_true() {
+        info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     }
 }
 

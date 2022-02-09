@@ -127,7 +127,7 @@ fn copies_using_path_with_wildcard() {
     Playground::setup("cp_test_6", |dirs, _| {
         nu!(
             cwd: dirs.formats(),
-            "cp ../formats/* {}", dirs.test()
+            "cp -r ../formats/* {}", dirs.test()
         );
 
         assert!(files_exist_at(
@@ -149,7 +149,7 @@ fn copies_using_a_glob() {
     Playground::setup("cp_test_7", |dirs, _| {
         nu!(
             cwd: dirs.formats(),
-            "cp * {}", dirs.test()
+            "cp -r * {}", dirs.test()
         );
 
         assert!(files_exist_at(

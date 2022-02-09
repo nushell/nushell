@@ -5,13 +5,13 @@ mod logger;
 mod prompt_update;
 mod reedline_config;
 mod repl;
-mod utils;
-
+mod test_bins;
 #[cfg(test)]
 mod tests;
+mod utils;
 
-mod test_bins;
-
+use crate::logger::{configure, logger};
+use log::info;
 use miette::Result;
 use nu_command::{create_default_context, BufferedReader};
 use nu_engine::get_full_help;
@@ -22,6 +22,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, RawStream, ShellError, Signature, Span,
     Spanned, SyntaxShape, Value, CONFIG_VARIABLE_ID,
 };
+use std::cell::RefCell;
 use std::{
     io::{BufReader, Write},
     path::Path,
@@ -31,6 +32,8 @@ use std::{
     },
 };
 use utils::report_error;
+
+thread_local! { static IS_PERF: RefCell<bool> = RefCell::new(false) }
 
 fn main() -> Result<()> {
     // miette::set_panic_hook();
@@ -99,6 +102,7 @@ fn main() -> Result<()> {
                 || arg == "--debug"
                 || arg == "--loglevel"
                 || arg == "--config-file"
+                || arg == "--perf"
             {
                 collect_arg_nushell = true;
             }
@@ -113,12 +117,24 @@ fn main() -> Result<()> {
 
     let nushell_commandline_args = args_to_nushell.join(" ");
 
-    let nushell_config =
+    let parsed_nu_cli_args =
         parse_commandline_args(&nushell_commandline_args, &init_cwd, &mut engine_state);
 
-    match nushell_config {
-        Ok(nushell_config) => {
-            if let Some(testbin) = &nushell_config.testbin {
+    match parsed_nu_cli_args {
+        Ok(binary_args) => {
+            set_is_perf_value(binary_args.perf);
+
+            if binary_args.perf {
+                // if we started in perf mode show only the info logs
+                // TODO: what happens when the config log_level is read?
+                logger(|builder| {
+                    configure("info", builder)?;
+                    Ok(())
+                })?;
+                info!("start logging {}:{}:{}", file!(), line!(), column!());
+            }
+
+            if let Some(testbin) = &binary_args.testbin {
                 // Call out to the correct testbin
                 match testbin.item.as_str() {
                     "echo_env" => test_bins::echo_env(),
@@ -133,7 +149,7 @@ fn main() -> Result<()> {
                 }
                 std::process::exit(0)
             }
-            let input = if let Some(redirect_stdin) = &nushell_config.redirect_stdin {
+            let input = if let Some(redirect_stdin) = &binary_args.redirect_stdin {
                 let stdin = std::io::stdin();
                 let buf_reader = BufReader::new(stdin);
 
@@ -150,18 +166,37 @@ fn main() -> Result<()> {
                 PipelineData::new(Span::new(0, 0))
             };
 
-            if let Some(commands) = &nushell_config.commands {
-                commands::evaluate(commands, &init_cwd, &mut engine_state, input)
-            } else if !script_name.is_empty() && nushell_config.interactive_shell.is_none() {
-                eval_file::evaluate(
+            if is_perf_true() {
+                info!("redirect_stdin {}:{}:{}", file!(), line!(), column!());
+            }
+
+            if let Some(commands) = &binary_args.commands {
+                let ret_val = commands::evaluate(commands, &init_cwd, &mut engine_state, input);
+                if is_perf_true() {
+                    info!("-c command execution {}:{}:{}", file!(), line!(), column!());
+                }
+
+                ret_val
+            } else if !script_name.is_empty() && binary_args.interactive_shell.is_none() {
+                let ret_val = eval_file::evaluate(
                     script_name,
                     &args_to_script,
                     init_cwd,
                     &mut engine_state,
                     input,
-                )
+                );
+                if is_perf_true() {
+                    info!("eval_file execution {}:{}:{}", file!(), line!(), column!());
+                }
+
+                ret_val
             } else {
-                repl::evaluate(&mut engine_state)
+                let ret_val = repl::evaluate(&mut engine_state);
+                if is_perf_true() {
+                    info!("repl eval {}:{}:{}", file!(), line!(), column!());
+                }
+
+                ret_val
             }
         }
         Err(_) => std::process::exit(1),
@@ -172,7 +207,7 @@ fn parse_commandline_args(
     commandline_args: &str,
     init_cwd: &Path,
     engine_state: &mut EngineState,
-) -> Result<NushellConfig, ShellError> {
+) -> Result<NushellCliArgs, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         working_set.add_decl(Box::new(Nu));
@@ -212,6 +247,7 @@ fn parse_commandline_args(
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
+            let perf = call.has_flag("perf");
 
             let commands = if let Some(expression) = commands {
                 let contents = engine_state.get_span_contents(&expression.span);
@@ -250,12 +286,13 @@ fn parse_commandline_args(
                 std::process::exit(1);
             }
 
-            return Ok(NushellConfig {
+            return Ok(NushellCliArgs {
                 redirect_stdin,
                 login_shell,
                 interactive_shell,
                 commands,
                 testbin,
+                perf,
             });
         }
     }
@@ -266,13 +303,14 @@ fn parse_commandline_args(
     std::process::exit(1);
 }
 
-struct NushellConfig {
+struct NushellCliArgs {
     redirect_stdin: Option<Spanned<String>>,
     #[allow(dead_code)]
     login_shell: Option<Spanned<String>>,
     interactive_shell: Option<Spanned<String>>,
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
+    perf: bool,
 }
 
 #[derive(Clone)]
@@ -289,6 +327,11 @@ impl Command for Nu {
             .switch("stdin", "redirect the stdin", None)
             .switch("login", "start as a login shell", Some('l'))
             .switch("interactive", "start as an interactive shell", Some('i'))
+            .switch(
+                "perf",
+                "start and print performance metrics during startup",
+                Some('p'),
+            )
             .named(
                 "testbin",
                 SyntaxShape::String,
@@ -346,4 +389,19 @@ impl Command for Nu {
             },
         ]
     }
+}
+
+pub fn is_perf_true() -> bool {
+    IS_PERF.with(|value| *value.borrow())
+}
+
+// #[allow(dead_code)]
+// fn is_perf_value() -> bool {
+//     IS_PERF.with(|value| *value.borrow())
+// }
+
+fn set_is_perf_value(value: bool) {
+    IS_PERF.with(|new_value| {
+        *new_value.borrow_mut() = value;
+    });
 }
