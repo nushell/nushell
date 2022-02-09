@@ -35,7 +35,7 @@ impl Command for Columns {
                 result: None,
             },
             Example {
-                example: "[[name,age,grade]; [bill,20,a]] | columns | nth 1",
+                example: "[[name,age,grade]; [bill,20,a]] | columns | select 1",
                 description: "Get the second column from the table",
                 result: None,
             },

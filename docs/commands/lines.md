@@ -26,7 +26,7 @@ Basic usage:
 One useful application is piping the contents of file into `lines`. This example extracts a certain line from a given file.
 
 ```shell
-> cat lines.md | lines | nth 6
+> cat lines.md | lines | select 6
 ## Examples
 ```
 

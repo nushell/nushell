@@ -1,11 +1,17 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use super::util::get_interactive_confirmation;
+// use super::util::get_interactive_confirmation;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, Spanned, SyntaxShape};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape};
+
+const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
+    case_sensitive: true,
+    require_literal_separator: false,
+    require_literal_leading_dot: false,
+};
 
 #[derive(Clone)]
 pub struct Mv;
@@ -32,8 +38,8 @@ impl Command for Mv {
                 SyntaxShape::Filepath,
                 "the location to move files/directories to",
             )
-            .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch("force", "suppress error when no file", Some('f'))
+            // .switch("interactive", "ask user to confirm action", Some('i'))
+            // .switch("force", "suppress error when no file", Some('f'))
             .category(Category::FileSystem)
     }
 
@@ -46,99 +52,58 @@ impl Command for Mv {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let destination: String = call.req(engine_state, stack, 1)?;
-        let interactive = call.has_flag("interactive");
-        let force = call.has_flag("force");
+        let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
+        // let interactive = call.has_flag("interactive");
+        // let force = call.has_flag("force");
 
         let path = current_dir(engine_state, stack)?;
         let source = path.join(spanned_source.item.as_str());
-        let destination = path.join(destination.as_str());
+        let destination = path.join(spanned_destination.item.as_str());
 
-        let mut sources =
-            glob::glob(&source.to_string_lossy()).map_or_else(|_| Vec::new(), Iterator::collect);
+        let mut sources = glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
+            .map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::FileNotFound(spanned_source.span));
+            return Err(ShellError::SpannedLabeledError(
+                "Invalid file or pattern".into(),
+                "invalid file or pattern".into(),
+                spanned_source.span,
+            ));
         }
 
-        if interactive && !force {
-            let mut remove: Vec<usize> = vec![];
-            for (index, file) in sources.iter().enumerate() {
-                let prompt = format!(
-                    "Are you shure that you want to move {} to {}?",
-                    file.as_ref()
-                        .map_err(|err| ShellError::SpannedLabeledError(
-                            "Reference error".into(),
-                            err.to_string(),
-                            call.head
-                        ))?
-                        .file_name()
-                        .ok_or_else(|| ShellError::SpannedLabeledError(
-                            "File name error".into(),
-                            "Unable to get file name".into(),
-                            call.head
-                        ))?
-                        .to_str()
-                        .ok_or_else(|| ShellError::SpannedLabeledError(
-                            "Unable to get str error".into(),
-                            "Unable to convert to str file name".into(),
-                            call.head
-                        ))?,
-                    destination
-                        .file_name()
-                        .ok_or_else(|| ShellError::SpannedLabeledError(
-                            "File name error".into(),
-                            "Unable to get file name".into(),
-                            call.head
-                        ))?
-                        .to_str()
-                        .ok_or_else(|| ShellError::SpannedLabeledError(
-                            "Unable to get str error".into(),
-                            "Unable to convert to str file name".into(),
-                            call.head
-                        ))?,
-                );
-
-                let input = get_interactive_confirmation(prompt)?;
-
-                if !input {
-                    remove.push(index);
-                }
-            }
-
-            remove.reverse();
-
-            for index in remove {
-                sources.remove(index);
-            }
-
-            if sources.is_empty() {
-                return Err(ShellError::NoFileToBeMoved());
-            }
-        }
+        // We have two possibilities.
+        //
+        // First, the destination exists.
+        //  - If a directory, move everything into that directory, otherwise
+        //  - if only a single source, overwrite the file, otherwise
+        //  - error.
+        //
+        // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
+        // it's an error.
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
             || (!destination.exists() && sources.len() > 1)
         {
-            return Err(ShellError::MoveNotPossible {
-                source_message: "Can't move many files".to_string(),
-                source_span: call.positional[0].span,
-                destination_message: "into single file".to_string(),
-                destination_span: call.positional[1].span,
-            });
+            return Err(ShellError::SpannedLabeledError(
+                "Can only move multiple sources if destination is a directory".into(),
+                "destination must be a directory when multiple sources".into(),
+                spanned_destination.span,
+            ));
         }
 
         let some_if_source_is_destination = sources
             .iter()
             .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
         if destination.exists() && destination.is_dir() && sources.len() == 1 {
-            if let Some(Ok(_filename)) = some_if_source_is_destination {
-                return Err(ShellError::MoveNotPossible {
-                    source_message: "Can't move directory".to_string(),
-                    source_span: call.positional[0].span,
-                    destination_message: "into itself".to_string(),
-                    destination_span: call.positional[1].span,
-                });
+            if let Some(Ok(filename)) = some_if_source_is_destination {
+                return Err(ShellError::SpannedLabeledError(
+                    format!(
+                        "Not possible to move {:?} to itself",
+                        filename.file_name().expect("Invalid file name")
+                    ),
+                    "cannot move to itself".into(),
+                    spanned_destination.span,
+                ));
             }
         }
 
@@ -150,20 +115,41 @@ impl Command for Mv {
         }
 
         for entry in sources.into_iter().flatten() {
-            move_file(call, &entry, &destination)?
+            move_file(
+                Spanned {
+                    item: entry,
+                    span: spanned_source.span,
+                },
+                Spanned {
+                    item: destination.clone(),
+                    span: spanned_destination.span,
+                },
+            )?
         }
 
         Ok(PipelineData::new(call.head))
     }
 }
 
-fn move_file(call: &Call, from: &Path, to: &Path) -> Result<(), ShellError> {
+fn move_file(
+    spanned_from: Spanned<PathBuf>,
+    spanned_to: Spanned<PathBuf>,
+) -> Result<(), ShellError> {
+    let Spanned {
+        item: from,
+        span: from_span,
+    } = spanned_from;
+    let Spanned {
+        item: to,
+        span: to_span,
+    } = spanned_to;
+
     if to.exists() && from.is_dir() && to.is_file() {
         return Err(ShellError::MoveNotPossible {
             source_message: "Can't move a directory".to_string(),
-            source_span: call.positional[0].span,
+            source_span: spanned_from.span,
             destination_message: "to a file".to_string(),
-            destination_span: call.positional[1].span,
+            destination_span: spanned_to.span,
         });
     }
 
@@ -174,29 +160,42 @@ fn move_file(call: &Call, from: &Path, to: &Path) -> Result<(), ShellError> {
     };
 
     if !destination_dir_exists {
-        return Err(ShellError::DirectoryNotFound(call.positional[1].span));
+        return Err(ShellError::DirectoryNotFound(to_span));
     }
 
-    let mut to = to.to_path_buf();
+    let mut to = to;
     if to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
-            None => return Err(ShellError::DirectoryNotFound(call.positional[1].span)),
+            None => return Err(ShellError::DirectoryNotFound(to_span)),
         };
 
         to.push(from_file_name);
     }
 
-    move_item(call, from, &to)
+    move_item(&from, from_span, &to)
 }
 
-fn move_item(call: &Call, from: &Path, to: &Path) -> Result<(), ShellError> {
+fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
     // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
     // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
-    std::fs::rename(&from, &to).map_err(|_| ShellError::MoveNotPossible {
-        source_message: "failed to move".to_string(),
-        source_span: call.positional[0].span,
-        destination_message: "into".to_string(),
-        destination_span: call.positional[1].span,
+    std::fs::rename(&from, &to).or_else(|_| {
+        match if from.is_file() {
+            let mut options = fs_extra::file::CopyOptions::new();
+            options.overwrite = true;
+            fs_extra::file::move_file(from, to, &options)
+        } else {
+            let mut options = fs_extra::dir::CopyOptions::new();
+            options.overwrite = true;
+            options.copy_inside = true;
+            fs_extra::dir::move_dir(from, to, &options)
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ShellError::SpannedLabeledError(
+                format!("Could not move {:?} to {:?}. {:}", from, to, e),
+                "could not move".into(),
+                from_span,
+            )),
+        }
     })
 }

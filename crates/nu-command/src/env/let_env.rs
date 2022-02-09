@@ -20,7 +20,7 @@ impl Command for LetEnv {
             .required("var_name", SyntaxShape::String, "variable name")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Any)),
+                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
                 "equals sign followed by value",
             )
             .category(Category::Env)

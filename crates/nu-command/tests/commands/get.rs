@@ -108,7 +108,7 @@ fn fetches_more_than_one_column_path() {
                 arepas = 1
 
                 [[fortune_tellers]]
-                name = "Jonathan Turner"
+                name = "JT"
                 arepas = 1
 
                 [[fortune_tellers]]
@@ -126,7 +126,7 @@ fn fetches_more_than_one_column_path() {
             "#
         ));
 
-        assert_eq!(actual.out, "Jonathan Turner");
+        assert_eq!(actual.out, "JT");
     })
 }
 

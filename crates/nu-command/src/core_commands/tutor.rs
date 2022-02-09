@@ -176,10 +176,10 @@ using Nushell commands.
 
 To get the 3rd row in the table, you can use the `nth` command:
 ```
-ls | nth 2
+ls | select 2
 ```
-This will get the 3rd (note that `nth` is zero-based) row in the table created
-by the `ls` command. You can use `nth` on any table created by other commands
+This will get the 3rd (note that `select` is zero-based) row in the table created
+by the `ls` command. You can use `select` on any table created by other commands
 as well.
 
 You can also access the column of data in one of two ways. If you want
@@ -218,7 +218,7 @@ like lists and tables.
 To reach a cell of data from a table, you can combine a row operation and a
 column operation.
 ```
-ls | nth 4 | get name
+ls | select 4 | get name
 ```
 You can combine these operations into one step using a shortcut.
 ```

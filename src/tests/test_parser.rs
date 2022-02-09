@@ -189,3 +189,11 @@ fn commands_have_usage() -> TestResult {
 fn equals_separates_long_flag() -> TestResult {
     run_test(r#"seq 1 4 --separator='+'"#, "1+2+3+4")
 }
+
+#[test]
+fn let_env_expressions() -> TestResult {
+    run_test(
+        r#"let-env PATH = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.PATH }; echo done"#,
+        "done",
+    )
+}

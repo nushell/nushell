@@ -464,7 +464,7 @@ fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = true; echo $env.DEBUG | table; do { let-env DEBUG = false; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; echo $env.DEBUG | table; do { let-env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -513,7 +513,7 @@ fn proper_shadow_load_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = true; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
+        let-env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
