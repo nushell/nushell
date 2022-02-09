@@ -31,8 +31,6 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn error_if_attempting_to_copy_a_directory_to_another_directory() {
     Playground::setup("cp_test_3", |dirs, _| {
@@ -77,8 +75,6 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
     })
 }
 
-// FIXME: jt: needs more work
-#[ignore]
 #[test]
 fn deep_copies_with_recursive_flag() {
     Playground::setup("cp_test_5", |dirs, sandbox| {

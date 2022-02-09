@@ -67,6 +67,7 @@ pub struct Config {
     pub menu_config: HashMap<String, Value>,
     pub keybindings: Vec<ParsedKeybinding>,
     pub history_config: HashMap<String, Value>,
+    pub rm_always_trash: bool,
 }
 
 impl Default for Config {
@@ -90,6 +91,7 @@ impl Default for Config {
             menu_config: HashMap::new(),
             keybindings: Vec::new(),
             history_config: HashMap::new(),
+            rm_always_trash: false,
         }
     }
 }
@@ -192,6 +194,13 @@ impl Value {
                             config.quick_completions = b;
                         } else {
                             eprintln!("$config.quick_completions is not a bool")
+                        }
+                    }
+                    "rm_always_trash" => {
+                        if let Ok(b) = value.as_bool() {
+                            config.rm_always_trash = b;
+                        } else {
+                            eprintln!("$config.rm_always_trash is not a bool")
                         }
                     }
                     "filesize_format" => {
