@@ -392,7 +392,7 @@ impl Command for Nu {
 }
 
 pub fn is_perf_true() -> bool {
-    IS_PERF.with(|value| *value.borrow() == true)
+    IS_PERF.with(|value| *value.borrow())
 }
 
 // #[allow(dead_code)]

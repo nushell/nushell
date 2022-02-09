@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, FixedOffset, Utc};
 use core::fmt;
 use log::Level;
 use log::LevelFilter;
@@ -31,7 +31,13 @@ pub fn my_formatted_timed_builder() -> Builder {
             width: max_width,
         });
 
-        let dt = DateTime::parse_from_rfc3339(&f.timestamp_millis().to_string()).unwrap();
+        let dt = match DateTime::parse_from_rfc3339(&f.timestamp_millis().to_string()) {
+            Ok(d) => d,
+            Err(_) => {
+                let n = Utc::now();
+                DateTime::<FixedOffset>::from(n)
+            }
+        };
         let time = dt.format("%Y-%m-%d %I:%M:%S%.3f %p");
         writeln!(f, "{}|{}|{}|{}", time, level, target, record.args(),)
     });
