@@ -205,6 +205,7 @@ impl EngineState {
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
         self.decls.extend(delta.decls);
+        self.aliases.extend(delta.aliases);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.overlays.extend(delta.overlays);
