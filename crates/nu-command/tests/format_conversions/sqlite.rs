@@ -11,7 +11,7 @@ fn table_to_sqlite_and_back_into_table() {
             | to sqlite
             | from sqlite
             | get table_values
-            | nth 2
+            | select 2
             | get x
         "#
     ));

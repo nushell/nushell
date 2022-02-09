@@ -59,7 +59,7 @@ fn parses_csv() {
 fn parses_bson() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open sample.bson | get root | nth 0 | get b"
+        "open sample.bson | get root | select 0 | get b"
     );
 
     assert_eq!(actual.out, "hello");
@@ -73,7 +73,7 @@ fn parses_more_bson_complexity() {
         r#"
             open sample.bson
             | get root
-            | nth 6
+            | select 6
             | get b
             | get '$binary_subtype'
         "#
@@ -120,7 +120,7 @@ fn parses_more_bson_complexity() {
 // `ints` has just `z`, and `floats` has only the column `f`. This means, in general, when working
 // with sqlite, one will want to select a single table, e.g.:
 //
-// open sample.db | nth 1 | get table_values
+// open sample.db | select 1 | get table_values
 // ━━━┯━━━━━━
 //  # │ z
 // ───┼──────
@@ -139,7 +139,7 @@ fn parses_sqlite() {
         r#"
             open sample.db
             | get table_values
-            | nth 2
+            | select 2
             | get x
         "#
     ));
