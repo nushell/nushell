@@ -273,7 +273,7 @@ pub enum ShellError {
     DeprecatedCommand(
         String,
         String,
-        #[label = "{0} is deprecated. Instead use {1}"] Span,
+        #[label = "'{0}' is deprecated. Please use '{1}' instead."] Span,
     ),
 }
 
