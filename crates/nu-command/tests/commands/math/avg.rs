@@ -18,7 +18,7 @@ fn can_average_numbers() {
 fn can_average_bytes() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | sort-by name | skip 1 | first 2 | get size | math avg | to json -r"
+        "ls | sort_by name | skip 1 | first 2 | get size | math avg | to json -r"
     );
 
     assert_eq!(actual.out, "1600");

@@ -12,7 +12,7 @@ fn by_column() {
             | skip 1
             | first 4
             | split column "="
-            | sort-by Column1
+            | sort_by Column1
             | skip 1
             | first 1
             | get Column1
@@ -35,7 +35,7 @@ fn by_invalid_column() {
             | skip 1
             | first 4
             | split column "="
-            | sort-by ColumnThatDoesNotExist
+            | sort_by ColumnThatDoesNotExist
             | skip 1
             | first 1
             | get Column1
@@ -56,7 +56,7 @@ fn by_invalid_types() {
         r#"
             open cargo_sample.toml --raw
             | echo [1 "foo"]
-            | sort-by
+            | sort_by
         "#
     ));
 
@@ -75,7 +75,7 @@ fn sort_primitive_values() {
             | lines
             | skip 1
             | first 6
-            | sort-by
+            | sort_by
             | first 1
         "#
     ));
@@ -89,7 +89,7 @@ fn ls_sort_by_name_sensitive() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample-ls-output.json
-            | sort-by name
+            | sort_by name
             | select name
             | to json --raw
         "#
@@ -107,7 +107,7 @@ fn ls_sort_by_name_insensitive() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample-ls-output.json
-            | sort-by -i name
+            | sort_by -i name
             | select name
             | to json --raw
         "#
@@ -123,7 +123,7 @@ fn ls_sort_by_type_name_sensitive() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample-ls-output.json
-            | sort-by type name
+            | sort_by type name
             | select name type
             | to json --raw
         "#
@@ -139,7 +139,7 @@ fn ls_sort_by_type_name_insensitive() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample-ls-output.json
-            | sort-by -i type name
+            | sort_by -i type name
             | select name type
             | to json --raw
         "#

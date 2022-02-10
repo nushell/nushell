@@ -169,7 +169,7 @@ pub struct Command;
 
 impl WholeStreamCommand for Command {
     fn name(&self) -> &str {
-        "take-two"
+        "take_two"
     }
 
     fn usage(&self) -> &str {
@@ -177,14 +177,14 @@ impl WholeStreamCommand for Command {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("take-two")
+        Signature::build("take_two")
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Takes two values",
-                example: "echo [11161984 500 200] | take-two",
+                example: "echo [11161984 500 200] | take_two",
                 result: None,
             },
         ]
@@ -232,7 +232,7 @@ error: Error: Unimplemented: take-two does not implement run or run_with_actions
 
 That was unexpected. What happened?
 
-We did not implement `take-two`'s logic anywhere. Nu is telling us the command does not implement `run` or `run_with_actions`. These functions are in the `WholeStreamCommand` trait and the default implementation gives the error. Since our command won't be doing any actions we can go ahead and implement `run` for the logic, let's do that:
+We did not implement `take_two`'s logic anywhere. Nu is telling us the command does not implement `run` or `run_with_actions`. These functions are in the `WholeStreamCommand` trait and the default implementation gives the error. Since our command won't be doing any actions we can go ahead and implement `run` for the logic, let's do that:
 
 ```rust
 use nu_errors::ShellError;

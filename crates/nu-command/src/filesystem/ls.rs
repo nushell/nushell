@@ -41,11 +41,11 @@ impl Command for Ls {
                 Some('l'),
             )
             .switch(
-                "short-names",
+                "short_names",
                 "Only print the file names and not the path",
                 Some('s'),
             )
-            .switch("full-paths", "display paths as absolute paths", Some('f'))
+            .switch("full_paths", "display paths as absolute paths", Some('f'))
             .switch(
                 "du",
                 "Display the apparent directory size in place of the directory metadata size",
@@ -63,8 +63,8 @@ impl Command for Ls {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let all = call.has_flag("all");
         let long = call.has_flag("long");
-        let short_names = call.has_flag("short-names");
-        let full_paths = call.has_flag("full-paths");
+        let short_names = call.has_flag("short_names");
+        let full_paths = call.has_flag("full_paths");
         let du = call.has_flag("du");
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;

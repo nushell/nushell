@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str ends-with"
+        "str ends_with"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str ends-with")
+        Signature::build("str ends_with")
             .required("pattern", SyntaxShape::String, "the pattern to match")
             .rest(
                 "rest",
@@ -43,7 +43,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Checks if string ends with '.rb' pattern",
-                example: "'my_library.rb' | str ends-with '.rb'",
+                example: "'my_library.rb' | str ends_with '.rb'",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
@@ -51,7 +51,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if string ends with '.txt' pattern",
-                example: "'my_library.rb' | str ends-with '.txt'",
+                example: "'my_library.rb' | str ends_with '.txt'",
                 result: Some(Value::Bool {
                     val: false,
                     span: Span::test_data(),

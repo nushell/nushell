@@ -95,7 +95,7 @@ fn folding_with_tables() {
         r#"
         echo [10 20 30 40]
         | reduce -f [] {
-            with-env [value $it.item] {
+            with_env [value $it.item] {
               echo $acc | append (10 * ($env.value | into int))
             }
           }

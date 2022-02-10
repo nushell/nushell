@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str snake-case"
+        "str snake_case"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str snake-case")
+        Signature::build("str snake_case")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -41,7 +41,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "convert a string to camelCase",
-                example: r#" "NuShell" | str snake-case"#,
+                example: r#" "NuShell" | str snake_case"#,
                 result: Some(Value::String {
                     val: "nu_shell".to_string(),
                     span: Span::test_data(),
@@ -49,7 +49,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to camelCase",
-                example: r#" "this_is_the_second_case" | str snake-case"#,
+                example: r#" "this_is_the_second_case" | str snake_case"#,
                 result: Some(Value::String {
                     val: "this_is_the_second_case".to_string(),
                     span: Span::test_data(),
@@ -57,7 +57,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to camelCase",
-                example: r#""this-is-the-first-case" | str snake-case"#,
+                example: r#""this-is-the-first-case" | str snake_case"#,
                 result: Some(Value::String {
                     val: "this_is_the_first_case".to_string(),
                     span: Span::test_data(),
@@ -65,7 +65,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a column from a table to snake-case",
-                example: r#"[[lang, gems]; [nuTest, 100]] | str snake-case lang"#,
+                example: r#"[[lang, gems]; [nuTest, 100]] | str snake_case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         span: Span::test_data(),

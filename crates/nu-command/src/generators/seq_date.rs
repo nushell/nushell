@@ -29,24 +29,24 @@ impl Command for SeqDate {
                 Some('s'),
             )
             .named(
-                "output-format",
+                "output_format",
                 SyntaxShape::String,
                 "prints dates in this format (defaults to %Y-%m-%d)",
                 Some('o'),
             )
             .named(
-                "input-format",
+                "input_format",
                 SyntaxShape::String,
                 "give argument dates in this format (defaults to %Y-%m-%d)",
                 Some('i'),
             )
             .named(
-                "begin-date",
+                "begin_date",
                 SyntaxShape::String,
                 "beginning date range",
                 Some('b'),
             )
-            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
+            .named("end_date", SyntaxShape::String, "ending date", Some('e'))
             .named(
                 "increment",
                 SyntaxShape::Int,
@@ -134,12 +134,12 @@ impl Command for SeqDate {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
         let output_format: Option<Spanned<String>> =
-            call.get_flag(engine_state, stack, "output-format")?;
+            call.get_flag(engine_state, stack, "output_format")?;
         let input_format: Option<Spanned<String>> =
-            call.get_flag(engine_state, stack, "input-format")?;
+            call.get_flag(engine_state, stack, "input_format")?;
         let begin_date: Option<Spanned<String>> =
-            call.get_flag(engine_state, stack, "begin-date")?;
-        let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end-date")?;
+            call.get_flag(engine_state, stack, "begin_date")?;
+        let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end_date")?;
         let increment: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "increment")?;
         let days: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "days")?;
         let reverse = call.has_flag("reverse");

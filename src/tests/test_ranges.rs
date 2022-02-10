@@ -22,7 +22,7 @@ fn non_number_in_range() -> TestResult {
 
 #[test]
 fn float_not_in_inc_range() -> TestResult {
-    run_test(r#"1.4 not-in 2..9.42"#, "true")
+    run_test(r#"1.4 not_in 2..9.42"#, "true")
 }
 
 #[test]

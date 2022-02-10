@@ -23,12 +23,12 @@ impl Command for Transpose {
     fn signature(&self) -> Signature {
         Signature::build("transpose")
             .switch(
-                "header-row",
+                "header_row",
                 "treat the first row as column names",
                 Some('r'),
             )
             .switch(
-                "ignore-titles",
+                "ignore_titles",
                 "don't transpose the column names into values",
                 Some('i'),
             )
@@ -62,8 +62,8 @@ pub fn transpose(
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let name = call.head;
     let transpose_args = TransposeArgs {
-        header_row: call.has_flag("header-row"),
-        ignore_titles: call.has_flag("ignore-titles"),
+        header_row: call.has_flag("header_row"),
+        ignore_titles: call.has_flag("ignore_titles"),
         rest: call.rest(engine_state, stack, 0)?,
     };
 

@@ -15,7 +15,7 @@ impl Command for Exit {
     fn signature(&self) -> Signature {
         Signature::build("exit")
             .optional(
-                "exit-code",
+                "exit_code",
                 SyntaxShape::Int,
                 "Exit code to return immediately with",
             )

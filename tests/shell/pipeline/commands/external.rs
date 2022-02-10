@@ -109,7 +109,7 @@ mod it_evaluation {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
-                | sort-by name
+                | sort_by name
                 | get name
                 | each { nu --testbin cococo $it }
                 | get 1
@@ -380,7 +380,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    nu --testbin cococo (ls | sort-by name | get name).1
+                    nu --testbin cococo (ls | sort_by name | get name).1
                 "#
                 ));
 

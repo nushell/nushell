@@ -3180,7 +3180,7 @@ pub fn parse_operator(
         b"*" => Operator::Multiply,
         b"/" => Operator::Divide,
         b"in" => Operator::In,
-        b"not-in" => Operator::NotIn,
+        b"not_in" => Operator::NotIn,
         b"mod" => Operator::Modulo,
         b"&&" => Operator::And,
         b"||" => Operator::Or,
@@ -3434,7 +3434,7 @@ pub fn parse_expression(
         }
     };
 
-    let with_env = working_set.find_decl(b"with-env");
+    let with_env = working_set.find_decl(b"with_env");
 
     if !shorthand.is_empty() {
         if let Some(decl_id) = with_env {
@@ -3518,7 +3518,7 @@ pub fn parse_statement(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command),
+        b"def" | b"def_env" => parse_def(working_set, lite_command),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts);
@@ -3679,7 +3679,7 @@ pub fn parse_block(
 
                 if idx == 0 {
                     if let Some(let_decl_id) = working_set.find_decl(b"let") {
-                        if let Some(let_env_decl_id) = working_set.find_decl(b"let-env") {
+                        if let Some(let_env_decl_id) = working_set.find_decl(b"let_env") {
                             if let Statement::Pipeline(pipeline) = &mut stmt {
                                 for expr in pipeline.expressions.iter_mut() {
                                     if let Expression {

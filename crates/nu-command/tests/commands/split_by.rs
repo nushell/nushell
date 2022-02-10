@@ -19,8 +19,8 @@ fn splits() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | group-by rusty_at
-                | split-by type
+                | group_by rusty_at
+                | split_by type
                 | get A."10/11/2013"
                 | length
             "#
@@ -45,7 +45,7 @@ fn errors_if_no_table_given_as_input() {
             r#"
                 ls
                 | get name
-                | split-by type
+                | split_by type
             "#
         ));
 

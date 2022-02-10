@@ -31,7 +31,7 @@ impl Command for ToCSV {
                 "file delimiter character",
                 Some('d'),
             )
-            .switch("no-header", "Indicates if file doesn't have header", None)
+            .switch("no_header", "Indicates if file doesn't have header", None)
             .category(Category::Custom("dataframe".into()))
     }
 

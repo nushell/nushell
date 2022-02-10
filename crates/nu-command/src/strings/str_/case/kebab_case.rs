@@ -12,11 +12,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str kebab-case"
+        "str kebab_case"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str kebab-case")
+        Signature::build("str kebab_case")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -43,7 +43,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "convert a string to kebab-case",
-                example: "'NuShell' | str kebab-case",
+                example: "'NuShell' | str kebab_case",
                 result: Some(Value::String {
                     val: "nu-shell".to_string(),
                     span: Span::test_data(),
@@ -51,7 +51,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to kebab-case",
-                example: "'thisIsTheFirstCase' | str kebab-case",
+                example: "'thisIsTheFirstCase' | str kebab_case",
                 result: Some(Value::String {
                     val: "this-is-the-first-case".to_string(),
                     span: Span::test_data(),
@@ -59,7 +59,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to kebab-case",
-                example: "'THIS_IS_THE_SECOND_CASE' | str kebab-case",
+                example: "'THIS_IS_THE_SECOND_CASE' | str kebab_case",
                 result: Some(Value::String {
                     val: "this-is-the-second-case".to_string(),
                     span: Span::test_data(),
@@ -67,7 +67,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a column from a table to kebab-case",
-                example: r#"[[lang, gems]; [nuTest, 100]] | str kebab-case lang"#,
+                example: r#"[[lang, gems]; [nuTest, 100]] | str kebab_case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         span: Span::test_data(),

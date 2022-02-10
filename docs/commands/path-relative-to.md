@@ -1,4 +1,4 @@
-# path relative-to
+# path relative_to
 Get a path as relative to another path.
 
 Can be used only when the input and the argument paths are either both
@@ -7,7 +7,7 @@ path.
 
 ## Usage
 ```shell
-> path relative-to <path> ...args {flags} 
+> path relative_to <path> ...args {flags} 
  ```
 
 ## Parameters
@@ -20,11 +20,11 @@ path.
 ## Examples
   Find a relative path from two absolute paths
 ```shell
-> '/home/viking' | path relative-to '/home'
+> '/home/viking' | path relative_to '/home'
  ```
 
   Find a relative path from two relative paths
 ```shell
-> 'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'
+> 'eggs/bacon/sausage/spam' | path relative_to 'eggs/bacon/sausage'
  ```
 

@@ -12,11 +12,11 @@ pub struct ParEachGroup;
 
 impl Command for ParEachGroup {
     fn name(&self) -> &str {
-        "par-each group"
+        "par_each group"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("par-each group")
+        Signature::build("par_each group")
             .required("group_size", SyntaxShape::Int, "the size of each group")
             .required(
                 "block",
@@ -32,7 +32,7 @@ impl Command for ParEachGroup {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }",
+            example: "echo [1 2 3 4] | par_each group 2 { $it.0 + $it.1 }",
             description: "Multiplies elements in list",
             result: None,
         }]

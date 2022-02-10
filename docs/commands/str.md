@@ -75,7 +75,7 @@ llehsuN
 ```
 
 ```shell
-> shells | str find-replace "TUX" "skipper" path
+> shells | str find_replace "TUX" "skipper" path
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────────────

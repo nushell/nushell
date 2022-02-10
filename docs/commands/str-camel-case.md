@@ -1,9 +1,9 @@
-# str camel-case
+# str camel_case
 converts a string to camelCase
 
 ## Usage
 ```shell
-> str camel-case ...args {flags} 
+> str camel_case ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ converts a string to camelCase
 ## Examples
   convert a string to camelCase
 ```shell
-> echo 'NuShell' | str camel-case
+> echo 'NuShell' | str camel_case
  ```
 

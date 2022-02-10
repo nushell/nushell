@@ -1,9 +1,9 @@
-# group-by date
+# group_by date
 creates a table grouped by date.
 
 ## Usage
 ```shell
-> group-by date (column_name) {flags} 
+> group_by date (column_name) {flags} 
  ```
 
 ## Parameters
@@ -16,6 +16,6 @@ creates a table grouped by date.
 ## Examples
   Group files by type
 ```shell
-> ls | group-by date --format '%d/%m/%Y'
+> ls | group_by date --format '%d/%m/%Y'
  ```
 

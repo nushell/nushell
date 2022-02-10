@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str screaming-snake-case"
+        "str screaming_snake_case"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str screaming-snake-case")
+        Signature::build("str screaming_snake_case")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -42,7 +42,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "convert a string to camelCase",
-                example: r#" "NuShell" | str screaming-snake-case"#,
+                example: r#" "NuShell" | str screaming_snake_case"#,
                 result: Some(Value::String {
                     val: "NU_SHELL".to_string(),
                     span: Span::test_data(),
@@ -50,7 +50,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to camelCase",
-                example: r#" "this_is_the_second_case" | str screaming-snake-case"#,
+                example: r#" "this_is_the_second_case" | str screaming_snake_case"#,
                 result: Some(Value::String {
                     val: "THIS_IS_THE_SECOND_CASE".to_string(),
                     span: Span::test_data(),
@@ -58,7 +58,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to camelCase",
-                example: r#""this-is-the-first-case" | str screaming-snake-case"#,
+                example: r#""this-is-the-first-case" | str screaming_snake_case"#,
                 result: Some(Value::String {
                     val: "THIS_IS_THE_FIRST_CASE".to_string(),
                     span: Span::test_data(),
@@ -66,7 +66,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a column from a table to SCREAMING_SNAKE_CASE",
-                example: r#"[[lang, gems]; [nu_test, 100]] | str screaming-snake-case lang"#,
+                example: r#"[[lang, gems]; [nu_test, 100]] | str screaming_snake_case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         span: Span::test_data(),

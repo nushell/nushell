@@ -19,7 +19,7 @@ fn groups() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | group-by rusty_at
+                | group_by rusty_at
                 | get "10/11/2013"
                 | length
             "#
@@ -61,7 +61,7 @@ fn errors_if_given_unknown_column_name() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.json
-                | group-by { get nu.releases.version }
+                | group_by { get nu.releases.version }
             "#
         ));
 
@@ -90,7 +90,7 @@ fn errors_if_block_given_evaluates_more_than_one_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | group-by ttype
+                | group_by ttype
             "#
         ));
 
@@ -104,7 +104,7 @@ fn errors_if_input_empty() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-            group-by date
+            group_by date
         "#
         ));
 

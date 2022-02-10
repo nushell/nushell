@@ -10,11 +10,11 @@ pub struct SplitBy;
 
 impl Command for SplitBy {
     fn name(&self) -> &str {
-        "split-by"
+        "split_by"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-by").optional(
+        Signature::build("split_by").optional(
             "splitter",
             SyntaxShape::Any,
             "the splitter value to use",
@@ -48,7 +48,7 @@ impl Command for SplitBy {
                     '2021': [
                       { name: 'storm', lang: 'rs', 'year': '2021' }
                     ]
-                } | split-by lang
+                } | split_by lang
                 "#,
             result: Some(Value::Record {
                 cols: vec!["rb".to_string(), "rs".to_string()],

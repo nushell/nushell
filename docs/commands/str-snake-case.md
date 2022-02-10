@@ -1,9 +1,9 @@
-# str snake-case
+# str snake_case
 converts a string to snake_case
 
 ## Usage
 ```shell
-> str snake-case ...args {flags} 
+> str snake_case ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ converts a string to snake_case
 ## Examples
   convert a string to snake_case
 ```shell
-> echo 'NuShell' | str snake-case
+> echo 'NuShell' | str snake_case
  ```
 

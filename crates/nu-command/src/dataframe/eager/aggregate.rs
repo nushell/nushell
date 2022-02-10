@@ -123,7 +123,7 @@ impl Command for Aggregate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "operation-name",
+                "operation_name",
                 SyntaxShape::String,
                 "\n\tDataframes: mean, sum, min, max, quantile, median, var, std
 \tGroupBy: mean, sum, min, max, first, last, nunique, quantile, median, var, std, count",
@@ -147,7 +147,7 @@ impl Command for Aggregate {
             Example {
                 description: "Aggregate sum by grouping by column a and summing on col b",
                 example:
-                    "[[a b]; [one 1] [one 2]] | dfr to-df | dfr group-by a | dfr aggregate sum",
+                    "[[a b]; [one 1] [one 2]] | dfr to-df | dfr group_by a | dfr aggregate sum",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new("a".to_string(), vec![Value::test_string("one")]),

@@ -357,11 +357,11 @@ The nushell prompt is configurable through these environment variables settings.
 
 Example: For a simple prompt one could do this. Note that `PROMPT_COMMAND` requires a `block` whereas the others require a `string`.
 
-`> let-env PROMPT_COMMAND = { build-string (date now | date format '%m/%d/%Y %I:%M:%S%.3f') ': ' (pwd | path basename) }`
+`> let_env PROMPT_COMMAND = { build_string (date now | date format '%m/%d/%Y %I:%M:%S%.3f') ': ' (pwd | path basename) }`
 
 If you don't like the default `PROMPT_INDICATOR` you could change it like this.
 
-`> let-env PROMPT_INDICATOR = "> "`
+`> let_env PROMPT_INDICATOR = "> "`
 
 Coloring of the prompt is controlled by the `block` in `PROMPT_COMMAND` where you can write your own custom prompt. We've written a slightly fancy one that has git statuses located in the [nu_scripts repo](https://github.com/nushell/nu_scripts/blob/main/engine-q/prompt/oh-my.nu).
 
@@ -375,7 +375,7 @@ There's an exhaustive list [here](https://github.com/trapd00r/LS_COLORS), which 
 
 I like the `vivid` application and currently have it configured in my `config.nu` like this. You can find `vivid` [here](https://github.com/sharkdp/vivid).
 
-`let-env LS_COLORS = (vivid generate molokai | decode utf-8 | str trim)`
+`let_env LS_COLORS = (vivid generate molokai | decode utf-8 | str trim)`
 
 ## Theming
 

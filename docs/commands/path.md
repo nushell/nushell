@@ -26,7 +26,7 @@ the path literal.
 * path expand - Expand a path to its absolute form
 * path join - Join a structured path or a list of path parts.
 * path parse - Convert a path into structured data.
-* path relative-to - Get a path as relative to another path.
+* path relative_to - Get a path as relative to another path.
 * path split - Split a path into parts by a separator.
 * path type - Get the type of the object a path refers to (e.g., file, dir, symlink)
 

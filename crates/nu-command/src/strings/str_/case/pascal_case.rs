@@ -12,11 +12,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str pascal-case"
+        "str pascal_case"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str pascal-case")
+        Signature::build("str pascal_case")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -43,7 +43,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "convert a string to PascalCase",
-                example: "'nu-shell' | str pascal-case",
+                example: "'nu-shell' | str pascal_case",
                 result: Some(Value::String {
                     val: "NuShell".to_string(),
                     span: Span::test_data(),
@@ -51,7 +51,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to PascalCase",
-                example: "'this-is-the-first-case' | str pascal-case",
+                example: "'this-is-the-first-case' | str pascal_case",
                 result: Some(Value::String {
                     val: "ThisIsTheFirstCase".to_string(),
                     span: Span::test_data(),
@@ -59,7 +59,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a string to PascalCase",
-                example: "'this_is_the_second_case' | str pascal-case",
+                example: "'this_is_the_second_case' | str pascal_case",
                 result: Some(Value::String {
                     val: "ThisIsTheSecondCase".to_string(),
                     span: Span::test_data(),
@@ -67,7 +67,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert a column from a table to PascalCase",
-                example: r#"[[lang, gems]; [nu_test, 100]] | str pascal-case lang"#,
+                example: r#"[[lang, gems]; [nu_test, 100]] | str pascal_case lang"#,
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         span: Span::test_data(),

@@ -8,7 +8,7 @@ pub struct LoadEnv;
 
 impl Command for LoadEnv {
     fn name(&self) -> &str {
-        "load-env"
+        "load_env"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl Command for LoadEnv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("load-env")
+        Signature::build("load_env")
             .optional(
                 "update",
                 SyntaxShape::Record,
@@ -84,12 +84,12 @@ impl Command for LoadEnv {
         vec![
             Example {
                 description: "Load variables from an input stream",
-                example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME"#,
+                example: r#"{NAME: ABE, AGE: UNKNOWN} | load_env; echo $env.NAME"#,
                 result: Some(Value::test_string("ABE")),
             },
             Example {
                 description: "Load variables from an argument",
-                example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME"#,
+                example: r#"load_env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME"#,
                 result: Some(Value::test_string("ABE")),
             },
         ]

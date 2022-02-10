@@ -11,7 +11,7 @@ fn hides_def() -> TestResult {
 
 #[test]
 fn hides_env() -> TestResult {
-    fail_test(r#"let-env foo = "foo"; hide foo; $env.foo"#, "did you mean")
+    fail_test(r#"let_env foo = "foo"; hide foo; $env.foo"#, "did you mean")
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn hides_def_then_redefines() -> TestResult {
 #[test]
 fn hides_env_then_redefines() -> TestResult {
     run_test(
-        r#"let-env foo = "foo"; hide foo; let-env foo = "bar"; $env.foo"#,
+        r#"let_env foo = "foo"; hide foo; let_env foo = "bar"; $env.foo"#,
         "bar",
     )
 }
@@ -67,7 +67,7 @@ fn hides_def_in_scope_4() -> TestResult {
 #[test]
 fn hides_env_in_scope_1() -> TestResult {
     fail_test(
-        r#"let-env foo = "foo"; do { hide foo; $env.foo }"#,
+        r#"let_env foo = "foo"; do { hide foo; $env.foo }"#,
         "did you mean",
     )
 }
@@ -75,7 +75,7 @@ fn hides_env_in_scope_1() -> TestResult {
 #[test]
 fn hides_env_in_scope_2() -> TestResult {
     run_test(
-        r#"let-env foo = "foo"; do { let-env foo = "bar"; hide foo; $env.foo }"#,
+        r#"let_env foo = "foo"; do { let_env foo = "bar"; hide foo; $env.foo }"#,
         "foo",
     )
 }
@@ -83,7 +83,7 @@ fn hides_env_in_scope_2() -> TestResult {
 #[test]
 fn hides_env_in_scope_3() -> TestResult {
     fail_test(
-        r#"let-env foo = "foo"; do { hide foo; let-env foo = "bar"; hide foo; $env.foo }"#,
+        r#"let_env foo = "foo"; do { hide foo; let_env foo = "bar"; hide foo; $env.foo }"#,
         "did you mean",
     )
 }
@@ -91,7 +91,7 @@ fn hides_env_in_scope_3() -> TestResult {
 #[test]
 fn hides_env_in_scope_4() -> TestResult {
     fail_test(
-        r#"let-env foo = "foo"; do { let-env foo = "bar"; hide foo; hide foo; $env.foo }"#,
+        r#"let_env foo = "foo"; do { let_env foo = "bar"; hide foo; hide foo; $env.foo }"#,
         "did you mean",
     )
 }
@@ -106,13 +106,13 @@ fn hide_def_twice_not_allowed() -> TestResult {
 
 #[test]
 fn hide_env_twice_not_allowed() -> TestResult {
-    fail_test(r#"let-env foo = "foo"; hide foo; hide foo"#, "did not find")
+    fail_test(r#"let_env foo = "foo"; hide foo; hide foo"#, "did not find")
 }
 
 #[test]
 fn hides_def_runs_env_1() -> TestResult {
     run_test(
-        r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; $env.foo"#,
+        r#"let_env foo = "bar"; def foo [] { "foo" }; hide foo; $env.foo"#,
         "bar",
     )
 }
@@ -120,7 +120,7 @@ fn hides_def_runs_env_1() -> TestResult {
 #[test]
 fn hides_def_runs_env_2() -> TestResult {
     run_test(
-        r#"def foo [] { "foo" }; let-env foo = "bar"; hide foo; $env.foo"#,
+        r#"def foo [] { "foo" }; let_env foo = "bar"; hide foo; $env.foo"#,
         "bar",
     )
 }
@@ -128,7 +128,7 @@ fn hides_def_runs_env_2() -> TestResult {
 #[test]
 fn hides_def_and_env() -> TestResult {
     fail_test(
-        r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; hide foo; $env.foo"#,
+        r#"let_env foo = "bar"; def foo [] { "foo" }; hide foo; hide foo; $env.foo"#,
         "did you mean",
     )
 }
@@ -280,7 +280,7 @@ fn hide_shadowed_decl() -> TestResult {
 #[test]
 fn hide_shadowed_env() -> TestResult {
     run_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; do { use spam foo; hide foo; $env.foo }"#,
+        r#"module spam { export env foo { "bar" } }; let_env foo = "foo"; do { use spam foo; hide foo; $env.foo }"#,
         "foo",
     )
 }
@@ -296,7 +296,7 @@ fn hides_all_decls_within_scope() -> TestResult {
 #[test]
 fn hides_all_envs_within_scope() -> TestResult {
     fail_test(
-        r#"module spam { export env foo { "bar" } }; let-env foo = "foo"; use spam foo; hide foo; $env.foo"#,
+        r#"module spam { export env foo { "bar" } }; let_env foo = "foo"; use spam foo; hide foo; $env.foo"#,
         "did you mean",
     )
 }

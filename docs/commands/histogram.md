@@ -64,7 +64,7 @@ We can also set the name of the second column or sort the table:
 ```
 
 ```shell
-> open random_numbers.csv | histogram "random numbers" probability | sort-by probability
+> open random_numbers.csv | histogram "random numbers" probability | sort_by probability
 ───┬────────────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
  # │ random numbers │    count    │ percentage │ probability
 ───┼────────────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ We can also set the name of the second column or sort the table:
 Of course, histogram operations are not restricted to just analyzing numbers in files, you can also analyze your directories
 
 ```shell
-> ls -la | histogram type | sort-by count
+> ls -la | histogram type | sort_by count
 ───┬─────────┬─────────────┬────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────
  # │ type    │    count    │ percentage │ frequency
 ───┼─────────┼─────────────┼────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────

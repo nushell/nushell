@@ -8,7 +8,7 @@ pub struct LetEnv;
 
 impl Command for LetEnv {
     fn name(&self) -> &str {
-        "let-env"
+        "let_env"
     }
 
     fn usage(&self) -> &str {
@@ -16,7 +16,7 @@ impl Command for LetEnv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let-env")
+        Signature::build("let_env")
             .required("var_name", SyntaxShape::String, "variable name")
             .required(
                 "initial_value",

@@ -194,7 +194,7 @@ fn let_sees_in_variable2() -> TestResult {
 #[test]
 fn def_env() -> TestResult {
     run_test(
-        r#"def-env bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#,
+        r#"def_env bob [] { let_env BAR = "BAZ" }; bob; $env.BAR"#,
         "BAZ",
     )
 }
@@ -202,7 +202,7 @@ fn def_env() -> TestResult {
 #[test]
 fn not_def_env() -> TestResult {
     fail_test(
-        r#"def bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#,
+        r#"def bob [] { let_env BAR = "BAZ" }; bob; $env.BAR"#,
         "did you mean",
     )
 }
@@ -210,7 +210,7 @@ fn not_def_env() -> TestResult {
 #[test]
 fn def_env_hiding_something() -> TestResult {
     fail_test(
-        r#"let-env FOO = "foo"; def-env bob [] { hide FOO }; bob; $env.FOO"#,
+        r#"let_env FOO = "foo"; def_env bob [] { hide FOO }; bob; $env.FOO"#,
         "did you mean",
     )
 }
@@ -218,7 +218,7 @@ fn def_env_hiding_something() -> TestResult {
 #[test]
 fn def_env_then_hide() -> TestResult {
     fail_test(
-        r#"def-env bob [] { let-env BOB = "bob" }; def-env un-bob [] { hide BOB }; bob; un-bob; $env.BOB"#,
+        r#"def_env bob [] { let_env BOB = "bob" }; def_env un-bob [] { hide BOB }; bob; un-bob; $env.BOB"#,
         "did you mean",
     )
 }
@@ -226,12 +226,12 @@ fn def_env_then_hide() -> TestResult {
 #[test]
 fn export_def_env() -> TestResult {
     run_test(
-        r#"module foo { export def-env bob [] { let-env BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
+        r#"module foo { export def_env bob [] { let_env BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
         "BAZ",
     )
 }
 
 #[test]
 fn dynamic_let_env() -> TestResult {
-    run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
+    run_test(r#"let x = "FOO"; let_env $x = "BAZ"; $env.FOO"#, "BAZ")
 }

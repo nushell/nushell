@@ -1,9 +1,9 @@
-# str starts-with
+# str starts_with
 checks if string starts with pattern
 
 ## Usage
 ```shell
-> str starts-with <pattern> ...args {flags} 
+> str starts_with <pattern> ...args {flags} 
  ```
 
 ## Parameters
@@ -16,6 +16,6 @@ checks if string starts with pattern
 ## Examples
   Checks if string starts with 'my' pattern
 ```shell
-> echo 'my_library.rb' | str starts-with 'my'
+> echo 'my_library.rb' | str starts_with 'my'
  ```
 

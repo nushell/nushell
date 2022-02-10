@@ -1,9 +1,9 @@
-# with-env
+# with_env
 Runs a block with an environment variable set.
 
 ## Usage
 ```shell
-> with-env <variable> <block> {flags} 
+> with_env <variable> <block> {flags} 
  ```
 
 ## Parameters
@@ -16,21 +16,21 @@ Runs a block with an environment variable set.
 ## Examples
   Set the MYENV environment variable
 ```shell
-> with-env [MYENV "my env value"] { echo $nu.env.MYENV }
+> with_env [MYENV "my env value"] { echo $nu.env.MYENV }
  ```
 
   Set by primitive value list
 ```shell
-> with-env [X Y W Z] { echo $nu.env.X $nu.env.W }
+> with_env [X Y W Z] { echo $nu.env.X $nu.env.W }
  ```
 
   Set by single row table
 ```shell
-> with-env [[X W]; [Y Z]] { echo $nu.env.X $nu.env.W }
+> with_env [[X W]; [Y Z]] { echo $nu.env.X $nu.env.W }
  ```
 
   Set by row(e.g. `open x.json` or `from json`)
 ```shell
-> echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $nu.env.X $nu.env.W }
+> echo '{"X":"Y","W":"Z"}'|from json|with_env $it { echo $nu.env.X $nu.env.W }
  ```
 

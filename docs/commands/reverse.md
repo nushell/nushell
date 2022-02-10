@@ -5,7 +5,7 @@ This command reverses the order of the elements in a sorted table.
 ## Examples
 
 ```shell
-> ls | sort-by name
+> ls | sort_by name
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed       │ modified
 ───┼────────────────────────────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -18,7 +18,7 @@ This command reverses the order of the elements in a sorted table.
 ```
 
 ```shell
-> ls | sort-by name | reverse
+> ls | sort_by name | reverse
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed       │ modified
 ───┼────────────────────────────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -31,7 +31,7 @@ This command reverses the order of the elements in a sorted table.
 ```
 
 ```shell
-> ls | sort-by size
+> ls | sort_by size
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed       │ modified
 ───┼────────────────────────────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -44,7 +44,7 @@ This command reverses the order of the elements in a sorted table.
 ```
 
 ```shell
-> ls | sort-by size | reverse
+> ls | sort_by size | reverse
 ━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name                       │ type │ readonly │ size   │ accessed       │ modified
 ───┼────────────────────────────┼──────┼──────────┼────────┼────────────────┼────────────────

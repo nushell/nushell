@@ -1,9 +1,9 @@
-# build-string
+# build_string
 Builds a string from the arguments.
 
 ## Usage
 ```shell
-> build-string ...args {flags} 
+> build_string ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ Builds a string from the arguments.
 ## Examples
   Builds a string from a string and a number, without spaces between them
 ```shell
-> build-string 'foo' 3
+> build_string 'foo' 3
  ```
 

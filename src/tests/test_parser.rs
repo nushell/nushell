@@ -193,7 +193,7 @@ fn equals_separates_long_flag() -> TestResult {
 #[test]
 fn let_env_expressions() -> TestResult {
     run_test(
-        r#"let-env PATH = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.PATH }; echo done"#,
+        r#"let_env PATH = if (env | any? name == VENV_OLD_PATH) { $env.VENV_OLD_PATH } else { $env.PATH }; echo done"#,
         "done",
     )
 }

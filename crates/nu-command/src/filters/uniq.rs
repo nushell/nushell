@@ -23,7 +23,7 @@ impl Command for Uniq {
                 Some('d'),
             )
             .switch(
-                "ignore-case",
+                "ignore_case",
                 "Ignore differences in case when comparing",
                 Some('i'),
             )
@@ -115,7 +115,7 @@ fn uniq(
     let head = call.head;
     let should_show_count = call.has_flag("count");
     let show_repeated = call.has_flag("repeated");
-    let ignore_case = call.has_flag("ignore-case");
+    let ignore_case = call.has_flag("ignore_case");
     let only_uniques = call.has_flag("unique");
 
     let uniq_values = {

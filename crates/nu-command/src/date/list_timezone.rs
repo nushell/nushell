@@ -8,11 +8,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "date list-timezone"
+        "date list_timezone"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date list-timezone").category(Category::Date)
+        Signature::build("date list_timezone").category(Category::Date)
     }
 
     fn usage(&self) -> &str {

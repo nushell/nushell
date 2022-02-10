@@ -20,7 +20,7 @@ Each stage in the pipeline works together to load, parse, and display informatio
 [Examples]
 
 List the files in the current directory, sorted by size:
-    ls | sort-by size
+    ls | sort_by size
 
 Get information about the current system:
     sys | get host
@@ -39,13 +39,13 @@ You can also learn more at https://www.nushell.sh/book/
  0  │ alias        │ Define a shortcut for another command.
  1  │ append       │ Append the given row to the table
  2  │ autoview     │ View the contents of the pipeline as a table or list.
- 3  │ build-string │ Builds a string from the arguments
+ 3  │ build_string │ Builds a string from the arguments
  4  │ cal          │ Display a calendar.
  5  │ calc         │ Parse a math expression into a number
 ...
  83 │ where        │ Filter table to match the condition.
  84 │ which        │ Finds a program file.
- 85 │ with-env     │ Runs a block with an environment set. Eg) with-env [NAME 'foo'] { echo $nu.env.NAME }
+ 85 │ with_env     │ Runs a block with an environment set. Eg) with_env [NAME 'foo'] { echo $nu.env.NAME }
  86 │ wrap         │ Wraps the given data in a table.
 ────┴──────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ```

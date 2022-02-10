@@ -10,7 +10,7 @@ pub struct ViewSource;
 
 impl Command for ViewSource {
     fn name(&self) -> &str {
-        "view-source"
+        "view_source"
     }
 
     fn usage(&self) -> &str {
@@ -18,7 +18,7 @@ impl Command for ViewSource {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("view-source")
+        Signature::build("view_source")
             .desc(self.usage())
             .required("item", SyntaxShape::Any, "name or block to view")
             .category(Category::Core)

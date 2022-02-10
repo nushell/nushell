@@ -420,7 +420,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
             code_mode = false;
 
             //TODO: support no-color mode
-            if let Some(highlighter) = engine_state.find_decl(b"nu-highlight") {
+            if let Some(highlighter) = engine_state.find_decl(b"nu_highlight") {
                 let decl = engine_state.get_decl(highlighter);
 
                 if let Ok(output) = decl.run(

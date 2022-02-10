@@ -20,11 +20,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str find-replace"
+        "str find_replace"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str find-replace")
+        Signature::build("str find_replace")
             .required("find", SyntaxShape::String, "the pattern to find")
             .required("replace", SyntaxShape::String, "the replacement pattern")
             .rest(
@@ -54,7 +54,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Find and replace contents with capture group",
-                example: "'my_library.rb' | str find-replace '(.+).rb' '$1.nu'",
+                example: "'my_library.rb' | str find_replace '(.+).rb' '$1.nu'",
                 result: Some(Value::String {
                     val: "my_library.nu".to_string(),
                     span: Span::test_data(),
@@ -62,7 +62,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace all occurrences of find string",
-                example: "'abc abc abc' | str find-replace -a 'b' 'z'",
+                example: "'abc abc abc' | str find_replace -a 'b' 'z'",
                 result: Some(Value::String {
                     val: "azc azc azc".to_string(),
                     span: Span::test_data(),
@@ -71,7 +71,7 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace all occurrences of find string in table",
                 example:
-                    "[[ColA ColB ColC]; [abc abc ads]] | str find-replace -a 'b' 'z' ColA ColC",
+                    "[[ColA ColB ColC]; [abc abc ads]] | str find_replace -a 'b' 'z' ColA ColC",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],

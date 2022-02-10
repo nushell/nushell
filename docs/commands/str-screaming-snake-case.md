@@ -1,9 +1,9 @@
-# str screaming-snake-case
+# str screaming_snake_case
 converts a string to SCREAMING_SNAKE_CASE
 
 ## Usage
 ```shell
-> str screaming-snake-case ...args {flags} 
+> str screaming_snake_case ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ converts a string to SCREAMING_SNAKE_CASE
 ## Examples
   convert a string to SCREAMING_SNAKE_CASE
 ```shell
-> echo 'NuShell' | str screaming-snake-case
+> echo 'NuShell' | str screaming_snake_case
  ```
 

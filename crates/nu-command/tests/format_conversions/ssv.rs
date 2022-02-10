@@ -46,7 +46,7 @@ fn from_ssv_text_to_table_with_separator_specified() {
             cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from ssv --minimum-spaces 3
+                | from ssv --minimum_spaces 3
                 | get 0
                 | get IP
             "#

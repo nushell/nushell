@@ -39,7 +39,7 @@ impl Display for Operator {
             Operator::Multiply => write!(f, "*"),
             Operator::Divide => write!(f, "/"),
             Operator::In => write!(f, "in"),
-            Operator::NotIn => write!(f, "not-in"),
+            Operator::NotIn => write!(f, "not_in"),
             Operator::Modulo => write!(f, "mod"),
             Operator::And => write!(f, "&&"),
             Operator::Or => write!(f, "||"),

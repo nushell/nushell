@@ -12,7 +12,7 @@ pub struct ParEach;
 
 impl Command for ParEach {
     fn name(&self) -> &str {
-        "par-each"
+        "par_each"
     }
 
     fn usage(&self) -> &str {
@@ -20,7 +20,7 @@ impl Command for ParEach {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("par-each")
+        Signature::build("par_each")
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
@@ -32,7 +32,7 @@ impl Command for ParEach {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "[1 2 3] | par-each { 2 * $it }",
+            example: "[1 2 3] | par_each { 2 * $it }",
             description: "Multiplies elements in list",
             result: None,
         }]

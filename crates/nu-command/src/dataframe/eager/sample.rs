@@ -22,7 +22,7 @@ impl Command for SampleDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named(
-                "n-rows",
+                "n_rows",
                 SyntaxShape::Int,
                 "number of rows to be taken from dataframe",
                 Some('n'),
@@ -69,7 +69,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<Spanned<usize>> = call.get_flag(engine_state, stack, "n-rows")?;
+    let rows: Option<Spanned<usize>> = call.get_flag(engine_state, stack, "n_rows")?;
     let fraction: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "fraction")?;
     let replace: bool = call.has_flag("replace");
 

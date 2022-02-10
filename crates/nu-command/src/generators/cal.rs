@@ -32,19 +32,19 @@ impl Command for Cal {
             .switch("quarter", "Display the quarter column", Some('q'))
             .switch("month", "Display the month column", Some('m'))
             .named(
-                "full-year",
+                "full_year",
                 SyntaxShape::Int,
                 "Display a year-long calendar for the specified year",
                 None,
             )
             .named(
-                "week-start",
+                "week_start",
                 SyntaxShape::String,
                 "Display the calendar with the specified day as the first day of the week",
                 None,
             )
             .switch(
-                "month-names",
+                "month_names",
                 "Display the month names instead of integers",
                 None,
             )
@@ -100,10 +100,10 @@ pub fn cal(
     let arguments = Arguments {
         year: call.has_flag("year"),
         month: call.has_flag("month"),
-        month_names: call.has_flag("month-names"),
+        month_names: call.has_flag("month_names"),
         quarter: call.has_flag("quarter"),
-        full_year: call.get_flag(engine_state, stack, "full-year")?,
-        week_start: call.get_flag(engine_state, stack, "week-start")?,
+        full_year: call.get_flag(engine_state, stack, "full_year")?,
+        week_start: call.get_flag(engine_state, stack, "week_start")?,
     };
 
     let mut selected_year: i32 = current_year;

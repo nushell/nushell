@@ -105,7 +105,7 @@ fn count() {
         r#"
             echo [[bit];  [1] [0] [0] [0] [0] [0] [0] [1]]
             | histogram bit
-            | sort-by count
+            | sort_by count
             | reject frequency
             | to json
         "#

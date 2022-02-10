@@ -22,11 +22,11 @@ pub struct IndexOfOptionalBounds(i32, i32);
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str index-of"
+        "str index_of"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str index-of")
+        Signature::build("str index_of")
             .required(
                 "pattern",
                 SyntaxShape::String,
@@ -65,32 +65,32 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Returns index of pattern in string",
-                example: " 'my_library.rb' | str index-of '.rb'",
+                example: " 'my_library.rb' | str index_of '.rb'",
                 result: Some(Value::test_int(10)),
             },
             Example {
                 description: "Returns index of pattern in string with start index",
-                example: " '.rb.rb' | str index-of '.rb' -r '1,'",
+                example: " '.rb.rb' | str index_of '.rb' -r '1,'",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 description: "Returns index of pattern in string with end index",
-                example: " '123456' | str index-of '6' -r ',4'",
+                example: " '123456' | str index_of '6' -r ',4'",
                 result: Some(Value::test_int(-1)),
             },
             Example {
                 description: "Returns index of pattern in string with start and end index",
-                example: " '123456' | str index-of '3' -r '1,4'",
+                example: " '123456' | str index_of '3' -r '1,4'",
                 result: Some(Value::test_int(2)),
             },
             Example {
                 description: "Alternatively you can use this form",
-                example: " '123456' | str index-of '3' -r [1 4]",
+                example: " '123456' | str index_of '3' -r [1 4]",
                 result: Some(Value::test_int(2)),
             },
             Example {
                 description: "Returns index of pattern in string",
-                example: " '/this/is/some/path/file.txt' | str index-of '/' -e",
+                example: " '/this/is/some/path/file.txt' | str index_of '/' -e",
                 result: Some(Value::test_int(18)),
             },
         ]

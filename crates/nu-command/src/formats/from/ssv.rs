@@ -24,9 +24,9 @@ impl Command for FromSsv {
                 "don't treat the first row as column names",
                 Some('n'),
             )
-            .switch("aligned-columns", "assume columns are aligned", Some('a'))
+            .switch("aligned_columns", "assume columns are aligned", Some('a'))
             .named(
-                "minimum-spaces",
+                "minimum_spaces",
                 SyntaxShape::Int,
                 "the minimum spaces to separate columns",
                 Some('m'),
@@ -271,9 +271,9 @@ fn from_ssv(
     let name = call.head;
 
     let noheaders = call.has_flag("noheaders");
-    let aligned_columns = call.has_flag("aligned-columns");
+    let aligned_columns = call.has_flag("aligned_columns");
     let minimum_spaces: Option<Spanned<usize>> =
-        call.get_flag(engine_state, stack, "minimum-spaces")?;
+        call.get_flag(engine_state, stack, "minimum_spaces")?;
 
     let concat_string = input.collect_string("", &config)?;
     let split_at = match minimum_spaces {

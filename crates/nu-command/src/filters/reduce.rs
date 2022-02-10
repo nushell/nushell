@@ -53,7 +53,7 @@ impl Command for Reduce {
                 }),
             },
             Example {
-                example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find-replace -a $it.item "X" }"#,
+                example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find_replace -a $it.item "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
                 result: Some(Value::String {
                     val: "ArXhur, KXng Xf Xhe BrXXXns".to_string(),

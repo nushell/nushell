@@ -656,7 +656,7 @@ pub fn eval_variable(
 
                 history_path.push("history.txt");
 
-                output_cols.push("history-path".into());
+                output_cols.push("history_path".into());
                 output_vals.push(Value::String {
                     val: history_path.to_string_lossy().to_string(),
                     span,
@@ -664,7 +664,7 @@ pub fn eval_variable(
 
                 config_path.push("config.nu");
 
-                output_cols.push("config-path".into());
+                output_cols.push("config_path".into());
                 output_vals.push(Value::String {
                     val: config_path.to_string_lossy().to_string(),
                     span,
@@ -673,7 +673,7 @@ pub fn eval_variable(
                 // TODO: keybindings don't exist yet but lets add a file
                 // path for them to be stored in. It doesn't have to be yml.
                 keybinding_path.push("keybindings.yml");
-                output_cols.push("keybinding-path".into());
+                output_cols.push("keybinding_path".into());
                 output_vals.push(Value::String {
                     val: keybinding_path.to_string_lossy().to_string(),
                     span,
@@ -683,7 +683,7 @@ pub fn eval_variable(
             #[cfg(feature = "plugin")]
             if let Some(path) = &engine_state.plugin_signatures {
                 if let Some(path_str) = path.to_str() {
-                    output_cols.push("plugin-path".into());
+                    output_cols.push("plugin_path".into());
                     output_vals.push(Value::String {
                         val: path_str.into(),
                         span,
@@ -699,7 +699,7 @@ pub fn eval_variable(
 
             if let Some(home_path) = nu_path::home_dir() {
                 if let Some(home_path_str) = home_path.to_str() {
-                    output_cols.push("home-path".into());
+                    output_cols.push("home_path".into());
                     output_vals.push(Value::String {
                         val: home_path_str.into(),
                         span,
@@ -709,7 +709,7 @@ pub fn eval_variable(
 
             let temp = std::env::temp_dir();
             if let Some(temp_path) = temp.to_str() {
-                output_cols.push("temp-path".into());
+                output_cols.push("temp_path".into());
                 output_vals.push(Value::String {
                     val: temp_path.into(),
                     span,

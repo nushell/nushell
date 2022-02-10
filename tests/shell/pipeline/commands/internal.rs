@@ -306,7 +306,7 @@ fn run_custom_command_with_rest_other_name() {
                 greeting:string,
                 ...names:string # All of the names
                 ] {
-                    echo $"($greeting), ($names | sort-by | str collect)"
+                    echo $"($greeting), ($names | sort_by | str collect)"
                 }
             say-hello Salutations E D C A B
         "#
@@ -321,7 +321,7 @@ fn alias_a_load_env() {
     let actual = nu!(
         cwd: ".",
         r#"
-            def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); activate; $env.BOB
+            def activate-helper [] { {BOB: SAM} }; alias activate = load_env (activate-helper); activate; $env.BOB
         "#
     );
 
@@ -359,7 +359,7 @@ fn let_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            let_env TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
         "#
     );
@@ -372,7 +372,7 @@ fn let_env_hides_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            let_env TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
             hide TESTENVVAR
             echo $env.TESTENVVAR
@@ -388,7 +388,7 @@ fn let_env_hides_variable_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TESTENVVAR = "hello world"
+            let_env TESTENVVAR = "hello world"
             echo $env.TESTENVVAR
             do {
                 hide TESTENVVAR
@@ -407,7 +407,7 @@ fn unlet_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env TEST_VAR = "hello world"
+            let_env TEST_VAR = "hello world"
             hide TEST_VAR
             echo $env.TEST_VAR
         "#
@@ -432,10 +432,10 @@ fn unlet_variable_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-            let-env DEBUG = "1"
+            let_env DEBUG = "1"
             echo $env.DEBUG
             do {
-                let-env DEBUG = "2"
+                let_env DEBUG = "2"
                 echo $env.DEBUG
                 hide DEBUG
                 echo $env.DEBUG
@@ -452,7 +452,7 @@ fn let_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
-        do { let-env xyz = "my message" }; echo $env.xyz
+        do { let_env xyz = "my message" }; echo $env.xyz
         "#
     );
 
@@ -464,7 +464,7 @@ fn proper_shadow_let_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { let-env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
+        let_env DEBUG = "true"; echo $env.DEBUG | table; do { let_env DEBUG = "false"; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
@@ -475,7 +475,7 @@ fn load_env_variable() {
     let actual = nu!(
         cwd: ".",
         r#"
-            echo {TESTENVVAR: "hello world"} | load-env
+            echo {TESTENVVAR: "hello world"} | load_env
             echo $env.TESTENVVAR
         "#
     );
@@ -488,7 +488,7 @@ fn load_env_variable_arg() {
     let actual = nu!(
         cwd: ".",
         r#"
-            load-env {TESTENVVAR: "hello world"}
+            load_env {TESTENVVAR: "hello world"}
             echo $env.TESTENVVAR
         "#
     );
@@ -501,7 +501,7 @@ fn load_env_doesnt_leak() {
     let actual = nu!(
         cwd: ".",
         r#"
-        do { echo { name: xyz, value: "my message" } | load-env }; echo $env.xyz
+        do { echo { name: xyz, value: "my message" } | load_env }; echo $env.xyz
         "#
     );
 
@@ -513,22 +513,22 @@ fn proper_shadow_load_env_aliases() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load-env; echo $env.DEBUG } | table; echo $env.DEBUG
+        let_env DEBUG = "true"; echo $env.DEBUG | table; do { echo {DEBUG: "false"} | load_env; echo $env.DEBUG } | table; echo $env.DEBUG
         "#
     );
     assert_eq!(actual.out, "truefalsetrue");
 }
 
-//FIXME: jt: load-env can not currently hide variables because $nothing no longer hides
+//FIXME: jt: load_env can not currently hide variables because $nothing no longer hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "1"
+        let_env DEBUG = "1"
         echo $env.DEBUG
-        load-env [[name, value]; [DEBUG $nothing]]
+        load_env [[name, value]; [DEBUG $nothing]]
         echo $env.DEBUG
         "#
     );
@@ -537,17 +537,17 @@ fn load_env_can_hide_var_envs() {
     assert!(actual.err.contains("Unknown column"));
 }
 
-//FIXME: jt: load-env can not currently hide variables because $nothing no longer hides
+//FIXME: jt: load_env can not currently hide variables because $nothing no longer hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs_in_parent_scope() {
     let actual = nu!(
         cwd: ".",
         r#"
-        let-env DEBUG = "1"
+        let_env DEBUG = "1"
         echo $env.DEBUG
         do {
-            load-env [[name, value]; [DEBUG $nothing]]
+            load_env [[name, value]; [DEBUG $nothing]]
             echo $env.DEBUG
         }
         echo $env.DEBUG
@@ -723,7 +723,7 @@ fn string_not_inside_of() {
     let actual = nu!(
         cwd: ".",
         r#"
-            "bob" not-in "bobby"
+            "bob" not_in "bobby"
         "#
     );
 

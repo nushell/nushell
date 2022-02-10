@@ -40,7 +40,7 @@ impl Command for SubCommand {
                 Some('r'),
             )
             .named(
-                "num-levels",
+                "num_levels",
                 SyntaxShape::Int,
                 "Number of directories to walk up",
                 Some('n'),
@@ -62,7 +62,7 @@ impl Command for SubCommand {
         let args = Arguments {
             columns: call.get_flag(engine_state, stack, "columns")?,
             replace: call.get_flag(engine_state, stack, "replace")?,
-            num_levels: call.get_flag(engine_state, stack, "num-levels")?,
+            num_levels: call.get_flag(engine_state, stack, "num_levels")?,
         };
 
         input.map(

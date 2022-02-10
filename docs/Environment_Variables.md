@@ -37,7 +37,7 @@ Whenever we run some external tool, the `to_string` block will be called with `F
 You can test the conversions by manually calling them:
 
 ```
-> let-env FOO = "a:b:c"
+> let_env FOO = "a:b:c"
 
 > let list = (do $config.env_conversions.from_string $env.FOO)
 
@@ -54,7 +54,7 @@ a:b:c
 
 To verify the conversion works on startup, you can first set up `FOO`, then launch a new instance of Nushell (denoted as `>>`):
 ```
-> let-env FOO = "a:b:c"
+> let_env FOO = "a:b:c"
 
 > nu
 
@@ -95,7 +95,7 @@ Out of the box, Nushell ships with several environment variables serving a speci
 ## Breaking Changes
 
 * Setting environment variable to `$nothing` will no longer remove it -- it will be `$nothing`. Instead, you can use `hide $env.FOO`.
-* `$env.PROMPT_COMMAND` is a block instead of a string containing the source of the command to run. You can put this into your `config.nu`, for example: `let-env PROMPT_COMMAND = { echo "foo" }`.
+* `$env.PROMPT_COMMAND` is a block instead of a string containing the source of the command to run. You can put this into your `config.nu`, for example: `let_env PROMPT_COMMAND = { echo "foo" }`.
 
 ## Future Directions
 

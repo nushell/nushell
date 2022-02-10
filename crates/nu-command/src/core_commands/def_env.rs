@@ -7,7 +7,7 @@ pub struct DefEnv;
 
 impl Command for DefEnv {
     fn name(&self) -> &str {
-        "def-env"
+        "def_env"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl Command for DefEnv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("def-env")
+        Signature::build("def_env")
             .required("def_name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required(

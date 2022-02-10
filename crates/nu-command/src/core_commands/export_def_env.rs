@@ -7,7 +7,7 @@ pub struct ExportDefEnv;
 
 impl Command for ExportDefEnv {
     fn name(&self) -> &str {
-        "export def-env"
+        "export def_env"
     }
 
     fn usage(&self) -> &str {
@@ -15,7 +15,7 @@ impl Command for ExportDefEnv {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("export def-env")
+        Signature::build("export def_env")
             .required("name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required(

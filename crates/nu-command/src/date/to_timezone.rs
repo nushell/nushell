@@ -15,11 +15,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "date to-timezone"
+        "date to_timezone"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date to-timezone")
+        Signature::build("date to_timezone")
             .required("time zone", SyntaxShape::String, "time zone description")
             .category(Category::Date)
     }
@@ -29,7 +29,7 @@ impl Command for SubCommand {
     }
 
     fn extra_usage(&self) -> &str {
-        "Use 'date list-timezone' to list all supported time zones."
+        "Use 'date list_timezone' to list all supported time zones."
     }
 
     fn run(
@@ -53,22 +53,22 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Get the current date in UTC+05:00",
-                example: "date now | date to-timezone +0500",
+                example: "date now | date to_timezone +0500",
                 result: None,
             },
             Example {
                 description: "Get the current local date",
-                example: "date now | date to-timezone local",
+                example: "date now | date to_timezone local",
                 result: None,
             },
             Example {
                 description: "Get the current date in Hawaii",
-                example: "date now | date to-timezone US/Hawaii",
+                example: "date now | date to_timezone US/Hawaii",
                 result: None,
             },
             Example {
                 description: "Get the current date in Hawaii",
-                example: r#""2020-10-10 10:00:00 +02:00" | date to-timezone "+0500""#,
+                example: r#""2020-10-10 10:00:00 +02:00" | date to_timezone "+0500""#,
                 // result: None
                 // The following should be the result of the test, but it fails. Cannot figure it out why.
                 result: {

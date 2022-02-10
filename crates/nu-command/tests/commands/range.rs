@@ -11,7 +11,7 @@ fn selects_a_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
-                | sort-by name
+                | sort_by name
                 | range 0..0
                 | get name.0
             "#

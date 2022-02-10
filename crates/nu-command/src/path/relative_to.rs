@@ -23,11 +23,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "path relative-to"
+        "path relative_to"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path relative-to")
+        Signature::build("path relative_to")
             .required(
                 "path",
                 SyntaxShape::String,
@@ -75,17 +75,17 @@ path."#
         vec![
             Example {
                 description: "Find a relative path from two absolute paths",
-                example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
+                example: r"'C:\Users\viking' | path relative_to 'C:\Users'",
                 result: Some(Value::test_string(r"viking")),
             },
             Example {
                 description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
+                example: "ls ~ | path relative_to ~ -c [ name ]",
                 result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",
-                example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
+                example: r"'eggs\bacon\sausage\spam' | path relative_to 'eggs\bacon\sausage'",
                 result: Some(Value::test_string(r"spam")),
             },
         ]
@@ -96,17 +96,17 @@ path."#
         vec![
             Example {
                 description: "Find a relative path from two absolute paths",
-                example: r"'/home/viking' | path relative-to '/home'",
+                example: r"'/home/viking' | path relative_to '/home'",
                 result: Some(Value::test_string(r"viking")),
             },
             Example {
                 description: "Find a relative path from two absolute paths in a column",
-                example: "ls ~ | path relative-to ~ -c [ name ]",
+                example: "ls ~ | path relative_to ~ -c [ name ]",
                 result: None,
             },
             Example {
                 description: "Find a relative path from two relative paths",
-                example: r"'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
+                example: r"'eggs/bacon/sausage/spam' | path relative_to 'eggs/bacon/sausage'",
                 result: Some(Value::test_string(r"spam")),
             },
         ]

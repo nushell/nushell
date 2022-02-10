@@ -13,11 +13,11 @@ pub struct GroupBy;
 
 impl Command for GroupBy {
     fn name(&self) -> &str {
-        "group-by"
+        "group_by"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("group-by").optional(
+        Signature::build("group_by").optional(
             "grouper",
             SyntaxShape::Any,
             "the grouper value to use",
@@ -43,12 +43,12 @@ impl Command for GroupBy {
         vec![
             Example {
                 description: "group items by column named \"type\"",
-                example: r#"ls | group-by type"#,
+                example: r#"ls | group_by type"#,
                 result: None,
             },
             Example {
                 description: "you can also group by raw values by leaving out the argument",
-                example: "echo ['1' '3' '1' '3' '2' '1' '1'] | group-by",
+                example: "echo ['1' '3' '1' '3' '2' '1' '1'] | group_by",
                 result: Some(Value::Record {
                     cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
                     vals: vec![

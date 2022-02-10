@@ -149,7 +149,7 @@ hi there!
 
 So far we used modules just to import custom commands.
 It is possible to export environment variables the same way.
-The syntax is slightly different than what you might be used to from commands like `let-env` or `load-env`:
+The syntax is slightly different than what you might be used to from commands like `let_env` or `load_env`:
 ```
 # greetings.nu
 
@@ -225,7 +225,7 @@ Let's show these with examples.
 We saw direct hiding of a custom command already.
 Let's try environment variables:
 ```
-> let-env FOO = "FOO"
+> let_env FOO = "FOO"
 
 > $env.FOO
 FOO
@@ -330,10 +330,10 @@ For example: `use dataframe as df`.
 
 ### Dynamic names for environment variables
 
-The `load-env` command exists because we needed to define the environment variable name at runtime.
-Currently, both `let-env` and `export env` require static environment variable names.
+The `load_env` command exists because we needed to define the environment variable name at runtime.
+Currently, both `let_env` and `export env` require static environment variable names.
 Could we allow them to accept an expression in place of the name?
-For example `export env (whoami | str screaming-snake-case).0 { "foo" }` or `let-env (whoami | str screaming-snake-case).0 = "foo"`
+For example `export env (whoami | str screaming_snake_case).0 { "foo" }` or `let_env (whoami | str screaming_snake_case).0 = "foo"`
 
 ### To Source or Not To Source
 

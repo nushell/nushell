@@ -18,11 +18,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str starts-with"
+        "str starts_with"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str starts-with")
+        Signature::build("str starts_with")
             .required("pattern", SyntaxShape::String, "the pattern to match")
             .rest(
                 "rest",
@@ -50,7 +50,7 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Checks if string starts with 'my' pattern",
-                example: "'my_library.rb' | str starts-with 'my'",
+                example: "'my_library.rb' | str starts_with 'my'",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
@@ -58,7 +58,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if string starts with 'my' pattern",
-                example: "'Cargo.toml' | str starts-with 'Car'",
+                example: "'Cargo.toml' | str starts_with 'Car'",
                 result: Some(Value::Bool {
                     val: true,
                     span: Span::test_data(),
@@ -66,7 +66,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if string starts with 'my' pattern",
-                example: "'Cargo.toml' | str starts-with '.toml'",
+                example: "'Cargo.toml' | str starts_with '.toml'",
                 result: Some(Value::Bool {
                     val: false,
                     span: Span::test_data(),

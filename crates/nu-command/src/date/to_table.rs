@@ -9,11 +9,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "date to-table"
+        "date to_table"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date to-table").category(Category::Date)
+        Signature::build("date to_table").category(Category::Date)
     }
 
     fn usage(&self) -> &str {
@@ -35,17 +35,17 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Print the date in a structured table.",
-                example: "date to-table",
+                example: "date to_table",
                 result: None,
             },
             Example {
                 description: "Print the date in a structured table.",
-                example: "date now | date to-table",
+                example: "date now | date to_table",
                 result: None,
             },
             Example {
                 description: "Print the date in a structured table.",
-                example: " '2020-04-12 22:10:57 +0200' | date to-table",
+                example: " '2020-04-12 22:10:57 +0200' | date to_table",
                 result: {
                     let span = Span::test_data();
                     let cols = vec![

@@ -18,7 +18,7 @@ impl Command for Lines {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("lines")
-            .switch("skip-empty", "skip empty lines", Some('s'))
+            .switch("skip_empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }
 
@@ -30,7 +30,7 @@ impl Command for Lines {
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
-        let skip_empty = call.has_flag("skip-empty");
+        let skip_empty = call.has_flag("skip_empty");
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for

@@ -22,7 +22,7 @@ impl Command for ToNu {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named(
-                "n-rows",
+                "n_rows",
                 SyntaxShape::Number,
                 "number of rows to be shown",
                 Some('n'),
@@ -63,7 +63,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<usize> = call.get_flag(engine_state, stack, "n-rows")?;
+    let rows: Option<usize> = call.get_flag(engine_state, stack, "n_rows")?;
     let tail: bool = call.has_flag("tail");
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;

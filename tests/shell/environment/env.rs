@@ -71,7 +71,7 @@ fn env_shorthand_multi() {
 #[test]
 fn passes_let_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
-        let-env FOO = foo
+        let_env FOO = foo
         nu --testbin echo_env FOO
         "#);
     assert_eq!(actual.out, "foo");
@@ -80,7 +80,7 @@ fn passes_let_env_env_var_to_external_process() {
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!(cwd: ".", r#"
-        with-env [FOO foo] {nu --testbin echo_env FOO}
+        with_env [FOO foo] {nu --testbin echo_env FOO}
         "#);
     assert_eq!(actual.out, "foo");
 }

@@ -25,9 +25,7 @@ pub struct DuArgs {
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
-    #[serde(rename = "max-depth")]
     max_depth: Option<i64>,
-    #[serde(rename = "min-size")]
     min_size: Option<i64>,
 }
 
@@ -60,13 +58,13 @@ impl Command for Du {
                 Some('x'),
             )
             .named(
-                "max-depth",
+                "max_depth",
                 SyntaxShape::Int,
                 "Directory recursion limit",
                 Some('d'),
             )
             .named(
-                "min-size",
+                "min_size",
                 SyntaxShape::Int,
                 "Exclude files below this size",
                 Some('m'),
@@ -88,7 +86,7 @@ impl Command for Du {
             deref: call.has_flag("deref"),
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth: call
-                .get_flag::<i64>(engine_state, stack, "max-depth")?
+                .get_flag::<i64>(engine_state, stack, "max_depth")?
                 .map(|n| (n as u64).try_into().expect("error converting i64 to u64")),
             min_size: call.get_flag(engine_state, stack, "min_size")?,
         };

@@ -1,9 +1,9 @@
-# let-env
+# let_env
 Create an environment variable and give it a value.
 
 ## Usage
 ```shell
-> let-env <name> <equals> <expr> {flags} 
+> let_env <name> <equals> <expr> {flags} 
  ```
 
 ## Parameters

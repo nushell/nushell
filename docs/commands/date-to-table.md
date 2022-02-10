@@ -1,9 +1,9 @@
-# date to-table
+# date to_table
 Print the date in a structured table.
 
 ## Usage
 ```shell
-> date to-table {flags} 
+> date to_table {flags} 
  ```
 
 ## Flags
@@ -12,6 +12,6 @@ Print the date in a structured table.
 ## Examples
   Print the current date in a table
 ```shell
-> date now | date to-table
+> date now | date to_table
  ```
 

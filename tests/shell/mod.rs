@@ -14,9 +14,9 @@ fn plugins_are_declared_with_wix() {
         r#"
             open Cargo.toml
             | get bin.name
-            | str find-replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
+            | str find_replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
             | drop
-            | sort-by
+            | sort_by
             | wrap cargo | merge {
                 open wix/main.wxs --raw | from xml
                 | get Wix.children.Product.children.0.Directory.children.0
@@ -28,7 +28,7 @@ fn plugins_are_declared_with_wix() {
                 | where File.attributes.Name =~ "nu_plugin"
                 | str substring [_, -4] File.attributes.Name
                 | get File.attributes.Name
-                | sort-by
+                | sort_by
                 | wrap wix
             }
             | default wix _

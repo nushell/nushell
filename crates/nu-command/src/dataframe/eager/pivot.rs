@@ -53,12 +53,12 @@ impl Command for PivotDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "pivot-column",
+                "pivot_column",
                 SyntaxShape::String,
                 "pivot column to perform pivot",
             )
             .required(
-                "value-column",
+                "value_column",
                 SyntaxShape::String,
                 "value column to perform pivot",
             )
@@ -70,7 +70,7 @@ impl Command for PivotDF {
         vec![Example {
             description: "Pivot a dataframe on b and aggregation on col c",
             example:
-                "[[a b c]; [one x 1] [two y 2]] | dfr to-df | dfr group-by a | dfr pivot b c sum",
+                "[[a b c]; [one x 1] [two y 2]] | dfr to-df | dfr group_by a | dfr pivot b c sum",
             result: None,
         }]
     }

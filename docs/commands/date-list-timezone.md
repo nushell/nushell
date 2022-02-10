@@ -1,9 +1,9 @@
-# date list-timezone
+# date list_timezone
 List supported time zones.
 
 ## Usage
 ```shell
-> date list-timezone {flags} 
+> date list_timezone {flags} 
  ```
 
 ## Flags
@@ -12,11 +12,11 @@ List supported time zones.
 ## Examples
   List all supported time zones
 ```shell
-> date list-timezone
+> date list_timezone
  ```
 
   List all supported European time zones
 ```shell
-> date list-timezone | where timezone =~ Europe
+> date list_timezone | where timezone =~ Europe
  ```
 

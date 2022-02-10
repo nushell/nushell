@@ -36,13 +36,13 @@ impl Command for MeltDF {
                 Some('v'),
             )
             .named(
-                "variable-name",
+                "variable_name",
                 SyntaxShape::String,
                 "optional name for variable column",
                 Some('r'),
             )
             .named(
-                "value-name",
+                "value_name",
                 SyntaxShape::String,
                 "optional name for value column",
                 Some('l'),
@@ -132,9 +132,9 @@ fn command(
         .get_flag(engine_state, stack, "values")?
         .expect("required value");
 
-    let value_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "value-name")?;
+    let value_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "value_name")?;
     let variable_name: Option<Spanned<String>> =
-        call.get_flag(engine_state, stack, "variable-name")?;
+        call.get_flag(engine_state, stack, "variable_name")?;
 
     let (id_col_string, id_col_span) = convert_columns_string(id_col, call.head)?;
     let (val_col_string, val_col_span) = convert_columns_string(val_col, call.head)?;

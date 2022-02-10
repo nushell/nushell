@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn with_env_extends_environment() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "with-env [FOO BARRRR] {echo $env} | get FOO"
+        "with_env [FOO BARRRR] {echo $env} | get FOO"
     );
 
     assert_eq!(actual.out, "BARRRR");
@@ -49,7 +49,7 @@ fn with_env_and_shorthand_same_result() {
 
     let actual_normal = nu!(
         cwd: "tests/fixtures/formats",
-        "with-env [FOO BARRRR] {echo $env} | get FOO"
+        "with_env [FOO BARRRR] {echo $env} | get FOO"
     );
 
     assert_eq!(actual_shorthand.out, actual_normal.out);
@@ -74,9 +74,9 @@ fn with_env_hides_variables_in_parent_scope() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         r#"
-        let-env FOO = "1"
+        let_env FOO = "1"
         echo $env.FOO
-        with-env [FOO $nothing] {
+        with_env [FOO $nothing] {
             echo $env.FOO
         }
         echo $env.FOO
@@ -95,7 +95,7 @@ fn with_env_shorthand_can_not_hide_variables() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         r#"
-        let-env FOO = "1"
+        let_env FOO = "1"
         echo $env.FOO
         FOO=$nothing echo $env.FOO
         echo $env.FOO

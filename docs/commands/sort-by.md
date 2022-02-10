@@ -1,9 +1,9 @@
 
-# sort-by
+# sort_by
 
-The `sort-by` command sorts the table being displayed in the terminal by a chosen column(s).
+The `sort_by` command sorts the table being displayed in the terminal by a chosen column(s).
 
-`sort-by` takes multiple arguments (being the names of columns) sorting by each argument in order.
+`sort_by` takes multiple arguments (being the names of columns) sorting by each argument in order.
 
 ## Flags
 
@@ -12,7 +12,7 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
 ## Examples
 
 ```shell
-> ls | sort-by size
+> ls | sort_by size
 ━━━┯━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name │ type │ readonly │ size   │ accessed       │ modified
 ───┼──────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -28,7 +28,7 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
 ```
 
 ```shell
-> ls | sort-by size name
+> ls | sort_by size name
 ━━━┯━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name │ type │ readonly │ size   │ accessed       │ modified
 ───┼──────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -43,7 +43,7 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
 ```
 
 ```shell
-> ls | sort-by accessed
+> ls | sort_by accessed
 ━━━┯━━━━━━┯━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
  # │ name │ type │ readonly │ size   │ accessed       │ modified
 ───┼──────┼──────┼──────────┼────────┼────────────────┼────────────────
@@ -61,7 +61,7 @@ The `sort-by` command sorts the table being displayed in the terminal by a chose
 Within the Nushell repository...
 
 ```shell
-> ls | sort-by --insensitive name
+> ls | sort_by --insensitive name
 ────┬────────────────────┬──────┬──────────┬──────────────
  #  │ name               │ type │ size     │ modified
 ────┼────────────────────┼──────┼──────────┼──────────────
@@ -93,7 +93,7 @@ Within the Nushell repository...
 Within the Nushell repository...
 
 ```shell
-> ls | sort-by --insensitive type name
+> ls | sort_by --insensitive type name
 ────┬────────────────────┬──────┬──────────┬──────────────
  #  │ name               │ type │ size     │ modified
 ────┼────────────────────┼──────┼──────────┼──────────────

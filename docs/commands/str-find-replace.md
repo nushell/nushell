@@ -1,9 +1,9 @@
-# str find-replace
+# str find_replace
 finds and replaces text
 
 ## Usage
 ```shell
-> str find-replace <find> <replace> ...args {flags} 
+> str find_replace <find> <replace> ...args {flags} 
  ```
 
 ## Parameters
@@ -18,11 +18,11 @@ finds and replaces text
 ## Examples
   Find and replace contents with capture group
 ```shell
-> echo 'my_library.rb' | str find-replace '(.+).rb' '$1.nu'
+> echo 'my_library.rb' | str find_replace '(.+).rb' '$1.nu'
  ```
 
   Find and replace all occurrences of find string
 ```shell
-> echo 'abc abc abc' | str find-replace -a 'b' 'z'
+> echo 'abc abc abc' | str find_replace -a 'b' 'z'
  ```
 

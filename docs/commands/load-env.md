@@ -1,9 +1,9 @@
-# load-env
+# load_env
 Set environment variables using a table stream
 
 ## Usage
 ```shell
-> load-env (environ) {flags} 
+> load_env (environ) {flags} 
  ```
 
 ## Parameters
@@ -15,16 +15,16 @@ Set environment variables using a table stream
 ## Examples
   Load variables from an input stream
 ```shell
-> echo [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]] | load-env; echo $nu.env.NAME
+> echo [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]] | load_env; echo $nu.env.NAME
  ```
 
   Load variables from an argument
 ```shell
-> load-env [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]]; echo $nu.env.NAME
+> load_env [[name, value]; ["NAME", "JT"] ["AGE", "UNKNOWN"]]; echo $nu.env.NAME
  ```
 
   Load variables from an argument and an input stream
 ```shell
-> echo [[name, value]; ["NAME", "JT"]] | load-env [[name, value]; ["VALUE", "FOO"]]; echo $nu.env.NAME $nu.env.VALUE
+> echo [[name, value]; ["NAME", "JT"]] | load_env [[name, value]; ["VALUE", "FOO"]]; echo $nu.env.NAME $nu.env.VALUE
  ```
 

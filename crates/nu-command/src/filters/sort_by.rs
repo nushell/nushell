@@ -13,11 +13,11 @@ pub struct SortBy;
 
 impl Command for SortBy {
     fn name(&self) -> &str {
-        "sort-by"
+        "sort_by"
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("sort-by")
+        Signature::build("sort_by")
             .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
@@ -35,7 +35,7 @@ impl Command for SortBy {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[2 0 1] | sort-by",
+                example: "[2 0 1] | sort_by",
                 description: "sort the list by increasing value",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
@@ -43,7 +43,7 @@ impl Command for SortBy {
                 }),
             },
             Example {
-                example: "[2 0 1] | sort-by -r",
+                example: "[2 0 1] | sort_by -r",
                 description: "sort the list by decreasing value",
                 result: Some(Value::List {
                     vals: vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
@@ -51,7 +51,7 @@ impl Command for SortBy {
                 }),
             },
             Example {
-                example: "[betty amy sarah] | sort-by",
+                example: "[betty amy sarah] | sort_by",
                 description: "sort a list of strings",
                 result: Some(Value::List {
                     vals: vec![
@@ -63,7 +63,7 @@ impl Command for SortBy {
                 }),
             },
             Example {
-                example: "[betty amy sarah] | sort-by -r",
+                example: "[betty amy sarah] | sort_by -r",
                 description: "sort a list of strings in reverse",
                 result: Some(Value::List {
                     vals: vec![
@@ -76,7 +76,7 @@ impl Command for SortBy {
             },
             Example {
                 description: "Sort strings (case-insensitive)",
-                example: "echo [airplane Truck Car] | sort-by -i",
+                example: "echo [airplane Truck Car] | sort_by -i",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("airplane"),
@@ -88,7 +88,7 @@ impl Command for SortBy {
             },
             Example {
                 description: "Sort strings (reversed case-insensitive)",
-                example: "echo [airplane Truck Car] | sort-by -i -r",
+                example: "echo [airplane Truck Car] | sort_by -i -r",
                 result: Some(Value::List {
                     vals: vec![
                         Value::test_string("Truck"),
@@ -150,7 +150,7 @@ pub fn sort(
             ..
         } => {
             if columns.is_empty() {
-                println!("sort-by requires a column name to sort table data");
+                println!("sort_by requires a column name to sort table data");
                 return Err(ShellError::CantFindColumn(call.head, call.head));
             }
 

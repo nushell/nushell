@@ -242,7 +242,7 @@ Each stage in the pipeline works together to load, parse, and display informatio
 [Examples]
 
 List the files in the current directory, sorted by size:
-    ls | sort-by size
+    ls | sort_by size
 
 Get information about the current system:
     sys | get host

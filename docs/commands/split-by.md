@@ -1,9 +1,9 @@
-# split-by
+# split_by
 Creates a new table with the data from the inner tables split by the column given.
 
 ## Usage
 ```shell
-> split-by (column_name) {flags} 
+> split_by (column_name) {flags} 
  ```
 
 ## Parameters

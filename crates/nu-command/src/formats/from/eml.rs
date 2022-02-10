@@ -23,7 +23,7 @@ impl Command for FromEml {
     fn signature(&self) -> Signature {
         Signature::build("from eml")
             .named(
-                "preview-body",
+                "preview_body",
                 SyntaxShape::Int,
                 "How many bytes of the body to preview",
                 Some('b'),
@@ -44,7 +44,7 @@ impl Command for FromEml {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let preview_body: Option<Spanned<i64>> =
-            call.get_flag(engine_state, stack, "preview-body")?;
+            call.get_flag(engine_state, stack, "preview_body")?;
         let config = stack.get_config().unwrap_or_default();
         from_eml(input, preview_body, head, &config)
     }

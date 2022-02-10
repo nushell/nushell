@@ -1,9 +1,9 @@
-# str pascal-case
+# str pascal_case
 converts a string to PascalCase
 
 ## Usage
 ```shell
-> str pascal-case ...args {flags} 
+> str pascal_case ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ converts a string to PascalCase
 ## Examples
   convert a string to PascalCase
 ```shell
-> echo 'nu-shell' | str pascal-case
+> echo 'nu-shell' | str pascal_case
  ```
 

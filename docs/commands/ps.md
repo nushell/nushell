@@ -25,7 +25,7 @@ Syntax: `ps`
 
 Find processes with the highest cpu time
 ```shell
-> ps -l | sort-by cpu_time | last 2
+> ps -l | sort_by cpu_time | last 2
  # │ pid │       name       │ status  │  cpu   │   mem    │ virtual │     cpu_time      │ parent │         exe          │       command
 ───┼─────┼──────────────────┼─────────┼────────┼──────────┼─────────┼───────────────────┼────────┼──────────────────────┼──────────────────────
  0 │ 396 │ Google Chrome    │ Running │ 0.0000 │ 271.6 MB │  5.8 GB │ 6hr 20min 28sec   │      1 │ /Applications/Google │ /Applications/Google

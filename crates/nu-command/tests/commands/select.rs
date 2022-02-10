@@ -136,7 +136,7 @@ fn selects_a_row() {
             cwd: dirs.test(), pipeline(
             r#"
                 ls
-                | sort-by name
+                | sort_by name
                 | select 0
                 | get name.0
             "#

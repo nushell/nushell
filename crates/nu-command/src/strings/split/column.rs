@@ -20,7 +20,7 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "the character that denotes what separates columns",
             )
-            .switch("collapse-empty", "remove empty columns", Some('c'))
+            .switch("collapse_empty", "remove empty columns", Some('c'))
             .rest(
                 "rest",
                 SyntaxShape::String,
@@ -53,7 +53,7 @@ fn split_column(
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
-    let collapse_empty = call.has_flag("collapse-empty");
+    let collapse_empty = call.has_flag("collapse_empty");
 
     input.flat_map(
         move |x| split_column_helper(&x, &separator, &rest, collapse_empty, name_span),

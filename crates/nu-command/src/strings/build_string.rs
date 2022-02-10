@@ -11,7 +11,7 @@ pub struct BuildString;
 
 impl Command for BuildString {
     fn name(&self) -> &str {
-        "build-string"
+        "build_string"
     }
 
     fn usage(&self) -> &str {
@@ -19,7 +19,7 @@ impl Command for BuildString {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("build-string")
+        Signature::build("build_string")
             .rest("rest", SyntaxShape::String, "list of string")
             .category(Category::Strings)
     }
@@ -27,7 +27,7 @@ impl Command for BuildString {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "build-string a b c",
+                example: "build_string a b c",
                 description: "Builds a string from letters a b c",
                 result: Some(Value::String {
                     val: "abc".to_string(),
@@ -35,7 +35,7 @@ impl Command for BuildString {
                 }),
             },
             Example {
-                example: "build-string (1 + 2) = one ' ' plus ' ' two",
+                example: "build_string (1 + 2) = one ' ' plus ' ' two",
                 description: "Builds a string from letters a b c",
                 result: Some(Value::String {
                     val: "3=one plus two".to_string(),

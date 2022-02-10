@@ -1,9 +1,9 @@
-# str kebab-case
+# str kebab_case
 converts a string to kebab-case
 
 ## Usage
 ```shell
-> str kebab-case ...args {flags} 
+> str kebab_case ...args {flags} 
  ```
 
 ## Parameters
@@ -15,6 +15,6 @@ converts a string to kebab-case
 ## Examples
   convert a string to kebab-case
 ```shell
-> echo 'NuShell' | str kebab-case
+> echo 'NuShell' | str kebab_case
  ```
 

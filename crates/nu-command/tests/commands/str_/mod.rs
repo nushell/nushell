@@ -110,7 +110,7 @@ fn camelcases() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str camel-case dependency.name | get dependency.name"
+            "open sample.toml | str camel_case dependency.name | get dependency.name"
         );
 
         assert_eq!(actual.out, "thisIsATest");
@@ -165,7 +165,7 @@ fn find_and_replaces() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str find-replace KATZ "5289" fortune.teller.phone
+                 | str find_replace KATZ "5289" fortune.teller.phone
                  | get fortune.teller.phone
              "#
         ));
@@ -190,7 +190,7 @@ fn find_and_replaces_without_passing_field() {
             r#"
                  open sample.toml
                  | get fortune.teller.phone
-                 | str find-replace KATZ "5289"
+                 | str find_replace KATZ "5289"
              "#
         ));
 

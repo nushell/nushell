@@ -12,7 +12,7 @@ pub struct CreateGroupBy;
 
 impl Command for CreateGroupBy {
     fn name(&self) -> &str {
-        "dfr group-by"
+        "dfr group_by"
     }
 
     fn usage(&self) -> &str {
@@ -28,7 +28,7 @@ impl Command for CreateGroupBy {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Grouping by column a",
-            example: "[[a b]; [one 1] [one 2]] | dfr to-df | dfr group-by a",
+            example: "[[a b]; [one 1] [one 2]] | dfr to-df | dfr group_by a",
             result: None,
         }]
     }

@@ -8,11 +8,11 @@ pub struct NuHighlight;
 
 impl Command for NuHighlight {
     fn name(&self) -> &str {
-        "nu-highlight"
+        "nu_highlight"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nu-highlight").category(Category::Strings)
+        Signature::build("nu_highlight").category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
@@ -56,7 +56,7 @@ impl Command for NuHighlight {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Describe the type of a string",
-            example: "'let x = 3' | nu-highlight",
+            example: "'let x = 3' | nu_highlight",
             result: None,
         }]
     }

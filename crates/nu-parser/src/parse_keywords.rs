@@ -30,7 +30,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
         (name, spans)
     };
 
-    if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
+    if (name == b"def" || name == b"def_env") && spans.len() >= 4 {
         let (name_expr, ..) = parse_string(working_set, spans[1]);
         let name = name_expr.as_string();
 
@@ -237,7 +237,7 @@ pub fn parse_def(
     // Maybe this is not necessary but it is a sanity check
 
     let def_call = working_set.get_span_contents(spans[0]).to_vec();
-    if def_call != b"def" && def_call != b"def-env" {
+    if def_call != b"def" && def_call != b"def_env" {
         return (
             garbage_statement(spans),
             Some(ParseError::UnknownState(
@@ -335,7 +335,7 @@ pub fn parse_def(
             let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
 
             let mut block = working_set.get_block_mut(block_id);
-            block.redirect_env = def_call == b"def-env";
+            block.redirect_env = def_call == b"def_env";
             block.captures = captures;
         } else {
             error = error.or_else(|| {
@@ -547,7 +547,7 @@ pub fn parse_export(
                     None
                 }
             }
-            b"def-env" => {
+            b"def_env" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
@@ -555,7 +555,7 @@ pub fn parse_export(
                 let (stmt, err) = parse_def(working_set, &lite_command);
                 error = error.or(err);
 
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def_env")
                 {
                     id
                 } else {
@@ -563,7 +563,7 @@ pub fn parse_export(
                         garbage_statement(spans),
                         None,
                         Some(ParseError::InternalError(
-                            "missing 'export def-env' command".into(),
+                            "missing 'export def_env' command".into(),
                             export_span,
                         )),
                     );
@@ -771,7 +771,7 @@ pub fn parse_module_block(
                 let name = working_set.get_span_contents(pipeline.commands[0].parts[0]);
 
                 let (stmt, err) = match name {
-                    b"def" | b"def-env" => {
+                    b"def" | b"def_env" => {
                         let (stmt, err) = parse_def(working_set, &pipeline.commands[0]);
 
                         (stmt, err)

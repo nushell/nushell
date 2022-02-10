@@ -22,7 +22,7 @@ impl Command for ToMd {
                 Some('p'),
             )
             .switch(
-                "per-element",
+                "per_element",
                 "treat each row as markdown syntax element",
                 Some('e'),
             )
@@ -49,7 +49,7 @@ impl Command for ToMd {
             },
             Example {
                 description: "Treat each row as a markdown element",
-                example: r#"[{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty"#,
+                example: r#"[{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per_element --pretty"#,
                 result: Some(Value::test_string(
                     "# Welcome to Nushell\n| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
@@ -66,7 +66,7 @@ impl Command for ToMd {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let head = call.head;
         let pretty = call.has_flag("pretty");
-        let per_element = call.has_flag("per-element");
+        let per_element = call.has_flag("per_element");
         let config = stack.get_config().unwrap_or_default();
         to_md(input, pretty, per_element, config, head)
     }

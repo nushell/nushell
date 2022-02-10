@@ -13,7 +13,7 @@ Skips rows while the condition matches.
 If we open a file with a list of contacts, we get all of the contacts.
 
 ```shell
-> open contacts.csv | sort-by "last name"
+> open contacts.csv | sort_by "last name"
 ───┬────────────┬───────────┬──────────────────
  # │ first name │ last name │ email
 ───┼────────────┼───────────┼──────────────────
@@ -27,7 +27,7 @@ If we open a file with a list of contacts, we get all of the contacts.
 To exclude skip contacts with last names starting with 'A' or 'B', use skip-while:
 
 ```shell
-> open contacts.csv | sort-by "last name" |  skip-while "last name" < "C"
+> open contacts.csv | sort_by "last name" |  skip-while "last name" < "C"
 ───┬────────────┬───────────┬──────────────────
  # │ first name │ last name │ email
 ───┼────────────┼───────────┼──────────────────

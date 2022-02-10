@@ -7,7 +7,7 @@ use nu_test_support::pipeline;
 fn filters_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | where size > 1kib | sort-by size | get name | first 1 | str trim"
+        "ls | where size > 1kib | sort_by size | get name | first 1 | str trim"
     );
 
     assert_eq!(actual.out, "cargo_sample.toml");
@@ -37,7 +37,7 @@ fn where_in_table() {
 fn where_not_in_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not-in ["foo"] | get size | math sum"#
+        r#"echo '[{"name": "foo", "size": 3}, {"name": "foo", "size": 2}, {"name": "bar", "size": 4}]' | from json | where name not_in ["foo"] | get size | math sum"#
     );
 
     assert_eq!(actual.out, "4");

@@ -22,7 +22,7 @@ impl Command for Input {
         Signature::build("input")
             .optional("prompt", SyntaxShape::String, "prompt to show the user")
             .named(
-                "bytes-until",
+                "bytes_until",
                 SyntaxShape::String,
                 "read bytes (not text) until a stop byte",
                 Some('u'),
@@ -38,7 +38,7 @@ impl Command for Input {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
-        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
+        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes_until")?;
 
         if let Some(bytes_until) = bytes_until {
             let _ = crossterm::terminal::enable_raw_mode();

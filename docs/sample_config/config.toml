@@ -18,7 +18,7 @@ rm_always_trash = true
 [env]
 # nu now reads PROMPT_COMMAND env var instead of "prompt" config parameter
 # and if fails to parse it, it silently ignores it and uses default prompt
-PROMPT_COMMAND = "build-string (ansi gb) (pwd) (ansi reset) '(' (ansi cb) (do -i { git rev-parse --abbrev-ref HEAD } | str trim ) (ansi reset) ')' (char newline) (ansi yb) (date format '%m/%d/%Y %I:%M:%S%.3f %p') (ansi reset) '> ' "
+PROMPT_COMMAND = "build_string (ansi gb) (pwd) (ansi reset) '(' (ansi cb) (do -i { git rev-parse --abbrev-ref HEAD } | str trim ) (ansi reset) ')' (char newline) (ansi yb) (date format '%m/%d/%Y %I:%M:%S%.3f %p') (ansi reset) '> ' "
 
 # for each of the options in the color_config section, you are able to set
 # the color alone or with one of the following attributes.
