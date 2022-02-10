@@ -1260,14 +1260,13 @@ pub fn parse_string_interpolation(
     let mut output = vec![];
     let mut mode = InterpolationMode::String;
     let mut token_start = start;
-    let mut depth = 0;
+    let mut delimiter_stack = vec![];
 
     let mut b = start;
 
     #[allow(clippy::needless_range_loop)]
     while b != end {
         if contents[b - start] == b'(' && mode == InterpolationMode::String {
-            depth = 1;
             mode = InterpolationMode::Expression;
             if token_start < b {
                 let span = Span {
@@ -1281,14 +1280,30 @@ pub fn parse_string_interpolation(
                     ty: Type::String,
                     custom_completion: None,
                 });
+                token_start = b;
             }
-            token_start = b;
-        } else if contents[b - start] == b'(' && mode == InterpolationMode::Expression {
-            depth += 1;
-        } else if contents[b - start] == b')' && mode == InterpolationMode::Expression {
-            match depth {
-                0 => {}
-                1 => {
+        }
+        if mode == InterpolationMode::Expression {
+            let byte = contents[b - start];
+            if let Some(b'\'') = delimiter_stack.last() {
+                if byte == b'\'' {
+                    delimiter_stack.pop();
+                }
+            } else if let Some(b'"') = delimiter_stack.last() {
+                if byte == b'"' {
+                    delimiter_stack.pop();
+                }
+            } else if byte == b'\'' {
+                delimiter_stack.push(b'\'')
+            } else if byte == b'"' {
+                delimiter_stack.push(b'"');
+            } else if byte == b'(' {
+                delimiter_stack.push(b')');
+            } else if byte == b')' {
+                if let Some(b')') = delimiter_stack.last() {
+                    delimiter_stack.pop();
+                }
+                if delimiter_stack.is_empty() {
                     mode = InterpolationMode::String;
 
                     if token_start < b {
@@ -1303,8 +1318,8 @@ pub fn parse_string_interpolation(
                     }
 
                     token_start = b + 1;
+                    continue;
                 }
-                _ => depth -= 1,
             }
         }
         b += 1;

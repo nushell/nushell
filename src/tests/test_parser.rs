@@ -197,3 +197,18 @@ fn let_env_expressions() -> TestResult {
         "done",
     )
 }
+
+#[test]
+fn string_interpolation_paren_test() -> TestResult {
+    run_test(r#"$"('(')(')')""#, "()")
+}
+
+#[test]
+fn string_interpolation_paren_test2() -> TestResult {
+    run_test(r#"$"('(')test(')')""#, "(test)")
+}
+
+#[test]
+fn string_interpolation_paren_test3() -> TestResult {
+    run_test(r#"$"('(')("test")test(')')""#, "(testtest)")
+}
