@@ -243,6 +243,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ToHtml,
             ToJson,
             ToMd,
+            ToNuon,
             ToToml,
             ToTsv,
             ToCsv,
