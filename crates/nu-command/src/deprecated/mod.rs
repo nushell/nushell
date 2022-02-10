@@ -1,8 +1,10 @@
+mod insert;
 mod nth;
 mod pivot;
 mod str_decimal;
 mod str_int;
 
+pub use insert::InsertDeprecated;
 pub use nth::NthDeprecated;
 pub use pivot::PivotDeprecated;
 pub use str_decimal::StrDecimalDeprecated;
