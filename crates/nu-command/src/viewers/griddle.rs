@@ -31,7 +31,7 @@ impl Command for Griddle {
             .named(
                 "width",
                 SyntaxShape::Int,
-                "number of columns wide",
+                "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
             .switch("color", "draw output with color", Some('c'))
@@ -60,7 +60,7 @@ prints out the list properly."#
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let width_param: Option<String> = call.get_flag(engine_state, stack, "width")?;
+        let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag("color");
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = stack.get_config().unwrap_or_default();
@@ -156,7 +156,7 @@ fn strip_ansi(string: &str) -> Cow<str> {
 fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
-    width_param: Option<String>,
+    width_param: Option<i64>,
     color_param: bool,
     separator_param: Option<String>,
     env_str: Option<String>,
@@ -168,7 +168,7 @@ fn create_grid_output(
     };
 
     let cols = if let Some(col) = width_param {
-        col.parse::<u16>().unwrap_or(80)
+        col as u16
     } else if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
         w
     } else {
