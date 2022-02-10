@@ -343,6 +343,17 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ViewSource,
         };
 
+        // Deprecated
+        bind_command! {
+            PivotDeprecated,
+            StrDecimalDeprecated,
+            StrIntDeprecated,
+            NthDeprecated,
+        };
+
+        #[cfg(feature = "dataframe")]
+        bind_command!(DataframeDeprecated);
+
         #[cfg(feature = "plugin")]
         bind_command!(Register);
 

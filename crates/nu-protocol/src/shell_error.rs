@@ -267,6 +267,14 @@ pub enum ShellError {
     #[error("{0}")]
     #[diagnostic(help("{1}"))]
     LabeledError(String, String),
+
+    #[error("Deprecated command {0}")]
+    #[diagnostic(code(nu::shell::deprecated_command), url(docsrs))]
+    DeprecatedCommand(
+        String,
+        String,
+        #[label = "{0} is deprecated. Instead use {1}"] Span,
+    ),
 }
 
 impl From<std::io::Error> for ShellError {
