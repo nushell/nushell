@@ -56,7 +56,7 @@ fn test_cd_html_color_flag_dark_false() {
     );
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  (optional) path: the path to change to<br><br></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  (optional) path: the path to change to<br><br></body></html>"
     );
 }
 
@@ -71,7 +71,7 @@ fn test_no_color_flag() {
     );
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  (optional) path: the path to change to<br><br></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body>Change directory.<br><br>Usage:<br>  &gt; cd (path) <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  (optional) path: the path to change to<br><br></body></html>"
     );
 }
 
@@ -86,6 +86,6 @@ fn test_html_color_where_flag_dark_false() {
     );
     assert_eq!(
         actual.out,
-        r"<html><style>body { background-color:white;color:black; }</style><body>Usage:<br>  &gt; where &lt;cond&gt; <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  cond: condition<br><br></body></html>"
+        r"<html><style>body { background-color:white;color:black; }</style><body>Filter values based on a condition.<br><br>Usage:<br>  &gt; where &lt;cond&gt; <br><br>Flags:<br>  -h, --help<br>      Display this help message<br><br>Parameters:<br>  cond: condition<br><br></body></html>"
     );
 }
