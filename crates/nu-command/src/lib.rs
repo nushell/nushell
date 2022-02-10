@@ -2,6 +2,7 @@ mod conversions;
 mod core_commands;
 mod date;
 mod default_context;
+mod deprecated;
 mod env;
 mod example_test;
 mod experimental;
@@ -24,6 +25,7 @@ pub use conversions::*;
 pub use core_commands::*;
 pub use date::*;
 pub use default_context::*;
+pub use deprecated::*;
 pub use env::*;
 #[cfg(test)]
 pub use example_test::test_examples;

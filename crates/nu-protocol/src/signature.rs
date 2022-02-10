@@ -52,6 +52,7 @@ pub enum Category {
     Hash,
     Generators,
     Custom(String),
+    Deprecated,
 }
 
 impl std::fmt::Display for Category {
@@ -77,6 +78,7 @@ impl std::fmt::Display for Category {
             Category::Hash => "hash",
             Category::Generators => "generators",
             Category::Custom(name) => name,
+            Category::Deprecated => "deprecated",
         };
 
         write!(f, "{}", msg)
