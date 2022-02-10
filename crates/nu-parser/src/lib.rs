@@ -13,7 +13,7 @@ pub use flatten::{
 pub use lex::{lex, Token, TokenContents};
 pub use lite_parse::{lite_parse, LiteBlock};
 
-pub use parser::{find_captures_in_expr, parse, parse_block, trim_quotes, Import};
+pub use parser::{parse, parse_block, trim_quotes, Import};
 
 #[cfg(feature = "plugin")]
 pub use parse_keywords::parse_register;

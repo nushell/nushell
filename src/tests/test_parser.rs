@@ -212,3 +212,87 @@ fn string_interpolation_paren_test2() -> TestResult {
 fn string_interpolation_paren_test3() -> TestResult {
     run_test(r#"$"('(')("test")test(')')""#, "(testtest)")
 }
+
+#[test]
+fn capture_multiple_commands() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+[(say-hi) (call-me)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands2() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+[(say-hi) (call-me)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands3() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+[(call-me) (say-hi)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
+
+#[test]
+fn capture_multiple_commands4() -> TestResult {
+    run_test(
+        r#"
+let CONST_A = 'Hello'
+
+def 'call-me' [] {
+    echo $CONST_A
+}
+
+def 'say-hi' [] {
+    echo (call-me)
+}
+
+[(call-me) (say-hi)] | str collect    
+    
+    "#,
+        "HelloHello",
+    )
+}
