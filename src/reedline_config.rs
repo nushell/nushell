@@ -25,14 +25,14 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
     completion_menu = completion_menu.with_column_width(
         config
             .menu_config
-            .get("col_width")
+            .get("col-width")
             .and_then(|value| value.as_integer().ok())
             .map(|value| value as usize),
     );
 
     completion_menu = match config
         .menu_config
-        .get("col_padding")
+        .get("col-padding")
         .and_then(|value| value.as_integer().ok())
     {
         Some(value) => completion_menu.with_column_padding(value as usize),
@@ -41,7 +41,7 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
 
     completion_menu = match config
         .menu_config
-        .get("text_style")
+        .get("text-style")
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => completion_menu.with_text_style(lookup_ansi_color_style(&value)),
@@ -50,7 +50,7 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
 
     completion_menu = match config
         .menu_config
-        .get("selected_text_style")
+        .get("selected-text-style")
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => completion_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
@@ -68,7 +68,7 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
 
     let ret_val = line_editor.with_menu(Box::new(completion_menu));
     if is_perf_true() {
-        info!("add_completion_menu {}:{}:{}", file!(), line!(), column!());
+        info!("add-completion-menu {}:{}:{}", file!(), line!(), column!());
     }
 
     ret_val
@@ -81,7 +81,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
 
     history_menu = match config
         .history_config
-        .get("page_size")
+        .get("page-size")
         .and_then(|value| value.as_integer().ok())
     {
         Some(value) => history_menu.with_page_size(value as usize),
@@ -102,7 +102,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
 
     history_menu = match config
         .history_config
-        .get("text_style")
+        .get("text-style")
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => history_menu.with_text_style(lookup_ansi_color_style(&value)),
@@ -111,7 +111,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
 
     history_menu = match config
         .history_config
-        .get("selected_text_style")
+        .get("selected-text-style")
         .and_then(|value| value.as_string().ok())
     {
         Some(value) => history_menu.with_selected_text_style(lookup_ansi_color_style(&value)),
@@ -140,7 +140,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyModifiers::CONTROL,
         KeyCode::Char('x'),
         ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("history_menu".to_string()),
+            ReedlineEvent::Menu("history-menu".to_string()),
             ReedlineEvent::MenuPageNext,
         ]),
     );
@@ -155,7 +155,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::Menu("completion-menu".to_string()),
             ReedlineEvent::MenuNext,
         ]),
     );
@@ -167,7 +167,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     );
 
     if is_perf_true() {
-        info!("add_menu_keybindings {}:{}:{}", file!(), line!(), column!());
+        info!("add-menu-keybindings {}:{}:{}", file!(), line!(), column!());
     }
 }
 
@@ -221,9 +221,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
             add_menu_keybindings(&mut normal_keybindings);
 
             for parsed_keybinding in parsed_keybindings {
-                if parsed_keybinding.mode.into_string("", config).as_str() == "vi_insert" {
+                if parsed_keybinding.mode.into_string("", config).as_str() == "vi-insert" {
                     add_keybinding(&mut insert_keybindings, parsed_keybinding, config)?
-                } else if parsed_keybinding.mode.into_string("", config).as_str() == "vi_normal" {
+                } else if parsed_keybinding.mode.into_string("", config).as_str() == "vi-normal" {
                     add_keybinding(&mut normal_keybindings, parsed_keybinding, config)?
                 }
             }

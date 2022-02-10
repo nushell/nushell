@@ -58,7 +58,7 @@ pub fn convert_mp4_file_to_nu_value(path: &Path, tag: Tag) -> Result<Value, mp4:
 
         curr_track_dict.insert_untagged("width", UntaggedValue::int(track.width()));
         curr_track_dict.insert_untagged("height", UntaggedValue::int(track.height()));
-        curr_track_dict.insert_untagged("frame_rate", UntaggedValue::from(track.frame_rate()));
+        curr_track_dict.insert_untagged("frame-rate", UntaggedValue::from(track.frame_rate()));
 
         curr_track_dict.insert_untagged(
             "sample freq index",

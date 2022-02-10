@@ -22,12 +22,12 @@ impl Command for If {
         Signature::build("if")
             .required("cond", SyntaxShape::Expression, "condition to check")
             .required(
-                "then_block",
+                "then-block",
                 SyntaxShape::Block(Some(vec![])),
                 "block to run if check succeeds",
             )
             .optional(
-                "else_expression",
+                "else-expression",
                 SyntaxShape::Keyword(b"else".to_vec(), Box::new(SyntaxShape::Expression)),
                 "expression or block to run if check fails",
             )

@@ -42,19 +42,19 @@ pub(super) fn compute_between_series(
     match operator.item {
         Operator::Plus => {
             let mut res = lhs + rhs;
-            let name = format!("sum_{}_{}", lhs.name(), rhs.name());
+            let name = format!("sum-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Minus => {
             let mut res = lhs - rhs;
-            let name = format!("sub_{}_{}", lhs.name(), rhs.name());
+            let name = format!("sub-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::Multiply => {
             let mut res = lhs * rhs;
-            let name = format!("mul_{}_{}", lhs.name(), rhs.name());
+            let name = format!("mul-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
@@ -62,7 +62,7 @@ pub(super) fn compute_between_series(
             let res = lhs.checked_div(rhs);
             match res {
                 Ok(mut res) => {
-                    let name = format!("div_{}_{}", lhs.name(), rhs.name());
+                    let name = format!("div-{}-{}", lhs.name(), rhs.name());
                     res.rename(&name);
                     NuDataFrame::series_to_value(res, operation_span)
                 }
@@ -75,37 +75,37 @@ pub(super) fn compute_between_series(
         }
         Operator::Equal => {
             let mut res = Series::equal(lhs, rhs).into_series();
-            let name = format!("eq_{}_{}", lhs.name(), rhs.name());
+            let name = format!("eq-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::NotEqual => {
             let mut res = Series::not_equal(lhs, rhs).into_series();
-            let name = format!("neq_{}_{}", lhs.name(), rhs.name());
+            let name = format!("neq-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::LessThan => {
             let mut res = Series::lt(lhs, rhs).into_series();
-            let name = format!("lt_{}_{}", lhs.name(), rhs.name());
+            let name = format!("lt-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::LessThanOrEqual => {
             let mut res = Series::lt_eq(lhs, rhs).into_series();
-            let name = format!("lte_{}_{}", lhs.name(), rhs.name());
+            let name = format!("lte-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::GreaterThan => {
             let mut res = Series::gt(lhs, rhs).into_series();
-            let name = format!("gt_{}_{}", lhs.name(), rhs.name());
+            let name = format!("gt-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
         Operator::GreaterThanOrEqual => {
             let mut res = Series::gt_eq(lhs, rhs).into_series();
-            let name = format!("gte_{}_{}", lhs.name(), rhs.name());
+            let name = format!("gte-{}-{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::series_to_value(res, operation_span)
         }
@@ -117,7 +117,7 @@ pub(super) fn compute_between_series(
                 match (lhs_cast, rhs_cast) {
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitand(r).into_series();
-                        let name = format!("and_{}_{}", lhs.name(), rhs.name());
+                        let name = format!("and-{}-{}", lhs.name(), rhs.name());
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }
@@ -144,7 +144,7 @@ pub(super) fn compute_between_series(
                 match (lhs_cast, rhs_cast) {
                     (Ok(l), Ok(r)) => {
                         let mut res = l.bitor(r).into_series();
-                        let name = format!("or_{}_{}", lhs.name(), rhs.name());
+                        let name = format!("or-{}-{}", lhs.name(), rhs.name());
                         res.rename(&name);
                         NuDataFrame::series_to_value(res, operation_span)
                     }

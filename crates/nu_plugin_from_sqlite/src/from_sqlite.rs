@@ -45,11 +45,11 @@ pub fn convert_sqlite_file_to_nu_value(
                 out.push(convert_sqlite_row_to_nu_value(table_row, tag.clone()))
             }
             meta_dict.insert_value(
-                "table_name".to_string(),
+                "table-name".to_string(),
                 UntaggedValue::Primitive(Primitive::String(table_name)).into_value(tag.clone()),
             );
             meta_dict.insert_value(
-                "table_values",
+                "table-values",
                 UntaggedValue::Table(out).into_value(tag.clone()),
             );
             meta_out.push(meta_dict.into_value());

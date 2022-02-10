@@ -191,8 +191,8 @@ fn get_binary_subtype(tagged_value: &Value) -> Result<BinarySubtype, ShellError>
         UntaggedValue::Primitive(Primitive::String(s)) => Ok(match s.as_ref() {
             "generic" => BinarySubtype::Generic,
             "function" => BinarySubtype::Function,
-            "binary_old" => BinarySubtype::BinaryOld,
-            "uuid_old" => BinarySubtype::UuidOld,
+            "binary-old" => BinarySubtype::BinaryOld,
+            "uuid-old" => BinarySubtype::UuidOld,
             "uuid" => BinarySubtype::Uuid,
             "md5" => BinarySubtype::Md5,
             _ => unreachable!(),

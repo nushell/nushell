@@ -194,7 +194,7 @@ pub fn wrap(
     let mut first = true;
     let mut max_width = 0;
     let lead_trail_space_bg_color = color_hm
-        .get("leading_trailing_space_bg")
+        .get("leading-trailing-space-bg")
         .unwrap_or(&Style::default())
         .to_owned();
 

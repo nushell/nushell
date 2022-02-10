@@ -107,8 +107,8 @@ lazy_static! {
         m.insert("config", '\u{e5fc}'); // 
         m.insert("docker-compose.yml", '\u{f308}'); // 
         m.insert("Dockerfile", '\u{f308}'); // 
-        m.insert("ds_store", '\u{f179}'); // 
-        m.insert("gitignore_global", '\u{f1d3}'); // 
+        m.insert("ds-store", '\u{f179}'); // 
+        m.insert("gitignore-global", '\u{f1d3}'); // 
         m.insert("gradle", '\u{e70e}'); // 
         m.insert("gruntfile.coffee", '\u{e611}'); // 
         m.insert("gruntfile.js", '\u{e611}'); // 
@@ -121,7 +121,7 @@ lazy_static! {
         m.insert("lib", '\u{f121}'); // 
         m.insert("localized", '\u{f179}'); // 
         m.insert("Makefile", '\u{e779}'); // 
-        m.insert("node_modules", '\u{e718}'); // 
+        m.insert("node-modules", '\u{e718}'); // 
         m.insert("npmignore", '\u{e71e}'); // 
         m.insert("rubydoc", '\u{e73b}'); // 
         m.insert("yarn.lock", '\u{e718}'); // 
@@ -179,8 +179,8 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "avro" => '\u{e60b}',           // 
             "awk" => '\u{f489}',            // 
             "bash" => '\u{f489}',           // 
-            "bash_history" => '\u{f489}',   // 
-            "bash_profile" => '\u{f489}',   // 
+            "bash-history" => '\u{f489}',   // 
+            "bash-profile" => '\u{f489}',   // 
             "bashrc" => '\u{f489}',         // 
             "bat" => '\u{f17a}',            // 
             "bmp" => '\u{f1c5}',            // 
@@ -217,8 +217,8 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "dll" => '\u{e70f}',            // 
             "doc" => '\u{f1c2}',            // 
             "docx" => '\u{f1c2}',           // 
-            "ds_store" => '\u{f179}',       // 
-            "DS_store" => '\u{f179}',       // 
+            "ds-store" => '\u{f179}',       // 
+            "DS-store" => '\u{f179}',       // 
             "dump" => '\u{f1c0}',           // 
             "ebook" => '\u{e28b}',          // 
             "editorconfig" => '\u{e615}',   // 
@@ -339,8 +339,8 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
             "rpm" => '\u{e7bb}',            // 
             "rs" => '\u{e7a8}',             // 
             "rspec" => '\u{e21e}',          // 
-            "rspec_parallel" => '\u{e21e}', // 
-            "rspec_status" => '\u{e21e}',   // 
+            "rspec-parallel" => '\u{e21e}', // 
+            "rspec-status" => '\u{e21e}',   // 
             "rss" => '\u{f09e}',            // 
             "rtf" => '\u{f718}',            // 
             "ru" => '\u{e21e}',             // 

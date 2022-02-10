@@ -84,7 +84,7 @@ fn get_insert_values(rows: Vec<Value>) -> Result<String, std::io::Error> {
 }
 
 fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::Error> {
-    let table_name = match table.entries.get("table_name") {
+    let table_name = match table.entries.get("table-name") {
         Some(Value {
             value: UntaggedValue::Primitive(Primitive::String(table_name)),
             ..
@@ -96,7 +96,7 @@ fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::E
             ))
         }
     };
-    let (columns, insert_values) = match table.entries.get("table_values") {
+    let (columns, insert_values) = match table.entries.get("table-values") {
         Some(Value {
             value: UntaggedValue::Table(l),
             ..

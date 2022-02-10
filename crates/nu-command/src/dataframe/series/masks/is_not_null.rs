@@ -31,7 +31,7 @@ impl Command for IsNotNull {
     $res | dfr is-not-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_not_null".to_string(),
+                    "is-not-null".to_string(),
                     vec![
                         Value::test_bool(true),
                         Value::test_bool(true),
@@ -65,7 +65,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let mut res = df.as_series(call.head)?.is_not_null();
-    res.rename("is_not_null");
+    res.rename("is-not-null");
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

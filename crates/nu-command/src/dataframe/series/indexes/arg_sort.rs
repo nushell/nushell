@@ -32,7 +32,7 @@ impl Command for ArgSort {
                 example: "[1 2 2 3 3] | dfr to-df | dfr arg-sort",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
+                        "arg-sort".to_string(),
                         vec![
                             Value::test_int(0),
                             Value::test_int(1),
@@ -50,7 +50,7 @@ impl Command for ArgSort {
                 example: "[1 2 2 3 3] | dfr to-df | dfr arg-sort -r",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
-                        "arg_sort".to_string(),
+                        "arg-sort".to_string(),
                         vec![
                             Value::test_int(3),
                             Value::test_int(4),
@@ -89,7 +89,7 @@ fn command(
         .as_series(call.head)?
         .argsort(call.has_flag("reverse"))
         .into_series();
-    res.rename("arg_sort");
+    res.rename("arg-sort");
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

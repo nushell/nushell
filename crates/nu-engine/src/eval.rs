@@ -172,7 +172,7 @@ fn eval_external(
     last_expression: bool,
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
-        .find_decl("run_external".as_bytes())
+        .find_decl("run-external".as_bytes())
         .ok_or(ShellError::ExternalNotSupported(head.span))?;
 
     let command = engine_state.get_decl(decl_id);
@@ -188,7 +188,7 @@ fn eval_external(
     if last_expression {
         call.named.push((
             Spanned {
-                item: "last_expression".into(),
+                item: "last-expression".into(),
                 span: head.span,
             },
             None,
@@ -774,11 +774,11 @@ pub fn eval_variable(
                     {
                         let sig_cols = vec![
                             "command".to_string(),
-                            "parameter_name".to_string(),
-                            "parameter_type".to_string(),
-                            "syntax_shape".to_string(),
-                            "is_optional".to_string(),
-                            "short_flag".to_string(),
+                            "parameter-name".to_string(),
+                            "parameter-type".to_string(),
+                            "syntax-shape".to_string(),
+                            "is-optional".to_string(),
+                            "short-flag".to_string(),
                             "description".to_string(),
                         ];
 
@@ -894,49 +894,49 @@ pub fn eval_variable(
                         span,
                     });
 
-                    cols.push("is_binary".to_string());
+                    cols.push("is-binary".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_binary(),
                         span,
                     });
 
-                    cols.push("is_private".to_string());
+                    cols.push("is-private".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_private(),
                         span,
                     });
 
-                    cols.push("is_builtin".to_string());
+                    cols.push("is-builtin".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_builtin(),
                         span,
                     });
 
-                    cols.push("is_sub".to_string());
+                    cols.push("is-sub".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_sub(),
                         span,
                     });
 
-                    cols.push("is_plugin".to_string());
+                    cols.push("is-plugin".to_string());
                     vals.push(Value::Bool {
                         val: decl.is_plugin().is_some(),
                         span,
                     });
 
-                    cols.push("is_custom".to_string());
+                    cols.push("is-custom".to_string());
                     vals.push(Value::Bool {
                         val: decl.get_block_id().is_some(),
                         span,
                     });
 
-                    cols.push("creates_scope".to_string());
+                    cols.push("creates-scope".to_string());
                     vals.push(Value::Bool {
                         val: signature.creates_scope,
                         span,
                     });
 
-                    cols.push("extra_usage".to_string());
+                    cols.push("extra-usage".to_string());
                     vals.push(Value::String {
                         val: decl.extra_usage().into(),
                         span,

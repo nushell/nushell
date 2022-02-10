@@ -23,7 +23,7 @@ pub struct External;
 
 impl Command for External {
     fn name(&self) -> &str {
-        "run_external"
+        "run-external"
     }
 
     fn usage(&self) -> &str {
@@ -35,8 +35,8 @@ impl Command for External {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("run_external")
-            .switch("last_expression", "last_expression", None)
+        Signature::build("run-external")
+            .switch("last-expression", "last-expression", None)
             .rest("rest", SyntaxShape::Any, "external command to run")
             .category(Category::System)
     }
@@ -50,7 +50,7 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
-        let last_expression = call.has_flag("last_expression");
+        let last_expression = call.has_flag("last-expression");
 
         // Translate environment variables from Values to Strings
         let config = stack.get_config().unwrap_or_default();
@@ -207,7 +207,7 @@ impl ExternalCommand {
                     let engine_state = engine_state.clone();
                     let mut stack = stack.clone();
                     stack.update_config(
-                        "use_ansi_coloring",
+                        "use-ansi-coloring",
                         Value::Bool {
                             val: false,
                             span: Span::new(0, 0),

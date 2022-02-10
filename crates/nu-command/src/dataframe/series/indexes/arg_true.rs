@@ -29,7 +29,7 @@ impl Command for ArgTrue {
             example: "[$false $true $false] | dfr to-df | dfr arg-true",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_true".to_string(),
+                    "arg-true".to_string(),
                     vec![Value::test_int(1)],
                 )])
                 .expect("simple df for test should not fail")
@@ -67,7 +67,7 @@ fn command(
     })?;
 
     let mut res = bool.arg_true().into_series();
-    res.rename("arg_true");
+    res.rename("arg-true");
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

@@ -33,7 +33,7 @@ impl Command for IsIn {
     [5 6 6 6 8 8 8] | dfr to-df | dfr is-in $other"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_in".to_string(),
+                    "is-in".to_string(),
                     vec![
                         Value::test_bool(false),
                         Value::test_bool(true),
@@ -86,7 +86,7 @@ fn command(
         })?
         .into_series();
 
-    res.rename("is_in");
+    res.rename("is-in");
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

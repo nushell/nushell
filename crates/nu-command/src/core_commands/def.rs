@@ -16,7 +16,7 @@ impl Command for Def {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("def")
-            .required("def_name", SyntaxShape::String, "definition name")
+            .required("name", SyntaxShape::String, "definition name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required(
                 "block",

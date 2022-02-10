@@ -25,21 +25,21 @@ let config = {
     ... other config ...
     env_conversions: {
         FOO: {
-            from_string: {|s| $s | split row ':' }
-            to_string: {|v| $v | str collect ':' }
+            from-string: {|s| $s | split row ':' }
+            to-string: {|v| $v | str collect ':' }
         }
     }
 }
 ```
 
-The above snippet will configure Nushell to run the `from_string` block with the `FOO` environment variable value as an argument on startup.
-Whenever we run some external tool, the `to_string` block will be called with `FOO` as the argument and the result passed to the tool.
+The above snippet will configure Nushell to run the `from-string` block with the `FOO` environment variable value as an argument on startup.
+Whenever we run some external tool, the `to-string` block will be called with `FOO` as the argument and the result passed to the tool.
 You can test the conversions by manually calling them:
 
 ```
 > let-env FOO = "a:b:c"
 
-> let list = (do $config.env_conversions.from_string $env.FOO)
+> let list = (do $config.env-conversions.from_string $env.FOO)
 
 > $list
 ╭───┬───╮
@@ -48,7 +48,7 @@ You can test the conversions by manually calling them:
 │ 2 │ c │
 ╰───┴───╯
 
-> do $config.env_conversions.to_string $list
+> do $config.env-conversions.to_string $list
 a:b:c
 ```
 
@@ -89,7 +89,7 @@ The `raw` values is the values external tools will see when spawned from Nushell
 Out of the box, Nushell ships with several environment variables serving a special purpose:
 * `PROMPT_COMMAND` (block): To set the prompt. Every time Nushell REPL enters a new line, it will run the block stored as its value and set the result as the prompt.
 * `PATH`/`Path`: Not yet used except passthrough to externals but is planned to support both its string and list forms.
-* `LS_COLORS`: Sets up file coloring rules when running `ls` or `grid`. Supports `env_conversions` settings.
+* `LS_COLORS`: Sets up file coloring rules when running `ls` or `grid`. Supports `env-conversions` settings.
 
 
 ## Breaking Changes

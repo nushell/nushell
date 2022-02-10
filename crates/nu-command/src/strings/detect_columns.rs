@@ -27,7 +27,7 @@ impl Command for DetectColumns {
                 "number of rows to skip before detecting",
                 Some('s'),
             )
-            .switch("no_headers", "don't detect headers", Some('n'))
+            .switch("no-headers", "don't detect headers", Some('n'))
             .category(Category::Strings)
     }
 
@@ -54,7 +54,7 @@ fn detect_columns(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
-    let noheader = call.has_flag("no_headers");
+    let noheader = call.has_flag("no-headers");
     let ctrlc = engine_state.ctrlc.clone();
     let config = stack.get_config()?;
     let input = input.collect_string("", &config)?;

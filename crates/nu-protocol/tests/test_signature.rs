@@ -20,7 +20,7 @@ fn test_signature_chained() {
         .required("required", SyntaxShape::String, "required description")
         .optional("optional", SyntaxShape::String, "optional description")
         .required_named(
-            "req_named",
+            "req-named",
             SyntaxShape::String,
             "required named description",
             Some('r'),
@@ -36,7 +36,7 @@ fn test_signature_chained() {
     assert_eq!(signature.get_shorts(), vec!['h', 'r', 'n']);
     assert_eq!(
         signature.get_names(),
-        vec!["help", "req_named", "named", "switch"]
+        vec!["help", "req-named", "named", "switch"]
     );
     assert_eq!(signature.num_positionals(), 2);
 
@@ -69,9 +69,9 @@ fn test_signature_chained() {
     );
 
     assert_eq!(
-        signature.get_long_flag("req_named"),
+        signature.get_long_flag("req-named"),
         Some(Flag {
-            long: "req_named".to_string(),
+            long: "req-named".to_string(),
             short: Some('r'),
             arg: Some(SyntaxShape::String),
             required: true,
@@ -83,7 +83,7 @@ fn test_signature_chained() {
     assert_eq!(
         signature.get_short_flag('r'),
         Some(Flag {
-            long: "req_named".to_string(),
+            long: "req-named".to_string(),
             short: Some('r'),
             arg: Some(SyntaxShape::String),
             required: true,
@@ -97,9 +97,9 @@ fn test_signature_chained() {
 #[should_panic(expected = "There may be duplicate short flags, such as -h")]
 fn test_signature_same_short() {
     // Creating signature with same short name should panic
-    Signature::new("new_signature")
+    Signature::new("new-signature")
         .required_named(
-            "required_named",
+            "required-named",
             SyntaxShape::String,
             "required named description",
             Some('n'),
@@ -111,7 +111,7 @@ fn test_signature_same_short() {
 #[should_panic(expected = "There may be duplicate name flags, such as --help")]
 fn test_signature_same_name() {
     // Creating signature with same short name should panic
-    Signature::new("new_signature")
+    Signature::new("new-signature")
         .required_named(
             "name",
             SyntaxShape::String,
@@ -123,13 +123,13 @@ fn test_signature_same_name() {
 
 #[test]
 fn test_signature_round_trip() {
-    let signature = Signature::new("new_signature")
+    let signature = Signature::new("new-signature")
         .desc("description")
         .required("first", SyntaxShape::String, "first required")
         .required("second", SyntaxShape::Int, "second required")
         .optional("optional", SyntaxShape::String, "optional description")
         .required_named(
-            "req_named",
+            "req-named",
             SyntaxShape::String,
             "required named description",
             Some('r'),

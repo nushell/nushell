@@ -33,7 +33,7 @@ impl Command for Table {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("table")
             .named(
-                "start_number",
+                "start-number",
                 SyntaxShape::Int,
                 "row number to start viewing from",
                 Some('n'),
@@ -52,7 +52,7 @@ impl Command for Table {
         let ctrlc = engine_state.ctrlc.clone();
         let config = stack.get_config().unwrap_or_default();
         let color_hm = get_color_config(&config);
-        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start_number")?;
+        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
         let row_offset = start_num.unwrap_or_default() as usize;
 
         let term_width = if let Some((Width(w), Height(_h))) = terminal_size::terminal_size() {
@@ -319,7 +319,7 @@ fn convert_to_table(
                                     contents: y.1,
                                     style: TextStyle {
                                         alignment: nu_table::Alignment::Right,
-                                        color_style: Some(color_hm["row_index"]),
+                                        color_style: Some(color_hm["row-index"]),
                                     },
                                 }
                             } else if &y.0 == "float" {
@@ -440,9 +440,9 @@ fn load_theme_from_config(config: &Config) -> Theme {
     match config.table_mode.as_str() {
         "basic" => nu_table::Theme::basic(),
         "compact" => nu_table::Theme::compact(),
-        "compact_double" => nu_table::Theme::compact_double(),
+        "compact-double" => nu_table::Theme::compact_double(),
         "light" => nu_table::Theme::light(),
-        "with_love" => nu_table::Theme::with_love(),
+        "with-love" => nu_table::Theme::with_love(),
         "rounded" => nu_table::Theme::rounded(),
         "reinforced" => nu_table::Theme::reinforced(),
         "heavy" => nu_table::Theme::heavy(),

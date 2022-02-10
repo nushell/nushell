@@ -29,7 +29,7 @@ impl Command for IsUnique {
             example: "[5 6 6 6 8 8 8] | dfr to-df | dfr is-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_unique".to_string(),
+                    "is-unique".to_string(),
                     vec![
                         Value::test_bool(true),
                         Value::test_bool(false),
@@ -72,7 +72,7 @@ fn command(
             call.head,
         )
     })?;
-    res.rename("is_unique");
+    res.rename("is-unique");
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

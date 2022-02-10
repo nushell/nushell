@@ -91,16 +91,16 @@ impl Command for Rotate {
             },
             Example {
                 description: "Rotate table clockwise and change columns names",
-                example: "[[a b]; [1 2]] | rotate col_a col_b",
+                example: "[[a b]; [1 2]] | rotate col-a col-b",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
+                            cols: vec!["col-a".to_string(), "col-b".to_string()],
                             vals: vec![Value::test_int(1), Value::test_string("a")],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
+                            cols: vec!["col-a".to_string(), "col-b".to_string()],
                             vals: vec![Value::test_int(2), Value::test_string("b")],
                             span: Span::test_data(),
                         },
@@ -168,16 +168,16 @@ impl Command for Rotate {
             },
             Example {
                 description: "Rotate table counter-clockwise and change columns names",
-                example: "[[a b]; [1 2]] | rotate --ccw col_a col_b",
+                example: "[[a b]; [1 2]] | rotate --ccw col-a col-b",
                 result: Some(Value::List {
                     vals: vec![
                         Value::Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
+                            cols: vec!["col-a".to_string(), "col-b".to_string()],
                             vals: vec![Value::test_string("b"), Value::test_int(2)],
                             span: Span::test_data(),
                         },
                         Value::Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
+                            cols: vec!["col-a".to_string(), "col-b".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_int(1)],
                             span: Span::test_data(),
                         },

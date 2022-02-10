@@ -21,7 +21,7 @@ impl Command for For {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("for")
             .required(
-                "var_name",
+                "name",
                 SyntaxShape::VarWithOptType,
                 "name of the looping variable",
             )

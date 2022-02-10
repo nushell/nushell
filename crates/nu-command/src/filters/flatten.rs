@@ -191,7 +191,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
 
                         if column_requested.is_none() && !columns.is_empty() {
                             if out.contains_key(column) {
-                                out.insert(format!("{}_{}", column, column), value.clone());
+                                out.insert(format!("{}-{}", column, column), value.clone());
                             } else {
                                 out.insert(column.to_string(), value.clone());
                             }
@@ -203,7 +203,7 @@ fn flat_value(columns: &[CellPath], item: &Value, _name_tag: Span) -> Vec<Value>
 
                         for (k, v) in cols.into_iter().zip(vals.into_iter()) {
                             if out.contains_key(&k) {
-                                out.insert(format!("{}_{}", column, k), v.clone());
+                                out.insert(format!("{}-{}", column, k), v.clone());
                             } else {
                                 out.insert(k, v.clone());
                             }

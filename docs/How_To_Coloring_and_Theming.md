@@ -11,21 +11,21 @@ There are a few main parts that nushell allows you to change the color. All of t
 ## `Table borders`
 ___
 
-Table borders are controlled by the `table_mode` setting in the `config.nu`. Here is an example:
+Table borders are controlled by the `table-mode` setting in the `config.nu`. Here is an example:
 ```
 let $config = {
-    table_mode: rounded
+    table-mode: rounded
 }
 ```
 
-Here are the current options for `table_mode`:
+Here are the current options for `table-mode`:
 1. `rounded` # of course, this is the best one :)
 2. `basic`
 3. `compact`
-4. `compact_double`
+4. `compact-double`
 5. `light`
 6. `thin`
-7. `with_love`
+7. `with-love`
 8. `rounded`
 9. `reinforced`
 10. `heavy`
@@ -38,7 +38,7 @@ Here are the current options for `table_mode`:
 * `r` - normal color red's abbreviation
 * `rb` - normal color red's abbreviation with bold attribute
 * `red` - normal color red
-* `red_bold` - normal color red with bold attribute
+* `red-bold` - normal color red with bold attribute
 * `"#ff0000"` - "#hex" format foreground color red (quotes are required)
 * `{ fg: "#ff0000" bg: "#0000ff" attr: b }` - "full #hex" format foreground red in "#hex" format with a background of blue in "#hex" format with an attribute of bold abbreviated.
 
@@ -63,133 +63,133 @@ Here are the current options for `table_mode`:
 |code|name|
 |-|-|
 |g|green|
-|gb|green_bold|
-|gu|green_underline|
-|gi|green_italic|
-|gd|green_dimmed|
-|gr|green_reverse|
-|gbl|green_blink|
-|gst|green_strike|
-|lg|light_green|
-|lgb|light_green_bold|
-|lgu|light_green_underline|
-|lgi|light_green_italic|
-|lgd|light_green_dimmed|
-|lgr|light_green_reverse|
-|lgbl|light_green_blink|
-|lgst|light_green_strike|
+|gb|green-bold|
+|gu|green-underline|
+|gi|green-italic|
+|gd|green-dimmed|
+|gr|green-reverse|
+|gbl|green-blink|
+|gst|green-strike|
+|lg|light-green|
+|lgb|light-green-bold|
+|lgu|light-green-underline|
+|lgi|light-green-italic|
+|lgd|light-green-dimmed|
+|lgr|light-green-reverse|
+|lgbl|light-green-blink|
+|lgst|light-green-strike|
 |r|red|
-|rb|red_bold|
-|ru|red_underline|
-|ri|red_italic|
-|rd|red_dimmed|
-|rr|red_reverse|
-|rbl|red_blink|
-|rst|red_strike|
-|lr|light_red|
-|lrb|light_red_bold|
-|lru|light_red_underline|
-|lri|light_red_italic|
-|lrd|light_red_dimmed|
-|lrr|light_red_reverse|
-|lrbl|light_red_blink|
-|lrst|light_red_strike|
+|rb|red-bold|
+|ru|red-underline|
+|ri|red-italic|
+|rd|red-dimmed|
+|rr|red-reverse|
+|rbl|red-blink|
+|rst|red-strike|
+|lr|light-red|
+|lrb|light-red-bold|
+|lru|light-red-underline|
+|lri|light-red-italic|
+|lrd|light-red-dimmed|
+|lrr|light-red-reverse|
+|lrbl|light-red-blink|
+|lrst|light-red-strike|
 |u|blue|
-|ub|blue_bold|
-|uu|blue_underline|
-|ui|blue_italic|
-|ud|blue_dimmed|
-|ur|blue_reverse|
-|ubl|blue_blink|
-|ust|blue_strike|
-|lu|light_blue|
-|lub|light_blue_bold|
-|luu|light_blue_underline|
-|lui|light_blue_italic|
-|lud|light_blue_dimmed|
-|lur|light_blue_reverse|
-|lubl|light_blue_blink|
-|lust|light_blue_strike|
+|ub|blue-bold|
+|uu|blue-underline|
+|ui|blue-italic|
+|ud|blue-dimmed|
+|ur|blue-reverse|
+|ubl|blue-blink|
+|ust|blue-strike|
+|lu|light-blue|
+|lub|light-blue-bold|
+|luu|light-blue-underline|
+|lui|light-blue-italic|
+|lud|light-blue-dimmed|
+|lur|light-blue-reverse|
+|lubl|light-blue-blink|
+|lust|light-blue-strike|
 |b|black|
-|bb|black_bold|
-|bu|black_underline|
-|bi|black_italic|
-|bd|black_dimmed|
-|br|black_reverse|
-|bbl|black_blink|
-|bst|black_strike|
-|ligr|light_gray|
-|ligrb|light_gray_bold|
-|ligru|light_gray_underline|
-|ligri|light_gray_italic|
-|ligrd|light_gray_dimmed|
-|ligrr|light_gray_reverse|
-|ligrbl|light_gray_blink|
-|ligrst|light_gray_strike|
+|bb|black-bold|
+|bu|black-underline|
+|bi|black-italic|
+|bd|black-dimmed|
+|br|black-reverse|
+|bbl|black-blink|
+|bst|black-strike|
+|ligr|light-gray|
+|ligrb|light-gray-bold|
+|ligru|light-gray-underline|
+|ligri|light-gray-italic|
+|ligrd|light-gray-dimmed|
+|ligrr|light-gray-reverse|
+|ligrbl|light-gray-blink|
+|ligrst|light-gray-strike|
 |y|yellow|
-|yb|yellow_bold|
-|yu|yellow_underline|
-|yi|yellow_italic|
-|yd|yellow_dimmed|
-|yr|yellow_reverse|
-|ybl|yellow_blink|
-|yst|yellow_strike|
-|ly|light_yellow|
-|lyb|light_yellow_bold|
-|lyu|light_yellow_underline|
-|lyi|light_yellow_italic|
-|lyd|light_yellow_dimmed|
-|lyr|light_yellow_reverse|
-|lybl|light_yellow_blink|
-|lyst|light_yellow_strike|
+|yb|yellow-bold|
+|yu|yellow-underline|
+|yi|yellow-italic|
+|yd|yellow-dimmed|
+|yr|yellow-reverse|
+|ybl|yellow-blink|
+|yst|yellow-strike|
+|ly|light-yellow|
+|lyb|light-yellow-bold|
+|lyu|light-yellow-underline|
+|lyi|light-yellow-italic|
+|lyd|light-yellow-dimmed|
+|lyr|light-yellow-reverse|
+|lybl|light-yellow-blink|
+|lyst|light-yellow-strike|
 |p|purple|
-|pb|purple_bold|
-|pu|purple_underline|
-|pi|purple_italic|
-|pd|purple_dimmed|
-|pr|purple_reverse|
-|pbl|purple_blink|
-|pst|purple_strike|
-|lp|light_purple|
-|lpb|light_purple_bold|
-|lpu|light_purple_underline|
-|lpi|light_purple_italic|
-|lpd|light_purple_dimmed|
-|lpr|light_purple_reverse|
-|lpbl|light_purple_blink|
-|lpst|light_purple_strike|
+|pb|purple-bold|
+|pu|purple-underline|
+|pi|purple-italic|
+|pd|purple-dimmed|
+|pr|purple-reverse|
+|pbl|purple-blink|
+|pst|purple-strike|
+|lp|light-purple|
+|lpb|light-purple-bold|
+|lpu|light-purple-underline|
+|lpi|light-purple-italic|
+|lpd|light-purple-dimmed|
+|lpr|light-purple-reverse|
+|lpbl|light-purple-blink|
+|lpst|light-purple-strike|
 |c|cyan|
-|cb|cyan_bold|
-|cu|cyan_underline|
-|ci|cyan_italic|
-|cd|cyan_dimmed|
-|cr|cyan_reverse|
-|cbl|cyan_blink|
-|cst|cyan_strike|
-|lc|light_cyan|
-|lcb|light_cyan_bold|
-|lcu|light_cyan_underline|
-|lci|light_cyan_italic|
-|lcd|light_cyan_dimmed|
-|lcr|light_cyan_reverse|
-|lcbl|light_cyan_blink|
-|lcst|light_cyan_strike|
+|cb|cyan-bold|
+|cu|cyan-underline|
+|ci|cyan-italic|
+|cd|cyan-dimmed|
+|cr|cyan-reverse|
+|cbl|cyan-blink|
+|cst|cyan-strike|
+|lc|light-cyan|
+|lcb|light-cyan-bold|
+|lcu|light-cyan-underline|
+|lci|light-cyan-italic|
+|lcd|light-cyan-dimmed|
+|lcr|light-cyan-reverse|
+|lcbl|light-cyan-blink|
+|lcst|light-cyan-strike|
 |w|white|
-|wb|white_bold|
-|wu|white_underline|
-|wi|white_italic|
-|wd|white_dimmed|
-|wr|white_reverse|
-|wbl|white_blink|
-|wst|white_strike|
-|dgr|dark_gray|
-|dgrb|dark_gray_bold|
-|dgru|dark_gray_underline|
-|dgri|dark_gray_italic|
-|dgrd|dark_gray_dimmed|
-|dgrr|dark_gray_reverse|
-|dgrbl|dark_gray_blink|
-|dgrst|dark_gray_strike|
+|wb|white-bold|
+|wu|white-underline|
+|wi|white-italic|
+|wd|white-dimmed|
+|wr|white-reverse|
+|wbl|white-blink|
+|wst|white-strike|
+|dgr|dark-gray|
+|dgrb|dark-gray-bold|
+|dgru|dark-gray-underline|
+|dgri|dark-gray-italic|
+|dgrd|dark-gray-dimmed|
+|dgrr|dark-gray-reverse|
+|dgrbl|dark-gray-blink|
+|dgrst|dark-gray-strike|
 
 ### `"#hex"` format
 ---
@@ -252,41 +252,41 @@ This is the current list of primitives. Not all of these are configurable. The c
 
 | primitive | default color | configurable |
 | - | - | - |
-| `leading_trailing_space_bg`|Color::Rgb(128, 128, 128))| *|
+| `leading-trailing-space-bg`|Color::Rgb(128, 128, 128))| *|
 | `header`|Color::Green.bold()| *|
 | `empty`|Color::Blue.normal()| *|
-| `row_index`|Color::Green.bold()| *|
+| `row-index`|Color::Green.bold()| *|
 | `hints`|Color::DarkGray.normal()| *|
 
 Here's a small example of changing some of these values.
 ```
 let config = {
-    color_config: {
+    color-config: {
         separator: purple
-        leading_trailing_space_bg: "#ffffff"
+        leading-trailing-space-bg: "#ffffff"
         header: gb
         date: wd
         filesize: c
-        row_index: cb
+        row-index: cb
         bool: red
         int: green
-        duration: blue_bold
+        duration: blue-bold
         range: purple
         float: red
         string: white
         nothing: red
         binary: red
         cellpath: cyan
-        hints: dark_gray
+        hints: dark-gray
     }
 }
 ```
 Here's another small example using multiple color syntaxes with some comments.
 ```
 let config = {
-    color_config: {
+    color-config: {
         separator: "#88b719" # this sets only the foreground color like PR #486
-        leading_trailing_space_bg: white # this sets only the foreground color in the original style
+        leading-trailing-space-bg: white # this sets only the foreground color in the original style
         header: { # this is like PR #489
         fg: "#B01455", # note, quotes are required on the values with hex colors
         bg: "#ffb900",# note, commas are not required, it could also be all on one line
@@ -294,7 +294,7 @@ let config = {
         }
         date: "#75507B"
         filesize: "#729fcf"
-        row_index: { # note, that this is another way to set only the foreground, no need to specify bg and attr
+        row-index: { # note, that this is another way to set only the foreground, no need to specify bg and attr
         fg: "#e50914"
     }
 }
@@ -308,38 +308,38 @@ Here's the current list of flat shapes.
 
 | flatshape | default style | configurable |
 | - | - | - |
-| `flatshape_block`| fg(Color::Blue).bold()| * |
-| `flatshape_bool`| fg(Color::LightCyan)| * |
-| `flatshape_custom`| bold()| * |
-| `flatshape_external`| fg(Color::Cyan)| * |
-| `flatshape_externalarg`| fg(Color::Green).bold()| * |
-| `flatshape_filepath`| fg(Color::Cyan)| * |
-| `flatshape_flag`| fg(Color::Blue).bold()| * |
-| `flatshape_float`|fg(Color::Purple).bold() | * |
-| `flatshape_garbage`| fg(Color::White).on(Color::Red).bold()| * |
-| `flatshape_globpattern`| fg(Color::Cyan).bold()| * |
-| `flatshape_int`|fg(Color::Purple).bold() | * |
-| `flatshape_internalcall`| fg(Color::Cyan).bold()| * |
-| `flatshape_list`| fg(Color::Cyan).bold()| * |
-| `flatshape_literal`| fg(Color::Blue)| * |
-| `flatshape_nothing`| fg(Color::LightCyan)| * |
-| `flatshape_operator`| fg(Color::Yellow)| * |
-| `flatshape_range`| fg(Color::Yellow).bold()| * |
-| `flatshape_record`| fg(Color::Cyan).bold()| * |
-| `flatshape_signature`| fg(Color::Green).bold()| * |
-| `flatshape_string`| fg(Color::Green)| * |
-| `flatshape_string_interpolation`| fg(Color::Cyan).bold()| * |
-| `flatshape_table`| fg(Color::Blue).bold()| * |
-| `flatshape_variable`| fg(Color::Purple)| * |
+| `flatshape-block`| fg(Color::Blue).bold()| * |
+| `flatshape-bool`| fg(Color::LightCyan)| * |
+| `flatshape-custom`| bold()| * |
+| `flatshape-external`| fg(Color::Cyan)| * |
+| `flatshape-externalarg`| fg(Color::Green).bold()| * |
+| `flatshape-filepath`| fg(Color::Cyan)| * |
+| `flatshape-flag`| fg(Color::Blue).bold()| * |
+| `flatshape-float`|fg(Color::Purple).bold() | * |
+| `flatshape-garbage`| fg(Color::White).on(Color::Red).bold()| * |
+| `flatshape-globpattern`| fg(Color::Cyan).bold()| * |
+| `flatshape-int`|fg(Color::Purple).bold() | * |
+| `flatshape-internalcall`| fg(Color::Cyan).bold()| * |
+| `flatshape-list`| fg(Color::Cyan).bold()| * |
+| `flatshape-literal`| fg(Color::Blue)| * |
+| `flatshape-nothing`| fg(Color::LightCyan)| * |
+| `flatshape-operator`| fg(Color::Yellow)| * |
+| `flatshape-range`| fg(Color::Yellow).bold()| * |
+| `flatshape-record`| fg(Color::Cyan).bold()| * |
+| `flatshape-signature`| fg(Color::Green).bold()| * |
+| `flatshape-string`| fg(Color::Green)| * |
+| `flatshape-string-interpolation`| fg(Color::Cyan).bold()| * |
+| `flatshape-table`| fg(Color::Blue).bold()| * |
+| `flatshape-variable`| fg(Color::Purple)| * |
 
 Here's a small example of how to apply color to these items. Anything not specified will receive the default color.
 
 ```
 let $config = {
-    color_config: {
-        flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
-        flatshape_bool: green
-        flatshape_int: { fg: "#0000ff" attr: b}
+    color-config: {
+        flatshape-garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+        flatshape-bool: green
+        flatshape-int: { fg: "#0000ff" attr: b}
     }
 }
 ```
@@ -405,13 +405,13 @@ let base0f = "#a16946" # Deprecated, Opening/Closing Embedded Language Tags, e.g
 
 # we're creating a theme here that uses the colors we defined above.
 
-let base16_theme = {
+let base16-theme = {
     separator: $base03
-    leading_trailing_space_bg: $base04
+    leading-trailing-space-bg: $base04
     header: $base0b
     date: $base0e
     filesize: $base0d
-    row_index: $base0c
+    row-index: $base0c
     bool: $base08
     int: $base0b
     duration: $base08
@@ -421,45 +421,45 @@ let base16_theme = {
     nothing: $base08
     binary: $base08
     cellpath: $base08
-    hints: dark_gray
+    hints: dark-gray
 
-    # flatshape_garbage: { fg: $base07 bg: $base08 attr: b} # base16 white on red
+    # flatshape-garbage: { fg: $base07 bg: $base08 attr: b} # base16 white on red
     # but i like the regular white on red for parse errors
-    flatshape_garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
-    flatshape_bool: $base0d
-    flatshape_int: { fg: $base0e attr: b}
-    flatshape_float: { fg: $base0e attr: b}
-    flatshape_range: { fg: $base0a attr: b}
-    flatshape_internalcall: { fg: $base0c attr: b}
-    flatshape_external: $base0c
-    flatshape_externalarg: { fg: $base0b attr: b}
-    flatshape_literal: $base0d
-    flatshape_operator: $base0a
-    flatshape_signature: { fg: $base0b attr: b}
-    flatshape_string: $base0b
-    flatshape_filepath: $base0d
-    flatshape_globpattern: { fg: $base0d attr: b}
-    flatshape_variable: $base0e
-    flatshape_flag: { fg: $base0d attr: b}
-    flatshape_custom: {attr: b}
+    flatshape-garbage: { fg: "#FFFFFF" bg: "#FF0000" attr: b}
+    flatshape-bool: $base0d
+    flatshape-int: { fg: $base0e attr: b}
+    flatshape-float: { fg: $base0e attr: b}
+    flatshape-range: { fg: $base0a attr: b}
+    flatshape-internalcall: { fg: $base0c attr: b}
+    flatshape-external: $base0c
+    flatshape-externalarg: { fg: $base0b attr: b}
+    flatshape-literal: $base0d
+    flatshape-operator: $base0a
+    flatshape-signature: { fg: $base0b attr: b}
+    flatshape-string: $base0b
+    flatshape-filepath: $base0d
+    flatshape-globpattern: { fg: $base0d attr: b}
+    flatshape-variable: $base0e
+    flatshape-flag: { fg: $base0d attr: b}
+    flatshape-custom: {attr: b}
 }
 
-# now let's apply our regular config settings but also apply the "color_config:" theme that we specified above.
+# now let's apply our regular config settings but also apply the "color-config:" theme that we specified above.
 
 let config = {
-  filesize_metric: $true
-  table_mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
-  use_ls_colors: $true
-  color_config: $base16_theme # <-- this is the theme
-  use_grid_icons: $true
-  footer_mode: always #always, never, number_of_rows, auto
-  animate_prompt: $false
-  float_precision: 2
-  without_color: $false
-  filesize_format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
-  edit_mode: emacs # vi
-  max_history_size: 10000
-  log_level: error
+  filesize-metric: $true
+  table-mode: rounded # basic, compact, compact-double, light, thin, with-love, rounded, reinforced, heavy, none, other
+  use-ls-colors: $true
+  color-config: $base16-theme # <-- this is the theme
+  use-grid-icons: $true
+  footer-mode: always #always, never, number-of-rows, auto
+  animate-prompt: $false
+  float-precision: 2
+  without-color: $false
+  filesize-format: "b" # b, kb, kib, mb, mib, gb, gib, tb, tib, pb, pib, eb, eib, zb, zib, auto
+  edit-mode: emacs # vi
+  max-history-size: 10000
+  log-level: error
 }
 ```
 if you want to go full-tilt on theming, you'll want to theme all the items I mentioned at the very beginning, including LS_COLORS, and the prompt.  Good luck!

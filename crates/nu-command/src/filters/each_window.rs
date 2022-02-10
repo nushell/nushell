@@ -16,7 +16,7 @@ impl Command for EachWindow {
 
     fn signature(&self) -> Signature {
         Signature::build("each window")
-            .required("window_size", SyntaxShape::Int, "the size of each window")
+            .required("window-size", SyntaxShape::Int, "the size of each window")
             .named(
                 "stride",
                 SyntaxShape::Int,
@@ -32,7 +32,7 @@ impl Command for EachWindow {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block on window groups of `window_size` that slide by n rows."
+        "Runs a block on window groups of `window-size` that slide by n rows."
     }
 
     fn examples(&self) -> Vec<Example> {

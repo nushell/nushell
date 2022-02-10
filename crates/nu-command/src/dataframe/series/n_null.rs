@@ -29,7 +29,7 @@ impl Command for NNull {
     ($s / $s) | dfr count-null"#,
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "count_null".to_string(),
+                    "count-null".to_string(),
                     vec![Value::test_int(2)],
                 )])
                 .expect("simple df for test should not fail")
@@ -63,7 +63,7 @@ fn command(
         span: call.head,
     };
 
-    NuDataFrame::try_from_columns(vec![Column::new("count_null".to_string(), vec![value])])
+    NuDataFrame::try_from_columns(vec![Column::new("count-null".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

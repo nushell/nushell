@@ -63,7 +63,7 @@ impl Command for DropNulls {
     ($s / $s) | dfr drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
-                        "div_0_0".to_string(),
+                        "div-0-0".to_string(),
                         vec![
                             Value::test_int(1),
                             Value::test_int(1),

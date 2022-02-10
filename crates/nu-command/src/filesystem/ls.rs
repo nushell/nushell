@@ -355,7 +355,7 @@ pub(crate) fn dir_entry_dict(
                 });
 
                 let nlinks = md.nlink();
-                cols.push("num_links".into());
+                cols.push("num-links".into());
                 vals.push(Value::Int {
                     val: nlinks as i64,
                     span,

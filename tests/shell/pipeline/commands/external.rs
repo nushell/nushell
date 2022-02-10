@@ -246,7 +246,7 @@ mod external_words {
     //#[case("quote'mark.toml", r#""quote'mark.toml""#)]
     #[cfg_attr(
         not(target_os = "windows"),
-        case(r#"quote"mark.toml"#, r#"$"quote(char double_quote)mark.toml""#)
+        case(r#"quote"mark.toml"#, r#"$"quote(char double-quote)mark.toml""#)
     )]
     #[cfg_attr(not(target_os = "windows"), case("?mark.toml", r#""?mark.toml""#))]
     #[cfg_attr(not(target_os = "windows"), case("*.toml", r#""*.toml""#))]

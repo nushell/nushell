@@ -29,7 +29,7 @@ impl Command for IsDuplicated {
             example: "[5 6 6 6 8 8 8] | dfr to-df | dfr is-duplicated",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "is_duplicated".to_string(),
+                    "is-duplicated".to_string(),
                     vec![
                         Value::test_bool(false),
                         Value::test_bool(true),
@@ -77,7 +77,7 @@ fn command(
         })?
         .into_series();
 
-    res.rename("is_duplicated");
+    res.rename("is-duplicated");
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))

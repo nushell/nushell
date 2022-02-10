@@ -157,8 +157,8 @@ fn binary_subtype_to_string(bst: BinarySubtype) -> String {
     match bst {
         BinarySubtype::Generic => "generic",
         BinarySubtype::Function => "function",
-        BinarySubtype::BinaryOld => "binary_old",
-        BinarySubtype::UuidOld => "uuid_old",
+        BinarySubtype::BinaryOld => "binary-old",
+        BinarySubtype::UuidOld => "uuid-old",
         BinarySubtype::Uuid => "uuid",
         BinarySubtype::Md5 => "md5",
         _ => unreachable!(),

@@ -318,7 +318,7 @@ fn list_all_columns() {
                     "target",
                     "readonly",
                     "mode",
-                    "num_links",
+                    "num-links",
                     "inode",
                     "uid",
                     "group",

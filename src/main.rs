@@ -137,7 +137,7 @@ fn main() -> Result<()> {
             if let Some(testbin) = &binary_args.testbin {
                 // Call out to the correct testbin
                 match testbin.item.as_str() {
-                    "echo_env" => test_bins::echo_env(),
+                    "echo-env" => test_bins::echo_env(),
                     "cococo" => test_bins::cococo(),
                     "meow" => test_bins::meow(),
                     "iecho" => test_bins::iecho(),

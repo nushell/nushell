@@ -28,7 +28,7 @@ impl Command for NUnique {
             example: "[1 1 2 2 3 3 4] | dfr to-df | dfr count-unique",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "count_unique".to_string(),
+                    "count-unique".to_string(),
                     vec![Value::test_int(4)],
                 )])
                 .expect("simple df for test should not fail")
@@ -69,7 +69,7 @@ fn command(
         span: call.head,
     };
 
-    NuDataFrame::try_from_columns(vec![Column::new("count_unique".to_string(), vec![value])])
+    NuDataFrame::try_from_columns(vec![Column::new("count-unique".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

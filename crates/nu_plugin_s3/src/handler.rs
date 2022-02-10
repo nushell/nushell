@@ -52,7 +52,7 @@ impl Handler {
             ));
         }
 
-        if let Some(access_key) = call_info.args.get("access_key") {
+        if let Some(access_key) = call_info.args.get("access-key") {
             self.config.access_key = access_key.as_string()?
         } else {
             return Err(ShellError::labeled_error(
@@ -62,7 +62,7 @@ impl Handler {
             ));
         }
 
-        if let Some(secret_key) = call_info.args.get("secret_key") {
+        if let Some(secret_key) = call_info.args.get("secret-key") {
             self.config.secret_key = secret_key.as_string()?
         } else {
             return Err(ShellError::labeled_error(

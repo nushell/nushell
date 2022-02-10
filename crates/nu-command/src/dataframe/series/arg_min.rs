@@ -29,7 +29,7 @@ impl Command for ArgMin {
             example: "[1 3 2] | dfr to-df | dfr arg-min",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_min".to_string(),
+                    "arg-min".to_string(),
                     vec![Value::test_int(0)],
                 )])
                 .expect("simple df for test should not fail")
@@ -60,8 +60,8 @@ fn command(
 
     let res = series.arg_min();
     let chunked = match res {
-        Some(index) => UInt32Chunked::new_from_slice("arg_min", &[index as u32]),
-        None => UInt32Chunked::new_from_slice("arg_min", &[]),
+        Some(index) => UInt32Chunked::new_from_slice("arg-min", &[index as u32]),
+        None => UInt32Chunked::new_from_slice("arg-min", &[]),
     };
 
     let res = chunked.into_series();

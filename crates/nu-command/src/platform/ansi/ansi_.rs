@@ -19,116 +19,116 @@ struct AnsiCode {
 lazy_static! {
     static ref CODE_LIST: Vec<AnsiCode> = vec!{
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
-    AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("gi"), long_name: "green_italic", code: Color::Green.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("gd"), long_name: "green_dimmed", code: Color::Green.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("gr"), long_name: "green_reverse", code: Color::Green.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("gb"), long_name: "green-bold", code: Color::Green.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("gu"), long_name: "green-underline", code: Color::Green.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("gi"), long_name: "green-italic", code: Color::Green.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("gd"), long_name: "green-dimmed", code: Color::Green.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("gr"), long_name: "green-reverse", code: Color::Green.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lg"), long_name: "light_green", code: Color::LightGreen.prefix().to_string()},
-    AnsiCode{ short_name: Some("lgb"), long_name: "light_green_bold", code: Color::LightGreen.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lgu"), long_name: "light_green_underline", code: Color::LightGreen.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lgi"), long_name: "light_green_italic", code: Color::LightGreen.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lgd"), long_name: "light_green_dimmed", code: Color::LightGreen.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lgr"), long_name: "light_green_reverse", code: Color::LightGreen.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("lg"), long_name: "light-green", code: Color::LightGreen.prefix().to_string()},
+    AnsiCode{ short_name: Some("lgb"), long_name: "light-green-bold", code: Color::LightGreen.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lgu"), long_name: "light-green-underline", code: Color::LightGreen.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lgi"), long_name: "light-green-italic", code: Color::LightGreen.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lgd"), long_name: "light-green-dimmed", code: Color::LightGreen.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lgr"), long_name: "light-green-reverse", code: Color::LightGreen.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("r"), long_name: "red", code: Color::Red.prefix().to_string()},
-    AnsiCode{ short_name: Some("rb"), long_name: "red_bold", code: Color::Red.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("ru"), long_name: "red_underline", code: Color::Red.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ri"), long_name: "red_italic", code: Color::Red.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("rd"), long_name: "red_dimmed", code: Color::Red.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("rr"), long_name: "red_reverse", code: Color::Red.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("rb"), long_name: "red-bold", code: Color::Red.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("ru"), long_name: "red-underline", code: Color::Red.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ri"), long_name: "red-italic", code: Color::Red.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("rd"), long_name: "red-dimmed", code: Color::Red.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("rr"), long_name: "red-reverse", code: Color::Red.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lr"), long_name: "light_red", code: Color::LightRed.prefix().to_string()},
-    AnsiCode{ short_name: Some("lrb"), long_name: "light_red_bold", code: Color::LightRed.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lru"), long_name: "light_red_underline", code: Color::LightRed.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lri"), long_name: "light_red_italic", code: Color::LightRed.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lrd"), long_name: "light_red_dimmed", code: Color::LightRed.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lrr"), long_name: "light_red_reverse", code: Color::LightRed.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("lr"), long_name: "light-red", code: Color::LightRed.prefix().to_string()},
+    AnsiCode{ short_name: Some("lrb"), long_name: "light-red-bold", code: Color::LightRed.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lru"), long_name: "light-red-underline", code: Color::LightRed.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lri"), long_name: "light-red-italic", code: Color::LightRed.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lrd"), long_name: "light-red-dimmed", code: Color::LightRed.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lrr"), long_name: "light-red-reverse", code: Color::LightRed.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("u"), long_name: "blue", code: Color::Blue.prefix().to_string()},
-    AnsiCode{ short_name: Some("ub"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("uu"), long_name: "blue_underline", code: Color::Blue.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ui"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("ud"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("ur"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("ub"), long_name: "blue-bold", code: Color::Blue.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("uu"), long_name: "blue-underline", code: Color::Blue.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ui"), long_name: "blue-italic", code: Color::Blue.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("ud"), long_name: "blue-dimmed", code: Color::Blue.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("ur"), long_name: "blue-reverse", code: Color::Blue.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lu"), long_name: "light_blue", code: Color::LightBlue.prefix().to_string()},
-    AnsiCode{ short_name: Some("lub"), long_name: "light_blue_bold", code: Color::LightBlue.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("luu"), long_name: "light_blue_underline", code: Color::LightBlue.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lui"), long_name: "light_blue_italic", code: Color::LightBlue.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lud"), long_name: "light_blue_dimmed", code: Color::LightBlue.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lur"), long_name: "light_blue_reverse", code: Color::LightBlue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("lu"), long_name: "light-blue", code: Color::LightBlue.prefix().to_string()},
+    AnsiCode{ short_name: Some("lub"), long_name: "light-blue-bold", code: Color::LightBlue.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("luu"), long_name: "light-blue-underline", code: Color::LightBlue.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lui"), long_name: "light-blue-italic", code: Color::LightBlue.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lud"), long_name: "light-blue-dimmed", code: Color::LightBlue.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lur"), long_name: "light-blue-reverse", code: Color::LightBlue.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("b"), long_name: "black", code: Color::Black.prefix().to_string()},
-    AnsiCode{ short_name: Some("bb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("bu"), long_name: "black_underline", code: Color::Black.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("bi"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("bd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("br"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bb"), long_name: "black-bold", code: Color::Black.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("bu"), long_name: "black-underline", code: Color::Black.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("bi"), long_name: "black-italic", code: Color::Black.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("bd"), long_name: "black-dimmed", code: Color::Black.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("br"), long_name: "black-reverse", code: Color::Black.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("ligr"), long_name: "light_gray", code: Color::LightGray.prefix().to_string()},
-    AnsiCode{ short_name: Some("ligrb"), long_name: "light_gray_bold", code: Color::LightGray.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("ligru"), long_name: "light_gray_underline", code: Color::LightGray.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ligri"), long_name: "light_gray_italic", code: Color::LightGray.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("ligrd"), long_name: "light_gray_dimmed", code: Color::LightGray.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("ligrr"), long_name: "light_gray_reverse", code: Color::LightGray.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("ligr"), long_name: "light-gray", code: Color::LightGray.prefix().to_string()},
+    AnsiCode{ short_name: Some("ligrb"), long_name: "light-gray-bold", code: Color::LightGray.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("ligru"), long_name: "light-gray-underline", code: Color::LightGray.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ligri"), long_name: "light-gray-italic", code: Color::LightGray.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("ligrd"), long_name: "light-gray-dimmed", code: Color::LightGray.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("ligrr"), long_name: "light-gray-reverse", code: Color::LightGray.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("y"), long_name: "yellow", code: Color::Yellow.prefix().to_string()},
-    AnsiCode{ short_name: Some("yb"), long_name: "yellow_bold", code: Color::Yellow.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("yu"), long_name: "yellow_underline", code: Color::Yellow.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("yi"), long_name: "yellow_italic", code: Color::Yellow.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("yd"), long_name: "yellow_dimmed", code: Color::Yellow.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("yr"), long_name: "yellow_reverse", code: Color::Yellow.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("yb"), long_name: "yellow-bold", code: Color::Yellow.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("yu"), long_name: "yellow-underline", code: Color::Yellow.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("yi"), long_name: "yellow-italic", code: Color::Yellow.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("yd"), long_name: "yellow-dimmed", code: Color::Yellow.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("yr"), long_name: "yellow-reverse", code: Color::Yellow.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("ly"), long_name: "light_yellow", code: Color::LightYellow.prefix().to_string()},
-    AnsiCode{ short_name: Some("lyb"), long_name: "light_yellow_bold", code: Color::LightYellow.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lyu"), long_name: "light_yellow_underline", code: Color::LightYellow.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lyi"), long_name: "light_yellow_italic", code: Color::LightYellow.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lyd"), long_name: "light_yellow_dimmed", code: Color::LightYellow.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lyr"), long_name: "light_yellow_reverse", code: Color::LightYellow.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("ly"), long_name: "light-yellow", code: Color::LightYellow.prefix().to_string()},
+    AnsiCode{ short_name: Some("lyb"), long_name: "light-yellow-bold", code: Color::LightYellow.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lyu"), long_name: "light-yellow-underline", code: Color::LightYellow.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lyi"), long_name: "light-yellow-italic", code: Color::LightYellow.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lyd"), long_name: "light-yellow-dimmed", code: Color::LightYellow.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lyr"), long_name: "light-yellow-reverse", code: Color::LightYellow.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("p"), long_name: "purple", code: Color::Purple.prefix().to_string()},
-    AnsiCode{ short_name: Some("pb"), long_name: "purple_bold", code: Color::Purple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("pu"), long_name: "purple_underline", code: Color::Purple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("pi"), long_name: "purple_italic", code: Color::Purple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("pd"), long_name: "purple_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("pr"), long_name: "purple_reverse", code: Color::Purple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("pb"), long_name: "purple-bold", code: Color::Purple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("pu"), long_name: "purple-underline", code: Color::Purple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("pi"), long_name: "purple-italic", code: Color::Purple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("pd"), long_name: "purple-dimmed", code: Color::Purple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("pr"), long_name: "purple-reverse", code: Color::Purple.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lp"), long_name: "light_purple", code: Color::LightPurple.prefix().to_string()},
-    AnsiCode{ short_name: Some("lpb"), long_name: "light_purple_bold", code: Color::LightPurple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lpu"), long_name: "light_purple_underline", code: Color::LightPurple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lpi"), long_name: "light_purple_italic", code: Color::LightPurple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lpd"), long_name: "light_purple_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("lp"), long_name: "light-purple", code: Color::LightPurple.prefix().to_string()},
+    AnsiCode{ short_name: Some("lpb"), long_name: "light-purple-bold", code: Color::LightPurple.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lpu"), long_name: "light-purple-underline", code: Color::LightPurple.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lpi"), long_name: "light-purple-italic", code: Color::LightPurple.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lpd"), long_name: "light-purple-dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lpr"), long_name: "light-purple-reverse", code: Color::LightPurple.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
-    AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("cu"), long_name: "cyan_underline", code: Color::Cyan.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ci"), long_name: "cyan_italic", code: Color::Cyan.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("cd"), long_name: "cyan_dimmed", code: Color::Cyan.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("cr"), long_name: "cyan_reverse", code: Color::Cyan.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("cb"), long_name: "cyan-bold", code: Color::Cyan.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("cu"), long_name: "cyan-underline", code: Color::Cyan.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ci"), long_name: "cyan-italic", code: Color::Cyan.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("cd"), long_name: "cyan-dimmed", code: Color::Cyan.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("cr"), long_name: "cyan-reverse", code: Color::Cyan.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lc"), long_name: "light_cyan", code: Color::LightCyan.prefix().to_string()},
-    AnsiCode{ short_name: Some("lcb"), long_name: "light_cyan_bold", code: Color::LightCyan.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lcu"), long_name: "light_cyan_underline", code: Color::LightCyan.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lci"), long_name: "light_cyan_italic", code: Color::LightCyan.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lcd"), long_name: "light_cyan_dimmed", code: Color::LightCyan.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lcr"), long_name: "light_cyan_reverse", code: Color::LightCyan.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("lc"), long_name: "light-cyan", code: Color::LightCyan.prefix().to_string()},
+    AnsiCode{ short_name: Some("lcb"), long_name: "light-cyan-bold", code: Color::LightCyan.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lcu"), long_name: "light-cyan-underline", code: Color::LightCyan.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lci"), long_name: "light-cyan-italic", code: Color::LightCyan.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lcd"), long_name: "light-cyan-dimmed", code: Color::LightCyan.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lcr"), long_name: "light-cyan-reverse", code: Color::LightCyan.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: Some("w"), long_name: "white", code: Color::White.prefix().to_string()},
-    AnsiCode{ short_name: Some("wb"), long_name: "white_bold", code: Color::White.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("wu"), long_name: "white_underline", code: Color::White.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("wi"), long_name: "white_italic", code: Color::White.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("wd"), long_name: "white_dimmed", code: Color::White.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("wr"), long_name: "white_reverse", code: Color::White.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("wb"), long_name: "white-bold", code: Color::White.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("wu"), long_name: "white-underline", code: Color::White.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("wi"), long_name: "white-italic", code: Color::White.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("wd"), long_name: "white-dimmed", code: Color::White.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("wr"), long_name: "white-reverse", code: Color::White.reverse().prefix().to_string()},
 
-    AnsiCode{ short_name: Some("dgr"), long_name: "dark_gray", code: Color::DarkGray.prefix().to_string()},
-    AnsiCode{ short_name: Some("dgrb"), long_name: "dark_gray_bold", code: Color::DarkGray.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("dgru"), long_name: "dark_gray_underline", code: Color::DarkGray.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("dgri"), long_name: "dark_gray_italic", code: Color::DarkGray.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("dgrd"), long_name: "dark_gray_dimmed", code: Color::DarkGray.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("dgrr"), long_name: "dark_gray_reverse", code: Color::DarkGray.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("dgr"), long_name: "dark-gray", code: Color::DarkGray.prefix().to_string()},
+    AnsiCode{ short_name: Some("dgrb"), long_name: "dark-gray-bold", code: Color::DarkGray.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("dgru"), long_name: "dark-gray-underline", code: Color::DarkGray.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("dgri"), long_name: "dark-gray-italic", code: Color::DarkGray.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("dgrd"), long_name: "dark-gray-dimmed", code: Color::DarkGray.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("dgrr"), long_name: "dark-gray-reverse", code: Color::DarkGray.reverse().prefix().to_string()},
 
     AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -138,44 +138,44 @@ lazy_static! {
     AnsiCode{short_name: None, long_name:"title", code: "\x1b]2;".to_string()}, // ESC]2; xterm sets window title using OSC syntax escapes
 
     // Ansi Erase Sequences
-    AnsiCode{ short_name: None, long_name:"clear_screen", code: "\x1b[J".to_string()}, // clears the screen
-    AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
-    AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
-    AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
-    AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
-    AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
-    AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
-    AnsiCode{ short_name: None, long_name:"erase_entire_line", code: "\x1b[2K".to_string()},                   // clears entire line
+    AnsiCode{ short_name: None, long_name:"clear-screen", code: "\x1b[J".to_string()}, // clears the screen
+    AnsiCode{ short_name: None, long_name:"clear-screen-from-cursor-to-end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
+    AnsiCode{ short_name: None, long_name:"clear-screen-from-cursor-to-beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
+    AnsiCode{ short_name: Some("cls"), long_name:"clear-entire-screen", code: "\x1b[2J".to_string()}, // clears the entire screen
+    AnsiCode{ short_name: None, long_name:"erase-line", code: "\x1b[K".to_string()},                   // clears the current line
+    AnsiCode{ short_name: None, long_name:"erase-line-from-cursor-to-end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
+    AnsiCode{ short_name: None, long_name:"erase-line-from-cursor-to-beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
+    AnsiCode{ short_name: None, long_name:"erase-entire-line", code: "\x1b[2K".to_string()},                   // clears entire line
 
     // Turn on/off cursor
-    AnsiCode{ short_name: None, long_name:"cursor_off", code: "\x1b[?25l".to_string()},
-    AnsiCode{ short_name: None, long_name:"cursor_on", code: "\x1b[?25h".to_string()},
+    AnsiCode{ short_name: None, long_name:"cursor-off", code: "\x1b[?25l".to_string()},
+    AnsiCode{ short_name: None, long_name:"cursor-on", code: "\x1b[?25h".to_string()},
 
     // Turn on/off blinking
-    AnsiCode{ short_name: None, long_name:"cursor_blink_off", code: "\x1b[?12l".to_string()},
-    AnsiCode{ short_name: None, long_name:"cursor_blink_on", code: "\x1b[?12h".to_string()},
+    AnsiCode{ short_name: None, long_name:"cursor-blink-off", code: "\x1b[?12l".to_string()},
+    AnsiCode{ short_name: None, long_name:"cursor-blink-on", code: "\x1b[?12h".to_string()},
 
     // Cursor position in ESC [ <r>;<c>R where r = row and c = column
-    AnsiCode{ short_name: None, long_name:"cursor_position", code: "\x1b[6n".to_string()},
+    AnsiCode{ short_name: None, long_name:"cursor-position", code: "\x1b[6n".to_string()},
 
     // Report Terminal Identity
     AnsiCode{ short_name: None, long_name:"identity", code: "\x1b[0c".to_string()},
 
     // Ansi escape only - CSI command
-    AnsiCode{ short_name: Some("escape"), long_name: "escape_left", code: "\x1b[".to_string()},
+    AnsiCode{ short_name: Some("escape"), long_name: "escape-left", code: "\x1b[".to_string()},
     // OSC escape (Operating system command)
-    AnsiCode{ short_name: Some("osc"), long_name:"escape_right", code: "\x1b]".to_string()},
+    AnsiCode{ short_name: Some("osc"), long_name:"escape-right", code: "\x1b]".to_string()},
     // OSC string terminator
-    AnsiCode{ short_name: Some("st"), long_name:"string_terminator", code: "\x1b\\".to_string()},
+    AnsiCode{ short_name: Some("st"), long_name:"string-terminator", code: "\x1b\\".to_string()},
 
     // Ansi Rgb - Needs to be 32;2;r;g;b or 48;2;r;g;b
     // assuming the rgb will be passed via command and no here
-    AnsiCode{ short_name: None, long_name:"rgb_fg", code: "\x1b[38;2;".to_string()},
-    AnsiCode{ short_name: None, long_name:"rgb_bg", code: "\x1b[48;2;".to_string()},
+    AnsiCode{ short_name: None, long_name:"rgb-fg", code: "\x1b[38;2;".to_string()},
+    AnsiCode{ short_name: None, long_name:"rgb-bg", code: "\x1b[48;2;".to_string()},
 
     // Ansi color index - Needs 38;5;idx or 48;5;idx where idx = 0 to 255
-    AnsiCode{ short_name: Some("idx_fg"), long_name: "color_idx_fg", code: "\x1b[38;5;".to_string()},
-    AnsiCode{ short_name: Some("idx_bg"), long_name:"color_idx_bg", code: "\x1b[48;5;".to_string()},
+    AnsiCode{ short_name: Some("idx-fg"), long_name: "color-idx-fg", code: "\x1b[38;5;".to_string()},
+    AnsiCode{ short_name: Some("idx-bg"), long_name:"color-idx-bg", code: "\x1b[48;5;".to_string()},
 
     // Returns terminal size like "[<r>;<c>R" where r is rows and c is columns
     // This should work assuming your terminal is not greater than 999x999

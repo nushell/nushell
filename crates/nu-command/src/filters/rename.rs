@@ -43,10 +43,10 @@ impl Command for Rename {
         vec![
             Example {
                 description: "Rename a column",
-                example: "[[a, b]; [1, 2]] | rename my_column",
+                example: "[[a, b]; [1, 2]] | rename my-column",
                 result: Some(Value::List {
                     vals: vec![Value::Record {
-                        cols: vec!["my_column".to_string(), "b".to_string()],
+                        cols: vec!["my-column".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2)],
                         span: Span::test_data(),
                     }],

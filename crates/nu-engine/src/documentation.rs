@@ -44,7 +44,7 @@ fn generate_doc(
     });
 
     if let Some(link) = retrieve_doc_link(name) {
-        cols.push("doc_link".into());
+        cols.push("doc-link".into());
         vals.push(Value::String {
             val: link,
             span: head,

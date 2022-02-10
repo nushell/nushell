@@ -29,7 +29,7 @@ impl Command for ArgMax {
             example: "[1 3 2] | dfr to-df | dfr arg-max",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
-                    "arg_max".to_string(),
+                    "arg-max".to_string(),
                     vec![Value::test_int(1)],
                 )])
                 .expect("simple df for test should not fail")
@@ -60,8 +60,8 @@ fn command(
 
     let res = series.arg_max();
     let chunked = match res {
-        Some(index) => UInt32Chunked::new_from_slice("arg_max", &[index as u32]),
-        None => UInt32Chunked::new_from_slice("arg_max", &[]),
+        Some(index) => UInt32Chunked::new_from_slice("arg-max", &[index as u32]),
+        None => UInt32Chunked::new_from_slice("arg-max", &[]),
     };
 
     let res = chunked.into_series();

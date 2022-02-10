@@ -54,7 +54,7 @@ impl Command for Help {
             },
             Example {
                 description: "generate documentation",
-                example: "help generate_docs",
+                example: "help generate-docs",
                 result: None,
             },
             Example {
@@ -114,13 +114,13 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
+                cols.push("is-plugin".into());
                 vals.push(Value::Bool {
                     val: is_plugin,
                     span: head,
                 });
 
-                cols.push("is_custom".into());
+                cols.push("is-custom".into());
                 vals.push(Value::Bool {
                     val: is_custom,
                     span: head,
@@ -129,7 +129,7 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String { val: c, span: head });
 
-                cols.push("extra_usage".into());
+                cols.push("extra-usage".into());
                 vals.push(Value::String { val: e, span: head });
 
                 found_cmds_vec.push(Value::Record {
@@ -169,13 +169,13 @@ fn help(
                     span: head,
                 });
 
-                cols.push("is_plugin".into());
+                cols.push("is-plugin".into());
                 vals.push(Value::Bool {
                     val: is_plugin,
                     span: head,
                 });
 
-                cols.push("is_custom".into());
+                cols.push("is-custom".into());
                 vals.push(Value::Bool {
                     val: is_custom,
                     span: head,
@@ -184,7 +184,7 @@ fn help(
                 cols.push("usage".into());
                 vals.push(Value::String { val: c, span: head });
 
-                cols.push("extra_usage".into());
+                cols.push("extra-usage".into());
                 vals.push(Value::String { val: e, span: head });
 
                 found_cmds_vec.push(Value::Record {

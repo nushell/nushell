@@ -18,7 +18,7 @@ impl Command for Alias {
         Signature::build("alias")
             .required("name", SyntaxShape::String, "name of the alias")
             .required(
-                "initial_value",
+                "initial-value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
                 "equals sign followed by value",
             )

@@ -53,7 +53,7 @@ impl Default for HtmlThemes {
 impl Default for HtmlTheme {
     fn default() -> Self {
         HtmlTheme {
-            name: "nu_default".to_string(),
+            name: "nu-default".to_string(),
             black: "black".to_string(),
             red: "red".to_string(),
             green: "green".to_string(),
@@ -90,8 +90,8 @@ impl Command for ToHtml {
 
     fn signature(&self) -> Signature {
         Signature::build("to html")
-            .switch("html_color", "change ansi colors to html colors", Some('c'))
-            .switch("no_color", "remove all ansi colors in output", Some('n'))
+            .switch("html-color", "change ansi colors to html colors", Some('c'))
+            .switch("no-color", "remove all ansi colors in output", Some('n'))
             .switch(
                 "dark",
                 "indicate your background color is a darker color",
@@ -159,7 +159,7 @@ fn get_theme_from_asset_file(
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => s.item.clone(),
-        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
+        None => "default".to_string(), // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu-default".
     };
 
     // 228 themes come from
@@ -187,7 +187,7 @@ fn get_theme_from_asset_file(
     };
 
     // this just means no theme was passed in
-    if th.name.to_lowercase().eq(&"nu_default".to_string())
+    if th.name.to_lowercase().eq(&"nu-default".to_string())
         // this means there was a theme passed in
         && theme.is_some()
     {
@@ -236,14 +236,14 @@ fn convert_html_theme_to_hash_map(
 ) -> HashMap<&'static str, String> {
     let mut hm: HashMap<&str, String> = HashMap::new();
 
-    hm.insert("bold_black", theme.brightBlack[..].to_string());
-    hm.insert("bold_red", theme.brightRed[..].to_string());
-    hm.insert("bold_green", theme.brightGreen[..].to_string());
-    hm.insert("bold_yellow", theme.brightYellow[..].to_string());
-    hm.insert("bold_blue", theme.brightBlue[..].to_string());
-    hm.insert("bold_magenta", theme.brightPurple[..].to_string());
-    hm.insert("bold_cyan", theme.brightCyan[..].to_string());
-    hm.insert("bold_white", theme.brightWhite[..].to_string());
+    hm.insert("bold-black", theme.brightBlack[..].to_string());
+    hm.insert("bold-red", theme.brightRed[..].to_string());
+    hm.insert("bold-green", theme.brightGreen[..].to_string());
+    hm.insert("bold-yellow", theme.brightYellow[..].to_string());
+    hm.insert("bold-blue", theme.brightBlue[..].to_string());
+    hm.insert("bold-magenta", theme.brightPurple[..].to_string());
+    hm.insert("bold-cyan", theme.brightCyan[..].to_string());
+    hm.insert("bold-white", theme.brightWhite[..].to_string());
 
     hm.insert("black", theme.black[..].to_string());
     hm.insert("red", theme.red[..].to_string());
@@ -289,8 +289,8 @@ fn to_html(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let html_color = call.has_flag("html_color");
-    let no_color = call.has_flag("no_color");
+    let html_color = call.has_flag("html-color");
+    let no_color = call.has_flag("no-color");
     let dark = call.has_flag("dark");
     let partial = call.has_flag("partial");
     let list = call.has_flag("list");
@@ -496,7 +496,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_red")
+                    .get("bold-red")
                     .expect("Error getting bold red text color"),
             ),
         ),
@@ -509,7 +509,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_green")
+                    .get("bold-green")
                     .expect("Error getting bold green text color"),
             ),
         ),
@@ -522,7 +522,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_yellow")
+                    .get("bold-yellow")
                     .expect("Error getting bold yellow text color"),
             ),
         ),
@@ -535,7 +535,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_blue")
+                    .get("bold-blue")
                     .expect("Error getting bold blue text color"),
             ),
         ),
@@ -548,7 +548,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_magenta")
+                    .get("bold-magenta")
                     .expect("Error getting bold magenta text color"),
             ),
         ),
@@ -561,7 +561,7 @@ fn setup_html_color_regexes(
             format!(
                 r"<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
-                    .get("bold_cyan")
+                    .get("bold-cyan")
                     .expect("Error getting bold cyan text color"),
             ),
         ),

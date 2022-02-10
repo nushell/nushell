@@ -17,9 +17,9 @@ impl Command for LetEnv {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("let-env")
-            .required("var_name", SyntaxShape::String, "variable name")
+            .required("var-name", SyntaxShape::String, "variable name")
             .required(
-                "initial_value",
+                "initial-value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
                 "equals sign followed by value",
             )

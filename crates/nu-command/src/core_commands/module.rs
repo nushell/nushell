@@ -16,7 +16,7 @@ impl Command for Module {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("module")
-            .required("module_name", SyntaxShape::String, "module name")
+            .required("module-name", SyntaxShape::String, "module name")
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![])),

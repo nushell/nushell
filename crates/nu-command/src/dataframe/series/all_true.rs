@@ -29,7 +29,7 @@ impl Command for AllTrue {
                 example: "[$true $true $true] | dfr to-df | dfr all-true",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
+                        "all-true".to_string(),
                         vec![Value::test_bool(true)],
                     )])
                     .expect("simple df for test should not fail")
@@ -43,7 +43,7 @@ impl Command for AllTrue {
     $res | dfr all-true"#,
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
-                        "all_true".to_string(),
+                        "all-true".to_string(),
                         vec![Value::test_bool(false)],
                     )])
                     .expect("simple df for test should not fail")
@@ -86,7 +86,7 @@ fn command(
         span: call.head,
     };
 
-    NuDataFrame::try_from_columns(vec![Column::new("all_true".to_string(), vec![value])])
+    NuDataFrame::try_from_columns(vec![Column::new("all-true".to_string(), vec![value])])
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 

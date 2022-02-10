@@ -18,148 +18,148 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
     } else {
         match s {
             "g" | "green" => Color::Green.normal(),
-            "gb" | "green_bold" => Color::Green.bold(),
-            "gu" | "green_underline" => Color::Green.underline(),
-            "gi" | "green_italic" => Color::Green.italic(),
-            "gd" | "green_dimmed" => Color::Green.dimmed(),
-            "gr" | "green_reverse" => Color::Green.reverse(),
-            "gbl" | "green_blink" => Color::Green.blink(),
-            "gst" | "green_strike" => Color::Green.strikethrough(),
+            "gb" | "green-bold" => Color::Green.bold(),
+            "gu" | "green-underline" => Color::Green.underline(),
+            "gi" | "green-italic" => Color::Green.italic(),
+            "gd" | "green-dimmed" => Color::Green.dimmed(),
+            "gr" | "green-reverse" => Color::Green.reverse(),
+            "gbl" | "green-blink" => Color::Green.blink(),
+            "gst" | "green-strike" => Color::Green.strikethrough(),
 
-            "lg" | "light_green" => Color::LightGreen.normal(),
-            "lgb" | "light_green_bold" => Color::LightGreen.bold(),
-            "lgu" | "light_green_underline" => Color::LightGreen.underline(),
-            "lgi" | "light_green_italic" => Color::LightGreen.italic(),
-            "lgd" | "light_green_dimmed" => Color::LightGreen.dimmed(),
-            "lgr" | "light_green_reverse" => Color::LightGreen.reverse(),
-            "lgbl" | "light_green_blink" => Color::LightGreen.blink(),
-            "lgst" | "light_green_strike" => Color::LightGreen.strikethrough(),
+            "lg" | "light-green" => Color::LightGreen.normal(),
+            "lgb" | "light-green-bold" => Color::LightGreen.bold(),
+            "lgu" | "light-green-underline" => Color::LightGreen.underline(),
+            "lgi" | "light-green-italic" => Color::LightGreen.italic(),
+            "lgd" | "light-green-dimmed" => Color::LightGreen.dimmed(),
+            "lgr" | "light-green-reverse" => Color::LightGreen.reverse(),
+            "lgbl" | "light-green-blink" => Color::LightGreen.blink(),
+            "lgst" | "light-green-strike" => Color::LightGreen.strikethrough(),
 
             "r" | "red" => Color::Red.normal(),
-            "rb" | "red_bold" => Color::Red.bold(),
-            "ru" | "red_underline" => Color::Red.underline(),
-            "ri" | "red_italic" => Color::Red.italic(),
-            "rd" | "red_dimmed" => Color::Red.dimmed(),
-            "rr" | "red_reverse" => Color::Red.reverse(),
-            "rbl" | "red_blink" => Color::Red.blink(),
-            "rst" | "red_strike" => Color::Red.strikethrough(),
+            "rb" | "red-bold" => Color::Red.bold(),
+            "ru" | "red-underline" => Color::Red.underline(),
+            "ri" | "red-italic" => Color::Red.italic(),
+            "rd" | "red-dimmed" => Color::Red.dimmed(),
+            "rr" | "red-reverse" => Color::Red.reverse(),
+            "rbl" | "red-blink" => Color::Red.blink(),
+            "rst" | "red-strike" => Color::Red.strikethrough(),
 
-            "lr" | "light_red" => Color::LightRed.normal(),
-            "lrb" | "light_red_bold" => Color::LightRed.bold(),
-            "lru" | "light_red_underline" => Color::LightRed.underline(),
-            "lri" | "light_red_italic" => Color::LightRed.italic(),
-            "lrd" | "light_red_dimmed" => Color::LightRed.dimmed(),
-            "lrr" | "light_red_reverse" => Color::LightRed.reverse(),
-            "lrbl" | "light_red_blink" => Color::LightRed.blink(),
-            "lrst" | "light_red_strike" => Color::LightRed.strikethrough(),
+            "lr" | "light-red" => Color::LightRed.normal(),
+            "lrb" | "light-red-bold" => Color::LightRed.bold(),
+            "lru" | "light-red-underline" => Color::LightRed.underline(),
+            "lri" | "light-red-italic" => Color::LightRed.italic(),
+            "lrd" | "light-red-dimmed" => Color::LightRed.dimmed(),
+            "lrr" | "light-red-reverse" => Color::LightRed.reverse(),
+            "lrbl" | "light-red-blink" => Color::LightRed.blink(),
+            "lrst" | "light-red-strike" => Color::LightRed.strikethrough(),
 
             "u" | "blue" => Color::Blue.normal(),
-            "ub" | "blue_bold" => Color::Blue.bold(),
-            "uu" | "blue_underline" => Color::Blue.underline(),
-            "ui" | "blue_italic" => Color::Blue.italic(),
-            "ud" | "blue_dimmed" => Color::Blue.dimmed(),
-            "ur" | "blue_reverse" => Color::Blue.reverse(),
-            "ubl" | "blue_blink" => Color::Blue.blink(),
-            "ust" | "blue_strike" => Color::Blue.strikethrough(),
+            "ub" | "blue-bold" => Color::Blue.bold(),
+            "uu" | "blue-underline" => Color::Blue.underline(),
+            "ui" | "blue-italic" => Color::Blue.italic(),
+            "ud" | "blue-dimmed" => Color::Blue.dimmed(),
+            "ur" | "blue-reverse" => Color::Blue.reverse(),
+            "ubl" | "blue-blink" => Color::Blue.blink(),
+            "ust" | "blue-strike" => Color::Blue.strikethrough(),
 
-            "lu" | "light_blue" => Color::LightBlue.normal(),
-            "lub" | "light_blue_bold" => Color::LightBlue.bold(),
-            "luu" | "light_blue_underline" => Color::LightBlue.underline(),
-            "lui" | "light_blue_italic" => Color::LightBlue.italic(),
-            "lud" | "light_blue_dimmed" => Color::LightBlue.dimmed(),
-            "lur" | "light_blue_reverse" => Color::LightBlue.reverse(),
-            "lubl" | "light_blue_blink" => Color::LightBlue.blink(),
-            "lust" | "light_blue_strike" => Color::LightBlue.strikethrough(),
+            "lu" | "light-blue" => Color::LightBlue.normal(),
+            "lub" | "light-blue-bold" => Color::LightBlue.bold(),
+            "luu" | "light-blue-underline" => Color::LightBlue.underline(),
+            "lui" | "light-blue-italic" => Color::LightBlue.italic(),
+            "lud" | "light-blue-dimmed" => Color::LightBlue.dimmed(),
+            "lur" | "light-blue-reverse" => Color::LightBlue.reverse(),
+            "lubl" | "light-blue-blink" => Color::LightBlue.blink(),
+            "lust" | "light-blue-strike" => Color::LightBlue.strikethrough(),
 
             "b" | "black" => Color::Black.normal(),
-            "bb" | "black_bold" => Color::Black.bold(),
-            "bu" | "black_underline" => Color::Black.underline(),
-            "bi" | "black_italic" => Color::Black.italic(),
-            "bd" | "black_dimmed" => Color::Black.dimmed(),
-            "br" | "black_reverse" => Color::Black.reverse(),
-            "bbl" | "black_blink" => Color::Black.blink(),
-            "bst" | "black_strike" => Color::Black.strikethrough(),
+            "bb" | "black-bold" => Color::Black.bold(),
+            "bu" | "black-underline" => Color::Black.underline(),
+            "bi" | "black-italic" => Color::Black.italic(),
+            "bd" | "black-dimmed" => Color::Black.dimmed(),
+            "br" | "black-reverse" => Color::Black.reverse(),
+            "bbl" | "black-blink" => Color::Black.blink(),
+            "bst" | "black-strike" => Color::Black.strikethrough(),
 
-            "ligr" | "light_gray" => Color::LightGray.normal(),
-            "ligrb" | "light_gray_bold" => Color::LightGray.bold(),
-            "ligru" | "light_gray_underline" => Color::LightGray.underline(),
-            "ligri" | "light_gray_italic" => Color::LightGray.italic(),
-            "ligrd" | "light_gray_dimmed" => Color::LightGray.dimmed(),
-            "ligrr" | "light_gray_reverse" => Color::LightGray.reverse(),
-            "ligrbl" | "light_gray_blink" => Color::LightGray.blink(),
-            "ligrst" | "light_gray_strike" => Color::LightGray.strikethrough(),
+            "ligr" | "light-gray" => Color::LightGray.normal(),
+            "ligrb" | "light-gray-bold" => Color::LightGray.bold(),
+            "ligru" | "light-gray-underline" => Color::LightGray.underline(),
+            "ligri" | "light-gray-italic" => Color::LightGray.italic(),
+            "ligrd" | "light-gray-dimmed" => Color::LightGray.dimmed(),
+            "ligrr" | "light-gray-reverse" => Color::LightGray.reverse(),
+            "ligrbl" | "light-gray-blink" => Color::LightGray.blink(),
+            "ligrst" | "light-gray-strike" => Color::LightGray.strikethrough(),
 
             "y" | "yellow" => Color::Yellow.normal(),
-            "yb" | "yellow_bold" => Color::Yellow.bold(),
-            "yu" | "yellow_underline" => Color::Yellow.underline(),
-            "yi" | "yellow_italic" => Color::Yellow.italic(),
-            "yd" | "yellow_dimmed" => Color::Yellow.dimmed(),
-            "yr" | "yellow_reverse" => Color::Yellow.reverse(),
-            "ybl" | "yellow_blink" => Color::Yellow.blink(),
-            "yst" | "yellow_strike" => Color::Yellow.strikethrough(),
+            "yb" | "yellow-bold" => Color::Yellow.bold(),
+            "yu" | "yellow-underline" => Color::Yellow.underline(),
+            "yi" | "yellow-italic" => Color::Yellow.italic(),
+            "yd" | "yellow-dimmed" => Color::Yellow.dimmed(),
+            "yr" | "yellow-reverse" => Color::Yellow.reverse(),
+            "ybl" | "yellow-blink" => Color::Yellow.blink(),
+            "yst" | "yellow-strike" => Color::Yellow.strikethrough(),
 
-            "ly" | "light_yellow" => Color::LightYellow.normal(),
-            "lyb" | "light_yellow_bold" => Color::LightYellow.bold(),
-            "lyu" | "light_yellow_underline" => Color::LightYellow.underline(),
-            "lyi" | "light_yellow_italic" => Color::LightYellow.italic(),
-            "lyd" | "light_yellow_dimmed" => Color::LightYellow.dimmed(),
-            "lyr" | "light_yellow_reverse" => Color::LightYellow.reverse(),
-            "lybl" | "light_yellow_blink" => Color::LightYellow.blink(),
-            "lyst" | "light_yellow_strike" => Color::LightYellow.strikethrough(),
+            "ly" | "light-yellow" => Color::LightYellow.normal(),
+            "lyb" | "light-yellow-bold" => Color::LightYellow.bold(),
+            "lyu" | "light-yellow-underline" => Color::LightYellow.underline(),
+            "lyi" | "light-yellow-italic" => Color::LightYellow.italic(),
+            "lyd" | "light-yellow-dimmed" => Color::LightYellow.dimmed(),
+            "lyr" | "light-yellow-reverse" => Color::LightYellow.reverse(),
+            "lybl" | "light-yellow-blink" => Color::LightYellow.blink(),
+            "lyst" | "light-yellow-strike" => Color::LightYellow.strikethrough(),
 
             "p" | "purple" => Color::Purple.normal(),
-            "pb" | "purple_bold" => Color::Purple.bold(),
-            "pu" | "purple_underline" => Color::Purple.underline(),
-            "pi" | "purple_italic" => Color::Purple.italic(),
-            "pd" | "purple_dimmed" => Color::Purple.dimmed(),
-            "pr" | "purple_reverse" => Color::Purple.reverse(),
-            "pbl" | "purple_blink" => Color::Purple.blink(),
-            "pst" | "purple_strike" => Color::Purple.strikethrough(),
+            "pb" | "purple-bold" => Color::Purple.bold(),
+            "pu" | "purple-underline" => Color::Purple.underline(),
+            "pi" | "purple-italic" => Color::Purple.italic(),
+            "pd" | "purple-dimmed" => Color::Purple.dimmed(),
+            "pr" | "purple-reverse" => Color::Purple.reverse(),
+            "pbl" | "purple-blink" => Color::Purple.blink(),
+            "pst" | "purple-strike" => Color::Purple.strikethrough(),
 
-            "lp" | "light_purple" => Color::LightPurple.normal(),
-            "lpb" | "light_purple_bold" => Color::LightPurple.bold(),
-            "lpu" | "light_purple_underline" => Color::LightPurple.underline(),
-            "lpi" | "light_purple_italic" => Color::LightPurple.italic(),
-            "lpd" | "light_purple_dimmed" => Color::LightPurple.dimmed(),
-            "lpr" | "light_purple_reverse" => Color::LightPurple.reverse(),
-            "lpbl" | "light_purple_blink" => Color::LightPurple.blink(),
-            "lpst" | "light_purple_strike" => Color::LightPurple.strikethrough(),
+            "lp" | "light-purple" => Color::LightPurple.normal(),
+            "lpb" | "light-purple-bold" => Color::LightPurple.bold(),
+            "lpu" | "light-purple-underline" => Color::LightPurple.underline(),
+            "lpi" | "light-purple-italic" => Color::LightPurple.italic(),
+            "lpd" | "light-purple-dimmed" => Color::LightPurple.dimmed(),
+            "lpr" | "light-purple-reverse" => Color::LightPurple.reverse(),
+            "lpbl" | "light-purple-blink" => Color::LightPurple.blink(),
+            "lpst" | "light-purple-strike" => Color::LightPurple.strikethrough(),
 
             "c" | "cyan" => Color::Cyan.normal(),
-            "cb" | "cyan_bold" => Color::Cyan.bold(),
-            "cu" | "cyan_underline" => Color::Cyan.underline(),
-            "ci" | "cyan_italic" => Color::Cyan.italic(),
-            "cd" | "cyan_dimmed" => Color::Cyan.dimmed(),
-            "cr" | "cyan_reverse" => Color::Cyan.reverse(),
-            "cbl" | "cyan_blink" => Color::Cyan.blink(),
-            "cst" | "cyan_strike" => Color::Cyan.strikethrough(),
+            "cb" | "cyan-bold" => Color::Cyan.bold(),
+            "cu" | "cyan-underline" => Color::Cyan.underline(),
+            "ci" | "cyan-italic" => Color::Cyan.italic(),
+            "cd" | "cyan-dimmed" => Color::Cyan.dimmed(),
+            "cr" | "cyan-reverse" => Color::Cyan.reverse(),
+            "cbl" | "cyan-blink" => Color::Cyan.blink(),
+            "cst" | "cyan-strike" => Color::Cyan.strikethrough(),
 
-            "lc" | "light_cyan" => Color::LightCyan.normal(),
-            "lcb" | "light_cyan_bold" => Color::LightCyan.bold(),
-            "lcu" | "light_cyan_underline" => Color::LightCyan.underline(),
-            "lci" | "light_cyan_italic" => Color::LightCyan.italic(),
-            "lcd" | "light_cyan_dimmed" => Color::LightCyan.dimmed(),
-            "lcr" | "light_cyan_reverse" => Color::LightCyan.reverse(),
-            "lcbl" | "light_cyan_blink" => Color::LightCyan.blink(),
-            "lcst" | "light_cyan_strike" => Color::LightCyan.strikethrough(),
+            "lc" | "light-cyan" => Color::LightCyan.normal(),
+            "lcb" | "light-cyan-bold" => Color::LightCyan.bold(),
+            "lcu" | "light-cyan-underline" => Color::LightCyan.underline(),
+            "lci" | "light-cyan-italic" => Color::LightCyan.italic(),
+            "lcd" | "light-cyan-dimmed" => Color::LightCyan.dimmed(),
+            "lcr" | "light-cyan-reverse" => Color::LightCyan.reverse(),
+            "lcbl" | "light-cyan-blink" => Color::LightCyan.blink(),
+            "lcst" | "light-cyan-strike" => Color::LightCyan.strikethrough(),
 
             "w" | "white" => Color::White.normal(),
-            "wb" | "white_bold" => Color::White.bold(),
-            "wu" | "white_underline" => Color::White.underline(),
-            "wi" | "white_italic" => Color::White.italic(),
-            "wd" | "white_dimmed" => Color::White.dimmed(),
-            "wr" | "white_reverse" => Color::White.reverse(),
-            "wbl" | "white_blink" => Color::White.blink(),
-            "wst" | "white_strike" => Color::White.strikethrough(),
+            "wb" | "white-bold" => Color::White.bold(),
+            "wu" | "white-underline" => Color::White.underline(),
+            "wi" | "white-italic" => Color::White.italic(),
+            "wd" | "white-dimmed" => Color::White.dimmed(),
+            "wr" | "white-reverse" => Color::White.reverse(),
+            "wbl" | "white-blink" => Color::White.blink(),
+            "wst" | "white-strike" => Color::White.strikethrough(),
 
-            "dgr" | "dark_gray" => Color::DarkGray.normal(),
-            "dgrb" | "dark_gray_bold" => Color::DarkGray.bold(),
-            "dgru" | "dark_gray_underline" => Color::DarkGray.underline(),
-            "dgri" | "dark_gray_italic" => Color::DarkGray.italic(),
-            "dgrd" | "dark_gray_dimmed" => Color::DarkGray.dimmed(),
-            "dgrr" | "dark_gray_reverse" => Color::DarkGray.reverse(),
-            "dgrbl" | "dark_gray_blink" => Color::DarkGray.blink(),
-            "dgrst" | "dark_gray_strike" => Color::DarkGray.strikethrough(),
+            "dgr" | "dark-gray" => Color::DarkGray.normal(),
+            "dgrb" | "dark-gray-bold" => Color::DarkGray.bold(),
+            "dgru" | "dark-gray-underline" => Color::DarkGray.underline(),
+            "dgri" | "dark-gray-italic" => Color::DarkGray.italic(),
+            "dgrd" | "dark-gray-dimmed" => Color::DarkGray.dimmed(),
+            "dgrr" | "dark-gray-reverse" => Color::DarkGray.reverse(),
+            "dgrbl" | "dark-gray-blink" => Color::DarkGray.blink(),
+            "dgrst" | "dark-gray-strike" => Color::DarkGray.strikethrough(),
 
             _ => Color::White.normal(),
         }
@@ -182,12 +182,12 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     // create the hashmap
     let mut hm: HashMap<String, Style> = HashMap::new();
     // set some defaults
-    // hm.insert("primitive_line".to_string(), Color::White.normal());
-    // hm.insert("primitive_pattern".to_string(), Color::White.normal());
-    // hm.insert("primitive_path".to_string(), Color::White.normal());
-    // hm.insert("separator_color".to_string(), Color::White.normal());
+    // hm.insert("primitive-line".to_string(), Color::White.normal());
+    // hm.insert("primitive-pattern".to_string(), Color::White.normal());
+    // hm.insert("primitive-path".to_string(), Color::White.normal());
+    // hm.insert("separator-color".to_string(), Color::White.normal());
     hm.insert(
-        "leading_trailing_space_bg".to_string(),
+        "leading-trailing-space-bg".to_string(),
         Style::default().on(Color::Rgb(128, 128, 128)),
     );
     hm.insert("header".to_string(), Color::Green.bold());
@@ -203,7 +203,7 @@ pub fn get_color_config(config: &Config) -> HashMap<String, Style> {
     hm.insert("nothing".to_string(), Color::White.normal());
     hm.insert("binary".to_string(), Color::White.normal());
     hm.insert("cellpath".to_string(), Color::White.normal());
-    hm.insert("row_index".to_string(), Color::Green.bold());
+    hm.insert("row-index".to_string(), Color::Green.bold());
     hm.insert("record".to_string(), Color::White.normal());
     hm.insert("list".to_string(), Color::White.normal());
     hm.insert("block".to_string(), Color::White.normal());
@@ -326,7 +326,7 @@ pub fn style_primitive(primitive: &str, color_hm: &HashMap<String, Style>) -> Te
             }
         }
 
-        "row_index" => {
+        "row-index" => {
             let style = color_hm.get(primitive);
             match style {
                 Some(s) => TextStyle::with_style(Alignment::Right, *s),
@@ -382,30 +382,30 @@ fn test_hm() {
     use nu_ansi_term::{Color, Style};
 
     let mut hm: HashMap<String, Style> = HashMap::new();
-    hm.insert("primitive_int".to_string(), Color::White.normal());
-    hm.insert("primitive_decimal".to_string(), Color::White.normal());
-    hm.insert("primitive_filesize".to_string(), Color::White.normal());
-    hm.insert("primitive_string".to_string(), Color::White.normal());
-    hm.insert("primitive_line".to_string(), Color::White.normal());
-    hm.insert("primitive_columnpath".to_string(), Color::White.normal());
-    hm.insert("primitive_pattern".to_string(), Color::White.normal());
-    hm.insert("primitive_boolean".to_string(), Color::White.normal());
-    hm.insert("primitive_date".to_string(), Color::White.normal());
-    hm.insert("primitive_duration".to_string(), Color::White.normal());
-    hm.insert("primitive_range".to_string(), Color::White.normal());
-    hm.insert("primitive_path".to_string(), Color::White.normal());
-    hm.insert("primitive_binary".to_string(), Color::White.normal());
+    hm.insert("primitive-int".to_string(), Color::White.normal());
+    hm.insert("primitive-decimal".to_string(), Color::White.normal());
+    hm.insert("primitive-filesize".to_string(), Color::White.normal());
+    hm.insert("primitive-string".to_string(), Color::White.normal());
+    hm.insert("primitive-line".to_string(), Color::White.normal());
+    hm.insert("primitive-columnpath".to_string(), Color::White.normal());
+    hm.insert("primitive-pattern".to_string(), Color::White.normal());
+    hm.insert("primitive-boolean".to_string(), Color::White.normal());
+    hm.insert("primitive-date".to_string(), Color::White.normal());
+    hm.insert("primitive-duration".to_string(), Color::White.normal());
+    hm.insert("primitive-range".to_string(), Color::White.normal());
+    hm.insert("primitive-path".to_string(), Color::White.normal());
+    hm.insert("primitive-binary".to_string(), Color::White.normal());
     hm.insert("separator".to_string(), Color::White.normal());
-    hm.insert("header_align".to_string(), Color::Green.bold());
+    hm.insert("header-align".to_string(), Color::Green.bold());
     hm.insert("header".to_string(), Color::Green.bold());
-    hm.insert("header_style".to_string(), Style::default());
-    hm.insert("row_index".to_string(), Color::Green.bold());
+    hm.insert("header-style".to_string(), Style::default());
+    hm.insert("row-index".to_string(), Color::Green.bold());
     hm.insert(
-        "leading_trailing_space_bg".to_string(),
+        "leading-trailing-space-bg".to_string(),
         Style::default().on(Color::Rgb(128, 128, 128)),
     );
 
-    update_hashmap("primitive_int", "green", &mut hm);
+    update_hashmap("primitive-int", "green", &mut hm);
 
-    assert_eq!(hm["primitive_int"], Color::Green.normal());
+    assert_eq!(hm["primitive-int"], Color::Green.normal());
 }

@@ -21,7 +21,7 @@ impl Command for Get {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("get")
             .required(
-                "cell_path",
+                "cell-path",
                 SyntaxShape::CellPath,
                 "the cell path to the data",
             )

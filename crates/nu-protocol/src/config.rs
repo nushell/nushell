@@ -17,19 +17,19 @@ impl EnvConversion {
         let mut conv_map = HashMap::new();
 
         for (k, v) in record.0.iter().zip(record.1) {
-            if (k == "from_string") || (k == "to_string") {
+            if (k == "from-string") || (k == "to-string") {
                 conv_map.insert(k.as_str(), (v.as_block()?, v.span()?));
             } else {
                 return Err(ShellError::UnsupportedConfigValue(
-                    "'from_string' and 'to_string' fields".into(),
+                    "'from-string' and 'to-string' fields".into(),
                     k.into(),
                     value.span()?,
                 ));
             }
         }
 
-        let from_string = conv_map.get("from_string").cloned();
-        let to_string = conv_map.get("to_string").cloned();
+        let from_string = conv_map.get("from-string").cloned();
+        let to_string = conv_map.get("to-string").cloned();
 
         Ok(EnvConversion {
             from_string,
@@ -117,42 +117,42 @@ impl Value {
         if let Ok(v) = v {
             for (key, value) in v.0.iter().zip(v.1) {
                 match key.as_str() {
-                    "filesize_metric" => {
+                    "filesize-metric" => {
                         if let Ok(b) = value.as_bool() {
                             config.filesize_metric = b;
                         } else {
-                            eprintln!("$config.filesize_metric is not a bool")
+                            eprintln!("$config.filesize-metric is not a bool")
                         }
                     }
-                    "table_mode" => {
+                    "table-mode" => {
                         if let Ok(v) = value.as_string() {
                             config.table_mode = v;
                         } else {
-                            eprintln!("$config.table_mode is not a string")
+                            eprintln!("$config.table-mode is not a string")
                         }
                     }
-                    "use_ls_colors" => {
+                    "use-ls-colors" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_ls_colors = b;
                         } else {
-                            eprintln!("$config.use_ls_colors is not a bool")
+                            eprintln!("$config.use-ls-colors is not a bool")
                         }
                     }
-                    "color_config" => {
+                    "color-config" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.color_config = map;
                         } else {
-                            eprintln!("$config.color_config is not a record")
+                            eprintln!("$config.color-config is not a record")
                         }
                     }
-                    "use_grid_icons" => {
+                    "use-grid-icons" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_grid_icons = b;
                         } else {
-                            eprintln!("$config.use_grid_icons is not a bool")
+                            eprintln!("$config.use-grid-icons is not a bool")
                         }
                     }
-                    "footer_mode" => {
+                    "footer-mode" => {
                         if let Ok(b) = value.as_string() {
                             let val_str = b.to_lowercase();
                             config.footer_mode = match val_str.as_ref() {
@@ -165,52 +165,52 @@ impl Value {
                                 },
                             };
                         } else {
-                            eprintln!("$config.footer_mode is not a string")
+                            eprintln!("$config.footer-mode is not a string")
                         }
                     }
-                    "animate_prompt" => {
+                    "animate-prompt" => {
                         if let Ok(b) = value.as_bool() {
                             config.animate_prompt = b;
                         } else {
-                            eprintln!("$config.animate_prompt is not a bool")
+                            eprintln!("$config.animate-prompt is not a bool")
                         }
                     }
-                    "float_precision" => {
+                    "float-precision" => {
                         if let Ok(i) = value.as_integer() {
                             config.float_precision = i;
                         } else {
-                            eprintln!("$config.float_precision is not an integer")
+                            eprintln!("$config.float-precision is not an integer")
                         }
                     }
-                    "use_ansi_coloring" => {
+                    "use-ansi-coloring" => {
                         if let Ok(b) = value.as_bool() {
                             config.use_ansi_coloring = b;
                         } else {
-                            eprintln!("$config.use_ansi_coloring is not a bool")
+                            eprintln!("$config.use-ansi-coloring is not a bool")
                         }
                     }
-                    "quick_completions" => {
+                    "quick-completions" => {
                         if let Ok(b) = value.as_bool() {
                             config.quick_completions = b;
                         } else {
-                            eprintln!("$config.quick_completions is not a bool")
+                            eprintln!("$config.quick-completions is not a bool")
                         }
                     }
-                    "rm_always_trash" => {
+                    "rm-always-trash" => {
                         if let Ok(b) = value.as_bool() {
                             config.rm_always_trash = b;
                         } else {
-                            eprintln!("$config.rm_always_trash is not a bool")
+                            eprintln!("$config.rm-always-trash is not a bool")
                         }
                     }
-                    "filesize_format" => {
+                    "filesize-format" => {
                         if let Ok(v) = value.as_string() {
                             config.filesize_format = v.to_lowercase();
                         } else {
-                            eprintln!("$config.filesize_format is not a string")
+                            eprintln!("$config.filesize-format is not a string")
                         }
                     }
-                    "env_conversions" => {
+                    "env-conversions" => {
                         if let Ok((env_vars, conversions)) = value.as_record() {
                             let mut env_conversions = HashMap::new();
 
@@ -219,41 +219,41 @@ impl Value {
                                 if let Ok(conversion) = EnvConversion::from_record(record) {
                                     env_conversions.insert(env_var.into(), conversion);
                                 } else {
-                                    eprintln!("$config.env_conversions has incorrect conversion")
+                                    eprintln!("$config.env-conversions has incorrect conversion")
                                 }
                             }
 
                             config.env_conversions = env_conversions;
                         } else {
-                            eprintln!("$config.env_conversions is not a record")
+                            eprintln!("$config.env-conversions is not a record")
                         }
                     }
-                    "edit_mode" => {
+                    "edit-mode" => {
                         if let Ok(v) = value.as_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
-                            eprintln!("$config.edit_mode is not a string")
+                            eprintln!("$config.edit-mode is not a string")
                         }
                     }
-                    "max_history_size" => {
+                    "max-history-size" => {
                         if let Ok(i) = value.as_i64() {
                             config.max_history_size = i;
                         } else {
-                            eprintln!("$config.max_history_size is not an integer")
+                            eprintln!("$config.max-history-size is not an integer")
                         }
                     }
-                    "log_level" => {
+                    "log-level" => {
                         if let Ok(v) = value.as_string() {
                             config.log_level = v.to_lowercase();
                         } else {
-                            eprintln!("$config.log_level is not a string")
+                            eprintln!("$config.log-level is not a string")
                         }
                     }
-                    "menu_config" => {
+                    "menu-config" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.menu_config = map;
                         } else {
-                            eprintln!("$config.menu_config is not a record")
+                            eprintln!("$config.menu-config is not a record")
                         }
                     }
                     "keybindings" => {
@@ -263,11 +263,11 @@ impl Value {
                             eprintln!("$config.keybindings is not a valid keybindings list")
                         }
                     }
-                    "history_config" => {
+                    "history-config" => {
                         if let Ok(map) = create_map(value, &config) {
                             config.history_config = map;
                         } else {
-                            eprintln!("$config.history_config is not a record")
+                            eprintln!("$config.history-config is not a record")
                         }
                     }
                     x => {

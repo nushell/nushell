@@ -29,11 +29,11 @@ impl Command for RenameDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Renames a dataframe column",
-            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename-col a a_new",
+            example: "[[a b]; [1 2] [3 4]] | dfr to-df | dfr rename-col a a-new",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
-                        "a_new".to_string(),
+                        "a-new".to_string(),
                         vec![Value::test_int(1), Value::test_int(3)],
                     ),
                     Column::new(

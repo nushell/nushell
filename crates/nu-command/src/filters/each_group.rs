@@ -16,7 +16,7 @@ impl Command for EachGroup {
 
     fn signature(&self) -> Signature {
         Signature::build("each group")
-            .required("group_size", SyntaxShape::Int, "the size of each group")
+            .required("group-size", SyntaxShape::Int, "the size of each group")
             .required(
                 "block",
                 SyntaxShape::Block(Some(vec![SyntaxShape::Any])),
@@ -26,7 +26,7 @@ impl Command for EachGroup {
     }
 
     fn usage(&self) -> &str {
-        "Runs a block on groups of `group_size` rows of a table at a time."
+        "Runs a block on groups of `group-size` rows of a table at a time."
     }
 
     fn examples(&self) -> Vec<Example> {

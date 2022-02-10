@@ -145,58 +145,58 @@ impl GStat {
         let tag = if let Ok(Ok(s)) = repo.describe(&desc_opts).map(|d| d.format(None)) {
             s
         } else {
-            "no_tag".to_string()
+            "no-tag".to_string()
         };
 
         let mut cols = vec![];
         let mut vals = vec![];
 
-        cols.push("idx_added_staged".into());
+        cols.push("idx-added-staged".into());
         vals.push(Value::Int {
             val: stats.idx_added_staged as i64,
             span: *span,
         });
-        cols.push("idx_modified_staged".into());
+        cols.push("idx-modified-staged".into());
         vals.push(Value::Int {
             val: stats.idx_modified_staged as i64,
             span: *span,
         });
-        cols.push("idx_deleted_staged".into());
+        cols.push("idx-deleted-staged".into());
         vals.push(Value::Int {
             val: stats.idx_deleted_staged as i64,
             span: *span,
         });
-        cols.push("idx_renamed".into());
+        cols.push("idx-renamed".into());
         vals.push(Value::Int {
             val: stats.idx_renamed as i64,
             span: *span,
         });
-        cols.push("idx_type_changed".into());
+        cols.push("idx-type-changed".into());
         vals.push(Value::Int {
             val: stats.idx_type_changed as i64,
             span: *span,
         });
-        cols.push("wt_untracked".into());
+        cols.push("wt-untracked".into());
         vals.push(Value::Int {
             val: stats.wt_untracked as i64,
             span: *span,
         });
-        cols.push("wt_modified".into());
+        cols.push("wt-modified".into());
         vals.push(Value::Int {
             val: stats.wt_modified as i64,
             span: *span,
         });
-        cols.push("wt_deleted".into());
+        cols.push("wt-deleted".into());
         vals.push(Value::Int {
             val: stats.wt_deleted as i64,
             span: *span,
         });
-        cols.push("wt_type_changed".into());
+        cols.push("wt-type-changed".into());
         vals.push(Value::Int {
             val: stats.wt_type_changed as i64,
             span: *span,
         });
-        cols.push("wt_renamed".into());
+        cols.push("wt-renamed".into());
         vals.push(Value::Int {
             val: stats.wt_renamed as i64,
             span: *span,
@@ -226,7 +226,7 @@ impl GStat {
             val: stats.stashes as i64,
             span: *span,
         });
-        cols.push("repo_name".into());
+        cols.push("repo-name".into());
         vals.push(Value::String {
             val: repo_name,
             span: *span,
@@ -268,52 +268,52 @@ impl GStat {
         let mut cols = vec![];
         let mut vals = vec![];
 
-        cols.push("idx_added_staged".into());
+        cols.push("idx-added-staged".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("idx_modified_staged".into());
+        cols.push("idx-modified-staged".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("idx_deleted_staged".into());
+        cols.push("idx-deleted-staged".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("idx_renamed".into());
+        cols.push("idx-renamed".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("idx_type_changed".into());
+        cols.push("idx-type-changed".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("wt_untracked".into());
+        cols.push("wt-untracked".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("wt_modified".into());
+        cols.push("wt-modified".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("wt_deleted".into());
+        cols.push("wt-deleted".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("wt_type_changed".into());
+        cols.push("wt-type-changed".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
         });
-        cols.push("wt_renamed".into());
+        cols.push("wt-renamed".into());
         vals.push(Value::Int {
             val: -1,
             span: *span,
@@ -343,24 +343,24 @@ impl GStat {
             val: -1,
             span: *span,
         });
-        cols.push("repo_name".into());
+        cols.push("repo-name".into());
         vals.push(Value::String {
-            val: "no_repository".to_string(),
+            val: "no-repository".to_string(),
             span: *span,
         });
         cols.push("tag".into());
         vals.push(Value::String {
-            val: "no_tag".to_string(),
+            val: "no-tag".to_string(),
             span: *span,
         });
         cols.push("branch".into());
         vals.push(Value::String {
-            val: "no_branch".to_string(),
+            val: "no-branch".to_string(),
             span: *span,
         });
         cols.push("remote".into());
         vals.push(Value::String {
-            val: "no_remote".to_string(),
+            val: "no-remote".to_string(),
             span: *span,
         });
 

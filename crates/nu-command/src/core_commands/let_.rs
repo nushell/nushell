@@ -17,9 +17,9 @@ impl Command for Let {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("let")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+            .required("var-name", SyntaxShape::VarWithOptType, "variable name")
             .required(
-                "initial_value",
+                "initial-value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
                 "equals sign followed by value",
             )
