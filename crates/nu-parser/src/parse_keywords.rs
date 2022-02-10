@@ -13,9 +13,9 @@ use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
     parser::{
-        check_call, check_name, find_captures_in_block, garbage, garbage_statement, parse,
-        parse_block_expression, parse_internal_call, parse_multispan_value, parse_signature,
-        parse_string, parse_var_with_opt_type, trim_quotes,
+        check_call, check_name, garbage, garbage_statement, parse, parse_block_expression,
+        parse_internal_call, parse_multispan_value, parse_signature, parse_string,
+        parse_var_with_opt_type, trim_quotes,
     },
     ParseError,
 };
@@ -149,18 +149,6 @@ pub fn parse_for(
                 var_id: Some(*var_id),
             },
         );
-
-        let block = working_set.get_block(block_id);
-
-        // Now that we have a signature for the block, we know more about what variables
-        // will come into scope as params. Because of this, we need to recalculated what
-        // variables this block will capture from the outside.
-        let mut seen = vec![];
-        let mut seen_decls = vec![];
-        let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
-
-        let mut block = working_set.get_block_mut(block_id);
-        block.captures = captures;
     }
 
     (
@@ -324,19 +312,7 @@ pub fn parse_def(
 
             let mut block = working_set.get_block_mut(block_id);
             block.signature = signature;
-
-            let block = working_set.get_block(block_id);
-
-            // Now that we have a signature for the block, we know more about what variables
-            // will come into scope as params. Because of this, we need to recalculated what
-            // variables this block will capture from the outside.
-            let mut seen = vec![];
-            let mut seen_decls = vec![];
-            let captures = find_captures_in_block(working_set, block, &mut seen, &mut seen_decls);
-
-            let mut block = working_set.get_block_mut(block_id);
             block.redirect_env = def_call == b"def-env";
-            block.captures = captures;
         } else {
             error = error.or_else(|| {
                 Some(ParseError::InternalError(
