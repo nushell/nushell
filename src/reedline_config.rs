@@ -1,6 +1,4 @@
-use crate::is_perf_true;
 use crossterm::event::{KeyCode, KeyModifiers};
-use log::info;
 use nu_color_config::lookup_ansi_color_style;
 use nu_protocol::{extract_value, Config, ParsedKeybinding, ShellError, Span, Type, Value};
 use reedline::{
@@ -66,12 +64,7 @@ pub(crate) fn add_completion_menu(line_editor: Reedline, config: &Config) -> Ree
         None => completion_menu,
     };
 
-    let ret_val = line_editor.with_menu(Box::new(completion_menu));
-    if is_perf_true() {
-        info!("add_completion_menu {}:{}:{}", file!(), line!(), column!());
-    }
-
-    ret_val
+    line_editor.with_menu(Box::new(completion_menu))
 }
 
 // Creates an input object for the history menu based on the dictionary
@@ -127,12 +120,7 @@ pub(crate) fn add_history_menu(line_editor: Reedline, config: &Config) -> Reedli
         None => history_menu,
     };
 
-    let ret_val = line_editor.with_menu(Box::new(history_menu));
-    if is_perf_true() {
-        info!("add_history_menu {}:{}:{}", file!(), line!(), column!());
-    }
-
-    ret_val
+    line_editor.with_menu(Box::new(history_menu))
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {
@@ -165,10 +153,6 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::BackTab,
         ReedlineEvent::MenuPrevious,
     );
-
-    if is_perf_true() {
-        info!("add_menu_keybindings {}:{}:{}", file!(), line!(), column!());
-    }
 }
 
 pub enum KeybindingsMode {
@@ -202,15 +186,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
                 }
             }
 
-            if is_perf_true() {
-                info!(
-                    "create_keybindings (emacs) {}:{}:{}",
-                    file!(),
-                    line!(),
-                    column!()
-                );
-            }
-
             Ok(KeybindingsMode::Emacs(keybindings))
         }
         _ => {
@@ -226,15 +201,6 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
                 } else if parsed_keybinding.mode.into_string("", config).as_str() == "vi_normal" {
                     add_keybinding(&mut normal_keybindings, parsed_keybinding, config)?
                 }
-            }
-
-            if is_perf_true() {
-                info!(
-                    "create_keybindings (vi) {}:{}:{}",
-                    file!(),
-                    line!(),
-                    column!()
-                );
             }
 
             Ok(KeybindingsMode::Vi {
@@ -335,10 +301,6 @@ fn add_keybinding(
 
     keybindings.add_binding(modifier, keycode, event);
 
-    if is_perf_true() {
-        info!("add_keybinding {}:{}:{}", file!(), line!(), column!());
-    }
-
     Ok(())
 }
 
@@ -406,10 +368,6 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                 }
             };
 
-            if is_perf_true() {
-                info!("parse_event (record) {}:{}:{}", file!(), line!(), column!());
-            }
-
             Ok(event)
         }
         Value::List { vals, .. } => {
@@ -422,10 +380,6 @@ fn parse_event(value: Value, config: &Config) -> Result<ReedlineEvent, ShellErro
                 .into_iter()
                 .map(|value| parse_event(value, config))
                 .collect::<Result<Vec<ReedlineEvent>, ShellError>>()?;
-
-            if is_perf_true() {
-                info!("parse_event (list) {}:{}:{}", file!(), line!(), column!());
-            }
 
             if until_found {
                 Ok(ReedlineEvent::UntilFound(events))
