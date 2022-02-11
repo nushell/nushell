@@ -215,7 +215,7 @@ fn rm(
                 {
                     let result;
                     #[cfg(feature = "trash-support")]
-                    {
+                    { 
                         use std::io::Error;
                         result = if trash || (rm_always_trash && !permanent) {
                             trash::delete(&f).map_err(|e: trash::Error| {
@@ -242,8 +242,12 @@ fn rm(
                             error: ShellError::SpannedLabeledError(msg, e.to_string(), span),
                         }
                     } else {
-                        let val = format!("deleted {:}", f.to_string_lossy());
-                        Value::String { val, span }
+                        if !force {
+                            let val = format!("deleted {:}", f.to_string_lossy());
+                            Value::String { val, span }
+                        } else {
+                            Value::Nothing { span: Span::new(0, 0) }
+                        }
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
