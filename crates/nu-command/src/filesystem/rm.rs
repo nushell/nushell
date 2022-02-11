@@ -244,9 +244,7 @@ fn rm(
                             error: ShellError::SpannedLabeledError(msg, e.to_string(), span),
                         }
                     } else if quiet {
-                        Value::Nothing {
-                            span: Span::new(0, 0),
-                        }
+                        Value::Nothing { span }
                     } else {
                         let val = format!("deleted {:}", f.to_string_lossy());
                         Value::String { val, span }
