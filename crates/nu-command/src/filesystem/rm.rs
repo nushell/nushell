@@ -13,7 +13,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Type, Value,
 };
 
 const GLOB_PARAMS: glob::MatchOptions = glob::MatchOptions {
@@ -48,6 +48,7 @@ impl Command for Rm {
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
             .switch("force", "suppress error when no file", Some('f'))
+            .switch("quiet", "supress output showing files deleted", Some('q'))
             // .switch("interactive", "ask user to confirm action", Some('i'))
             .rest(
                 "rest",
@@ -78,6 +79,7 @@ fn rm(
     let permanent = call.has_flag("permanent");
     let recursive = call.has_flag("recursive");
     let force = call.has_flag("force");
+    let quiet = call.has_flag("quiet");
     // let interactive = call.has_flag("interactive");
 
     let ctrlc = engine_state.ctrlc.clone();
@@ -215,7 +217,7 @@ fn rm(
                 {
                     let result;
                     #[cfg(feature = "trash-support")]
-                    { 
+                    {
                         use std::io::Error;
                         result = if trash || (rm_always_trash && !permanent) {
                             trash::delete(&f).map_err(|e: trash::Error| {
@@ -241,13 +243,13 @@ fn rm(
                         Value::Error {
                             error: ShellError::SpannedLabeledError(msg, e.to_string(), span),
                         }
-                    } else {
-                        if !force {
-                            let val = format!("deleted {:}", f.to_string_lossy());
-                            Value::String { val, span }
-                        } else {
-                            Value::Nothing { span: Span::new(0, 0) }
+                    } else if quiet {
+                        Value::Nothing {
+                            span: Span::new(0, 0),
                         }
+                    } else {
+                        let val = format!("deleted {:}", f.to_string_lossy());
+                        Value::String { val, span }
                     }
                 } else {
                     let msg = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
@@ -270,5 +272,6 @@ fn rm(
                 }
             }
         })
+        .filter(|x| !matches!(x.get_type(), Type::Nothing))
         .into_pipeline_data(ctrlc))
 }
