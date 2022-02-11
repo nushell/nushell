@@ -4076,11 +4076,13 @@ pub fn parse(
 
     // Also check other blocks that might have been imported
     for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
-        let captures = discover_captures_in_block(working_set, block, &mut seen, &mut seen_blocks);
-        seen_blocks.insert(
-            block_idx + working_set.permanent_state.num_blocks(),
-            captures,
-        );
+        let block_id = block_idx + working_set.permanent_state.num_blocks();
+
+        if !seen_blocks.contains_key(&block_id) {
+            let captures =
+                discover_captures_in_block(working_set, block, &mut seen, &mut seen_blocks);
+            seen_blocks.insert(block_id, captures);
+        }
     }
 
     for (block_id, captures) in seen_blocks.into_iter() {

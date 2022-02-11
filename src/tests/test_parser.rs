@@ -301,6 +301,6 @@ def 'say-hi' [] {
 fn capture_row_condition() -> TestResult {
     run_test(
         r#"let name = "foo"; [foo] | where $'($name)' =~ $it | str collect"#,
-        "woohoo",
+        "foo",
     )
 }
