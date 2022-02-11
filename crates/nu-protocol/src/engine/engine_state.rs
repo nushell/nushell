@@ -63,10 +63,16 @@ impl Visibility {
     }
 
     fn append(&mut self, other: &Visibility) {
-        // take new values from other but keep own values
+        // take new values from the other but keep own values
         for (decl_id, visible) in other.decl_ids.iter() {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
+            }
+        }
+
+        for (alias_id, visible) in other.alias_ids.iter() {
+            if !self.alias_ids.contains_key(alias_id) {
+                self.alias_ids.insert(*alias_id, *visible);
             }
         }
     }
@@ -1021,6 +1027,30 @@ for scope in self.delta.scope.iter_mut().rev() {
         None
     }
 
+    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for scope in self.delta.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                return Some(*alias_id);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         for scope in self.delta.scope.iter().rev() {
             if let Some(overlay_id) = scope.overlays.get(name) {
@@ -1077,22 +1107,6 @@ for scope in self.delta.scope.iter_mut().rev() {
         for scope in self.permanent_state.scope.iter().rev() {
             if let Some(var_id) = scope.vars.get(name) {
                 return Some(*var_id);
-            }
-        }
-
-        None
-    }
-
-    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
-        for scope in self.delta.scope.iter().rev() {
-            if let Some(alias_id) = scope.aliases.get(name) {
-                return Some(*alias_id);
-            }
-        }
-
-        for scope in self.permanent_state.scope.iter().rev() {
-            if let Some(alias_id) = scope.aliases.get(name) {
-                return Some(*alias_id);
             }
         }
 
