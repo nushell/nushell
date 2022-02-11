@@ -1,4 +1,7 @@
-use nu_protocol::engine::{EngineState, StateWorkingSet};
+use nu_protocol::{
+    engine::{EngineState, StateWorkingSet},
+    Category, Signature, SyntaxShape,
+};
 
 use std::path::Path;
 
@@ -357,6 +360,32 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);
+
+        bind_command!(KnownExternal {
+            name: "git".into(),
+            signature: Signature::build("git")
+                .switch(
+                    "version",
+                    "Prints the Git suite version that the git program came from.",
+                    None
+                )
+                .category(Category::System),
+            usage: "this is the git command".into(),
+        });
+
+        bind_command!(KnownExternal {
+            name: "git checkout".into(),
+            signature: Signature::build("git checkout")
+                .optional(
+                    "branch",
+                    SyntaxShape::Custom(Box::new(SyntaxShape::String), "list-git-branches".into()),
+                    "Branch to switch to.",
+                )
+                .category(Category::System),
+            usage: "this is the git command".into(),
+        });
+
+        bind_command!(ListGitBranches);
 
         // This is a WIP proof of concept
         // bind_command!(ListGitBranches, Git, GitCheckout, Source);

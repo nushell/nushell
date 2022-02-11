@@ -32,7 +32,7 @@ fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     let decl = engine_state.get_decl(call.decl_id);
 
-    if call.named.iter().any(|(flag, _)| flag.item == "help") {
+    if !decl.is_known_external() && call.named.iter().any(|(flag, _)| flag.item == "help") {
         let mut signature = decl.signature();
         signature.usage = decl.usage().to_string();
         signature.extra_usage = decl.extra_usage().to_string();
