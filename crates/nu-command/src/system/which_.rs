@@ -82,9 +82,9 @@ fn get_entries_in_aliases(engine_state: &EngineState, name: &str, span: Span) ->
         .into_iter()
         .map(|spans| {
             spans
-                .into_iter()
+                .iter()
                 .map(|span| {
-                    String::from_utf8_lossy(engine_state.get_span_contents(&span)).to_string()
+                    String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string()
                 })
                 .join(" ")
         })
