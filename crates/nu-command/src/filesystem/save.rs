@@ -36,8 +36,6 @@ impl Command for Save {
 
         let span = call.head;
 
-        let config = stack.get_config()?;
-
         let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
         let arg_span = path.span;
         let path = Path::new(&path.item);
@@ -98,7 +96,7 @@ impl Command for Save {
                 v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
             }
         } else {
-            match input.into_value() {
+            match input.into_value(span) {
                 Value::String { val, .. } => {
                     if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
@@ -115,8 +113,6 @@ impl Command for Save {
                 }
                 v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
             }
-
-            Ok(PipelineData::new(span))
         }
     }
 }
