@@ -1361,7 +1361,9 @@ pub fn parse_hide(
                     let mut aliases = vec![];
                     let mut decls = vec![];
 
-                    if let Some(item) = overlay.alias_name_with_head(name, &import_pattern.head.name) {
+                    if let Some(item) =
+                        overlay.alias_name_with_head(name, &import_pattern.head.name)
+                    {
                         aliases.push(item);
                     } else if let Some(item) =
                         overlay.decl_name_with_head(name, &import_pattern.head.name)
@@ -1378,7 +1380,8 @@ pub fn parse_hide(
                     let mut decls = vec![];
 
                     for (name, span) in names {
-                        if let Some(item) = overlay.alias_name_with_head(name, &import_pattern.head.name)
+                        if let Some(item) =
+                            overlay.alias_name_with_head(name, &import_pattern.head.name)
                         {
                             aliases.push(item);
                         } else if let Some(item) =

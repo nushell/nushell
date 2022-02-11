@@ -1,7 +1,7 @@
 use super::{Command, Stack};
 use crate::{
-    ast::Block, AliasId, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span, Type,
-    VarId,
+    ast::Block, AliasId, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span,
+    Type, VarId,
 };
 use core::panic;
 use std::{
@@ -20,7 +20,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
-    alias_ids: HashMap<AliasId, bool>
+    alias_ids: HashMap<AliasId, bool>,
 }
 
 impl Visibility {
@@ -802,7 +802,7 @@ impl<'a> StateWorkingSet<'a> {
         let mut visibility: Visibility = Visibility::new();
 
         // Since we can mutate scope frames in delta, remove the id directly
-for scope in self.delta.scope.iter_mut().rev() {
+        for scope in self.delta.scope.iter_mut().rev() {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.decls.remove(name) {
@@ -868,13 +868,13 @@ for scope in self.delta.scope.iter_mut().rev() {
 
     pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
-            self.hide_decl(&decl); // let's assume no errors
+            self.hide_decl(decl); // let's assume no errors
         }
     }
 
     pub fn hide_aliases(&mut self, aliases: &[Vec<u8>]) {
         for alias in aliases.iter() {
-            self.hide_alias(&alias); // let's assume no errors
+            self.hide_alias(alias); // let's assume no errors
         }
     }
 
