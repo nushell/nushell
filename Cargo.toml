@@ -52,6 +52,7 @@ nu-system = { path = "./crates/nu-system", version = "0.59.0" }
 nu-table = { path = "./crates/nu-table", version = "0.59.0"  }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.59.0"  }
 pretty_env_logger = "0.4.0"
+rayon = "1.5.1"
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # mimalloc = { version = "*", default-features = false }
 

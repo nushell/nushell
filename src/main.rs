@@ -14,7 +14,7 @@ use crate::logger::{configure, logger};
 use log::info;
 use miette::Result;
 use nu_command::{create_default_context, BufferedReader};
-use nu_engine::get_full_help;
+use nu_engine::{get_full_help, CallExt};
 use nu_parser::parse;
 use nu_protocol::{
     ast::{Call, Expr, Expression, Pipeline, Statement},
@@ -103,6 +103,7 @@ fn main() -> Result<()> {
                 || arg == "--loglevel"
                 || arg == "--config-file"
                 || arg == "--perf"
+                || arg == "--threads"
             {
                 collect_arg_nushell = true;
             }
@@ -122,6 +123,15 @@ fn main() -> Result<()> {
 
     match parsed_nu_cli_args {
         Ok(binary_args) => {
+            if let Some(t) = binary_args.threads {
+                // 0 means to let rayon decide how many threads to use
+                let threads = t.as_i64().unwrap_or(0);
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads as usize)
+                    .build_global()
+                    .expect("error setting number of threads");
+            }
+
             set_is_perf_value(binary_args.perf);
 
             if binary_args.perf {
@@ -248,6 +258,7 @@ fn parse_commandline_args(
             let commands: Option<Expression> = call.get_flag_expr("commands");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             let perf = call.has_flag("perf");
+            let threads: Option<Value> = call.get_flag(engine_state, &mut stack, "threads")?;
 
             let commands = if let Some(expression) = commands {
                 let contents = engine_state.get_span_contents(&expression.span);
@@ -293,6 +304,7 @@ fn parse_commandline_args(
                 commands,
                 testbin,
                 perf,
+                threads,
             });
         }
     }
@@ -311,6 +323,7 @@ struct NushellCliArgs {
     commands: Option<Spanned<String>>,
     testbin: Option<Spanned<String>>,
     perf: bool,
+    threads: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -348,6 +361,12 @@ impl Command for Nu {
                 "script file",
                 SyntaxShape::Filepath,
                 "name of the optional script file to run",
+            )
+            .named(
+                "threads",
+                SyntaxShape::Int,
+                "threads to use for parallel commands",
+                Some('t'),
             )
             .rest(
                 "script args",

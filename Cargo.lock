@@ -2123,6 +2123,7 @@ dependencies = [
  "nu_plugin_query",
  "pretty_assertions",
  "pretty_env_logger",
+ "rayon",
  "reedline",
  "rstest",
  "serial_test",
