@@ -53,4 +53,28 @@ impl Call {
     pub fn nth(&self, pos: usize) -> Option<Expression> {
         self.positional.get(pos).cloned()
     }
+
+    pub fn span(&self) -> Span {
+        let mut span = self.head;
+
+        for positional in &self.positional {
+            if positional.span.end > span.end {
+                span.end = positional.span.end;
+            }
+        }
+
+        for (named, val) in &self.named {
+            if named.span.end > span.end {
+                span.end = named.span.end;
+            }
+
+            if let Some(val) = &val {
+                if val.span.end > span.end {
+                    span.end = val.span.end;
+                }
+            }
+        }
+
+        span
+    }
 }

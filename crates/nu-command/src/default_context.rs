@@ -38,6 +38,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ExportDef,
             ExportDefEnv,
             ExportEnv,
+            Extern,
             For,
             Help,
             Hide,
@@ -357,9 +358,6 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         #[cfg(feature = "plugin")]
         bind_command!(Register);
-
-        // This is a WIP proof of concept
-        // bind_command!(ListGitBranches, Git, GitCheckout, Source);
 
         working_set.render()
     };

@@ -10,6 +10,7 @@ use nu_protocol::{
 use std::collections::HashSet;
 
 use crate::{
+    known_external::KnownExternal,
     lex, lite_parse,
     lite_parse::LiteCommand,
     parser::{
@@ -53,6 +54,34 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) -> O
                 return Some(ParseError::DuplicateCommandDef(spans[1]));
             }
         }
+    } else if name == b"extern" && spans.len() == 3 {
+        let (name_expr, ..) = parse_string(working_set, spans[1]);
+        let name = name_expr.as_string();
+
+        working_set.enter_scope();
+        // FIXME: because parse_signature will update the scope with the variables it sees
+        // we end up parsing the signature twice per def. The first time is during the predecl
+        // so that we can see the types that are part of the signature, which we need for parsing.
+        // The second time is when we actually parse the body itworking_set.
+        // We can't reuse the first time because the variables that are created during parse_signature
+        // are lost when we exit the scope below.
+        let (sig, ..) = parse_signature(working_set, spans[2]);
+        let signature = sig.as_signature();
+        working_set.exit_scope();
+
+        if let (Some(name), Some(mut signature)) = (name, signature) {
+            signature.name = name.clone();
+            //let decl = signature.predeclare();
+            let decl = KnownExternal {
+                name,
+                usage: "run external command".into(),
+                signature,
+            };
+
+            if working_set.add_predecl(Box::new(decl)).is_some() {
+                return Some(ParseError::DuplicateCommandDef(spans[1]));
+            }
+        }
     }
 
     None
@@ -82,7 +111,7 @@ pub fn parse_for(
             return (
                 garbage(spans[0]),
                 Some(ParseError::UnknownState(
-                    "internal error: def declaration not found".into(),
+                    "internal error: for declaration not found".into(),
                     span(spans),
                 )),
             )
@@ -333,6 +362,107 @@ pub fn parse_def(
                 name_expr.span,
             ))
         });
+    }
+
+    (
+        Statement::Pipeline(Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: call_span,
+            ty: Type::Unknown,
+            custom_completion: None,
+        }])),
+        error,
+    )
+}
+
+pub fn parse_extern(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+) -> (Statement, Option<ParseError>) {
+    let spans = &lite_command.parts[..];
+    let mut error = None;
+
+    let usage = build_usage(working_set, &lite_command.comments);
+
+    // Checking that the function is used with the correct name
+    // Maybe this is not necessary but it is a sanity check
+
+    let extern_call = working_set.get_span_contents(spans[0]).to_vec();
+    if extern_call != b"extern" {
+        return (
+            garbage_statement(spans),
+            Some(ParseError::UnknownState(
+                "internal error: Wrong call name for extern function".into(),
+                span(spans),
+            )),
+        );
+    }
+
+    // Parsing the spans and checking that they match the register signature
+    // Using a parsed call makes more sense than checking for how many spans are in the call
+    // Also, by creating a call, it can be checked if it matches the declaration signature
+    let (call, call_span) = match working_set.find_decl(&extern_call) {
+        None => {
+            return (
+                garbage_statement(spans),
+                Some(ParseError::UnknownState(
+                    "internal error: def declaration not found".into(),
+                    span(spans),
+                )),
+            )
+        }
+        Some(decl_id) => {
+            working_set.enter_scope();
+            let (call, err) = parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+            working_set.exit_scope();
+
+            error = error.or(err);
+
+            let call_span = span(spans);
+            //let decl = working_set.get_decl(decl_id);
+            //let sig = decl.signature();
+
+            (call, call_span)
+        }
+    };
+    let name_expr = call.positional.get(0);
+    let sig = call.positional.get(1);
+
+    if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
+        if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
+            if let Some(decl_id) = working_set.find_decl(name.as_bytes()) {
+                let declaration = working_set.get_decl_mut(decl_id);
+
+                signature.name = name.clone();
+                signature.usage = usage.clone();
+
+                let decl = KnownExternal {
+                    name: name.to_string(),
+                    usage,
+                    signature,
+                };
+
+                *declaration = Box::new(decl);
+            } else {
+                error = error.or_else(|| {
+                    Some(ParseError::InternalError(
+                        "Predeclaration failed to add declaration".into(),
+                        spans[1],
+                    ))
+                });
+            };
+        }
+        if let Some(name) = name_expr.as_string() {
+            // It's OK if it returns None: The decl was already merged in previous parse pass.
+            working_set.merge_predecl(name.as_bytes());
+        } else {
+            error = error.or_else(|| {
+                Some(ParseError::UnknownState(
+                    "Could not get string from string expression".into(),
+                    name_expr.span,
+                ))
+            });
+        }
     }
 
     (
@@ -749,6 +879,11 @@ pub fn parse_module_block(
                 let (stmt, err) = match name {
                     b"def" | b"def-env" => {
                         let (stmt, err) = parse_def(working_set, &pipeline.commands[0]);
+
+                        (stmt, err)
+                    }
+                    b"extern" => {
+                        let (stmt, err) = parse_extern(working_set, &pipeline.commands[0]);
 
                         (stmt, err)
                     }

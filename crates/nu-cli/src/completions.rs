@@ -3,7 +3,7 @@ use nu_parser::{flatten_expression, parse, trim_quotes};
 use nu_protocol::{
     ast::{Expr, Statement},
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span,
+    PipelineData, Span, Value, CONFIG_VARIABLE_ID,
 };
 use reedline::Completer;
 
@@ -214,7 +214,16 @@ impl NuCompleter {
                                         false,
                                     );
 
-                                    let mut stack = Stack::default();
+                                    let mut stack = Stack::new();
+                                    // Set up our initial config to start from
+                                    stack.vars.insert(
+                                        CONFIG_VARIABLE_ID,
+                                        Value::Record {
+                                            cols: vec![],
+                                            vals: vec![],
+                                            span: Span { start: 0, end: 0 },
+                                        },
+                                    );
                                     let result = eval_block(
                                         &self.engine_state,
                                         &mut stack,

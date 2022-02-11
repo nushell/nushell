@@ -41,6 +41,11 @@ pub trait Command: Send + Sync + CommandClone {
         true
     }
 
+    // This is a signature for a known external command
+    fn is_known_external(&self) -> bool {
+        false
+    }
+
     // Is a sub command
     fn is_sub(&self) -> bool {
         self.name().contains(' ')
