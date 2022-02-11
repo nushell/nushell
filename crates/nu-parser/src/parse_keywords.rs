@@ -1320,14 +1320,21 @@ pub fn parse_hide(
             if let Some(overlay_id) = working_set.find_overlay(&import_pattern.head.name) {
                 (true, working_set.get_overlay(overlay_id).clone())
             } else if import_pattern.members.is_empty() {
-                // The pattern head can be e.g. a function name, not just a module
-                if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
+                // The pattern head can be:
+                if let Some(id) = working_set.find_alias(&import_pattern.head.name) {
+                    // an alias,
+                    let mut overlay = Overlay::new();
+                    overlay.add_alias(&import_pattern.head.name, id);
+
+                    (false, overlay)
+                } else if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
+                    // a custom command,
                     let mut overlay = Overlay::new();
                     overlay.add_decl(&import_pattern.head.name, id);
 
                     (false, overlay)
                 } else {
-                    // Or it could be an env var
+                    // , or it could be an env var (handled by the engine)
                     (false, Overlay::new())
                 }
             } else {
@@ -1338,49 +1345,68 @@ pub fn parse_hide(
             };
 
         // This kind of inverts the import pattern matching found in parse_use()
-        let decls_to_hide = if import_pattern.members.is_empty() {
+        let (aliases_to_hide, decls_to_hide) = if import_pattern.members.is_empty() {
             if is_module {
-                overlay.decls_with_head(&import_pattern.head.name)
+                (
+                    overlay.alias_names_with_head(&import_pattern.head.name),
+                    overlay.decl_names_with_head(&import_pattern.head.name),
+                )
             } else {
-                overlay.decls()
+                (overlay.alias_names(), overlay.decl_names())
             }
         } else {
             match &import_pattern.members[0] {
-                ImportPatternMember::Glob { .. } => overlay.decls(),
+                ImportPatternMember::Glob { .. } => (overlay.alias_names(), overlay.decl_names()),
                 ImportPatternMember::Name { name, span } => {
-                    let mut output = vec![];
+                    let mut aliases = vec![];
+                    let mut decls = vec![];
 
-                    if let Some(item) = overlay.decl_with_head(name, &import_pattern.head.name) {
-                        output.push(item);
+                    if let Some(item) = overlay.alias_name_with_head(name, &import_pattern.head.name) {
+                        aliases.push(item);
+                    } else if let Some(item) =
+                        overlay.decl_name_with_head(name, &import_pattern.head.name)
+                    {
+                        decls.push(item);
                     } else if !overlay.has_env_var(name) {
                         error = error.or(Some(ParseError::ExportNotFound(*span)));
                     }
 
-                    output
+                    (aliases, decls)
                 }
                 ImportPatternMember::List { names } => {
-                    let mut output = vec![];
+                    let mut aliases = vec![];
+                    let mut decls = vec![];
 
                     for (name, span) in names {
-                        if let Some(item) = overlay.decl_with_head(name, &import_pattern.head.name)
+                        if let Some(item) = overlay.alias_name_with_head(name, &import_pattern.head.name)
                         {
-                            output.push(item);
+                            aliases.push(item);
+                        } else if let Some(item) =
+                            overlay.decl_name_with_head(name, &import_pattern.head.name)
+                        {
+                            decls.push(item);
                         } else if !overlay.has_env_var(name) {
                             error = error.or(Some(ParseError::ExportNotFound(*span)));
                             break;
                         }
                     }
 
-                    output
+                    (aliases, decls)
                 }
             }
+        };
+
+        let import_pattern = {
+            let aliases: HashSet<Vec<u8>> = aliases_to_hide.iter().cloned().collect();
+            let decls: HashSet<Vec<u8>> = decls_to_hide.iter().cloned().collect();
+
+            import_pattern.with_hidden(decls.union(&aliases).cloned().collect())
         };
 
         // TODO: `use spam; use spam foo; hide foo` will hide both `foo` and `spam foo` since
         // they point to the same DeclId. Do we want to keep it that way?
         working_set.hide_decls(&decls_to_hide);
-        let import_pattern = import_pattern
-            .with_hidden(decls_to_hide.iter().map(|(name, _)| name.clone()).collect());
+        working_set.hide_aliases(&aliases_to_hide);
 
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {

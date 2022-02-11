@@ -35,8 +35,16 @@ impl Visibility {
         *self.decl_ids.get(decl_id).unwrap_or(&true) // by default it's visible
     }
 
+    fn is_alias_id_visible(&self, alias_id: &AliasId) -> bool {
+        *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
+    }
+
     fn hide_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, false);
+    }
+
+    fn hide_alias_id(&mut self, alias_id: &AliasId) {
+        self.alias_ids.insert(*alias_id, false);
     }
 
     fn use_decl_id(&mut self, decl_id: &DeclId) {
@@ -788,7 +796,7 @@ impl<'a> StateWorkingSet<'a> {
         let mut visibility: Visibility = Visibility::new();
 
         // Since we can mutate scope frames in delta, remove the id directly
-        for scope in self.delta.scope.iter_mut().rev() {
+for scope in self.delta.scope.iter_mut().rev() {
             visibility.append(&scope.visibility);
 
             if let Some(decl_id) = scope.decls.remove(name) {
@@ -818,9 +826,49 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn hide_decls(&mut self, decls: &[(Vec<u8>, DeclId)]) {
+    pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        // Since we can mutate scope frames in delta, remove the id directly
+        for scope in self.delta.scope.iter_mut().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.remove(name) {
+                return Some(alias_id);
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current scope frame
+        let last_scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    // Hide alias only if it's not already hidden
+                    last_scope_frame.visibility.hide_alias_id(alias_id);
+                    return Some(*alias_id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
-            self.hide_decl(&decl.0); // let's assume no errors
+            self.hide_decl(&decl); // let's assume no errors
+        }
+    }
+
+    pub fn hide_aliases(&mut self, aliases: &[Vec<u8>]) {
+        for alias in aliases.iter() {
+            self.hide_alias(&alias); // let's assume no errors
         }
     }
 
