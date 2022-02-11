@@ -66,7 +66,7 @@ impl Command for Save {
         };
 
         if let Some(ext) = ext {
-            match engine_state.find_decl(format!("to {}", ext).as_bytes()) {
+            let output = match engine_state.find_decl(format!("to {}", ext).as_bytes()) {
                 Some(converter_id) => {
                     let output = engine_state.get_decl(converter_id).run(
                         engine_state,
@@ -75,41 +75,45 @@ impl Command for Save {
                         input,
                     )?;
 
-                    let output = output.into_value(span);
-
-                    match output {
-                        Value::String { val, .. } => {
-                            if let Err(err) = file.write_all(val.as_bytes()) {
-                                return Err(ShellError::IOError(err.to_string()));
-                            }
-
-                            Ok(PipelineData::new(span))
-                        }
-                        Value::Binary { val, .. } => {
-                            if let Err(err) = file.write_all(&val) {
-                                return Err(ShellError::IOError(err.to_string()));
-                            }
-
-                            Ok(PipelineData::new(span))
-                        }
-                        v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
-                    }
+                    output.into_value(span)
                 }
-                None => {
-                    let output = input.collect_string("", &config)?;
+                None => input.into_value(span),
+            };
 
-                    if let Err(err) = file.write_all(output.as_bytes()) {
+            match output {
+                Value::String { val, .. } => {
+                    if let Err(err) = file.write_all(val.as_bytes()) {
                         return Err(ShellError::IOError(err.to_string()));
                     }
 
                     Ok(PipelineData::new(span))
                 }
+                Value::Binary { val, .. } => {
+                    if let Err(err) = file.write_all(&val) {
+                        return Err(ShellError::IOError(err.to_string()));
+                    }
+
+                    Ok(PipelineData::new(span))
+                }
+                v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
             }
         } else {
-            let output = input.collect_string("", &config)?;
+            match input.into_value() {
+                Value::String { val, .. } => {
+                    if let Err(err) = file.write_all(val.as_bytes()) {
+                        return Err(ShellError::IOError(err.to_string()));
+                    }
 
-            if let Err(err) = file.write_all(output.as_bytes()) {
-                return Err(ShellError::IOError(err.to_string()));
+                    Ok(PipelineData::new(span))
+                }
+                Value::Binary { val, .. } => {
+                    if let Err(err) = file.write_all(&val) {
+                        return Err(ShellError::IOError(err.to_string()));
+                    }
+
+                    Ok(PipelineData::new(span))
+                }
+                v => Err(ShellError::UnsupportedInput(v.get_type().to_string(), span)),
             }
 
             Ok(PipelineData::new(span))
