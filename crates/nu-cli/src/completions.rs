@@ -1,5 +1,5 @@
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse};
+use nu_parser::{flatten_expression, parse, trim_quotes};
 use nu_protocol::{
     ast::{Expr, Statement},
     engine::{EngineState, Stack, StateWorkingSet},
@@ -165,7 +165,7 @@ impl NuCompleter {
             if let Statement::Pipeline(pipeline) = stmt {
                 for expr in pipeline.expressions {
                     let flattened = flatten_expression(&working_set, &expr);
-                    for flat in flattened {
+                    for (flat_idx, flat) in flattened.into_iter().enumerate() {
                         if pos >= flat.0.start && pos <= flat.0.end {
                             let prefix = working_set.get_span_contents(flat.0);
 
@@ -245,9 +245,7 @@ impl NuCompleter {
 
                                     return v;
                                 }
-                                nu_parser::FlatShape::External
-                                | nu_parser::FlatShape::InternalCall
-                                | nu_parser::FlatShape::String => {
+                                _ => {
                                     let subcommands = self.complete_commands(
                                         &working_set,
                                         Span {
@@ -267,52 +265,48 @@ impl NuCompleter {
                                         "".to_string()
                                     };
 
+                                    let preceding_byte = if flat.0.start > offset {
+                                        working_set
+                                            .get_span_contents(Span {
+                                                start: flat.0.start - 1,
+                                                end: flat.0.start,
+                                            })
+                                            .to_vec()
+                                    } else {
+                                        vec![]
+                                    };
                                     let prefix = working_set.get_span_contents(flat.0);
                                     let prefix = String::from_utf8_lossy(prefix).to_string();
                                     return file_path_completion(flat.0, &prefix, &cwd)
                                         .into_iter()
                                         .map(move |x| {
-                                            (
-                                                reedline::Span {
-                                                    start: x.0.start - offset,
-                                                    end: x.0.end - offset,
-                                                },
-                                                x.1,
-                                            )
+                                            if flat_idx == 0 {
+                                                // We're in the command position
+                                                if x.1.starts_with('"')
+                                                    && !matches!(preceding_byte.get(0), Some(b'^'))
+                                                {
+                                                    let trimmed = trim_quotes(x.1.as_bytes());
+                                                    let trimmed = String::from_utf8_lossy(trimmed)
+                                                        .to_string();
+                                                    let expanded =
+                                                        nu_path::canonicalize_with(trimmed, &cwd);
+
+                                                    if let Ok(expanded) = expanded {
+                                                        if is_executable::is_executable(expanded) {
+                                                            (x.0, format!("^{}", x.1))
+                                                        } else {
+                                                            (x.0, x.1)
+                                                        }
+                                                    } else {
+                                                        (x.0, x.1)
+                                                    }
+                                                } else {
+                                                    (x.0, x.1)
+                                                }
+                                            } else {
+                                                (x.0, x.1)
+                                            }
                                         })
-                                        .chain(subcommands.into_iter())
-                                        .collect();
-                                }
-                                nu_parser::FlatShape::Filepath
-                                | nu_parser::FlatShape::GlobPattern
-                                | nu_parser::FlatShape::ExternalArg => {
-                                    // Check for subcommands
-                                    let subcommands = self.complete_commands(
-                                        &working_set,
-                                        Span {
-                                            start: expr.span.start,
-                                            end: pos,
-                                        },
-                                        offset,
-                                    );
-
-                                    // Check for args
-                                    let prefix = working_set.get_span_contents(flat.0);
-                                    let prefix = String::from_utf8_lossy(prefix).to_string();
-                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
-                                    {
-                                        match d.as_string() {
-                                            Ok(s) => s,
-                                            Err(_) => "".to_string(),
-                                        }
-                                    } else {
-                                        "".to_string()
-                                    };
-
-                                    let results = file_path_completion(flat.0, &prefix, &cwd);
-
-                                    return results
-                                        .into_iter()
                                         .map(move |x| {
                                             (
                                                 reedline::Span {
@@ -324,16 +318,6 @@ impl NuCompleter {
                                         })
                                         .chain(subcommands.into_iter())
                                         .collect();
-                                }
-                                _ => {
-                                    return self.complete_commands(
-                                        &working_set,
-                                        Span {
-                                            start: expr.span.start,
-                                            end: pos,
-                                        },
-                                        offset,
-                                    )
                                 }
                             }
                         }
