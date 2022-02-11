@@ -369,7 +369,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
                     "Prints the Git suite version that the git program came from.",
                     None
                 )
-                .category(Category::System),
+                .category(Category::Experimental),
             usage: "this is the git command".into(),
         });
 
@@ -381,14 +381,9 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
                     SyntaxShape::Custom(Box::new(SyntaxShape::String), "list-git-branches".into()),
                     "Branch to switch to.",
                 )
-                .category(Category::System),
+                .category(Category::Experimental),
             usage: "this is the git command".into(),
         });
-
-        bind_command!(ListGitBranches);
-
-        // This is a WIP proof of concept
-        // bind_command!(ListGitBranches, Git, GitCheckout, Source);
 
         working_set.render()
     };
