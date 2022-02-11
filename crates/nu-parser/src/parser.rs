@@ -3944,8 +3944,16 @@ pub fn discover_captures_in_expr(
         }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            let result = discover_captures_in_block(working_set, block, seen, seen_blocks);
-            output.extend(&result);
+            let results = {
+                let mut seen = vec![];
+                discover_captures_in_block(working_set, block, &mut seen, seen_blocks)
+            };
+            seen_blocks.insert(*block_id, results.clone());
+            for var_id in results.into_iter() {
+                if !seen.contains(&var_id) {
+                    output.push(var_id)
+                }
+            }
         }
         Expr::Table(headers, values) => {
             for header in headers {
@@ -4065,6 +4073,15 @@ pub fn parse(
 
     let captures = discover_captures_in_block(working_set, &output, &mut seen, &mut seen_blocks);
     output.captures = captures;
+
+    // Also check other blocks that might have been imported
+    for (block_idx, block) in working_set.delta.blocks.iter().enumerate() {
+        let captures = discover_captures_in_block(working_set, block, &mut seen, &mut seen_blocks);
+        seen_blocks.insert(
+            block_idx + working_set.permanent_state.num_blocks(),
+            captures,
+        );
+    }
 
     for (block_id, captures) in seen_blocks.into_iter() {
         // In theory, we should only be updating captures where we have new information
