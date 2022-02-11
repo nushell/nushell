@@ -607,7 +607,7 @@ pub struct StateDelta {
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Type>,              // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
-    blocks: Vec<Block>,           // indexed by BlockId
+    pub blocks: Vec<Block>,       // indexed by BlockId
     overlays: Vec<Overlay>,       // indexed by OverlayId
     pub scope: Vec<ScopeFrame>,
     #[cfg(feature = "plugin")]
