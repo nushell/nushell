@@ -362,21 +362,11 @@ fn file_path_completion(
 ) -> Vec<(nu_protocol::Span, String)> {
     use std::path::{is_separator, Path};
 
-    let partial = if let Some(s) = partial.strip_prefix('"') {
-        s
-    } else {
-        partial
-    };
-
-    let partial = if let Some(s) = partial.strip_suffix('"') {
-        s
-    } else {
-        partial
-    };
+    let partial = partial.replace("\"", "");
 
     let (base_dir_name, partial) = {
         // If partial is only a word we want to search in the current dir
-        let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", partial));
+        let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
         // On windows, this standardizes paths to use \
         let mut base = base.replace(is_separator, &SEP.to_string());
 
