@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -17,54 +17,117 @@ impl Command for Headers {
     }
 
     fn usage(&self) -> &str {
-        "Gets headers from table"
+        "Use the first row of the table as column names."
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Returns headers from table",
-            example: "[[a b]; [1 2]] | headers",
-            result: Some(Value::List {
-                vals: vec![Value::test_string("a"), Value::test_string("b")],
-                span: Span::test_data(),
-            }),
-        }]
+        let columns = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        vec![
+            Example {
+                description: "Returns headers from table",
+                example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
+                result: Some(Value::List {
+                    vals: vec![Value::Record {
+                        cols: columns.clone(),
+                        vals: vec![
+                            Value::test_string("1"),
+                            Value::test_string("2"),
+                            Value::test_string("3"),
+                        ],
+                        span: Span::test_data(),
+                    }],
+                    span: Span::test_data(),
+                }),
+            },
+            Example {
+                description: "Don't panic on rows with different headers",
+                example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
+                result: Some(Value::List {
+                    vals: vec![
+                        Value::Record {
+                            cols: columns.clone(),
+                            vals: vec![
+                                Value::test_string("1"),
+                                Value::test_string("2"),
+                                Value::test_string("3"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                        Value::Record {
+                            cols: columns,
+                            vals: vec![
+                                Value::test_string("1"),
+                                Value::test_string("2"),
+                                Value::test_string("3"),
+                            ],
+                            span: Span::test_data(),
+                        },
+                    ],
+                    span: Span::test_data(),
+                }),
+            },
+        ]
     }
 
     fn run(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, ShellError> {
-        let headers = extract_headers(input.into_value(call.head))?;
-        Ok(headers.into_pipeline_data())
+        let config = stack.get_config()?;
+        let value = input.into_value(call.head);
+        let headers = extract_headers(&value, &config)?;
+        let new_headers = replace_headers(value, &headers)?;
+
+        Ok(new_headers.into_pipeline_data())
     }
 }
 
-fn extract_headers(value: Value) -> Result<Value, ShellError> {
+fn replace_headers(value: Value, headers: &[String]) -> Result<Value, ShellError> {
     match value {
-        Value::Record { cols, span, .. } => {
-            let vals = cols
+        Value::Record { vals, span, .. } => {
+            let vals = vals.into_iter().take(headers.len()).collect();
+            Ok(Value::Record {
+                cols: headers.to_owned(),
+                vals,
+                span,
+            })
+        }
+        Value::List { vals, span } => {
+            let vals = vals
                 .into_iter()
-                .map(|header| Value::String { val: header, span })
-                .collect::<Vec<Value>>();
+                .skip(1)
+                .map(|value| replace_headers(value, headers))
+                .collect::<Result<Vec<Value>, ShellError>>()?;
 
             Ok(Value::List { vals, span })
         }
-        Value::List { vals, span } => {
-            vals.into_iter()
-                .map(extract_headers)
-                .next()
-                .ok_or_else(|| {
-                    ShellError::SpannedLabeledError(
-                        "Found empty list".to_string(),
-                        "unable to extract headers".to_string(),
-                        span,
-                    )
-                })?
-        }
+        _ => Err(ShellError::TypeMismatch(
+            "record".to_string(),
+            value.span()?,
+        )),
+    }
+}
+
+fn extract_headers(value: &Value, config: &Config) -> Result<Vec<String>, ShellError> {
+    match value {
+        Value::Record { vals, .. } => Ok(vals
+            .iter()
+            .map(|value| value.into_string("", config))
+            .collect::<Vec<String>>()),
+        Value::List { vals, span } => vals
+            .iter()
+            .map(|value| extract_headers(value, config))
+            .next()
+            .ok_or_else(|| {
+                ShellError::SpannedLabeledError(
+                    "Found empty list".to_string(),
+                    "unable to extract headers".to_string(),
+                    *span,
+                )
+            })?,
         _ => Err(ShellError::TypeMismatch(
             "record".to_string(),
             value.span()?,
