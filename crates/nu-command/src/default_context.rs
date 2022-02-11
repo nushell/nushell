@@ -1,3 +1,4 @@
+use nu_parser::KnownExternal;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Category, Signature, SyntaxShape,
@@ -41,6 +42,7 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
             ExportDef,
             ExportDefEnv,
             ExportEnv,
+            Extern,
             For,
             Help,
             Hide,
@@ -363,25 +365,32 @@ pub fn create_default_context(cwd: impl AsRef<Path>) -> EngineState {
 
         bind_command!(KnownExternal {
             name: "git".into(),
-            signature: Signature::build("git")
-                .switch(
-                    "version",
-                    "Prints the Git suite version that the git program came from.",
-                    None
-                )
-                .category(Category::Experimental),
+            signature: Box::new(
+                Signature::build("git")
+                    .switch(
+                        "version",
+                        "Prints the Git suite version that the git program came from.",
+                        None
+                    )
+                    .category(Category::Experimental)
+            ),
             usage: "this is the git command".into(),
         });
 
         bind_command!(KnownExternal {
             name: "git checkout".into(),
-            signature: Signature::build("git checkout")
-                .optional(
-                    "branch",
-                    SyntaxShape::Custom(Box::new(SyntaxShape::String), "list-git-branches".into()),
-                    "Branch to switch to.",
-                )
-                .category(Category::Experimental),
+            signature: Box::new(
+                Signature::build("git checkout")
+                    .optional(
+                        "branch",
+                        SyntaxShape::Custom(
+                            Box::new(SyntaxShape::String),
+                            "list-git-branches".into()
+                        ),
+                        "Branch to switch to.",
+                    )
+                    .category(Category::Experimental)
+            ),
             usage: "this is the git command".into(),
         });
 

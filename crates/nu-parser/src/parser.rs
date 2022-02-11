@@ -1,7 +1,7 @@
 use crate::{
     lex, lite_parse,
     lite_parse::LiteCommand,
-    parse_keywords::{parse_for, parse_source},
+    parse_keywords::{parse_extern, parse_for, parse_source},
     type_check::{math_result_type, type_compatible},
     LiteBlock, ParseError, Token, TokenContents,
 };
@@ -2003,7 +2003,7 @@ pub fn parse_string_strict(
 
 //TODO: Handle error case for unknown shapes
 pub fn parse_shape_name(
-    _working_set: &StateWorkingSet,
+    working_set: &StateWorkingSet,
     bytes: &[u8],
     span: Span,
 ) -> (SyntaxShape, Option<ParseError>) {
@@ -2026,7 +2026,31 @@ pub fn parse_shape_name(
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         b"variable" => SyntaxShape::Variable,
-        _ => return (SyntaxShape::Any, Some(ParseError::UnknownType(span))),
+        _ => {
+            if bytes.contains(&b'@') {
+                let str = String::from_utf8_lossy(bytes);
+                let split: Vec<_> = str.split('@').collect();
+                let (shape, err) = parse_shape_name(
+                    working_set,
+                    split[0].as_bytes(),
+                    Span {
+                        start: span.start,
+                        end: span.start + split[0].len(),
+                    },
+                );
+                let command_name = trim_quotes(split[1].as_bytes());
+
+                return (
+                    SyntaxShape::Custom(
+                        Box::new(shape),
+                        String::from_utf8_lossy(command_name).to_string(),
+                    ),
+                    err,
+                );
+            } else {
+                return (SyntaxShape::Any, Some(ParseError::UnknownType(span)));
+            }
+        }
     };
 
     (result, None)
@@ -3394,6 +3418,10 @@ pub fn parse_expression(
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
                 Some(ParseError::StatementInPipeline("def".into(), spans[0])),
             ),
+            b"extern" => (
+                parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
+                Some(ParseError::StatementInPipeline("extern".into(), spans[0])),
+            ),
             b"let" => (
                 parse_call(working_set, &spans[pos..], expand_aliases, spans[0]).0,
                 Some(ParseError::StatementInPipeline("let".into(), spans[0])),
@@ -3513,6 +3541,7 @@ pub fn parse_statement(
 
     match name {
         b"def" | b"def-env" => parse_def(working_set, lite_command),
+        b"extern" => parse_extern(working_set, lite_command),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"for" => {
             let (expr, err) = parse_for(working_set, &lite_command.parts);
