@@ -13,9 +13,7 @@ impl Command for ToNuon {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to nuon")
-            .switch("raw", "remove all of the whitespace", Some('r'))
-            .category(Category::Formats)
+        Signature::build("to nuon").category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
