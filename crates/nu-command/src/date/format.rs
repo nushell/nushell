@@ -108,7 +108,7 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
     }
 }
 
-fn generate_strfttime_list(head: Span) -> Value {
+pub(crate) fn generate_strfttime_list(head: Span) -> Value {
     let column_names = vec![
         "Specification".into(),
         "Example".into(),
