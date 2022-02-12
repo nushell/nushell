@@ -272,7 +272,6 @@
                                 Source='target\$(var.Profile)\nu_plugin_gstat.exe'
                                 KeyPath='yes'/>
                         </Component>
-
                     </Directory>
                 </Directory>
             </Directory>
