@@ -158,6 +158,8 @@ impl NuCompleter {
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
+        let mut line = line.to_string();
+        line.insert(pos, '0');
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
@@ -167,13 +169,19 @@ impl NuCompleter {
                     let flattened = flatten_expression(&working_set, &expr);
                     for (flat_idx, flat) in flattened.into_iter().enumerate() {
                         if pos >= flat.0.start && pos <= flat.0.end {
-                            let prefix = working_set.get_span_contents(flat.0);
+                            let new_span = Span {
+                                start: flat.0.start,
+                                end: flat.0.end - 1,
+                            };
+
+                            let mut prefix = working_set.get_span_contents(flat.0).to_vec();
+                            prefix.remove(pos - flat.0.start);
 
                             if prefix.starts_with(b"$") {
                                 return self.complete_variables(
                                     &working_set,
-                                    prefix,
-                                    flat.0,
+                                    &prefix,
+                                    new_span,
                                     offset,
                                 );
                             }
@@ -189,11 +197,11 @@ impl NuCompleter {
                                         let mut named = named.long.as_bytes().to_vec();
                                         named.insert(0, b'-');
                                         named.insert(0, b'-');
-                                        if named.starts_with(prefix) {
+                                        if named.starts_with(&prefix) {
                                             output.push((
                                                 reedline::Span {
-                                                    start: flat.0.start - offset,
-                                                    end: flat.0.end - offset,
+                                                    start: new_span.start - offset,
+                                                    end: new_span.end - offset,
                                                 },
                                                 String::from_utf8_lossy(&named).to_string(),
                                             ));
@@ -205,7 +213,7 @@ impl NuCompleter {
 
                             match &flat.1 {
                                 nu_parser::FlatShape::Custom(custom_completion) => {
-                                    let prefix = working_set.get_span_contents(flat.0).to_vec();
+                                    //let prefix = working_set.get_span_contents(flat.0).to_vec();
 
                                     let (block, ..) = parse(
                                         &mut working_set,
@@ -228,7 +236,7 @@ impl NuCompleter {
                                         &self.engine_state,
                                         &mut stack,
                                         &block,
-                                        PipelineData::new(flat.0),
+                                        PipelineData::new(new_span),
                                     );
 
                                     let v: Vec<_> = match result {
@@ -241,8 +249,8 @@ impl NuCompleter {
 
                                                 (
                                                     reedline::Span {
-                                                        start: flat.0.start - offset,
-                                                        end: flat.0.end - offset,
+                                                        start: new_span.start - offset,
+                                                        end: new_span.end - offset,
                                                     },
                                                     s,
                                                 )
@@ -274,19 +282,19 @@ impl NuCompleter {
                                         "".to_string()
                                     };
 
-                                    let preceding_byte = if flat.0.start > offset {
+                                    let preceding_byte = if new_span.start > offset {
                                         working_set
                                             .get_span_contents(Span {
-                                                start: flat.0.start - 1,
-                                                end: flat.0.start,
+                                                start: new_span.start - 1,
+                                                end: new_span.start,
                                             })
                                             .to_vec()
                                     } else {
                                         vec![]
                                     };
-                                    let prefix = working_set.get_span_contents(flat.0);
-                                    let prefix = String::from_utf8_lossy(prefix).to_string();
-                                    return file_path_completion(flat.0, &prefix, &cwd)
+                                    // let prefix = working_set.get_span_contents(flat.0);
+                                    let prefix = String::from_utf8_lossy(&prefix).to_string();
+                                    return file_path_completion(new_span, &prefix, &cwd)
                                         .into_iter()
                                         .map(move |x| {
                                             if flat_idx == 0 {
