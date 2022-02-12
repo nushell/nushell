@@ -98,23 +98,23 @@ opt-level = "s" # Optimize for size
 
 # Build plugins
 [[bin]]
-name = "nu_plugin_inc"
+name = "nu_plugin_core_inc"
 path = "src/plugins/nu_plugin_core_inc.rs"
 required-features = ["inc"]
 
 [[bin]]
-name = "nu_plugin_example"
+name = "nu_plugin_core_example"
 path = "src/plugins/nu_plugin_core_example.rs"
 required-features = ["example"]
 
 # Extra plugins
 [[bin]]
-name = "nu_plugin_gstat"
+name = "nu_plugin_extra_gstat"
 path = "src/plugins/nu_plugin_extra_gstat.rs"
 required-features = ["gstat"]
 
 [[bin]]
-name = "nu_plugin_query"
+name = "nu_plugin_extra_query"
 path = "src/plugins/nu_plugin_extra_query.rs"
 required-features = ["query"]
 

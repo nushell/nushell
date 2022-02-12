@@ -255,7 +255,7 @@
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_query_json.exe'
                                 KeyPath='yes'/>
-                        </Component> -->
+                        </Component> 
                         <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe21'
@@ -263,7 +263,7 @@
                                 DiskId='1'
                                 Source='target\$(var.Profile)\nu_plugin_example.exe'
                                 KeyPath='yes'/>
-                        </Component>
+                        </Component> -->
                         <Component Id='binary22' Guid='*' Win64='$(var.Win64)'>
                             <File
                                 Id='exe22'
@@ -312,8 +312,8 @@
             <ComponentRef Id='binary17'/>
             <ComponentRef Id='binary18'/>
             <ComponentRef Id='binary19'/>
-            <ComponentRef Id='binary20'/> -->
-            <ComponentRef Id='binary21'/>
+            <ComponentRef Id='binary20'/> 
+            <ComponentRef Id='binary21'/> -->
             <ComponentRef Id='binary22'/>
 
             <Feature
