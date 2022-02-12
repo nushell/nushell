@@ -77,8 +77,8 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --no-default-features
+          command: install
+          args: --path=. --no-default-features
 
       - uses: actions/setup-python@v2
         with:
