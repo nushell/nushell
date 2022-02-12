@@ -6,6 +6,8 @@ use nu_protocol::{
     Value,
 };
 
+use super::{horizontal_rotate_value, HorizontalDirection};
+
 #[derive(Clone)]
 pub struct RollRight;
 
@@ -89,50 +91,10 @@ impl Command for RollRight {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let cells_only = call.has_flag("cells-only");
         let value = input.into_value(call.head);
-        let rotated_value = rotate_value(value, &by, cells_only)?;
+        let rotated_value =
+            horizontal_rotate_value(value, &by, cells_only, &HorizontalDirection::Right)?;
 
         Ok(rotated_value.into_pipeline_data())
-    }
-}
-
-fn rotate_value(value: Value, by: &Option<usize>, cells_only: bool) -> Result<Value, ShellError> {
-    match value {
-        Value::Record {
-            mut cols,
-            mut vals,
-            span,
-        } => {
-            let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
-
-            let columns = if cells_only {
-                cols
-            } else {
-                let columns = cols.as_mut_slice();
-                columns.rotate_right(rotations);
-                columns.to_owned()
-            };
-
-            let values = vals.as_mut_slice();
-            values.rotate_right(rotations);
-
-            Ok(Value::Record {
-                cols: columns,
-                vals: values.to_owned(),
-                span,
-            })
-        }
-        Value::List { vals, span } => {
-            let values = vals
-                .into_iter()
-                .map(|value| rotate_value(value, by, cells_only))
-                .collect::<Result<Vec<Value>, ShellError>>()?;
-
-            Ok(Value::List { vals: values, span })
-        }
-        _ => Err(ShellError::TypeMismatch(
-            "record".to_string(),
-            value.span()?,
-        )),
     }
 }
 

@@ -6,6 +6,8 @@ use nu_protocol::{
     Value,
 };
 
+use super::{vertical_rotate_value, VerticalDirection};
+
 #[derive(Clone)]
 pub struct RollDown;
 
@@ -61,25 +63,9 @@ impl Command for RollDown {
     ) -> Result<nu_protocol::PipelineData, ShellError> {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let value = input.into_value(call.head);
-        let rotated_value = rotate_value(value, by)?;
+        let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Down)?;
 
         Ok(rotated_value.into_pipeline_data())
-    }
-}
-
-fn rotate_value(value: Value, by: Option<usize>) -> Result<Value, ShellError> {
-    match value {
-        Value::List { mut vals, span } => {
-            let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
-            let values = vals.as_mut_slice();
-            values.rotate_right(rotations);
-
-            Ok(Value::List {
-                vals: values.to_owned(),
-                span,
-            })
-        }
-        _ => Err(ShellError::TypeMismatch("list".to_string(), value.span()?)),
     }
 }
 
