@@ -24,29 +24,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
+      - name: Build Nushell
+        uses: actions-rs/cargo@v1
         with:
           command: build
           args: ${{ matrix.flags }}
 
-      - uses: actions-rs/cargo@v1
+      - name: Rustfmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-      - uses: actions-rs/cargo@v1
+      - name: Clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --all ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
-      - uses: actions-rs/cargo@v1
+      - name: Tests
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all ${{ matrix.flags }}
@@ -68,27 +73,34 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
+      - name: Install Nushell
+        uses: actions-rs/cargo@v1
         with:
           command: install
           args: --path=. --no-default-features
 
-      - uses: actions/setup-python@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
         with:
           python-version: "3.10"
 
       - run: python -m pip install tox
 
-      - run: |
+      - name: Install virtualenv
+        run: |
           git clone https://github.com/kubouch/virtualenv.git && \
           cd virtualenv && \
-          git checkout engine-q-update && \
-          tox -e ${{ matrix.py }} -- -k nushell
+          git checkout engine-q-update
+        shell: bash
+
+      - name: Test Nushell in virtualenv
+        run: tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
