@@ -5,38 +5,101 @@ name: Continuous integration
 jobs:
   ci:
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
+        style: [minimal, default, all]
         rust:
           - stable
+        include:
+          - style: minimal
+            flags: '--no-default-features'
+          - style: default
+            flags: ''
+          - style: all
+            flags: '--all-features'
 
     runs-on: ${{ matrix.platform }}
 
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions-rs/toolchain@v1
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
           override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all --all-features
-
-      - uses: actions-rs/cargo@v1
+      - name: Rustfmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-      - uses: actions-rs/cargo@v1
+      - name: Clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all --all-features -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: --all ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
+      - name: Build Nushell
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.flags }}
+
+      - name: Tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all ${{ matrix.flags }}
+
+
+  python-virtualenv:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        rust:
+          - stable
+        py:
+          - py
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: Install Nushell
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --path=. --no-default-features
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - run: python -m pip install tox
+
+      - name: Install virtualenv
+        run: |
+          git clone https://github.com/kubouch/virtualenv.git && \
+          cd virtualenv && \
+          git checkout engine-q-update
+        shell: bash
+
+      - name: Test Nushell in virtualenv
+        run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
+        shell: bash
