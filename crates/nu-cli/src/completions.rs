@@ -315,6 +315,10 @@ impl NuCompleter {
                                         vec![]
                                     };
 
+                                    if !subcommands.is_empty() {
+                                        return subcommands;
+                                    }
+
                                     let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
                                     {
                                         match d.as_string() {
