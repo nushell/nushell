@@ -43,7 +43,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all {{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+          args: --all ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
 
       - uses: actions-rs/cargo@v1
         with:
