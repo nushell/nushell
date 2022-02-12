@@ -1,5 +1,5 @@
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse, trim_quotes};
+use nu_parser::{flatten_expression, parse, trim_quotes, FlatShape};
 use nu_protocol::{
     ast::{Expr, Statement},
     engine::{EngineState, Stack, StateWorkingSet},
@@ -121,7 +121,7 @@ impl NuCompleter {
     ) -> Vec<(reedline::Span, String)> {
         let prefix = working_set.get_span_contents(span);
 
-        let results = working_set
+        let mut results = working_set
             .find_commands_by_prefix(prefix)
             .into_iter()
             .map(move |x| {
@@ -132,7 +132,8 @@ impl NuCompleter {
                     },
                     String::from_utf8_lossy(&x).to_string(),
                 )
-            });
+            })
+            .collect::<Vec<_>>();
 
         let prefix = working_set.get_span_contents(span);
         let prefix = String::from_utf8_lossy(prefix).to_string();
@@ -149,26 +150,32 @@ impl NuCompleter {
                     )
                 });
 
+        for external in results_external {
+            if results.contains(&external) {
+                results.push((external.0, format!("^{}", external.1)))
+            } else {
+                results.push(external)
+            }
+        }
+
         results
-            .into_iter()
-            .chain(results_external.into_iter())
-            .collect()
     }
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
         let mut line = line.to_string();
-        line.insert(pos, '0');
+        line.insert(pos, 'a');
         let pos = offset + pos;
         let (output, _err) = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
 
         for stmt in output.stmts.into_iter() {
             if let Statement::Pipeline(pipeline) = stmt {
                 for expr in pipeline.expressions {
-                    let flattened = flatten_expression(&working_set, &expr);
-                    for (flat_idx, flat) in flattened.into_iter().enumerate() {
-                        if pos >= flat.0.start && pos <= flat.0.end {
+                    let flattened: Vec<_> = flatten_expression(&working_set, &expr);
+
+                    for (flat_idx, flat) in flattened.iter().enumerate() {
+                        if pos >= flat.0.start && pos < flat.0.end {
                             let new_span = Span {
                                 start: flat.0.start,
                                 end: flat.0.end - 1,
@@ -242,18 +249,19 @@ impl NuCompleter {
                                     let v: Vec<_> = match result {
                                         Ok(pd) => pd
                                             .into_iter()
-                                            .map(move |x| {
-                                                let s = x.as_string().expect(
-                                                    "FIXME: better error handling for custom completions",
-                                                );
+                                            .filter_map(move |x| {
+                                                let s = x.as_string();
 
-                                                (
-                                                    reedline::Span {
-                                                        start: new_span.start - offset,
-                                                        end: new_span.end - offset,
-                                                    },
-                                                    s,
-                                                )
+                                                match s {
+                                                    Ok(s) => Some((
+                                                        reedline::Span {
+                                                            start: new_span.start - offset,
+                                                            end: new_span.end - offset,
+                                                        },
+                                                        s,
+                                                    )),
+                                                    Err(_) => None,
+                                                }
                                             })
                                             .filter(|x| x.1.as_bytes().starts_with(&prefix))
                                             .collect(),
@@ -262,15 +270,50 @@ impl NuCompleter {
 
                                     return v;
                                 }
-                                _ => {
-                                    let subcommands = self.complete_commands(
-                                        &working_set,
-                                        Span {
-                                            start: expr.span.start,
-                                            end: pos,
-                                        },
-                                        offset,
-                                    );
+                                flat_shape => {
+                                    let commands =
+                                        if matches!(flat_shape, nu_parser::FlatShape::External)
+                                            || matches!(
+                                                flat_shape,
+                                                nu_parser::FlatShape::InternalCall
+                                            )
+                                            || ((new_span.end - new_span.start) == 0)
+                                        {
+                                            // we're in a gap or at a command
+                                            self.complete_commands(&working_set, new_span, offset)
+                                        } else {
+                                            vec![]
+                                        };
+
+                                    let last = flattened
+                                        .iter()
+                                        .rev()
+                                        .skip_while(|x| x.0.end > pos)
+                                        .take_while(|x| {
+                                            matches!(
+                                                x.1,
+                                                FlatShape::InternalCall
+                                                    | FlatShape::External
+                                                    | FlatShape::ExternalArg
+                                                    | FlatShape::Literal
+                                                    | FlatShape::String
+                                            )
+                                        })
+                                        .last();
+
+                                    // The last item here would be the earliest shape that could possible by part of this subcommand
+                                    let subcommands = if let Some(last) = last {
+                                        self.complete_commands(
+                                            &working_set,
+                                            Span {
+                                                start: last.0.start,
+                                                end: pos,
+                                            },
+                                            offset,
+                                        )
+                                    } else {
+                                        vec![]
+                                    };
 
                                     let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
                                     {
@@ -294,7 +337,7 @@ impl NuCompleter {
                                     };
                                     // let prefix = working_set.get_span_contents(flat.0);
                                     let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                    return file_path_completion(new_span, &prefix, &cwd)
+                                    let mut output = file_path_completion(new_span, &prefix, &cwd)
                                         .into_iter()
                                         .map(move |x| {
                                             if flat_idx == 0 {
@@ -334,24 +377,13 @@ impl NuCompleter {
                                             )
                                         })
                                         .chain(subcommands.into_iter())
-                                        .collect();
+                                        .chain(commands.into_iter())
+                                        .collect::<Vec<_>>();
+                                    output.dedup_by(|a, b| a.1 == b.1);
+
+                                    return output;
                                 }
                             }
-                        }
-
-                        // If we get here, let's just check to see if we can complete a subcommand
-                        // Check for subcommands
-                        let subcommands = self.complete_commands(
-                            &working_set,
-                            Span {
-                                start: expr.span.start,
-                                end: pos,
-                            },
-                            offset,
-                        );
-
-                        if !subcommands.is_empty() {
-                            return subcommands;
                         }
                     }
                 }
