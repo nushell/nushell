@@ -256,6 +256,22 @@
                                 Source='target\$(var.Profile)\nu_plugin_query_json.exe'
                                 KeyPath='yes'/>
                         </Component> -->
+                        <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe21'
+                                Name='nu_plugin_example.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_example.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                        <Component Id='binary22' Guid='*' Win64='$(var.Win64)'>
+                            <File
+                                Id='exe22'
+                                Name='nu_plugin_gstat.exe'
+                                DiskId='1'
+                                Source='target\$(var.Profile)\nu_plugin_gstat.exe'
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -297,6 +313,8 @@
             <ComponentRef Id='binary18'/>
             <ComponentRef Id='binary19'/>
             <ComponentRef Id='binary20'/> -->
+            <ComponentRef Id='binary21'/>
+            <ComponentRef Id='binary22'/>
 
             <Feature
                 Id='Environment'
