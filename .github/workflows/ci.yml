@@ -89,6 +89,6 @@ jobs:
       - run: |
           git clone https://github.com/kubouch/virtualenv.git && \
           cd virtualenv && \
-          checkout engine-q-update && \
+          git checkout engine-q-update && \
           tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
