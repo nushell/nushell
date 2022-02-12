@@ -10,7 +10,7 @@ mod utils;
 
 pub use date_::Date;
 pub use format::SubCommand as DateFormat;
-pub(crate) use format::generate_strfttime_list;
+pub(crate) use format::generate_strftime_list;
 pub use humanize::SubCommand as DateHumanize;
 pub use list_timezone::SubCommand as DateListTimezones;
 pub use now::SubCommand as DateNow;

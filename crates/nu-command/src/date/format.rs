@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 
 use super::utils::{parse_date_from_string, unsupported_input_error};
@@ -18,11 +18,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date format")
-            .switch(
-                "list",
-                "lists strftime cheatsheet",
-                Some('l')
-            )
+            .switch("list", "lists strftime cheatsheet", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,
@@ -44,9 +40,10 @@ impl Command for SubCommand {
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
         if call.has_flag("list") {
-            return Ok(PipelineData::Value(generate_strfttime_list(head), None))
+            return Ok(PipelineData::Value(generate_strftime_list(head), None));
         }
-        let formatter = call.opt::<String>(engine_state, stack, 0)?
+        let formatter = call
+            .opt::<String>(engine_state, stack, 0)?
             .unwrap_or("%c".to_string());
         input.map(
             move |value| format_helper(value, &formatter, head),
@@ -97,10 +94,7 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
         Value::Nothing { span: _ } => {
             let dt = Local::now();
             Value::String {
-                val: dt
-                    .with_timezone(dt.offset())
-                    .format(formatter)
-                    .to_string(),
+                val: dt.with_timezone(dt.offset()).format(formatter).to_string(),
                 span,
             }
         }
@@ -108,910 +102,262 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
     }
 }
 
-pub(crate) fn generate_strfttime_list(head: Span) -> Value {
+pub(crate) fn generate_strftime_list(head: Span) -> Value {
     let column_names = vec![
         "Specification".into(),
         "Example".into(),
         "Description".into(),
     ];
-    let records = vec![
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%Y".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "2001".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "The full proleptic Gregorian year, zero-padded to 4 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+    let now = Local::now();
+
+    struct FormatSpecification<'a> {
+        spec: &'a str,
+        description: &'a str,
+    }
+
+    let specifications = vec![
+        FormatSpecification {
+            spec: "%Y",
+            description: "The full proleptic Gregorian year, zero-padded to 4 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%C".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "20".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%C",
+            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%y".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "01".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "The proleptic Gregorian year modulo 100, zero-padded to 2 digits. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%Y",
+            description: "The full proleptic Gregorian year, zero-padded to 4 digits. 1",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%m".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "07".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Month number (01--12), zero-padded to 2 digits.".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%C",
+            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits. 2",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%b".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Jul".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Abbreviated month name. Always 3 letters".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%y",
+            description: "The proleptic Gregorian year modulo 100, zero-padded to 2 digits. 2",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%B".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "July".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Full month name. Also accepts corresponding abbreviation in parsing"
-                        .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%m",
+            description: "Month number (01--12), zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%h".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Jul".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %b".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%b",
+            description: "Abbreviated month name. Always 3 letters.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%d".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "08".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Day number (01--31), zero-padded to 2 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%B",
+            description: "Full month name. Also accepts corresponding abbreviation in parsing.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%e".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "8".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %d but space-padded. Same to %_d".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%h",
+            description: "Same as %b.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%a".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Sun".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Abbreviated weekday name. Always 3 letters".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%d",
+            description: "Day number (01--31), zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%A".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Sunday".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Full weekday name. Also accepts corresponding abbreviation in parsing"
-                        .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%e",
+            description: "Same as %d but space-padded. Same as %_d.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%w".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "0".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Sunday = 0, Monday = 1, ..., Saturday = 6".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%a",
+            description: "Abbreviated weekday name. Always 3 letters.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%u".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "7".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Monday = 1, Tuesday = 2, ..., Sunday = 7. (ISO 8601)
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%A",
+            description: "Full weekday name. Also accepts corresponding abbreviation in parsing.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%U".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "28".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Week number starting with Sunday (00--53), zero-padded to 2 digits. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%w",
+            description: "Sunday = 0, Monday = 1, ..., Saturday = 6.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%W".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "27".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %U, but week 1 starts with the first Monday in that year instead"
-                        .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%u",
+            description: "Monday = 1, Tuesday = 2, ..., Sunday = 7. (ISO 8601)",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%G".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "2001".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %Y but uses the year number in ISO 8601 week date. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%U",
+            description: "Week number starting with Sunday (00--53), zero-padded to 2 digits. 3",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%g".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "01".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %y but uses the year number in ISO 8601 week date. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%W",
+            description:
+                "Same as %U, but week 1 starts with the first Monday in that year instead.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%V".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "27".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %U but uses the week number in ISO 8601 week date (01--53). 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%G",
+            description: "Same as %Y but uses the year number in ISO 8601 week date. 4",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%j".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "189".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Day of the year (001--366), zero-padded to 3 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%g",
+            description: "Same as %y but uses the year number in ISO 8601 week date. 4",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%D".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "07/08/01".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Month-day-year format. Same to %m/%d/%y".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%V",
+            description: "Same as %U but uses the week number in ISO 8601 week date (01--53). 4",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%x".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "07/08/01".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %D".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%j",
+            description: "Day of the year (001--366), zero-padded to 3 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%F".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "2001-07-08".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Year-month-day format (ISO 8601). Same to %Y-%m-%d".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%D",
+            description: "Month-day-year format. Same as %m/%d/%y.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%v".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "8-Jul-2001".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Day-month-year format. Same to %e-%b-%Y".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%x",
+            description: "Locale's date representation (e.g., 12/31/99).",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%H".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "00".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Hour number (00--23), zero-padded to 2 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%F",
+            description: "Year-month-day format (ISO 8601). Same as %Y-%m-%d.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%k".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "0".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %H but space-padded. Same to %_H".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%v",
+            description: "Day-month-year format. Same as %e-%b-%Y.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%I".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "12".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Hour number in 12-hour clocks (01--12), zero-padded to 2 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%H",
+            description: "Hour number (00--23), zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%l".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "12".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %I but space-padded. Same to %_I".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%k",
+            description: "Same as %H but space-padded. Same as %_H.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%P".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "am".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "am or pm in 12-hour clocks".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%I",
+            description: "Hour number in 12-hour clocks (01--12), zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%p".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "AM".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "AM or PM in 12-hour clocks".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%l",
+            description: "Same as %I but space-padded. Same as %_I.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%M".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "34".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Minute number (00--59), zero-padded to 2 digits".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%P",
+            description: "am or pm in 12-hour clocks.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%S".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "60".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Second number (00--60), zero-padded to 2 digits. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%p",
+            description: "AM or PM in 12-hour clocks.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%f".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "026490000".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "The fractional seconds (in nanoseconds) since last whole second. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%M",
+            description: "Minute number (00--59), zero-padded to 2 digits.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%.".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: ".026490".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Similar to .%f but left-aligned. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%S",
+            description: "Second number (00--60), zero-padded to 2 digits. 5",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%.".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: ".026".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Similar to .%f but left-aligned but fixed to a length of 3. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%f",
+            description: "The fractional seconds (in nanoseconds) since last whole second. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%.".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: ".026490".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Similar to .%f but left-aligned but fixed to a length of 6. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%.f",
+            description: "Similar to .%f but left-aligned. These all consume the leading dot. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%.".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: ".026490000".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Similar to .%f but left-aligned but fixed to a length of 9. 
-"
-                    .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%.3f",
+            description: "Similar to .%f but left-aligned but fixed to a length of 3. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%R".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "00:34".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Hour-minute format. Same to %H:%M".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%.6f",
+            description: "Similar to .%f but left-aligned but fixed to a length of 6. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%T".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "00:34:60".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Hour-minute-second format. Same to %H:%M:%S".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%.9f",
+            description: "Similar to .%f but left-aligned but fixed to a length of 9. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%X".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "00:34:60".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %T".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%3f",
+            description: "Similar to %.3f but without the leading dot. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%r".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "12:34:60".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "AM Hour-minute-second format in 12-hour clocks. Same to %I:%M:%S %p"
-                        .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%6f",
+            description: "Similar to %.6f but without the leading dot. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%Z".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "ACST".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Formatting only: Local time zone name".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%9f",
+            description: "Similar to %.9f but without the leading dot. 6",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%z".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "+0930".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Offset from the local time to UTC (with UTC being +0000)".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%R",
+            description: "Hour-minute format. Same as %H:%M.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%:".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "+09:30".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Same to %z but with a colon".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%T",
+            description: "Hour-minute-second format. Same as %H:%M:%S.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%c".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Sun".into(),
-                    span: head,
-                },
-                Value::String {
-                    val:
-                        "Jul 8 00:34:60 2001 ctime date & time format. Same to %a %b %e %T %Y sans"
-                            .into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%X",
+            description: "Locale's time representation (e.g., 23:13:48).",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%s".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "994518299".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "UNIX timestamp, the number of seconds since 1970-01-01 00:00 UTC.".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%r",
+            description: "Hour-minute-second format in 12-hour clocks. Same as %I:%M:%S %p.",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%t".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Literal tab (\\t)".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%Z",
+            description:
+                "Local time zone name. Skips all non-whitespace characters during parsing. 7",
         },
-        Value::Record {
-            cols: column_names.clone(),
-            vals: vec![
-                Value::String {
-                    val: "%n".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "Literal newline (\\n)".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%z",
+            description: "Offset from the local time to UTC (with UTC being +0000).",
         },
-        Value::Record {
-            cols: column_names,
-            vals: vec![
-                Value::String {
-                    val: "%%".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "".into(),
-                    span: head,
-                },
-                Value::String {
-                    val: "percent sign".into(),
-                    span: head,
-                },
-            ],
-            span: head,
+        FormatSpecification {
+            spec: "%:z",
+            description: "Same as %z but with a colon.",
+        },
+        FormatSpecification {
+            spec: "%c",
+            description: "Locale's date and time (e.g., Thu Mar 3 23:05:25 2005).",
+        },
+        FormatSpecification {
+            spec: "%+",
+            description: "ISO 8601 / RFC 3339 date & time format. 8",
+        },
+        FormatSpecification {
+            spec: "%s",
+            description: "UNIX timestamp, the number of seconds since 1970-01-01",
+        },
+        FormatSpecification {
+            spec: "%t",
+            description: "Literal tab (\t).",
+        },
+        FormatSpecification {
+            spec: "%n",
+            description: "Literal newline (\n).",
+        },
+        FormatSpecification {
+            spec: "%%",
+            description: "Literal percent sign.",
         },
     ];
+    // Omitted: %#z: "Parsing only: Same as %z but allows minutes to be missing or present."
+
+    let records = specifications
+        .iter()
+        .map(|s| Value::Record {
+            cols: column_names.clone(),
+            vals: vec![
+                Value::String {
+                    val: s.spec.to_string(),
+                    span: head,
+                },
+                Value::String {
+                    val: now.format(s.spec).to_string(),
+                    span: head,
+                },
+                Value::String {
+                    val: s.description.to_string(),
+                    span: head,
+                },
+            ],
+            span: head,
+        })
+        .collect::<Vec<Value>>();
 
     Value::List {
         vals: records,

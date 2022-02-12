@@ -7,7 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
-use crate::generate_strfttime_list;
+use crate::generate_strftime_list;
 
 struct Arguments {
     timezone: Option<Spanned<String>>,
@@ -177,7 +177,7 @@ fn operate(
             if options.column_paths.is_empty() && !list_flag {
                 action(&v, &zone_options, &format_options, head)
             } else if list_flag {
-                generate_strfttime_list(head)
+                generate_strftime_list(head)
             } else {
                 let mut ret = v;
                 for path in &options.column_paths {
