@@ -128,7 +128,7 @@ impl Command for Kill {
                 .stderr(Stdio::null());
         }
 
-        cmd.status().expect("failed to execute shell command");
+        let output = cmd.output().expect("failed to execute shell command");
         let val = String::from(String::from_utf8(output.stdout).expect("failed to convert output to string").trim_end());
         if val.is_empty() {
             Ok(Value::Nothing { span: call.head }.into_pipeline_data())
