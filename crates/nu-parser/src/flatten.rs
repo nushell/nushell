@@ -121,7 +121,7 @@ pub fn flatten_expression(
                             start: last.0.end,
                             end: outer_span.end,
                         },
-                        FlatShape::Table,
+                        FlatShape::Block,
                     ))
                 } else {
                     None
