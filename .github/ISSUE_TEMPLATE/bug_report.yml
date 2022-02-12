@@ -40,7 +40,7 @@ body:
       label: Configuration
       description: "Please run `version | transpose key value | to md --pretty` and paste the output to show OS, features, etc."
       placeholder: |
-        > version | pivot key value | to md --pretty
+        > version | transpose key value | to md --pretty
         | key                | value                                                                                                                                                                   |
         | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
         | version            | 0.40.0                                                                                                                                                                  |
