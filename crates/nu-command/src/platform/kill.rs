@@ -129,17 +129,17 @@ impl Command for Kill {
         }
 
         cmd.status().expect("failed to execute shell command");
-        // let val = String::from(String::from_utf8(output.stdout).expect("failed to convert output to string").trim_end());
-        //if val.is_empty() {
+        let val = String::from(String::from_utf8(output.stdout).expect("failed to convert output to string").trim_end());
+        if val.is_empty() {
             Ok(Value::Nothing { span: call.head }.into_pipeline_data())
-        // } else {
-        //     Ok(vec![Value::String {
-        //         val,
-        //         span: call.head,
-        //     }]
-        //     .into_iter()
-        //     .into_pipeline_data(engine_state.ctrlc.clone()))
-        // }
+        } else {
+            Ok(vec![Value::String {
+                val,
+                span: call.head,
+            }]
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
