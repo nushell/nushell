@@ -5,10 +5,12 @@ use nu_protocol::engine::{EngineState, Stack, StateDelta, StateWorkingSet};
 use std::path::PathBuf;
 
 const NUSHELL_FOLDER: &str = "nushell";
-const PLUGIN_FILE: &str = "plugin.nu";
 const CONFIG_FILE: &str = "config.nu";
 const HISTORY_FILE: &str = "history.txt";
+#[cfg(feature = "plugin")]
+const PLUGIN_FILE: &str = "plugin.nu";
 
+#[cfg(feature = "plugin")]
 pub(crate) fn read_plugin_file(engine_state: &mut EngineState, stack: &mut Stack) {
     // Reading signatures from signature file
     // The plugin.nu file stores the parsed signature collected from each registered plugin
