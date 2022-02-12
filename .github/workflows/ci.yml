@@ -102,5 +102,5 @@ jobs:
         shell: bash
 
       - name: Test Nushell in virtualenv
-        run: tox -e ${{ matrix.py }} -- -k nushell
+        run: cd virtualenv && tox -e ${{ matrix.py }} -- -k nushell
         shell: bash
