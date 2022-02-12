@@ -32,12 +32,6 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: Build Nushell
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: ${{ matrix.flags }}
-
       - name: Rustfmt
         uses: actions-rs/cargo@v1
         with:
@@ -49,6 +43,12 @@ jobs:
         with:
           command: clippy
           args: --all ${{ matrix.flags }} -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+
+      - name: Build Nushell
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.flags }}
 
       - name: Tests
         uses: actions-rs/cargo@v1
