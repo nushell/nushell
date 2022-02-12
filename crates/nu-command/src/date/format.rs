@@ -126,15 +126,15 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%Y",
-            description: "The full proleptic Gregorian year, zero-padded to 4 digits. 1",
+            description: "The full proleptic Gregorian year, zero-padded to 4 digits.",
         },
         FormatSpecification {
             spec: "%C",
-            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits. 2",
+            description: "The proleptic Gregorian year divided by 100, zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%y",
-            description: "The proleptic Gregorian year modulo 100, zero-padded to 2 digits. 2",
+            description: "The proleptic Gregorian year modulo 100, zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%m",
@@ -178,7 +178,7 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%U",
-            description: "Week number starting with Sunday (00--53), zero-padded to 2 digits. 3",
+            description: "Week number starting with Sunday (00--53), zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%W",
@@ -187,15 +187,15 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%G",
-            description: "Same as %Y but uses the year number in ISO 8601 week date. 4",
+            description: "Same as %Y but uses the year number in ISO 8601 week date.",
         },
         FormatSpecification {
             spec: "%g",
-            description: "Same as %y but uses the year number in ISO 8601 week date. 4",
+            description: "Same as %y but uses the year number in ISO 8601 week date.",
         },
         FormatSpecification {
             spec: "%V",
-            description: "Same as %U but uses the week number in ISO 8601 week date (01--53). 4",
+            description: "Same as %U but uses the week number in ISO 8601 week date (01--53).",
         },
         FormatSpecification {
             spec: "%j",
@@ -247,39 +247,39 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%S",
-            description: "Second number (00--60), zero-padded to 2 digits. 5",
+            description: "Second number (00--60), zero-padded to 2 digits.",
         },
         FormatSpecification {
             spec: "%f",
-            description: "The fractional seconds (in nanoseconds) since last whole second. 6",
+            description: "The fractional seconds (in nanoseconds) since last whole second.",
         },
         FormatSpecification {
             spec: "%.f",
-            description: "Similar to .%f but left-aligned. These all consume the leading dot. 6",
+            description: "Similar to .%f but left-aligned. These all consume the leading dot.",
         },
         FormatSpecification {
             spec: "%.3f",
-            description: "Similar to .%f but left-aligned but fixed to a length of 3. 6",
+            description: "Similar to .%f but left-aligned but fixed to a length of 3.",
         },
         FormatSpecification {
             spec: "%.6f",
-            description: "Similar to .%f but left-aligned but fixed to a length of 6. 6",
+            description: "Similar to .%f but left-aligned but fixed to a length of 6.",
         },
         FormatSpecification {
             spec: "%.9f",
-            description: "Similar to .%f but left-aligned but fixed to a length of 9. 6",
+            description: "Similar to .%f but left-aligned but fixed to a length of 9.",
         },
         FormatSpecification {
             spec: "%3f",
-            description: "Similar to %.3f but without the leading dot. 6",
+            description: "Similar to %.3f but without the leading dot.",
         },
         FormatSpecification {
             spec: "%6f",
-            description: "Similar to %.6f but without the leading dot. 6",
+            description: "Similar to %.6f but without the leading dot.",
         },
         FormatSpecification {
             spec: "%9f",
-            description: "Similar to %.9f but without the leading dot. 6",
+            description: "Similar to %.9f but without the leading dot.",
         },
         FormatSpecification {
             spec: "%R",
@@ -300,7 +300,7 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         FormatSpecification {
             spec: "%Z",
             description:
-                "Local time zone name. Skips all non-whitespace characters during parsing. 7",
+                "Local time zone name. Skips all non-whitespace characters during parsing.",
         },
         FormatSpecification {
             spec: "%z",
@@ -316,7 +316,7 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%+",
-            description: "ISO 8601 / RFC 3339 date & time format. 8",
+            description: "ISO 8601 / RFC 3339 date & time format.",
         },
         FormatSpecification {
             spec: "%s",
@@ -324,11 +324,11 @@ pub(crate) fn generate_strftime_list(head: Span) -> Value {
         },
         FormatSpecification {
             spec: "%t",
-            description: "Literal tab (\t).",
+            description: "Literal tab (\\t).",
         },
         FormatSpecification {
             spec: "%n",
-            description: "Literal newline (\n).",
+            description: "Literal newline (\\n).",
         },
         FormatSpecification {
             spec: "%%",
