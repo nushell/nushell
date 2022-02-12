@@ -118,6 +118,7 @@ impl NuCompleter {
         working_set: &StateWorkingSet,
         span: Span,
         offset: usize,
+        find_externals: bool,
     ) -> Vec<(reedline::Span, String)> {
         let prefix = working_set.get_span_contents(span);
 
@@ -137,28 +138,32 @@ impl NuCompleter {
 
         let prefix = working_set.get_span_contents(span);
         let prefix = String::from_utf8_lossy(prefix).to_string();
-        let results_external =
-            self.external_command_completion(&prefix)
-                .into_iter()
-                .map(move |x| {
-                    (
-                        reedline::Span {
-                            start: span.start - offset,
-                            end: span.end - offset,
-                        },
-                        x,
-                    )
-                });
+        if find_externals {
+            let results_external =
+                self.external_command_completion(&prefix)
+                    .into_iter()
+                    .map(move |x| {
+                        (
+                            reedline::Span {
+                                start: span.start - offset,
+                                end: span.end - offset,
+                            },
+                            x,
+                        )
+                    });
 
-        for external in results_external {
-            if results.contains(&external) {
-                results.push((external.0, format!("^{}", external.1)))
-            } else {
-                results.push(external)
+            for external in results_external {
+                if results.contains(&external) {
+                    results.push((external.0, format!("^{}", external.1)))
+                } else {
+                    results.push(external)
+                }
             }
-        }
 
-        results
+            results
+        } else {
+            results
+        }
     }
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<(reedline::Span, String)> {
@@ -219,7 +224,7 @@ impl NuCompleter {
                             }
 
                             match &flat.1 {
-                                nu_parser::FlatShape::Custom(custom_completion) => {
+                                FlatShape::Custom(custom_completion) => {
                                     //let prefix = working_set.get_span_contents(flat.0).to_vec();
 
                                     let (block, ..) = parse(
@@ -270,21 +275,31 @@ impl NuCompleter {
 
                                     return v;
                                 }
-                                flat_shape => {
-                                    let commands =
-                                        if matches!(flat_shape, nu_parser::FlatShape::External)
-                                            || matches!(
-                                                flat_shape,
-                                                nu_parser::FlatShape::InternalCall
+                                FlatShape::Filepath | FlatShape::GlobPattern => {
+                                    let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
+                                    {
+                                        match d.as_string() {
+                                            Ok(s) => s,
+                                            Err(_) => "".to_string(),
+                                        }
+                                    } else {
+                                        "".to_string()
+                                    };
+                                    let prefix = String::from_utf8_lossy(&prefix).to_string();
+                                    return file_path_completion(new_span, &prefix, &cwd)
+                                        .into_iter()
+                                        .map(move |x| {
+                                            (
+                                                reedline::Span {
+                                                    start: x.0.start - offset,
+                                                    end: x.0.end - offset,
+                                                },
+                                                x.1,
                                             )
-                                            || ((new_span.end - new_span.start) == 0)
-                                        {
-                                            // we're in a gap or at a command
-                                            self.complete_commands(&working_set, new_span, offset)
-                                        } else {
-                                            vec![]
-                                        };
-
+                                        })
+                                        .collect();
+                                }
+                                flat_shape => {
                                     let last = flattened
                                         .iter()
                                         .rev()
@@ -310,6 +325,7 @@ impl NuCompleter {
                                                 end: pos,
                                             },
                                             offset,
+                                            false,
                                         )
                                     } else {
                                         vec![]
@@ -318,6 +334,25 @@ impl NuCompleter {
                                     if !subcommands.is_empty() {
                                         return subcommands;
                                     }
+
+                                    let commands =
+                                        if matches!(flat_shape, nu_parser::FlatShape::External)
+                                            || matches!(
+                                                flat_shape,
+                                                nu_parser::FlatShape::InternalCall
+                                            )
+                                            || ((new_span.end - new_span.start) == 0)
+                                        {
+                                            // we're in a gap or at a command
+                                            self.complete_commands(
+                                                &working_set,
+                                                new_span,
+                                                offset,
+                                                true,
+                                            )
+                                        } else {
+                                            vec![]
+                                        };
 
                                     let cwd = if let Some(d) = self.engine_state.env_vars.get("PWD")
                                     {
@@ -341,7 +376,7 @@ impl NuCompleter {
                                     };
                                     // let prefix = working_set.get_span_contents(flat.0);
                                     let prefix = String::from_utf8_lossy(&prefix).to_string();
-                                    let mut output = file_path_completion(new_span, &prefix, &cwd)
+                                    let output = file_path_completion(new_span, &prefix, &cwd)
                                         .into_iter()
                                         .map(move |x| {
                                             if flat_idx == 0 {
@@ -383,7 +418,7 @@ impl NuCompleter {
                                         .chain(subcommands.into_iter())
                                         .chain(commands.into_iter())
                                         .collect::<Vec<_>>();
-                                    output.dedup_by(|a, b| a.1 == b.1);
+                                    //output.dedup_by(|a, b| a.1 == b.1);
 
                                     return output;
                                 }
