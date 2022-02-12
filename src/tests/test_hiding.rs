@@ -10,6 +10,14 @@ fn hides_def() -> TestResult {
 }
 
 #[test]
+fn hides_alias() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; hide foo; foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
 fn hides_env() -> TestResult {
     fail_test(r#"let-env foo = "foo"; hide foo; $env.foo"#, "did you mean")
 }
@@ -21,6 +29,14 @@ fn hides_def_then_redefines() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; hide foo; def foo [] { "bar" }; foo"#,
         "defined more than once",
+    )
+}
+
+#[test]
+fn hides_alias_then_redefines() -> TestResult {
+    run_test(
+        r#"alias foo = echo "foo"; hide foo; alias foo = echo "foo"; foo"#,
+        "foo",
     )
 }
 
@@ -60,6 +76,38 @@ fn hides_def_in_scope_3() -> TestResult {
 fn hides_def_in_scope_4() -> TestResult {
     fail_test(
         r#"def foo [] { "foo" }; do { def foo [] { "bar" }; hide foo; hide foo; foo }"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_in_scope_1() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; do { hide foo; foo }"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_in_scope_2() -> TestResult {
+    run_test(
+        r#"alias foo = echo "foo"; do { alias foo = echo "bar"; hide foo; foo }"#,
+        "foo",
+    )
+}
+
+#[test]
+fn hides_alias_in_scope_3() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; do { hide foo; alias foo = echo "bar"; hide foo; foo }"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_in_scope_4() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; do { alias foo = echo "bar"; hide foo; hide foo; foo }"#,
         "", // we just care if it errors
     )
 }
@@ -105,6 +153,14 @@ fn hide_def_twice_not_allowed() -> TestResult {
 }
 
 #[test]
+fn hide_alias_twice_not_allowed() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; hide foo; hide foo"#,
+        "did not find",
+    )
+}
+
+#[test]
 fn hide_env_twice_not_allowed() -> TestResult {
     fail_test(r#"let-env foo = "foo"; hide foo; hide foo"#, "did not find")
 }
@@ -126,10 +182,66 @@ fn hides_def_runs_env_2() -> TestResult {
 }
 
 #[test]
+fn hides_alias_runs_def_1() -> TestResult {
+    run_test(
+        r#"def foo [] { "bar" }; alias foo = echo "foo"; hide foo; foo"#,
+        "bar",
+    )
+}
+
+#[test]
+fn hides_alias_runs_def_2() -> TestResult {
+    run_test(
+        r#"alias foo = echo "foo"; def foo [] { "bar" }; hide foo; foo"#,
+        "bar",
+    )
+}
+
+#[test]
+fn hides_alias_runs_env_1() -> TestResult {
+    run_test(
+        r#"let-env foo = "bar"; alias foo = echo "foo"; hide foo; $env.foo"#,
+        "bar",
+    )
+}
+
+#[test]
+fn hides_alias_runs_env_2() -> TestResult {
+    run_test(
+        r#"alias foo = echo "foo"; let-env foo = "bar"; hide foo; $env.foo"#,
+        "bar",
+    )
+}
+
+#[test]
 fn hides_def_and_env() -> TestResult {
     fail_test(
         r#"let-env foo = "bar"; def foo [] { "foo" }; hide foo; hide foo; $env.foo"#,
         "did you mean",
+    )
+}
+
+#[test]
+fn hides_alias_and_def() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; def foo [] { "bar" }; hide foo; hide foo; foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_def_and_env_1() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; def foo [] { "foo" }; let-env foo = "bar"; hide foo; hide foo; hide foo; $env.foo"#,
+        "", // we just care if it errors
+    )
+}
+
+#[test]
+fn hides_alias_def_and_env_2() -> TestResult {
+    fail_test(
+        r#"alias foo = echo "foo"; def foo [] { "foo" }; let-env foo = "bar"; hide foo; hide foo; hide foo; foo"#,
+        "", // we just care if it errors
     )
 }
 

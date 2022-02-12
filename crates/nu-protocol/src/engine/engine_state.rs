@@ -1,7 +1,7 @@
 use super::{Command, Stack};
 use crate::{
-    ast::Block, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span, Type,
-    VarId,
+    ast::Block, AliasId, BlockId, DeclId, Example, Overlay, OverlayId, ShellError, Signature, Span,
+    Type, VarId,
 };
 use core::panic;
 use std::{
@@ -20,12 +20,14 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 struct Visibility {
     decl_ids: HashMap<DeclId, bool>,
+    alias_ids: HashMap<AliasId, bool>,
 }
 
 impl Visibility {
     fn new() -> Self {
         Visibility {
             decl_ids: HashMap::new(),
+            alias_ids: HashMap::new(),
         }
     }
 
@@ -33,25 +35,44 @@ impl Visibility {
         *self.decl_ids.get(decl_id).unwrap_or(&true) // by default it's visible
     }
 
+    fn is_alias_id_visible(&self, alias_id: &AliasId) -> bool {
+        *self.alias_ids.get(alias_id).unwrap_or(&true) // by default it's visible
+    }
+
     fn hide_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, false);
+    }
+
+    fn hide_alias_id(&mut self, alias_id: &AliasId) {
+        self.alias_ids.insert(*alias_id, false);
     }
 
     fn use_decl_id(&mut self, decl_id: &DeclId) {
         self.decl_ids.insert(*decl_id, true);
     }
 
+    fn use_alias_id(&mut self, alias_id: &AliasId) {
+        self.alias_ids.insert(*alias_id, true);
+    }
+
     fn merge_with(&mut self, other: Visibility) {
         // overwrite own values with the other
         self.decl_ids.extend(other.decl_ids);
+        self.alias_ids.extend(other.alias_ids);
         // self.env_var_ids.extend(other.env_var_ids);
     }
 
     fn append(&mut self, other: &Visibility) {
-        // take new values from other but keep own values
+        // take new values from the other but keep own values
         for (decl_id, visible) in other.decl_ids.iter() {
             if !self.decl_ids.contains_key(decl_id) {
                 self.decl_ids.insert(*decl_id, *visible);
+            }
+        }
+
+        for (alias_id, visible) in other.alias_ids.iter() {
+            if !self.alias_ids.contains_key(alias_id) {
+                self.alias_ids.insert(*alias_id, *visible);
             }
         }
     }
@@ -62,7 +83,7 @@ pub struct ScopeFrame {
     pub vars: HashMap<Vec<u8>, VarId>,
     predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<Vec<u8>, DeclId>,
-    pub aliases: HashMap<Vec<u8>, Vec<Span>>,
+    pub aliases: HashMap<Vec<u8>, AliasId>,
     pub env_vars: HashMap<Vec<u8>, BlockId>,
     pub overlays: HashMap<Vec<u8>, OverlayId>,
     visibility: Visibility,
@@ -140,6 +161,7 @@ pub struct EngineState {
     file_contents: im::Vector<(Vec<u8>, usize, usize)>,
     vars: im::Vector<Type>,
     decls: im::Vector<Box<dyn Command + 'static>>,
+    aliases: im::Vector<Vec<Span>>,
     blocks: im::Vector<Block>,
     overlays: im::Vector<Overlay>,
     pub scope: im::Vector<ScopeFrame>,
@@ -169,6 +191,7 @@ impl EngineState {
                 Type::Unknown
             ],
             decls: im::vector![],
+            aliases: im::vector![],
             blocks: im::vector![],
             overlays: im::vector![],
             scope: im::vector![ScopeFrame::new()],
@@ -196,6 +219,7 @@ impl EngineState {
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
         self.decls.extend(delta.decls);
+        self.aliases.extend(delta.aliases);
         self.vars.extend(delta.vars);
         self.blocks.extend(delta.blocks);
         self.overlays.extend(delta.overlays);
@@ -311,6 +335,10 @@ impl EngineState {
         self.decls.len()
     }
 
+    pub fn num_aliases(&self) -> usize {
+        self.aliases.len()
+    }
+
     pub fn num_blocks(&self) -> usize {
         self.blocks.len()
     }
@@ -344,12 +372,13 @@ impl EngineState {
         }
     }
 
-    pub fn find_aliases(&self, name: &str) -> Vec<Vec<Span>> {
+    pub fn find_aliases(&self, name: &str) -> Vec<&[Span]> {
         let mut output = vec![];
 
         for frame in &self.scope {
-            if let Some(alias) = frame.aliases.get(name.as_bytes()) {
-                output.push(alias.clone());
+            if let Some(alias_id) = frame.aliases.get(name.as_bytes()) {
+                let alias = self.get_alias(*alias_id);
+                output.push(alias.as_ref());
             }
         }
 
@@ -450,6 +479,13 @@ impl EngineState {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+    }
+
+    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
+        self.aliases
+            .get(alias_id)
+            .expect("internal error: missing alias")
+            .as_ref()
     }
 
     /// Get all IDs of all commands within scope, sorted by the commads' names
@@ -607,6 +643,7 @@ pub struct StateDelta {
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,
     vars: Vec<Type>,              // indexed by VarId
     decls: Vec<Box<dyn Command>>, // indexed by DeclId
+    aliases: Vec<Vec<Span>>,      // indexed by AliasId
     pub blocks: Vec<Block>,       // indexed by BlockId
     overlays: Vec<Overlay>,       // indexed by OverlayId
     pub scope: Vec<ScopeFrame>,
@@ -627,6 +664,7 @@ impl StateDelta {
             file_contents: vec![],
             vars: vec![],
             decls: vec![],
+            aliases: vec![],
             blocks: vec![],
             overlays: vec![],
             scope: vec![ScopeFrame::new()],
@@ -641,6 +679,10 @@ impl StateDelta {
 
     pub fn num_decls(&self) -> usize {
         self.decls.len()
+    }
+
+    pub fn num_aliases(&self) -> usize {
+        self.aliases.len()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -674,6 +716,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn num_decls(&self) -> usize {
         self.delta.num_decls() + self.permanent_state.num_decls()
+    }
+
+    pub fn num_aliases(&self) -> usize {
+        self.delta.num_aliases() + self.permanent_state.num_aliases()
     }
 
     pub fn num_blocks(&self) -> usize {
@@ -786,9 +832,49 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn hide_decls(&mut self, decls: &[(Vec<u8>, DeclId)]) {
+    pub fn hide_alias(&mut self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        // Since we can mutate scope frames in delta, remove the id directly
+        for scope in self.delta.scope.iter_mut().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.remove(name) {
+                return Some(alias_id);
+            }
+        }
+
+        // We cannot mutate the permanent state => store the information in the current scope frame
+        let last_scope_frame = self
+            .delta
+            .scope
+            .last_mut()
+            .expect("internal error: missing required scope frame");
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    // Hide alias only if it's not already hidden
+                    last_scope_frame.visibility.hide_alias_id(alias_id);
+                    return Some(*alias_id);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn hide_decls(&mut self, decls: &[Vec<u8>]) {
         for decl in decls.iter() {
-            self.hide_decl(&decl.0); // let's assume no errors
+            self.hide_decl(decl); // let's assume no errors
+        }
+    }
+
+    pub fn hide_aliases(&mut self, aliases: &[Vec<u8>]) {
+        for alias in aliases.iter() {
+            self.hide_alias(alias); // let's assume no errors
         }
     }
 
@@ -941,6 +1027,30 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
+    pub fn find_alias(&self, name: &[u8]) -> Option<AliasId> {
+        let mut visibility: Visibility = Visibility::new();
+
+        for scope in self.delta.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                return Some(*alias_id);
+            }
+        }
+
+        for scope in self.permanent_state.scope.iter().rev() {
+            visibility.append(&scope.visibility);
+
+            if let Some(alias_id) = scope.aliases.get(name) {
+                if visibility.is_alias_id_visible(alias_id) {
+                    return Some(*alias_id);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_overlay(&self, name: &[u8]) -> Option<OverlayId> {
         for scope in self.delta.scope.iter().rev() {
             if let Some(overlay_id) = scope.overlays.get(name) {
@@ -1003,22 +1113,6 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn find_alias(&self, name: &[u8]) -> Option<&[Span]> {
-        for scope in self.delta.scope.iter().rev() {
-            if let Some(spans) = scope.aliases.get(name) {
-                return Some(spans);
-            }
-        }
-
-        for scope in self.permanent_state.scope.iter().rev() {
-            if let Some(spans) = scope.aliases.get(name) {
-                return Some(spans);
-            }
-        }
-
-        None
-    }
-
     pub fn add_variable(&mut self, mut name: Vec<u8>, ty: Type) -> VarId {
         let next_id = self.next_var_id();
 
@@ -1041,13 +1135,17 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_alias(&mut self, name: Vec<u8>, replacement: Vec<Span>) {
+        self.delta.aliases.push(replacement);
+        let alias_id = self.num_aliases() - 1;
+
         let last = self
             .delta
             .scope
             .last_mut()
             .expect("internal error: missing stack frame");
 
-        last.aliases.insert(name, replacement);
+        last.aliases.insert(name, alias_id);
+        last.visibility.use_alias_id(&alias_id);
     }
 
     pub fn get_cwd(&self) -> String {
@@ -1102,6 +1200,19 @@ impl<'a> StateWorkingSet<'a> {
                 .decls
                 .get_mut(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
+        }
+    }
+
+    pub fn get_alias(&self, alias_id: AliasId) -> &[Span] {
+        let num_permanent_aliases = self.permanent_state.num_aliases();
+        if alias_id < num_permanent_aliases {
+            self.permanent_state.get_alias(alias_id)
+        } else {
+            self.delta
+                .aliases
+                .get(alias_id - num_permanent_aliases)
+                .expect("internal error: missing alias")
+                .as_ref()
         }
     }
 

@@ -945,9 +945,10 @@ pub fn eval_variable(
                     commands.push(Value::Record { cols, vals, span })
                 }
 
-                for alias in &frame.aliases {
+                for (alias_name, alias_id) in &frame.aliases {
+                    let alias = engine_state.get_alias(*alias_id);
                     let mut alias_text = String::new();
-                    for span in alias.1 {
+                    for span in alias {
                         let contents = engine_state.get_span_contents(span);
                         if !alias_text.is_empty() {
                             alias_text.push(' ');
@@ -956,7 +957,7 @@ pub fn eval_variable(
                     }
                     aliases.push((
                         Value::String {
-                            val: String::from_utf8_lossy(alias.0).to_string(),
+                            val: String::from_utf8_lossy(alias_name).to_string(),
                             span,
                         },
                         Value::string(alias_text, span),
