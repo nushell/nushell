@@ -276,6 +276,14 @@ pub fn process_floats(left: &f64, right: &f64) -> std::cmp::Ordering {
     }
 }
 
+/*
+Arbitrary Order of Values:
+    Floats
+    Ints
+    Strings
+    Bools
+*/
+
 pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Ordering, ShellError> {
     Ok(match (left, right) {
         (Value::Float { val: left, .. }, Value::Float { val: right, .. }) => {
@@ -296,6 +304,30 @@ pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Orderi
         (Value::Bool { val: left, .. }, Value::Bool { val: right, .. }) => {
             CompareValues::Booleans(*left, *right).compare()
         }
+
+        // Floats will always come before Ints
+        (Value::Float { .. }, Value::Int { .. }) => Ordering::Less,
+        (Value::Int { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Floats will always come before Strings
+        (Value::Float { .. }, Value::String { .. }) => Ordering::Less,
+        (Value::String { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Floats will always come before Bools
+        (Value::Float { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Ints will always come before strings
+        (Value::Int { .. }, Value::String { .. }) => Ordering::Less,
+        (Value::String { .. }, Value::Int { .. }) => Ordering::Greater,
+
+        // Ints will always come before Bools
+        (Value::Int { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::Int { .. }) => Ordering::Greater,
+
+        // Strings will always come before Bools
+        (Value::String { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::String { .. }) => Ordering::Greater,
 
         _ => {
             let description = format!("not able to compare {:?} with {:?}\n", left, right);
