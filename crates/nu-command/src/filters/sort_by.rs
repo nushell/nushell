@@ -306,10 +306,8 @@ pub fn coerce_compare(
         }
 
         _ => {
-            return Err(ShellError::TypeMismatch(
-                "sort_by types do not match".into(),
-                call.head,
-            ))
+            let description = format!("not able to compare {:?} with {:?}\n", left, right);
+            return Err(ShellError::TypeMismatch(description.into(), call.head));
         }
     }
 }
