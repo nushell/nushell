@@ -233,6 +233,14 @@ fn length_for_rows() -> TestResult {
 }
 
 #[test]
+fn length_defaulted_columns() -> TestResult {
+    run_test(
+        r#"echo [[name, age]; [test, 10]] | default age 11 | get 0 | columns | length"#,
+        "2",
+    )
+}
+
+#[test]
 fn get_fuzzy() -> TestResult {
     run_test("(ls | get -i foo) == $nothing", "true")
 }
