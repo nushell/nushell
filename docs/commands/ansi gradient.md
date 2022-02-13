@@ -8,15 +8,15 @@ draw text with a provided start and end code making a gradient
 
 ## Signature
 
-ansi gradient ...column path --fgstart --fgend --bgstart --bgend
+```> ansi gradient ...column path --fgstart --fgend --bgstart --bgend```
 
 ## Parameters
 
-  ...column path: optionally, draw gradients using text from column paths
-  --fgstart {string}: foreground gradient start color in hex (0x123456)
-  --fgend {string}: foreground gradient end color in hex
-  --bgstart {string}: background gradient start color in hex
-  --bgend {string}: background gradient end color in hex
+ -  `...column path`: optionally, draw gradients using text from column paths
+ -  `--fgstart {string}`: foreground gradient start color in hex (0x123456)
+ -  `--fgend {string}`: foreground gradient end color in hex
+ -  `--bgstart {string}`: background gradient start color in hex
+ -  `--bgend {string}`: background gradient end color in hex
 
 ## Examples
 

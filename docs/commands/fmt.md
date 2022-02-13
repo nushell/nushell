@@ -8,7 +8,7 @@ format numbers
 
 ## Signature
 
-fmt 
+```> fmt ```
 
 ## Examples
 

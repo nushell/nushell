@@ -8,11 +8,11 @@ Combine a stream with the input
 
 ## Signature
 
-zip (other)
+```> zip (other)```
 
 ## Parameters
 
-  other: the other input
+ -  `other`: the other input
 
 ## Examples
 

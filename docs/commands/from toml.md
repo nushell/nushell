@@ -8,7 +8,7 @@ Parse text as .toml and create table.
 
 ## Signature
 
-from toml 
+```> from toml ```
 
 ## Examples
 

@@ -8,12 +8,12 @@ Delay for a specified amount of time.
 
 ## Signature
 
-sleep (duration) ...rest
+```> sleep (duration) ...rest```
 
 ## Parameters
 
-  duration: time to sleep
-  ...rest: additional time
+ -  `duration`: time to sleep
+ -  `...rest`: additional time
 
 ## Examples
 

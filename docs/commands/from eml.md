@@ -8,11 +8,11 @@ Parse text as .eml and create table.
 
 ## Signature
 
-from eml --preview-body
+```> from eml --preview-body```
 
 ## Parameters
 
-  --preview-body {int}: How many bytes of the body to preview
+ -  `--preview-body {int}`: How many bytes of the body to preview
 
 ## Examples
 

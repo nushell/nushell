@@ -8,11 +8,11 @@ Parse OpenDocument Spreadsheet(.ods) data and create table.
 
 ## Signature
 
-from ods --sheets
+```> from ods --sheets```
 
 ## Parameters
 
-  --sheets {list<string>}: Only convert specified sheets
+ -  `--sheets {list<string>}`: Only convert specified sheets
 
 ## Examples
 

@@ -8,11 +8,11 @@ Return only the selected rows.
 
 ## Signature
 
-range (rows)
+```> range (rows)```
 
 ## Parameters
 
-  rows: range of rows to return: Eg) 4..7 (=> from 4 to 7)
+ -  `rows`: range of rows to return: Eg) 4..7 (=> from 4 to 7)
 
 ## Examples
 

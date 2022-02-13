@@ -8,12 +8,12 @@ Convert value to string
 
 ## Signature
 
-into string ...rest --decimals
+```> into string ...rest --decimals```
 
 ## Parameters
 
-  ...rest: column paths to convert to string (for table input)
-  --decimals {int}: decimal digits to which to round
+ -  `...rest`: column paths to convert to string (for table input)
+ -  `--decimals {int}`: decimal digits to which to round
 
 ## Examples
 

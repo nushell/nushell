@@ -8,11 +8,11 @@ Generate random chars
 
 ## Signature
 
-random chars --length
+```> random chars --length```
 
 ## Parameters
 
-  --length {int}: Number of chars
+ -  `--length {int}`: Number of chars
 
 ## Examples
 

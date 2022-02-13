@@ -8,7 +8,7 @@ Applies the floor function to a list of numbers
 
 ## Signature
 
-math floor 
+```> math floor ```
 
 ## Examples
 

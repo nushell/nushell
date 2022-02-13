@@ -8,7 +8,7 @@ Syntax highlight the input string.
 
 ## Signature
 
-nu-highlight 
+```> nu-highlight ```
 
 ## Examples
 

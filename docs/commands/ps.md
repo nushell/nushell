@@ -8,11 +8,11 @@ View information about system processes.
 
 ## Signature
 
-ps --long
+```> ps --long```
 
 ## Parameters
 
-  --long: list all available columns for each entry
+ -  `--long`: list all available columns for each entry
 
 ## Examples
 

@@ -8,9 +8,9 @@ Change directory.
 
 ## Signature
 
-cd (path)
+```> cd (path)```
 
 ## Parameters
 
-  path: the path to change to
+ -  `path`: the path to change to
 

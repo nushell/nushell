@@ -8,12 +8,12 @@ Roll table columns right
 
 ## Signature
 
-roll right --by --cells-only
+```> roll right --by --cells-only```
 
 ## Parameters
 
-  --by {int}: Number of columns to roll
-  --cells-only: rotates columns leaving headers fixed
+ -  `--by {int}`: Number of columns to roll
+ -  `--cells-only`: rotates columns leaving headers fixed
 
 ## Examples
 

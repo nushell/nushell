@@ -8,11 +8,11 @@ Remove the last number of rows or columns.
 
 ## Signature
 
-drop (rows)
+```> drop (rows)```
 
 ## Parameters
 
-  rows: starting from the back, the number of rows to remove
+ -  `rows`: starting from the back, the number of rows to remove
 
 ## Examples
 

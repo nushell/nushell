@@ -8,7 +8,7 @@ List default keybindings
 
 ## Signature
 
-keybindings default 
+```> keybindings default ```
 
 ## Examples
 

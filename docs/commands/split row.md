@@ -8,9 +8,9 @@ splits contents over multiple rows via the separator.
 
 ## Signature
 
-split row (separator)
+```> split row (separator)```
 
 ## Parameters
 
-  separator: the character that denotes what separates rows
+ -  `separator`: the character that denotes what separates rows
 

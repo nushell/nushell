@@ -8,11 +8,11 @@ strip ansi escape sequences from string
 
 ## Signature
 
-ansi strip ...column path
+```> ansi strip ...column path```
 
 ## Parameters
 
-  ...column path: optionally, remove ansi sequences by column paths
+ -  `...column path`: optionally, remove ansi sequences by column paths
 
 ## Examples
 

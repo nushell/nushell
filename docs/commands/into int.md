@@ -8,12 +8,12 @@ Convert value to integer
 
 ## Signature
 
-into int ...rest --radix
+```> into int ...rest --radix```
 
 ## Parameters
 
-  ...rest: column paths to convert to int (for table input)
-  --radix {number}: radix of integer
+ -  `...rest`: column paths to convert to int (for table input)
+ -  `--radix {number}`: radix of integer
 
 ## Examples
 

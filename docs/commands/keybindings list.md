@@ -8,15 +8,15 @@ List available options that can be used to create keybindings
 
 ## Signature
 
-keybindings list --modifiers --keycodes --modes --events --edits
+```> keybindings list --modifiers --keycodes --modes --events --edits```
 
 ## Parameters
 
-  --modifiers: list of modifiers
-  --keycodes: list of keycodes
-  --modes: list of edit modes
-  --events: list of reedline event
-  --edits: list of edit commands
+ -  `--modifiers`: list of modifiers
+ -  `--keycodes`: list of keycodes
+ -  `--modes`: list of edit modes
+ -  `--events`: list of reedline event
+ -  `--edits`: list of edit commands
 
 ## Examples
 

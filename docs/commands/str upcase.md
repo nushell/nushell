@@ -8,11 +8,11 @@ upcases text
 
 ## Signature
 
-str upcase ...rest
+```> str upcase ...rest```
 
 ## Parameters
 
-  ...rest: optionally upcase text by column paths
+ -  `...rest`: optionally upcase text by column paths
 
 ## Examples
 

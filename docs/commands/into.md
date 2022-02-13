@@ -8,5 +8,5 @@ Apply into function.
 
 ## Signature
 
-into 
+```> into ```
 

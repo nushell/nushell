@@ -8,12 +8,12 @@ Convert table into simple Markdown
 
 ## Signature
 
-to md --pretty --per-element
+```> to md --pretty --per-element```
 
 ## Parameters
 
-  --pretty: Formats the Markdown table to vertically align items
-  --per-element: treat each row as markdown syntax element
+ -  `--pretty`: Formats the Markdown table to vertically align items
+ -  `--per-element`: treat each row as markdown syntax element
 
 ## Examples
 

@@ -8,12 +8,12 @@ Searches terms in the input or for elements of the input that satisfies the pred
 
 ## Signature
 
-find ...rest --predicate
+```> find ...rest --predicate```
 
 ## Parameters
 
-  ...rest: terms to search
-  --predicate {block}: the predicate to satisfy
+ -  `...rest`: terms to search
+ -  `--predicate {block}`: the predicate to satisfy
 
 ## Examples
 

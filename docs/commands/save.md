@@ -8,10 +8,10 @@ Save a file.
 
 ## Signature
 
-save (filename) --raw
+```> save (filename) --raw```
 
 ## Parameters
 
-  filename: the filename to use
-  --raw: open file as raw binary
+ -  `filename`: the filename to use
+ -  `--raw`: open file as raw binary
 

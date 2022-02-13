@@ -8,5 +8,5 @@ List supported time zones.
 
 ## Signature
 
-date list-timezone 
+```> date list-timezone ```
 

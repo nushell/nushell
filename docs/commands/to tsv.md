@@ -8,11 +8,11 @@ Convert table into .tsv text
 
 ## Signature
 
-to tsv --noheaders
+```> to tsv --noheaders```
 
 ## Parameters
 
-  --noheaders: do not output the column names as the first row
+ -  `--noheaders`: do not output the column names as the first row
 
 ## Examples
 

@@ -8,11 +8,11 @@ Convert value to a binary primitive
 
 ## Signature
 
-into binary ...rest
+```> into binary ...rest```
 
 ## Parameters
 
-  ...rest: column paths to convert to binary (for table input)
+ -  `...rest`: column paths to convert to binary (for table input)
 
 ## Examples
 

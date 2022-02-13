@@ -8,5 +8,5 @@ Deprecated command
 
 ## Signature
 
-insert 
+```> insert ```
 

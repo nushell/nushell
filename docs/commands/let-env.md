@@ -8,10 +8,10 @@ Create an environment variable and give it a value.
 
 ## Signature
 
-let-env (var_name) (initial_value)
+```> let-env (var_name) (initial_value)```
 
 ## Parameters
 
-  var_name: variable name
-  initial_value: equals sign followed by value
+ -  `var_name`: variable name
+ -  `initial_value`: equals sign followed by value
 

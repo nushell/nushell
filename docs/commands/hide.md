@@ -8,9 +8,9 @@ Hide symbols in the current scope
 
 ## Signature
 
-hide (pattern)
+```> hide (pattern)```
 
 ## Parameters
 
-  pattern: import pattern
+ -  `pattern`: import pattern
 

@@ -8,12 +8,12 @@ Parse columns from string data using a simple pattern.
 
 ## Signature
 
-parse (pattern) --regex
+```> parse (pattern) --regex```
 
 ## Parameters
 
-  pattern: the pattern to match. Eg) "{foo}: {bar}"
-  --regex: use full regex syntax for patterns
+ -  `pattern`: the pattern to match. Eg) "{foo}: {bar}"
+ -  `--regex`: use full regex syntax for patterns
 
 ## Examples
 

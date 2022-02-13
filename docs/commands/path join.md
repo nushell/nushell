@@ -8,12 +8,12 @@ Join a structured path or a list of path parts.
 
 ## Signature
 
-path join (append) --columns
+```> path join (append) --columns```
 
 ## Parameters
 
-  append: Path to append to the input
-  --columns {table}: Optionally operate by column path
+ -  `append`: Path to append to the input
+ -  `--columns {table}`: Optionally operate by column path
 
 ## Examples
 

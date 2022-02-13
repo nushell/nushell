@@ -8,12 +8,12 @@ Get a path as relative to another path.
 
 ## Signature
 
-path relative-to (path) --columns
+```> path relative-to (path) --columns```
 
 ## Parameters
 
-  path: Parent shared with the input path
-  --columns {table}: Optionally operate by column path
+ -  `path`: Parent shared with the input path
+ -  `--columns {table}`: Optionally operate by column path
 
 ## Examples
 

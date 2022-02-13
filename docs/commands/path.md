@@ -8,5 +8,5 @@ Explore and manipulate paths.
 
 ## Signature
 
-path 
+```> path ```
 

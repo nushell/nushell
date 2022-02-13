@@ -8,11 +8,11 @@ Collect the stream and pass it to a block.
 
 ## Signature
 
-collect (block)
+```> collect (block)```
 
 ## Parameters
 
-  block: the block to run once the stream is collected
+ -  `block`: the block to run once the stream is collected
 
 ## Examples
 

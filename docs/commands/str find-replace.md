@@ -8,14 +8,14 @@ finds and replaces text
 
 ## Signature
 
-str find-replace (find) (replace) ...rest --all
+```> str find-replace (find) (replace) ...rest --all```
 
 ## Parameters
 
-  find: the pattern to find
-  replace: the replacement pattern
-  ...rest: optionally find and replace text by column paths
-  --all: replace all occurrences of find string
+ -  `find`: the pattern to find
+ -  `replace`: the replacement pattern
+ -  `...rest`: optionally find and replace text by column paths
+ -  `--all`: replace all occurrences of find string
 
 ## Examples
 

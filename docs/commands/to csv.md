@@ -8,12 +8,12 @@ Convert table into .csv text
 
 ## Signature
 
-to csv --separator --noheaders
+```> to csv --separator --noheaders```
 
 ## Parameters
 
-  --separator {string}: a character to separate columns, defaults to ','
-  --noheaders: do not output the columns names as the first row
+ -  `--separator {string}`: a character to separate columns, defaults to ','
+ -  `--noheaders`: do not output the columns names as the first row
 
 ## Examples
 

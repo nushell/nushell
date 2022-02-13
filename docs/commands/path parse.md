@@ -8,12 +8,12 @@ Convert a path into structured data.
 
 ## Signature
 
-path parse --columns --extension
+```> path parse --columns --extension```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
-  --extension {string}: Manually supply the extension (without the dot)
+ -  `--columns {table}`: Optionally operate by column path
+ -  `--extension {string}`: Manually supply the extension (without the dot)
 
 ## Examples
 

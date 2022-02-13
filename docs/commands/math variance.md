@@ -8,11 +8,11 @@ Finds the variance of a list of numbers or tables
 
 ## Signature
 
-math variance --sample
+```> math variance --sample```
 
 ## Parameters
 
-  --sample: calculate sample variance
+ -  `--sample`: calculate sample variance
 
 ## Examples
 

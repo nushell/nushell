@@ -8,5 +8,5 @@ Deprecated command
 
 ## Signature
 
-str to-decimal 
+```> str to-decimal ```
 

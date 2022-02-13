@@ -8,7 +8,7 @@ Applies the square root function to a list of numbers
 
 ## Signature
 
-math sqrt 
+```> math sqrt ```
 
 ## Examples
 

@@ -8,12 +8,12 @@ Parse text as .csv and create table.
 
 ## Signature
 
-from csv --separator --noheaders
+```> from csv --separator --noheaders```
 
 ## Parameters
 
-  --separator {string}: a character to separate columns, defaults to ','
-  --noheaders: don't treat the first row as column names
+ -  `--separator {string}`: a character to separate columns, defaults to ','
+ -  `--noheaders`: don't treat the first row as column names
 
 ## Examples
 

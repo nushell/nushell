@@ -8,12 +8,12 @@ Runs a block with an environment variable set.
 
 ## Signature
 
-with-env (variable) (block)
+```> with-env (variable) (block)```
 
 ## Parameters
 
-  variable: the environment variable to temporarily set
-  block: the block to run once the variable is set
+ -  `variable`: the environment variable to temporarily set
+ -  `block`: the block to run once the variable is set
 
 ## Examples
 

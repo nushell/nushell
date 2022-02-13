@@ -8,9 +8,9 @@ Filter values based on a condition.
 
 ## Signature
 
-where (cond)
+```> where (cond)```
 
 ## Parameters
 
-  cond: condition
+ -  `cond`: condition
 

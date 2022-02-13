@@ -8,11 +8,11 @@ Format columns into a string using a simple pattern.
 
 ## Signature
 
-format (pattern)
+```> format (pattern)```
 
 ## Parameters
 
-  pattern: the pattern to output. e.g.) "{foo}: {bar}"
+ -  `pattern`: the pattern to output. e.g.) "{foo}: {bar}"
 
 ## Examples
 

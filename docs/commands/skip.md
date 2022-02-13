@@ -8,11 +8,11 @@ Skip the first n elements of the input.
 
 ## Signature
 
-skip (n)
+```> skip (n)```
 
 ## Parameters
 
-  n: the number of elements to skip
+ -  `n`: the number of elements to skip
 
 ## Examples
 

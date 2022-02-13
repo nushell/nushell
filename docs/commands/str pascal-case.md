@@ -8,11 +8,11 @@ converts a string to PascalCase
 
 ## Signature
 
-str pascal-case ...rest
+```> str pascal-case ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text to PascalCase by column paths
+ -  `...rest`: optionally convert text to PascalCase by column paths
 
 ## Examples
 

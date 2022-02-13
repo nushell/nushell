@@ -8,9 +8,9 @@ Get the command history
 
 ## Signature
 
-history --clear
+```> history --clear```
 
 ## Parameters
 
-  --clear: Clears out the history entries
+ -  `--clear`: Clears out the history entries
 

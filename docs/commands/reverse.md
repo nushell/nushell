@@ -8,7 +8,7 @@ Reverses the table.
 
 ## Signature
 
-reverse 
+```> reverse ```
 
 ## Examples
 

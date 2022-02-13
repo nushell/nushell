@@ -8,13 +8,13 @@ Parse text as space-separated values and create a table. The default minimum num
 
 ## Signature
 
-from ssv --noheaders --aligned-columns --minimum-spaces
+```> from ssv --noheaders --aligned-columns --minimum-spaces```
 
 ## Parameters
 
-  --noheaders: don't treat the first row as column names
-  --aligned-columns: assume columns are aligned
-  --minimum-spaces {int}: the minimum spaces to separate columns
+ -  `--noheaders`: don't treat the first row as column names
+ -  `--aligned-columns`: assume columns are aligned
+ -  `--minimum-spaces {int}`: the minimum spaces to separate columns
 
 ## Examples
 

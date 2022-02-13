@@ -8,11 +8,11 @@ Test if every element of the input matches a predicate.
 
 ## Signature
 
-all? (predicate)
+```> all? (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that must match
+ -  `predicate`: the predicate that must match
 
 ## Examples
 

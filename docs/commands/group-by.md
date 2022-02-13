@@ -8,11 +8,11 @@ Create a new table grouped.
 
 ## Signature
 
-group-by (grouper)
+```> group-by (grouper)```
 
 ## Parameters
 
-  grouper: the grouper value to use
+ -  `grouper`: the grouper value to use
 
 ## Examples
 

@@ -8,9 +8,9 @@ Converts input to lines
 
 ## Signature
 
-lines --skip-empty
+```> lines --skip-empty```
 
 ## Parameters
 
-  --skip-empty: skip empty lines
+ -  `--skip-empty`: skip empty lines
 

@@ -8,11 +8,11 @@ Split a path into parts by a separator.
 
 ## Signature
 
-path split --columns
+```> path split --columns```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
+ -  `--columns {table}`: Optionally operate by column path
 
 ## Examples
 

@@ -8,5 +8,5 @@ Parse a string or binary data into structured data
 
 ## Signature
 
-from 
+```> from ```
 

@@ -8,11 +8,11 @@ converts a string to kebab-case
 
 ## Signature
 
-str kebab-case ...rest
+```> str kebab-case ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text to kebab-case by column paths
+ -  `...rest`: optionally convert text to kebab-case by column paths
 
 ## Examples
 

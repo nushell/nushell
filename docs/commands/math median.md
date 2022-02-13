@@ -8,7 +8,7 @@ Gets the median of a list of numbers
 
 ## Signature
 
-math median 
+```> math median ```
 
 ## Examples
 

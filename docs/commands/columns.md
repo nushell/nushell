@@ -8,7 +8,7 @@ Show the columns in the input.
 
 ## Signature
 
-columns 
+```> columns ```
 
 ## Examples
 

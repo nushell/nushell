@@ -8,9 +8,9 @@ Switch to a given shell.
 
 ## Signature
 
-g (shell-number)
+```> g (shell-number)```
 
 ## Parameters
 
-  shell-number: shell number to change to
+ -  `shell-number`: shell number to change to
 

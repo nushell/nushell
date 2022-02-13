@@ -8,12 +8,12 @@ Create a variable and give it a value.
 
 ## Signature
 
-let (var_name) (initial_value)
+```> let (var_name) (initial_value)```
 
 ## Parameters
 
-  var_name: variable name
-  initial_value: equals sign followed by value
+ -  `var_name`: variable name
+ -  `initial_value`: equals sign followed by value
 
 ## Examples
 

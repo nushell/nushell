@@ -8,11 +8,11 @@ Merge a table into an input table
 
 ## Signature
 
-merge (block)
+```> merge (block)```
 
 ## Parameters
 
-  block: the block to run and merge into the table
+ -  `block`: the block to run and merge into the table
 
 ## Examples
 

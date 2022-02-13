@@ -8,11 +8,11 @@ hash a value using the md5 hash algorithm
 
 ## Signature
 
-hash md5 ...rest
+```> hash md5 ...rest```
 
 ## Parameters
 
-  ...rest: optionally md5 hash data by cell path
+ -  `...rest`: optionally md5 hash data by cell path
 
 ## Examples
 

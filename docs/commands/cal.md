@@ -8,16 +8,16 @@ Display a calendar.
 
 ## Signature
 
-cal --year --quarter --month --full-year --week-start --month-names
+```> cal --year --quarter --month --full-year --week-start --month-names```
 
 ## Parameters
 
-  --year: Display the year column
-  --quarter: Display the quarter column
-  --month: Display the month column
-  --full-year {int}: Display a year-long calendar for the specified year
-  --week-start {string}: Display the calendar with the specified day as the first day of the week
-  --month-names: Display the month names instead of integers
+ -  `--year`: Display the year column
+ -  `--quarter`: Display the quarter column
+ -  `--month`: Display the month column
+ -  `--full-year {int}`: Display a year-long calendar for the specified year
+ -  `--week-start {string}`: Display the calendar with the specified day as the first day of the week
+ -  `--month-names`: Display the month names instead of integers
 
 ## Examples
 

@@ -8,14 +8,14 @@ Print sequences of numbers.
 
 ## Signature
 
-seq ...rest --separator --terminator --widths
+```> seq ...rest --separator --terminator --widths```
 
 ## Parameters
 
-  ...rest: sequence values
-  --separator {string}: separator character (defaults to \n)
-  --terminator {string}: terminator character (defaults to \n)
-  --widths: equalize widths of all numbers by padding with zeros
+ -  `...rest`: sequence values
+ -  `--separator {string}`: separator character (defaults to \n)
+ -  `--terminator {string}`: terminator character (defaults to \n)
+ -  `--widths`: equalize widths of all numbers by padding with zeros
 
 ## Examples
 

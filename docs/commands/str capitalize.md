@@ -8,11 +8,11 @@ capitalizes text
 
 ## Signature
 
-str capitalize ...rest
+```> str capitalize ...rest```
 
 ## Parameters
 
-  ...rest: optionally capitalize text by column paths
+ -  `...rest`: optionally capitalize text by column paths
 
 ## Examples
 

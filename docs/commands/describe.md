@@ -8,7 +8,7 @@ Describe the value(s) piped in.
 
 ## Signature
 
-describe 
+```> describe ```
 
 ## Examples
 

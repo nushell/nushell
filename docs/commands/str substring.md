@@ -8,12 +8,12 @@ substrings text
 
 ## Signature
 
-str substring (range) ...rest
+```> str substring (range) ...rest```
 
 ## Parameters
 
-  range: the indexes to substring [start end]
-  ...rest: optionally substring text by column paths
+ -  `range`: the indexes to substring [start end]
+ -  `...rest`: optionally substring text by column paths
 
 ## Examples
 

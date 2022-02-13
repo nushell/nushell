@@ -8,7 +8,7 @@ Finds the sum of a list of numbers or tables
 
 ## Signature
 
-math sum 
+```> math sum ```
 
 ## Examples
 

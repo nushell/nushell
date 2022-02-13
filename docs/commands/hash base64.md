@@ -8,15 +8,15 @@ base64 encode or decode a value
 
 ## Signature
 
-hash base64 ...rest --character_set --encode --decode
+```> hash base64 ...rest --character_set --encode --decode```
 
 ## Parameters
 
-  ...rest: optionally base64 encode / decode data by column paths
-  --character_set {string}: specify the character rules for encoding the input.
+ -  `...rest`: optionally base64 encode / decode data by column paths
+ -  `--character_set {string}`: specify the character rules for encoding the input.
 	Valid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding','binhex', 'bcrypt', 'crypt'
-  --encode: encode the input as base64. This is the default behavior if not specified.
-  --decode: decode the input from base64
+ -  `--encode`: encode the input as base64. This is the default behavior if not specified.
+ -  `--decode`: decode the input from base64
 
 ## Examples
 

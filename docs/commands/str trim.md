@@ -8,17 +8,17 @@ trims text
 
 ## Signature
 
-str trim ...rest --char --left --right --all --both --format
+```> str trim ...rest --char --left --right --all --both --format```
 
 ## Parameters
 
-  ...rest: optionally trim text by column paths
-  --char {string}: character to trim (default: whitespace)
-  --left: trims characters only from the beginning of the string (default: whitespace)
-  --right: trims characters only from the end of the string (default: whitespace)
-  --all: trims all characters from both sides of the string *and* in the middle (default: whitespace)
-  --both: trims all characters from left and right side of the string (default: whitespace)
-  --format: trims spaces replacing multiple characters with singles in the middle (default: whitespace)
+ -  `...rest`: optionally trim text by column paths
+ -  `--char {string}`: character to trim (default: whitespace)
+ -  `--left`: trims characters only from the beginning of the string (default: whitespace)
+ -  `--right`: trims characters only from the end of the string (default: whitespace)
+ -  `--all`: trims all characters from both sides of the string *and* in the middle (default: whitespace)
+ -  `--both`: trims all characters from left and right side of the string (default: whitespace)
+ -  `--format`: trims spaces replacing multiple characters with singles in the middle (default: whitespace)
 
 ## Examples
 

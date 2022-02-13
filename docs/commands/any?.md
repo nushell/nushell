@@ -8,11 +8,11 @@ Tests if any element of the input matches a predicate.
 
 ## Signature
 
-any? (predicate)
+```> any? (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that must match
+ -  `predicate`: the predicate that must match
 
 ## Examples
 

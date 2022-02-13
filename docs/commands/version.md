@@ -8,7 +8,7 @@ Display Nu version.
 
 ## Signature
 
-version 
+```> version ```
 
 ## Examples
 

@@ -8,11 +8,11 @@ Evaluate a math expression into a number
 
 ## Signature
 
-math eval (math expression)
+```> math eval (math expression)```
 
 ## Parameters
 
-  math expression: the math expression to evaluate
+ -  `math expression`: the math expression to evaluate
 
 ## Examples
 

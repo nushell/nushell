@@ -8,12 +8,12 @@ Update an existing column to have a new value.
 
 ## Signature
 
-update (field) (replacement value)
+```> update (field) (replacement value)```
 
 ## Parameters
 
-  field: the name of the column to update
-  replacement value: the new value to give the cell(s)
+ -  `field`: the name of the column to update
+ -  `replacement value`: the new value to give the cell(s)
 
 ## Examples
 

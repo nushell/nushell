@@ -8,11 +8,11 @@ hash a value using the sha256 hash algorithm
 
 ## Signature
 
-hash sha256 ...rest
+```> hash sha256 ...rest```
 
 ## Parameters
 
-  ...rest: optionally sha256 hash data by cell path
+ -  `...rest`: optionally sha256 hash data by cell path
 
 ## Examples
 

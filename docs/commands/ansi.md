@@ -8,14 +8,14 @@ Output ANSI codes to change color.
 
 ## Signature
 
-ansi (code) --escape --osc --list
+```> ansi (code) --escape --osc --list```
 
 ## Parameters
 
-  code: the name of the code to use like 'green' or 'reset' to reset the color
-  --escape: escape sequence without the escape character(s)
-  --osc: operating system command (ocs) escape sequence without the escape character(s)
-  --list: list available ansi code names
+ -  `code`: the name of the code to use like 'green' or 'reset' to reset the color
+ -  `--escape`: escape sequence without the escape character(s)
+ -  `--osc`: operating system command (ocs) escape sequence without the escape character(s)
+ -  `--list`: list available ansi code names
 
 ## Examples
 

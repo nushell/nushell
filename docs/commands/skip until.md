@@ -8,11 +8,11 @@ Skip elements of the input until a predicate is true.
 
 ## Signature
 
-skip until (predicate)
+```> skip until (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that skipped element must not match
+ -  `predicate`: the predicate that skipped element must not match
 
 ## Examples
 

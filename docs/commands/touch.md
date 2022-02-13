@@ -8,10 +8,10 @@ Creates one or more files.
 
 ## Signature
 
-touch (filename) ...rest
+```> touch (filename) ...rest```
 
 ## Parameters
 
-  filename: the path of the file you want to create
-  ...rest: additional files to create
+ -  `filename`: the path of the file you want to create
+ -  `...rest`: additional files to create
 

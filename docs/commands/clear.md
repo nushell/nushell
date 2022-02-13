@@ -8,7 +8,7 @@ Clear the terminal.
 
 ## Signature
 
-clear 
+```> clear ```
 
 ## Examples
 

@@ -8,11 +8,11 @@ Create an error.
 
 ## Signature
 
-error make (error-struct)
+```> error make (error-struct)```
 
 ## Parameters
 
-  error-struct: the error to create
+ -  `error-struct`: the error to create
 
 ## Examples
 

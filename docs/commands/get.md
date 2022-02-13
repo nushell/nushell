@@ -8,13 +8,13 @@ Extract data using a cell path.
 
 ## Signature
 
-get (cell_path) ...rest --ignore-errors
+```> get (cell_path) ...rest --ignore-errors```
 
 ## Parameters
 
-  cell_path: the cell path to the data
-  ...rest: additional cell paths
-  --ignore-errors: return nothing if path can't be found
+ -  `cell_path`: the cell path to the data
+ -  `...rest`: additional cell paths
+ -  `--ignore-errors`: return nothing if path can't be found
 
 ## Examples
 

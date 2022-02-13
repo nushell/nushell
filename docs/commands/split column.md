@@ -8,11 +8,11 @@ splits contents across multiple columns via the separator.
 
 ## Signature
 
-split column (separator) ...rest --collapse-empty
+```> split column (separator) ...rest --collapse-empty```
 
 ## Parameters
 
-  separator: the character that denotes what separates columns
-  ...rest: column names to give the new columns
-  --collapse-empty: remove empty columns
+ -  `separator`: the character that denotes what separates columns
+ -  `...rest`: column names to give the new columns
+ -  `--collapse-empty`: remove empty columns
 

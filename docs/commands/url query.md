@@ -8,11 +8,11 @@ gets the query of a url
 
 ## Signature
 
-url query ...rest
+```> url query ...rest```
 
 ## Parameters
 
-  ...rest: optionally operate by cell path
+ -  `...rest`: optionally operate by cell path
 
 ## Examples
 

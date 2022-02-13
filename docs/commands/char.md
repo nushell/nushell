@@ -8,14 +8,14 @@ Output special characters (e.g., 'newline').
 
 ## Signature
 
-char (character) ...rest --list --unicode
+```> char (character) ...rest --list --unicode```
 
 ## Parameters
 
-  character: the name of the character to output
-  ...rest: multiple Unicode bytes
-  --list: List all supported character names
-  --unicode: Unicode string i.e. 1f378
+ -  `character`: the name of the character to output
+ -  `...rest`: multiple Unicode bytes
+ -  `--list`: List all supported character names
+ -  `--unicode`: Unicode string i.e. 1f378
 
 ## Examples
 

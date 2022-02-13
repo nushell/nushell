@@ -8,11 +8,11 @@ Get the type of the object a path refers to (e.g., file, dir, symlink)
 
 ## Signature
 
-path type --columns
+```> path type --columns```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
+ -  `--columns {table}`: Optionally operate by column path
 
 ## Examples
 

@@ -8,7 +8,7 @@ Generate a random uuid4 string
 
 ## Signature
 
-random uuid 
+```> random uuid ```
 
 ## Examples
 

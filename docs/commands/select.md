@@ -8,11 +8,11 @@ Down-select table to only these columns.
 
 ## Signature
 
-select ...rest
+```> select ...rest```
 
 ## Parameters
 
-  ...rest: the columns to select from the table
+ -  `...rest`: the columns to select from the table
 
 ## Examples
 

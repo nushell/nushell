@@ -8,11 +8,11 @@ Format a given date using the given format string.
 
 ## Signature
 
-date format (format string)
+```> date format (format string)```
 
 ## Parameters
 
-  format string: the desired date format
+ -  `format string`: the desired date format
 
 ## Examples
 

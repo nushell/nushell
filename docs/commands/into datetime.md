@@ -8,15 +8,15 @@ converts text into datetime
 
 ## Signature
 
-into datetime ...rest --list --timezone --offset --format
+```> into datetime ...rest --list --timezone --offset --format```
 
 ## Parameters
 
-  ...rest: optionally convert text into datetime by column paths
-  --list: lists strftime cheatsheet
-  --timezone {string}: Specify timezone if the input is timestamp, like 'UTC/u' or 'LOCAL/l'
-  --offset {int}: Specify timezone by offset if the input is timestamp, like '+8', '-4', prior than timezone
-  --format {string}: Specify date and time formatting
+ -  `...rest`: optionally convert text into datetime by column paths
+ -  `--list`: lists strftime cheatsheet
+ -  `--timezone {string}`: Specify timezone if the input is timestamp, like 'UTC/u' or 'LOCAL/l'
+ -  `--offset {int}`: Specify timezone by offset if the input is timestamp, like '+8', '-4', prior than timezone
+ -  `--format {string}`: Specify date and time formatting
 
 ## Examples
 

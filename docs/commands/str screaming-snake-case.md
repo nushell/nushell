@@ -8,11 +8,11 @@ converts a string to SCREAMING_SNAKE_CASE
 
 ## Signature
 
-str screaming-snake-case ...rest
+```> str screaming-snake-case ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text to SCREAMING_SNAKE_CASE by column paths
+ -  `...rest`: optionally convert text to SCREAMING_SNAKE_CASE by column paths
 
 ## Examples
 

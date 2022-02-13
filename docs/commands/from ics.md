@@ -8,7 +8,7 @@ Parse text as .ics and create table.
 
 ## Signature
 
-from ics 
+```> from ics ```
 
 ## Examples
 

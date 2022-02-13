@@ -8,11 +8,11 @@ converts a string to camelCase
 
 ## Signature
 
-str camel-case ...rest
+```> str camel-case ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text to camelCase by column paths
+ -  `...rest`: optionally convert text to camelCase by column paths
 
 ## Examples
 

@@ -8,5 +8,5 @@ Keybindings related commands
 
 ## Signature
 
-keybindings 
+```> keybindings ```
 

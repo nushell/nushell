@@ -8,12 +8,12 @@ checks if string ends with pattern
 
 ## Signature
 
-str ends-with (pattern) ...rest
+```> str ends-with (pattern) ...rest```
 
 ## Parameters
 
-  pattern: the pattern to match
-  ...rest: optionally matches suffix of text by column paths
+ -  `pattern`: the pattern to match
+ -  `...rest`: optionally matches suffix of text by column paths
 
 ## Examples
 

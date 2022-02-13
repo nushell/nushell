@@ -8,12 +8,12 @@ Display help information about commands.
 
 ## Signature
 
-help ...rest --find
+```> help ...rest --find```
 
 ## Parameters
 
-  ...rest: the name of command to get help on
-  --find {string}: string to find in command usage
+ -  `...rest`: the name of command to get help on
+ -  `--find {string}`: string to find in command usage
 
 ## Examples
 

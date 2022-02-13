@@ -8,9 +8,9 @@ Runs a script file in the current context.
 
 ## Signature
 
-source (filename)
+```> source (filename)```
 
 ## Parameters
 
-  filename: the filepath to the script file to source
+ -  `filename`: the filepath to the script file to source
 

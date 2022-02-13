@@ -8,11 +8,11 @@ Keep the first n elements of the input.
 
 ## Signature
 
-keep (n)
+```> keep (n)```
 
 ## Parameters
 
-  n: the number of elements to keep
+ -  `n`: the number of elements to keep
 
 ## Examples
 

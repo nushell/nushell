@@ -8,7 +8,7 @@ Finds the maximum within a list of numbers or tables
 
 ## Signature
 
-math max 
+```> math max ```
 
 ## Examples
 

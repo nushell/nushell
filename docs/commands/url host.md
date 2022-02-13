@@ -8,11 +8,11 @@ gets the host of a url
 
 ## Signature
 
-url host ...rest
+```> url host ...rest```
 
 ## Parameters
 
-  ...rest: optionally operate by cell path
+ -  `...rest`: optionally operate by cell path
 
 ## Examples
 

@@ -8,12 +8,12 @@ Check for empty values.
 
 ## Signature
 
-empty? ...rest --block
+```> empty? ...rest --block```
 
 ## Parameters
 
-  ...rest: the names of the columns to check emptiness
-  --block {block}: an optional block to replace if empty
+ -  `...rest`: the names of the columns to check emptiness
+ -  `--block {block}`: an optional block to replace if empty
 
 ## Examples
 

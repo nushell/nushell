@@ -8,11 +8,11 @@ Generate a random decimal within a range [min..max]
 
 ## Signature
 
-random decimal (range)
+```> random decimal (range)```
 
 ## Parameters
 
-  range: Range of values
+ -  `range`: Range of values
 
 ## Examples
 

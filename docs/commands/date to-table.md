@@ -8,7 +8,7 @@ Print the date in a structured table.
 
 ## Signature
 
-date to-table 
+```> date to-table ```
 
 ## Examples
 

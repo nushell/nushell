@@ -8,12 +8,12 @@ Roll table columns left
 
 ## Signature
 
-roll left --by --cells-only
+```> roll left --by --cells-only```
 
 ## Parameters
 
-  --by {int}: Number of columns to roll
-  --cells-only: rotates columns leaving headers fixed
+ -  `--by {int}`: Number of columns to roll
+ -  `--cells-only`: rotates columns leaving headers fixed
 
 ## Examples
 

@@ -8,11 +8,11 @@ Convert from json to structured data
 
 ## Signature
 
-from json --objects
+```> from json --objects```
 
 ## Parameters
 
-  --objects: treat each line as a separate value
+ -  `--objects`: treat each line as a separate value
 
 ## Examples
 

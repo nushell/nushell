@@ -8,11 +8,11 @@ Get the metadata for items in the stream
 
 ## Signature
 
-metadata (expression)
+```> metadata (expression)```
 
 ## Parameters
 
-  expression: the expression you want metadata for
+ -  `expression`: the expression you want metadata for
 
 ## Examples
 

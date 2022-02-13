@@ -8,12 +8,12 @@ Sets a default row's column if missing.
 
 ## Signature
 
-default (column name) (column value)
+```> default (column name) (column value)```
 
 ## Parameters
 
-  column name: the name of the column
-  column value: the value of the column to default
+ -  `column name`: the name of the column
+ -  `column value`: the value of the column to default
 
 ## Examples
 

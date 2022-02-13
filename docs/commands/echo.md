@@ -8,11 +8,11 @@ Echo the arguments back to the user.
 
 ## Signature
 
-echo ...rest
+```> echo ...rest```
 
 ## Parameters
 
-  ...rest: the values to echo
+ -  `...rest`: the values to echo
 
 ## Examples
 

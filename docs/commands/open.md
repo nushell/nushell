@@ -8,12 +8,12 @@ Opens a file.
 
 ## Signature
 
-open (filename) --raw
+```> open (filename) --raw```
 
 ## Parameters
 
-  filename: the filename to use
-  --raw: open file as raw binary
+ -  `filename`: the filename to use
+ -  `--raw`: open file as raw binary
 
 ## Examples
 

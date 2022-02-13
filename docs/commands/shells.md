@@ -8,5 +8,5 @@ Lists all open shells.
 
 ## Signature
 
-shells 
+```> shells ```
 

@@ -8,11 +8,11 @@ Skip elements of the input while a predicate is true.
 
 ## Signature
 
-skip while (predicate)
+```> skip while (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that skipped element must match
+ -  `predicate`: the predicate that skipped element must match
 
 ## Examples
 

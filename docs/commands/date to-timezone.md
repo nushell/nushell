@@ -8,11 +8,11 @@ Convert a date to a given time zone.
 
 ## Signature
 
-date to-timezone (time zone)
+```> date to-timezone (time zone)```
 
 ## Parameters
 
-  time zone: time zone description
+ -  `time zone`: time zone description
 
 ## Examples
 

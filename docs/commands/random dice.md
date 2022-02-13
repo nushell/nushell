@@ -8,12 +8,12 @@ Generate a random dice roll
 
 ## Signature
 
-random dice --dice --sides
+```> random dice --dice --sides```
 
 ## Parameters
 
-  --dice {int}: The amount of dice being rolled
-  --sides {int}: The amount of sides a die has
+ -  `--dice {int}`: The amount of dice being rolled
+ -  `--sides {int}`: The amount of sides a die has
 
 ## Examples
 

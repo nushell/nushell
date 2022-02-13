@@ -8,9 +8,9 @@ Enters a new shell at the given path.
 
 ## Signature
 
-enter (path)
+```> enter (path)```
 
 ## Parameters
 
-  path: the path to enter as a new shell
+ -  `path`: the path to enter as a new shell
 

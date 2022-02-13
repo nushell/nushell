@@ -8,11 +8,11 @@ Debug print the value(s) piped in.
 
 ## Signature
 
-debug --raw
+```> debug --raw```
 
 ## Parameters
 
-  --raw: Prints the raw value representation
+ -  `--raw`: Prints the raw value representation
 
 ## Examples
 

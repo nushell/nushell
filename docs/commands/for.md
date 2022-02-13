@@ -8,14 +8,14 @@ Loop over a range
 
 ## Signature
 
-for (var_name) (range) (block) --numbered
+```> for (var_name) (range) (block) --numbered```
 
 ## Parameters
 
-  var_name: name of the looping variable
-  range: range of the loop
-  block: the block to run
-  --numbered: returned a numbered item ($it.index and $it.item)
+ -  `var_name`: name of the looping variable
+ -  `range`: range of the loop
+ -  `block`: the block to run
+ -  `--numbered`: returned a numbered item ($it.index and $it.item)
 
 ## Examples
 

@@ -8,11 +8,11 @@ Loads an environment update from a record.
 
 ## Signature
 
-load-env (update)
+```> load-env (update)```
 
 ## Parameters
 
-  update: the record to use for updates
+ -  `update`: the record to use for updates
 
 ## Examples
 

@@ -8,7 +8,7 @@ Use the first row of the table as column names.
 
 ## Signature
 
-headers 
+```> headers ```
 
 ## Examples
 

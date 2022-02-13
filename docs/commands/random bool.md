@@ -8,11 +8,11 @@ Generate a random boolean value
 
 ## Signature
 
-random bool --bias
+```> random bool --bias```
 
 ## Parameters
 
-  --bias {number}: Adjusts the probability of a "true" outcome
+ -  `--bias {number}`: Adjusts the probability of a "true" outcome
 
 ## Examples
 

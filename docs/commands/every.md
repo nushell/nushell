@@ -8,12 +8,12 @@ Show (or skip) every n-th row, starting from the first one.
 
 ## Signature
 
-every (stride) --skip
+```> every (stride) --skip```
 
 ## Parameters
 
-  stride: how many rows to skip between (and including) each row returned
-  --skip: skip the rows that would be returned, instead of selecting them
+ -  `stride`: how many rows to skip between (and including) each row returned
+ -  `--skip`: skip the rows that would be returned, instead of selecting them
 
 ## Examples
 

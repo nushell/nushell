@@ -8,9 +8,9 @@ Parse text as .tsv and create table.
 
 ## Signature
 
-from tsv --noheaders
+```> from tsv --noheaders```
 
 ## Parameters
 
-  --noheaders: don't treat the first row as column names
+ -  `--noheaders`: don't treat the first row as column names
 

@@ -8,12 +8,12 @@ Drop the selected rows.
 
 ## Signature
 
-drop nth (row number or row range) ...rest
+```> drop nth (row number or row range) ...rest```
 
 ## Parameters
 
-  row number or row range: the number of the row to drop or a range to drop consecutive rows
-  ...rest: the number of the row to drop
+ -  `row number or row range`: the number of the row to drop or a range to drop consecutive rows
+ -  `...rest`: the number of the row to drop
 
 ## Examples
 

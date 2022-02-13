@@ -8,10 +8,10 @@ Make directories, creates intermediary directories as required.
 
 ## Signature
 
-mkdir ...rest --show-created-paths
+```> mkdir ...rest --show-created-paths```
 
 ## Parameters
 
-  ...rest: the name(s) of the path(s) to create
-  --show-created-paths: show the path(s) created.
+ -  `...rest`: the name(s) of the path(s) to create
+ -  `--show-created-paths`: show the path(s) created.
 

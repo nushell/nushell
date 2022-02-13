@@ -8,12 +8,12 @@ Returns the terminal size
 
 ## Signature
 
-term size --columns --rows
+```> term size --columns --rows```
 
 ## Parameters
 
-  --columns: Report only the width of the terminal
-  --rows: Report only the height of the terminal
+ -  `--columns`: Report only the width of the terminal
+ -  `--rows`: Report only the height of the terminal
 
 ## Examples
 

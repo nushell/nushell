@@ -8,13 +8,13 @@ Aggregate a list table to a single value using an accumulator block.
 
 ## Signature
 
-reduce (block) --fold --numbered
+```> reduce (block) --fold --numbered```
 
 ## Parameters
 
-  block: reducing function
-  --fold {any}: reduce with initial value
-  --numbered: iterate with an index
+ -  `block`: reducing function
+ -  `--fold {any}`: reduce with initial value
+ -  `--numbered`: iterate with an index
 
 ## Examples
 

@@ -8,9 +8,9 @@ Wrap the value into a column.
 
 ## Signature
 
-wrap (name)
+```> wrap (name)```
 
 ## Parameters
 
-  name: the name of the column
+ -  `name`: the name of the column
 

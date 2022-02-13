@@ -8,11 +8,11 @@ Convert value to boolean
 
 ## Signature
 
-into bool ...rest
+```> into bool ...rest```
 
 ## Parameters
 
-  ...rest: column paths to convert to boolean (for table input)
+ -  `...rest`: column paths to convert to boolean (for table input)
 
 ## Examples
 

@@ -8,5 +8,5 @@ Deprecated command
 
 ## Signature
 
-nth 
+```> nth ```
 

@@ -8,12 +8,12 @@ Rotates a table clockwise (default) or counter-clockwise (use --ccw flag).
 
 ## Signature
 
-rotate ...rest --ccw
+```> rotate ...rest --ccw```
 
 ## Parameters
 
-  ...rest: the names to give columns once rotated
-  --ccw: rotate counter clockwise
+ -  `...rest`: the names to give columns once rotated
+ -  `--ccw`: rotate counter clockwise
 
 ## Examples
 

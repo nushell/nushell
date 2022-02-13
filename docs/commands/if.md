@@ -8,13 +8,13 @@ Conditionally run a block.
 
 ## Signature
 
-if (cond) (then_block) (else_expression)
+```> if (cond) (then_block) (else_expression)```
 
 ## Parameters
 
-  cond: condition to check
-  then_block: block to run if check succeeds
-  else_expression: expression or block to run if check fails
+ -  `cond`: condition to check
+ -  `then_block`: block to run if check succeeds
+ -  `else_expression`: expression or block to run if check fails
 
 ## Examples
 

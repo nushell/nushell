@@ -8,5 +8,5 @@ Export custom commands or environment variables from a module.
 
 ## Signature
 
-export 
+```> export ```
 

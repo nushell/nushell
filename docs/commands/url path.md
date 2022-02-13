@@ -8,11 +8,11 @@ gets the path of a url
 
 ## Signature
 
-url path ...rest
+```> url path ...rest```
 
 ## Parameters
 
-  ...rest: optionally operate by cell path
+ -  `...rest`: optionally operate by cell path
 
 ## Examples
 

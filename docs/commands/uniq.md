@@ -8,14 +8,14 @@ Return the unique rows.
 
 ## Signature
 
-uniq --count --repeated --ignore-case --unique
+```> uniq --count --repeated --ignore-case --unique```
 
 ## Parameters
 
-  --count: Count the unique rows
-  --repeated: Count the rows that has more than one value
-  --ignore-case: Ignore differences in case when comparing
-  --unique: Only return unique values
+ -  `--count`: Count the unique rows
+ -  `--repeated`: Count the rows that has more than one value
+ -  `--ignore-case`: Ignore differences in case when comparing
+ -  `--unique`: Only return unique values
 
 ## Examples
 

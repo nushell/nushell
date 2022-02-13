@@ -8,10 +8,10 @@ Define a custom module
 
 ## Signature
 
-module (module_name) (block)
+```> module (module_name) (block)```
 
 ## Parameters
 
-  module_name: module name
-  block: body of the module
+ -  `module_name`: module name
+ -  `block`: body of the module
 

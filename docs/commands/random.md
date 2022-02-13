@@ -8,5 +8,5 @@ Generate a random values.
 
 ## Signature
 
-random 
+```> random ```
 

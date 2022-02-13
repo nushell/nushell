@@ -8,18 +8,18 @@ print sequences of dates
 
 ## Signature
 
-seq date --separator --output-format --input-format --begin-date --end-date --increment --days --reverse
+```> seq date --separator --output-format --input-format --begin-date --end-date --increment --days --reverse```
 
 ## Parameters
 
-  --separator {string}: separator character (defaults to \n)
-  --output-format {string}: prints dates in this format (defaults to %Y-%m-%d)
-  --input-format {string}: give argument dates in this format (defaults to %Y-%m-%d)
-  --begin-date {string}: beginning date range
-  --end-date {string}: ending date
-  --increment {int}: increment dates by this number
-  --days {int}: number of days to print
-  --reverse: print dates in reverse
+ -  `--separator {string}`: separator character (defaults to \n)
+ -  `--output-format {string}`: prints dates in this format (defaults to %Y-%m-%d)
+ -  `--input-format {string}`: give argument dates in this format (defaults to %Y-%m-%d)
+ -  `--begin-date {string}`: beginning date range
+ -  `--end-date {string}`: ending date
+ -  `--increment {int}`: increment dates by this number
+ -  `--days {int}`: number of days to print
+ -  `--reverse`: print dates in reverse
 
 ## Examples
 

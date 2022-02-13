@@ -8,11 +8,11 @@ Decode bytes as a string.
 
 ## Signature
 
-decode (encoding)
+```> decode (encoding)```
 
 ## Parameters
 
-  encoding: the text encoding to use
+ -  `encoding`: the text encoding to use
 
 ## Examples
 

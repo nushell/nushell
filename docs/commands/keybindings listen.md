@@ -8,7 +8,7 @@ Get input from the user.
 
 ## Signature
 
-keybindings listen 
+```> keybindings listen ```
 
 ## Examples
 

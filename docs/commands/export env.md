@@ -8,10 +8,10 @@ Export a block from a module that will be evaluated as an environment variable w
 
 ## Signature
 
-export env (name) (block)
+```> export env (name) (block)```
 
 ## Parameters
 
-  name: name of the environment variable
-  block: body of the environment variable definition
+ -  `name`: name of the environment variable
+ -  `block`: body of the environment variable definition
 

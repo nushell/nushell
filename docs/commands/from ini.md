@@ -8,7 +8,7 @@ Parse text as .ini and create table
 
 ## Signature
 
-from ini 
+```> from ini ```
 
 ## Examples
 

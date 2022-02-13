@@ -8,9 +8,9 @@ Remove the last number of columns. If you want to remove columns by name, try 'r
 
 ## Signature
 
-drop column (columns)
+```> drop column (columns)```
 
 ## Parameters
 
-  columns: starting from the end, the number of columns to remove
+ -  `columns`: starting from the end, the number of columns to remove
 

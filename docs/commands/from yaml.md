@@ -8,7 +8,7 @@ Parse text as .yaml/.yml and create table.
 
 ## Signature
 
-from yaml 
+```> from yaml ```
 
 ## Examples
 

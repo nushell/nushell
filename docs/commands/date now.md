@@ -8,5 +8,5 @@ Get the current date.
 
 ## Signature
 
-date now 
+```> date now ```
 

@@ -8,12 +8,12 @@ Get the final component of a path
 
 ## Signature
 
-path basename --columns --replace
+```> path basename --columns --replace```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
-  --replace {string}: Return original path with basename replaced by this string
+ -  `--columns {table}`: Optionally operate by column path
+ -  `--replace {string}`: Return original path with basename replaced by this string
 
 ## Examples
 

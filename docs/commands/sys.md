@@ -8,7 +8,7 @@ View information about the system.
 
 ## Signature
 
-sys 
+```> sys ```
 
 ## Examples
 

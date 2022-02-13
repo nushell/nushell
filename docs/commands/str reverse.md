@@ -8,11 +8,11 @@ outputs the reversals of the strings in the pipeline
 
 ## Signature
 
-str reverse ...rest
+```> str reverse ...rest```
 
 ## Parameters
 
-  ...rest: optionally reverse text by column paths
+ -  `...rest`: optionally reverse text by column paths
 
 ## Examples
 

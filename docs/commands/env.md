@@ -8,5 +8,5 @@ Display current environment variables
 
 ## Signature
 
-env 
+```> env ```
 

@@ -8,9 +8,9 @@ Use definitions from a module
 
 ## Signature
 
-use (pattern)
+```> use (pattern)```
 
 ## Parameters
 
-  pattern: import pattern
+ -  `pattern`: import pattern
 

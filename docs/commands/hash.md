@@ -8,5 +8,5 @@ Apply hash function.
 
 ## Signature
 
-hash 
+```> hash ```
 

@@ -8,12 +8,12 @@ checks if string starts with pattern
 
 ## Signature
 
-str starts-with (pattern) ...rest
+```> str starts-with (pattern) ...rest```
 
 ## Parameters
 
-  pattern: the pattern to match
-  ...rest: optionally matches prefix of text by column paths
+ -  `pattern`: the pattern to match
+ -  `...rest`: optionally matches prefix of text by column paths
 
 ## Examples
 

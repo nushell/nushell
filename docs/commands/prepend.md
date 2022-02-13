@@ -8,11 +8,11 @@ Prepend a row to the table.
 
 ## Signature
 
-prepend (row)
+```> prepend (row)```
 
 ## Parameters
 
-  row: the row to prepend
+ -  `row`: the row to prepend
 
 ## Examples
 

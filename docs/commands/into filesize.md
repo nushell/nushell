@@ -8,11 +8,11 @@ Convert value to filesize
 
 ## Signature
 
-into filesize ...rest
+```> into filesize ...rest```
 
 ## Parameters
 
-  ...rest: column paths to convert to filesize (for table input)
+ -  `...rest`: column paths to convert to filesize (for table input)
 
 ## Examples
 

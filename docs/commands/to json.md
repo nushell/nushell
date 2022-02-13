@@ -8,11 +8,11 @@ Converts table data into JSON text.
 
 ## Signature
 
-to json --raw
+```> to json --raw```
 
 ## Parameters
 
-  --raw: remove all of the whitespace
+ -  `--raw`: remove all of the whitespace
 
 ## Examples
 

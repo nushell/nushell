@@ -8,12 +8,12 @@ Creates a new table with columns renamed.
 
 ## Signature
 
-rename ...rest --column
+```> rename ...rest --column```
 
 ## Parameters
 
-  ...rest: the new names for the columns
-  --column {list<string>}: column name to be changed
+ -  `...rest`: the new names for the columns
+ -  `--column {list<string>}`: column name to be changed
 
 ## Examples
 

@@ -8,10 +8,10 @@ Runs a script file in the current context.
 
 ## Signature
 
-exit (exit-code) --now
+```> exit (exit-code) --now```
 
 ## Parameters
 
-  exit-code: Exit code to return immediately with
-  --now: Exit out of the shell immediately
+ -  `exit-code`: Exit code to return immediately with
+ -  `--now`: Exit out of the shell immediately
 

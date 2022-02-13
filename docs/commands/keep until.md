@@ -8,11 +8,11 @@ Keep elements of the input until a predicate is true.
 
 ## Signature
 
-keep until (predicate)
+```> keep until (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that kept element must not match
+ -  `predicate`: the predicate that kept element must not match
 
 ## Examples
 

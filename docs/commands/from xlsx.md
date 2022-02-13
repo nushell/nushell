@@ -8,11 +8,11 @@ Parse binary Excel(.xlsx) data and create table.
 
 ## Signature
 
-from xlsx --sheets
+```> from xlsx --sheets```
 
 ## Parameters
 
-  --sheets {list<string>}: Only convert specified sheets
+ -  `--sheets {list<string>}`: Only convert specified sheets
 
 ## Examples
 

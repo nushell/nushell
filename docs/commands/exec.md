@@ -8,12 +8,12 @@ Execute a command, replacing the current process.
 
 ## Signature
 
-exec (command) ...rest
+```> exec (command) ...rest```
 
 ## Parameters
 
-  command: the command to execute
-  ...rest: any additional arguments for the command
+ -  `command`: the command to execute
+ -  `...rest`: any additional arguments for the command
 
 ## Examples
 

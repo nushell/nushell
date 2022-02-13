@@ -8,14 +8,14 @@ Returns starting index of given pattern in string counting from 0. Returns -1 wh
 
 ## Signature
 
-str index-of (pattern) ...rest --range --end
+```> str index-of (pattern) ...rest --range --end```
 
 ## Parameters
 
-  pattern: the pattern to find index of
-  ...rest: optionally returns index of pattern in string by column paths
-  --range {any}: optional start and/or end index
-  --end: search from the end of the string
+ -  `pattern`: the pattern to find index of
+ -  `...rest`: optionally returns index of pattern in string by column paths
+ -  `--range {any}`: optional start and/or end index
+ -  `--end`: search from the end of the string
 
 ## Examples
 

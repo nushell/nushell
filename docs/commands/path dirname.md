@@ -8,13 +8,13 @@ Get the parent directory of a path
 
 ## Signature
 
-path dirname --columns --replace --num-levels
+```> path dirname --columns --replace --num-levels```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
-  --replace {string}: Return original path with dirname replaced by this string
-  --num-levels {int}: Number of directories to walk up
+ -  `--columns {table}`: Optionally operate by column path
+ -  `--replace {string}`: Return original path with dirname replaced by this string
+ -  `--num-levels {int}`: Number of directories to walk up
 
 ## Examples
 

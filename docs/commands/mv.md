@@ -8,10 +8,10 @@ Move files or directories.
 
 ## Signature
 
-mv (source) (destination)
+```> mv (source) (destination)```
 
 ## Parameters
 
-  source: the location to move files/directories from
-  destination: the location to move files/directories to
+ -  `source`: the location to move files/directories from
+ -  `destination`: the location to move files/directories to
 

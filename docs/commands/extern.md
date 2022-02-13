@@ -8,10 +8,10 @@ Define a signature for an external command
 
 ## Signature
 
-extern (def_name) (params)
+```> extern (def_name) (params)```
 
 ## Parameters
 
-  def_name: definition name
-  params: parameters
+ -  `def_name`: definition name
+ -  `params`: parameters
 

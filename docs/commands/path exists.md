@@ -8,11 +8,11 @@ Check whether a path exists
 
 ## Signature
 
-path exists --columns
+```> path exists --columns```
 
 ## Parameters
 
-  --columns {table}: Optionally operate by column path
+ -  `--columns {table}`: Optionally operate by column path
 
 ## Examples
 

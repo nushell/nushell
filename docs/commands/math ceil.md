@@ -8,7 +8,7 @@ Applies the ceil function to a list of numbers
 
 ## Signature
 
-math ceil 
+```> math ceil ```
 
 ## Examples
 

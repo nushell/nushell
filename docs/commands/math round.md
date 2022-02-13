@@ -8,11 +8,11 @@ Applies the round function to a list of numbers
 
 ## Signature
 
-math round --precision
+```> math round --precision```
 
 ## Parameters
 
-  --precision {number}: digits of precision
+ -  `--precision {number}`: digits of precision
 
 ## Examples
 

@@ -8,11 +8,11 @@ Create a string from the arguments.
 
 ## Signature
 
-build-string ...rest
+```> build-string ...rest```
 
 ## Parameters
 
-  ...rest: list of string
+ -  `...rest`: list of string
 
 ## Examples
 

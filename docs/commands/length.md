@@ -8,9 +8,9 @@ Count the number of elements in the input.
 
 ## Signature
 
-length --column
+```> length --column```
 
 ## Parameters
 
-  --column: Show the number of columns in a table
+ -  `--column`: Show the number of columns in a table
 

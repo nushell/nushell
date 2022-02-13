@@ -8,7 +8,7 @@ Convert table into .yaml/.yml text
 
 ## Signature
 
-to yaml 
+```> to yaml ```
 
 ## Examples
 

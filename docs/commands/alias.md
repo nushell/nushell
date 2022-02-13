@@ -8,10 +8,10 @@ Alias a command (with optional flags) to a new name
 
 ## Signature
 
-alias (name) (initial_value)
+```> alias (name) (initial_value)```
 
 ## Parameters
 
-  name: name of the alias
-  initial_value: equals sign followed by value
+ -  `name`: name of the alias
+ -  `initial_value`: equals sign followed by value
 

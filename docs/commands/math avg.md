@@ -8,7 +8,7 @@ Finds the average of a list of numbers or tables
 
 ## Signature
 
-math avg 
+```> math avg ```
 
 ## Examples
 

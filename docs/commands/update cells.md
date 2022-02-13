@@ -8,12 +8,12 @@ Update the table cells.
 
 ## Signature
 
-update cells (block) --columns
+```> update cells (block) --columns```
 
 ## Parameters
 
-  block: the block to run an update for each cell
-  --columns {table}: list of columns to update
+ -  `block`: the block to run an update for each cell
+ -  `--columns {table}`: list of columns to update
 
 ## Examples
 

@@ -8,7 +8,7 @@ Finds the minimum within a list of numbers or tables
 
 ## Signature
 
-math min 
+```> math min ```
 
 ## Examples
 

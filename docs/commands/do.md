@@ -8,11 +8,11 @@ Run a block
 
 ## Signature
 
-do (block) ...rest --ignore-errors
+```> do (block) ...rest --ignore-errors```
 
 ## Parameters
 
-  block: the block to run
-  ...rest: the parameter(s) for the block
-  --ignore-errors: ignore errors as the block runs
+ -  `block`: the block to run
+ -  `...rest`: the parameter(s) for the block
+ -  `--ignore-errors`: ignore errors as the block runs
 

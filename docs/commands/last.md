@@ -8,11 +8,11 @@ Show only the last number of rows.
 
 ## Signature
 
-last (rows)
+```> last (rows)```
 
 ## Parameters
 
-  rows: starting from the back, the number of rows to return
+ -  `rows`: starting from the back, the number of rows to return
 
 ## Examples
 

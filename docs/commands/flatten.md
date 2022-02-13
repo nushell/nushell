@@ -8,11 +8,11 @@ Flatten the table.
 
 ## Signature
 
-flatten ...rest
+```> flatten ...rest```
 
 ## Parameters
 
-  ...rest: optionally flatten data by column
+ -  `...rest`: optionally flatten data by column
 
 ## Examples
 

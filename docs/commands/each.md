@@ -8,12 +8,12 @@ Run a block on each element of input
 
 ## Signature
 
-each (block) --numbered
+```> each (block) --numbered```
 
 ## Parameters
 
-  block: the block to run
-  --numbered: iterate with an index
+ -  `block`: the block to run
+ -  `--numbered`: iterate with an index
 
 ## Examples
 

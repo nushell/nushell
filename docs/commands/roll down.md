@@ -8,11 +8,11 @@ Roll table rows down
 
 ## Signature
 
-roll down --by
+```> roll down --by```
 
 ## Parameters
 
-  --by {int}: Number of rows to roll
+ -  `--by {int}`: Number of rows to roll
 
 ## Examples
 

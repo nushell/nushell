@@ -8,11 +8,11 @@ downcases text
 
 ## Signature
 
-str downcase ...rest
+```> str downcase ...rest```
 
 ## Parameters
 
-  ...rest: optionally downcase text by column paths
+ -  `...rest`: optionally downcase text by column paths
 
 ## Examples
 

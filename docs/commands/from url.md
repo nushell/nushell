@@ -8,7 +8,7 @@ Parse url-encoded string as a table.
 
 ## Signature
 
-from url 
+```> from url ```
 
 ## Examples
 

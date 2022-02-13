@@ -8,11 +8,11 @@ Define a custom command and export it from a module
 
 ## Signature
 
-export def (name) (params) (block)
+```> export def (name) (params) (block)```
 
 ## Parameters
 
-  name: definition name
-  params: parameters
-  block: body of the definition
+ -  `name`: definition name
+ -  `params`: parameters
+ -  `block`: body of the definition
 

@@ -8,7 +8,7 @@ Convert table into .toml text
 
 ## Signature
 
-to toml 
+```> to toml ```
 
 ## Examples
 

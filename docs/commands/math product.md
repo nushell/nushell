@@ -8,7 +8,7 @@ Finds the product of a list of numbers or tables
 
 ## Signature
 
-math product 
+```> math product ```
 
 ## Examples
 

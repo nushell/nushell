@@ -8,7 +8,7 @@ Parse text as .xml and create table.
 
 ## Signature
 
-from xml 
+```> from xml ```
 
 ## Examples
 

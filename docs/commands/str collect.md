@@ -8,11 +8,11 @@ creates a string from the input, optionally using a separator
 
 ## Signature
 
-str collect (separator)
+```> str collect (separator)```
 
 ## Parameters
 
-  separator: optional separator to use when creating string
+ -  `separator`: optional separator to use when creating string
 
 ## Examples
 

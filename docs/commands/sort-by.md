@@ -8,13 +8,13 @@ Sort by the given columns, in increasing order.
 
 ## Signature
 
-sort-by ...columns --reverse --insensitive
+```> sort-by ...columns --reverse --insensitive```
 
 ## Parameters
 
-  ...columns: the column(s) to sort by
-  --reverse: Sort in reverse order
-  --insensitive: Sort string-based columns case-insensitively
+ -  `...columns`: the column(s) to sort by
+ -  `--reverse`: Sort in reverse order
+ -  `--insensitive`: Sort string-based columns case-insensitively
 
 ## Examples
 

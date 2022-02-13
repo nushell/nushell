@@ -8,12 +8,12 @@ Run a block on each element of input in parallel
 
 ## Signature
 
-par-each (block) --numbered
+```> par-each (block) --numbered```
 
 ## Parameters
 
-  block: the block to run
-  --numbered: iterate with an index
+ -  `block`: the block to run
+ -  `--numbered`: iterate with an index
 
 ## Examples
 

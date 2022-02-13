@@ -8,7 +8,7 @@ Ignore the output of the previous command in the pipeline
 
 ## Signature
 
-ignore 
+```> ignore ```
 
 ## Examples
 

@@ -8,5 +8,5 @@ Shuffle rows randomly.
 
 ## Signature
 
-shuffle 
+```> shuffle ```
 

@@ -8,11 +8,11 @@ Convert table into .xml text
 
 ## Signature
 
-to xml --pretty
+```> to xml --pretty```
 
 ## Parameters
 
-  --pretty {int}: Formats the XML text with the provided indentation setting
+ -  `--pretty {int}`: Formats the XML text with the provided indentation setting
 
 ## Examples
 

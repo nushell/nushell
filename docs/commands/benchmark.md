@@ -8,9 +8,9 @@ Time the running time of a block
 
 ## Signature
 
-benchmark (block)
+```> benchmark (block)```
 
 ## Parameters
 
-  block: the block to run
+ -  `block`: the block to run
 

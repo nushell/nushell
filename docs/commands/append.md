@@ -8,11 +8,11 @@ Append a row to the table.
 
 ## Signature
 
-append (row)
+```> append (row)```
 
 ## Parameters
 
-  row: the row to append
+ -  `row`: the row to append
 
 ## Examples
 

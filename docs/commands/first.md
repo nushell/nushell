@@ -8,11 +8,11 @@ Show only the first number of rows.
 
 ## Signature
 
-first (rows)
+```> first (rows)```
 
 ## Parameters
 
-  rows: starting from the front, the number of rows to return
+ -  `rows`: starting from the front, the number of rows to return
 
 ## Examples
 

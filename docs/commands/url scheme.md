@@ -8,11 +8,11 @@ gets the scheme (eg http, file) of a url
 
 ## Signature
 
-url scheme ...rest
+```> url scheme ...rest```
 
 ## Parameters
 
-  ...rest: optionally operate by cell path
+ -  `...rest`: optionally operate by cell path
 
 ## Examples
 

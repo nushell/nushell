@@ -8,13 +8,13 @@ Move columns before or after other columns
 
 ## Signature
 
-move ...columns --after --before
+```> move ...columns --after --before```
 
 ## Parameters
 
-  ...columns: the columns to move
-  --after {string}: the column that will precede the columns moved
-  --before {string}: the column that will be the next after the columns moved
+ -  `...columns`: the columns to move
+ -  `--after {string}`: the column that will precede the columns moved
+ -  `--before {string}`: the column that will be the next after the columns moved
 
 ## Examples
 

@@ -8,11 +8,11 @@ converts a string to snake_case
 
 ## Signature
 
-str snake-case ...rest
+```> str snake-case ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text to snake_case by column paths
+ -  `...rest`: optionally convert text to snake_case by column paths
 
 ## Examples
 

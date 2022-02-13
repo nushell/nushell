@@ -8,10 +8,10 @@ Runs external command
 
 ## Signature
 
-run_external ...rest --last_expression
+```> run_external ...rest --last_expression```
 
 ## Parameters
 
-  ...rest: external command to run
-  --last_expression: last_expression
+ -  `...rest`: external command to run
+ -  `--last_expression`: last_expression
 

@@ -8,11 +8,11 @@ Generate a random integer [min..max]
 
 ## Signature
 
-random integer (range)
+```> random integer (range)```
 
 ## Parameters
 
-  range: Range of values
+ -  `range`: Range of values
 
 ## Examples
 

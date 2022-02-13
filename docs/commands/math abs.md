@@ -8,7 +8,7 @@ Returns absolute values of a list of numbers
 
 ## Signature
 
-math abs 
+```> math abs ```
 
 ## Examples
 

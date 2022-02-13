@@ -8,7 +8,7 @@ Gets the most frequent element(s) from a list of numbers or tables
 
 ## Signature
 
-math mode 
+```> math mode ```
 
 ## Examples
 

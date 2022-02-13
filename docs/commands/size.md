@@ -8,7 +8,7 @@ Gather word count statistics on the text.
 
 ## Signature
 
-size 
+```> size ```
 
 ## Examples
 

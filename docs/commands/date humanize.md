@@ -8,7 +8,7 @@ Print a 'humanized' format for the date, relative to now.
 
 ## Signature
 
-date humanize 
+```> date humanize ```
 
 ## Examples
 

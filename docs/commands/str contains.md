@@ -8,13 +8,13 @@ Checks if string contains pattern
 
 ## Signature
 
-str contains (pattern) ...rest --insensitive
+```> str contains (pattern) ...rest --insensitive```
 
 ## Parameters
 
-  pattern: the pattern to find
-  ...rest: optionally check if string contains pattern by column paths
-  --insensitive: search is case insensitive
+ -  `pattern`: the pattern to find
+ -  `...rest`: optionally check if string contains pattern by column paths
+ -  `--insensitive`: search is case insensitive
 
 ## Examples
 

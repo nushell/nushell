@@ -8,12 +8,12 @@ Runs a block on groups of `group_size` rows of a table at a time.
 
 ## Signature
 
-each group (group_size) (block)
+```> each group (group_size) (block)```
 
 ## Parameters
 
-  group_size: the size of each group
-  block: the block to run on each group
+ -  `group_size`: the size of each group
+ -  `block`: the block to run on each group
 
 ## Examples
 

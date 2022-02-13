@@ -8,7 +8,7 @@ Parse text as .vcf and create table.
 
 ## Signature
 
-from vcf 
+```> from vcf ```
 
 ## Examples
 

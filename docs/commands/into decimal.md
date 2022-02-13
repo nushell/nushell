@@ -8,11 +8,11 @@ converts text into decimal
 
 ## Signature
 
-into decimal ...rest
+```> into decimal ...rest```
 
 ## Parameters
 
-  ...rest: optionally convert text into decimal by column paths
+ -  `...rest`: optionally convert text into decimal by column paths
 
 ## Examples
 

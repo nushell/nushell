@@ -8,11 +8,11 @@ Keep elements of the input while a predicate is true.
 
 ## Signature
 
-keep while (predicate)
+```> keep while (predicate)```
 
 ## Parameters
 
-  predicate: the predicate that kept element must not match
+ -  `predicate`: the predicate that kept element must not match
 
 ## Examples
 

@@ -8,11 +8,11 @@ Creates a table with non-empty rows.
 
 ## Signature
 
-compact ...columns
+```> compact ...columns```
 
 ## Parameters
 
-  ...columns: the columns to compact from the table
+ -  `...columns`: the columns to compact from the table
 
 ## Examples
 

@@ -8,11 +8,11 @@ Create a new table splitted.
 
 ## Signature
 
-split-by (splitter)
+```> split-by (splitter)```
 
 ## Parameters
 
-  splitter: the splitter value to use
+ -  `splitter`: the splitter value to use
 
 ## Examples
 

@@ -8,12 +8,12 @@ Get input from the user.
 
 ## Signature
 
-input (prompt) --bytes-until
+```> input (prompt) --bytes-until```
 
 ## Parameters
 
-  prompt: prompt to show the user
-  --bytes-until {string}: read bytes (not text) until a stop byte
+ -  `prompt`: prompt to show the user
+ -  `--bytes-until {string}`: read bytes (not text) until a stop byte
 
 ## Examples
 

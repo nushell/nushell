@@ -8,7 +8,7 @@ splits a string's characters into separate rows
 
 ## Signature
 
-split chars 
+```> split chars ```
 
 ## Examples
 

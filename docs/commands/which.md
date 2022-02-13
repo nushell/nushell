@@ -8,13 +8,13 @@ Finds a program file, alias or custom command.
 
 ## Signature
 
-which (application) ...rest --all
+```> which (application) ...rest --all```
 
 ## Parameters
 
-  application: application
-  ...rest: additional applications
-  --all: list all executables
+ -  `application`: application
+ -  `...rest`: additional applications
+ -  `--all`: list all executables
 
 ## Examples
 

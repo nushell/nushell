@@ -8,11 +8,11 @@ Copy files.
 
 ## Signature
 
-cp (source) (destination) --recursive
+```> cp (source) (destination) --recursive```
 
 ## Parameters
 
-  source: the place to copy from
-  destination: the place to copy to
-  --recursive: copy recursively through subdirectories
+ -  `source`: the place to copy from
+ -  `destination`: the place to copy to
+ -  `--recursive`: copy recursively through subdirectories
 

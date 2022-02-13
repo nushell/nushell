@@ -8,16 +8,16 @@ Fetch the contents from a URL (HTTP GET operation).
 
 ## Signature
 
-fetch (URL) --user --password --timeout --headers --raw
+```> fetch (URL) --user --password --timeout --headers --raw```
 
 ## Parameters
 
-  URL: the URL to fetch the contents from
-  --user {any}: the username when authenticating
-  --password {any}: the password when authenticating
-  --timeout {int}: timeout period in seconds
-  --headers {any}: custom headers you want to add 
-  --raw: fetch contents as text rather than a table
+ -  `URL`: the URL to fetch the contents from
+ -  `--user {any}`: the username when authenticating
+ -  `--password {any}`: the password when authenticating
+ -  `--timeout {int}`: timeout period in seconds
+ -  `--headers {any}`: custom headers you want to add 
+ -  `--raw`: fetch contents as text rather than a table
 
 ## Examples
 

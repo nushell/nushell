@@ -8,13 +8,13 @@ pad a string with a character a certain length
 
 ## Signature
 
-str rpad ...rest --length --character
+```> str rpad ...rest --length --character```
 
 ## Parameters
 
-  ...rest: optionally check if string contains pattern by column paths
-  --length {int}: length to pad to
-  --character {string}: character to pad with
+ -  `...rest`: optionally check if string contains pattern by column paths
+ -  `--length {int}`: length to pad to
+ -  `--character {string}`: character to pad with
 
 ## Examples
 
