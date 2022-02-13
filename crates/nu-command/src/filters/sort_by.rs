@@ -138,17 +138,30 @@ pub fn sort(
     insensitive: bool,
     config: &Config,
 ) -> Result<(), ShellError> {
-    let should_sort_case_insensitively = insensitive
-        && vec
-            .iter()
-            .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
-
     match &vec[0] {
         Value::Record {
             cols,
             vals: _input_vals,
             ..
         } => {
+            // check to make sure each value in each column in the record
+            // that we asked for is a string
+            let mut vals = vec![];
+            for item in vec.iter() {
+                for col in &columns {
+                    let val = match item.get_data_by_key(col) {
+                        Some(v) => v,
+                        None => Value::nothing(Span::test_data()),
+                    };
+                    vals.push(val);
+                }
+            }
+
+            let should_sort_case_insensitively = insensitive
+                && vals
+                    .iter()
+                    .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
+
             if columns.is_empty() {
                 println!("sort-by requires a column name to sort table data");
                 return Err(ShellError::CantFindColumn(call.head, call.head));
@@ -173,7 +186,7 @@ pub fn sort(
         }
         _ => {
             vec.sort_by(|a, b| {
-                if should_sort_case_insensitively {
+                if insensitive {
                     let lowercase_left = Value::string(
                         a.into_string("", config).to_ascii_lowercase(),
                         Span::test_data(),
