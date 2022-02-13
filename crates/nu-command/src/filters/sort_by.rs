@@ -282,6 +282,7 @@ Arbitrary Order of Values:
     Ints
     Strings
     Bools
+    Lists
 */
 
 pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Ordering, ShellError> {
@@ -305,6 +306,9 @@ pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Orderi
             CompareValues::Booleans(*left, *right).compare()
         }
 
+        // FIXME: Not sure how to compare and sort lists
+        (Value::List { .. }, Value::List { .. }) => Ordering::Equal,
+
         // Floats will always come before Ints
         (Value::Float { .. }, Value::Int { .. }) => Ordering::Less,
         (Value::Int { .. }, Value::Float { .. }) => Ordering::Greater,
@@ -317,6 +321,10 @@ pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Orderi
         (Value::Float { .. }, Value::Bool { .. }) => Ordering::Less,
         (Value::Bool { .. }, Value::Float { .. }) => Ordering::Greater,
 
+        // Floats will always come before Lists
+        (Value::Float { .. }, Value::List { .. }) => Ordering::Less,
+        (Value::List { .. }, Value::Float { .. }) => Ordering::Greater,
+
         // Ints will always come before strings
         (Value::Int { .. }, Value::String { .. }) => Ordering::Less,
         (Value::String { .. }, Value::Int { .. }) => Ordering::Greater,
@@ -325,9 +333,21 @@ pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Orderi
         (Value::Int { .. }, Value::Bool { .. }) => Ordering::Less,
         (Value::Bool { .. }, Value::Int { .. }) => Ordering::Greater,
 
+        // Ints will always come before Lists
+        (Value::Int { .. }, Value::List { .. }) => Ordering::Less,
+        (Value::List { .. }, Value::Int { .. }) => Ordering::Greater,
+
         // Strings will always come before Bools
         (Value::String { .. }, Value::Bool { .. }) => Ordering::Less,
         (Value::Bool { .. }, Value::String { .. }) => Ordering::Greater,
+
+        // Strings will always come before Lists
+        (Value::String { .. }, Value::List { .. }) => Ordering::Less,
+        (Value::List { .. }, Value::String { .. }) => Ordering::Greater,
+
+        // Bools will always come before Lists
+        (Value::Bool { .. }, Value::List { .. }) => Ordering::Less,
+        (Value::List { .. }, Value::Bool { .. }) => Ordering::Greater,
 
         _ => {
             let description = format!("not able to compare {:?} with {:?}\n", left, right);
