@@ -12,7 +12,7 @@
 
 A new type of shell.
 
-![Example of nushell](images/nushell-autocomplete5.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete6.gif "Example of nushell")
 
 ## Status
 
