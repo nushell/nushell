@@ -113,7 +113,7 @@ fn ls_sort_by_name_insensitive() {
         "#
     ));
 
-    let json_output = r#"[{"name": "B.txt"},{"name": "C"},{"name": "a.txt"}]"#;
+    let json_output = r#"[{"name": "a.txt"},{"name": "B.txt"},{"name": "C"}]"#;
     assert_eq!(actual.out, json_output);
 }
 
