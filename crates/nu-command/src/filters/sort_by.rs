@@ -197,11 +197,13 @@ pub fn sort(
                         b.into_string("", config).to_ascii_lowercase(),
                         Span::test_data(),
                     );
-                    coerce_compare(&lowercase_left, &lowercase_right)
+                    coerce_compare(&lowercase_left, &lowercase_right, call)
                         .expect("sort_by default bug")
                         .compare()
                 } else {
-                    coerce_compare(a, b).expect("sort_by default bug").compare()
+                    coerce_compare(a, b, call)
+                        .expect("sort_by default bug")
+                        .compare()
                 }
             });
         }
@@ -216,7 +218,7 @@ pub fn process(
     call: &Call,
     insensitive: bool,
     config: &Config,
-) -> Result<CompareValues, (&'static str, &'static str)> {
+) -> Result<CompareValues, ShellError> {
     let left_value = left.get_data_by_key(column);
 
     let left_res = match left_value {
@@ -240,9 +242,9 @@ pub fn process(
             right_res.into_string("", config).to_ascii_lowercase(),
             Span::test_data(),
         );
-        coerce_compare(&lowercase_left, &lowercase_right)
+        coerce_compare(&lowercase_left, &lowercase_right, call)
     } else {
-        coerce_compare(&left_res, &right_res)
+        coerce_compare(&left_res, &right_res, call)
     }
 }
 
@@ -281,7 +283,8 @@ pub fn process_floats(left: &f64, right: &f64) -> std::cmp::Ordering {
 pub fn coerce_compare(
     left: &Value,
     right: &Value,
-) -> Result<CompareValues, (&'static str, &'static str)> {
+    call: &Call,
+) -> Result<CompareValues, ShellError> {
     match (left, right) {
         (Value::Float { val: left, .. }, Value::Float { val: right, .. }) => {
             Ok(CompareValues::Floats(*left, *right))
@@ -301,7 +304,11 @@ pub fn coerce_compare(
         (Value::Bool { val: left, .. }, Value::Bool { val: right, .. }) => {
             Ok(CompareValues::Booleans(*left, *right))
         }
-        _ => Err(("coerce_compare_left", "coerce_compare_right")),
+
+        _ => {
+            let description = format!("not able to compare {:?} with {:?}\n", left, right);
+            Err(ShellError::TypeMismatch(description, call.head))
+        }
     }
 }
 
