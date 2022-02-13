@@ -144,8 +144,19 @@ pub fn sort(
             vals: _input_vals,
             ..
         } => {
+            if columns.is_empty() {
+                println!("sort-by requires a column name to sort table data");
+                return Err(ShellError::CantFindColumn(call.head, call.head));
+            }
+
+            if column_does_not_exist(columns.clone(), cols.to_vec()) {
+                return Err(ShellError::CantFindColumn(call.head, call.head));
+            }
+
             // check to make sure each value in each column in the record
-            // that we asked for is a string
+            // that we asked for is a string. So, first collect all the columns
+            // that we asked for into vals, then later make sure they're all
+            // strings.
             let mut vals = vec![];
             for item in vec.iter() {
                 for col in &columns {
@@ -161,15 +172,6 @@ pub fn sort(
                 && vals
                     .iter()
                     .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
-
-            if columns.is_empty() {
-                println!("sort-by requires a column name to sort table data");
-                return Err(ShellError::CantFindColumn(call.head, call.head));
-            }
-
-            if column_does_not_exist(columns.clone(), cols.to_vec()) {
-                return Err(ShellError::CantFindColumn(call.head, call.head));
-            }
 
             vec.sort_by(|a, b| {
                 process(
