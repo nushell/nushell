@@ -183,7 +183,6 @@ pub fn sort(
                     config,
                 )
                 .expect("sort_by Value::Record bug")
-                .compare()
             });
         }
         _ => {
@@ -199,11 +198,8 @@ pub fn sort(
                     );
                     coerce_compare(&lowercase_left, &lowercase_right, call)
                         .expect("sort_by default bug")
-                        .compare()
                 } else {
-                    coerce_compare(a, b, call)
-                        .expect("sort_by default bug")
-                        .compare()
+                    coerce_compare(a, b, call).expect("sort_by default bug")
                 }
             });
         }
@@ -218,7 +214,7 @@ pub fn process(
     call: &Call,
     insensitive: bool,
     config: &Config,
-) -> Result<CompareValues, ShellError> {
+) -> Result<Ordering, ShellError> {
     let left_value = left.get_data_by_key(column);
 
     let left_res = match left_value {
@@ -280,36 +276,64 @@ pub fn process_floats(left: &f64, right: &f64) -> std::cmp::Ordering {
     }
 }
 
-pub fn coerce_compare(
-    left: &Value,
-    right: &Value,
-    call: &Call,
-) -> Result<CompareValues, ShellError> {
-    match (left, right) {
+/*
+Arbitrary Order of Values:
+    Floats
+    Ints
+    Strings
+    Bools
+*/
+
+pub fn coerce_compare(left: &Value, right: &Value, call: &Call) -> Result<Ordering, ShellError> {
+    Ok(match (left, right) {
         (Value::Float { val: left, .. }, Value::Float { val: right, .. }) => {
-            Ok(CompareValues::Floats(*left, *right))
+            CompareValues::Floats(*left, *right).compare()
         }
         (Value::Filesize { val: left, .. }, Value::Filesize { val: right, .. }) => {
-            Ok(CompareValues::Filesize(*left, *right))
+            CompareValues::Filesize(*left, *right).compare()
         }
         (Value::Date { val: left, .. }, Value::Date { val: right, .. }) => {
-            Ok(CompareValues::Date(*left, *right))
+            CompareValues::Date(*left, *right).compare()
         }
         (Value::Int { val: left, .. }, Value::Int { val: right, .. }) => {
-            Ok(CompareValues::Ints(*left, *right))
+            CompareValues::Ints(*left, *right).compare()
         }
         (Value::String { val: left, .. }, Value::String { val: right, .. }) => {
-            Ok(CompareValues::String(left.clone(), right.clone()))
+            CompareValues::String(left.clone(), right.clone()).compare()
         }
         (Value::Bool { val: left, .. }, Value::Bool { val: right, .. }) => {
-            Ok(CompareValues::Booleans(*left, *right))
+            CompareValues::Booleans(*left, *right).compare()
         }
+
+        // Floats will always come before Ints
+        (Value::Float { .. }, Value::Int { .. }) => Ordering::Less,
+        (Value::Int { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Floats will always come before Strings
+        (Value::Float { .. }, Value::String { .. }) => Ordering::Less,
+        (Value::String { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Floats will always come before Bools
+        (Value::Float { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::Float { .. }) => Ordering::Greater,
+
+        // Ints will always come before strings
+        (Value::Int { .. }, Value::String { .. }) => Ordering::Less,
+        (Value::String { .. }, Value::Int { .. }) => Ordering::Greater,
+
+        // Ints will always come before Bools
+        (Value::Int { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::Int { .. }) => Ordering::Greater,
+
+        // Strings will always come before Bools
+        (Value::String { .. }, Value::Bool { .. }) => Ordering::Less,
+        (Value::Bool { .. }, Value::String { .. }) => Ordering::Greater,
 
         _ => {
             let description = format!("not able to compare {:?} with {:?}\n", left, right);
-            Err(ShellError::TypeMismatch(description, call.head))
+            return Err(ShellError::TypeMismatch(description, call.head));
         }
-    }
+    })
 }
 
 #[cfg(test)]
