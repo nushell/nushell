@@ -7,17 +7,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
-        style: [minimal, default, all]
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        style: [all, default, minimal]
         rust:
           - stable
         include:
-          - style: minimal
-            flags: '--no-default-features'
-          - style: default
-            flags: ''
           - style: all
             flags: '--all-features'
+          - style: default
+            flags: ''
+          - style: minimal
+            flags: '--no-default-features'
+        exclude:
+          - platform: windows-latest
+            style: default
+          - platform: windows-latest
+            style: minimal
+          - platform: macos-latest
+            style: default
+          - platform: macos-latest
+            style: minimal
 
     runs-on: ${{ matrix.platform }}
 
