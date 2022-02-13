@@ -307,7 +307,7 @@ pub fn coerce_compare(
 
         _ => {
             let description = format!("not able to compare {:?} with {:?}\n", left, right);
-            return Err(ShellError::TypeMismatch(description.into(), call.head));
+            Err(ShellError::TypeMismatch(description, call.head))
         }
     }
 }
