@@ -67,9 +67,11 @@ fn default(
                 let mut found = false;
 
                 while idx < cols.len() {
-                    if cols[idx] == column.item && matches!(vals[idx], Value::Nothing { .. }) {
-                        vals[idx] = value.clone();
+                    if cols[idx] == column.item {
                         found = true;
+                        if matches!(vals[idx], Value::Nothing { .. }) {
+                            vals[idx] = value.clone();
+                        }
                     }
                     idx += 1;
                 }
