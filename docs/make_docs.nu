@@ -59,6 +59,7 @@ $"($example.description)
     
     let doc = ($top + $signature + $parameters + $examples)
 
-    $doc | save --raw $"./docs/commands/($command.command).md"
+    let safe_name = ($command.command | str find-replace '\?' '' | str find-replace ' ' '_')
+    $doc | save --raw $"./docs/commands/($safe_name).md"
 } | length | $"($in) commands written"
 
