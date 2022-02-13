@@ -42,11 +42,15 @@ impl Command for SubCommand {
         if call.has_flag("list") {
             return Ok(PipelineData::Value(generate_strftime_list(head), None));
         }
-        let formatter = call
-            .opt::<String>(engine_state, stack, 0)?
-            .unwrap_or("%c".to_string());
+
+        let format = call
+            .opt::<String>(engine_state, stack, 0)?;
+
         input.map(
-            move |value| format_helper(value, &formatter, head),
+            move |value| match &format {
+                Some(format) => format_helper(value, format.as_str(), head),
+                None => format_helper_rfc2822(value, head),
+            },
             engine_state.ctrlc.clone(),
         )
     }
@@ -95,6 +99,36 @@ fn format_helper(value: Value, formatter: &str, span: Span) -> Value {
             let dt = Local::now();
             Value::String {
                 val: dt.with_timezone(dt.offset()).format(formatter).to_string(),
+                span,
+            }
+        }
+        _ => unsupported_input_error(span),
+    }
+}
+
+fn format_helper_rfc2822(value: Value, span: Span) -> Value {
+    match value {
+        Value::Date { val, span: _ } => Value::String {
+            val: val.to_rfc2822(),
+            span,
+        },
+        Value::String {
+            val,
+            span: val_span,
+        } => {
+            let dt = parse_date_from_string(val, val_span);
+            match dt {
+                Ok(x) => Value::String {
+                    val: x.to_rfc2822(),
+                    span,
+                },
+                Err(e) => e,
+            }
+        }
+        Value::Nothing { span: _ } => {
+            let dt = Local::now();
+            Value::String {
+                val: dt.with_timezone(dt.offset()).to_rfc2822(),
                 span,
             }
         }
