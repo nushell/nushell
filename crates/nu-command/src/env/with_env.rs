@@ -63,7 +63,7 @@ impl Command for WithEnv {
             },
             Example {
                 description: "Set by row(e.g. `open x.json` or `from json`)",
-                example: r#"echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $env.X $env.W }"#,
+                example: r#"echo '{"X":"Y","W":"Z"}'|from json|with-env $in { echo $env.X $env.W }"#,
                 result: None,
             },
         ]
