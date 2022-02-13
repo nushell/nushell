@@ -18,6 +18,6 @@ strip ansi escape sequences from string
 
 strip ansi escape sequences from string
 ```shell
-echo [ (ansi green) (ansi cursor_on) "hello" ] | str collect | ansi strip
+> echo [ (ansi green) (ansi cursor_on) "hello" ] | str collect | ansi strip
 ```
 

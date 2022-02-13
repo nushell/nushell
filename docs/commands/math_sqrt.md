@@ -14,6 +14,6 @@ Applies the square root function to a list of numbers
 
 Apply the square root function to a list of numbers
 ```shell
-[9 16] | math sqrt
+> [9 16] | math sqrt
 ```
 

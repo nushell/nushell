@@ -22,16 +22,16 @@ base64 encode or decode a value
 
 Base64 encode a string with default settings
 ```shell
-echo 'username:password' | hash base64
+> echo 'username:password' | hash base64
 ```
 
 Base64 encode a string with the binhex character set
 ```shell
-echo 'username:password' | hash base64 --character_set binhex --encode
+> echo 'username:password' | hash base64 --character_set binhex --encode
 ```
 
 Base64 decode a value
 ```shell
-echo 'dXNlcm5hbWU6cGFzc3dvcmQ=' | hash base64 --decode
+> echo 'dXNlcm5hbWU6cGFzc3dvcmQ=' | hash base64 --decode
 ```
 

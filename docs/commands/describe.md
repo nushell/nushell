@@ -14,6 +14,6 @@ Describe the value(s) piped in.
 
 Describe the type of a string
 ```shell
-'hello' | describe
+> 'hello' | describe
 ```
 

@@ -18,6 +18,6 @@ gets the host of a url
 
 Get host of a url
 ```shell
-echo 'http://www.example.com/foo/bar' | url host
+> echo 'http://www.example.com/foo/bar' | url host
 ```
 

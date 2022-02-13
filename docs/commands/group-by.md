@@ -18,11 +18,11 @@ Create a new table grouped.
 
 group items by column named "type"
 ```shell
-ls | group-by type
+> ls | group-by type
 ```
 
 you can also group by raw values by leaving out the argument
 ```shell
-echo ['1' '3' '1' '3' '2' '1' '1'] | group-by
+> echo ['1' '3' '1' '3' '2' '1' '1'] | group-by
 ```
 

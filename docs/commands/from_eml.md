@@ -18,7 +18,7 @@ Parse text as .eml and create table.
 
 Convert eml structured data into table
 ```shell
-'From: test@email.com
+> 'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
 
@@ -27,7 +27,7 @@ Test' | from eml
 
 Convert eml structured data into table
 ```shell
-'From: test@email.com
+> 'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
 

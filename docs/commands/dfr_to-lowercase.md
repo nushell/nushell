@@ -14,6 +14,6 @@ Lowercase the strings in the column
 
 Modifies strings to lowercase
 ```shell
-[Abc aBc abC] | dfr to-df | dfr to-lowercase
+> [Abc aBc abC] | dfr to-df | dfr to-lowercase
 ```
 

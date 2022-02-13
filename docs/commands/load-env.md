@@ -18,11 +18,11 @@ Loads an environment update from a record.
 
 Load variables from an input stream
 ```shell
-{NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME
+> {NAME: ABE, AGE: UNKNOWN} | load-env; echo $env.NAME
 ```
 
 Load variables from an argument
 ```shell
-load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME
+> load-env {NAME: ABE, AGE: UNKNOWN}; echo $env.NAME
 ```
 

@@ -14,6 +14,6 @@ Gets the median of a list of numbers
 
 Get the median of a list of numbers
 ```shell
-[3 8 9 12 12 15] | math median
+> [3 8 9 12 12 15] | math median
 ```
 

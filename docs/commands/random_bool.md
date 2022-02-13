@@ -18,11 +18,11 @@ Generate a random boolean value
 
 Generate a random boolean value
 ```shell
-random bool
+> random bool
 ```
 
 Generate a random boolean value with a 75% chance of "true"
 ```shell
-random bool --bias 0.75
+> random bool --bias 0.75
 ```
 

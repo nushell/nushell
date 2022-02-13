@@ -14,7 +14,7 @@ Parse text as .ini and create table
 
 Converts ini formatted string to table
 ```shell
-'[foo]
+> '[foo]
 a=1
 b=2' | from ini
 ```

@@ -18,11 +18,11 @@ Show only the first number of rows.
 
 Return the first item of a list/table
 ```shell
-[1 2 3] | first
+> [1 2 3] | first
 ```
 
 Return the first 2 items of a list/table
 ```shell
-[1 2 3] | first 2
+> [1 2 3] | first 2
 ```
 

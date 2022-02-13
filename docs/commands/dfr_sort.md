@@ -19,11 +19,11 @@ Creates new sorted dataframe or series
 
 Create new sorted dataframe
 ```shell
-[[a b]; [3 4] [1 2]] | dfr to-df | dfr sort a
+> [[a b]; [3 4] [1 2]] | dfr to-df | dfr sort a
 ```
 
 Create new sorted series
 ```shell
-[3 4 1 2] | dfr to-df | dfr sort
+> [3 4 1 2] | dfr to-df | dfr sort
 ```
 

@@ -18,6 +18,6 @@ Renames a series
 
 Renames a series
 ```shell
-[5 6 7 8] | dfr to-df | dfr rename new_name
+> [5 6 7 8] | dfr to-df | dfr rename new_name
 ```
 

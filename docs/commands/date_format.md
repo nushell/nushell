@@ -18,16 +18,16 @@ Format a given date using the given format string.
 
 Format a given date using the given format string.
 ```shell
-date format '%Y-%m-%d'
+> date format '%Y-%m-%d'
 ```
 
 Format a given date using the given format string.
 ```shell
-date format "%Y-%m-%d %H:%M:%S"
+> date format "%Y-%m-%d %H:%M:%S"
 ```
 
 Format a given date using the given format string.
 ```shell
-"2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d"
+> "2021-10-22 20:00:12 +01:00" | date format "%Y-%m-%d"
 ```
 

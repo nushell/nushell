@@ -18,6 +18,6 @@ Shifts the values by a given period
 
 Shifts the values by a given period
 ```shell
-[1 2 2 3 3] | dfr to-df | dfr shift 2 | dfr drop-nulls
+> [1 2 2 3 3] | dfr to-df | dfr shift 2 | dfr drop-nulls
 ```
 

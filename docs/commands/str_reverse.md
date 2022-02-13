@@ -18,6 +18,6 @@ outputs the reversals of the strings in the pipeline
 
 Return the reversals of multiple strings
 ```shell
-'Nushell' | str reverse
+> 'Nushell' | str reverse
 ```
 

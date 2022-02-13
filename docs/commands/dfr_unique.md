@@ -14,6 +14,6 @@ Returns unique values from a series
 
 Returns unique values from a series
 ```shell
-[2 2 2 2 2] | dfr to-df | dfr unique
+> [2 2 2 2 2] | dfr to-df | dfr unique
 ```
 

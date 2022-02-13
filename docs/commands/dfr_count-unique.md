@@ -14,6 +14,6 @@ Counts unique values
 
 Counts unique values
 ```shell
-[1 1 2 2 3 3 4] | dfr to-df | dfr count-unique
+> [1 1 2 2 3 3 4] | dfr to-df | dfr count-unique
 ```
 

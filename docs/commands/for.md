@@ -21,16 +21,16 @@ Loop over a range
 
 Echo the square of each integer
 ```shell
-for x in [1 2 3] { $x * $x }
+> for x in [1 2 3] { $x * $x }
 ```
 
 Work with elements of a range
 ```shell
-for $x in 1..3 { $x }
+> for $x in 1..3 { $x }
 ```
 
 Number each item and echo a message
 ```shell
-for $it in ['bob' 'fred'] --numbered { $"($it.index) is ($it.item)" }
+> for $it in ['bob' 'fred'] --numbered { $"($it.index) is ($it.item)" }
 ```
 

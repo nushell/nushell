@@ -20,21 +20,21 @@ Get the parent directory of a path
 
 Get dirname of a path
 ```shell
-'/home/joe/code/test.txt' | path dirname
+> '/home/joe/code/test.txt' | path dirname
 ```
 
 Get dirname of a path in a column
 ```shell
-ls ('.' | path expand) | path dirname -c [ name ]
+> ls ('.' | path expand) | path dirname -c [ name ]
 ```
 
 Walk up two levels
 ```shell
-'/home/joe/code/test.txt' | path dirname -n 2
+> '/home/joe/code/test.txt' | path dirname -n 2
 ```
 
 Replace the part that would be returned with a custom path
 ```shell
-'/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking
+> '/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking
 ```
 

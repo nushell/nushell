@@ -14,6 +14,6 @@ Creates mask indicating unique values
 
 Create mask indicating unique values
 ```shell
-[5 6 6 6 8 8 8] | dfr to-df | dfr is-unique
+> [5 6 6 6 8 8 8] | dfr to-df | dfr is-unique
 ```
 

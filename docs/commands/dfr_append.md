@@ -19,13 +19,13 @@ Appends a new dataframe
 
 Appends a dataframe as new columns
 ```shell
-let a = ([[a b]; [1 2] [3 4]] | dfr to-df);
+> let a = ([[a b]; [1 2] [3 4]] | dfr to-df);
     $a | dfr append $a
 ```
 
 Appends a dataframe merging at the end of columns
 ```shell
-let a = ([[a b]; [1 2] [3 4]] | dfr to-df);
+> let a = ([[a b]; [1 2] [3 4]] | dfr to-df);
     $a | dfr append $a --col
 ```
 

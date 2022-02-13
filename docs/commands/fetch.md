@@ -23,16 +23,16 @@ Fetch the contents from a URL (HTTP GET operation).
 
 Fetch content from url.com
 ```shell
-fetch url.com
+> fetch url.com
 ```
 
 Fetch content from url.com, with username and password
 ```shell
-fetch -u myuser -p mypass url.com
+> fetch -u myuser -p mypass url.com
 ```
 
 Fetch content from url.com, with custom header
 ```shell
-fetch -H [my-header-key my-header-value] url.com
+> fetch -H [my-header-key my-header-value] url.com
 ```
 

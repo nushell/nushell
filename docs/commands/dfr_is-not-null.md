@@ -14,7 +14,7 @@ Creates mask where value is not null
 
 Create mask where values are not null
 ```shell
-let s = ([5 6 0 8] | dfr to-df);
+> let s = ([5 6 0 8] | dfr to-df);
     let res = ($s / $s);
     $res | dfr is-not-null
 ```

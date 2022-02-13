@@ -18,26 +18,26 @@ Flatten the table.
 
 flatten a table
 ```shell
-[[N, u, s, h, e, l, l]] | flatten 
+> [[N, u, s, h, e, l, l]] | flatten 
 ```
 
 flatten a table, get the first item
 ```shell
-[[N, u, s, h, e, l, l]] | flatten | first
+> [[N, u, s, h, e, l, l]] | flatten | first
 ```
 
 flatten a column having a nested table
 ```shell
-[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal
+> [[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten | get meal
 ```
 
 restrict the flattening by passing column names
 ```shell
-[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions
+> [[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions | last | get versions
 ```
 
 Flatten inner table
 ```shell
-{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten
+> { a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten
 ```
 

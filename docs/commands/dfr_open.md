@@ -23,6 +23,6 @@ Opens csv, json or parquet file to create dataframe
 
 Takes a file name and creates a dataframe
 ```shell
-dfr open test.csv
+> dfr open test.csv
 ```
 

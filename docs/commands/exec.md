@@ -19,11 +19,11 @@ Execute a command, replacing the current process.
 
 Execute external 'ps aux' tool
 ```shell
-exec ps aux
+> exec ps aux
 ```
 
 Execute 'nautilus'
 ```shell
-exec nautilus
+> exec nautilus
 ```
 

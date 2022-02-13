@@ -14,6 +14,6 @@ View information about the system.
 
 Show info about the system
 ```shell
-sys
+> sys
 ```
 

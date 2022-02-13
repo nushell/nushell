@@ -23,16 +23,16 @@ Convert table into simple HTML
 
 Outputs an  HTML string representing the contents of this table
 ```shell
-[[foo bar]; [1 2]] | to html
+> [[foo bar]; [1 2]] | to html
 ```
 
 Optionally, only output the html for the content itself
 ```shell
-[[foo bar]; [1 2]] | to html --partial
+> [[foo bar]; [1 2]] | to html --partial
 ```
 
 Optionally, output the string with a dark background
 ```shell
-[[foo bar]; [1 2]] | to html --dark
+> [[foo bar]; [1 2]] | to html --dark
 ```
 

@@ -18,11 +18,11 @@ Test if every element of the input matches a predicate.
 
 Find if services are running
 ```shell
-echo [[status]; [UP] [UP]] | all? status == UP
+> echo [[status]; [UP] [UP]] | all? status == UP
 ```
 
 Check that all values are even
 ```shell
-echo [2 4 6 8] | all? ($it mod 2) == 0
+> echo [2 4 6 8] | all? ($it mod 2) == 0
 ```
 

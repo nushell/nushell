@@ -18,6 +18,6 @@ Keep elements of the input while a predicate is true.
 
 Keep while the element is negative
 ```shell
-echo [-1 -2 9 1] | keep while $it < 0
+> echo [-1 -2 9 1] | keep while $it < 0
 ```
 

@@ -20,31 +20,31 @@ Sort by the given columns, in increasing order.
 
 sort the list by increasing value
 ```shell
-[2 0 1] | sort-by
+> [2 0 1] | sort-by
 ```
 
 sort the list by decreasing value
 ```shell
-[2 0 1] | sort-by -r
+> [2 0 1] | sort-by -r
 ```
 
 sort a list of strings
 ```shell
-[betty amy sarah] | sort-by
+> [betty amy sarah] | sort-by
 ```
 
 sort a list of strings in reverse
 ```shell
-[betty amy sarah] | sort-by -r
+> [betty amy sarah] | sort-by -r
 ```
 
 Sort strings (case-insensitive)
 ```shell
-echo [airplane Truck Car] | sort-by -i
+> echo [airplane Truck Car] | sort-by -i
 ```
 
 Sort strings (reversed case-insensitive)
 ```shell
-echo [airplane Truck Car] | sort-by -i -r
+> echo [airplane Truck Car] | sort-by -i -r
 ```
 

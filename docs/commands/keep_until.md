@@ -18,6 +18,6 @@ Keep elements of the input until a predicate is true.
 
 Keep until the element is positive
 ```shell
-echo [-1 -2 9 1] | keep until $it > 0
+> echo [-1 -2 9 1] | keep until $it > 0
 ```
 

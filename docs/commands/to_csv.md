@@ -19,11 +19,11 @@ Convert table into .csv text
 
 Outputs an CSV string representing the contents of this table
 ```shell
-[[foo bar]; [1 2]] | to csv
+> [[foo bar]; [1 2]] | to csv
 ```
 
 Outputs an CSV string representing the contents of this table
 ```shell
-[[foo bar]; [1 2]] | to csv -s ';' 
+> [[foo bar]; [1 2]] | to csv -s ';' 
 ```
 

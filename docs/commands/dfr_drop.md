@@ -18,6 +18,6 @@ Creates a new dataframe by dropping the selected columns
 
 drop column a
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr drop a
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr drop a
 ```
 

@@ -18,6 +18,6 @@ Skip elements of the input until a predicate is true.
 
 Skip until the element is positive
 ```shell
-echo [-2 0 2 -1] | skip until $it > 0
+> echo [-2 0 2 -1] | skip until $it > 0
 ```
 

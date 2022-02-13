@@ -18,11 +18,11 @@ Get the metadata for items in the stream
 
 Get the metadata of a variable
 ```shell
-metadata $a
+> metadata $a
 ```
 
 Get the metadata of the input
 ```shell
-ls | metadata
+> ls | metadata
 ```
 

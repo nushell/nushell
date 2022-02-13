@@ -18,11 +18,11 @@ Returns indexes for a sorted series
 
 Returns indexes for a sorted series
 ```shell
-[1 2 2 3 3] | dfr to-df | dfr arg-sort
+> [1 2 2 3 3] | dfr to-df | dfr arg-sort
 ```
 
 Returns indexes for a sorted series
 ```shell
-[1 2 2 3 3] | dfr to-df | dfr arg-sort -r
+> [1 2 2 3 3] | dfr to-df | dfr arg-sort -r
 ```
 

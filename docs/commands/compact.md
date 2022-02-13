@@ -18,16 +18,16 @@ Creates a table with non-empty rows.
 
 Filter out all records where 'Hello' is null (returns nothing)
 ```shell
-echo [["Hello" "World"]; [$nothing 3]]| compact Hello
+> echo [["Hello" "World"]; [$nothing 3]]| compact Hello
 ```
 
 Filter out all records where 'World' is null (Returns the table)
 ```shell
-echo [["Hello" "World"]; [$nothing 3]]| compact World
+> echo [["Hello" "World"]; [$nothing 3]]| compact World
 ```
 
 Filter out all instances of nothing from a list (Returns [1,2]
 ```shell
-echo [1, $nothing, 2] | compact
+> echo [1, $nothing, 2] | compact
 ```
 

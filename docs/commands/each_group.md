@@ -19,6 +19,6 @@ Runs a block on groups of `group_size` rows of a table at a time.
 
 Echo the sum of each pair
 ```shell
-echo [1 2 3 4] | each group 2 { $it.0 + $it.1 }
+> echo [1 2 3 4] | each group 2 { $it.0 + $it.1 }
 ```
 

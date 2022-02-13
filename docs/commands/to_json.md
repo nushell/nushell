@@ -18,6 +18,6 @@ Converts table data into JSON text.
 
 Outputs an unformatted JSON string representing the contents of this table
 ```shell
-[1 2 3] | to json
+> [1 2 3] | to json
 ```
 

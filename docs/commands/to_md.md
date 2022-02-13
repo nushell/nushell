@@ -19,16 +19,16 @@ Convert table into simple Markdown
 
 Outputs an MD string representing the contents of this table
 ```shell
-[[foo bar]; [1 2]] | to md
+> [[foo bar]; [1 2]] | to md
 ```
 
 Optionally, output a formatted markdown string
 ```shell
-[[foo bar]; [1 2]] | to md --pretty
+> [[foo bar]; [1 2]] | to md --pretty
 ```
 
 Treat each row as a markdown element
 ```shell
-[{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty
+> [{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty
 ```
 

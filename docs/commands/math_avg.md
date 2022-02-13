@@ -14,6 +14,6 @@ Finds the average of a list of numbers or tables
 
 Get the average of a list of numbers
 ```shell
-[-50 100.0 25] | math avg
+> [-50 100.0 25] | math avg
 ```
 

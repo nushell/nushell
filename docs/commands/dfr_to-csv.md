@@ -20,11 +20,11 @@ Saves dataframe to csv file
 
 Saves dataframe to csv file
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-csv test.csv
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr to-csv test.csv
 ```
 
 Saves dataframe to csv file using other delimiter
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-csv test.csv -d '|'
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr to-csv test.csv -d '|'
 ```
 

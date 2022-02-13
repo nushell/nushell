@@ -20,16 +20,16 @@ Move columns before or after other columns
 
 Move a column before the first column
 ```shell
-[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name
+> [[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name
 ```
 
 Move multiple columns after the last column and reorder them
 ```shell
-[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index
+> [[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index
 ```
 
 Move columns of a record
 ```shell
-{ name: foo, value: a, index: 1 } | move name --before index
+> { name: foo, value: a, index: 1 } | move name --before index
 ```
 

@@ -19,11 +19,11 @@ Parse columns from string data using a simple pattern.
 
 Parse a string into two named columns
 ```shell
-echo "hi there" | parse "{foo} {bar}"
+> echo "hi there" | parse "{foo} {bar}"
 ```
 
 Parse a string using regex pattern
 ```shell
-echo "hi there" | parse -r "(?P<foo>\w+) (?P<bar>\w+)"
+> echo "hi there" | parse -r "(?P<foo>\w+) (?P<bar>\w+)"
 ```
 

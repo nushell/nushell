@@ -18,16 +18,16 @@ capitalizes text
 
 Capitalize contents
 ```shell
-'good day' | str capitalize
+> 'good day' | str capitalize
 ```
 
 Capitalize contents
 ```shell
-'anton' | str capitalize
+> 'anton' | str capitalize
 ```
 
 Capitalize a column in a table
 ```shell
-[[lang, gems]; [nu_test, 100]] | str capitalize lang
+> [[lang, gems]; [nu_test, 100]] | str capitalize lang
 ```
 

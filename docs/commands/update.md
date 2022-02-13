@@ -19,11 +19,11 @@ Update an existing column to have a new value.
 
 Update a column value
 ```shell
-echo {'name': 'nu', 'stars': 5} | update name 'Nushell'
+> echo {'name': 'nu', 'stars': 5} | update name 'Nushell'
 ```
 
 Use in block form for more involved updating logic
 ```shell
-echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }
+> echo [[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { get authors | str collect ',' }
 ```
 

@@ -18,11 +18,11 @@ Finds the stddev of a list of numbers or tables
 
 Get the stddev of a list of numbers
 ```shell
-[1 2 3 4 5] | math stddev
+> [1 2 3 4 5] | math stddev
 ```
 
 Get the sample stddev of a list of numbers
 ```shell
-[1 2 3 4 5] | math stddev -s
+> [1 2 3 4 5] | math stddev -s
 ```
 

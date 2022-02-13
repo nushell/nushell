@@ -18,11 +18,11 @@ Skip the first n elements of the input.
 
 Skip two elements
 ```shell
-echo [[editions]; [2015] [2018] [2021]] | skip 2
+> echo [[editions]; [2015] [2018] [2021]] | skip 2
 ```
 
 Skip the first value
 ```shell
-echo [2 4 6 8] | skip
+> echo [2 4 6 8] | skip
 ```
 

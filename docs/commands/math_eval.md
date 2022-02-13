@@ -18,6 +18,6 @@ Evaluate a math expression into a number
 
 Evalulate math in the pipeline
 ```shell
-'10 / 4' | math eval
+> '10 / 4' | math eval
 ```
 

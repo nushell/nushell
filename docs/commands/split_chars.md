@@ -14,6 +14,6 @@ splits a string's characters into separate rows
 
 Split the string's characters into separate rows
 ```shell
-'hello' | split chars
+> 'hello' | split chars
 ```
 

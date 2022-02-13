@@ -18,6 +18,6 @@ Combine a stream with the input
 
 Zip multiple streams and get one of the results
 ```shell
-1..3 | zip 4..6
+> 1..3 | zip 4..6
 ```
 

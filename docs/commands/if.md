@@ -20,16 +20,16 @@ Conditionally run a block.
 
 Output a value if a condition matches, otherwise return nothing
 ```shell
-if 2 < 3 { 'yes!' }
+> if 2 < 3 { 'yes!' }
 ```
 
 Output a value if a condition matches, else return another value
 ```shell
-if 5 < 3 { 'yes!' } else { 'no!' }
+> if 5 < 3 { 'yes!' } else { 'no!' }
 ```
 
 Chain multiple if's together
 ```shell
-if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }
+> if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }
 ```
 

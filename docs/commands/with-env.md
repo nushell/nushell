@@ -19,21 +19,21 @@ Runs a block with an environment variable set.
 
 Set the MYENV environment variable
 ```shell
-with-env [MYENV "my env value"] { $env.MYENV }
+> with-env [MYENV "my env value"] { $env.MYENV }
 ```
 
 Set by primitive value list
 ```shell
-with-env [X Y W Z] { $env.X }
+> with-env [X Y W Z] { $env.X }
 ```
 
 Set by single row table
 ```shell
-with-env [[X W]; [Y Z]] { $env.W }
+> with-env [[X W]; [Y Z]] { $env.W }
 ```
 
 Set by row(e.g. `open x.json` or `from json`)
 ```shell
-echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $env.X $env.W }
+> echo '{"X":"Y","W":"Z"}'|from json|with-env $it { echo $env.X $env.W }
 ```
 

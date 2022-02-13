@@ -20,13 +20,13 @@ Parse text as space-separated values and create a table. The default minimum num
 
 Converts ssv formatted string to table
 ```shell
-'FOO   BAR
+> 'FOO   BAR
 1   2' | from ssv
 ```
 
 Converts ssv formatted string to table but not treating the first row as column names
 ```shell
-'FOO   BAR
+> 'FOO   BAR
 1   2' | from ssv -n
 ```
 

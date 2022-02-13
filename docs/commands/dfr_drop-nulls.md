@@ -18,7 +18,7 @@ Drops null values in dataframe
 
 drop null values in dataframe
 ```shell
-let df = ([[a b]; [1 2] [3 0] [1 2]] | dfr to-df);
+> let df = ([[a b]; [1 2] [3 0] [1 2]] | dfr to-df);
     let res = ($df.b / $df.b);
     let a = ($df | dfr with-column $res --name res);
     $a | dfr drop-nulls
@@ -26,7 +26,7 @@ let df = ([[a b]; [1 2] [3 0] [1 2]] | dfr to-df);
 
 drop null values in dataframe
 ```shell
-let s = ([1 2 0 0 3 4] | dfr to-df);
+> let s = ([1 2 0 0 3 4] | dfr to-df);
     ($s / $s) | dfr drop-nulls
 ```
 

@@ -14,6 +14,6 @@ Convert table into .toml text
 
 Outputs an TOML string representing the contents of this table
 ```shell
-[[foo bar]; ["1" "2"]] | to toml
+> [[foo bar]; ["1" "2"]] | to toml
 ```
 

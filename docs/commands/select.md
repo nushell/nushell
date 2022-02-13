@@ -18,11 +18,11 @@ Down-select table to only these columns.
 
 Select just the name column
 ```shell
-ls | select name
+> ls | select name
 ```
 
 Select the name and size columns
 ```shell
-ls | select name size
+> ls | select name size
 ```
 

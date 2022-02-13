@@ -23,6 +23,6 @@ Find disk usage sizes of specified items.
 
 Disk usage of the current directory
 ```shell
-du
+> du
 ```
 

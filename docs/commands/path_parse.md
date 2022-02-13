@@ -19,21 +19,21 @@ Convert a path into structured data.
 
 Parse a path
 ```shell
-'/home/viking/spam.txt' | path parse
+> '/home/viking/spam.txt' | path parse
 ```
 
 Replace a complex extension
 ```shell
-'/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }
+> '/home/viking/spam.tar.gz' | path parse -e tar.gz | update extension { 'txt' }
 ```
 
 Ignore the extension
 ```shell
-'/etc/conf.d' | path parse -e ''
+> '/etc/conf.d' | path parse -e ''
 ```
 
 Parse all paths under the 'name' column
 ```shell
-ls | path parse -c [ name ]
+> ls | path parse -c [ name ]
 ```
 

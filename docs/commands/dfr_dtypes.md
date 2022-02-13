@@ -14,6 +14,6 @@ Show dataframe data types
 
 Dataframe dtypes
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr dtypes
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr dtypes
 ```
 

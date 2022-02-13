@@ -21,26 +21,26 @@ Print sequences of numbers.
 
 sequence 1 to 10 with newline separator
 ```shell
-seq 1 10
+> seq 1 10
 ```
 
 sequence 1.0 to 2.0 by 0.1s with newline separator
 ```shell
-seq 1.0 0.1 2.0
+> seq 1.0 0.1 2.0
 ```
 
 sequence 1 to 10 with pipe separator
 ```shell
-seq -s '|' 1 10
+> seq -s '|' 1 10
 ```
 
 sequence 1 to 10 with pipe separator padded with 0
 ```shell
-seq -s '|' -w 1 10
+> seq -s '|' -w 1 10
 ```
 
 sequence 1 to 10 with pipe separator padded by 2s
 ```shell
-seq -s ' | ' -w 1 2 10
+> seq -s ' | ' -w 1 2 10
 ```
 

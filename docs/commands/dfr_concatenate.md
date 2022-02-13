@@ -18,7 +18,7 @@ Concatenates strings with other array
 
 Concatenate string
 ```shell
-let other = ([za xs cd] | dfr to-df);
+> let other = ([za xs cd] | dfr to-df);
     [abc abc abc] | dfr to-df | dfr concatenate $other
 ```
 

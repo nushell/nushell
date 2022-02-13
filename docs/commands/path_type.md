@@ -18,11 +18,11 @@ Get the type of the object a path refers to (e.g., file, dir, symlink)
 
 Show type of a filepath
 ```shell
-'.' | path type
+> '.' | path type
 ```
 
 Show type of a filepath in a column
 ```shell
-ls | path type -c [ name ]
+> ls | path type -c [ name ]
 ```
 

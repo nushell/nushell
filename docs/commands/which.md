@@ -20,6 +20,6 @@ Finds a program file, alias or custom command.
 
 Find if the 'myapp' application is available
 ```shell
-which myapp
+> which myapp
 ```
 

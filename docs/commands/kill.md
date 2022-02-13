@@ -22,16 +22,16 @@ Kill a process using the process id.
 
 Kill the pid using the most memory
 ```shell
-ps | sort-by mem | last | kill $in.pid
+> ps | sort-by mem | last | kill $in.pid
 ```
 
 Force kill a given pid
 ```shell
-kill --force 12345
+> kill --force 12345
 ```
 
 Send INT signal
 ```shell
-kill -s 2 12345
+> kill -s 2 12345
 ```
 

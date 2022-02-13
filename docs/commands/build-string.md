@@ -18,11 +18,11 @@ Create a string from the arguments.
 
 Builds a string from letters a b c
 ```shell
-build-string a b c
+> build-string a b c
 ```
 
 Builds a string from letters a b c
 ```shell
-build-string (1 + 2) = one ' ' plus ' ' two
+> build-string (1 + 2) = one ' ' plus ' ' two
 ```
 

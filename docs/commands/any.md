@@ -18,11 +18,11 @@ Tests if any element of the input matches a predicate.
 
 Find if a service is not running
 ```shell
-echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN
+> echo [[status]; [UP] [DOWN] [UP]] | any? status == DOWN
 ```
 
 Check if any of the values is odd
 ```shell
-echo [2 4 1 6 8] | any? ($it mod 2) == 1
+> echo [2 4 1 6 8] | any? ($it mod 2) == 1
 ```
 

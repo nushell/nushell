@@ -14,6 +14,6 @@ Finds the minimum within a list of numbers or tables
 
 Get the minimum of a list of numbers
 ```shell
-[-50 100 25] | math min
+> [-50 100 25] | math min
 ```
 

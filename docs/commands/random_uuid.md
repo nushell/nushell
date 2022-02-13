@@ -14,6 +14,6 @@ Generate a random uuid4 string
 
 Generate a random uuid4 string
 ```shell
-random uuid
+> random uuid
 ```
 

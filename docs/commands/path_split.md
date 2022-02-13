@@ -18,11 +18,11 @@ Split a path into parts by a separator.
 
 Split a path into parts
 ```shell
-'/home/viking/spam.txt' | path split
+> '/home/viking/spam.txt' | path split
 ```
 
 Split all paths under the 'name' column
 ```shell
-ls ('.' | path expand) | path split -c [ name ]
+> ls ('.' | path expand) | path split -c [ name ]
 ```
 

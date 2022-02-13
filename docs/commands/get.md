@@ -20,21 +20,21 @@ Extract data using a cell path.
 
 Extract the name of files as a list
 ```shell
-ls | get name
+> ls | get name
 ```
 
 Extract the name of the 3rd entry of a file list
 ```shell
-ls | get name.2
+> ls | get name.2
 ```
 
 Extract the name of the 3rd entry of a file list (alternative)
 ```shell
-ls | get 2.name
+> ls | get 2.name
 ```
 
 Extract the cpu list from the sys information record
 ```shell
-sys | get cpu
+> sys | get cpu
 ```
 

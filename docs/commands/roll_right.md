@@ -19,11 +19,11 @@ Roll table columns right
 
 Rolls columns to the right
 ```shell
-[[a b c]; [1 2 3] [4 5 6]] | roll right
+> [[a b c]; [1 2 3] [4 5 6]] | roll right
 ```
 
 Rolls columns to the right with fixed headers
 ```shell
-[[a b c]; [1 2 3] [4 5 6]] | roll right --cells-only
+> [[a b c]; [1 2 3] [4 5 6]] | roll right --cells-only
 ```
 

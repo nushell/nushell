@@ -14,6 +14,6 @@ format numbers
 
 format numbers
 ```shell
-42 | fmt
+> 42 | fmt
 ```
 

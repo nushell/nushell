@@ -14,7 +14,7 @@ Parse text as .vcf and create table.
 
 Converts ics formatted string to table
 ```shell
-'BEGIN:VCARD
+> 'BEGIN:VCARD
 N:Foo
 FN:Bar
 EMAIL:foo@bar.com

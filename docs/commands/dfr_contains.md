@@ -18,6 +18,6 @@ Checks if a pattern is contained in a string
 
 Returns boolean indicating if pattern was found
 ```shell
-[abc acb acb] | dfr to-df | dfr contains ab
+> [abc acb acb] | dfr to-df | dfr contains ab
 ```
 

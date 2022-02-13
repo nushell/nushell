@@ -14,6 +14,6 @@ Return index for max value in series
 
 Returns index for max value
 ```shell
-[1 3 2] | dfr to-df | dfr arg-max
+> [1 3 2] | dfr to-df | dfr arg-max
 ```
 

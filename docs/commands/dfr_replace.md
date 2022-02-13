@@ -19,6 +19,6 @@ Replace the leftmost (sub)string by a regex pattern
 
 Replaces string
 ```shell
-[abc abc abc] | dfr to-df | dfr replace -p ab -r AB
+> [abc abc abc] | dfr to-df | dfr replace -p ab -r AB
 ```
 

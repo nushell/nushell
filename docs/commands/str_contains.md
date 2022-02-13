@@ -20,31 +20,31 @@ Checks if string contains pattern
 
 Check if string contains pattern
 ```shell
-'my_library.rb' | str contains '.rb'
+> 'my_library.rb' | str contains '.rb'
 ```
 
 Check if string contains pattern case insensitive
 ```shell
-'my_library.rb' | str contains -i '.RB'
+> 'my_library.rb' | str contains -i '.RB'
 ```
 
 Check if string contains pattern in a table
 ```shell
- [[ColA ColB]; [test 100]] | str contains 'e' ColA
+>  [[ColA ColB]; [test 100]] | str contains 'e' ColA
 ```
 
 Check if string contains pattern in a table
 ```shell
- [[ColA ColB]; [test 100]] | str contains -i 'E' ColA
+>  [[ColA ColB]; [test 100]] | str contains -i 'E' ColA
 ```
 
 Check if string contains pattern in a table
 ```shell
- [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB
+>  [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB
 ```
 
 Check if string contains pattern
 ```shell
-'hello' | str contains 'banana'
+> 'hello' | str contains 'banana'
 ```
 

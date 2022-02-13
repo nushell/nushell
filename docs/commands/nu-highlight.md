@@ -14,6 +14,6 @@ Syntax highlight the input string.
 
 Describe the type of a string
 ```shell
-'let x = 3' | nu-highlight
+> 'let x = 3' | nu-highlight
 ```
 

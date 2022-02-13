@@ -14,6 +14,6 @@ Creates mask indicating duplicated values
 
 Create mask indicating duplicated values
 ```shell
-[5 6 6 6 8 8 8] | dfr to-df | dfr is-duplicated
+> [5 6 6 6 8 8 8] | dfr to-df | dfr is-duplicated
 ```
 

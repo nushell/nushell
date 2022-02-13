@@ -19,6 +19,6 @@ Runs a block on groups of `group_size` rows of a table at a time.
 
 Multiplies elements in list
 ```shell
-echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }
+> echo [1 2 3 4] | par-each group 2 { $it.0 + $it.1 }
 ```
 

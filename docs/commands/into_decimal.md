@@ -18,16 +18,16 @@ converts text into decimal
 
 Convert string to integer in table
 ```shell
-[[num]; ['5.01']] | into decimal num
+> [[num]; ['5.01']] | into decimal num
 ```
 
 Convert string to integer
 ```shell
-'1.345' | into decimal
+> '1.345' | into decimal
 ```
 
 Convert decimal to integer
 ```shell
-'-5.9' | into decimal
+> '-5.9' | into decimal
 ```
 

@@ -19,21 +19,21 @@ Parse text as .csv and create table.
 
 Convert comma-separated data to a table
 ```shell
-open data.txt | from csv
+> open data.txt | from csv
 ```
 
 Convert comma-separated data to a table, ignoring headers
 ```shell
-open data.txt | from csv --noheaders
+> open data.txt | from csv --noheaders
 ```
 
 Convert comma-separated data to a table, ignoring headers
 ```shell
-open data.txt | from csv -n
+> open data.txt | from csv -n
 ```
 
 Convert semicolon-separated data to a table
 ```shell
-open data.txt | from csv --separator ';'
+> open data.txt | from csv --separator ';'
 ```
 

@@ -18,11 +18,11 @@ Merge a table into an input table
 
 Merge an index column into the input table
 ```shell
-[a b c] | wrap name | merge { [1 2 3] | wrap index }
+> [a b c] | wrap name | merge { [1 2 3] | wrap index }
 ```
 
 Merge two records
 ```shell
-{a: 1, b: 2} | merge { {c: 3} }
+> {a: 1, b: 2} | merge { {c: 3} }
 ```
 

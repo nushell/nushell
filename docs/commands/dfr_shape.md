@@ -14,6 +14,6 @@ Shows column and row size for a dataframe
 
 Shows row and column shape
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr shape
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr shape
 ```
 

@@ -19,21 +19,21 @@ Join a structured path or a list of path parts.
 
 Append a filename to a path
 ```shell
-'/home/viking' | path join spam.txt
+> '/home/viking' | path join spam.txt
 ```
 
 Append a filename to a path inside a column
 ```shell
-ls | path join spam.txt -c [ name ]
+> ls | path join spam.txt -c [ name ]
 ```
 
 Join a list of parts into a path
 ```shell
-[ '/' 'home' 'viking' 'spam.txt' ] | path join
+> [ '/' 'home' 'viking' 'spam.txt' ] | path join
 ```
 
 Join a structured path into a path
 ```shell
-[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join
+> [[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join
 ```
 

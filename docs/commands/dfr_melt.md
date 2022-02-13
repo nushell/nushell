@@ -21,6 +21,6 @@ Unpivot a DataFrame from wide to long format
 
 melt dataframe
 ```shell
-[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr to-df | dfr melt -c [b c] -v [a d]
+> [[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr to-df | dfr melt -c [b c] -v [a d]
 ```
 

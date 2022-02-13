@@ -18,11 +18,11 @@ Convert from json to structured data
 
 Converts json formatted string to table
 ```shell
-'{ a:1 }' | from json
+> '{ a:1 }' | from json
 ```
 
 Converts json formatted string to table
 ```shell
-'{ a:1, b: [1, 2] }' | from json
+> '{ a:1, b: [1, 2] }' | from json
 ```
 

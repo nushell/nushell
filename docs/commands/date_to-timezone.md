@@ -18,21 +18,21 @@ Convert a date to a given time zone.
 
 Get the current date in UTC+05:00
 ```shell
-date now | date to-timezone +0500
+> date now | date to-timezone +0500
 ```
 
 Get the current local date
 ```shell
-date now | date to-timezone local
+> date now | date to-timezone local
 ```
 
 Get the current date in Hawaii
 ```shell
-date now | date to-timezone US/Hawaii
+> date now | date to-timezone US/Hawaii
 ```
 
 Get the current date in Hawaii
 ```shell
-"2020-10-10 10:00:00 +02:00" | date to-timezone "+0500"
+> "2020-10-10 10:00:00 +02:00" | date to-timezone "+0500"
 ```
 

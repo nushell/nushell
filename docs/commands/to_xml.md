@@ -18,11 +18,11 @@ Convert table into .xml text
 
 Outputs an XML string representing the contents of this table
 ```shell
-{ "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml
+> { "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml
 ```
 
 Optionally, formats the text with a custom indentation setting
 ```shell
-{ "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml -p 3
+> { "note": { "children": [{ "remember": {"attributes" : {}, "children": [Event]}}], "attributes": {} } } | to xml -p 3
 ```
 

@@ -18,11 +18,11 @@ hash a value using the md5 hash algorithm
 
 md5 encode a string
 ```shell
-echo 'abcdefghijklmnopqrstuvwxyz' | hash md5
+> echo 'abcdefghijklmnopqrstuvwxyz' | hash md5
 ```
 
 md5 encode a file
 ```shell
-open ./nu_0_24_1_windows.zip | hash md5
+> open ./nu_0_24_1_windows.zip | hash md5
 ```
 

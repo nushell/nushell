@@ -18,6 +18,6 @@ Convert table into .tsv text
 
 Outputs an TSV string representing the contents of this table
 ```shell
-[[foo bar]; [1 2]] | to tsv
+> [[foo bar]; [1 2]] | to tsv
 ```
 

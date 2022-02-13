@@ -18,7 +18,7 @@ Filters dataframe using a mask as reference
 
 Filter dataframe using a bool mask
 ```shell
-let mask = ([$true $false] | dfr to-df);
+> let mask = ([$true $false] | dfr to-df);
     [[a b]; [1 2] [3 4]] | dfr to-df | dfr filter-with $mask
 ```
 

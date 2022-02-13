@@ -19,7 +19,7 @@ Sets value where given mask is true
 
 Shifts the values by a given period
 ```shell
-let s = ([1 2 2 3 3] | dfr to-df | dfr shift 2);
+> let s = ([1 2 2 3 3] | dfr to-df | dfr shift 2);
     let mask = ($s | dfr is-null);
     $s | dfr set 0 --mask $mask
 ```

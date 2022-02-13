@@ -22,26 +22,26 @@ converts text into datetime
 
 Convert to datetime
 ```shell
-'16.11.1984 8:00 am +0000' | into datetime
+> '16.11.1984 8:00 am +0000' | into datetime
 ```
 
 Convert to datetime
 ```shell
-'2020-08-04T16:39:18+00:00' | into datetime
+> '2020-08-04T16:39:18+00:00' | into datetime
 ```
 
 Convert to datetime using a custom format
 ```shell
-'20200904_163918+0000' | into datetime -f '%Y%m%d_%H%M%S%z'
+> '20200904_163918+0000' | into datetime -f '%Y%m%d_%H%M%S%z'
 ```
 
 Convert timestamp (no larger than 8e+12) to datetime using a specified timezone
 ```shell
-'1614434140' | into datetime -z 'UTC'
+> '1614434140' | into datetime -z 'UTC'
 ```
 
 Convert timestamp (no larger than 8e+12) to datetime using a specified timezone offset (between -12 and 12)
 ```shell
-'1614434140' | into datetime -o +9
+> '1614434140' | into datetime -o +9
 ```
 

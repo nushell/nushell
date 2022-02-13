@@ -14,6 +14,6 @@ Describes dataframes numeric columns
 
 dataframe description
 ```shell
-[[a b]; [1 1] [1 1]] | dfr to-df | dfr describe
+> [[a b]; [1 1] [1 1]] | dfr to-df | dfr describe
 ```
 

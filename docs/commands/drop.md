@@ -18,16 +18,16 @@ Remove the last number of rows or columns.
 
 Remove the last item of a list/table
 ```shell
-[0,1,2,3] | drop
+> [0,1,2,3] | drop
 ```
 
 Remove zero item of a list/table
 ```shell
-[0,1,2,3] | drop 0
+> [0,1,2,3] | drop 0
 ```
 
 Remove the last two items of a list/table
 ```shell
-[0,1,2,3] | drop 2
+> [0,1,2,3] | drop 2
 ```
 

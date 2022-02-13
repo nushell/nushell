@@ -18,11 +18,11 @@ gets the scheme (eg http, file) of a url
 
 Get scheme of a url
 ```shell
-echo 'http://www.example.com' | url scheme
+> echo 'http://www.example.com' | url scheme
 ```
 
 You get an empty string if there is no scheme
 ```shell
-echo 'test' | url scheme
+> echo 'test' | url scheme
 ```
 

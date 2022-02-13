@@ -18,11 +18,11 @@ outputs the lengths of the strings in the pipeline
 
 Return the lengths of multiple strings
 ```shell
-'hello' | str length
+> 'hello' | str length
 ```
 
 Return the lengths of multiple strings
 ```shell
-['hi' 'there'] | str length
+> ['hi' 'there'] | str length
 ```
 

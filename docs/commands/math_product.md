@@ -14,6 +14,6 @@ Finds the product of a list of numbers or tables
 
 Get the product of a list of numbers
 ```shell
-[2 3 3 4] | math product
+> [2 3 3 4] | math product
 ```
 

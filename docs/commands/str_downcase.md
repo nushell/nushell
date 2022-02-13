@@ -18,21 +18,21 @@ downcases text
 
 Downcase contents
 ```shell
-'NU' | str downcase
+> 'NU' | str downcase
 ```
 
 Downcase contents
 ```shell
-'TESTa' | str downcase
+> 'TESTa' | str downcase
 ```
 
 Downcase contents
 ```shell
-[[ColA ColB]; [Test ABC]] | str downcase ColA
+> [[ColA ColB]; [Test ABC]] | str downcase ColA
 ```
 
 Downcase contents
 ```shell
-[[ColA ColB]; [Test ABC]] | str downcase ColA ColB
+> [[ColA ColB]; [Test ABC]] | str downcase ColA ColB
 ```
 

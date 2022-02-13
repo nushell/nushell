@@ -19,6 +19,6 @@ Slices the string from the start position until the selected length
 
 Creates slices from the strings
 ```shell
-[abcded abc321 abc123] | dfr to-df | dfr str-slice 1 -l 2
+> [abcded abc321 abc123] | dfr to-df | dfr str-slice 1 -l 2
 ```
 

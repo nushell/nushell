@@ -18,11 +18,11 @@ Parse OpenDocument Spreadsheet(.ods) data and create table.
 
 Convert binary .ods data to a table
 ```shell
-open test.txt | from ods
+> open test.txt | from ods
 ```
 
 Convert binary .ods data to a table, specifying the tables
 ```shell
-open test.txt | from ods -s [Spreadsheet1]
+> open test.txt | from ods -s [Spreadsheet1]
 ```
 

@@ -18,21 +18,21 @@ converts a string to snake_case
 
 convert a string to camelCase
 ```shell
- "NuShell" | str snake-case
+>  "NuShell" | str snake-case
 ```
 
 convert a string to camelCase
 ```shell
- "this_is_the_second_case" | str snake-case
+>  "this_is_the_second_case" | str snake-case
 ```
 
 convert a string to camelCase
 ```shell
-"this-is-the-first-case" | str snake-case
+> "this-is-the-first-case" | str snake-case
 ```
 
 convert a column from a table to snake-case
 ```shell
-[[lang, gems]; [nuTest, 100]] | str snake-case lang
+> [[lang, gems]; [nuTest, 100]] | str snake-case lang
 ```
 

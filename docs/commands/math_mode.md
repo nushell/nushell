@@ -14,6 +14,6 @@ Gets the most frequent element(s) from a list of numbers or tables
 
 Get the mode(s) of a list of numbers
 ```shell
-[3 3 9 12 12 15] | math mode
+> [3 3 9 12 12 15] | math mode
 ```
 

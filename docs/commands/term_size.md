@@ -19,16 +19,16 @@ Returns the terminal size
 
 Return the width height of the terminal
 ```shell
-term size
+> term size
 ```
 
 Return the width (columns) of the terminal
 ```shell
-term size -c
+> term size -c
 ```
 
 Return the height (rows) of the terminal
 ```shell
-term size -r
+> term size -r
 ```
 

@@ -18,11 +18,11 @@ gets the query of a url
 
 Get query of a url
 ```shell
-echo 'http://www.example.com/?foo=bar&baz=quux' | url query
+> echo 'http://www.example.com/?foo=bar&baz=quux' | url query
 ```
 
 No query gives the empty string
 ```shell
-echo 'http://www.example.com/' | url query
+> echo 'http://www.example.com/' | url query
 ```
 

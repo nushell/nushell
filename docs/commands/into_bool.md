@@ -18,26 +18,26 @@ Convert value to boolean
 
 Convert value to boolean in table
 ```shell
-echo [[value]; ['false'] ['1'] [0] [1.0] [$true]] | into bool value
+> echo [[value]; ['false'] ['1'] [0] [1.0] [$true]] | into bool value
 ```
 
 Convert bool to boolean
 ```shell
-$true | into bool
+> $true | into bool
 ```
 
 convert decimal to boolean
 ```shell
-1 | into bool
+> 1 | into bool
 ```
 
 convert decimal string to boolean
 ```shell
-'0.0' | into bool
+> '0.0' | into bool
 ```
 
 convert string to boolean
 ```shell
-'true' | into bool
+> 'true' | into bool
 ```
 

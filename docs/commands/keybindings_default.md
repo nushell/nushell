@@ -14,6 +14,6 @@ List default keybindings
 
 Get list with default keybindings
 ```shell
-keybindings default
+> keybindings default
 ```
 

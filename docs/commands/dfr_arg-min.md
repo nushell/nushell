@@ -14,6 +14,6 @@ Return index for min value in series
 
 Returns index for min value
 ```shell
-[1 3 2] | dfr to-df | dfr arg-min
+> [1 3 2] | dfr to-df | dfr arg-min
 ```
 

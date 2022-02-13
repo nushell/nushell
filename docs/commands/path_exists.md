@@ -18,11 +18,11 @@ Check whether a path exists
 
 Check if a file exists
 ```shell
-'/home/joe/todo.txt' | path exists
+> '/home/joe/todo.txt' | path exists
 ```
 
 Check if a file exists in a column
 ```shell
-ls | path exists -c [ name ]
+> ls | path exists -c [ name ]
 ```
 

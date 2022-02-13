@@ -14,11 +14,11 @@ Gather word count statistics on the text.
 
 Count the number of words in a string
 ```shell
-"There are seven words in this sentence" | size
+> "There are seven words in this sentence" | size
 ```
 
 Counts Unicode characters correctly in a string
 ```shell
-"Amélie Amelie" | size
+> "Amélie Amelie" | size
 ```
 

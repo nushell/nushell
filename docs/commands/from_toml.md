@@ -14,12 +14,12 @@ Parse text as .toml and create table.
 
 Converts toml formatted string to table
 ```shell
-'a = 1' | from toml
+> 'a = 1' | from toml
 ```
 
 Converts toml formatted string to table
 ```shell
-'a = 1
+> 'a = 1
 b = [1, 2]' | from toml
 ```
 

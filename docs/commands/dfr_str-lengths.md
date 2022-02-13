@@ -14,6 +14,6 @@ Get lengths of all strings
 
 Returns string lengths
 ```shell
-[a ab abc] | dfr to-df | dfr str-lengths
+> [a ab abc] | dfr to-df | dfr str-lengths
 ```
 

@@ -14,6 +14,6 @@ Display Nu version.
 
 Display Nu version
 ```shell
-version
+> version
 ```
 

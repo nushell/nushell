@@ -18,11 +18,11 @@ Generate random chars
 
 Generate random chars
 ```shell
-random chars
+> random chars
 ```
 
 Generate random chars with specified length
 ```shell
-random chars -l 20
+> random chars -l 20
 ```
 

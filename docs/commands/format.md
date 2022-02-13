@@ -18,11 +18,11 @@ Format columns into a string using a simple pattern.
 
 Print filenames with their sizes
 ```shell
-ls | format '{name}: {size}'
+> ls | format '{name}: {size}'
 ```
 
 Print elements from some columns of a table
 ```shell
-echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'
+> echo [[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'
 ```
 

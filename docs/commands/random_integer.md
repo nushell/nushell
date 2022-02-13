@@ -18,21 +18,21 @@ Generate a random integer [min..max]
 
 Generate an unconstrained random integer
 ```shell
-random integer
+> random integer
 ```
 
 Generate a random integer less than or equal to 500
 ```shell
-random integer ..500
+> random integer ..500
 ```
 
 Generate a random integer greater than or equal to 100000
 ```shell
-random integer 100000..
+> random integer 100000..
 ```
 
 Generate a random integer between 1 and 10
 ```shell
-random integer 1..10
+> random integer 1..10
 ```
 

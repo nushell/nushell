@@ -18,11 +18,11 @@ Parse binary Excel(.xlsx) data and create table.
 
 Convert binary .xlsx data to a table
 ```shell
-open test.txt | from xlsx
+> open test.txt | from xlsx
 ```
 
 Convert binary .xlsx data to a table, specifying the tables
 ```shell
-open test.txt | from xlsx -s [Spreadsheet1]
+> open test.txt | from xlsx -s [Spreadsheet1]
 ```
 

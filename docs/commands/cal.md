@@ -23,16 +23,16 @@ Display a calendar.
 
 This month's calendar
 ```shell
-cal
+> cal
 ```
 
 The calendar for all of 2012
 ```shell
-cal --full-year 2012
+> cal --full-year 2012
 ```
 
 This month's calendar with the week starting on monday
 ```shell
-cal --week-start monday
+> cal --week-start monday
 ```
 

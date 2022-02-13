@@ -14,6 +14,6 @@ Get input from the user.
 
 Type and see key event codes
 ```shell
-keybindings listen
+> keybindings listen
 ```
 

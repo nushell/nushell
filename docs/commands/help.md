@@ -19,26 +19,26 @@ Display help information about commands.
 
 show all commands and sub-commands
 ```shell
-help commands
+> help commands
 ```
 
 generate documentation
 ```shell
-help generate_docs
+> help generate_docs
 ```
 
 show help for single command
 ```shell
-help match
+> help match
 ```
 
 show help for single sub-command
 ```shell
-help str lpad
+> help str lpad
 ```
 
 search for string in command usage
 ```shell
-help --find char
+> help --find char
 ```
 

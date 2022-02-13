@@ -24,36 +24,36 @@ trims text
 
 Trim whitespace
 ```shell
-'Nu shell ' | str trim
+> 'Nu shell ' | str trim
 ```
 
 Trim a specific character
 ```shell
-'=== Nu shell ===' | str trim -c '=' | str trim
+> '=== Nu shell ===' | str trim -c '=' | str trim
 ```
 
 Trim all characters
 ```shell
-' Nu   shell ' | str trim -a
+> ' Nu   shell ' | str trim -a
 ```
 
 Trim whitespace from the beginning of string
 ```shell
-' Nu shell ' | str trim -l
+> ' Nu shell ' | str trim -l
 ```
 
 Trim a specific character
 ```shell
-'=== Nu shell ===' | str trim -c '='
+> '=== Nu shell ===' | str trim -c '='
 ```
 
 Trim whitespace from the end of string
 ```shell
-' Nu shell ' | str trim -r
+> ' Nu shell ' | str trim -r
 ```
 
 Trim a specific character
 ```shell
-'=== Nu shell ===' | str trim -r -c '='
+> '=== Nu shell ===' | str trim -r -c '='
 ```
 

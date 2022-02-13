@@ -14,6 +14,6 @@ Clear the terminal.
 
 Clear the terminal
 ```shell
-clear
+> clear
 ```
 

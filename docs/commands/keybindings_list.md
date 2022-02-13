@@ -22,16 +22,16 @@ List available options that can be used to create keybindings
 
 Get list of key modifiers
 ```shell
-keybindings list -m
+> keybindings list -m
 ```
 
 Get list of reedline events and edit commands
 ```shell
-keybindings list -e -d
+> keybindings list -e -d
 ```
 
 Get list with all the available options
 ```shell
-keybindings list
+> keybindings list
 ```
 

@@ -18,6 +18,6 @@ Decode bytes as a string.
 
 Decode the output of an external command
 ```shell
-cat myfile.q | decode utf-8
+> cat myfile.q | decode utf-8
 ```
 

@@ -19,16 +19,16 @@ Get the final component of a path
 
 Get basename of a path
 ```shell
-'/home/joe/test.txt' | path basename
+> '/home/joe/test.txt' | path basename
 ```
 
 Get basename of a path by column
 ```shell
-[[name];[/home/joe]] | path basename -c [ name ]
+> [[name];[/home/joe]] | path basename -c [ name ]
 ```
 
 Replace basename of a path
 ```shell
-'/home/joe/test.txt' | path basename -r 'spam.png'
+> '/home/joe/test.txt' | path basename -r 'spam.png'
 ```
 

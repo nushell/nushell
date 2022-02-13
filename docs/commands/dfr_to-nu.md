@@ -19,11 +19,11 @@ Converts a section of the dataframe to Nushell Table
 
 Shows head rows from dataframe
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-nu
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr to-nu
 ```
 
 Shows tail rows from dataframe
 ```shell
-[[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr to-nu -t -n 1
+> [[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr to-nu -t -n 1
 ```
 

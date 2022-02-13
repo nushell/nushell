@@ -19,11 +19,11 @@ Create a variable and give it a value.
 
 Set a variable to a value
 ```shell
-let x = 10
+> let x = 10
 ```
 
 Set a variable to the result of an expression
 ```shell
-let x = 10 + 100
+> let x = 10 + 100
 ```
 

@@ -19,6 +19,6 @@ Replace all (sub)strings by a regex pattern
 
 Replaces string
 ```shell
-[abac abac abac] | dfr to-df | dfr replace-all -p a -r A
+> [abac abac abac] | dfr to-df | dfr replace-all -p a -r A
 ```
 

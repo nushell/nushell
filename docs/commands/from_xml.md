@@ -14,7 +14,7 @@ Parse text as .xml and create table.
 
 Converts xml formatted string to table
 ```shell
-'<?xml version="1.0" encoding="UTF-8"?>
+> '<?xml version="1.0" encoding="UTF-8"?>
 <note>
   <remember>Event</remember>
 </note>' | from xml

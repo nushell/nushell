@@ -48,7 +48,7 @@ version: ($vers)
         let $examples = ($command.examples | each { |example|
 $"($example.description)
 ```shell
-($example.example)
+> ($example.example)
 ```
 
 "

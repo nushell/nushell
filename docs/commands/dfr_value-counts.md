@@ -14,6 +14,6 @@ Returns a dataframe with the counts for unique values in series
 
 Calculates value counts
 ```shell
-[5 5 5 5 6 6] | dfr to-df | dfr value-counts
+> [5 5 5 5 6 6] | dfr to-df | dfr value-counts
 ```
 

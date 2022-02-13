@@ -18,6 +18,6 @@ Skip elements of the input while a predicate is true.
 
 Skip while the element is negative
 ```shell
-echo [-2 0 2 -1] | skip while $it < 0
+> echo [-2 0 2 -1] | skip while $it < 0
 ```
 

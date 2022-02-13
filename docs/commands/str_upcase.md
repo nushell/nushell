@@ -18,6 +18,6 @@ upcases text
 
 Upcase contents
 ```shell
-'nu' | str upcase
+> 'nu' | str upcase
 ```
 

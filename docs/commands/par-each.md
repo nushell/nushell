@@ -19,6 +19,6 @@ Run a block on each element of input in parallel
 
 Multiplies elements in list
 ```shell
-[1 2 3] | par-each { 2 * $it }
+> [1 2 3] | par-each { 2 * $it }
 ```
 

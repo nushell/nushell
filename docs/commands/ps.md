@@ -18,6 +18,6 @@ View information about system processes.
 
 List the system processes
 ```shell
-ps
+> ps
 ```
 

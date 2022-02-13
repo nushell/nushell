@@ -20,22 +20,22 @@ Aggregate a list table to a single value using an accumulator block.
 
 Sum values of a list (same as 'math sum')
 ```shell
-[ 1 2 3 4 ] | reduce { $it.acc + $it.item }
+> [ 1 2 3 4 ] | reduce { $it.acc + $it.item }
 ```
 
 Sum values with a starting value (fold)
 ```shell
-[ 1 2 3 4 ] | reduce -f 10 { $it.acc + $it.item }
+> [ 1 2 3 4 ] | reduce -f 10 { $it.acc + $it.item }
 ```
 
 Replace selected characters in a string with 'X'
 ```shell
-[ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find-replace -a $it.item "X" }
+> [ i o t ] | reduce -f "Arthur, King of the Britons" { $it.acc | str find-replace -a $it.item "X" }
 ```
 
 Find the longest string and its index
 ```shell
-[ one longest three bar ] | reduce -n {
+> [ one longest three bar ] | reduce -n {
         if ($it.item | str length) > ($it.acc | str length) {
             $it.item
         } else {

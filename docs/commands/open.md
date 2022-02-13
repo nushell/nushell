@@ -19,16 +19,16 @@ Opens a file.
 
 Open a file, with structure (based on file extension)
 ```shell
-open myfile.json
+> open myfile.json
 ```
 
 Open a file, as raw bytes
 ```shell
-open myfile.json --raw
+> open myfile.json --raw
 ```
 
 Open a file, using the input to get filename
 ```shell
-echo 'myfile.txt' | open
+> echo 'myfile.txt' | open
 ```
 

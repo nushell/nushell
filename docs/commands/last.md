@@ -18,6 +18,6 @@ Show only the last number of rows.
 
 Get the last 2 items
 ```shell
-[1,2,3] | last 2
+> [1,2,3] | last 2
 ```
 

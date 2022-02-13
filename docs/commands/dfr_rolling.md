@@ -19,11 +19,11 @@ Rolling calculation for a series
 
 Rolling sum for a series
 ```shell
-[1 2 3 4 5] | dfr to-df | dfr rolling sum 2 | dfr drop-nulls
+> [1 2 3 4 5] | dfr to-df | dfr rolling sum 2 | dfr drop-nulls
 ```
 
 Rolling max for a series
 ```shell
-[1 2 3 4 5] | dfr to-df | dfr rolling max 2 | dfr drop-nulls
+> [1 2 3 4 5] | dfr to-df | dfr rolling max 2 | dfr drop-nulls
 ```
 

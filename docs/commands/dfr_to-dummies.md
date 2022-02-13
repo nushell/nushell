@@ -14,11 +14,11 @@ Creates a new dataframe with dummy variables
 
 Create new dataframe with dummy variables from a dataframe
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr to-dummies
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr to-dummies
 ```
 
 Create new dataframe with dummy variables from a series
 ```shell
-[1 2 2 3 3] | dfr to-df | dfr to-dummies
+> [1 2 2 3 3] | dfr to-df | dfr to-dummies
 ```
 

@@ -14,6 +14,6 @@ Parse url-encoded string as a table.
 
 Convert url encoded string into a table
 ```shell
-'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url
+> 'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url
 ```
 

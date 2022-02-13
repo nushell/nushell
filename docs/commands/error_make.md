@@ -18,7 +18,7 @@ Create an error.
 
 Create a custom error for a custom command
 ```shell
-def foo [x] {
+> def foo [x] {
       let span = (metadata $x).span;
       error make {msg: "this is fishy", label: {text: "fish right here", start: $span.start, end: $span.end } } 
     }

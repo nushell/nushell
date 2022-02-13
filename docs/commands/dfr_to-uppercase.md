@@ -14,6 +14,6 @@ Uppercase the strings in the column
 
 Modifies strings to uppercase
 ```shell
-[Abc aBc abC] | dfr to-df | dfr to-uppercase
+> [Abc aBc abC] | dfr to-df | dfr to-uppercase
 ```
 

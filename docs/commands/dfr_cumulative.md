@@ -19,6 +19,6 @@ Cumulative calculation for a series
 
 Cumulative sum for a series
 ```shell
-[1 2 3 4 5] | dfr to-df | dfr cumulative sum
+> [1 2 3 4 5] | dfr to-df | dfr cumulative sum
 ```
 

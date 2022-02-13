@@ -18,6 +18,6 @@ Creates a groupby object that can be used for other aggregations
 
 Grouping by column a
 ```shell
-[[a b]; [one 1] [one 2]] | dfr to-df | dfr group-by a
+> [[a b]; [one 1] [one 2]] | dfr to-df | dfr group-by a
 ```
 

@@ -18,6 +18,6 @@ Debug print the value(s) piped in.
 
 Describe the type of a string
 ```shell
-'hello' | debug
+> 'hello' | debug
 ```
 

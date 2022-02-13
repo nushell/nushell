@@ -19,11 +19,11 @@ Run the tutorial. To begin, run: tutor
 
 Begin the tutorial
 ```shell
-tutor begin
+> tutor begin
 ```
 
 Search a tutorial by phrase
 ```shell
-tutor -f "$in"
+> tutor -f "$in"
 ```
 

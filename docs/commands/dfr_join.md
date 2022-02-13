@@ -22,7 +22,7 @@ Joins a dataframe using columns as reference
 
 inner join dataframe
 ```shell
-let right = ([[a b c]; [1 2 5] [3 4 5] [5 6 6]] | dfr to-df);
+> let right = ([[a b c]; [1 2 5] [3 4 5] [5 6 6]] | dfr to-df);
     $right | dfr join $right -l [a b] -r [a b]
 ```
 

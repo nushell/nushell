@@ -18,11 +18,11 @@ Echo the arguments back to the user.
 
 Put a hello message in the pipeline
 ```shell
-echo 'hello'
+> echo 'hello'
 ```
 
 Print the value of the special '$nu' variable
 ```shell
-echo $nu
+> echo $nu
 ```
 

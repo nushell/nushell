@@ -20,11 +20,11 @@ Create sample dataframe
 
 Sample rows from dataframe
 ```shell
-[[a b]; [1 2] [3 4]] | dfr to-df | dfr sample -n 1
+> [[a b]; [1 2] [3 4]] | dfr to-df | dfr sample -n 1
 ```
 
 Shows sample row using fraction and replace
 ```shell
-[[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr sample -f 0.5 -e
+> [[a b]; [1 2] [3 4] [5 6]] | dfr to-df | dfr sample -f 0.5 -e
 ```
 

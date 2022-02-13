@@ -14,7 +14,7 @@ Parse text as .ics and create table.
 
 Converts ics formatted string to table
 ```shell
-'BEGIN:VCALENDAR
+> 'BEGIN:VCALENDAR
 END:VCALENDAR' | from ics
 ```
 

@@ -18,6 +18,6 @@ Collect the stream and pass it to a block.
 
 Use the second value in the stream
 ```shell
-echo 1 2 3 | collect { |x| echo $x.1 }
+> echo 1 2 3 | collect { |x| echo $x.1 }
 ```
 

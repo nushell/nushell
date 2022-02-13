@@ -14,6 +14,6 @@ Applies the floor function to a list of numbers
 
 Apply the floor function to a list of numbers
 ```shell
-[1.5 2.3 -3.1] | math floor
+> [1.5 2.3 -3.1] | math floor
 ```
 

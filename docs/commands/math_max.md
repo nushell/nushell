@@ -14,6 +14,6 @@ Finds the maximum within a list of numbers or tables
 
 Find the maximum of list of numbers
 ```shell
-[-50 100 25] | math max
+> [-50 100 25] | math max
 ```
 

@@ -20,21 +20,21 @@ pad a string with a character a certain length
 
 Left pad a string with a character a number of places
 ```shell
-'nushell' | str lpad -l 10 -c '*'
+> 'nushell' | str lpad -l 10 -c '*'
 ```
 
 Left pad a string with a character a number of places
 ```shell
-'123' | str lpad -l 10 -c '0'
+> '123' | str lpad -l 10 -c '0'
 ```
 
 Use lpad to truncate a string
 ```shell
-'123456789' | str lpad -l 3 -c '0'
+> '123456789' | str lpad -l 3 -c '0'
 ```
 
 Use lpad to pad Unicode
 ```shell
-'▉' | str lpad -l 10 -c '▉'
+> '▉' | str lpad -l 10 -c '▉'
 ```
 

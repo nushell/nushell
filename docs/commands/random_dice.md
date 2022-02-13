@@ -19,11 +19,11 @@ Generate a random dice roll
 
 Roll 1 dice with 6 sides each
 ```shell
-random dice
+> random dice
 ```
 
 Roll 10 dice with 12 sides each
 ```shell
-random dice -d 10 -s 12
+> random dice -d 10 -s 12
 ```
 

@@ -18,11 +18,11 @@ hash a value using the sha256 hash algorithm
 
 sha256 encode a string
 ```shell
-echo 'abcdefghijklmnopqrstuvwxyz' | hash sha256
+> echo 'abcdefghijklmnopqrstuvwxyz' | hash sha256
 ```
 
 sha256 encode a file
 ```shell
-open ./nu_0_24_1_windows.zip | hash sha256
+> open ./nu_0_24_1_windows.zip | hash sha256
 ```
 

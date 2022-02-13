@@ -19,11 +19,11 @@ checks if string ends with pattern
 
 Checks if string ends with '.rb' pattern
 ```shell
-'my_library.rb' | str ends-with '.rb'
+> 'my_library.rb' | str ends-with '.rb'
 ```
 
 Checks if string ends with '.txt' pattern
 ```shell
-'my_library.rb' | str ends-with '.txt'
+> 'my_library.rb' | str ends-with '.txt'
 ```
 

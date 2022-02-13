@@ -21,21 +21,21 @@ Output special characters (e.g., 'newline').
 
 Output newline
 ```shell
-char newline
+> char newline
 ```
 
 Output prompt character, newline and a hamburger character
 ```shell
-echo [(char prompt) (char newline) (char hamburger)] | str collect
+> echo [(char prompt) (char newline) (char hamburger)] | str collect
 ```
 
 Output Unicode character
 ```shell
-char -u 1f378
+> char -u 1f378
 ```
 
 Output multi-byte Unicode character
 ```shell
-char -u 1F468 200D 1F466 200D 1F466
+> char -u 1F468 200D 1F466 200D 1F466
 ```
 

@@ -19,11 +19,11 @@ Show (or skip) every n-th row, starting from the first one.
 
 Get every second row
 ```shell
-[1 2 3 4 5] | every 2
+> [1 2 3 4 5] | every 2
 ```
 
 Skip every second row
 ```shell
-[1 2 3 4 5] | every 2 --skip
+> [1 2 3 4 5] | every 2 --skip
 ```
 
